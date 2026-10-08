@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select s.name, a.numbers from seller_assignments a join sellers s on s.id = a.seller_id\n           where a.event_id = $1 order by lower(a.numbers)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "sellers",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "numbers",
+        "type_info": "Int4Range",
+        "origin": {
+          "Table": {
+            "table": "seller_assignments",
+            "name": "numbers"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "38e90dbca9caf11f447057ddf2dde1299edabbce10580f29b51a18102ad23b8e"
+}

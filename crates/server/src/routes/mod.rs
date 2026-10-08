@@ -1,6 +1,7 @@
 //! HTTP handlers grouped by resource.
 
 pub mod batches;
+pub mod door;
 pub mod events;
 pub mod exports;
 pub mod sellers;

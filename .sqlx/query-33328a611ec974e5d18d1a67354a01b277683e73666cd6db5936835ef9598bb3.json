@@ -1,0 +1,41 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select s.scanned_at, d.name from entries e\n                   join scans s on s.id = e.first_scan_id\n                   join door_devices d on d.id = s.device_id\n                   where e.event_id = $1 and e.ticket_number = $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "scanned_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "scans",
+            "name": "scanned_at"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "door_devices",
+            "name": "name"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "33328a611ec974e5d18d1a67354a01b277683e73666cd6db5936835ef9598bb3"
+}

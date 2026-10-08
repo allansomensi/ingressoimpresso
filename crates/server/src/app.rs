@@ -13,7 +13,7 @@ use tower_http::trace::TraceLayer;
 
 use crate::auth;
 use crate::routes::events::MAX_ART_BYTES;
-use crate::routes::{batches, events, exports, sellers, voids};
+use crate::routes::{batches, door, events, exports, sellers, voids};
 use crate::state::AppState;
 
 /// JSON bodies are small; only art uploads get a bigger limit.
@@ -62,6 +62,13 @@ pub fn router(state: AppState) -> Router {
         .route("/exports/{id}", get(exports::get))
         .route("/exports/{id}/link", post(exports::link))
         .route("/downloads/{token}", get(exports::download))
+        .route("/events/{id}/door", get(door::overview))
+        .route("/events/{id}/door/accesses", post(door::create_access))
+        .route("/door-accesses/{id}/revoke", post(door::revoke_access))
+        .route("/door-devices/{id}/revoke", post(door::revoke_device))
+        .route("/door/register", post(door::register))
+        .route("/door/manifest", get(door::manifest))
+        .route("/door/scans", post(door::upload_scans))
         .layer(DefaultBodyLimit::max(JSON_BODY_LIMIT));
 
     let origins: Vec<HeaderValue> = state

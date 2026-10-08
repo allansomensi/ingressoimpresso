@@ -8,6 +8,8 @@
     reason = "test helpers fail loudly by design; not every test uses every helper"
 )]
 
+pub mod door;
+
 use std::sync::{Arc, Mutex};
 
 use axum::Router;

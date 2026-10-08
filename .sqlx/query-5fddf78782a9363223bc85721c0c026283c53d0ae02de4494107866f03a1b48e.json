@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select d.id, d.event_id, d.name from door_devices d\n               join door_accesses a on a.id = d.door_access_id\n               where d.secret_hash = $1 and d.revoked_at is null and a.revoked_at is null\n                 and a.expires_at > now()",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "door_devices",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "event_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "door_devices",
+            "name": "event_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "door_devices",
+            "name": "name"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "5fddf78782a9363223bc85721c0c026283c53d0ae02de4494107866f03a1b48e"
+}

@@ -283,6 +283,252 @@ dto! {
         #[cfg_attr(feature = "ts", ts(type = "string"))]
         pub expires_at: OffsetDateTime,
     }
+
+    /// `POST /api/events/{id}/door/accesses`.
+    pub struct CreateDoorAccessBody {
+        /// Who the link is for, e.g. "Equipe da porta" (1–60 characters).
+        pub label: String,
+    }
+
+    /// A door access link (ADR 0007). The token itself is shown only once, at creation.
+    pub struct DoorAccessDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// Label.
+        pub label: String,
+        /// The link stops working at the end of the event plus 12 hours.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub expires_at: OffsetDateTime,
+        /// When it was revoked, if it was.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub revoked_at: Option<OffsetDateTime>,
+        /// Created at.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub created_at: OffsetDateTime,
+    }
+
+    /// A new access link with its token (never retrievable again).
+    pub struct CreatedDoorAccess {
+        /// The link.
+        pub access: DoorAccessDto,
+        /// Secret token; the painel builds `/portaria/#acesso=<token>` with it.
+        pub token: String,
+    }
+
+    /// A registered door phone, as the organizer sees it.
+    pub struct DoorDeviceDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// Access link it registered with.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub access_id: Uuid,
+        /// Name given at registration, e.g. "Porta 1 - João".
+        pub name: String,
+        /// Registered at.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub created_at: OffsetDateTime,
+        /// Last contact with the server.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub last_seen_at: Option<OffsetDateTime>,
+        /// When it was revoked, if it was.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub revoked_at: Option<OffsetDateTime>,
+        /// Scans received from it.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub scan_count: i64,
+    }
+
+    /// `GET /api/events/{id}/door`.
+    pub struct DoorOverviewDto {
+        /// Access links, newest first.
+        pub accesses: Vec<DoorAccessDto>,
+        /// Registered phones, newest first.
+        pub devices: Vec<DoorDeviceDto>,
+        /// Tickets that entered.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub entry_count: i64,
+    }
+
+    /// `POST /api/door/register`.
+    pub struct DoorRegisterBody {
+        /// Token from the link fragment.
+        pub access_token: String,
+        /// Phone name shown in results, e.g. "Porta 1 - João" (1–40 characters).
+        pub device_name: String,
+    }
+
+    /// A registered phone's credentials.
+    pub struct DoorRegistration {
+        /// Device id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub device_id: Uuid,
+        /// Device name.
+        pub device_name: String,
+        /// Bearer secret of the door API; stored on the phone only.
+        pub device_secret: String,
+        /// The event.
+        pub event: DoorEventInfo,
+    }
+
+    /// The event as the door shows it.
+    pub struct DoorEventInfo {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// Name.
+        pub name: String,
+        /// Venue.
+        pub venue: Option<String>,
+        /// Start.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub starts_at: OffsetDateTime,
+        /// End.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub ends_at: OffsetDateTime,
+        /// Digits of printed numbers (zero padded).
+        pub number_digits: u8,
+    }
+
+    /// What `DoorCore` needs to verify tickets; same shape as ticket-core's `DoorEventDto`.
+    pub struct DoorVerifierDto {
+        /// Event UUID, hyphenated.
+        pub event_id: String,
+        /// Event tag printed in the QR.
+        pub event_tag: u32,
+        /// Every key of the event, revoked ones included.
+        pub keys: Vec<DoorKeyDto>,
+    }
+
+    /// A public key; same shape as ticket-core's `EventKeyDto`.
+    pub struct DoorKeyDto {
+        /// Key generation.
+        pub key_id: u8,
+        /// Ed25519 public key, 64 lowercase hex characters.
+        pub public_key: String,
+        /// Lifecycle.
+        pub status: KeyStatus,
+    }
+
+    /// A voided range; same shape as ticket-core's `VoidRangeDto`.
+    pub struct DoorVoidDto {
+        /// First number.
+        pub first: u32,
+        /// Last number (inclusive).
+        pub last: u32,
+        /// Why.
+        pub reason: VoidReason,
+    }
+
+    /// A seller's range, to show who sold a ticket.
+    pub struct DoorSellerRangeDto {
+        /// Seller name.
+        pub seller: String,
+        /// First number.
+        pub first: u32,
+        /// Last number (inclusive).
+        pub last: u32,
+    }
+
+    /// An admitted scan of any phone; same fields as ticket-core's `EntryDto` plus its id.
+    pub struct DoorEntryDto {
+        /// Scan id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub scan_id: Uuid,
+        /// Ticket number.
+        pub number: u32,
+        /// Unix milliseconds (phone clock corrected by the server offset).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub at_unix_ms: i64,
+        /// Name of the phone that scanned it.
+        pub device_name: String,
+    }
+
+    /// `GET /api/door/manifest?since=<cursor>`: everything needed to decide offline.
+    pub struct DoorManifest {
+        /// This phone.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub device_id: Uuid,
+        /// This phone's name.
+        pub device_name: String,
+        /// The event.
+        pub event: DoorEventInfo,
+        /// Verification keys.
+        pub verifier: DoorVerifierDto,
+        /// Every active void (sent whole: small).
+        pub voids: Vec<DoorVoidDto>,
+        /// Every seller range (sent whole: small).
+        pub sellers: Vec<DoorSellerRangeDto>,
+        /// Admitted scans since `since`, from every phone.
+        pub entries: Vec<DoorEntryDto>,
+        /// Opaque cursor for the next call.
+        pub cursor: String,
+        /// Server clock, Unix milliseconds.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub server_time_ms: i64,
+    }
+
+    /// One scan uploaded by a phone.
+    pub struct DoorScanUpload {
+        /// Generated on the phone (uploads are idempotent).
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// Ticket number, when the QR was authentic.
+        pub number: Option<u32>,
+        /// Key generation, when the QR was authentic.
+        pub key_id: Option<u8>,
+        /// Decision shown on the phone.
+        pub outcome: ScanOutcome,
+        /// Unix milliseconds (phone clock corrected by the server offset).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub scanned_at_ms: i64,
+    }
+
+    /// `POST /api/door/scans`.
+    pub struct DoorScansBody {
+        /// Up to 500 scans.
+        pub scans: Vec<DoorScanUpload>,
+        /// Online confirmation of a single fresh scan (ADR 0006): its result decides the screen.
+        #[serde(default)]
+        pub confirm: bool,
+    }
+
+    /// Server view of an uploaded scan.
+    pub struct DoorScanResult {
+        /// Scan id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// For admitted scans: first entry, duplicate or voided ticket.
+        pub class: Option<ScanClass>,
+        /// For duplicates: the first entry.
+        pub first_entry: Option<DoorFirstEntryDto>,
+        /// For voided tickets: why.
+        pub void_reason: Option<VoidReason>,
+    }
+
+    /// When and where a ticket first entered.
+    pub struct DoorFirstEntryDto {
+        /// Unix milliseconds.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub at_unix_ms: i64,
+        /// Phone name.
+        pub device_name: String,
+    }
+
+    /// `POST /api/door/scans` response, in request order.
+    pub struct DoorScansResponse {
+        /// One result per uploaded scan.
+        pub results: Vec<DoorScanResult>,
+    }
 }
 
 dto_enum! {
@@ -337,6 +583,40 @@ dto_enum! {
         /// Failed (see `error`).
         Failed,
     }
+
+    /// Signing key lifecycle.
+    pub enum KeyStatus {
+        /// Signs new batches.
+        Active,
+        /// No longer signs; its tickets stay valid.
+        Retired,
+        /// Compromised; its tickets are rejected.
+        Revoked,
+    }
+
+    /// Decision shown on the phone for a scan.
+    pub enum ScanOutcome {
+        /// Green: entered.
+        Admitted,
+        /// Red: already entered.
+        RejectedUsed,
+        /// Red: voided ticket.
+        RejectedVoid,
+        /// Red: forged, damaged or not ours.
+        RejectedInvalid,
+        /// Yellow: ticket of another event.
+        RejectedOtherEvent,
+    }
+
+    /// Server classification of an admitted scan.
+    pub enum ScanClass {
+        /// First entry of the ticket.
+        FirstEntry,
+        /// The ticket had already entered (a copy).
+        DuplicateEntry,
+        /// The ticket is voided.
+        VoidEntry,
+    }
 }
 
 /// Which tickets an export contains. Always only paid, non-voided tickets.
@@ -389,3 +669,12 @@ db_enum!(BatchStatus { AwaitingPayment => "awaiting_payment", Paid => "paid", Ca
 db_enum!(VoidReason { Unsold => "unsold", Lost => "lost", Revoked => "revoked" });
 db_enum!(ExportKind { Home => "home", Print => "print", Control => "control", Whatsapp => "whatsapp" });
 db_enum!(ExportStatus { Queued => "queued", Running => "running", Done => "done", Failed => "failed" });
+db_enum!(KeyStatus { Active => "active", Retired => "retired", Revoked => "revoked" });
+db_enum!(ScanOutcome {
+    Admitted => "admitted",
+    RejectedUsed => "rejected_used",
+    RejectedVoid => "rejected_void",
+    RejectedInvalid => "rejected_invalid",
+    RejectedOtherEvent => "rejected_other_event",
+});
+db_enum!(ScanClass { FirstEntry => "first_entry", DuplicateEntry => "duplicate_entry", VoidEntry => "void_entry" });

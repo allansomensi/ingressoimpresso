@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select numbers, reason from ticket_voids where event_id = $1 and undone_at is null order by lower(numbers)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "numbers",
+        "type_info": "Int4Range",
+        "origin": {
+          "Table": {
+            "table": "ticket_voids",
+            "name": "numbers"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "reason",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ticket_voids",
+            "name": "reason"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "a681facb77f5b108fb38fc52028ff225698c213448e2bfa6f465a38fe0655402"
+}

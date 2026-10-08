@@ -90,6 +90,22 @@ pub fn token_hash(token: &str) -> Vec<u8> {
     sha256(&[token.as_bytes()])
 }
 
+/// The token of an `Authorization: Bearer <token>` header.
+///
+/// # Errors
+///
+/// [`ApiError::Unauthorized`] when the header is missing or malformed.
+pub fn bearer_token(parts: &Parts) -> ApiResult<&str> {
+    parts
+        .headers
+        .get(AUTHORIZATION)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.strip_prefix("Bearer "))
+        .map(str::trim)
+        .filter(|token| !token.is_empty() && token.len() <= 128)
+        .ok_or(ApiError::Unauthorized)
+}
+
 /// A new random URL-safe token and its stored hash.
 ///
 /// # Errors
@@ -266,15 +282,7 @@ impl FromRequestParts<AppState> for AuthUser {
         parts: &mut Parts,
         state: &AppState,
     ) -> Result<Self, Self::Rejection> {
-        let token = parts
-            .headers
-            .get(AUTHORIZATION)
-            .and_then(|value| value.to_str().ok())
-            .and_then(|value| value.strip_prefix("Bearer "))
-            .map(str::trim)
-            .filter(|token| !token.is_empty() && token.len() <= 128)
-            .ok_or(ApiError::Unauthorized)?;
-        let hash = token_hash(token);
+        let hash = token_hash(bearer_token(parts)?);
         let row = sqlx::query!(
             r#"select s.user_id, s.last_seen_at, u.email as "email: String"
                from sessions s join users u on u.id = s.user_id

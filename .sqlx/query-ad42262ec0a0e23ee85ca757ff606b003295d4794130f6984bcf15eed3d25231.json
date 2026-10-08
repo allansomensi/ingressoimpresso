@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into scans (id, event_id, device_id, ticket_number, key_id, local_outcome, scanned_at,\n                              confirmed_online, server_class)\n           values ($1, $2, $3, $4, $5, $6, $7, $8, $9) on conflict (id) do nothing",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Int4",
+        "Int2",
+        "Text",
+        "Timestamptz",
+        "Bool",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "ad42262ec0a0e23ee85ca757ff606b003295d4794130f6984bcf15eed3d25231"
+}

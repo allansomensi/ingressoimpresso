@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select reason from ticket_voids\n           where event_id = $1 and undone_at is null and numbers @> $2::int4\n           order by created_at limit 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "reason",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ticket_voids",
+            "name": "reason"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "da0e5c7d3db29973fe461e0b618662482d4b828bca84496516ad0fc72fe7b40d"
+}

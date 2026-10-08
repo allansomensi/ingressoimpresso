@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update door_devices set last_seen_at = now()\n               where id = $1 and (last_seen_at is null or last_seen_at < now() - make_interval(secs => $2))",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Float8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "37e78ac14bb4f931046372573171f35bb4eda93ca98dbaea753e4adb210d9199"
+}

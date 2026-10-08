@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select qr_tag from events where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "qr_tag",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "qr_tag"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "790140ec06d331d2c5f96a0e4777131ab53a2848f68425735b3f8398b3a89c86"
+}
