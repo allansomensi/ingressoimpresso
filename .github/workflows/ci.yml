@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  NEXT_TELEMETRY_DISABLED: "1"
+
+jobs:
+  check:
+    name: just check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      # Installs the toolchain pinned in rust-toolchain.toml (rustfmt, clippy, wasm32 target).
+      - name: Rust toolchain
+        run: rustup toolchain install
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install just and wasm-bindgen-cli
+        uses: taiki-e/install-action@v2
+        with:
+          # wasm-bindgen-cli must match the `wasm-bindgen` crate version pinned in Cargo.toml.
+          tool: just,wasm-bindgen@0.2.129
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: just check
+        run: just check
