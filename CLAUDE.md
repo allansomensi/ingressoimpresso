@@ -121,7 +121,12 @@ just web-dev    # next dev
   - criptografia e formato: `proptest` + `testdata/vectors`, rodando em Rust e no WASM/Vitest;
   - servidor: `sqlx::test` com Postgres real;
   - render: ida e volta gerar → rasterizar → decodificar QR → verificar.
-- **Commits:** pequenos, no formato Conventional Commits (`feat(core): ...`, `fix(door): ...`,
-  `docs(adr): ...`). Cada commit deve compilar e, a partir da fase 0, passar em `just check`.
+- **Commits:** pequenos, em **Conventional Commits + gitmoji**, no formato
+  `tipo(escopo): <gitmoji> assunto`, por exemplo `feat(core): ✨ ...`, `fix(door): 🐛 ...`,
+  `docs(adr): 📝 ...`, `test(wasm): ✅ ...`, `ci: 👷 ...`, `chore: 🔧 ...`,
+  `refactor: ♻️ ...`. Regras:
+  - assunto em inglês, curto e no imperativo;
+  - corpo opcional, de uma ou duas linhas, direto ao ponto;
+  - cada commit deve compilar e passar em `just check`.
 - **Antes de dar uma fase por concluída:** `just check` verde e este arquivo atualizado (status,
   comandos, estrutura).
