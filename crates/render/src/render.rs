@@ -2,8 +2,6 @@
 
 use std::io::{Cursor, Seek, Write};
 
-use lopdf::{Document, Object};
-
 use serde::Serialize;
 use thiserror::Error;
 use ticket_core::{PAYLOAD_LEN, SignedTicket, base45};
@@ -18,6 +16,7 @@ use zip::write::SimpleFileOptions;
 
 use crate::design::{BLEED_MM, DesignIssue, TicketDesign};
 use crate::layout::{Grid, a4_grid};
+use crate::merge::PdfMerger;
 use crate::qr::{self, QrError};
 use crate::texts::{PT_BR, Texts};
 use crate::world::MemoryWorld;
@@ -219,18 +218,15 @@ fn home_pdf_chunked(job: &RenderJob, chunk_tickets: usize) -> Result<Vec<u8>, Re
     // Chunks hold whole sheets, so merging never leaves a half-empty sheet in the middle.
     let per_page = grid.per_page() as usize;
     let chunk = (chunk_tickets / per_page).max(1) * per_page;
-    let pdfs = job
-        .tickets
-        .chunks(chunk)
-        .map(|tickets| {
-            let data = TemplateData {
-                grid: Some(grid),
-                ..TemplateData::new(job, tickets)
-            };
-            pdf(&compile(HOME_TEMPLATE, &data, job, tickets)?)
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-    merge_pdfs(pdfs)
+    let mut merger = PdfMerger::new(None);
+    for tickets in job.tickets.chunks(chunk) {
+        let data = TemplateData {
+            grid: Some(grid),
+            ..TemplateData::new(job, tickets)
+        };
+        merger.add(&pdf(&compile(HOME_TEMPLATE, &data, job, tickets)?)?)?;
+    }
+    merger.finish()
 }
 
 /// The first `max_sheets` home A4 sheets rasterized as PNG at `dpi` (editor preview, tests).
@@ -280,7 +276,7 @@ pub fn home_sheet_pngs(
         .collect()
 }
 
-/// Print-shop file: one ticket per page at final size with 3 mm bleed (TrimBox set).
+/// Print-shop file: one ticket per page at final size with 3 mm bleed (TrimBox and BleedBox set).
 ///
 /// # Errors
 ///
@@ -295,21 +291,18 @@ fn print_pdf_chunked(
     chunk: usize,
 ) -> Result<Vec<u8>, RenderError> {
     validate(job)?;
-    let pdfs = job
-        .tickets
-        .chunks(chunk.max(1))
-        .map(|tickets| {
-            let data = TemplateData {
-                print: Some(PrintData {
-                    slug_mm: SLUG_MM,
-                    crop_marks: options.crop_marks,
-                }),
-                ..TemplateData::new(job, tickets)
-            };
-            pdf(&compile(PRINT_TEMPLATE, &data, job, tickets)?)
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-    merge_pdfs(pdfs)
+    let mut merger = PdfMerger::new(Some(BLEED_MM));
+    for tickets in job.tickets.chunks(chunk.max(1)) {
+        let data = TemplateData {
+            print: Some(PrintData {
+                slug_mm: SLUG_MM,
+                crop_marks: options.crop_marks,
+            }),
+            ..TemplateData::new(job, tickets)
+        };
+        merger.add(&pdf(&compile(PRINT_TEMPLATE, &data, job, tickets)?)?)?;
+    }
+    merger.finish()
 }
 
 /// Control sheet: one section per seller, one row per ticket.
@@ -424,52 +417,6 @@ fn for_each_image(
 
 fn home_grid(job: &RenderJob) -> Result<Grid, RenderError> {
     a4_grid(job.design.total_width_mm(), job.design.height_mm).ok_or(RenderError::TooLargeForA4)
-}
-
-/// Concatenates PDFs produced by [`pdf`] (untagged, flat page tree) into one document.
-fn merge_pdfs(pdfs: Vec<Vec<u8>>) -> Result<Vec<u8>, RenderError> {
-    if pdfs.len() == 1 {
-        return Ok(pdfs.into_iter().flatten().collect());
-    }
-    let merge_error = |error: lopdf::Error| RenderError::Pdf(error.to_string());
-    let mut merged = Document::with_version("1.7");
-    let pages_id = merged.new_object_id();
-    let mut next_id = pages_id.0 + 1;
-    let mut kids = Vec::new();
-    for bytes in pdfs {
-        let mut part = Document::load_mem(&bytes).map_err(merge_error)?;
-        part.renumber_objects_with(next_id);
-        next_id = part.max_id + 1;
-        for page_id in part.get_pages().into_values() {
-            let page = part
-                .get_object_mut(page_id)
-                .and_then(Object::as_dict_mut)
-                .map_err(merge_error)?;
-            page.set("Parent", pages_id);
-            kids.push(Object::Reference(page_id));
-        }
-        // Keep every object; the part's catalog and page-tree root become unreferenced and are
-        // pruned below.
-        merged.objects.extend(part.objects);
-    }
-    let count = i64::try_from(kids.len()).map_err(|error| RenderError::Pdf(error.to_string()))?;
-    merged.objects.insert(
-        pages_id,
-        Object::Dictionary(
-            lopdf::dictionary! { "Type" => "Pages", "Kids" => kids, "Count" => count },
-        ),
-    );
-    merged.max_id = next_id;
-    let catalog_id =
-        merged.add_object(lopdf::dictionary! { "Type" => "Catalog", "Pages" => pages_id });
-    merged.trailer.set("Root", catalog_id);
-    merged.prune_objects();
-    merged.renumber_objects();
-    let mut out = Vec::new();
-    merged
-        .save_to(&mut out)
-        .map_err(|error| RenderError::Pdf(error.to_string()))?;
-    Ok(out)
 }
 
 fn validate(job: &RenderJob) -> Result<(), RenderError> {
@@ -669,7 +616,14 @@ fn folder_name(seller: Option<&str>) -> String {
 
 #[cfg(test)]
 mod tests {
+    #![allow(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "small, non-negative test values"
+    )]
+
     use super::*;
+    use lopdf::{Document, Object};
 
     #[test]
     fn sample_qr_is_rejected_as_malformed() {
@@ -747,6 +701,132 @@ mod tests {
             merged,
             print_pdf_chunked(&job, PrintOptions::default(), 2).unwrap()
         );
+    }
+
+    fn image_streams(pdf: &[u8]) -> usize {
+        Document::load_mem(pdf)
+            .unwrap()
+            .objects
+            .values()
+            .filter(|object| {
+                object.as_stream().is_ok_and(|stream| {
+                    stream
+                        .dict
+                        .get(b"Subtype")
+                        .and_then(Object::as_name)
+                        .is_ok_and(|name| name == b"Image")
+                })
+            })
+            .count()
+    }
+
+    #[test]
+    fn merged_chunks_share_one_copy_of_the_art() {
+        let mut png = Vec::new();
+        image::DynamicImage::ImageRgba8(image::RgbaImage::from_fn(312, 122, |x, y| {
+            image::Rgba([
+                (x % 256) as u8,
+                (y % 256) as u8,
+                90,
+                if x < 10 { 0 } else { 255 },
+            ])
+        }))
+        .write_to(&mut Cursor::new(&mut png), image::ImageFormat::Png)
+        .unwrap();
+        let mut job = signed_job(7);
+        job.art = Some(Art::from_bytes(png).unwrap());
+        let single = print_pdf_chunked(&job, PrintOptions::default(), 100).unwrap();
+        let merged = print_pdf_chunked(&job, PrintOptions::default(), 2).unwrap();
+        // The art and its alpha mask, once each, however many chunks.
+        assert_eq!(image_streams(&single), 2);
+        assert_eq!(image_streams(&merged), 2);
+        assert!(
+            merged.len() < single.len() * 3 / 2,
+            "{} vs {}",
+            merged.len(),
+            single.len()
+        );
+        let home = home_pdf_chunked(&job, 5).unwrap();
+        assert_eq!(image_streams(&home), 2);
+    }
+
+    /// Page `page` (1-based) of `pdf`, read back through Typst's PDF reader and rasterized.
+    fn rasterize_pdf_page(pdf: &[u8], page: usize) -> image::GrayImage {
+        let source = format!(
+            "#set page(width: auto, height: auto, margin: 0pt)\n#image(\"/doc.pdf\", page: {page})"
+        );
+        let mut world = MemoryWorld::new("/main.typ", &source).unwrap();
+        world
+            .add_file("/doc.pdf", Bytes::new(pdf.to_vec()))
+            .unwrap();
+        let document = typst::compile::<PagedDocument>(&world).output.unwrap();
+        let options = RenderOptions {
+            pixel_per_pt: Scalar::new(200.0 / 72.0),
+            render_bleed: false,
+        };
+        let pixmap = typst_render::render(&document.pages()[0], &options);
+        let rgba =
+            image::RgbaImage::from_raw(pixmap.width(), pixmap.height(), pixmap.data().to_vec())
+                .unwrap();
+        image::DynamicImage::ImageRgba8(rgba).to_luma8()
+    }
+
+    /// Numbers of the authentic tickets whose QR codes appear in `image`.
+    fn scanned_numbers(image: image::GrayImage) -> Vec<u32> {
+        let verifier = ticket_core::EventVerifier::new(
+            ticket_core::EventId::from_bytes([1; 16]),
+            ticket_core::EventTag::new(2),
+            vec![ticket_core::EventKey {
+                key_id: ticket_core::KeyId::new(1),
+                public_key: ticket_core::EventSigningKey::from_seed(&[3; 32]).public_key(),
+                status: ticket_core::KeyStatus::Active,
+            }],
+        )
+        .unwrap();
+        let mut numbers: Vec<u32> = rqrr::PreparedImage::prepare(image)
+            .detect_grids()
+            .into_iter()
+            .map(|grid| {
+                let text = grid.decode().unwrap().1;
+                verifier.verify_qr_text(&text).unwrap().number().get()
+            })
+            .collect();
+        numbers.sort_unstable();
+        numbers
+    }
+
+    #[test]
+    fn merged_pdfs_scan_page_by_page_in_order() {
+        let job = signed_job(12);
+        let print = print_pdf_chunked(&job, PrintOptions::default(), 5).unwrap();
+        for number in 1..=12 {
+            let page = rasterize_pdf_page(&print, number as usize);
+            assert_eq!(scanned_numbers(page), [number]);
+        }
+        // 5 tickets per sheet, one sheet per chunk. Each cell is scanned on its own: rqrr
+        // misses codes now and then when a picture holds several.
+        let home = home_pdf_chunked(&job, 5).unwrap();
+        let grid = home_grid(&job).unwrap();
+        assert_eq!(grid.cols, 1);
+        let px = |mm: f64| (mm * 200.0 / 25.4).round() as u32;
+        for sheet in 0..3 {
+            let image = rasterize_pdf_page(&home, sheet + 1);
+            let mut found = Vec::new();
+            for row in 0..grid.rows {
+                let y = grid.origin_y_mm + f64::from(row) * grid.cell_h_mm;
+                let cell = image::imageops::crop_imm(
+                    &image,
+                    px(grid.origin_x_mm),
+                    px(y),
+                    px(grid.cell_w_mm),
+                    px(grid.cell_h_mm),
+                )
+                .to_image();
+                found.extend(scanned_numbers(cell));
+            }
+            let first = sheet as u32 * 5 + 1;
+            assert_eq!(found, (first..=(first + 4).min(12)).collect::<Vec<_>>());
+        }
     }
 
     #[test]

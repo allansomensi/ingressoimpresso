@@ -4009,6 +4009,7 @@ dependencies = [
  "rqrr",
  "serde",
  "serde_json",
+ "sha2 0.11.0",
  "thiserror",
  "ticket-core",
  "ts-rs",

@@ -203,6 +203,17 @@ fn print_pdf_has_trim_box_and_bleed() {
         assert!((trim[2] - trim[0] - mm(190.0)).abs() < 0.5, "{trim:?}");
         assert!((trim[3] - trim[1] - mm(55.0)).abs() < 0.5, "{trim:?}");
         assert!((trim[0] - media[0] - mm(outer)).abs() < 0.5, "{trim:?}");
+        // The bleed is the 3 mm the art covers, never the crop-mark area around it.
+        for page in &pages {
+            let bleed = rect(page, b"BleedBox");
+            let trim = rect(page, b"TrimBox");
+            for (side, sign) in [(0, -1.0), (1, -1.0), (2, 1.0), (3, 1.0)] {
+                assert!(
+                    (bleed[side] - trim[side] - sign * mm(3.0)).abs() < 0.01,
+                    "{bleed:?} {trim:?}"
+                );
+            }
+        }
     }
 }
 

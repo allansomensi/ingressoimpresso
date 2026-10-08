@@ -7,6 +7,7 @@
 
 mod design;
 mod layout;
+mod merge;
 mod qr;
 mod render;
 mod texts;
