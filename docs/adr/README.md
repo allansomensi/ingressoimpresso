@@ -24,3 +24,4 @@ feita e as consequências.
 | [0012](0012-autenticacao-organizador.md) | Login do organizador por código via e-mail | Aceito |
 | [0013](0013-infraestrutura-render-neon.md) | Infraestrutura: Render + Neon + Resend | Aceito |
 | [0014](0014-pagamento-pix-adiado.md) | Pagamento Pix adiado para depois do MVP | Aceito |
+| [0015](0015-renderizacao-em-blocos.md) | Renderização em blocos, sangria nativa e JPEG para WhatsApp | Aceito |

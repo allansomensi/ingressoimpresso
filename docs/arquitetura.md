@@ -261,14 +261,13 @@ outro lê) ou por WebRTC em hotspot local com sinalização trocada via QR.
 - **Saídas:**
   1. **A4 caseiro:** N ingressos por folha, com o encaixe calculado, marcas de corte e linha
      tracejada de picote entre canhoto e ingresso. Pode ser gerado por vendedor.
-  2. **Gráfica (impressão digital):** um ingresso por página no tamanho final + sangria + marcas
-     de corte. QR único por ingresso exige impressão digital; offset não imprime dados variáveis
-     (ver ADR 0008, modo de sobreimpressão na fase 7).
-     Pós-processamento com `lopdf` para definir TrimBox/BleedBox. Por ora em RGB; CMYK (lcms2) e
-     PDF/X ficam para a fase 7.
+  2. **Gráfica (impressão digital):** um ingresso por página no tamanho final + 3 mm de sangria
+     (TrimBox gravada pelo próprio Typst) + marcas de corte fora da sangria (opcionais). QR único
+     por ingresso exige impressão digital; offset não imprime dados variáveis (ver ADR 0008, modo
+     de sobreimpressão na fase 7). Por ora em RGB; CMYK (lcms2) e PDF/X ficam para a fase 7.
   3. **Folha de controle por vendedor:** tabela com número, nome do comprador e "pago?". Ela
      complementa o canhoto.
-  4. **WhatsApp:** PNG de 1080 px por ingresso, sem sangria nem canhoto, em um ZIP com uma pasta
+  4. **WhatsApp:** JPEG de 1080 px por ingresso, sem sangria nem canhoto, em um ZIP com uma pasta
      por vendedor, mais o aviso "envie cada imagem a um só comprador".
 - **QR:** a matriz é calculada em Rust e vira **SVG com um único `path`** (vetorial no PDF, nítido
   em qualquer impressora), entregue ao Typst como arquivo virtual. Não usamos pacotes Typst
@@ -279,6 +278,8 @@ outro lê) ou por WebRTC em hotspot local com sinalização trocada via QR.
 - **Determinismo:** as entradas (spec versionada + arte + números + assinaturas determinísticas)
   definem a saída por completo. Por isso **não armazenamos os arquivos gerados**: há um cache em
   disco com limite de tamanho, indexado pelo hash das entradas, e qualquer arquivo pode ser regerado.
+- **Blocos (ADR 0015):** 250 ingressos por compilação nos PDFs (juntados com `lopdf`) e 50 nas
+  imagens, com o cache do Typst limpo entre blocos: cerca de 100 MiB de pico para 2.000 ingressos.
 - **Execução:** gerar 1.000 ingressos pode levar alguns segundos. A geração roda como **job em
   fila no Postgres** (`SELECT ... FOR UPDATE SKIP LOCKED`) no mesmo processo, via
   `spawn_blocking`. Não há Redis nem worker separado.

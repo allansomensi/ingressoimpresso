@@ -11,7 +11,9 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
 - **Fase 0 (fundação): concluída.** Workspaces, lints, `justfile`, CI.
 - **Fase 1 (núcleo do ingresso): concluída.** `ticket-core`, `ticket-wasm`, pacote TS e vetores
   compartilhados.
-- **Próxima: fase 2 (geração de arquivos com Typst, crate `render` e CLI `ii render`).**
+- **Fase 2 (geração de arquivos): concluída.** Crate `render` (Typst embutido): A4 casa, gráfica com
+  sangria, folha de controle e ZIP do WhatsApp; CLI `ii job|render|verify`.
+- **Próxima: fase 3 (API Rust + painel mínimo).**
 
 Plano completo em `docs/arquitetura.md` §12.
 
@@ -27,7 +29,10 @@ crates/ticket-core   formato v1, base45, Ed25519, decisão da portaria, DTOs: pu
                      features: fast (tabelas Ed25519), signing (emissão, só servidor/CLI),
                      serde (DTOs), ts (gera tipos TS)
 crates/ticket-wasm   bindings wasm-bindgen: DoorCore (verificação + decisão), nunca assinatura
-crates/cli           binário `ii`: `ii vectors generate|check` (fases seguintes: render, chaves)
+crates/render        Typst embutido (pacote `ticket-render`): design versionado, QR vetorial, A4 casa,
+                     gráfica (sangria/TrimBox), controle, ZIP WhatsApp; templates em templates/*.typ,
+                     fontes OFL em fonts/; gera em blocos (ADR 0015)
+crates/cli           binário `ii`: vectors generate|check, job init, render, verify
 packages/ticket-core-wasm  wrapper TS tipado (src/), tipos gerados (src/generated/, NÃO editar),
                      pkg/ gerado por `just wasm` (não versionado), testes Vitest com os vetores
 apps/web             Next.js 16 (Vercel): landing; painel e portaria nas fases 3–4
@@ -35,7 +40,7 @@ testdata/vectors     ticket-v1.json: vetores compartilhados Rust ↔ WASM (gerad
 deploy/              compose.dev.yaml (Postgres local)
 ```
 
-Planejados: `crates/render` (fase 2), `crates/server` (fase 3), `packages/api-types` (fase 3).
+Planejados: `crates/server` (fase 3), `packages/api-types` (fase 3).
 
 ## Infraestrutura (ADRs 0009, 0013)
 
@@ -65,6 +70,12 @@ just vectors    # regenera testdata/vectors/ticket-v1.json: só em mudança inte
 just wasm       # compila o ticket-wasm e gera packages/ticket-core-wasm/pkg
 just js-check   # typecheck + lint + Vitest + build do web (exige `just wasm` antes)
 just db-up      # Postgres local (docker compose)
+
+# Testar a impressão sem a API (só para testes locais; a semente é uma chave privada):
+cargo run -p ii-cli -- job init --name "Meu Show"            # cria job.json + event.seed (0600)
+cargo run -p ii-cli -- render --job job.json --seed event.seed  # out/: casa-a4.pdf, grafica.pdf, controle.pdf, whatsapp.zip
+cargo run -p ii-cli -- render --job job.json                    # sem --seed: AMOSTRAS (QR inválido)
+cargo run -p ii-cli -- verify --job job.json --seed event.seed "<texto lido do QR>"
 just web-dev    # next dev
 ```
 
@@ -120,7 +131,9 @@ just web-dev    # next dev
 - **Testes:**
   - criptografia e formato: `proptest` + `testdata/vectors`, rodando em Rust e no WASM/Vitest;
   - servidor: `sqlx::test` com Postgres real;
-  - render: ida e volta gerar → rasterizar → decodificar QR → verificar.
+  - render: ida e volta gerar → rasterizar → decodificar QR (`rqrr`) → verificar; PDFs checados
+    com `lopdf` (páginas, MediaBox/TrimBox, determinismo). Typst fixo em `=0.15.1`: atualizar é
+    tarefa planejada.
 - **Commits:** pequenos, em **Conventional Commits + gitmoji**, no formato
   `tipo(escopo): <gitmoji> assunto`, por exemplo `feat(core): ✨ ...`, `fix(door): 🐛 ...`,
   `docs(adr): 📝 ...`, `test(wasm): ✅ ...`, `ci: 👷 ...`, `chore: 🔧 ...`,
