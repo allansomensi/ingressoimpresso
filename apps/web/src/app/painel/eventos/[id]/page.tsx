@@ -10,13 +10,14 @@ import { BatchesTab } from "@/components/event/batches";
 import { DesignTab } from "@/components/event/design";
 import { DoorTab } from "@/components/event/door";
 import { FilesTab } from "@/components/event/files";
+import { ReportTab } from "@/components/event/report";
 import { SellersTab } from "@/components/event/sellers";
 import { VoidsTab } from "@/components/event/voids";
 import { ErrorMessage } from "@/components/ui";
 import { api } from "@/lib/api";
 import { texts } from "@/texts/pt-BR";
 
-const TABS = ["design", "batches", "sellers", "voids", "files", "door"] as const;
+const TABS = ["design", "batches", "sellers", "voids", "files", "door", "report"] as const;
 type Tab = (typeof TABS)[number];
 
 export default function EventPage() {
@@ -59,6 +60,7 @@ export default function EventPage() {
       {tab === "voids" && <VoidsTab eventId={eventId} />}
       {tab === "files" && <FilesTab eventId={eventId} />}
       {tab === "door" && <DoorTab eventId={eventId} />}
+      {tab === "report" && <ReportTab eventId={eventId} />}
     </main>
   );
 }

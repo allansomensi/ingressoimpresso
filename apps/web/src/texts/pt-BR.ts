@@ -64,6 +64,7 @@ export const texts = {
       voids: "Cancelamentos",
       files: "Arquivos",
       door: "Portaria",
+      report: "Relatório",
     },
     design: {
       intro:
@@ -165,6 +166,53 @@ export const texts = {
       tickets: (count: number) => `${String(count)} ingressos`,
       download: "Baixar",
       whatsappWarning: "Envie cada imagem a um só comprador: cópias são bloqueadas na porta.",
+    },
+    report: {
+      intro:
+        "Acerto por vendedor: ingressos pagos entregues, devoluções, perdas, vendidos declarados e o valor a acertar. Entradas e cópias vêm da portaria.",
+      csv: "Baixar CSV",
+      refresh: "Atualizar",
+      generatedAt: (time: string) => `Atualizado às ${time}`,
+      noPrice: "evento sem preço: o valor a acertar fica em branco",
+      fileName: "relatorio-vendedores.csv",
+      seller: "Vendedor",
+      unassigned: "Sem vendedor",
+      totals: "Total",
+      amountDue: "A acertar",
+      columns: {
+        tickets: "Ingressos",
+        unsold: "Devolvidos",
+        lost: "Perdidos",
+        revoked: "Outros cancel.",
+        declaredSold: "Vendidos",
+        entries: "Entradas",
+        offlineDuplicates: "Duplicadas offline",
+        blockedCopies: "Cópias barradas",
+        voidEntries: "Entraram cancelados",
+      },
+      hints: {
+        tickets: "Ingressos pagos entregues ao vendedor",
+        unsold: "Cancelados como devolvidos sem vender",
+        lost: "Cancelados como perdidos ou roubados",
+        revoked: "Cancelados por outro motivo (contam como vendidos)",
+        declaredSold: "Ingressos − devolvidos − perdidos",
+        entries: "Ingressos que entraram",
+        offlineDuplicates: "Cópias que entraram por celulares sem internet",
+        blockedCopies: "Cópias barradas na porta",
+        voidEntries: "Ingressos cancelados que entraram (o celular ainda não sabia do cancelamento)",
+      },
+      door: "Portaria",
+      device: "Celular",
+      noDevices: "Nenhum celular registrado.",
+      rejected: (invalid: number, otherEvent: number) =>
+        `QR falsos ou ilegíveis: ${String(invalid)} · ingressos de outro evento: ${String(otherEvent)}`,
+      deviceColumns: {
+        scans: "Leituras",
+        firstEntries: "Entradas",
+        offlineDuplicates: "Duplicadas offline",
+        blockedCopies: "Cópias barradas",
+        invalid: "Inválidos",
+      },
     },
     door: {
       intro:
