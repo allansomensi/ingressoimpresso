@@ -3,13 +3,26 @@ import type { FirstEntryDto } from "./generated/FirstEntryDto";
 import type { InvalidReasonDto } from "./generated/InvalidReasonDto";
 import type { VoidReasonDto } from "./generated/VoidReasonDto";
 
-const VOID_REASONS = ["unsold", "lost", "revoked"] as const satisfies readonly VoidReasonDto[];
-const INVALID_REASONS = [
-  "malformed",
-  "unknown_key",
-  "revoked_key",
-  "bad_signature",
-] as const satisfies readonly InvalidReasonDto[];
+// Exhaustive by construction: adding a variant to the generated union fails to compile here
+// until it is listed, instead of making `parseDecision` throw at the door.
+const VOID_REASONS = Object.keys({
+  unsold: true,
+  lost: true,
+  revoked: true,
+} satisfies Record<VoidReasonDto, true>) as readonly VoidReasonDto[];
+const INVALID_REASONS = Object.keys({
+  malformed: true,
+  unknown_key: true,
+  revoked_key: true,
+  bad_signature: true,
+} satisfies Record<InvalidReasonDto, true>) as readonly InvalidReasonDto[];
+const KINDS = Object.keys({
+  admit: true,
+  already_entered: true,
+  voided: true,
+  other_event: true,
+  invalid: true,
+} satisfies Record<DecisionDto["kind"], true>) as readonly DecisionDto["kind"][];
 
 type JsonRecord = Readonly<Record<string, unknown>>;
 
@@ -60,7 +73,7 @@ export function parseDecision(value: unknown): DecisionDto {
   if (!isRecord(value)) {
     throw new TypeError("decision is not an object");
   }
-  const kind = value["kind"];
+  const kind = oneOf(value, "kind", KINDS);
   switch (kind) {
     case "admit":
       return { kind, number: integer(value, "number") };
@@ -72,7 +85,9 @@ export function parseDecision(value: unknown): DecisionDto {
       return { kind, eventTag: integer(value, "eventTag") };
     case "invalid":
       return { kind, reason: oneOf(value, "reason", INVALID_REASONS) };
-    default:
-      throw new TypeError("decision.kind has an unexpected value");
+    default: {
+      const unreachable: never = kind;
+      throw new TypeError(`decision.kind ${String(unreachable)} is not handled`);
+    }
   }
 }
