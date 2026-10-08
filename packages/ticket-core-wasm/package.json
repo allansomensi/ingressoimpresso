@@ -1,0 +1,24 @@
+{
+  "name": "@ingressoimpresso/ticket-core-wasm",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Typed wrapper around the ticket-core WebAssembly build (door verification and decision).",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./ticket_core_bg.wasm": "./pkg/ticket_core_bg.wasm"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@eslint/js": "catalog:",
+    "@types/node": "catalog:",
+    "eslint": "catalog:",
+    "typescript": "catalog:",
+    "typescript-eslint": "catalog:",
+    "vitest": "catalog:"
+  }
+}
