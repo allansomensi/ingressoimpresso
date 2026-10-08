@@ -33,8 +33,8 @@ crates/ticket-core   formato v1, base45, Ed25519, decisão da portaria, DTOs: pu
                      serde (DTOs), ts (gera tipos TS)
 crates/ticket-wasm   bindings wasm-bindgen: DoorCore (verificação + decisão), nunca assinatura
 crates/render        Typst embutido (pacote `ticket-render`): design versionado, QR vetorial, A4 casa,
-                     gráfica (sangria/TrimBox), controle, ZIP WhatsApp; templates em templates/*.typ,
-                     fontes OFL em fonts/; gera em blocos (ADR 0015)
+                     gráfica (TrimBox/BleedBox), controle, ZIP WhatsApp; templates em templates/*.typ,
+                     fontes OFL em fonts/; gera em blocos e junta com merge.rs (ADRs 0015, 0017)
 crates/cli           binário `ii`: vectors generate|check, job init, render, verify
 crates/server        API (pacote `ingressoimpresso-server`, binário `ingressoimpresso`): Axum 0.8 + sqlx 0.9,
                      migrações em migrations/ (aplicadas no start), worker de exportação no mesmo

@@ -24,5 +24,6 @@ feita e as consequências.
 | [0012](0012-autenticacao-organizador.md) | Login do organizador por código via e-mail | Aceito (sessão por cookie substituída por 0016) |
 | [0013](0013-infraestrutura-render-neon.md) | Infraestrutura: Render + Neon + Resend | Aceito |
 | [0014](0014-pagamento-pix-adiado.md) | Pagamento Pix adiado para depois do MVP | Aceito |
-| [0015](0015-renderizacao-em-blocos.md) | Renderização em blocos, sangria nativa e JPEG para WhatsApp | Aceito |
+| [0015](0015-renderizacao-em-blocos.md) | Renderização em blocos, sangria nativa e JPEG para WhatsApp | Aceito (junção e folha de controle substituídas por 0017) |
 | [0016](0016-sessao-bearer.md) | Sessão do painel por token Bearer e links de download assinados | Aceito |
+| [0017](0017-juncao-pdf-e-sangria.md) | Junção de PDFs com objetos compartilhados, BleedBox e folha de controle em blocos | Aceito |

@@ -257,14 +257,17 @@ outro lê) ou por WebRTC em hotspot local com sinalização trocada via QR.
 - **Especificação do ingresso** (`ticket_designs.spec`, JSON versionado e imutável): tamanho em mm,
   sangria (3 mm), arte, caixa do número (posição, fonte embutida, tamanho, cor, alinhamento,
   prefixo "Nº", dígitos), caixa do QR (posição e tamanho ≥ 22 mm, sempre com fundo branco), canhoto
-  opcional (lado, largura, campos "Nome/Telefone") e textos extras.
+  opcional (lado, largura, campos "Nome/Telefone"; a altura do ingresso precisa comportar os campos)
+  e textos extras. Número, nome do evento e campos nunca saem das suas caixas: são reduzidos ou
+  cortados com "…".
 - **Saídas:**
   1. **A4 caseiro:** N ingressos por folha, com o encaixe calculado, marcas de corte e linha
      tracejada de picote entre canhoto e ingresso. Pode ser gerado por vendedor.
   2. **Gráfica (impressão digital):** um ingresso por página no tamanho final + 3 mm de sangria
-     (TrimBox gravada pelo próprio Typst) + marcas de corte fora da sangria (opcionais). QR único
-     por ingresso exige impressão digital; offset não imprime dados variáveis (ver ADR 0008, modo
-     de sobreimpressão na fase 7). Por ora em RGB; CMYK (lcms2) e PDF/X ficam para a fase 7.
+     (TrimBox gravada pelo próprio Typst, BleedBox = corte + 3 mm gravada na junção dos blocos) +
+     marcas de corte fora da sangria (opcionais). QR único por ingresso exige impressão digital;
+     offset não imprime dados variáveis (ver ADR 0008, modo de sobreimpressão na fase 7). Por ora
+     em RGB; CMYK (lcms2) e PDF/X ficam para a fase 7.
   3. **Folha de controle por vendedor:** tabela com número, nome do comprador e "pago?". Ela
      complementa o canhoto.
   4. **WhatsApp:** JPEG de 1080 px por ingresso, sem sangria nem canhoto, em um ZIP com uma pasta

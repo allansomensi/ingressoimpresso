@@ -2,6 +2,8 @@
 
 - **Status:** Aceito
 - **Data:** 2026-10-08
+- **Substituído em parte por:** [0017](0017-juncao-pdf-e-sangria.md) (junção dos blocos, BleedBox e
+  folha de controle em blocos)
 - **Complementa:** [0008](0008-geracao-arquivos-typst.md). A decisão de usar Typst embutido não
   muda; este ADR registra os detalhes de implementação medidos na fase 2.
 
