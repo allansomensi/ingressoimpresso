@@ -51,12 +51,31 @@ Passo a passo para colocar a API e o painel no ar para testes. Decisões nos ADR
 3. O primeiro build compila o Rust em release e leva cerca de 10 a 15 minutos.
 4. Teste: `https://<seu-servico>.onrender.com/healthz` deve responder 200.
 
-## 4. Vercel (painel)
+## 4. Vercel (painel e portaria)
 
-1. No projeto já criado, em **Settings → Environment Variables**, crie
+O build da Vercel não tem Rust, e a portaria precisa do WebAssembly do núcleo. Por isso quem
+compila e publica é o GitHub Actions (workflow **Deploy web**, ADR 0009). O
+`apps/web/vercel.json` desliga os builds automáticos da integração Git da Vercel, que falhariam.
+
+1. No projeto da Vercel, em **Settings → Environment Variables**, crie
    `NEXT_PUBLIC_API_URL` = a URL do Render (sem barra no fim), para Production e Preview.
 2. Confirme **Root Directory = `apps/web`** e Node 22.
-3. Faça um novo deploy (variáveis `NEXT_PUBLIC_*` entram no build).
+3. Pegue três valores:
+   - **Token:** Vercel → avatar → **Account Settings → Tokens → Create**, escopo da sua conta ou
+     do time do projeto;
+   - **Project ID:** no projeto, **Settings → General → Project ID**;
+   - **Org ID:** o **Team ID** em **Team Settings → General** (conta pessoal: **Account
+     Settings → General → Vercel ID**).
+4. No GitHub, em **Settings → Secrets and variables → Actions → New repository secret**, crie
+   `VERCEL_TOKEN`, `VERCEL_PROJECT_ID` e `VERCEL_ORG_ID`.
+5. Publicar:
+   - **Produção:** todo push no `main` publica sozinho.
+   - **Testar um branch antes do merge:** **Actions → Deploy web → Run workflow**, escolha o
+     branch. A prévia fica em `https://ingressoimpresso-preview.vercel.app` (para outro nome, crie
+     a variável `VERCEL_PREVIEW_ALIAS` em **Settings → Secrets and variables → Actions →
+     Variables**).
+6. No Render, acrescente a prévia em `ALLOWED_ORIGINS`:
+   `https://ingressoimpresso.vercel.app,https://ingressoimpresso-preview.vercel.app`.
 
 ## 5. Primeiro teste de ponta a ponta
 
@@ -65,6 +84,11 @@ Passo a passo para colocar a API e o painel no ar para testes. Decisões nos ADR
 3. Crie um lote (aba **Lotes**) e clique em **Marcar como pago**.
 4. Cadastre vendedores e entregue faixas.
 5. Na aba **Arquivos**, gere o A4 e baixe.
+6. Na aba **Portaria**, crie um link e abra-o no celular (ou leia o QR do link com a câmera). Dê um
+   nome ao celular, toque em **Começar a ler** e leia um ingresso impresso.
+7. Teste sem sinal: com a lista de prontidão toda verde, ponha o celular em modo avião, feche e
+   abra a página de novo, e leia outro ingresso. Ao voltar o sinal, a leitura sincroniza e aparece
+   nos outros celulares.
 
 ## Observações
 

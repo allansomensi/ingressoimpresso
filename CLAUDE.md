@@ -16,7 +16,12 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
 - **Fase 3 (API + painel mínimo): concluída.** `crates/server` (Axum + sqlx), painel Next.js com
   login por código, eventos, ingresso (arte + prévia), lotes, vendedores, cancelamentos e arquivos.
   Deploy: `render.yaml`, `deploy/api.Dockerfile`, guia em `docs/deploy.md`.
-- **Próxima: fase 4 (portaria PWA offline).**
+- **Fase 4 (portaria PWA): implementada.** Links de acesso e celulares no painel, API da porta
+  (registro, manifesto com cursor seguro, leituras com confirmação online), app `/portaria`
+  offline (DoorCore + zxing-wasm + IndexedDB + service worker) e teste ponta a ponta com câmeras
+  falsas (`just e2e`, também no CI). Falta o ensaio com celulares reais (Android + iPhone) em modo
+  avião, que é o critério de pronto da fase.
+- **Próxima: fase 5 (relatório por vendedor + produção).**
 
 Plano completo em `docs/arquitetura.md` §12.
 
@@ -41,7 +46,10 @@ crates/server        API (pacote `ingressoimpresso-server`, binário `ingressoim
                      processo (fila = tabela exports), chaves de evento seladas (keys.rs, ADR 0005),
                      DTOs em api.rs (ts-rs → packages/api-types), testes de integração em tests/
 packages/api-types   tipos TS da API gerados (src/generated + src/index.ts, NÃO editar)
-apps/web             painel em src/app/{entrar,painel}, abas do evento em src/components/event
+apps/web             painel em src/app/{entrar,painel}, abas do evento em src/components/event;
+                     portaria em src/app/portaria + src/portaria (engine, storage, camera, logic) +
+                     public/portaria-sw.js (ADR 0018); Vitest em test/
+e2e/                 portaria.e2e.mjs: 5 "celulares" Chromium com câmera falsa (`just e2e`)
 packages/ticket-core-wasm  wrapper TS tipado (src/), tipos gerados (src/generated/, NÃO editar),
                      pkg/ gerado por `just wasm` (não versionado), testes Vitest com os vetores
 apps/web             Next.js 16 (Vercel): landing; painel e portaria nas fases 3–4
@@ -52,8 +60,9 @@ deploy/              compose.dev.yaml (Postgres local)
 
 ## Infraestrutura (ADRs 0009, 0013)
 
-- **Frontend:** Next.js na Vercel, com pnpm. O deploy é pré-compilado pelo GitHub Actions, porque
-  o build da Vercel não tem Rust.
+- **Frontend:** Next.js na Vercel, com pnpm. O deploy é pré-compilado pelo GitHub Actions
+  (`.github/workflows/deploy-web.yml`, secrets `VERCEL_*`), porque o build da Vercel não tem Rust;
+  `apps/web/vercel.json` desliga os builds da integração Git.
 - **API:** Rust no Render, região Virginia. Sessão do painel por token Bearer + CORS (ADR 0016),
   porque `vercel.app` e `onrender.com` são sites diferentes; downloads por link temporário.
 - **Banco:** Neon `aws-us-east-1`. Precisa ficar junto da API, não do usuário.
@@ -89,6 +98,7 @@ cargo run -p ii-cli -- render --job job.json --seed event.seed  # out/: casa-a4.
 cargo run -p ii-cli -- render --job job.json                    # sem --seed: AMOSTRAS (QR inválido)
 cargo run -p ii-cli -- verify --job job.json --seed event.seed "<texto lido do QR>"
 just web-dev    # next dev
+just e2e        # portaria ponta a ponta: API + next start + Playwright (exige Postgres e `just wasm`)
 ```
 
 ## Invariantes que não podem ser quebrados
