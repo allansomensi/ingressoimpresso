@@ -13,7 +13,7 @@ use ticket_core::{
     EventId, EventKey, EventSigningKey, EventTag, EventVerifier, KeyId, KeyStatus, TicketIssuer,
     TicketNumber,
 };
-use ticket_render::{Art, RenderJob, TicketDesign, TicketQr, TicketToRender};
+use ticket_render::{Art, MAX_TICKETS_PER_JOB, RenderJob, TicketDesign, TicketQr, TicketToRender};
 
 /// A local job file.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -77,8 +77,16 @@ impl NumberRange {
 ///
 /// # Errors
 ///
-/// Fails if the OS RNG fails or a file cannot be written (existing files are never overwritten).
+/// Fails if the OS RNG fails or a file cannot be written. Existing files are never overwritten,
+/// and a failure never leaves one file without the other.
 pub fn init(name: &str, job_path: &Path, seed_path: &Path) -> Result<JobFile> {
+    for path in [job_path, seed_path] {
+        ensure!(
+            !path.exists(),
+            "{} already exists; refusing to overwrite",
+            path.display()
+        );
+    }
     let mut id_bytes = [0u8; 16];
     getrandom::fill(&mut id_bytes).map_err(|error| anyhow::anyhow!("OS RNG: {error}"))?;
     let id = uuid::Builder::from_random_bytes(id_bytes).into_uuid();
@@ -102,16 +110,17 @@ pub fn init(name: &str, job_path: &Path, seed_path: &Path) -> Result<JobFile> {
             last: 25,
         }],
     };
-    write_new(
-        job_path,
-        format!("{}\n", serde_json::to_string_pretty(&job)?).as_bytes(),
-        false,
-    )?;
+    let job_json = format!("{}\n", serde_json::to_string_pretty(&job)?);
     write_new(
         seed_path,
         format!("{}\n", hex::encode(seed)).as_bytes(),
         true,
     )?;
+    if let Err(error) = write_new(job_path, job_json.as_bytes(), false) {
+        // A seed without its job file is useless: undo it.
+        let _ = fs::remove_file(seed_path);
+        return Err(error);
+    }
     Ok(job)
 }
 
@@ -153,6 +162,11 @@ impl JobFile {
         ensure!(
             range.first >= 1 && range.first <= range.last,
             "tickets: first must be ≥ 1 and ≤ last"
+        );
+        // Checked before signing anything.
+        ensure!(
+            usize::try_from(range.last - range.first).is_ok_and(|span| span < MAX_TICKETS_PER_JOB),
+            "tickets: at most {MAX_TICKETS_PER_JOB} per job"
         );
         for (index, seller) in self.sellers.iter().enumerate() {
             ensure!(

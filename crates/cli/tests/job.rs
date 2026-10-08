@@ -37,6 +37,67 @@ fn init_creates_job_and_private_seed_without_overwriting() {
     }
     let error = job::init("Show", &job_path, &dir.join("other.seed")).unwrap_err();
     assert!(error.to_string().contains("already exists"), "{error}");
+    // Nothing is left behind by a refused init.
+    assert!(!dir.join("other.seed").exists());
+    fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn render_job_caps_the_ticket_count_before_signing() {
+    let dir = scratch("cap");
+    let (job_path, seed_path) = (dir.join("job.json"), dir.join("event.seed"));
+    let mut file = job::init("Show", &job_path, &seed_path).unwrap();
+    let seed = job::load_seed(&seed_path).unwrap();
+    file.sellers.clear();
+    file.tickets.last = u32::MAX;
+    let error = file.render_job(&job_path, Some(&seed)).unwrap_err();
+    assert!(error.to_string().contains("at most"), "{error}");
+    file.tickets.last = 10_000;
+    assert_eq!(
+        file.render_job(&job_path, None).unwrap().tickets.len(),
+        10_000
+    );
+    fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn render_skips_a4_for_large_tickets_unless_asked() {
+    let dir = scratch("large");
+    let (job_path, seed_path) = (dir.join("job.json"), dir.join("event.seed"));
+    let mut file = job::init("Show", &job_path, &seed_path).unwrap();
+    // 300 + 120 mm wide, 200 mm tall: too large for A4 in either orientation.
+    file.design.width_mm = 300.0;
+    file.design.height_mm = 200.0;
+    if let Some(stub) = file.design.stub.as_mut() {
+        stub.width_mm = 120.0;
+    }
+    file.tickets.last = 2;
+    file.sellers.clear();
+    fs::write(&job_path, serde_json::to_string(&file).unwrap()).unwrap();
+
+    let ii = |args: &[&str]| {
+        std::process::Command::new(env!("CARGO_BIN_EXE_ii"))
+            .args(["render", "--job"])
+            .arg(&job_path)
+            .arg("--out-dir")
+            .arg(dir.join("out"))
+            .args(args)
+            .output()
+            .unwrap()
+    };
+    let all = ii(&["--only", "casa-a4.pdf", "--only", "controle.pdf"]);
+    assert!(!all.status.success(), "an explicit casa-a4.pdf must fail");
+    let all = ii(&[]);
+    assert!(
+        all.status.success(),
+        "{}",
+        String::from_utf8_lossy(&all.stderr)
+    );
+    assert!(String::from_utf8_lossy(&all.stdout).contains("skipped casa-a4.pdf"));
+    for name in ["grafica.pdf", "controle.pdf", "whatsapp.zip"] {
+        assert!(dir.join("out").join(name).exists(), "{name} missing");
+    }
+    assert!(!dir.join("out/casa-a4.pdf").exists());
     fs::remove_dir_all(dir).unwrap();
 }
 

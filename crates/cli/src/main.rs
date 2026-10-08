@@ -175,7 +175,8 @@ fn render(
     let seed = seed.map(job::load_seed).transpose()?;
     let render_job = job.render_job(job_path, seed.as_ref())?;
     fs::create_dir_all(out_dir).with_context(|| format!("creating {}", out_dir.display()))?;
-    let wanted = |name: &str| only.is_empty() || only.iter().any(|item| item == name);
+    let named = |name: &str| only.iter().any(|item| item == name);
+    let wanted = |name: &str| only.is_empty() || named(name);
 
     let pdfs: [(&str, PdfRenderer); 3] = [
         ("casa-a4.pdf", |job, _| ticket_render::home_pdf(job)),
@@ -191,8 +192,17 @@ fn render(
             continue;
         }
         let path = out_dir.join(name);
-        let bytes =
-            produce(&render_job, !no_crop_marks).with_context(|| format!("rendering {name}"))?;
+        let bytes = match produce(&render_job, !no_crop_marks) {
+            Ok(bytes) => bytes,
+            // Large tickets are for print shops: without an explicit request, skip the A4 file.
+            Err(RenderError::TooLargeForA4) if !named(name) => {
+                say(&format!(
+                    "skipped {name}: the ticket does not fit on an A4 sheet"
+                ))?;
+                continue;
+            }
+            Err(error) => return Err(error).with_context(|| format!("rendering {name}")),
+        };
         fs::write(&path, &bytes).with_context(|| format!("writing {}", path.display()))?;
         say(&format!("{} ({} KiB)", path.display(), bytes.len() / 1024))?;
     }
