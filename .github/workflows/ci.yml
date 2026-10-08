@@ -16,12 +16,28 @@ concurrency:
 env:
   CARGO_TERM_COLOR: always
   NEXT_TELEMETRY_DISABLED: "1"
+  # Queries compile against the committed .sqlx cache (same as the Docker build)...
+  SQLX_OFFLINE: "true"
+  # ...and the sqlx::test suites run against the service below.
+  DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
 
 jobs:
   check:
     name: just check
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 20
     steps:
       - uses: actions/checkout@v5
 
