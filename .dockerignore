@@ -1,0 +1,10 @@
+target
+node_modules
+**/node_modules
+apps
+packages
+.git
+.next
+out
+*.seed
+.env

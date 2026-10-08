@@ -1,0 +1,30 @@
+# Render Blueprint (ADR 0013): API in Virginia, next to Neon aws-us-east-1.
+# Secrets marked `sync: false` are asked once in the Render dashboard and never stored here.
+services:
+  - type: web
+    name: ingressoimpresso-api
+    runtime: docker
+    dockerfilePath: ./deploy/api.Dockerfile
+    dockerContext: .
+    region: virginia
+    plan: starter
+    branch: main
+    autoDeploy: true
+    healthCheckPath: /healthz
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: TICKET_KEY_ENCRYPTION_KEY
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: MAIL_FROM
+        sync: false
+      - key: ADMIN_EMAILS
+        sync: false
+      - key: ALLOWED_ORIGINS
+        value: https://ingressoimpresso.vercel.app
+      - key: PUBLIC_API_URL
+        sync: false
