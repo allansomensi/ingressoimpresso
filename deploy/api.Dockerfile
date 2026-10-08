@@ -17,7 +17,9 @@ RUN apt-get update \
     && useradd --system --uid 10001 --home /nonexistent app
 COPY --from=build /usr/local/bin/ingressoimpresso /usr/local/bin/ingressoimpresso
 USER app
+# Two malloc arenas: rendering threads otherwise keep ~90 MiB of freed memory (ADR 0015).
 ENV EXPORT_DIR=/tmp/ingressoimpresso-exports \
-    RUST_LOG=info,sqlx=warn
+    RUST_LOG=info,sqlx=warn \
+    MALLOC_ARENA_MAX=2
 EXPOSE 8080
 CMD ["ingressoimpresso"]
