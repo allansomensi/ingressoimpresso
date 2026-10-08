@@ -4,6 +4,7 @@ pub mod batches;
 pub mod door;
 pub mod events;
 pub mod exports;
+pub mod report;
 pub mod sellers;
 pub mod voids;
 

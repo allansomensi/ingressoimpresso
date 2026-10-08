@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select count(*) filter (where local_outcome = 'rejected_invalid') as \"invalid!\",\n                  count(*) filter (where local_outcome = 'rejected_other_event') as \"other_event!\"\n           from scans where event_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "invalid!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "other_event!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "35a357254939beabd9c9af0e473974a0a7c1a0c20c982d1fa70bdfb80b139738"
+}

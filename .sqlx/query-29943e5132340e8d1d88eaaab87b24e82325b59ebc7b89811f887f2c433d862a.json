@@ -1,0 +1,84 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with issued as (\n               select n as number\n               from ticket_batches b, generate_series(lower(b.numbers), upper(b.numbers) - 1) as n\n               where b.event_id = $1 and b.status = 'paid'\n           ),\n           voided as (\n               select distinct on (i.number) i.number, v.reason\n               from issued i join ticket_voids v\n                 on v.event_id = $1 and v.undone_at is null and v.numbers @> i.number\n               order by i.number, v.created_at\n           ),\n           scanned as (\n               select s.ticket_number as number,\n                      count(*) filter (where s.server_class = 'duplicate_entry' and not s.confirmed_online) as offline_duplicates,\n                      count(*) filter (where s.local_outcome = 'rejected_used'\n                                         or (s.server_class = 'duplicate_entry' and s.confirmed_online)) as blocked_copies,\n                      count(*) filter (where s.server_class = 'void_entry') as void_entries\n               from scans s where s.event_id = $1 and s.ticket_number is not null\n               group by s.ticket_number\n           )\n           select a.seller_id as \"seller_id?\",\n                  count(*) as \"tickets!\",\n                  count(*) filter (where v.reason = 'unsold') as \"unsold!\",\n                  count(*) filter (where v.reason = 'lost') as \"lost!\",\n                  count(*) filter (where v.reason = 'revoked') as \"revoked!\",\n                  count(e.ticket_number) as \"entries!\",\n                  coalesce(sum(c.offline_duplicates), 0)::bigint as \"offline_duplicates!\",\n                  coalesce(sum(c.blocked_copies), 0)::bigint as \"blocked_copies!\",\n                  coalesce(sum(c.void_entries), 0)::bigint as \"void_entries!\"\n           from issued i\n           left join seller_assignments a on a.event_id = $1 and a.numbers @> i.number\n           left join voided v on v.number = i.number\n           left join entries e on e.event_id = $1 and e.ticket_number = i.number\n           left join scanned c on c.number = i.number\n           group by a.seller_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "seller_id?",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "seller_assignments",
+            "name": "seller_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "tickets!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "unsold!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "lost!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "revoked!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "entries!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "offline_duplicates!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 7,
+        "name": "blocked_copies!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 8,
+        "name": "void_entries!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "29943e5132340e8d1d88eaaab87b24e82325b59ebc7b89811f887f2c433d862a"
+}

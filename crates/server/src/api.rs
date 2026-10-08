@@ -529,6 +529,90 @@ dto! {
         /// One result per uploaded scan.
         pub results: Vec<DoorScanResult>,
     }
+
+    /// One line of the report: a seller, the unassigned tickets or the totals.
+    pub struct ReportRowDto {
+        /// Seller id; `null` for unassigned tickets and totals.
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub seller_id: Option<Uuid>,
+        /// Seller name; `null` for unassigned tickets and totals.
+        pub seller: Option<String>,
+        /// Paid tickets in the line (assigned to the seller, or unassigned).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub tickets: i64,
+        /// Voided as returned unsold.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub unsold: i64,
+        /// Voided as lost or stolen.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub lost: i64,
+        /// Voided for another reason.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub revoked: i64,
+        /// Declared sold: tickets − unsold − lost.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub declared_sold: i64,
+        /// Tickets that entered.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub entries: i64,
+        /// Copies that entered through phones offline (found on sync).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub offline_duplicates: i64,
+        /// Copies stopped at the door (locally or by the online confirmation).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub blocked_copies: i64,
+        /// Voided tickets that entered (the phone did not know about the void yet).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub void_entries: i64,
+        /// Declared sold × ticket price, when the event has a price.
+        #[cfg_attr(feature = "ts", ts(type = "number | null"))]
+        pub amount_due_cents: Option<i64>,
+    }
+
+    /// What one door phone did.
+    pub struct ReportDeviceDto {
+        /// Phone name.
+        pub name: String,
+        /// Every scan.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub scans: i64,
+        /// First entries recorded by this phone.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub first_entries: i64,
+        /// Copies it let in while offline.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub offline_duplicates: i64,
+        /// Copies it stopped.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub blocked_copies: i64,
+        /// Forged, damaged or foreign QR codes read.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub invalid: i64,
+    }
+
+    /// `GET /api/events/{id}/report`: settlement per seller and door activity.
+    pub struct EventReportDto {
+        /// Ticket price used for the amounts.
+        pub ticket_price_cents: Option<i32>,
+        /// One line per seller, in name order (sellers without tickets included).
+        pub sellers: Vec<ReportRowDto>,
+        /// Paid tickets without a seller.
+        pub unassigned: ReportRowDto,
+        /// Sum of every line.
+        pub totals: ReportRowDto,
+        /// Door phones, in name order.
+        pub devices: Vec<ReportDeviceDto>,
+        /// Scans of forged, damaged or unknown QR codes.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub invalid_scans: i64,
+        /// Scans of tickets of other events.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub other_event_scans: i64,
+        /// When the report was computed.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub generated_at: OffsetDateTime,
+    }
 }
 
 dto_enum! {

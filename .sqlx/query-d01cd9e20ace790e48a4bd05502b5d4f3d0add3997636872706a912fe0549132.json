@@ -1,0 +1,63 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select d.name,\n                  count(s.id) as \"scans!\",\n                  count(*) filter (where s.server_class = 'first_entry') as \"first_entries!\",\n                  count(*) filter (where s.server_class = 'duplicate_entry' and not s.confirmed_online) as \"offline_duplicates!\",\n                  count(*) filter (where s.local_outcome = 'rejected_used'\n                                     or (s.server_class = 'duplicate_entry' and s.confirmed_online)) as \"blocked_copies!\",\n                  count(*) filter (where s.local_outcome in ('rejected_invalid', 'rejected_other_event')) as \"invalid!\"\n           from door_devices d left join scans s on s.device_id = d.id\n           where d.event_id = $1\n           group by d.id, d.name\n           order by d.name",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "door_devices",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "scans!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "first_entries!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "offline_duplicates!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "blocked_copies!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "invalid!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "d01cd9e20ace790e48a4bd05502b5d4f3d0add3997636872706a912fe0549132"
+}
