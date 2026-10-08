@@ -1,6 +1,6 @@
 [package]
 name = "ii-cli"
-description = "Development and admin tooling for Ingresso Impresso (test vectors, local rendering, keys)."
+description = "Development and admin tooling for Ingresso Impresso: test vectors, local jobs, rendering and verification."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -20,11 +20,14 @@ ts = ["dep:ts-rs", "ticket-core/ts"]
 anyhow.workspace = true
 clap.workspace = true
 curve25519-dalek.workspace = true
+getrandom.workspace = true
 hex.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
 ticket-core = { workspace = true, features = ["fast", "signing", "serde"] }
+ticket-render.workspace = true
+uuid.workspace = true
 ts-rs = { workspace = true, optional = true }
 
 [lints]
