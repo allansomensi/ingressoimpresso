@@ -1,0 +1,104 @@
+name: Deploy web
+
+# ADR 0009: the Vercel build has no Rust, so the door's WebAssembly is compiled here and the
+# site is uploaded prebuilt. Pushes to main deploy production; a manual run deploys any branch
+# as a preview (or production, from main). Needs the VERCEL_TOKEN, VERCEL_ORG_ID and
+# VERCEL_PROJECT_ID secrets (docs/deploy.md); without them the job only warns.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      production:
+        description: "Production deploy (main only); otherwise a preview URL"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-web-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  NEXT_TELEMETRY_DISABLED: "1"
+  VERCEL_CLI: vercel@59.26.0
+  # Previews get a fixed address, so the API's ALLOWED_ORIGINS can list it once.
+  PREVIEW_ALIAS: ${{ vars.VERCEL_PREVIEW_ALIAS || 'ingressoimpresso-preview.vercel.app' }}
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+jobs:
+  deploy:
+    name: vercel deploy --prebuilt
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Vercel secrets
+        id: secrets
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          if [ -z "$VERCEL_TOKEN" ] || [ -z "$VERCEL_ORG_ID" ] || [ -z "$VERCEL_PROJECT_ID" ]; then
+            echo "::warning::Set VERCEL_TOKEN, VERCEL_ORG_ID and VERCEL_PROJECT_ID (docs/deploy.md) to deploy the web app."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v5
+        if: steps.secrets.outputs.ready == 'true'
+
+      - name: Rust toolchain
+        if: steps.secrets.outputs.ready == 'true'
+        run: rustup toolchain install
+
+      - uses: Swatinem/rust-cache@v2
+        if: steps.secrets.outputs.ready == 'true'
+
+      - name: Install just and wasm-bindgen-cli
+        if: steps.secrets.outputs.ready == 'true'
+        uses: taiki-e/install-action@v2
+        with:
+          tool: just,wasm-bindgen@0.2.129
+
+      - uses: pnpm/action-setup@v4
+        if: steps.secrets.outputs.ready == 'true'
+
+      - uses: actions/setup-node@v5
+        if: steps.secrets.outputs.ready == 'true'
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: Build the door WebAssembly
+        if: steps.secrets.outputs.ready == 'true'
+        run: just wasm
+
+      - name: Build and deploy
+        if: steps.secrets.outputs.ready == 'true'
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          PRODUCTION: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.production) }}
+        run: |
+          target=preview
+          prod=()
+          if [ "$PRODUCTION" = "true" ]; then
+            target=production
+            prod=(--prod)
+          fi
+          vercel() { pnpm dlx "$VERCEL_CLI" "$@" --token="$VERCEL_TOKEN"; }
+          vercel pull --yes --environment="$target"
+          vercel build "${prod[@]}"
+          # The deployment URL is the last line printed.
+          url=$(vercel deploy --prebuilt "${prod[@]}" | tail -n 1)
+          echo "Deployed ($target): $url" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$target" = preview ]; then
+            if vercel alias set "$url" "$PREVIEW_ALIAS"; then
+              echo "Preview: https://$PREVIEW_ALIAS" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "::warning::Could not alias the preview to $PREVIEW_ALIAS (set the VERCEL_PREVIEW_ALIAS variable)."
+            fi
+          fi
