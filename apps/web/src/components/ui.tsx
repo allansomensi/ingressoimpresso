@@ -34,7 +34,12 @@ const inputClass =
   "rounded-md border border-black/20 bg-white px-3 py-2 text-base text-ink dark:border-white/20 dark:bg-black/30 dark:text-paper";
 
 export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
-  return <input className={inputClass} {...props} />;
+  // Native colour pickers need their own box: text padding hides the swatch.
+  const className =
+    props.type === "color"
+      ? "h-10 w-20 cursor-pointer rounded-md border border-black/20 bg-white p-1 dark:border-white/20"
+      : inputClass;
+  return <input className={className} {...props} />;
 }
 
 export function Select(props: SelectHTMLAttributes<HTMLSelectElement>) {
