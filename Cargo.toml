@@ -11,12 +11,24 @@ publish = false
 
 [workspace.dependencies]
 ticket-core = { path = "crates/ticket-core" }
+ticket-render = { path = "crates/render" }
 
 anyhow = "1.0.104"
 clap = { version = "4.6.7", features = ["derive"] }
 curve25519-dalek = { version = "5.0.0", default-features = false }
 ed25519-dalek = { version = "3.0.0", default-features = false, features = ["zeroize"] }
+getrandom = { version = "0.4.3", default-features = false }
 hex = "0.4.3"
+image = { version = "0.25.10", default-features = false, features = ["png", "jpeg"] }
+lopdf = "0.45.0"
+qrcodegen = "1.8.0"
+rqrr = "0.11.0"
+# Typst is pinned exactly: its API changes between minor versions (ADR 0008).
+typst = "=0.15.1"
+typst-layout = "=0.15.1"
+typst-pdf = "=0.15.1"
+typst-render = "=0.15.1"
+zip = { version = "8.6.0", default-features = false, features = ["deflate"] }
 proptest = "1.11.0"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"

@@ -1,0 +1,30 @@
+[package]
+name = "ticket-render"
+description = "Print and image files for tickets (home A4, print shop, control sheet, WhatsApp images) with embedded Typst."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+image.workspace = true
+lopdf.workspace = true
+qrcodegen.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+ticket-core.workspace = true
+typst.workspace = true
+typst-layout.workspace = true
+typst-pdf.workspace = true
+typst-render.workspace = true
+zip.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+rqrr.workspace = true
+ticket-core = { workspace = true, features = ["signing", "fast"] }
+
+[lints]
+workspace = true
