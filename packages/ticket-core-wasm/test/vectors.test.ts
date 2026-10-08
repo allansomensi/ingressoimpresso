@@ -89,6 +89,33 @@ describe("DoorCore.checkIn", () => {
     }
   });
 
+  it("never records voided tickets, and admits them once the void is undone", () => {
+    const door = primary();
+    try {
+      door.replaceVoids([{ first: 1, last: 10, reason: "unsold" }]);
+      expect(door.checkIn(ticket(2), 1_000, "Porta 1")).toEqual({ kind: "voided", number: 2, reason: "unsold" });
+      expect(door.entryCount).toBe(0);
+      door.replaceVoids([]);
+      expect(door.checkIn(ticket(2), 2_000, "Porta 1")).toEqual({ kind: "admit", number: 2 });
+      expect(door.entryCount).toBe(1);
+    } finally {
+      door.free();
+    }
+  });
+
+  it("keeps the first entry when a later scan carries an earlier clock", () => {
+    const door = primary();
+    try {
+      expect(door.checkIn(ticket(42), 5_000, "Porta 1").kind).toBe("admit");
+      const firstEntry = { atUnixMs: 5_000, deviceName: "Porta 1" };
+      expect(door.checkIn(ticket(42), 1_000, "Porta 2")).toEqual({ kind: "already_entered", number: 42, firstEntry });
+      expect(door.evaluate(ticket(42))).toEqual({ kind: "already_entered", number: 42, firstEntry });
+      expect(door.entryCount).toBe(1);
+    } finally {
+      door.free();
+    }
+  });
+
   it("does not record rejected scans", () => {
     const door = primary();
     try {
