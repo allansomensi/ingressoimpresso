@@ -14,6 +14,7 @@ ticket-core = { path = "crates/ticket-core" }
 
 anyhow = "1.0.104"
 clap = { version = "4.6.7", features = ["derive"] }
+curve25519-dalek = { version = "5.0.0", default-features = false }
 ed25519-dalek = { version = "3.0.0", default-features = false, features = ["zeroize"] }
 hex = "0.4.3"
 proptest = "1.11.0"

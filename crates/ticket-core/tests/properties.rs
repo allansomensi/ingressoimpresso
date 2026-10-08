@@ -108,9 +108,35 @@ proptest! {
         let _ = SignedTicket::from_qr_text(&text);
     }
 
+    /// Random alphabet strings almost never decode as Base45 (each triple fits in u16 with
+    /// p ≈ 0.72, so 37 triples with p ≈ 5e-6). Build valid Base45 instead, so the payload checks
+    /// behind the decoder are reached for arbitrary headers.
     #[test]
-    fn decoding_arbitrary_alphabet_text_never_panics(text in "[0-9A-Z $%*+\\-./:]{111}") {
-        let _ = SignedTicket::from_qr_text(&text);
+    fn decoding_valid_base45_payloads_is_exact(
+        mut bytes in any::<[u8; 74]>(),
+        force_v1 in any::<bool>(),
+        zero_number in proptest::bool::weighted(0.2),
+    ) {
+        if force_v1 {
+            bytes[0] = 0x01;
+        }
+        if zero_number {
+            bytes[6..10].copy_from_slice(&[0; 4]);
+        }
+        let text = base45::encode(&bytes);
+        prop_assert_eq!(text.len(), QR_TEXT_LEN);
+        match SignedTicket::from_qr_text(&text) {
+            Ok(ticket) => prop_assert_eq!(ticket.to_bytes(), bytes),
+            Err(DecodeError::UnsupportedVersion(version)) => {
+                prop_assert_eq!(version, bytes[0]);
+                prop_assert_ne!(version, 0x01);
+            }
+            Err(DecodeError::ZeroTicketNumber) => {
+                prop_assert_eq!(bytes[0], 0x01);
+                prop_assert_eq!(&bytes[6..10], &[0u8; 4]);
+            }
+            Err(other) => prop_assert!(false, "unexpected error {:?}", other),
+        }
     }
 
     #[test]
@@ -240,8 +266,9 @@ proptest! {
 
 #[test]
 fn non_canonical_signature_scalar_is_rejected() {
-    // Adding the group order L to a valid S yields a signature that a non-strict verifier might
-    // accept (malleability). verify_strict must reject it.
+    // S + L is the same scalar mod L with a non-canonical encoding (malleability). ed25519-dalek
+    // rejects it in both verify paths unless `legacy_compatibility` is enabled, so this guards
+    // against that feature. The small-order-R vector is what pins `verify_strict` itself.
     const L: [u8; 32] = [
         0xed, 0xd3, 0xf5, 0x5c, 0x1a, 0x63, 0x12, 0x58, 0xd6, 0x9c, 0xf7, 0xa2, 0xde, 0xf9, 0xde,
         0x14, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -344,4 +371,105 @@ fn malformed_text_is_reported_as_malformed() {
             actual: 27
         }))
     );
+}
+
+fn door_with_voids(fixture: &Fixture, voids: Vec<VoidRange>) -> ticket_core::Door {
+    let mut door = ticket_core::Door::new(fixture.verifier.clone());
+    door.state_mut().replace_voids(voids);
+    door
+}
+
+fn at(at_unix_ms: i64, device_name: &str) -> EntryInfo {
+    EntryInfo {
+        at_unix_ms,
+        device_name: device_name.to_owned(),
+    }
+}
+
+#[test]
+fn check_in_never_records_voided_tickets() {
+    let fixture = fixture([5; 32], [6; 16], 7, 1);
+    let voids = vec![
+        VoidRange::new(
+            TicketNumber::new(1).unwrap(),
+            TicketNumber::new(10).unwrap(),
+            VoidReason::Unsold,
+        )
+        .unwrap(),
+    ];
+    let mut door = door_with_voids(&fixture, voids);
+    let text = fixture
+        .issuer
+        .issue(TicketNumber::new(2).unwrap())
+        .to_qr_text();
+
+    assert!(matches!(
+        door.check_in(&text, at(1_000, "Porta 1")),
+        Decision::Voided {
+            reason: VoidReason::Unsold,
+            ..
+        }
+    ));
+    assert_eq!(door.state().entry_count(), 0);
+
+    // Undoing the void (organizer mistake) makes the ticket admissible again.
+    door.state_mut().replace_voids(Vec::new());
+    assert!(door.check_in(&text, at(2_000, "Porta 1")).is_admit());
+    assert_eq!(door.state().entry_count(), 1);
+}
+
+#[test]
+fn check_in_keeps_the_first_entry_on_repeated_scans() {
+    let fixture = fixture([5; 32], [6; 16], 7, 1);
+    let mut door = door_with_voids(&fixture, Vec::new());
+    let number = TicketNumber::new(42).unwrap();
+    let text = fixture.issuer.issue(number).to_qr_text();
+
+    assert!(door.check_in(&text, at(5_000, "Porta 1")).is_admit());
+    // A later scan with an earlier (skewed) clock must not overwrite the recorded entry.
+    assert_eq!(
+        door.check_in(&text, at(1_000, "Porta 2")),
+        Decision::AlreadyEntered {
+            number,
+            first_entry: at(5_000, "Porta 1"),
+        }
+    );
+    assert_eq!(door.state().entry_for(number), Some(&at(5_000, "Porta 1")));
+    assert_eq!(door.state().entry_count(), 1);
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(128))]
+
+    #[test]
+    fn check_in_records_exactly_the_admitted_tickets(
+        fixture in fixture_strategy(),
+        scans in proptest::collection::vec((1u32..30, -1_000i64..1_000), 1..40),
+        void in (1u32..30, 0u32..5),
+    ) {
+        let (first, len) = void;
+        let voids = vec![VoidRange::new(
+            TicketNumber::new(first).unwrap(),
+            TicketNumber::new(first + len).unwrap(),
+            VoidReason::Lost,
+        )
+        .unwrap()];
+        let mut door = door_with_voids(&fixture, voids);
+        let mut admitted = 0usize;
+        for (value, time) in scans {
+            let number = TicketNumber::new(value).unwrap();
+            let text = fixture.issuer.issue(number).to_qr_text();
+            let voided = first <= value && value <= first + len;
+            match door.check_in(&text, at(time, "Porta 1")) {
+                Decision::Admit { .. } => {
+                    prop_assert!(!voided);
+                    admitted += 1;
+                }
+                Decision::Voided { .. } => prop_assert!(voided),
+                Decision::AlreadyEntered { .. } => prop_assert!(!voided),
+                other => prop_assert!(false, "unexpected decision {:?}", other),
+            }
+        }
+        prop_assert_eq!(door.state().entry_count(), admitted);
+    }
 }

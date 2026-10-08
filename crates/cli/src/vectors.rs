@@ -9,8 +9,9 @@
 //! **test-only** and published on purpose.
 
 use anyhow::{Context, Result, anyhow};
+use curve25519_dalek::Scalar;
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
+use sha2::{Digest, Sha256, Sha512};
 use ticket_core::dto::{
     DecisionDto, DoorEventDto, EntryDto, EventKeyDto, FirstEntryDto, InvalidReasonDto,
     VoidRangeDto, VoidReasonDto,
@@ -324,13 +325,7 @@ fn cases() -> Result<Vec<DecisionCase>> {
         },
         *valid.signature(),
     );
-    let unknown_key = SignedTicket::from_parts(
-        TicketHeader {
-            key_id: KeyId::new(9),
-            ..*valid.header()
-        },
-        *valid.signature(),
-    );
+    let unknown_key = with_key_id(&valid, 9);
     let mut unsupported_version = valid_bytes;
     unsupported_version[0] = 0x02;
     let mut zero_number = valid_bytes;
@@ -508,10 +503,35 @@ fn cases() -> Result<Vec<DecisionCase>> {
         ),
         case(
             "non-canonical-signature",
-            "S + L: a malleated signature must be rejected by verify_strict.",
+            "S + L (same scalar, non-canonical encoding): malleated signatures are rejected.",
             PRIMARY,
             &non_canonical(&valid).to_qr_text(),
             invalid(InvalidReasonDto::BadSignature),
+        ),
+        case(
+            "small-order-r",
+            "R is the identity point: the plain verification equation holds, verify_strict rejects it.",
+            PRIMARY,
+            &small_order_r(&valid)?.to_qr_text(),
+            invalid(InvalidReasonDto::BadSignature),
+        ),
+        case(
+            "other-event-before-unknown-key",
+            "The tag is checked before the key: another event's ticket with a key id this door lacks.",
+            PRIMARY,
+            &with_key_id(&issue(OTHER, 1, 1)?, 9).to_qr_text(),
+            DecisionDto::OtherEvent {
+                event_tag: OTHER_TAG,
+            },
+        ),
+        case(
+            "other-event-before-revoked-key",
+            "The tag is checked before the key: another event's ticket with a key id revoked here.",
+            PRIMARY,
+            &with_key_id(&issue(OTHER, 1, 1)?, 3).to_qr_text(),
+            DecisionDto::OtherEvent {
+                event_tag: OTHER_TAG,
+            },
         ),
         case(
             "unsupported-version",
@@ -604,4 +624,53 @@ fn non_canonical(ticket: &SignedTicket) -> SignedTicket {
         carry = u16::from(high);
     }
     SignedTicket::from_parts(*ticket.header(), signature)
+}
+
+/// Returns the ticket with its key id replaced (signature kept, so it no longer verifies).
+fn with_key_id(ticket: &SignedTicket, key_id: u8) -> SignedTicket {
+    SignedTicket::from_parts(
+        TicketHeader {
+            key_id: KeyId::new(key_id),
+            ..*ticket.header()
+        },
+        *ticket.signature(),
+    )
+}
+
+/// Re-signs `ticket` (primary event, key 1) with `R` = identity and `S = k·a mod L`.
+///
+/// `[S]B = R + [k]A` still holds, so a non-strict verifier accepts it; `verify_strict` rejects
+/// small-order `R`. Built from the RFC 8032 equations with the test-only seed.
+fn small_order_r(ticket: &SignedTicket) -> Result<SignedTicket> {
+    let spec = spec(PRIMARY)?;
+    let event_id: EventId = spec.event_id.parse().context("vector event id")?;
+    let key_seed = seed(PRIMARY, ticket.header().key_id.get());
+    let public_key = EventSigningKey::from_seed(&key_seed)
+        .public_key()
+        .to_bytes();
+
+    let expanded: [u8; 64] = Sha512::digest(key_seed).into();
+    let mut clamped = [0u8; 32];
+    clamped.copy_from_slice(&expanded[..32]);
+    clamped[0] &= 0b1111_1000;
+    clamped[31] &= 0b0111_1111;
+    clamped[31] |= 0b0100_0000;
+    let secret_scalar = Scalar::from_bytes_mod_order(clamped);
+
+    let mut identity = [0u8; 32];
+    identity[0] = 1;
+    let challenge: [u8; 64] = Sha512::new()
+        .chain_update(identity)
+        .chain_update(public_key)
+        .chain_update(ticket_core::SIGNING_DOMAIN)
+        .chain_update(event_id.as_bytes())
+        .chain_update(ticket.header().to_bytes())
+        .finalize()
+        .into();
+    let s = Scalar::from_bytes_mod_order_wide(&challenge) * secret_scalar;
+
+    let mut signature = [0u8; 64];
+    signature[..32].copy_from_slice(&identity);
+    signature[32..].copy_from_slice(&s.to_bytes());
+    Ok(SignedTicket::from_parts(*ticket.header(), signature))
 }

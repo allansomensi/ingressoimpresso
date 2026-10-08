@@ -304,7 +304,7 @@
     },
     {
       "name": "non-canonical-signature",
-      "description": "S + L: a malleated signature must be rejected by verify_strict.",
+      "description": "S + L (same scalar, non-canonical encoding): malleated signatures are rejected.",
       "doorEvent": "primary",
       "voids": [],
       "entries": [],
@@ -344,6 +344,30 @@
       "voids": [],
       "entries": [],
       "qrText": ".50N:L:S1000100Y$J*AUAANR0W6ACZTR9X0A1TDQ7C2N7041U8DZC7.3YEG0RC3OJZ:1WJMWJ1$:ROOAKWQPW24VUJ:UE7T2092+UQ5W9788.4",
+      "expected": {
+        "kind": "other_event",
+        "eventTag": 195948557
+      }
+    },
+    {
+      "name": "other-event-before-revoked-key",
+      "description": "The tag is checked before the key: another event's ticket with a key id revoked here.",
+      "doorEvent": "primary",
+      "voids": [],
+      "entries": [],
+      "qrText": ".50N:L1T1000100Y$J*AUAANR0W6ACZTR9X0A1TDQ7C2N7041U8DZC7.3YEG0RC3OJZ:1WJMWJ1$:ROOAKWQPW24VUJ:UE7T2092+UQ5W9788.4",
+      "expected": {
+        "kind": "other_event",
+        "eventTag": 195948557
+      }
+    },
+    {
+      "name": "other-event-before-unknown-key",
+      "description": "The tag is checked before the key: another event's ticket with a key id this door lacks.",
+      "doorEvent": "primary",
+      "voids": [],
+      "entries": [],
+      "qrText": ".50N:L7T1000100Y$J*AUAANR0W6ACZTR9X0A1TDQ7C2N7041U8DZC7.3YEG0RC3OJZ:1WJMWJ1$:ROOAKWQPW24VUJ:UE7T2092+UQ5W9788.4",
       "expected": {
         "kind": "other_event",
         "eventTag": 195948557
@@ -390,6 +414,18 @@
         "kind": "voided",
         "number": 999,
         "reason": "revoked"
+      }
+    },
+    {
+      "name": "small-order-r",
+      "description": "R is the identity point: the plain verification equation holds, verify_strict rejects it.",
+      "doorEvent": "primary",
+      "voids": [],
+      "entries": [],
+      "qrText": "C60/K53X9000100V50000000000000000000000000000000000000000000000AWDZ+978EGB21.2D-IOFBN6P*$RL1V909FDWKUVF GH:MPFU",
+      "expected": {
+        "kind": "invalid",
+        "reason": "bad_signature"
       }
     },
     {

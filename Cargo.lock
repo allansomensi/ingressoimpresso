@@ -338,6 +338,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "curve25519-dalek",
  "hex",
  "serde",
  "serde_json",

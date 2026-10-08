@@ -221,6 +221,32 @@ mod tests {
     }
 
     #[test]
+    fn every_short_chunk_is_canonical() {
+        // Exhaustive over all 2- and 3-symbol strings: exactly 256 pairs and 65536 triples
+        // decode, and each re-encodes to itself.
+        let mut pairs = 0;
+        let mut triples = 0;
+        for &a in ALPHABET {
+            for &b in ALPHABET {
+                let pair = String::from_utf8(vec![a, b]).unwrap();
+                if let Ok(bytes) = decode(&pair) {
+                    assert_eq!(encode(&bytes), pair);
+                    pairs += 1;
+                }
+                for &c in ALPHABET {
+                    let triple = String::from_utf8(vec![a, b, c]).unwrap();
+                    if let Ok(bytes) = decode(&triple) {
+                        assert_eq!(encode(&bytes), triple);
+                        triples += 1;
+                    }
+                }
+            }
+        }
+        assert_eq!(pairs, 256);
+        assert_eq!(triples, 65_536);
+    }
+
+    #[test]
     fn encoded_len_matches_encode() {
         for len in 0..64 {
             let input = vec![0xA5; len];
