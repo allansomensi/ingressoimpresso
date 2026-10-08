@@ -419,13 +419,30 @@ POST /api/exports/{id}/link    → link de 10 min  GET /api/downloads/{token} (s
 GET /healthz
 ```
 
-Portaria (`Authorization: Bearer <device_secret>`):
+Portaria, fase 4. O organizador gerencia os links pelo painel (sessão Bearer):
 
 ```
-POST   /api/door/register      { access_token, device_name } → { device_id, device_secret, event }
-GET    /api/door/manifest?since=<cursor> → { event, keys[], voids[], assignments[], scans[], cursor, server_time }
-POST   /api/door/scans         { scans: [...], confirm?: bool } → { results: [{ id, server_class, first_entry? }] }
+GET  /api/events/{id}/door                 → { accesses[], devices[], entryCount }
+POST /api/events/{id}/door/accesses        { label } → { access, token }   (token mostrado uma vez)
+POST /api/door-accesses/{id}/revoke        POST /api/door-devices/{id}/revoke
 ```
+
+Os celulares usam `Authorization: Bearer <deviceSecret>`:
+
+```
+POST /api/door/register        { accessToken, deviceName } → { deviceId, deviceName, deviceSecret, event }
+GET  /api/door/manifest?since=<cursor>
+     → { event, verifier { eventId, eventTag, keys[] }, voids[], sellers[], entries[], cursor, serverTimeMs }
+POST /api/door/scans           { scans: [{ id, number?, keyId?, outcome, scannedAtMs }], confirm? }
+     → { results: [{ id, class?, firstEntry?, voidReason? }] }
+```
+
+- `verifier` e `voids` têm o formato que o `DoorCore` recebe.
+- `entries` traz as leituras aceitas de todos os celulares desde o cursor.
+- O cursor é um id de transação: só saem linhas abaixo do `xmin` do snapshot. Uma transação de
+  escrita longa no banco segura a sincronização até terminar.
+- `confirm` classifica uma leitura só, enquanto o celular espera. A classificação é a primeira
+  inserção em `entries`, com a mesma precedência da portaria: cancelado > já entrou > entra.
 
 Os DTOs são structs Rust com `#[derive(TS)]` (`ts-rs`), e os tipos TS são gerados em
 `packages/api-types`. Um teste do CI falha se os tipos gerados estiverem desatualizados.
