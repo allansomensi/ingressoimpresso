@@ -20,20 +20,22 @@ fmt-check:
     cargo fmt --all -- --check
 
 clippy:
-    cargo clippy --workspace --all-targets --all-features -- -D warnings
-    cargo clippy -p ticket-wasm --target {{wasm_target}} -- -D warnings
+    cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
+    cargo clippy --locked -p ticket-wasm --target {{wasm_target}} -- -D warnings
 
-# Also regenerates the ts-rs bindings (feature `ts`).
+# Also regenerates the ts-rs bindings (feature `ts`); deleting them first exposes orphans
+# (a removed or renamed DTO) as a diff in `generated-check`.
 test-rust:
-    cargo test --workspace --all-features
+    rm -f packages/ticket-core-wasm/src/generated/*.ts
+    cargo test --locked --workspace --all-features
 
 # Regenerates the shared test vectors. Only for an intentional format/spec change: review the diff.
 vectors:
-    cargo run -q -p ii-cli -- vectors generate --out testdata/vectors/ticket-v1.json
+    cargo run --locked -q -p ii-cli -- vectors generate --out testdata/vectors/ticket-v1.json
 
 # Fails if generated files (TS bindings, vectors) are not committed up to date.
 generated-check:
-    cargo run -q -p ii-cli -- vectors check --path testdata/vectors/ticket-v1.json
+    cargo run --locked -q -p ii-cli -- vectors check --path testdata/vectors/ticket-v1.json
     git diff --exit-code -- packages/ticket-core-wasm/src/generated testdata/vectors
     untracked="$(git ls-files --others --exclude-standard -- packages/ticket-core-wasm/src/generated)"; \
         if [ -n "$untracked" ]; then echo "untracked generated files:"; echo "$untracked"; exit 1; fi
@@ -42,7 +44,7 @@ generated-check:
 
 # Builds ticket-wasm and generates the JS glue into packages/ticket-core-wasm/pkg.
 wasm:
-    cargo build -p ticket-wasm --target {{wasm_target}} --profile release-wasm
+    cargo build --locked -p ticket-wasm --target {{wasm_target}} --profile release-wasm
     wasm-bindgen --target web --out-dir {{wasm_out}} --out-name ticket_core \
         target/{{wasm_target}}/release-wasm/ticket_wasm.wasm
     @ls -l {{wasm_out}}/ticket_core_bg.wasm | awk '{print "ticket_core_bg.wasm: " $5 " bytes"}'

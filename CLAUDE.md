@@ -51,7 +51,7 @@ Planejados: `crates/render` (fase 2), `crates/server` (fase 3), `packages/api-ty
 Pré-requisitos:
 
 - `rustup`: a toolchain fixa vem de `rust-toolchain.toml`;
-- Node ≥ 22.12 e pnpm 10, via `packageManager`;
+- Node ≥ 22.13 e pnpm 10, via `packageManager`;
 - `just`;
 - `wasm-bindgen-cli` **0.2.129**, igual à crate `wasm-bindgen`
   (`cargo install wasm-bindgen-cli --version 0.2.129 --locked`).
