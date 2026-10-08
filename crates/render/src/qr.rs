@@ -93,6 +93,8 @@ mod tests {
             assert_eq!(version(&text), Ok(5));
         }
         assert_eq!(version(&"A".repeat(ticket_core::QR_TEXT_LEN)), Ok(5));
+        // Previews must look like the real thing.
+        assert_eq!(version(&crate::sample_qr_text()), Ok(5));
     }
 
     #[test]

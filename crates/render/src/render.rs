@@ -200,9 +200,13 @@ pub struct TicketImage {
 }
 
 /// A QR text that looks like a real ticket (same length and QR size) but is always rejected at
-/// the door as malformed: its version byte is 0x00.
+/// the door as malformed: its version byte is 0x00. The 0xFF filler encodes to letters, so
+/// the QR uses the alphanumeric mode and version 5 like a real ticket (all zeros would encode
+/// to digits only, a smaller version 4 code).
 pub fn sample_qr_text() -> String {
-    base45::encode(&[0u8; PAYLOAD_LEN])
+    let mut payload = [0xFF; PAYLOAD_LEN];
+    payload[0] = 0x00;
+    base45::encode(&payload)
 }
 
 /// A4 sheets for home printing (tickets edge to edge, cut marks in the margins).
