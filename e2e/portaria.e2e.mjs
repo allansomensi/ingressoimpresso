@@ -53,7 +53,8 @@ async function login() {
   await api("/api/auth/code", { body: { email: EMAIL } });
   const code = await until("login code", () => {
     const log = readFileSync(API_LOG, "utf8").slice(before);
-    return /development mailer[^\n]*?(\d{6})/.exec(log)?.[1];
+    // The code is the only 6-digit number of the subject ("Seu código de acesso: 123456").
+    return /development mailer[^\n]*?subject\S*?=\S*?[^\d\n]*(\d{6})/.exec(log)?.[1];
   });
   return (await api("/api/auth/verify", { body: { email: EMAIL, code } })).token;
 }
@@ -217,6 +218,28 @@ result = await readOnce(e, "e");
 assert.equal(result.tone, "bad", result.text);
 assert.match(result.text, /JÁ ENTROU[\s\S]*por Porta C/);
 console.log("ok: entries converge after sync");
+
+// 5. The painel report shows the door's work per seller (once E has uploaded its rejection).
+await until("E's scan on the server", async () => {
+  const report = await api(`/api/events/${event.id}/report`, { token });
+  return report.totals.blockedCopies === 2;
+});
+const painel = await chromium.launch();
+const organizer = await painel.newPage({ viewport: { width: 1280, height: 900 } });
+await organizer.goto(`${WEB}/entrar`);
+await organizer.evaluate((value) => {
+  window.localStorage.setItem("ingressoimpresso.session", value);
+}, token);
+await organizer.goto(`${WEB}/painel/eventos/${event.id}`);
+await organizer.getByRole("tab", { name: "Relatório" }).click();
+const total = organizer.locator("tr", { hasText: "Total" });
+await total.waitFor({ timeout: TIMEOUT });
+await organizer.screenshot({ path: join(OUT, "report.png"), fullPage: true });
+// Tickets, unsold, lost, other voids, sold, entries, offline copies, blocked copies, voided entries.
+const cells = (await total.locator("td").allInnerTexts()).slice(1, 10).map(Number);
+assert.deepEqual(cells, [5, 0, 0, 0, 5, 2, 1, 2, 0]);
+await painel.close();
+console.log("ok: report counts the door");
 
 for (const device of [a, b, c, d, e]) {
   await device.browser.close();

@@ -8,7 +8,9 @@ mkdir -p "$out"
 export ALLOWED_ORIGINS=http://localhost:3000
 export PUBLIC_API_URL=http://localhost:8080
 export NEXT_PUBLIC_API_URL=http://localhost:8080
-export ADMIN_EMAILS=e2e@exemplo.com
+# A fresh address per run: login codes are rate limited per e-mail.
+export E2E_EMAIL="e2e-$(date +%s)@exemplo.com"
+export ADMIN_EMAILS="$E2E_EMAIL"
 export EXPORT_DIR="$out/exports"
 # A throwaway master key: the e2e database holds test events only.
 export TICKET_KEY_ENCRYPTION_KEY=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
