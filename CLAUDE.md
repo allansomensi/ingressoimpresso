@@ -13,7 +13,10 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   compartilhados.
 - **Fase 2 (geração de arquivos): concluída.** Crate `render` (Typst embutido): A4 casa, gráfica com
   sangria, folha de controle e ZIP do WhatsApp; CLI `ii job|render|verify`.
-- **Próxima: fase 3 (API Rust + painel mínimo).**
+- **Fase 3 (API + painel mínimo): concluída.** `crates/server` (Axum + sqlx), painel Next.js com
+  login por código, eventos, ingresso (arte + prévia), lotes, vendedores, cancelamentos e arquivos.
+  Deploy: `render.yaml`, `deploy/api.Dockerfile`, guia em `docs/deploy.md`.
+- **Próxima: fase 4 (portaria PWA offline).**
 
 Plano completo em `docs/arquitetura.md` §12.
 
@@ -33,6 +36,12 @@ crates/render        Typst embutido (pacote `ticket-render`): design versionado,
                      gráfica (sangria/TrimBox), controle, ZIP WhatsApp; templates em templates/*.typ,
                      fontes OFL em fonts/; gera em blocos (ADR 0015)
 crates/cli           binário `ii`: vectors generate|check, job init, render, verify
+crates/server        API (pacote `ingressoimpresso-server`, binário `ingressoimpresso`): Axum 0.8 + sqlx 0.9,
+                     migrações em migrations/ (aplicadas no start), worker de exportação no mesmo
+                     processo (fila = tabela exports), chaves de evento seladas (keys.rs, ADR 0005),
+                     DTOs em api.rs (ts-rs → packages/api-types), testes de integração em tests/
+packages/api-types   tipos TS da API gerados (src/generated + src/index.ts, NÃO editar)
+apps/web             painel em src/app/{entrar,painel}, abas do evento em src/components/event
 packages/ticket-core-wasm  wrapper TS tipado (src/), tipos gerados (src/generated/, NÃO editar),
                      pkg/ gerado por `just wasm` (não versionado), testes Vitest com os vetores
 apps/web             Next.js 16 (Vercel): landing; painel e portaria nas fases 3–4
@@ -40,13 +49,13 @@ testdata/vectors     ticket-v1.json: vetores compartilhados Rust ↔ WASM (gerad
 deploy/              compose.dev.yaml (Postgres local)
 ```
 
-Planejados: `crates/server` (fase 3), `packages/api-types` (fase 3).
 
 ## Infraestrutura (ADRs 0009, 0013)
 
 - **Frontend:** Next.js na Vercel, com pnpm. O deploy é pré-compilado pelo GitHub Actions, porque
   o build da Vercel não tem Rust.
-- **API:** Rust no Render, região Virginia.
+- **API:** Rust no Render, região Virginia. Sessão do painel por token Bearer + CORS (ADR 0016),
+  porque `vercel.app` e `onrender.com` são sites diferentes; downloads por link temporário.
 - **Banco:** Neon `aws-us-east-1`. Precisa ficar junto da API, não do usuário.
 - **E-mail:** Resend.
 - **Pagamento:** o MVP não cobra; Pix entra na fase 6.
@@ -69,7 +78,10 @@ just test-rust  # testes Rust (--all-features; também regenera os tipos TS via 
 just vectors    # regenera testdata/vectors/ticket-v1.json: só em mudança intencional, revise o diff
 just wasm       # compila o ticket-wasm e gera packages/ticket-core-wasm/pkg
 just js-check   # typecheck + lint + Vitest + build do web (exige `just wasm` antes)
-just db-up      # Postgres local (docker compose)
+just db-up      # Postgres local (docker compose); copie .env.example para .env
+just db-migrate # aplica as migrações em DATABASE_URL
+just db-prepare # atualiza o cache offline .sqlx (obrigatório ao mudar queries; o CI e o Docker usam)
+just api-types-index  # reexporta os tipos gerados em packages/api-types/src/index.ts
 
 # Testar a impressão sem a API (só para testes locais; a semente é uma chave privada):
 cargo run -p ii-cli -- job init --name "Meu Show"            # cria job.json + event.seed (0600)
@@ -117,8 +129,13 @@ just web-dev    # next dev
   - erros com `thiserror` nas bibliotecas e `anyhow` só em binários;
   - no perfil dev, as dependências compilam com `opt-level = 3`, para os testes de propriedade
     de Ed25519 rodarem em cerca de 1 s.
-- **sqlx (fase 3):** queries verificadas em compilação, com `.sqlx/` versionado. Migrações em
-  `crates/server/migrations`, só de avanço.
+- **sqlx:** queries com macros (`query!`/`query_as!`) verificadas em compilação; `.sqlx/` versionado
+  (`just db-prepare`), CI e Docker compilam com `SQLX_OFFLINE=true`. Migrações em
+  `crates/server/migrations`, só de avanço. Faixas são `int4range` canônicos `[a, b)`; use
+  `routes::range`/`routes::bounds`.
+- **API:** erros JSON `{"error": {"code", "message"}}`; o `code` é estável e o painel o traduz em
+  `texts.errors`. Recursos de outra organização respondem 404 (`authorize_event`). Só o worker
+  (`jobs.rs`) dessela chaves e assina, e só ingressos de lotes `paid` não cancelados.
 - **TypeScript:**
   - TS 6.0 (o `typescript-eslint` ainda não suporta a 7);
   - `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes` e

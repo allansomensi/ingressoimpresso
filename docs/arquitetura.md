@@ -398,18 +398,22 @@ O relatório tem ainda uma linha para os números não atribuídos e totais gera
 
 ## 8. API (esboço)
 
-Organizador (cookie de sessão host-only em `api.ingressoimpresso.com.br`, `SameSite=Lax`, CORS restrito à origem do site):
+Organizador (token Bearer no cabeçalho `Authorization`, CORS restrito às origens do site; ADR 0016).
+Rotas implementadas na fase 3:
 
 ```
-POST   /api/auth/code                 POST /api/auth/verify          POST /api/auth/logout   GET /api/me
-GET    /api/events                    POST /api/events               GET|PATCH /api/events/{id}
-POST   /api/events/{id}/art           PUT  /api/events/{id}/design   GET /api/events/{id}/design/preview.png
-POST   /api/events/{id}/batches       POST /api/admin/batches/{id}/mark-paid          (MVP, só admin)
-POST   /api/events/{id}/sellers       POST /api/events/{id}/assignments
-POST   /api/events/{id}/voids         POST /api/voids/{id}/undo
-POST   /api/events/{id}/exports       GET  /api/jobs/{id}            GET /api/exports/{id}/download
-GET    /api/events/{id}/report
-POST   /api/events/{id}/door-accesses DELETE /api/door-accesses/{id} GET|DELETE /api/events/{id}/devices[/{id}]
+POST /api/auth/code            POST /api/auth/verify          POST /api/auth/logout      GET /api/me
+GET|POST /api/events           GET|PUT /api/events/{id}
+GET|PUT /api/events/{id}/design                POST /api/events/{id}/design/preview (PNG, amostras)
+POST /api/events/{id}/art      (PNG/JPEG cru, até 20 MB)
+GET|POST /api/events/{id}/batches              POST /api/batches/{id}/cancel
+POST /api/admin/batches/{id}/mark-paid         (MVP, ADMIN_EMAILS)
+GET|POST /api/events/{id}/sellers              PUT|DELETE /api/sellers/{id}
+POST /api/sellers/{id}/ranges  DELETE /api/ranges/{id}
+GET|POST /api/events/{id}/voids                POST /api/voids/{id}/undo
+GET|POST /api/events/{id}/exports              GET /api/exports/{id}
+POST /api/exports/{id}/link    → link de 10 min  GET /api/downloads/{token} (sem login)
+GET /healthz
 ```
 
 Portaria (`Authorization: Bearer <device_secret>`):
