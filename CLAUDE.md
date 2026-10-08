@@ -21,7 +21,11 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   offline (DoorCore + zxing-wasm + IndexedDB + service worker) e teste ponta a ponta com câmeras
   falsas (`just e2e`, também no CI). Falta o ensaio com celulares reais (Android + iPhone) em modo
   avião, que é o critério de pronto da fase.
-- **Próxima: fase 5 (relatório por vendedor + produção).**
+- **Fase 5 (relatório + produção): código pronto.** Relatório por vendedor (API + aba com CSV),
+  deploy do web pelo Actions, backup semanal cifrado (`backup.yml`) com teste de restauração
+  (`just backup-restore-test`). Falta o que depende do mantenedor: secrets da Vercel e do backup,
+  deploy no `main` e o ensaio geral (`docs/ensaio.md`), que é o critério de pronto.
+- **Depois do MVP: fase 6 (Pix).**
 
 Plano completo em `docs/arquitetura.md` §12.
 
@@ -54,7 +58,8 @@ packages/ticket-core-wasm  wrapper TS tipado (src/), tipos gerados (src/generate
                      pkg/ gerado por `just wasm` (não versionado), testes Vitest com os vetores
 apps/web             Next.js 16 (Vercel): landing; painel e portaria nas fases 3–4
 testdata/vectors     ticket-v1.json: vetores compartilhados Rust ↔ WASM (gerados, NÃO editar)
-deploy/              compose.dev.yaml (Postgres local)
+deploy/              compose.dev.yaml (Postgres local), api.Dockerfile, restore-test.sh
+docs/deploy.md       Neon, Resend, Render, Vercel (Actions), backup; docs/ensaio.md: ensaio geral
 ```
 
 
@@ -99,6 +104,7 @@ cargo run -p ii-cli -- render --job job.json                    # sem --seed: AM
 cargo run -p ii-cli -- verify --job job.json --seed event.seed "<texto lido do QR>"
 just web-dev    # next dev
 just e2e        # portaria ponta a ponta: API + next start + Playwright (exige Postgres e `just wasm`)
+just backup-restore-test <dump.age> <chave-age>   # restaura um backup num banco VAZIO (RESTORE_DATABASE_URL)
 ```
 
 ## Invariantes que não podem ser quebrados

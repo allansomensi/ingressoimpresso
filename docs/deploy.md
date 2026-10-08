@@ -90,6 +90,42 @@ compila e publica é o GitHub Actions (workflow **Deploy web**, ADR 0009). O
    abra a página de novo, e leia outro ingresso. Ao voltar o sinal, a leitura sincroniza e aparece
    nos outros celulares.
 
+## 6. Backup (ADR 0013)
+
+O Neon guarda o histórico para restaurar a um ponto no tempo. Além disso, o workflow **Backup**
+gera todo domingo um `pg_dump` cifrado com [age](https://age-encryption.org), guardado por 35 dias
+como artefato do GitHub. A chave mestra (`TICKET_KEY_ENCRYPTION_KEY`) nunca entra no backup.
+
+1. No seu computador, crie o par de chaves do backup:
+
+   ```sh
+   age-keygen -o backup-key.txt
+   ```
+
+   O arquivo é a chave **privada**: guarde-o no gerenciador de senhas e apague a cópia solta. A
+   linha `# public key: age1...` é a chave pública.
+2. No GitHub, em **Settings → Secrets and variables → Actions**, crie:
+   - `BACKUP_AGE_RECIPIENT`: a chave pública `age1...`;
+   - `BACKUP_DATABASE_URL`: a string **direta** do Neon. Um papel só de leitura basta (Neon →
+     **Roles → New role**, depois `grant pg_read_all_data to <papel>` no SQL Editor).
+3. Rode uma vez à mão: **Actions → Backup → Run workflow**. O artefato `database-backup` aparece no
+   resumo da execução.
+
+**Teste de restauração (uma vez por mês):**
+
+1. Baixe o artefato `database-backup` e descompacte o `.zip` (dentro está o `.dump.age`).
+2. Crie um banco **vazio**: localmente, `just db-up` e
+   `docker compose -f deploy/compose.dev.yaml exec postgres createdb -U ingressoimpresso restore_test`;
+   ou, no Neon, um branch com um banco novo em **Databases → New database**.
+3. Restaure e confira as contagens com o painel:
+
+   ```sh
+   RESTORE_DATABASE_URL=postgres://ingressoimpresso:ingressoimpresso@127.0.0.1:5432/restore_test \
+     just backup-restore-test ingressoimpresso-AAAAMMDD.dump.age backup-key.txt
+   ```
+
+   O script se recusa a restaurar num banco que já tenha tabelas.
+
 ## Observações
 
 - O disco do Render é efêmero: arquivos gerados somem num novo deploy ou reinício. O painel
