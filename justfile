@@ -89,3 +89,8 @@ db-down:
 
 web-dev:
     pnpm --filter @ingressoimpresso/web run dev
+
+# Door end-to-end test (5 fake-camera phones): needs Postgres at DATABASE_URL, `just wasm` and the
+# Playwright Chromium (`pnpm exec playwright install chromium` outside this dev container).
+e2e:
+    ./e2e/run.sh

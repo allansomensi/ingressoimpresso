@@ -10,5 +10,8 @@
     "lint": "pnpm -r run lint",
     "test": "pnpm -r run test",
     "build": "pnpm -r run build"
+  },
+  "devDependencies": {
+    "playwright": "1.56.1"
   }
 }

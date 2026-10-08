@@ -62,3 +62,18 @@ jobs:
 
       - name: just check
         run: just check
+
+      # Phase 4 criterion: phones decide offline, then sync and converge (e2e/portaria.e2e.mjs).
+      - name: Playwright Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Door end-to-end test
+        run: just e2e
+
+      - name: Door e2e screenshots and logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: door-e2e
+          path: target/e2e/
+          if-no-files-found: ignore
