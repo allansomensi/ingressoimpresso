@@ -11,7 +11,7 @@
 mod common;
 
 use axum::http::{Method, StatusCode};
-use common::door::{AT, create_link, manifest, numbers, register, scan, upload};
+use common::door::{AT, create_link, manifest, register, scan, sync_entries, upload};
 use common::{ADMIN, TestApp};
 use serde_json::{Value, json};
 use sqlx::PgPool;
@@ -239,10 +239,10 @@ async fn scans_are_classified_once_across_phones(pool: PgPool) {
     );
     assert_eq!(batch["results"][0]["voidReason"], "lost");
 
-    // Every admitted scan reaches every phone once, through the cursor.
-    let synced = manifest(&app, &door_a, Some(&cursor)).await;
+    // Every admitted scan reaches every phone exactly once, through the cursor.
+    let (entries, _) = sync_entries(&app, &door_a, &cursor, 4).await;
     assert_eq!(
-        numbers(&synced),
+        entries,
         [
             (1, "Porta A".to_owned()),
             (1, "Porta B".to_owned()),
@@ -250,8 +250,6 @@ async fn scans_are_classified_once_across_phones(pool: PgPool) {
             (5, "Porta B".to_owned()),
         ]
     );
-    let again = manifest(&app, &door_a, synced["cursor"].as_str()).await;
-    assert!(again["entries"].as_array().unwrap().is_empty());
 
     let overview = app
         .get(&format!("/api/events/{event}/door"), &token)

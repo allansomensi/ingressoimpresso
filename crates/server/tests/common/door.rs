@@ -109,3 +109,29 @@ pub fn numbers(manifest: &Value) -> Vec<(u64, String)> {
     entries.sort();
     entries
 }
+
+/// Follows the cursor until `expected` entries arrived, then checks nothing more comes.
+///
+/// Transaction ids are shared by the whole cluster: a write transaction of a test running in
+/// parallel holds the cursor back for a moment, and its rows arrive on a later call.
+pub async fn sync_entries(
+    app: &TestApp,
+    phone: &Phone,
+    cursor: &str,
+    expected: usize,
+) -> (Vec<(u64, String)>, String) {
+    let mut cursor = cursor.to_owned();
+    let mut entries = Vec::new();
+    for _ in 0..100 {
+        let page = manifest(app, phone, Some(&cursor)).await;
+        entries.extend(numbers(&page));
+        cursor = page["cursor"].as_str().unwrap().to_owned();
+        if entries.len() >= expected {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    }
+    entries.sort();
+    assert_eq!(entries.len(), expected, "{entries:?}");
+    (entries, cursor)
+}

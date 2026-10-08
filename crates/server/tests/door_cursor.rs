@@ -13,7 +13,7 @@
 mod common;
 
 use common::TestApp;
-use common::door::{create_link, manifest, numbers, register, scan, upload};
+use common::door::{create_link, manifest, register, scan, sync_entries, upload};
 use sqlx::PgPool;
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
@@ -60,9 +60,6 @@ async fn cursor_never_skips_a_late_commit(pool: PgPool) {
     assert!(held["entries"].as_array().unwrap().is_empty());
     slow.commit().await.unwrap();
     // ...and both arrive once it commits.
-    let both = manifest(&app, &door, held["cursor"].as_str()).await;
-    assert_eq!(
-        numbers(&both),
-        [(7, "Porta".to_owned()), (8, "Porta".to_owned())]
-    );
+    let (both, _) = sync_entries(&app, &door, held["cursor"].as_str().unwrap(), 2).await;
+    assert_eq!(both, [(7, "Porta".to_owned()), (8, "Porta".to_owned())]);
 }
