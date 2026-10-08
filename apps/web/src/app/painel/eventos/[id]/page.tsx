@@ -8,6 +8,7 @@ import { useState } from "react";
 
 import { BatchesTab } from "@/components/event/batches";
 import { DesignTab } from "@/components/event/design";
+import { DoorTab } from "@/components/event/door";
 import { FilesTab } from "@/components/event/files";
 import { SellersTab } from "@/components/event/sellers";
 import { VoidsTab } from "@/components/event/voids";
@@ -15,7 +16,7 @@ import { ErrorMessage } from "@/components/ui";
 import { api } from "@/lib/api";
 import { texts } from "@/texts/pt-BR";
 
-const TABS = ["design", "batches", "sellers", "voids", "files"] as const;
+const TABS = ["design", "batches", "sellers", "voids", "files", "door"] as const;
 type Tab = (typeof TABS)[number];
 
 export default function EventPage() {
@@ -57,6 +58,7 @@ export default function EventPage() {
       {tab === "sellers" && <SellersTab eventId={eventId} />}
       {tab === "voids" && <VoidsTab eventId={eventId} />}
       {tab === "files" && <FilesTab eventId={eventId} />}
+      {tab === "door" && <DoorTab eventId={eventId} />}
     </main>
   );
 }
