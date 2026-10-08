@@ -830,6 +830,107 @@ mod tests {
     }
 
     #[test]
+    fn stub_and_number_stay_inside_their_boxes() {
+        let mut job = signed_job(1);
+        job.event_name = "Festa Junina da Escola Estadual Professora Maria Aparecida de Souza e Silva, edição de 2026"
+            .to_owned();
+        let design = &mut job.design;
+        design.width_mm = 40.0;
+        design.height_mm = 46.0;
+        design.background_color = "#000000".to_owned();
+        design.qr = crate::QrPlacement {
+            x_mm: 17.0,
+            y_mm: 2.0,
+            size_mm: 22.0,
+        };
+        design.number.x_mm = 1.0;
+        design.number.y_mm = 30.0;
+        design.number.width_mm = 15.0;
+        design.number.height_mm = 12.0;
+        design.number.size_pt = 300.0;
+        design.number.color = "#ffffff".to_owned();
+        design.number.prefix = "Ingresso nº ".to_owned();
+        design.number.digits = 10;
+        design.stub = Some(crate::StubStyle {
+            side: crate::StubSide::Right,
+            width_mm: 20.0,
+            fields: vec!["Nome completo do comprad".to_owned(); 4],
+        });
+        assert_eq!(design.validate(), Ok(()));
+        assert_eq!(design.stub_min_height_mm(), Some(45.5));
+
+        let data = TemplateData {
+            print: Some(PrintData {
+                slug_mm: SLUG_MM,
+                crop_marks: false,
+            }),
+            ..TemplateData::new(&job, &job.tickets)
+        };
+        let document = compile(PRINT_TEMPLATE, &data, &job, &job.tickets).unwrap();
+        let px_per_mm = 20.0;
+        let pixmap = typst_render::render(
+            &document.pages()[0],
+            &RenderOptions {
+                pixel_per_pt: Scalar::new(px_per_mm * 25.4 / 72.0),
+                render_bleed: true,
+            },
+        );
+        let image =
+            image::RgbaImage::from_raw(pixmap.width(), pixmap.height(), pixmap.data().to_vec())
+                .unwrap();
+        // Trim coordinates in mm; the raster starts 3 mm outside the trim.
+        let pixel = |x: f64, y: f64| {
+            let p = image.get_pixel(
+                ((x + 3.0) * px_per_mm) as u32,
+                ((y + 3.0) * px_per_mm) as u32,
+            );
+            [p[0], p[1], p[2]]
+        };
+        let area = |x0: f64, y0: f64, x1: f64, y1: f64| {
+            let mut points = Vec::new();
+            let mut y = y0;
+            while y < y1 {
+                let mut x = x0;
+                while x < x1 {
+                    points.push((x, y));
+                    x += 0.1;
+                }
+                y += 0.1;
+            }
+            points
+        };
+        // The stub's bleed (above, below and outside) stays white: no art, no overflow.
+        for (x, y) in area(40.3, -3.0, 63.0, -0.3)
+            .into_iter()
+            .chain(area(40.3, 46.3, 63.0, 49.0))
+            .chain(area(60.3, -3.0, 63.0, 49.0))
+        {
+            assert_eq!(
+                pixel(x, y),
+                [255, 255, 255],
+                "stub bleed at {x:.1}, {y:.1} mm"
+            );
+        }
+        // Below the last field's line, the stub is empty: all four fields fit.
+        for (x, y) in area(40.5, 44.0, 59.5, 45.8) {
+            assert_eq!(
+                pixel(x, y),
+                [255, 255, 255],
+                "stub bottom at {x:.1}, {y:.1} mm"
+            );
+        }
+        // Around the number box and the QR, the body is untouched black.
+        let inside = |x: f64, y: f64, (bx, by, bw, bh): (f64, f64, f64, f64)| {
+            x > bx - 0.3 && x < bx + bw + 0.3 && y > by - 0.3 && y < by + bh + 0.3
+        };
+        for (x, y) in area(0.3, 0.3, 39.7, 45.7) {
+            if !inside(x, y, (1.0, 30.0, 15.0, 12.0)) && !inside(x, y, (17.0, 2.0, 22.0, 22.0)) {
+                assert_eq!(pixel(x, y), [0, 0, 0], "body at {x:.1}, {y:.1} mm");
+            }
+        }
+    }
+
+    #[test]
     fn chunked_home_pdf_keeps_whole_sheets() {
         // 5 tickets per sheet; a 2-ticket chunk is rounded up to one whole sheet.
         let job = signed_job(12);

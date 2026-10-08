@@ -22,6 +22,10 @@ const MAX_DIGITS: u8 = 10;
 const MAX_PREFIX_CHARS: usize = 12;
 const MAX_STUB_FIELDS: usize = 4;
 const MAX_STUB_FIELD_CHARS: usize = 24;
+/// Stub height without fields: insets, number line and two lines of event name (ticket.typ).
+const STUB_BASE_HEIGHT_MM: f64 = 15.1;
+/// Height of each stub field: gap, label and room to write by hand above the line.
+const STUB_FIELD_HEIGHT_MM: f64 = 7.6;
 
 /// A ticket design.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -234,6 +238,12 @@ pub enum DesignIssue {
         /// Maximum characters per field.
         max_chars: usize,
     },
+    /// The ticket is too short for the stub's fields.
+    #[error("a stub with these fields needs a ticket at least {min_height_mm} mm tall")]
+    StubTooShort {
+        /// Minimum ticket height for the current number of fields.
+        min_height_mm: f64,
+    },
 }
 
 impl TicketDesign {
@@ -277,6 +287,17 @@ impl TicketDesign {
     /// Total trim width: body plus stub.
     pub fn total_width_mm(&self) -> f64 {
         self.width_mm + self.stub_width_mm()
+    }
+
+    /// Smallest ticket height that leaves room to write in every stub field, or `None`
+    /// without a stub.
+    pub fn stub_min_height_mm(&self) -> Option<f64> {
+        #[expect(clippy::cast_precision_loss, reason = "at most a handful of fields")]
+        self.stub.as_ref().map(|stub| {
+            let height = STUB_BASE_HEIGHT_MM + STUB_FIELD_HEIGHT_MM * stub.fields.len() as f64;
+            // Whole tenths of a millimetre, as shown in the editor.
+            (height * 10.0).round() / 10.0
+        })
     }
 
     /// The label printed for `number`, e.g. `"Nº 0042"`.
@@ -327,6 +348,11 @@ impl TicketDesign {
                     max_fields: MAX_STUB_FIELDS,
                     max_chars: MAX_STUB_FIELD_CHARS,
                 });
+            }
+            if let Some(min_height_mm) = self.stub_min_height_mm()
+                && self.height_mm < min_height_mm
+            {
+                issues.push(DesignIssue::StubTooShort { min_height_mm });
             }
         }
         if issues.is_empty() {
@@ -462,6 +488,24 @@ mod tests {
             fields: vec!["a".to_owned(); 5],
         });
         assert_eq!(design.validate().unwrap_err().len(), 2);
+    }
+
+    #[test]
+    fn stub_fields_need_height() {
+        let mut design = TicketDesign::default_v1();
+        design.height_mm = 30.0;
+        design.qr.y_mm = 1.0;
+        // Two fields need 15.1 + 2 × 7.6 = 30.3 mm.
+        assert_eq!(
+            design.validate(),
+            Err(vec![DesignIssue::StubTooShort {
+                min_height_mm: 30.3
+            }])
+        );
+        if let Some(stub) = design.stub.as_mut() {
+            stub.fields.pop();
+        }
+        assert_eq!(design.validate(), Ok(()));
     }
 
     #[test]

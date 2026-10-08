@@ -98,7 +98,7 @@ export const texts = {
       stubSide: "Lado",
       sides: { left: "Esquerda", right: "Direita" },
       stubWidth: "Largura do canhoto (mm)",
-      stubFields: "Campos do canhoto (um por linha)",
+      stubFields: "Campos do canhoto (um por linha; cada um pede cerca de 8 mm de altura do ingresso)",
       preview: "Pré-visualizar",
       previewing: "Gerando prévia…",
       saved: (version: number) => `Versão ${String(version)} salva.`,
@@ -180,7 +180,8 @@ export const texts = {
     invalid_venue: "Local muito longo.",
     invalid_dates: "O fim precisa ser depois do início.",
     invalid_price: "Preço inválido.",
-    invalid_design: "O ingresso tem medidas inválidas (veja tamanho mínimo do QR e se tudo cabe no ingresso).",
+    invalid_design:
+      "O ingresso tem medidas inválidas (veja o tamanho mínimo do QR, se tudo cabe no ingresso e se ele é alto o bastante para os campos do canhoto).",
     unsupported_art: "A arte precisa ser PNG ou JPEG.",
     art_too_large: "A arte é grande demais (máximo 10.000 px por lado).",
     payload_too_large: "Arquivo grande demais (máximo 20 MB).",

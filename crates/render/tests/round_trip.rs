@@ -277,3 +277,43 @@ fn user_text_is_data_not_code() {
     home_pdf(&job).unwrap();
     control_sheet_pdf(&job).unwrap();
 }
+
+#[test]
+fn sample_watermark_fits_any_shape() {
+    // Portrait, square and wide bodies: the whole "AMOSTRA" stays inside the trim.
+    for (width, height) in [(70.0, 120.0), (60.0, 60.0), (150.0, 55.0), (40.0, 200.0)] {
+        let mut design = TicketDesign::default_v1();
+        design.width_mm = width;
+        design.height_mm = height;
+        design.stub = None;
+        design.number.x_mm = 2.0;
+        design.number.y_mm = 2.0;
+        design.number.width_mm = 30.0;
+        design.number.height_mm = 8.0;
+        design.qr.x_mm = width - 24.0;
+        design.qr.y_mm = height - 24.0;
+        design.qr.size_mm = 22.0;
+        let mut sample = job(&[1], design);
+        sample.art = None;
+        sample.tickets[0].qr = TicketQr::Sample { number: 1 };
+        let images = ticket_images(&sample, 600).unwrap();
+        let image = image::load_from_memory(&images[0].jpeg).unwrap().to_rgb8();
+        let red: Vec<(u32, u32)> = image
+            .enumerate_pixels()
+            .filter(|(_, _, p)| i32::from(p[0]) - i32::from(p[1]) > 60)
+            .map(|(x, y, _)| (x, y))
+            .collect();
+        assert!(!red.is_empty(), "{width}×{height}: no watermark");
+        let margin_x = image.width() / 100;
+        let margin_y = image.height() / 100;
+        for (x, y) in red {
+            assert!(
+                x > margin_x
+                    && x < image.width() - margin_x
+                    && y > margin_y
+                    && y < image.height() - margin_y,
+                "{width}×{height}: watermark cut at {x}, {y}"
+            );
+        }
+    }
+}
