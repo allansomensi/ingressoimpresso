@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select version, spec, art_blob_id from ticket_designs where event_id = $1 order by version desc limit 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "version",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "ticket_designs",
+            "name": "version"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "spec",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "ticket_designs",
+            "name": "spec"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "art_blob_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "ticket_designs",
+            "name": "art_blob_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "63e947395b310db7b5f455e70ad3797ad3bc876d318b1a1cd507d3e6c589962a"
+}

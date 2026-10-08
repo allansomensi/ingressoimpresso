@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update login_codes set attempts = attempts + 1 where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "7e352b441b91538cc8ee723767d1a21075888f47551b264dbc2136c0255e98d8"
+}

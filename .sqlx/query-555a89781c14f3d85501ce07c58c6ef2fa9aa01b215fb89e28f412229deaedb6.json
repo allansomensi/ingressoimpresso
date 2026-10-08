@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select coalesce(sum(upper(numbers * $2) - lower(numbers * $2)), 0)::bigint as \"covered!\"\n           from ticket_batches\n           where event_id = $1 and status <> 'canceled' and numbers && $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "covered!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4Range"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "555a89781c14f3d85501ce07c58c6ef2fa9aa01b215fb89e28f412229deaedb6"
+}

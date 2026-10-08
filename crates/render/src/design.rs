@@ -26,6 +26,11 @@ const MAX_STUB_FIELD_CHARS: usize = 24;
 /// A ticket design.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[cfg_attr(
+    feature = "ts",
+    derive(ts_rs::TS),
+    ts(export, export_to = "api-types/src/generated/")
+)]
 pub struct TicketDesign {
     /// Always [`DESIGN_VERSION`].
     pub version: u8,
@@ -46,6 +51,11 @@ pub struct TicketDesign {
 /// Where and how the ticket number is printed.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[cfg_attr(
+    feature = "ts",
+    derive(ts_rs::TS),
+    ts(export, export_to = "api-types/src/generated/")
+)]
 pub struct NumberStyle {
     /// Box left edge.
     pub x_mm: f64,
@@ -72,6 +82,11 @@ pub struct NumberStyle {
 /// Embedded typefaces.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(
+    feature = "ts",
+    derive(ts_rs::TS),
+    ts(export, export_to = "api-types/src/generated/")
+)]
 pub enum FontChoice {
     /// Bebas Neue: condensed display capitals.
     Display,
@@ -84,6 +99,11 @@ pub enum FontChoice {
 /// Horizontal alignment.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(
+    feature = "ts",
+    derive(ts_rs::TS),
+    ts(export, export_to = "api-types/src/generated/")
+)]
 pub enum TextAlign {
     /// Left.
     Left,
@@ -96,6 +116,11 @@ pub enum TextAlign {
 /// QR square position. The square includes the white quiet zone.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[cfg_attr(
+    feature = "ts",
+    derive(ts_rs::TS),
+    ts(export, export_to = "api-types/src/generated/")
+)]
 pub struct QrPlacement {
     /// Left edge.
     pub x_mm: f64,
@@ -108,6 +133,11 @@ pub struct QrPlacement {
 /// Stub (canhoto) kept by the seller, separated by a perforation.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[cfg_attr(
+    feature = "ts",
+    derive(ts_rs::TS),
+    ts(export, export_to = "api-types/src/generated/")
+)]
 pub struct StubStyle {
     /// Side of the body where the stub is attached.
     pub side: StubSide,
@@ -120,6 +150,11 @@ pub struct StubStyle {
 /// Stub side.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(
+    feature = "ts",
+    derive(ts_rs::TS),
+    ts(export, export_to = "api-types/src/generated/")
+)]
 pub enum StubSide {
     /// Left of the body.
     Left,

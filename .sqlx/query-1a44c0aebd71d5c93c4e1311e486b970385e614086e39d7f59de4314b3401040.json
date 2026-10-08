@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update exports set status = 'done', ticket_count = $2, file_name = $3, byte_size = $4,\n                   error = null, finished_at = now() where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4",
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1a44c0aebd71d5c93c4e1311e486b970385e614086e39d7f59de4314b3401040"
+}

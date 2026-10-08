@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select key_id from event_signing_keys where event_id = $1 and status = 'active'",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "key_id",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "event_signing_keys",
+            "name": "key_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "5af25c8369f0a7161f01e0cd4c660352ab2559e49fb5e56fc68bba05c7467702"
+}

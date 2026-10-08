@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update exports set status = 'failed', error = $2, finished_at = now() where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "10d277bf60e6ba585ff296bd7d1170de4b85069da5de2c2655b3005ceaa1a7b2"
+}

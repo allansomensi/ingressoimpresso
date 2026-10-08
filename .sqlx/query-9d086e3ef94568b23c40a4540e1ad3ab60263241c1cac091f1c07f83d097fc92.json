@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into seller_assignments (id, event_id, seller_id, numbers) values ($1, $2, $3, $4)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Int4Range"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9d086e3ef94568b23c40a4540e1ad3ab60263241c1cac091f1c07f83d097fc92"
+}

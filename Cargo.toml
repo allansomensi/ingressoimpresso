@@ -13,6 +13,22 @@ publish = false
 ticket-core = { path = "crates/ticket-core" }
 ticket-render = { path = "crates/render" }
 
+axum = { version = "0.8.9", features = ["macros"] }
+base64 = "0.23.1"
+chacha20poly1305 = { version = "0.11.0", default-features = false, features = ["alloc", "zeroize"] }
+http-body-util = "0.1.5"
+reqwest = { version = "0.13.5", default-features = false, features = ["rustls-no-provider", "json", "http2"] }
+# Same crypto provider as sqlx (ring): one TLS stack, no extra C build (aws-lc).
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+sqlx = { version = "0.9.0", default-features = false, features = ["runtime-tokio", "tls-rustls-ring-webpki", "postgres", "macros", "migrate", "uuid", "time", "json"] }
+time = { version = "0.3.55", features = ["serde", "formatting", "parsing", "macros"] }
+tokio = { version = "1.53.2", features = ["rt-multi-thread", "macros", "net", "signal", "sync", "time", "fs"] }
+tower = { version = "0.5.3", features = ["util"] }
+tokio-util = { version = "0.7.19", features = ["io"] }
+tower-http = { version = "0.7.1", features = ["cors", "trace", "limit", "timeout", "catch-panic", "request-id"] }
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["json", "env-filter"] }
+
 anyhow = "1.0.104"
 clap = { version = "4.6.7", features = ["derive"] }
 curve25519-dalek = { version = "5.0.0", default-features = false }
@@ -69,7 +85,12 @@ opt-level = "s"
 lto = "fat"
 panic = "abort"
 
-# Optimize dependencies (notably the Ed25519 arithmetic) in dev/test builds; our own crates stay
-# unoptimized for fast incremental compiles. Property tests sign thousands of tickets.
+# Dev/test builds: our crates keep line tables only (backtraces), dependencies are optimized
+# (Ed25519 property tests, Typst) without debug info. Full debug info for Typst & co. made
+# target/ grow past 20 GB.
+[profile.dev]
+debug = "line-tables-only"
+
 [profile.dev.package."*"]
 opt-level = 3
+debug = false

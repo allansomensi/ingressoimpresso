@@ -1,0 +1,49 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select n as \"number!\", b.key_id, s.name as \"seller?\"\n           from ticket_batches b\n           cross join lateral generate_series(lower(b.numbers), upper(b.numbers) - 1) as n\n           left join seller_assignments a on a.event_id = b.event_id and a.numbers @> n\n           left join sellers s on s.id = a.seller_id\n           where b.event_id = $1 and b.status = 'paid'\n             and ($2::uuid is null or b.id = $2)\n             and ($3::uuid is null or a.seller_id = $3)\n             and not exists (\n                 select 1 from ticket_voids v\n                 where v.event_id = b.event_id and v.undone_at is null and v.numbers @> n)\n           order by n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "number!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "key_id",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "ticket_batches",
+            "name": "key_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "seller?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "sellers",
+            "name": "name"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null,
+      false,
+      false
+    ]
+  },
+  "hash": "bbe0d76213d7cfe4e5384f1af59b7e4134af16c0c1835af470af9b15d786a699"
+}

@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select sealed_private_key from event_signing_keys where event_id = $1 and key_id = $2 and status <> 'revoked'",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "sealed_private_key",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "event_signing_keys",
+            "name": "sealed_private_key"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int2"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "395a6ca6a3ac9ab6d3c1bf269b87dda8f0ca36c54e1dc32f93fda54bebe17573"
+}

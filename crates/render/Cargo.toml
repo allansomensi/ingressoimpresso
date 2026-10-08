@@ -7,6 +7,11 @@ rust-version.workspace = true
 license.workspace = true
 publish.workspace = true
 
+[features]
+default = []
+# TypeScript bindings for the design types (used by the painel editor).
+ts = ["dep:ts-rs"]
+
 [dependencies]
 image.workspace = true
 lopdf.workspace = true
@@ -14,6 +19,7 @@ qrcodegen.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
+ts-rs = { workspace = true, optional = true }
 ticket-core.workspace = true
 typst.workspace = true
 typst-layout.workspace = true

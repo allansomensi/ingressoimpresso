@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select e.qr_tag, k.public_key from events e join event_signing_keys k on k.event_id = e.id where e.id = $1 and k.key_id = 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "qr_tag",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "qr_tag"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "public_key",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "event_signing_keys",
+            "name": "public_key"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "119b652be8356457ae53e206f0c38be117957138f31a0b43cd32936d036d7c45"
+}

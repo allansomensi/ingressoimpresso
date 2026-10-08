@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select data from blobs where id = $1 and event_id = $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "data",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "blobs",
+            "name": "data"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "c42e7de7c7d4a92b4750e7cf4c11ed3b67585875399bf4bef59ffd1de8e23e69"
+}

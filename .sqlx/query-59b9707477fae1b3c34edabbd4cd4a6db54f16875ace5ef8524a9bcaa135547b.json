@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update exports set status = 'queued', locked_at = null where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "59b9707477fae1b3c34edabbd4cd4a6db54f16875ace5ef8524a9bcaa135547b"
+}

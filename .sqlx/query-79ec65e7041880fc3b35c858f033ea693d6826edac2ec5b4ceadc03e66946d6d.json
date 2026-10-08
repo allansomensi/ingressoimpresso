@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into event_signing_keys (event_id, key_id, public_key, sealed_private_key, status)\n           values ($1, 1, $2, $3, 'active')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Bytea",
+        "Bytea"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "79ec65e7041880fc3b35c858f033ea693d6826edac2ec5b4ceadc03e66946d6d"
+}

@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select coalesce(max(upper(numbers)), 1) as \"first!\" from ticket_batches\n           where event_id = $1 and status <> 'canceled'",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "first!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "174459c6477ab437b8cc890ab0bf1c03c59dbd47116cf19b001b154da600a911"
+}
