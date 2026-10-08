@@ -7,7 +7,7 @@
 
 use std::collections::HashMap;
 
-use lopdf::{Dictionary, Document, Object, ObjectId};
+use lopdf::{Dictionary, Document, Object, ObjectId, Stream};
 use sha2::{Digest, Sha256};
 
 use crate::render::RenderError;
@@ -54,7 +54,16 @@ impl PdfMerger {
             self.info = part.trailer.get(b"Info").ok().cloned();
         }
 
-        let duplicates = self.duplicates(&part);
+        // Stream contents (the art: megabytes) are hashed once per chunk.
+        let contents: HashMap<ObjectId, [u8; 32]> = part
+            .objects
+            .iter()
+            .filter_map(|(id, object)| {
+                let stream = object.as_stream().ok()?;
+                Some((*id, Sha256::digest(&stream.content).into()))
+            })
+            .collect();
+        let duplicates = self.duplicates(&part, &contents);
         for id in duplicates.keys() {
             part.objects.remove(id);
         }
@@ -77,7 +86,7 @@ impl PdfMerger {
         for (id, object) in &part.objects {
             if shareable(object) {
                 self.shared
-                    .entry(digest(object, &HashMap::new()))
+                    .entry(digest(object, contents.get(id), &HashMap::new()))
                     .or_insert(*id);
             }
         }
@@ -91,7 +100,11 @@ impl PdfMerger {
     ///
     /// Repeated until nothing changes: an object that refers to a duplicate (an image and its
     /// alpha mask) only matches once that reference has been mapped.
-    fn duplicates(&self, part: &Document) -> HashMap<ObjectId, ObjectId> {
+    fn duplicates(
+        &self,
+        part: &Document,
+        contents: &HashMap<ObjectId, [u8; 32]>,
+    ) -> HashMap<ObjectId, ObjectId> {
         let mut map = HashMap::new();
         loop {
             let mut changed = false;
@@ -99,7 +112,7 @@ impl PdfMerger {
                 if map.contains_key(id) || !shareable(object) {
                     continue;
                 }
-                if let Some(&existing) = self.shared.get(&digest(object, &map)) {
+                if let Some(&existing) = self.shared.get(&digest(object, contents.get(id), &map)) {
                     map.insert(*id, existing);
                     changed = true;
                 }
@@ -178,11 +191,30 @@ fn shareable(object: &Object) -> bool {
     }
 }
 
-/// SHA-256 of an object, dictionary keys sorted and references seen through `map`.
-fn digest(object: &Object, map: &HashMap<ObjectId, ObjectId>) -> [u8; 32] {
+/// SHA-256 of an object, dictionary keys sorted and references seen through `map`. A stream
+/// is hashed through the digest of its content, `content` when already known.
+fn digest(
+    object: &Object,
+    content: Option<&[u8; 32]>,
+    map: &HashMap<ObjectId, ObjectId>,
+) -> [u8; 32] {
     let mut hasher = Sha256::new();
-    feed(&mut hasher, object, map);
+    match (object, content) {
+        (Object::Stream(stream), Some(content)) => feed_stream(&mut hasher, stream, content, map),
+        _ => feed(&mut hasher, object, map),
+    }
     hasher.finalize().into()
+}
+
+fn feed_stream(
+    hasher: &mut Sha256,
+    stream: &Stream,
+    content: &[u8; 32],
+    map: &HashMap<ObjectId, ObjectId>,
+) {
+    hasher.update([8]);
+    feed_dictionary(hasher, &stream.dict, map);
+    hasher.update(content);
 }
 
 fn feed_bytes(hasher: &mut Sha256, bytes: &[u8]) {
@@ -232,9 +264,8 @@ fn feed(hasher: &mut Sha256, object: &Object, map: &HashMap<ObjectId, ObjectId>)
             feed_dictionary(hasher, dict, map);
         }
         Object::Stream(stream) => {
-            hasher.update([8]);
-            feed_dictionary(hasher, &stream.dict, map);
-            feed_bytes(hasher, &stream.content);
+            let content: [u8; 32] = Sha256::digest(&stream.content).into();
+            feed_stream(hasher, stream, &content, map);
         }
         Object::Reference(id) => {
             let (number, generation) = map.get(id).copied().unwrap_or(*id);
