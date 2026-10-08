@@ -1,6 +1,6 @@
 # 0011. Modelo de dados baseado em faixas
 
-- **Status:** Proposto
+- **Status:** Aceito
 - **Data:** 2026-10-08
 
 ## Contexto

@@ -1,6 +1,6 @@
 # 0006. Portaria offline-first e sincronização
 
-- **Status:** Proposto
+- **Status:** Aceito
 - **Data:** 2026-10-08
 
 ## Contexto

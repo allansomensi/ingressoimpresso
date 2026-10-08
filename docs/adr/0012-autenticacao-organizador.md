@@ -1,6 +1,6 @@
 # 0012. Login do organizador por código via e-mail
 
-- **Status:** Proposto
+- **Status:** Aceito
 - **Data:** 2026-10-08
 
 ## Contexto
@@ -29,10 +29,11 @@ Opção 3.
   código e rate limit por e-mail e por IP.
 - **Sessão:** guardada no servidor (`sessions`, com hash do token), em cookie `HttpOnly; Secure;
   SameSite=Lax`, válida por 30 dias e renovada com o uso.
-- **Envio:** SMTP via `lettre`, com provedor intercambiável por configuração. Em desenvolvimento, o
-  código aparece no log.
+- **Envio:** **Resend** (escolha do mantenedor), pela API HTTP (`reqwest`), atrás de uma trait
+  `Mailer`. Em desenvolvimento e nos testes, uma implementação que escreve o código no log. Trocar
+  de provedor é implementar a trait. O domínio precisa dos registros SPF/DKIM do Resend.
 
 ## Consequências
 
-- Um serviço externo (SMTP) passa a ser necessário a partir da fase 3.
+- Um serviço externo (Resend) passa a ser necessário a partir da fase 3.
 - Login com Google ou WhatsApp pode ser acrescentado depois, sem mudar o modelo de sessão.

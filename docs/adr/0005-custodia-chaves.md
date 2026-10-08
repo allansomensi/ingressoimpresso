@@ -1,6 +1,6 @@
 # 0005. Custódia das chaves privadas
 
-- **Status:** Proposto
+- **Status:** Aceito
 - **Data:** 2026-10-08
 
 ## Contexto
@@ -28,8 +28,8 @@ Opção 3.
 - **Geração:** chave de 32 bytes do `OsRng` na criação do evento ou na rotação.
 - **Cifra:** XChaCha20-Poly1305 (`chacha20poly1305`) com nonce aleatório de 24 bytes e
   `AAD = event_id || key_id`, para que a chave cifrada não possa ser trocada de linha.
-- **Chave mestra:** em `TICKET_KEY_ENCRYPTION_KEY` (base64, 32 bytes), lida de um arquivo de
-  segredo do Docker. Nunca vai para o banco nem para os logs. O tipo Rust que a carrega implementa
+- **Chave mestra:** em `TICKET_KEY_ENCRYPTION_KEY` (base64, 32 bytes), variável de ambiente
+  secreta do Render (ADR 0013). Nunca vai para o banco nem para os logs. O tipo Rust que a carrega implementa
   `Zeroize` e um `Debug` que omite o conteúdo.
 - **Backup:** a chave mestra tem cópia no gerenciador de senhas, **separada** do backup do banco.
 

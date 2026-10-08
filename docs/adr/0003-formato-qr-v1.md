@@ -1,6 +1,6 @@
 # 0003. Formato do QR v1: binário fixo + base45 alfanumérico
 
-- **Status:** Proposto
+- **Status:** Aceito
 - **Data:** 2026-10-08
 
 ## Contexto

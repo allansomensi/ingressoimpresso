@@ -1,6 +1,6 @@
-# 0001. Monorepo com Cargo + npm workspaces e `just`
+# 0001. Monorepo com Cargo + pnpm workspaces e `just`
 
-- **Status:** Proposto
+- **Status:** Aceito
 - **Data:** 2026-10-08
 
 ## Contexto
@@ -14,10 +14,10 @@ mantido por uma pessoa só, 5 a 10 h por semana.
 1. **Repositórios separados** (backend, frontend, núcleo publicado como crate/pacote npm).
    Versionamento e publicação entre repos custam caro para uma pessoa, e uma mudança de formato
    vira três PRs.
-2. **Monorepo com Cargo workspace + npm workspaces + Turborepo.** Turborepo traz cache de tarefas
+2. **Monorepo com Cargo workspace + pnpm workspaces + Turborepo.** Turborepo traz cache de tarefas
    e grafo de dependências JS, mas só teremos um app JS e um pacote gerado (WASM). O grafo é
    trivial e o cache economiza segundos. É mais uma ferramenta e mais um arquivo de configuração.
-3. **Monorepo com Cargo workspace + npm workspaces + `just`.** Um `justfile` é o ponto de entrada
+3. **Monorepo com Cargo workspace + pnpm workspaces + `just`.** Um `justfile` é o ponto de entrada
    único (`just check`, `just dev`, `just test`, `just vectors`) e orquestra as duas toolchains em
    ordem explícita: WASM → pacote npm → web.
 
@@ -32,5 +32,7 @@ compartilhados) e `docs/`. O `justfile` documenta e executa tudo; o CI chama as 
   desejável.
 - Não há cache de tarefas entre execuções além do que Cargo e Next.js já fazem. Se surgirem vários
   pacotes JS, reavaliar o Turborepo, que é fácil de adicionar depois.
-- Pré-requisitos locais: `rustup`, Node LTS, `just`, `wasm-bindgen-cli` (versão fixa) e Docker,
-  para o Postgres de desenvolvimento.
+- Pré-requisitos locais: `rustup`, Node LTS, pnpm (fixado via `packageManager` + Corepack),
+  `just`, `wasm-bindgen-cli` (versão fixa) e Docker, para o Postgres de desenvolvimento.
+- pnpm foi escolha do mantenedor (2026-10-08): o lockfile é estrito e as dependências não
+  vazam entre pacotes.

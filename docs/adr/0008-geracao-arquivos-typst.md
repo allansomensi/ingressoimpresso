@@ -1,6 +1,6 @@
 # 0008. Geração de arquivos com Typst embutido
 
-- **Status:** Proposto
+- **Status:** Aceito
 - **Data:** 2026-10-08
 
 ## Contexto
@@ -47,8 +47,33 @@ Opção 1, isolada no crate `render`:
   determinísticas), então **não armazenamos arquivos gerados**. Há só um cache em disco com limite
   de tamanho, indexado pelo hash das entradas.
 
+## Impressão em casa e em gráfica
+
+O mantenedor confirmou que cada organizador escolhe o modo de impressão e que **os dois modos são
+cidadãos de primeira classe**. Todas as saídas vêm do mesmo template e da mesma especificação. O
+que muda é a montagem da página:
+
+| Saída | Para quem | Montagem |
+|---|---|---|
+| A4 caseiro | Impressora jato de tinta/laser em casa | N por folha, margem de 5 a 8 mm (área não imprimível), marcas de corte, picote do canhoto |
+| Gráfica | Impressão **digital** (dados variáveis) | 1 por página no tamanho final + 3 mm de sangria, marcas de corte, TrimBox/BleedBox |
+| Folha de controle | Organizador e vendedor | Tabela por vendedor |
+| PNG/ZIP | Envio pelo WhatsApp | 1080 px, sem sangria nem canhoto |
+
+**Limite que precisa ser explicado na interface:** um QR único por ingresso exige impressão
+**digital**. Offset com numeradora não imprime QR variável. Para tiragens grandes, a fase 7 traz
+um modo de **sobreimpressão**: a gráfica imprime só a arte em offset (barato), e o organizador
+imprime número + QR em casa sobre o papel já impresso. A arte precisa ter uma área branca
+reservada para o QR, e o PDF de sobreimpressão vem com marcas de alinhamento.
+
+Na fase 2, o template recebe predefinições de tamanho comuns, e o encaixe no A4 é calculado
+automaticamente para qualquer tamanho.
+
 ## Consequências
 
+- **Memória:** a geração roda numa instância pequena do Render (ADR 0013). O renderizador processa
+  em blocos (por exemplo, 200 ingressos por compilação Typst) e junta os PDFs, para que o uso de
+  memória não cresça com o tamanho do lote.
 - A versão do Typst fica fixa. Atualizações são tarefas planejadas, com testes de snapshot.
 - Um teste de ida e volta (renderizar → rasterizar → decodificar o QR → verificar a assinatura)
   garante que o arquivo impresso seja realmente legível.

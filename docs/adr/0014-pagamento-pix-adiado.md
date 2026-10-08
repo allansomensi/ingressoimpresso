@@ -1,6 +1,6 @@
 # 0014. Pagamento Pix adiado para depois do MVP
 
-- **Status:** Proposto
+- **Status:** Aceito
 - **Data:** 2026-10-08
 
 ## Contexto

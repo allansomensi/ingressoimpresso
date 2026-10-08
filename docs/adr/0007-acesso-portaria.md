@@ -1,6 +1,6 @@
 # 0007. Acesso da portaria sem login
 
-- **Status:** Proposto
+- **Status:** Aceito
 - **Data:** 2026-10-08
 
 ## Contexto

@@ -1,13 +1,15 @@
 # Arquitetura proposta: Ingresso Impresso
 
-> **Status: proposta aguardando aprovação.** Nada aqui está implementado ainda. Cada decisão
-> relevante tem um ADR em [`docs/adr/`](adr/README.md) com as alternativas consideradas.
+> **Status: aprovada em 2026-10-08**, com as decisões do mantenedor: Next.js na Vercel com pnpm,
+> API no Render, Postgres no Neon, e-mail pelo Resend, MVP sem cobrança, impressão em casa e em
+> gráfica. Cada decisão relevante tem um ADR em [`docs/adr/`](adr/README.md) com as alternativas
+> consideradas.
 
 ## 1. Resumo em uma tela
 
 | Tema | Decisão proposta | ADR |
 |---|---|---|
-| Repositório | Monorepo: Cargo workspace + npm workspaces, `just` como ponto de entrada único (sem Turborepo) | [0001](adr/0001-monorepo.md) |
+| Repositório | Monorepo: Cargo workspace + pnpm workspaces, `just` como ponto de entrada único (sem Turborepo) | [0001](adr/0001-monorepo.md) |
 | Núcleo do ingresso | Crate Rust puro `ticket-core` (sem IO), compilado para WASM e usado pelo servidor e pela portaria | [0002](adr/0002-nucleo-rust-wasm.md) |
 | Formato do QR | Binário fixo de 74 bytes → base45 (111 caracteres) → QR alfanumérico versão 5, ECC M | [0003](adr/0003-formato-qr-v1.md) |
 | Assinatura | Ed25519, um par de chaves por evento (com `key_id` para rotação); o celular guarda só a chave pública | [0004](adr/0004-assinatura-ed25519.md) |
@@ -15,11 +17,11 @@
 | Portaria offline | Decisão sempre local e instantânea; log de leituras só-de-acréscimo sincronizado; confirmação online com orçamento de tempo quando há sinal | [0006](adr/0006-portaria-offline-sync.md) |
 | Acesso da portaria | Link com token no fragmento (`#`) → registro do celular como dispositivo revogável | [0007](adr/0007-acesso-portaria.md) |
 | Arquivos | Typst embutido; dados do usuário entram só como dados (nunca como código Typst); arquivos determinísticos regerados sob demanda, sem armazenamento | [0008](adr/0008-geracao-arquivos-typst.md) |
-| Frontend | Next.js com `output: 'export'` (estático) servido pelo próprio binário Axum: sem Node em produção | [0009](adr/0009-frontend-next-export-estatico.md) |
+| Frontend | Next.js na Vercel, sem regra de negócio; fala direto com a API em `api.ingressoimpresso.com.br` (CORS + cookie same-site); deploy pré-compilado pelo GitHub Actions | [0009](adr/0009-frontend-nextjs-vercel.md) |
 | Leitura de QR | `zxing-wasm` em todos os navegadores (o `BarcodeDetector` não existe no Safari do iPhone) | [0010](adr/0010-leitura-qr-navegador.md) |
 | Modelo de dados | Faixas `int4range` com restrições de exclusão; sem tabela com uma linha por ingresso | [0011](adr/0011-modelo-dados-faixas.md) |
-| Login do organizador | Código de 6 dígitos por e-mail (sem senha) | [0012](adr/0012-autenticacao-organizador.md) |
-| Infraestrutura | Uma VPS: Caddy + binário Rust + PostgreSQL via Docker Compose; backup cifrado (restic) em armazenamento de objetos | [0013](adr/0013-infraestrutura.md) |
+| Login do organizador | Código de 6 dígitos por e-mail (sem senha), enviado pelo Resend | [0012](adr/0012-autenticacao-organizador.md) |
+| Infraestrutura | API Docker no Render (Virginia) + Neon (`aws-us-east-1`, junto da API) + Resend; imagem gerada no CI | [0013](adr/0013-infraestrutura-render-neon.md) |
 | Pagamento Pix | Adiado: o MVP não cobra (eu marco o lote como pago); integração com PSP na fase 6 | [0014](adr/0014-pagamento-pix-adiado.md) |
 
 O que muda em relação às suas hipóteses:
@@ -38,19 +40,23 @@ O que muda em relação às suas hipóteses:
     sai em RGB, com sangria e marcas de corte. CMYK/PDF-X ficam para depois.
 - **Contestadas:**
   - **Turborepo:** não se paga com um único app JS.
-  - **Next.js com servidor Node em produção:** a exportação estática elimina um runtime inteiro.
   - **`BarcodeDetector`:** não funciona no iPhone.
   - **Arquivos gerados:** não guardamos; regeramos sob demanda.
+- **Decididas pelo mantenedor depois da proposta:** Vercel + pnpm (a proposta original era export
+  estático servido pelo Axum), Render + Neon (a proposta era uma VPS), Resend e impressão em casa
+  e em gráfica como modos de primeira classe.
 
 ## 2. Visão geral
 
 ```mermaid
 flowchart LR
+  V[Vercel<br/>Next.js: landing, painel, portaria] -. HTML/JS/WASM .-> P
+  V -. HTML/JS/WASM .-> D
   subgraph Navegador do organizador
-    P[Painel<br/>Next.js estático]
+    P[Painel]
   end
   subgraph Celulares da portaria
-    D[PWA da portaria<br/>Next.js estático + Service Worker]
+    D[PWA da portaria<br/>Service Worker]
     W[ticket-core.wasm<br/>verificação + decisão]
     Z[zxing-wasm<br/>leitura do QR]
     I[(IndexedDB<br/>manifesto + log de leituras)]
@@ -58,26 +64,24 @@ flowchart LR
     D --- Z
     D --- I
   end
-  subgraph VPS
-    C[Caddy<br/>TLS]
-    S[Binário Rust<br/>Axum + worker de jobs<br/>+ arquivos estáticos]
+  subgraph Render - Virginia
+    S[Binário Rust<br/>Axum + worker de jobs]
     R[render<br/>Typst embutido]
     K[ticket-core<br/>assinatura]
-    DB[(PostgreSQL)]
-    C --> S
     S --- R
     S --- K
-    S --- DB
   end
-  P -- HTTPS cookie --> C
-  D -- HTTPS token do dispositivo<br/>quando houver sinal --> C
-  S -. backup restic .-> B[(Armazenamento de objetos)]
-  S -. SMTP .-> E[Provedor de e-mail]
+  DB[(Neon Postgres<br/>aws-us-east-1)]
+  S --- DB
+  P -- HTTPS + cookie<br/>api.ingressoimpresso.com.br --> S
+  D -- HTTPS + token do dispositivo<br/>quando houver sinal --> S
+  S -. API HTTP .-> E[Resend]
 ```
 
-Em produção há **um processo** (o binário Rust, que serve a API, os arquivos estáticos e roda o
-worker de jobs), **um banco** e **um proxy TLS**. Os serviços de terceiros ficam em: VPS, domínio,
-SMTP, armazenamento de backup e, na fase 6, o PSP do Pix.
+Em produção há **um processo nosso** (o binário Rust no Render, que serve a API e roda o worker
+de jobs), **um banco gerenciado** (Neon) e o frontend na CDN da Vercel. Os fornecedores são Vercel,
+Render, Neon, Resend e o domínio, mais o PSP do Pix na fase 6. Banco e API ficam na mesma região:
+o banco precisa ficar perto da API, não do usuário (ADR 0013).
 
 ## 3. Estrutura do repositório
 
@@ -85,7 +89,8 @@ SMTP, armazenamento de backup e, na fase 6, o PSP do Pix.
 ingressoimpresso/
 ├── Cargo.toml                 # workspace Rust (lints compartilhados, versões fixas)
 ├── rust-toolchain.toml
-├── package.json               # npm workspaces
+├── package.json               # scripts raiz + packageManager (pnpm)
+├── pnpm-workspace.yaml
 ├── justfile                   # ponto de entrada único: just check, just dev, just test...
 ├── crates/
 │   ├── ticket-core/           # formato do QR, base45, assinatura/verificação, decisão de check-in
@@ -95,13 +100,13 @@ ingressoimpresso/
 │   ├── server/                # Axum + sqlx + migrações + jobs; binário `ingressoimpresso`
 │   └── cli/                   # ferramenta de desenvolvimento/admin: vetores, render local, chaves
 ├── apps/
-│   └── web/                   # Next.js (export estático): landing, painel, portaria (PWA)
+│   └── web/                   # Next.js (Vercel): landing, painel, portaria (PWA)
 ├── packages/
 │   ├── ticket-core-wasm/      # pacote npm gerado a partir de crates/ticket-wasm (build, não versionado)
 │   └── api-types/             # tipos TS gerados dos DTOs Rust (ts-rs), versionados
 ├── testdata/
 │   └── vectors/ticket-v1.json # vetores de teste compartilhados Rust ↔ WASM/TS
-├── deploy/                    # Dockerfile, compose.yaml, Caddyfile, backup
+├── deploy/                    # Dockerfile da API, compose de desenvolvimento (Postgres local)
 └── docs/
     ├── arquitetura.md
     └── adr/
@@ -256,7 +261,9 @@ outro lê) ou por WebRTC em hotspot local com sinalização trocada via QR.
 - **Saídas:**
   1. **A4 caseiro:** N ingressos por folha, com o encaixe calculado, marcas de corte e linha
      tracejada de picote entre canhoto e ingresso. Pode ser gerado por vendedor.
-  2. **Gráfica:** um ingresso por página no tamanho final + sangria + marcas de corte.
+  2. **Gráfica (impressão digital):** um ingresso por página no tamanho final + sangria + marcas
+     de corte. QR único por ingresso exige impressão digital; offset não imprime dados variáveis
+     (ver ADR 0008, modo de sobreimpressão na fase 7).
      Pós-processamento com `lopdf` para definir TrimBox/BleedBox. Por ora em RGB; CMYK (lcms2) e
      PDF/X ficam para a fase 7.
   3. **Folha de controle por vendedor:** tabela com número, nome do comprador e "pago?". Ela
@@ -390,7 +397,7 @@ O relatório tem ainda uma linha para os números não atribuídos e totais gera
 
 ## 8. API (esboço)
 
-Organizador (cookie de sessão, mesma origem):
+Organizador (cookie de sessão host-only em `api.ingressoimpresso.com.br`, `SameSite=Lax`, CORS restrito à origem do site):
 
 ```
 POST   /api/auth/code                 POST /api/auth/verify          POST /api/auth/logout   GET /api/me
@@ -417,15 +424,15 @@ Os DTOs são structs Rust com `#[derive(TS)]` (`ts-rs`), e os tipos TS são gera
 
 ## 9. Frontend
 
-- **Um único app Next.js** (`apps/web`) com `output: 'export'`, TS strict, ESLint com
+- **Um único app Next.js** (`apps/web`) na Vercel, com pnpm, TypeScript 6 strict, ESLint com
   `no-explicit-any: error`, Tailwind e Vitest. Os testes E2E usam Playwright, cujo Chromium aceita
   vídeo falso para a câmera (`--use-file-for-fake-video-capture`), o que permite testar a leitura
   de QR de ponta a ponta.
 - **Rotas:**
   - `/`: landing;
   - `/entrar`: login;
-  - `/painel/...`: área do organizador. Os IDs vão em query string (`/painel/evento?id=...`),
-    porque o export estático não aceita segmentos dinâmicos sem `generateStaticParams`;
+  - `/painel/...`: área do organizador, com componentes de cliente que chamam a API Rust. Não há
+    Server Actions nem Route Handlers com regra de negócio;
   - `/portaria`: PWA, com o Service Worker no escopo `/portaria/`.
 - **Portaria:** o Service Worker faz precache do shell, do `ticket-core.wasm` e do `zxing.wasm`,
   todos servidos por nós (o `zxing-wasm` busca o `.wasm` em CDN por padrão; é preciso configurar
@@ -436,15 +443,26 @@ Os DTOs são structs Rust com `#[derive(TS)]` (`ts-rs`), e os tipos TS são gera
 
 ## 10. Infraestrutura e operação
 
-- **Uma VPS** (de preferência em São Paulo) com Docker Compose: `caddy` (TLS automático), `app`
-  (binário Rust + `apps/web/out`) e `postgres`.
-- **Backup:** `pg_dump` diário cifrado com `restic` para armazenamento de objetos compatível com
-  S3, com retenção de 30 dias e teste de restauração mensal (comando no `justfile`). A chave mestra
-  das assinaturas e a senha do restic ficam **fora** do backup, no gerenciador de senhas.
-- **Observabilidade mínima:** `tracing` em JSON no stdout, `/healthz` e um monitor externo de
-  disponibilidade (opcional). A portaria guarda os erros no IndexedDB e os envia junto com o sync.
+- **Frontend:** Vercel. O deploy é pré-compilado pelo GitHub Actions (`vercel build` +
+  `vercel deploy --prebuilt`), porque o WASM do núcleo precisa de Rust, que o build da Vercel não
+  tem.
+- **API:** Web Service Docker no Render, região Virginia, em instância paga (sem hibernação). A
+  imagem é gerada no GitHub Actions, publicada no GHCR e implantada por deploy hook. As migrações
+  rodam na inicialização. Health check em `/healthz`.
+- **Banco:** Neon `aws-us-east-1`, na mesma área da API, com conexão direta (o pool fica no sqlx).
+  O backup é o PITR do Neon mais um `pg_dump` semanal pelo CI, com teste de restauração mensal num
+  branch do Neon.
+- **E-mail:** Resend, pela API HTTP.
+- **DNS:** o domínio raiz e `www` apontam para a Vercel, e `api.` para o Render.
+- **Segredos:** variáveis secretas no Render. A chave mestra das assinaturas também fica no
+  gerenciador de senhas, fora de qualquer backup.
+- **Observabilidade mínima:** `tracing` em JSON no stdout (logs do Render), `/healthz` e um
+  monitor externo de disponibilidade (opcional). A portaria guarda os erros no IndexedDB e os
+  envia junto com o sync.
 - **Configuração:** variáveis de ambiente lidas uma vez em uma struct tipada e validada na
   inicialização (o processo falha cedo se algo estiver errado).
+- **Desenvolvimento local:** Postgres via `docker compose` (`deploy/compose.dev.yaml`). O Mailer
+  de desenvolvimento escreve o código de login no log.
 
 ## 11. Testes e qualidade
 
@@ -468,7 +486,8 @@ Os DTOs são structs Rust com `#[derive(TS)]` (`ts-rs`), e os tipos TS são gera
   baixa resolução. Há também um teste que **decodifica o QR renderizado** e verifica a assinatura,
   fechando o ciclo gerar → ler.
 - **CI (GitHub Actions):** `just check` roda fmt, clippy, testes Rust, build WASM, vetores no
-  Vitest, typecheck, lint e build do web.
+  Vitest, typecheck, lint e build do web. Os testes de integração usam um Postgres em container
+  no CI, não o Neon.
 
 ## 12. Fases até o MVP
 
@@ -481,10 +500,10 @@ Estimativas grosseiras, para quem tem 5 a 10 h por semana.
 | **2. Geração de arquivos** | `render` + CLI `ii render spec.json`: A4, gráfica, PNG/ZIP e folha de controle | Imprimir uma folha em casa e ler o QR com o celular (teste automatizado de ida e volta) | ~25 h |
 | **3. API + painel mínimo** | Login por código, evento, arte + layout por formulário com prévia, lotes (pago manualmente), vendedores, cancelamentos, downloads | Criar um evento real de ponta a ponta pelo navegador | ~30 h |
 | **4. Portaria PWA** | Acesso por link, registro do dispositivo, manifesto, leitura, decisão offline, sync, confirmação online, lista de prontidão | Três celulares (Android + iPhone) em modo avião lendo, depois sincronizando e convergindo | ~30 h |
-| **5. Relatório + produção** | Relatório por vendedor, deploy na VPS, backup testado, ensaio geral | Ensaio com cerca de 50 ingressos impressos e duas portas | ~15 h |
+| **5. Relatório + produção** | Relatório por vendedor, deploy (Vercel + Render + Neon), backup testado, ensaio geral | Ensaio com cerca de 50 ingressos impressos e duas portas | ~15 h |
 | **MVP: show da banda** | | | **~120 h** |
 | 6. Pix | PSP com cobrança dinâmica + webhook, preço por lote | Pagar um lote real e receber os arquivos sem intervenção | |
-| 7. Editor visual e gráfica | Arrastar e redimensionar no editor, templates prontos, CMYK/PDF-X | | |
+| 7. Editor visual e gráfica | Arrastar e redimensionar no editor, templates prontos, CMYK/PDF-X, modo de sobreimpressão (arte em offset + número/QR em casa) | | |
 | 8. Abertura para clientes | Convite de membros, termos/LGPD, landing, limites de abuso | | |
 
 **Atalho, se o show for antes disso:** a fase 3 pode sair sem painel. O evento seria criado por
@@ -493,7 +512,10 @@ comandos da CLI admin contra o banco, e o servidor teria só a API da portaria. 
 
 ## 13. Riscos e questões em aberto
 
-- **Data do show:** define se seguimos o caminho completo ou o atalho.
+- **Memória do Typst no Render:** gerar lotes grandes numa instância pequena. A mitigação é
+  renderizar em blocos e medir na fase 2 (ADR 0013).
+- **Latência Brasil ↔ Virginia** (cerca de 130 a 150 ms): cabe com folga no orçamento de 1,2 s da
+  confirmação online.
 - **Câmeras ruins / pouca luz:** a mitigação é usar a lanterna (`torch`, quando houver suporte),
   QR grande e correção M. O plano B, digitar o número, verifica só o estado (cancelado/usado) e
   **não a autenticidade**; nesse caso a entrada é marcada como "manual".

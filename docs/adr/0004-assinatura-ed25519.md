@@ -1,6 +1,6 @@
 # 0004. Assinatura Ed25519 com chave por evento
 
-- **Status:** Proposto
+- **Status:** Aceito
 - **Data:** 2026-10-08
 
 ## Contexto
@@ -40,7 +40,8 @@ Requisitos:
 
 ## Decisão
 
-Opção 3, com:
+Opção 3. O mantenedor delegou essa escolha em 2026-10-08, e ela foi tomada pela robustez na
+porta (lote novo sem sync, modo degradado só com a chave pública), não pelo tamanho do QR. Com:
 
 - **mensagem assinada** = `"ingressoimpresso:ticket:v1" || event_id (UUID, 16 bytes) ||
   payload[0..10]`. Isso dá separação de domínio, vínculo ao UUID completo do evento (que não

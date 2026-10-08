@@ -1,6 +1,6 @@
 # 0010. Leitura de QR no navegador com zxing-wasm
 
-- **Status:** Proposto
+- **Status:** Aceito
 - **Data:** 2026-10-08
 
 ## Contexto

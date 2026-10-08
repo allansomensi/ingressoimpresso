@@ -1,6 +1,6 @@
 # 0002. Núcleo do ingresso em Rust puro, compartilhado via WASM
 
-- **Status:** Proposto
+- **Status:** Aceito
 - **Data:** 2026-10-08
 
 ## Contexto
