@@ -102,7 +102,7 @@ ingressoimpresso/
 ├── apps/
 │   └── web/                   # Next.js (Vercel): landing, painel, portaria (PWA)
 ├── packages/
-│   ├── ticket-core-wasm/      # pacote npm gerado a partir de crates/ticket-wasm (build, não versionado)
+│   ├── ticket-core-wasm/      # wrapper TS tipado do WASM; pkg/ é gerado por `just wasm` (não versionado)
 │   └── api-types/             # tipos TS gerados dos DTOs Rust (ts-rs), versionados
 ├── testdata/
 │   └── vectors/ticket-v1.json # vetores de teste compartilhados Rust ↔ WASM/TS
