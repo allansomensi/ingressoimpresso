@@ -90,6 +90,10 @@ db-down:
 web-dev:
     pnpm --filter @ingressoimpresso/web run dev
 
+# Restore test of an encrypted backup into an EMPTY database (RESTORE_DATABASE_URL); monthly.
+backup-restore-test dump identity:
+    ./deploy/restore-test.sh {{dump}} {{identity}}
+
 # Door end-to-end test (5 fake-camera phones): needs Postgres at DATABASE_URL, `just wasm` and the
 # Playwright Chromium (`pnpm exec playwright install chromium` outside this dev container).
 e2e:
