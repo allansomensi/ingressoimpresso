@@ -2,10 +2,12 @@
 #let data = json("/data.json")
 #let tx = data.texts
 
+// Long sheets are compiled in chunks (src/render.rs): numbering continues from `pageOffset`.
 #set page(paper: "a4", margin: (x: 14mm, top: 14mm, bottom: 16mm),
   footer: context align(right, text(size: 7pt, fill: luma(100),
-    [#tx.page #counter(page).display() / #counter(page).final().first()])))
+    [#tx.page #counter(page).display()])))
 #set text(font: "Lato", size: 9pt, lang: "pt")
+#counter(page).update(data.pageOffset + 1)
 
 #for (index, group) in data.groups.enumerate() {
   if index > 0 { pagebreak() }
@@ -14,7 +16,8 @@
     linebreak()
     text(size: 10pt, data.eventName)
     linebreak()
-    text(size: 10pt, [#tx.seller: #strong(group.seller) — #group.rows.len() #tx.tickets])
+    text(size: 10pt, [#tx.seller: #strong(group.seller) — #group.total #tx.tickets])
+    if group.continued { text(size: 10pt, [ #tx.continued]) }
   })
   table(
     columns: (auto, 1fr, 0.6fr, auto),

@@ -17,6 +17,7 @@ pub(crate) struct Texts {
     pub phone: &'static str,
     pub paid: &'static str,
     pub page: &'static str,
+    pub continued: &'static str,
 }
 
 pub(crate) const PT_BR: Texts = Texts {
@@ -30,4 +31,5 @@ pub(crate) const PT_BR: Texts = Texts {
     phone: "Telefone",
     paid: "Pago",
     page: "Página",
+    continued: "(continuação)",
 };

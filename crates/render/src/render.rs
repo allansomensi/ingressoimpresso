@@ -34,6 +34,8 @@ pub const MAX_TICKETS_PER_JOB: usize = 10_000;
 const PDF_CHUNK_TICKETS: usize = 250;
 /// Tickets per Typst compilation for images.
 const IMAGE_CHUNK_TICKETS: usize = 50;
+/// Control-sheet rows per Typst compilation (about 30 pages).
+const CONTROL_CHUNK_ROWS: usize = 1_000;
 /// Crop-mark area outside the bleed in print-shop files.
 pub const SLUG_MM: f64 = 5.0;
 /// Default width of WhatsApp images.
@@ -307,20 +309,55 @@ fn print_pdf_chunked(
 
 /// Control sheet: one section per seller, one row per ticket.
 ///
-/// Compiled in one piece (it is text only and cheap) so page numbers run across the file.
-///
 /// # Errors
 ///
 /// See [`RenderError`].
 pub fn control_sheet_pdf(job: &RenderJob) -> Result<Vec<u8>, RenderError> {
+    control_sheet_pdf_chunked(job, CONTROL_CHUNK_ROWS)
+}
+
+fn control_sheet_pdf_chunked(job: &RenderJob, chunk_rows: usize) -> Result<Vec<u8>, RenderError> {
     validate(job)?;
-    let data = TemplateData {
-        groups: seller_groups(job),
+    let mut merger = PdfMerger::new(None);
+    let mut pages = 0;
+    for groups in control_chunks(seller_groups(job), chunk_rows.max(1)) {
         // The control sheet has no QR codes: no ticket data, no QR files.
-        tickets: Vec::new(),
-        ..TemplateData::new(job, &[])
-    };
-    pdf(&compile(CONTROL_TEMPLATE, &data, job, &[])?)
+        let data = TemplateData {
+            groups,
+            page_offset: pages,
+            ..TemplateData::new(job, &[])
+        };
+        let document = compile(CONTROL_TEMPLATE, &data, job, &[])?;
+        pages += document.pages().len();
+        merger.add(&pdf(&document)?)?;
+    }
+    merger.finish()
+}
+
+/// Packs seller sections into compilations of at most `chunk_rows` rows. A seller with more
+/// rows is split into sections marked as continued.
+fn control_chunks(groups: Vec<SellerGroup>, chunk_rows: usize) -> Vec<Vec<SellerGroup>> {
+    let mut chunks: Vec<Vec<SellerGroup>> = Vec::new();
+    let mut rows_in_chunk = 0;
+    for group in groups {
+        for (index, rows) in group.rows.chunks(chunk_rows).enumerate() {
+            let section = SellerGroup {
+                seller: group.seller.clone(),
+                total: group.total,
+                continued: index > 0,
+                rows: rows.to_vec(),
+            };
+            match chunks.last_mut() {
+                Some(chunk) if rows_in_chunk + rows.len() <= chunk_rows => chunk.push(section),
+                _ => {
+                    rows_in_chunk = 0;
+                    chunks.push(vec![section]);
+                }
+            }
+            rows_in_chunk += rows.len();
+        }
+    }
+    chunks
 }
 
 /// Rasterizes every ticket body (no stub, no bleed) as a JPEG `width_px` wide.
@@ -451,6 +488,8 @@ struct TemplateData<'a> {
     grid: Option<Grid>,
     print: Option<PrintData>,
     groups: Vec<SellerGroup>,
+    /// Pages before this compilation (chunked control sheets).
+    page_offset: usize,
 }
 
 impl<'a> TemplateData<'a> {
@@ -473,6 +512,7 @@ impl<'a> TemplateData<'a> {
             grid: None,
             print: None,
             groups: Vec::new(),
+            page_offset: 0,
         }
     }
 }
@@ -491,9 +531,13 @@ struct PrintData {
     crop_marks: bool,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 struct SellerGroup {
     seller: String,
+    /// Tickets of the seller, in every section.
+    total: usize,
+    /// A later section of a seller split across compilations.
+    continued: bool,
     rows: Vec<String>,
 }
 
@@ -515,9 +559,12 @@ fn seller_groups(job: &RenderJob) -> Vec<SellerGroup> {
         let row = format!("{:0digits$}", ticket.number());
         if let Some(group) = groups.iter_mut().find(|group| group.seller == seller) {
             group.rows.push(row);
+            group.total += 1;
         } else {
             groups.push(SellerGroup {
                 seller,
+                total: 1,
+                continued: false,
                 rows: vec![row],
             });
         }
@@ -928,6 +975,66 @@ mod tests {
                 assert_eq!(pixel(x, y), [0, 0, 0], "body at {x:.1}, {y:.1} mm");
             }
         }
+    }
+
+    #[test]
+    fn control_sheet_chunks_pack_whole_sections() {
+        let group = |seller: &str, count: usize| SellerGroup {
+            seller: seller.to_owned(),
+            total: count,
+            continued: false,
+            rows: (0..count).map(|row| row.to_string()).collect(),
+        };
+        let chunks = control_chunks(vec![group("A", 3), group("B", 9), group("C", 2)], 4);
+        let shape: Vec<Vec<(&str, usize, usize, bool)>> = chunks
+            .iter()
+            .map(|chunk| {
+                chunk
+                    .iter()
+                    .map(|section| {
+                        (
+                            section.seller.as_str(),
+                            section.rows.len(),
+                            section.total,
+                            section.continued,
+                        )
+                    })
+                    .collect()
+            })
+            .collect();
+        assert_eq!(
+            shape,
+            [
+                vec![("A", 3, 3, false)],
+                vec![("B", 4, 9, false)],
+                vec![("B", 4, 9, true)],
+                vec![("B", 1, 9, true), ("C", 2, 2, false)],
+            ]
+        );
+    }
+
+    #[test]
+    fn chunked_control_sheet_numbers_pages_continuously() {
+        let mut job = signed_job(12);
+        for ticket in &mut job.tickets {
+            let seller = if ticket.number() <= 3 {
+                "João"
+            } else {
+                "Maria"
+            };
+            ticket.seller = Some(seller.to_owned());
+        }
+        let document = Document::load_mem(&control_sheet_pdf_chunked(&job, 4).unwrap()).unwrap();
+        assert_eq!(document.get_pages().len(), 4);
+        for page in 1..=4 {
+            let text = document.extract_text(&[page]).unwrap();
+            assert!(text.contains(&format!("Página {page}")), "{text}");
+        }
+        let text = document.extract_text(&[3]).unwrap();
+        assert!(
+            text.contains("Maria") && text.contains("(continuação)"),
+            "{text}"
+        );
     }
 
     #[test]
