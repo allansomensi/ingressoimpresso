@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { texts } from "@/texts/pt-BR";
 
 export default function LandingPage() {
@@ -11,7 +13,9 @@ export default function LandingPage() {
           <li key={feature}>{feature}</li>
         ))}
       </ul>
-      <p className="text-brand font-semibold">{landing.comingSoon}</p>
+      <Link href="/entrar" className="bg-ink text-paper w-fit rounded-md px-4 py-2 font-semibold dark:bg-paper dark:text-ink">
+        {landing.signIn}
+      </Link>
     </main>
   );
 }

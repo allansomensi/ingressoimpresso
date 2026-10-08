@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 
 import { texts } from "@/texts/pt-BR";
 
+import { Providers } from "./providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -18,7 +19,9 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <html lang="pt-BR">
-      <body className="min-h-dvh font-sans antialiased">{children}</body>
+      <body className="min-h-dvh font-sans antialiased">
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }

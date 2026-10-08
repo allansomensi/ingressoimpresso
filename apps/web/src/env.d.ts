@@ -1,0 +1,8 @@
+// Public build-time variables. Declared so they can be read with dot access, the only form
+// Next.js inlines into the client bundle.
+declare namespace NodeJS {
+  interface ProcessEnv {
+    /** Base URL of the API, e.g. https://ingressoimpresso-api.onrender.com (no trailing slash). */
+    readonly NEXT_PUBLIC_API_URL?: string;
+  }
+}
