@@ -18,10 +18,11 @@ feita e as consequências.
 | [0006](0006-portaria-offline-sync.md) | Portaria offline-first e sincronização | Aceito |
 | [0007](0007-acesso-portaria.md) | Acesso da portaria sem login | Aceito |
 | [0008](0008-geracao-arquivos-typst.md) | Geração de arquivos com Typst embutido | Aceito |
-| [0009](0009-frontend-nextjs-vercel.md) | Frontend Next.js na Vercel, API Rust em outro domínio | Aceito |
+| [0009](0009-frontend-nextjs-vercel.md) | Frontend Next.js na Vercel, API Rust em outro domínio | Aceito (cookie substituído por 0016) |
 | [0010](0010-leitura-qr-navegador.md) | Leitura de QR no navegador com zxing-wasm | Aceito |
 | [0011](0011-modelo-dados-faixas.md) | Modelo de dados baseado em faixas | Aceito |
-| [0012](0012-autenticacao-organizador.md) | Login do organizador por código via e-mail | Aceito |
+| [0012](0012-autenticacao-organizador.md) | Login do organizador por código via e-mail | Aceito (sessão por cookie substituída por 0016) |
 | [0013](0013-infraestrutura-render-neon.md) | Infraestrutura: Render + Neon + Resend | Aceito |
 | [0014](0014-pagamento-pix-adiado.md) | Pagamento Pix adiado para depois do MVP | Aceito |
 | [0015](0015-renderizacao-em-blocos.md) | Renderização em blocos, sangria nativa e JPEG para WhatsApp | Aceito |
+| [0016](0016-sessao-bearer.md) | Sessão do painel por token Bearer e links de download assinados | Aceito |

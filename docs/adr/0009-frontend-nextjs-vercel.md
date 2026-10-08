@@ -2,6 +2,7 @@
 
 - **Status:** Aceito
 - **Data:** 2026-10-08
+- **Substituído em parte por:** [0016](0016-sessao-bearer.md) (sessão por token Bearer em vez de cookie)
 
 ## Contexto
 
