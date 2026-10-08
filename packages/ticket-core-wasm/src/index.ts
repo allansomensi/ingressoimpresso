@@ -30,20 +30,33 @@ export type { VoidReasonDto } from "./generated/VoidReasonDto";
 export { parseDecision } from "./decision";
 
 let loaded = false;
+let loading: Promise<void> | undefined;
 
-/** Loads the WebAssembly module asynchronously (browser). Idempotent. */
-export async function loadTicketCore(source: InitInput | Promise<InitInput>): Promise<void> {
-  if (loaded) {
-    return;
-  }
-  await init({ module_or_path: source });
-  loaded = true;
+/**
+ * Loads the WebAssembly module asynchronously (browser). Idempotent and safe under concurrent
+ * calls: every caller shares the first in-flight load, so the module is instantiated once and
+ * existing `DoorCore` instances never see their memory swapped.
+ */
+export function loadTicketCore(source: InitInput | Promise<InitInput>): Promise<void> {
+  loading ??= init({ module_or_path: source }).then(
+    () => {
+      loaded = true;
+    },
+    (error: unknown) => {
+      loading = undefined;
+      throw error;
+    },
+  );
+  return loading;
 }
 
 /** Loads the WebAssembly module synchronously from bytes or a compiled module (tests). Idempotent. */
 export function loadTicketCoreSync(module: SyncInitInput): void {
   if (loaded) {
     return;
+  }
+  if (loading !== undefined) {
+    throw new Error("ticket-core WebAssembly module is already loading asynchronously");
   }
   initSync({ module });
   loaded = true;
