@@ -1,0 +1,25 @@
+# Rust
+/target/
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
+.vercel/
+coverage/
+
+# Generated WASM package (built by `just wasm`)
+/packages/ticket-core-wasm/pkg/
+
+# Local environment
+.env
+.env.*
+!.env.example
+
+# Editors / OS
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json

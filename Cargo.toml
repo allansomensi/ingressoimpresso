@@ -1,0 +1,62 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.97"
+license = "LicenseRef-Proprietary"
+publish = false
+
+[workspace.dependencies]
+ticket-core = { path = "crates/ticket-core" }
+
+anyhow = "1.0.104"
+clap = { version = "4.6.7", features = ["derive"] }
+ed25519-dalek = { version = "3.0.0", default-features = false, features = ["zeroize"] }
+hex = "0.4.3"
+proptest = "1.11.0"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+serde-wasm-bindgen = "0.6.5"
+sha2 = "0.11.0"
+thiserror = "2.0.21"
+ts-rs = "12.0.1"
+uuid = { version = "1.27.0", default-features = false }
+wasm-bindgen = "=0.2.129"
+zeroize = "1.9.1"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_debug_implementations = "warn"
+unused_qualifications = "warn"
+
+[workspace.lints.clippy]
+all = { level = "deny", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+unimplemented = "deny"
+dbg_macro = "deny"
+print_stdout = "warn"
+print_stderr = "warn"
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+
+[profile.release-wasm]
+inherits = "release"
+opt-level = "s"
+lto = "fat"
+panic = "abort"
+
+# Optimize dependencies (notably the Ed25519 arithmetic) in dev/test builds; our own crates stay
+# unoptimized for fast incremental compiles. Property tests sign thousands of tickets.
+[profile.dev.package."*"]
+opt-level = 3
