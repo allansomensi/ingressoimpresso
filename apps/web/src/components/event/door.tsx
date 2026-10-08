@@ -19,7 +19,7 @@ const t = texts.event.door;
 
 /** The door link: the token stays in the fragment, never sent to any server (ADR 0007). */
 function doorUrl(token: string): string {
-  return `${window.location.origin}/portaria/#acesso=${token}`;
+  return `${window.location.origin}/portaria#acesso=${token}`;
 }
 
 function formatTime(iso: string): string {

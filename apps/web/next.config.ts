@@ -7,7 +7,8 @@ const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080").repl
 // Next.js still needs inline bootstrap scripts; a nonce-based policy is planned (phase 8).
 const contentSecurityPolicy = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline'",
+  // WebAssembly (ticket-core and zxing at the door) needs 'wasm-unsafe-eval'; plain eval stays blocked.
+  "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' blob: data:",
   "font-src 'self'",
@@ -22,7 +23,7 @@ const contentSecurityPolicy = [
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
-  transpilePackages: ["@ingressoimpresso/api-types"],
+  transpilePackages: ["@ingressoimpresso/api-types", "@ingressoimpresso/ticket-core-wasm"],
   headers() {
     const security = [
       { key: "Referrer-Policy", value: "no-referrer" },
