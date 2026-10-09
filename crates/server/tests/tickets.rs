@@ -263,4 +263,19 @@ async fn the_ticket_image_is_the_printed_design(pool: PgPool) {
     assert_eq!(image.status, StatusCode::OK);
     assert_eq!(image.headers["content-type"], "image/jpeg");
     assert_eq!(&image.bytes[..3], &[0xFF, 0xD8, 0xFF]);
+    // Asked again, it comes from the cached file, byte for byte.
+    let again = app
+        .request(
+            Method::POST,
+            "/api/ticket/image",
+            None,
+            Some(json!({ "token": ticket })),
+        )
+        .await;
+    assert_eq!(again.bytes, image.bytes);
+    let cached = std::fs::read_dir(&app.state.config.export_dir)
+        .unwrap()
+        .filter_map(Result::ok)
+        .any(|entry| entry.file_name().to_string_lossy().starts_with("ticket-"));
+    assert!(cached);
 }

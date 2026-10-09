@@ -543,7 +543,44 @@ pub async fn image(
     if voided {
         return Err(ApiError::Gone("ticket_voided"));
     }
-    let secret = unseal(&state, link.id, &link.sealed)?;
+    // Rendering is the expensive part: one image per link and design version, kept with the
+    // other generated files (cleaned after a day), so repeated requests cost a file read.
+    let version = sqlx::query_scalar!(
+        r#"select coalesce(max(version), 0) as "version!" from ticket_designs where event_id = $1"#,
+        link.event_id
+    )
+    .fetch_one(&state.pool)
+    .await?;
+    let cached = state
+        .config
+        .export_dir
+        .join(format!("ticket-{}-v{version}.jpg", link.id));
+    let jpeg = if let Ok(bytes) = tokio::fs::read(&cached).await {
+        bytes
+    } else {
+        let jpeg = render_image(&state, &link).await?;
+        let partial = cached.with_extension("partial");
+        if tokio::fs::write(&partial, &jpeg).await.is_ok() {
+            let _ = tokio::fs::rename(&partial, &cached).await;
+        }
+        jpeg
+    };
+    Ok((
+        [
+            (CONTENT_TYPE, HeaderValue::from_static("image/jpeg")),
+            (
+                CACHE_CONTROL,
+                HeaderValue::from_static("private, max-age=86400"),
+            ),
+        ],
+        jpeg,
+    )
+        .into_response())
+}
+
+/// The ticket of a link drawn with the event's current design, art and its signed QR.
+async fn render_image(state: &AppState, link: &OpenRow) -> ApiResult<Vec<u8>> {
+    let secret = unseal(state, link.id, &link.sealed)?;
     let ticket = SignedTicket::from_qr_text(&secret.qr_text)
         .map_err(|error| ApiError::Internal(error.into()))?;
     let event = sqlx::query_as!(
@@ -554,7 +591,7 @@ pub async fn image(
     )
     .fetch_one(&state.pool)
     .await?;
-    let (design, art) = jobs::current_design(&state, link.event_id).await?;
+    let (design, art) = jobs::current_design(state, link.event_id).await?;
     let job = RenderJob {
         details: event.details(),
         design,
@@ -576,22 +613,11 @@ pub async fn image(
             .await
             .map_err(anyhow::Error::from)?
             .map_err(|error| ApiError::Internal(error.into()))?;
-    let jpeg = images
+    Ok(images
         .into_iter()
         .next()
         .ok_or_else(|| anyhow::anyhow!("no ticket image"))?
-        .jpeg;
-    Ok((
-        [
-            (CONTENT_TYPE, HeaderValue::from_static("image/jpeg")),
-            (
-                CACHE_CONTROL,
-                HeaderValue::from_static("private, max-age=86400"),
-            ),
-        ],
-        jpeg,
-    )
-        .into_response())
+        .jpeg)
 }
 
 #[cfg(test)]
