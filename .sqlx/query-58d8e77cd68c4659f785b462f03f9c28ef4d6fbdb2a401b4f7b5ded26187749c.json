@@ -1,0 +1,85 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select e.id, e.name, e.starts_at, e.status,\n                  coalesce((select sum(upper(b.numbers) - lower(b.numbers)) from ticket_batches b\n                            where b.event_id = e.id and b.status = 'paid'), 0)::bigint as \"paid_tickets!\",\n                  coalesce((select sum(b.price_cents) from ticket_batches b\n                            where b.event_id = e.id and b.status = 'paid'), 0)::bigint as \"revenue_cents!\",\n                  (select count(*) from entries en where en.event_id = e.id) as \"entries!\"\n           from events e where e.organization_id = $1\n           order by e.starts_at desc",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "starts_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "starts_at"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "paid_tickets!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "revenue_cents!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "entries!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "58d8e77cd68c4659f785b462f03f9c28ef4d6fbdb2a401b4f7b5ded26187749c"
+}

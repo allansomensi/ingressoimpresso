@@ -1,0 +1,59 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select\n             coalesce(sum(price_cents) filter (where paid_at >= $1), 0)::bigint as \"revenue!\",\n             coalesce(sum(price_cents) filter (where paid_at >= $2 and paid_at < $1), 0)::bigint as \"previous!\",\n             count(*) filter (where paid_at >= $1 and price_cents > 0) as \"charged_batches!\",\n             coalesce(sum(upper(numbers) - lower(numbers) - free_tickets)\n                      filter (where paid_at >= $1 and price_cents > 0), 0)::bigint as \"charged_tickets!\",\n             coalesce(sum(price_cents) filter (where refunded_at >= $1), 0)::bigint as \"refunds!\",\n             count(*) filter (where refunded_at >= $1) as \"refunded_batches!\"\n           from ticket_batches where status in ('paid', 'refunded') and paid_at >= $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "revenue!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "previous!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "charged_batches!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "charged_tickets!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "refunds!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "refunded_batches!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamptz",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "85d5e1f59f2ff520e2a6f622478b28b39386d08a919bd50db874af537ff9d38c"
+}

@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update ticket_batches b\n           set price_cents = $2,\n               status = case when $2 = 0 then 'paid' else b.status end,\n               paid_via = case when $2 = 0 then 'admin' else b.paid_via end,\n               paid_at = case when $2 = 0 then now() else b.paid_at end\n           from ticket_batches old\n           where b.id = $1 and old.id = b.id and b.status = 'awaiting_payment'\n           returning old.price_cents",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "price_cents",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "ticket_batches",
+            "name": "price_cents"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "d7067f2b56f5723e8fbd646f8db8687b9f10f72f2fc4cc2291503090a4242101"
+}

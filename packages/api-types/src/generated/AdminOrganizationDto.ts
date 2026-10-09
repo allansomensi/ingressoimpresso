@@ -47,4 +47,8 @@ bonusFreeTickets: number,
 /**
  * Last batch created.
  */
-lastBatchAt: string | null, };
+lastBatchAt: string | null, 
+/**
+ * Suspended by an admin.
+ */
+suspended: boolean, };

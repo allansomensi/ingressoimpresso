@@ -1,0 +1,37 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select n as \"number!\", b.key_id\n           from ticket_batches b\n           cross join lateral generate_series(greatest(lower(b.numbers), $2), least(upper(b.numbers) - 1, $3)) as n\n           where b.event_id = $1 and b.status = 'paid' and b.numbers && int4range($2, $3, '[]')\n             and not exists (select 1 from ticket_voids v where v.event_id = b.event_id and v.undone_at is null\n                             and v.numbers @> n)\n           order by n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "number!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "key_id",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "ticket_batches",
+            "name": "key_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      null,
+      false
+    ]
+  },
+  "hash": "6053dec632d93a3c982bf4864a6db41930b0d7419df84e3154f978dcfcc1982e"
+}

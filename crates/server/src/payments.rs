@@ -119,6 +119,17 @@ pub struct StripeEventData {
     pub object: serde_json::Value,
 }
 
+/// A refund created on Stripe (ADR 0032).
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, serde::Serialize)]
+pub struct Refund {
+    /// `re_...`.
+    pub id: String,
+    /// `pending`, `succeeded`, `failed`...
+    pub status: Option<String>,
+    /// Refunded amount in centavos.
+    pub amount: Option<i64>,
+}
+
 /// In-memory Stripe for tests: sessions by id.
 #[derive(Debug, Default)]
 pub struct FakeStripe {
@@ -126,6 +137,8 @@ pub struct FakeStripe {
     pub sessions: HashMap<String, CheckoutSession>,
     /// The requests received, in order.
     pub requests: Vec<CheckoutRequest>,
+    /// Payment intents refunded, in order.
+    pub refunds: Vec<String>,
 }
 
 impl FakeStripe {
@@ -353,6 +366,53 @@ impl Payments {
         }
     }
 
+    /// Refunds a whole payment (ADR 0032). The batch id is the idempotency key, so a retried
+    /// request never refunds twice.
+    ///
+    /// # Errors
+    ///
+    /// See [`PaymentError`].
+    pub async fn refund(
+        &self,
+        payment_intent: &str,
+        batch_id: Uuid,
+    ) -> Result<Refund, PaymentError> {
+        match self {
+            Self::Stripe {
+                client,
+                api_base,
+                secret_key,
+                ..
+            } => {
+                let batch = batch_id.to_string();
+                let form = form_urlencoded::Serializer::new(String::new())
+                    .append_pair("payment_intent", payment_intent)
+                    .append_pair("reason", "requested_by_customer")
+                    .append_pair("metadata[batch_id]", &batch)
+                    .finish();
+                let response = client
+                    .post(format!("{api_base}/v1/refunds"))
+                    .bearer_auth(secret_key)
+                    .header("Idempotency-Key", format!("refund-{batch}"))
+                    .header("Content-Type", "application/x-www-form-urlencoded")
+                    .body(form)
+                    .send()
+                    .await;
+                stripe_reply(response).await
+            }
+            Self::Disabled => Err(PaymentError::Disabled),
+            Self::Fake { stripe, .. } => {
+                let mut stripe = lock(stripe)?;
+                stripe.refunds.push(payment_intent.to_owned());
+                Ok(Refund {
+                    id: format!("re_{}", Uuid::new_v4().simple()),
+                    status: Some("succeeded".to_owned()),
+                    amount: None,
+                })
+            }
+        }
+    }
+
     /// Verifies a webhook request and parses its event.
     ///
     /// # Errors
@@ -381,16 +441,16 @@ fn lock(stripe: &Mutex<FakeStripe>) -> Result<std::sync::MutexGuard<'_, FakeStri
         .map_err(|_| PaymentError::Provider("fake stripe poisoned".to_owned()))
 }
 
-async fn stripe_reply(
+async fn stripe_reply<T: serde::de::DeserializeOwned>(
     response: Result<reqwest::Response, reqwest::Error>,
-) -> Result<CheckoutSession, PaymentError> {
+) -> Result<T, PaymentError> {
     let response = response.map_err(|error| PaymentError::Provider(error.to_string()))?;
     let status = response.status();
     if status.is_success() {
         return response
             .json()
             .await
-            .map_err(|error| PaymentError::Provider(format!("unexpected session: {error}")));
+            .map_err(|error| PaymentError::Provider(format!("unexpected reply: {error}")));
     }
     // Stripe explains refusals in the body (`error.message`); it never echoes the key.
     let detail = response.text().await.unwrap_or_default();

@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update organizations set name = $2, bonus_free_tickets = 0, suspended_at = null,\n                      suspended_reason = null where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1bf12f566fd7bac933f6aac5749e684902147b80ef38955c6dba0f282577eef6"
+}

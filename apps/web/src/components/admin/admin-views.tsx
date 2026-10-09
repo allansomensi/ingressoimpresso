@@ -270,7 +270,7 @@ export function AdminOrganizations() {
 }
 
 type BatchFilter = BatchStatus | "all";
-const STATUS_TONE: Record<BatchStatus, Tone> = { awaiting_payment: "warning", paid: "success", canceled: "neutral" };
+const STATUS_TONE: Record<BatchStatus, Tone> = { awaiting_payment: "warning", paid: "success", canceled: "neutral", refunded: "danger" };
 
 export function AdminBatches() {
   const queryClient = useQueryClient();

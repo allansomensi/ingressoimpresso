@@ -1,0 +1,44 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select coalesce(paid_via, 'admin') as \"method!\", count(*) as \"batches!\",\n                  coalesce(sum(upper(numbers) - lower(numbers)), 0)::bigint as \"tickets!\",\n                  coalesce(sum(price_cents), 0)::bigint as \"revenue!\"\n           from ticket_batches where status in ('paid', 'refunded') and paid_at >= $1\n           group by 1 order by 4 desc, 2 desc",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "method!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "batches!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "tickets!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "revenue!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "d73bcd811501d76ad25f214369d31b9a52444d08f2950e00853a5079d4b865a5"
+}

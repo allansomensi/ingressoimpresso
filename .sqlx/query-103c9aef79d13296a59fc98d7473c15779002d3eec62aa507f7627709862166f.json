@@ -1,0 +1,54 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select o.id, o.name, coalesce(sum(b.price_cents), 0)::bigint as \"revenue_cents!\",\n                  coalesce(sum(upper(b.numbers) - lower(b.numbers)), 0)::bigint as \"tickets!\"\n           from ticket_batches b join events e on e.id = b.event_id join organizations o on o.id = e.organization_id\n           where b.status in ('paid', 'refunded') and b.paid_at >= $1 and b.price_cents > 0\n           group by o.id, o.name order by 3 desc limit 10",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "organizations",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "organizations",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "revenue_cents!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "tickets!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null,
+      null
+    ]
+  },
+  "hash": "103c9aef79d13296a59fc98d7473c15779002d3eec62aa507f7627709862166f"
+}

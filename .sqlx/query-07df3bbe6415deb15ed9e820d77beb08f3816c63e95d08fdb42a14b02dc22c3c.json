@@ -1,0 +1,86 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with issued as (\n               select n as number from ticket_batches b\n               cross join lateral generate_series(lower(b.numbers), upper(b.numbers) - 1) as n\n               where b.event_id = $1 and b.status = 'paid'\n           ),\n           voided as (\n               select distinct on (i.number) i.number, v.reason\n               from issued i join ticket_voids v\n                 on v.event_id = $1 and v.undone_at is null and v.numbers @> i.number\n               order by i.number, v.created_at\n           )\n           select (select count(*) from issued) as \"paid_tickets!\",\n                  (select count(*) from voided where reason = 'unsold') as \"unsold!\",\n                  (select count(*) from voided where reason = 'lost') as \"lost!\",\n                  (select count(*) from voided where reason = 'revoked') as \"revoked!\",\n                  (select count(*) from entries where event_id = $1) as \"entries!\",\n                  (select coalesce(sum(price_cents), 0) from ticket_batches\n                   where event_id = $1 and status = 'paid')::bigint as \"cost_cents!\",\n                  (select coalesce(sum(free_tickets), 0) from ticket_batches\n                   where event_id = $1 and status = 'paid')::bigint as \"free_tickets!\",\n                  (select count(*) from ticket_links where event_id = $1 and revoked_at is null) as \"digital!\",\n                  (select count(*) from ticket_links where event_id = $1 and revoked_at is null\n                   and first_opened_at is not null) as \"digital_opened!\",\n                  (select count(*) from scans where event_id = $1\n                   and (local_outcome = 'rejected_used'\n                        or (server_class = 'duplicate_entry' and confirmed_online))) as \"blocked!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "paid_tickets!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "unsold!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "lost!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "revoked!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "entries!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "cost_cents!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "free_tickets!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 7,
+        "name": "digital!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 8,
+        "name": "digital_opened!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 9,
+        "name": "blocked!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "07df3bbe6415deb15ed9e820d77beb08f3816c63e95d08fdb42a14b02dc22c3c"
+}

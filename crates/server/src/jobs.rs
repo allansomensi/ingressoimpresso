@@ -1,7 +1,9 @@
 //! Export worker: a Postgres-backed queue processed in this same process (ADR 0008).
 //!
 //! Signing happens here and only here, for tickets of **paid** batches that are not voided
-//! (CLAUDE.md invariant 2). Rendering runs on the blocking pool, one job at a time.
+//! (CLAUDE.md invariant 2): for the files, and for digital tickets through [`sign_numbers`].
+//! Rendering runs on the blocking pool, one job at a time. The hourly cleanup also prunes rows
+//! kept only for a while (IP hashes, old login codes, expired sessions).
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -65,6 +67,9 @@ pub async fn run_worker(state: AppState) {
         }
         if last_cleanup.elapsed() > Duration::from_hours(1) {
             cleanup(&state.config.export_dir).await;
+            if let Err(error) = prune(&state.pool).await {
+                tracing::error!(?error, "pruning old rows failed");
+            }
             last_cleanup = std::time::Instant::now();
         }
         let wait = match next_stale(&state).await {
@@ -292,10 +297,10 @@ async fn generate(state: &AppState, export: &ExportRow) -> Result<(i32, String, 
 }
 
 /// The latest saved design and its art, or the default design.
-async fn current_design(
+pub(crate) async fn current_design(
     state: &AppState,
     event_id: Uuid,
-) -> Result<(TicketDesign, Option<ticket_render::Art>), JobError> {
+) -> ApiResult<(TicketDesign, Option<ticket_render::Art>)> {
     let row = sqlx::query!(
         "select spec, art_blob_id from ticket_designs where event_id = $1 order by version desc limit 1",
         event_id
@@ -306,12 +311,53 @@ async fn current_design(
         return Ok((TicketDesign::default_v1(), None));
     };
     let design: TicketDesign =
-        serde_json::from_value(row.spec).map_err(|error| JobError::Retry(error.into()))?;
+        serde_json::from_value(row.spec).map_err(|error| ApiError::Internal(error.into()))?;
     let art = match row.art_blob_id {
         Some(art_id) => Some(load_art(state, event_id, art_id).await?),
         None => None,
     };
     Ok((design, art))
+}
+
+/// Signs the QR texts of `numbers` (number, key id) for a digital ticket (ADR 0030): the same
+/// signature the printed ticket carries. Callers pass only numbers of paid, non-voided batches
+/// (CLAUDE.md invariant 2); keys are unsealed here, like for the files.
+pub(crate) async fn sign_numbers(
+    state: &AppState,
+    event_id: Uuid,
+    qr_tag: i64,
+    numbers: &[(i32, i16)],
+) -> ApiResult<Vec<(i32, String)>> {
+    let tickets: Vec<TicketRow> = numbers
+        .iter()
+        .map(|(number, key_id)| TicketRow {
+            number: *number,
+            key_id: *key_id,
+            seller: None,
+        })
+        .collect();
+    let issuers =
+        issuers(state, event_id, qr_tag, &tickets)
+            .await
+            .map_err(|error| match error {
+                JobError::Final(code) => {
+                    ApiError::Internal(anyhow::anyhow!("signing failed: {code}"))
+                }
+                JobError::Retry(error) => ApiError::Internal(error),
+            })?;
+    tickets
+        .iter()
+        .map(|ticket| {
+            let number = u32::try_from(ticket.number)
+                .ok()
+                .and_then(TicketNumber::new)
+                .ok_or_else(|| ApiError::Internal(anyhow::anyhow!("invalid number")))?;
+            let issuer = issuers
+                .get(&ticket.key_id)
+                .ok_or_else(|| ApiError::Internal(anyhow::anyhow!("missing key")))?;
+            Ok((ticket.number, issuer.issue(number).to_qr_text()))
+        })
+        .collect()
 }
 
 /// One issuer per key id used by the tickets. Private keys are unsealed only here.
@@ -437,6 +483,26 @@ fn slug(text: &str) -> String {
         .chars()
         .take(60)
         .collect()
+}
+
+/// Forgets what is only needed for a while (ADRs 0028, 0033): the IP hashes of login codes after a
+/// day, used login codes and the e-mail counter after a month, expired sessions.
+async fn prune(pool: &PgPool) -> ApiResult<()> {
+    sqlx::query!(
+        "update login_codes set ip_hash = null where ip_hash is not null and created_at < now() - interval '1 day'"
+    )
+    .execute(pool)
+    .await?;
+    sqlx::query!("delete from login_codes where created_at < now() - interval '30 days'")
+        .execute(pool)
+        .await?;
+    sqlx::query!("delete from mail_sends where created_at < now() - interval '30 days'")
+        .execute(pool)
+        .await?;
+    sqlx::query!("delete from sessions where expires_at < now()")
+        .execute(pool)
+        .await?;
+    Ok(())
 }
 
 /// Deletes cached files older than [`FILE_MAX_AGE`].

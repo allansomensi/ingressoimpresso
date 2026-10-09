@@ -1,4 +1,5 @@
-//! Outgoing e-mail (ADR 0012): Resend in production, log or memory otherwise.
+//! Outgoing e-mail (ADRs 0012, 0028): Resend in production, log or memory otherwise. The
+//! messages themselves live in `emails.rs`.
 
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -6,14 +7,51 @@ use std::time::Duration;
 use serde::Serialize;
 use thiserror::Error;
 
+use crate::emails::Email;
+
 const RESEND_URL: &str = "https://api.resend.com/emails";
 /// Longest part of a provider error kept in the log.
 const MAX_ERROR_CHARS: usize = 500;
 
 /// Sending failed.
 #[derive(Debug, Error)]
-#[error("e-mail delivery failed: {0}")]
-pub struct MailError(String);
+pub enum MailError {
+    /// The provider refused: daily quota or rate limit reached (Resend answers 429).
+    #[error("e-mail quota reached: {0}")]
+    Quota(String),
+    /// Any other failure.
+    #[error("e-mail delivery failed: {0}")]
+    Failed(String),
+}
+
+impl MailError {
+    /// The API error shown to the user: `mail_quota` invites another way in (ADR 0028).
+    pub fn api_error(&self) -> crate::error::ApiError {
+        match self {
+            Self::Quota(_) => crate::error::ApiError::Unavailable("mail_quota"),
+            Self::Failed(_) => crate::error::ApiError::Unavailable("mail_unavailable"),
+        }
+    }
+}
+
+/// What an e-mail is for, counted against the daily quota (`mail_sends.kind`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MailKind {
+    /// Login code.
+    LoginCode,
+    /// A batch paid online.
+    BatchPaid,
+}
+
+impl MailKind {
+    /// Database value.
+    pub const fn db(self) -> &'static str {
+        match self {
+            Self::LoginCode => "login_code",
+            Self::BatchPaid => "batch_paid",
+        }
+    }
+}
 
 /// A sent message (memory mailer, tests).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -24,6 +62,8 @@ pub struct SentMail {
     pub subject: String,
     /// Plain-text body.
     pub body: String,
+    /// HTML body.
+    pub html: String,
 }
 
 /// Mail transport.
@@ -67,6 +107,7 @@ struct ResendEmail<'a> {
     to: [&'a str; 1],
     subject: &'a str,
     text: &'a str,
+    html: &'a str,
 }
 
 impl Mailer {
@@ -89,7 +130,7 @@ impl Mailer {
                 env!("CARGO_PKG_VERSION")
             ))
             .build()
-            .map_err(|error| MailError(error.to_string()))?;
+            .map_err(|error| MailError::Failed(error.to_string()))?;
         Ok(Self::Resend {
             client,
             endpoint,
@@ -98,12 +139,13 @@ impl Mailer {
         })
     }
 
-    /// Sends a plain-text message.
+    /// Sends a message (HTML with its plain-text alternative).
     ///
     /// # Errors
     ///
     /// [`MailError`] if the provider rejects or cannot be reached.
-    pub async fn send(&self, to: &str, subject: &str, body: &str) -> Result<(), MailError> {
+    pub async fn send(&self, to: &str, email: &Email) -> Result<(), MailError> {
+        let (subject, body) = (email.subject.as_str(), email.text.as_str());
         match self {
             Self::Resend {
                 client,
@@ -119,10 +161,11 @@ impl Mailer {
                         to: [to],
                         subject,
                         text: body,
+                        html: &email.html,
                     })
                     .send()
                     .await
-                    .map_err(|error| MailError(error.to_string()))?;
+                    .map_err(|error| MailError::Failed(error.to_string()))?;
                 let status = response.status();
                 if status.is_success() {
                     return Ok(());
@@ -131,7 +174,12 @@ impl Mailer {
                 // daily quota); it never echoes the API key.
                 let detail = response.text().await.unwrap_or_default();
                 let detail: String = detail.chars().take(MAX_ERROR_CHARS).collect();
-                Err(MailError(format!("resend answered {status}: {detail}")))
+                let message = format!("resend answered {status}: {detail}");
+                if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                    Err(MailError::Quota(message))
+                } else {
+                    Err(MailError::Failed(message))
+                }
             }
             Self::Log => {
                 tracing::warn!(%to, %subject, %body, "development mailer: e-mail not sent");
@@ -139,11 +187,12 @@ impl Mailer {
             }
             Self::Memory(sent) => {
                 sent.lock()
-                    .map_err(|_| MailError("memory mailer poisoned".to_owned()))?
+                    .map_err(|_| MailError::Failed("memory mailer poisoned".to_owned()))?
                     .push(SentMail {
                         to: to.to_owned(),
                         subject: subject.to_owned(),
                         body: body.to_owned(),
+                        html: email.html.clone(),
                     });
                 Ok(())
             }
@@ -197,7 +246,12 @@ mod tests {
         ));
         let mailer =
             Mailer::resend_at(endpoint, "re_test".to_owned(), "A <a@b.c>".to_owned()).unwrap();
-        let error = mailer.send("x@y.z", "Assunto", "Corpo").await.unwrap_err();
+        let email = Email {
+            subject: "Assunto".to_owned(),
+            text: "Corpo".to_owned(),
+            html: "<p>Corpo</p>".to_owned(),
+        };
+        let error = mailer.send("x@y.z", &email).await.unwrap_err();
         let head = server.join().unwrap().to_ascii_lowercase();
         assert!(
             head.contains("user-agent: ingressoimpresso-server/"),

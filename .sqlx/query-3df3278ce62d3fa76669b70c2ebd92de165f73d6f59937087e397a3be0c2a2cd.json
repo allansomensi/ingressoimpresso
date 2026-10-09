@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update users set last_login_at = now(),\n                  terms_accepted_at = case when terms_version is distinct from $2 then now() else terms_accepted_at end,\n                  terms_version = $2\n           where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "3df3278ce62d3fa76669b70c2ebd92de165f73d6f59937087e397a3be0c2a2cd"
+}

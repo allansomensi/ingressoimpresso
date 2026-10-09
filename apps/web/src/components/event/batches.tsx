@@ -48,6 +48,7 @@ const STATUS_TONE: Record<BatchDto["status"], Tone> = {
   awaiting_payment: "warning",
   paid: "success",
   canceled: "neutral",
+  refunded: "danger",
 };
 
 function quantityOf(batch: BatchDto): number {

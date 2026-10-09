@@ -16,20 +16,37 @@ use tower_http::trace::TraceLayer;
 use crate::auth;
 use crate::error::ApiError;
 use crate::routes::events::MAX_ART_BYTES;
-use crate::routes::{account, admin, batches, door, events, exports, report, sellers, voids};
+use crate::routes::{
+    account, admin, analytics, batches, changelog, door, events, exports, privacy, report, sellers,
+    support, tickets, voids,
+};
 use crate::state::AppState;
 
 /// JSON bodies are small; only art uploads get a bigger limit.
 const JSON_BODY_LIMIT: usize = 256 * 1024;
 
 /// Builds the application router.
+#[expect(
+    clippy::too_many_lines,
+    reason = "the whole route table reads best in one place"
+)]
 pub fn router(state: AppState) -> Router {
     let api = Router::new()
+        .route("/auth/options", get(auth::options))
         .route("/auth/code", post(auth::request_code))
         .route("/auth/verify", post(auth::verify_code))
+        .route("/auth/google", post(auth::google))
         .route("/auth/logout", post(auth::logout))
         .route("/me", get(auth::me))
-        .route("/account", get(account::account).put(account::update))
+        .route(
+            "/account",
+            get(account::account)
+                .put(account::update)
+                .delete(privacy::delete),
+        )
+        .route("/account/export", get(privacy::export))
+        .route("/analytics", get(analytics::organization))
+        .route("/changelog", get(changelog::public))
         .route("/events", get(events::list).post(events::create))
         .route(
             "/events/{id}",
@@ -42,6 +59,16 @@ pub fn router(state: AppState) -> Router {
             get(events::get_design).put(events::save_design),
         )
         .route("/events/{id}/design/preview", post(events::preview))
+        .route("/events/{id}/analytics", get(analytics::event))
+        .route(
+            "/events/{id}/tickets",
+            get(tickets::list).post(tickets::create),
+        )
+        .route("/events/{id}/tickets/bulk", post(tickets::create_bulk))
+        .route("/ticket-links/{id}", put(tickets::update))
+        .route("/ticket-links/{id}/revoke", post(tickets::revoke))
+        .route("/ticket", post(tickets::open))
+        .route("/ticket/image", post(tickets::image))
         .route(
             "/events/{id}/art",
             post(events::upload_art).layer(DefaultBodyLimit::max(MAX_ART_BYTES)),
@@ -57,10 +84,34 @@ pub fn router(state: AppState) -> Router {
         .route("/pricing", get(batches::pricing_table))
         .route("/stripe/webhook", post(batches::stripe_webhook))
         .route("/admin/batches/{id}/mark-paid", post(batches::mark_paid))
+        .route("/admin/batches/{id}/refund", post(support::refund))
+        .route("/admin/batches/{id}/price", put(support::set_price))
         .route("/admin/overview", get(admin::overview))
+        .route("/admin/finance", get(analytics::finance))
         .route("/admin/organizations", get(admin::organizations))
+        .route(
+            "/admin/organizations/{id}",
+            get(support::organization).put(support::rename),
+        )
         .route("/admin/organizations/{id}/bonus", put(admin::set_bonus))
+        .route(
+            "/admin/organizations/{id}/suspension",
+            put(support::set_suspension),
+        )
+        .route(
+            "/admin/users/{id}/sessions/revoke",
+            post(support::revoke_sessions),
+        )
         .route("/admin/batches", get(admin::batches))
+        .route("/admin/audit", get(support::audit_log))
+        .route(
+            "/admin/changelog",
+            get(changelog::list).post(changelog::create),
+        )
+        .route(
+            "/admin/changelog/{id}",
+            put(changelog::update).delete(changelog::delete),
+        )
         .route(
             "/events/{id}/sellers",
             get(sellers::list).post(sellers::create),

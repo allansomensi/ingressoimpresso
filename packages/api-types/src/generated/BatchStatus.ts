@@ -3,4 +3,4 @@
 /**
  * Batch payment status.
  */
-export type BatchStatus = "awaiting_payment" | "paid" | "canceled";
+export type BatchStatus = "awaiting_payment" | "paid" | "canceled" | "refunded";

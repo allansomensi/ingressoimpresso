@@ -41,6 +41,8 @@ image = { version = "0.25.10", default-features = false, features = ["png", "jpe
 lopdf = "0.45.0"
 qrcodegen = "1.8.0"
 rqrr = "0.11.0"
+# RSA signatures of Google ID tokens (ADR 0029); already in the tree through rustls and sqlx.
+ring = { version = "0.17.14", default-features = false, features = ["alloc"] }
 # Typst is pinned exactly: its API changes between minor versions (ADR 0008).
 typst = "=0.15.1"
 typst-layout = "=0.15.1"

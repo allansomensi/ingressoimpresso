@@ -5,6 +5,7 @@ use std::time::Duration;
 
 use anyhow::{Context, Result};
 use ingressoimpresso_server::config::Config;
+use ingressoimpresso_server::google::GoogleAuth;
 use ingressoimpresso_server::mail::Mailer;
 use ingressoimpresso_server::payments::Payments;
 use ingressoimpresso_server::state::AppState;
@@ -79,8 +80,17 @@ async fn run(config: Config) -> Result<()> {
         tracing::info!("Stripe not configured: batches are marked as paid by an admin");
         Payments::Disabled
     };
+    let google = if let Some(client_id) = &config.google_client_id {
+        Some(GoogleAuth::new(client_id.clone()).context("building the Google sign-in client")?)
+    } else {
+        tracing::info!("GOOGLE_CLIENT_ID not set: sign-in by e-mail code only");
+        None
+    };
     let port = config.port;
-    let state = AppState::new(pool, config, mailer).with_payments(payments);
+    let mut state = AppState::new(pool, config, mailer).with_payments(payments);
+    if let Some(google) = google {
+        state = state.with_google(google);
+    }
     tokio::spawn(jobs::run_worker(state.clone()));
 
     let listener = tokio::net::TcpListener::bind(("0.0.0.0", port))

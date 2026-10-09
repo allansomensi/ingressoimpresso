@@ -2023,6 +2023,7 @@ dependencies = [
  "http-body-util",
  "image",
  "reqwest",
+ "ring",
  "rqrr",
  "rustls",
  "serde",

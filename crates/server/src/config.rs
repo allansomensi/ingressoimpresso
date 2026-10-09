@@ -38,7 +38,15 @@ pub struct Config {
     /// `FREE_TICKETS`: tickets every organization gets for free (ADR 0024), default
     /// [`crate::pricing::DEFAULT_FREE_TICKETS`]; 0 turns the offer off.
     pub free_tickets: i32,
+    /// `GOOGLE_CLIENT_ID` (ADR 0029): OAuth client id of "Entrar com Google"; off without it.
+    pub google_client_id: Option<String>,
+    /// `MAIL_DAILY_LIMIT` (ADR 0028): e-mails sent in any 24 hours, default
+    /// [`DEFAULT_MAIL_DAILY_LIMIT`] (Resend's free plan sends 100 a day); 0 means no limit.
+    pub mail_daily_limit: Option<i64>,
 }
+
+/// Default of `MAIL_DAILY_LIMIT`: a little under Resend's free 100 a day.
+pub const DEFAULT_MAIL_DAILY_LIMIT: i64 = 95;
 
 impl std::fmt::Debug for Config {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -55,6 +63,8 @@ impl std::fmt::Debug for Config {
             .field("export_dir", &self.export_dir)
             .field("production", &self.production)
             .field("free_tickets", &self.free_tickets)
+            .field("google_client_id", &self.google_client_id)
+            .field("mail_daily_limit", &self.mail_daily_limit)
             .finish_non_exhaustive()
     }
 }
@@ -116,6 +126,10 @@ impl Config {
     /// # Errors
     ///
     /// See [`ConfigError`].
+    #[expect(
+        clippy::too_many_lines,
+        reason = "every variable is read and checked in one place, in order"
+    )]
     pub fn from_lookup(lookup: impl Fn(&str) -> Option<String>) -> Result<Self, ConfigError> {
         let get = |name: &'static str| {
             lookup(name)
@@ -172,6 +186,18 @@ impl Config {
             .unwrap_or_else(|| "http://localhost:3000".to_owned());
         let stripe = stripe_keys(get("STRIPE_SECRET_KEY"), get("STRIPE_WEBHOOK_SECRET"))?;
         let free_tickets = free_tickets(get("FREE_TICKETS"))?;
+        let mail_daily_limit = mail_daily_limit(get("MAIL_DAILY_LIMIT"))?;
+        let google_client_id = get("GOOGLE_CLIENT_ID");
+        if google_client_id
+            .as_ref()
+            .is_some_and(|id| !id.ends_with(".apps.googleusercontent.com"))
+        {
+            return Err(ConfigError::Invalid {
+                name: "GOOGLE_CLIENT_ID",
+                reason: "must be the OAuth client id, ending in .apps.googleusercontent.com"
+                    .to_owned(),
+            });
+        }
         if production {
             if stripe.is_some() && !public_web_url.starts_with("https://") {
                 return Err(ConfigError::Invalid {
@@ -212,6 +238,8 @@ impl Config {
             ),
             production,
             free_tickets,
+            google_client_id,
+            mail_daily_limit,
         })
     }
 
@@ -241,6 +269,21 @@ fn free_tickets(value: Option<String>) -> Result<i32, ConfigError> {
                 reason: "must be a whole number from 0 to 10000".to_owned(),
             }),
         None => Ok(crate::pricing::DEFAULT_FREE_TICKETS),
+    }
+}
+
+/// `MAIL_DAILY_LIMIT` (ADR 0028): 0 turns the limit off.
+fn mail_daily_limit(value: Option<String>) -> Result<Option<i64>, ConfigError> {
+    match value {
+        Some(value) => match value.parse::<i64>() {
+            Ok(0) => Ok(None),
+            Ok(limit) if (1..=1_000_000).contains(&limit) => Ok(Some(limit)),
+            _ => Err(ConfigError::Invalid {
+                name: "MAIL_DAILY_LIMIT",
+                reason: "must be a whole number from 0 (no limit) to 1000000".to_owned(),
+            }),
+        },
+        None => Ok(Some(DEFAULT_MAIL_DAILY_LIMIT)),
     }
 }
 
@@ -439,6 +482,38 @@ mod tests {
         let stripe = config.stripe.unwrap();
         assert!(stripe.test_mode());
         assert_eq!(config.public_web_url, "https://seudominio.com.br");
+    }
+
+    #[test]
+    fn mail_limit_and_google_client() {
+        let base = [
+            ("DATABASE_URL", "postgres://localhost/db"),
+            ("TICKET_KEY_ENCRYPTION_KEY", KEY),
+        ];
+        let config = Config::from_lookup(lookup(&base)).unwrap();
+        assert_eq!(config.mail_daily_limit, Some(DEFAULT_MAIL_DAILY_LIMIT));
+        assert_eq!(config.google_client_id, None);
+        let mut custom = base.to_vec();
+        custom.push(("MAIL_DAILY_LIMIT", "0"));
+        custom.push(("GOOGLE_CLIENT_ID", "123-abc.apps.googleusercontent.com"));
+        let config = Config::from_lookup(lookup(&custom)).unwrap();
+        assert_eq!(config.mail_daily_limit, None);
+        assert_eq!(
+            config.google_client_id.as_deref(),
+            Some("123-abc.apps.googleusercontent.com")
+        );
+        let mut bad = base.to_vec();
+        bad.push(("GOOGLE_CLIENT_ID", "client-secret-by-mistake"));
+        assert!(matches!(
+            Config::from_lookup(lookup(&bad)),
+            Err(ConfigError::Invalid {
+                name: "GOOGLE_CLIENT_ID",
+                ..
+            })
+        ));
+        let mut bad = base.to_vec();
+        bad.push(("MAIL_DAILY_LIMIT", "-1"));
+        assert!(Config::from_lookup(lookup(&bad)).is_err());
     }
 
     #[test]

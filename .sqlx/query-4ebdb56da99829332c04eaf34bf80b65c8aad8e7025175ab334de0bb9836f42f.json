@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update organizations o set name = $2 from organizations old where o.id = $1 and old.id = o.id returning old.name",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "organizations",
+            "name": "name"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "4ebdb56da99829332c04eaf34bf80b65c8aad8e7025175ab334de0bb9836f42f"
+}

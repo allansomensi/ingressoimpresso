@@ -1,0 +1,112 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select numbers, status, price_cents, free_tickets, paid_via, created_at, paid_at, refunded_at\n           from ticket_batches where event_id = $1 order by lower(numbers)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "numbers",
+        "type_info": "Int4Range",
+        "origin": {
+          "Table": {
+            "table": "ticket_batches",
+            "name": "numbers"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ticket_batches",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "price_cents",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "ticket_batches",
+            "name": "price_cents"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "free_tickets",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "ticket_batches",
+            "name": "free_tickets"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "paid_via",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ticket_batches",
+            "name": "paid_via"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "ticket_batches",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "paid_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "ticket_batches",
+            "name": "paid_at"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "refunded_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "ticket_batches",
+            "name": "refunded_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "15f19f21c1ede6ff194028a50015f89ef2d2ae89aac8b1f9b31cff97acb9fdee"
+}

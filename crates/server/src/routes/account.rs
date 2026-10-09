@@ -1,4 +1,5 @@
-//! The signed-in user's organization: name, free tickets and totals (ADR 0024).
+//! The signed-in user's organization: name, free tickets and totals (ADR 0024). Exporting and
+//! deleting the account are in `privacy.rs`.
 
 use axum::Json;
 use axum::extract::State;
@@ -42,7 +43,8 @@ pub async fn update(
 
 async fn load(state: &AppState, user: &AuthUser) -> ApiResult<AccountDto> {
     let row = sqlx::query!(
-        r#"select o.name, o.bonus_free_tickets,
+        r#"select o.name, o.bonus_free_tickets, o.suspended_reason, o.suspended_at,
+                  (select terms_accepted_at from users where id = $1) as terms_accepted_at,
                   (select coalesce(sum(b.free_tickets), 0) from ticket_batches b
                    join events e on e.id = b.event_id
                    where e.organization_id = o.id and b.status <> 'canceled')::int as "free_used!",
@@ -65,5 +67,9 @@ async fn load(state: &AppState, user: &AuthUser) -> ApiResult<AccountDto> {
         free_tickets_total: free_total,
         event_count: row.event_count,
         paid_tickets: row.paid_tickets,
+        suspended_reason: row
+            .suspended_at
+            .map(|_| row.suspended_reason.unwrap_or_default()),
+        terms_accepted_at: row.terms_accepted_at,
     })
 }

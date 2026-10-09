@@ -32,4 +32,8 @@ ticketPriceCents: number | null,
 /**
  * Lifecycle.
  */
-status: EventStatus, };
+status: EventStatus, 
+/**
+ * Opened by an admin outside their own organization (support mode, ADR 0032).
+ */
+supportAccess: boolean, };

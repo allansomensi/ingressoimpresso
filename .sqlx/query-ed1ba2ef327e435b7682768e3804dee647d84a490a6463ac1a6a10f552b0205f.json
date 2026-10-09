@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select m.organization_id from memberships m\n           where m.user_id = $1 and m.role = 'owner'\n             and not exists (select 1 from memberships other\n                             where other.organization_id = m.organization_id\n                               and other.user_id <> m.user_id and other.role = 'owner')",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "organization_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "memberships",
+            "name": "organization_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "ed1ba2ef327e435b7682768e3804dee647d84a490a6463ac1a6a10f552b0205f"
+}
