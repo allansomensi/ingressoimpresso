@@ -777,6 +777,8 @@ export const texts = {
       empty: "Quando um bloco for devolvido ou perdido, cancele a faixa aqui.",
       undo: "Desfazer",
       undone: "Desfeito",
+      locked: "Estornado",
+      lockedHint: "O lote foi estornado: esses números ficam cancelados para sempre.",
       undoneToast: "Cancelamento desfeito.",
     },
     files: {
@@ -1046,6 +1048,7 @@ export const texts = {
       event: "Evento",
       date: "Data",
       sold: "Vendidos",
+      paid: "Pagos",
       entries: "Entradas",
       gross: "Faturamento",
       cost: "Custo",
@@ -1402,6 +1405,7 @@ export const texts = {
     range_overlap: "Essa faixa se sobrepõe a outra já entregue.",
     invalid_note: "Observação muito longa.",
     already_undone: "Esse cancelamento já foi desfeito.",
+    void_locked: "Esse cancelamento veio de um estorno e não pode ser desfeito.",
     invalid_scope: "Seleção inválida.",
     export_not_ready: "O arquivo ainda não está pronto.",
     export_expired: "O arquivo expirou. Gere de novo.",
@@ -1436,6 +1440,7 @@ export const texts = {
     invalid_title: "Dê um título de até 120 caracteres.",
     invalid_body: "Texto muito longo (até 4.000 caracteres).",
     invalid_period: "Período inválido.",
+    busy: "O servidor está ocupado gerando outras imagens. Tente de novo em alguns segundos.",
     event_has_batches: "O evento tem lotes. Cancele os lotes não pagos antes; eventos com lotes pagos podem ser arquivados.",
   },
 } as const;

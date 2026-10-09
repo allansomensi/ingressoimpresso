@@ -38,7 +38,7 @@ export default function ResultsPage() {
   const exportCsv = () => {
     const c = t.columns;
     downloadCsv(t.csvFile, [
-      [c.event, c.date, c.sold, "Pagos", c.entries, `${c.gross} (R$)`, `${c.cost} (R$)`, `${c.net} (R$)`],
+      [c.event, c.date, c.sold, c.paid, c.entries, `${c.gross} (R$)`, `${c.cost} (R$)`, `${c.net} (R$)`],
       ...events.map((event) => [
         event.name,
         eventDateTime(event.startsAt),
