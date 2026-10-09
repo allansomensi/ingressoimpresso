@@ -11,7 +11,7 @@ export const LEGAL_ENTITY = {
   kind: "pessoa física",
   email: "contato@ingressoimpresso.com.br",
   /** Physical address required by Decreto 7.962/2013. */
-  address: "Rua Amedeu Arioli, 269, bairro Licorsul, Bento Gonçalves/RS, Brasil" as string | null,
+  address: "Rua Amedeu Arioli, 269, bairro Licorsul, Bento Gonçalves/RS, CEP 95705-832, Brasil" as string | null,
   site: "https://ingressoimpresso.com.br",
 } as const;
 
