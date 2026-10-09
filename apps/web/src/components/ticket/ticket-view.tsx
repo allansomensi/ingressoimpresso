@@ -396,7 +396,7 @@ export function TicketView({
             element,
             { x: block.xMm, y: block.yMm, width: block.widthMm, height: block.heightMm },
             value === null ? (
-              <span className="flex size-full items-center justify-center bg-surface/40 text-[10px] font-medium text-fg-muted italic">
+              <span className="flex size-full items-center justify-center overflow-hidden border border-dashed border-black/30 bg-white/60 px-1 text-[10px] leading-none font-medium whitespace-nowrap text-black/60 italic">
                 {t.hiddenText}
               </span>
             ) : (
