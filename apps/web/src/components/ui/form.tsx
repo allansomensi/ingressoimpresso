@@ -3,7 +3,7 @@
 import { ChevronDown } from "lucide-react";
 import {
   useId,
-  type InputHTMLAttributes,
+  type ComponentProps,
   type ReactNode,
   type SelectHTMLAttributes,
   type TextareaHTMLAttributes,
@@ -45,7 +45,7 @@ export function Field({
   );
 }
 
-export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
+export function Input({ className, ...props }: ComponentProps<"input">) {
   if (props.type === "color") {
     return (
       <span className="flex h-11 items-center gap-2 rounded-xl border border-border-strong bg-surface px-1.5 shadow-xs focus-within:border-brand focus-within:ring-4 focus-within:ring-ring">

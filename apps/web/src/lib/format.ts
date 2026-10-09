@@ -1,5 +1,7 @@
 /** Display formats shared by the panel (pt-BR). */
 
+import { wallClockDate } from "@/lib/event-time";
+
 const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
 /** `R$ 1.234,50` from centavos. */
@@ -17,14 +19,20 @@ export function shortDateTime(iso: string): string {
   return new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
 }
 
-/** Day of the month, short month and weekday of an event date. */
+/** An event's date and time in its own wall-clock time: `20 de nov. de 2026, 22:00`. */
+export function eventDateTime(iso: string): string {
+  return wallClockDate(iso).toLocaleString("pt-BR", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" });
+}
+
+/** Day of the month, short month and weekday of an event date, in its own wall-clock time. */
 export function dateParts(iso: string): { day: string; month: string; weekday: string; time: string } {
-  const date = new Date(iso);
+  const date = wallClockDate(iso);
+  const utc = { timeZone: "UTC" } as const;
   return {
-    day: date.toLocaleDateString("pt-BR", { day: "2-digit" }),
-    month: date.toLocaleDateString("pt-BR", { month: "short" }).replace(".", ""),
-    weekday: date.toLocaleDateString("pt-BR", { weekday: "short" }).replace(".", ""),
-    time: date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+    day: date.toLocaleDateString("pt-BR", { ...utc, day: "2-digit" }),
+    month: date.toLocaleDateString("pt-BR", { ...utc, month: "short" }).replace(".", ""),
+    weekday: date.toLocaleDateString("pt-BR", { ...utc, weekday: "short" }).replace(".", ""),
+    time: date.toLocaleTimeString("pt-BR", { ...utc, hour: "2-digit", minute: "2-digit" }),
   };
 }
 

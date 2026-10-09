@@ -7,16 +7,16 @@ import { toast } from "sonner";
 
 import { Button, Dialog, ErrorMessage, Field, Input } from "@/components/ui";
 import { api } from "@/lib/api";
+import { browserOffset, offsetMinutes, wallClockInput, withOffset } from "@/lib/event-time";
 import { parseMoney } from "@/lib/format";
 import { texts } from "@/texts/pt-BR";
 
 const t = texts.panel;
 
-/** `datetime-local` value (local time, minutes) of an ISO instant. */
-function toLocalInput(iso: string): string {
-  const date = new Date(iso);
-  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
-  return local.toISOString().slice(0, 16);
+/** A `datetime-local` value `hours` later (plain calendar arithmetic, no time zone). */
+function addHours(local: string, hours: number): string | null {
+  const time = Date.parse(`${local}:00Z`);
+  return Number.isNaN(time) ? null : new Date(time + hours * 3_600_000).toISOString().slice(0, 16);
 }
 
 function priceText(cents: number | null): string {
@@ -60,21 +60,25 @@ function EventForm({
   const queryClient = useQueryClient();
   const [name, setName] = useState(event?.name ?? "");
   const [venue, setVenue] = useState(event?.venue ?? "");
-  const [startsAt, setStartsAt] = useState(event === undefined ? "" : toLocalInput(event.startsAt));
-  const [endsAt, setEndsAt] = useState(event === undefined ? "" : toLocalInput(event.endsAt));
+  // Times are typed in the event's own wall-clock time (ADR 0025).
+  const [startsAt, setStartsAt] = useState(event === undefined ? "" : wallClockInput(event.startsAt));
+  const [endsAt, setEndsAt] = useState(event === undefined ? "" : wallClockInput(event.endsAt));
   const [price, setPrice] = useState(priceText(event?.ticketPriceCents ?? null));
   // The end follows the start (+5 h) until it is edited by hand.
   const [endTouched, setEndTouched] = useState(event !== undefined);
   const parsedPrice = parseMoney(price);
-  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const timeZone =
+    event === undefined ? t.timeZoneHint(Intl.DateTimeFormat().resolvedOptions().timeZone) : t.eventTimeZoneHint(offsetMinutes(event.startsAt));
 
   const save = useMutation({
     mutationFn: () => {
+      // An edited event keeps its offset; a new one takes the browser's.
+      const offset = event === undefined ? browserOffset(startsAt) : offsetMinutes(event.startsAt);
       const body: EventBody = {
         name: name.trim(),
         venue: venue.trim() === "" ? null : venue.trim(),
-        startsAt: new Date(startsAt).toISOString(),
-        endsAt: new Date(endsAt).toISOString(),
+        startsAt: withOffset(startsAt, offset),
+        endsAt: withOffset(endsAt, offset),
         ticketPriceCents: parsedPrice.ok ? parsedPrice.cents : null,
       };
       return event === undefined
@@ -127,10 +131,10 @@ function EventForm({
             value={startsAt}
             onChange={(e) => {
               setStartsAt(e.target.value);
-              const start = new Date(e.target.value);
-              if (!endTouched && !Number.isNaN(start.getTime())) {
+              const end = addHours(e.target.value, 5);
+              if (!endTouched && end !== null) {
                 // Suggest a five-hour event.
-                setEndsAt(toLocalInput(new Date(start.getTime() + 5 * 3_600_000).toISOString()));
+                setEndsAt(end);
               }
             }}
             required
@@ -149,7 +153,7 @@ function EventForm({
           />
         </Field>
       </div>
-      <p className="-mt-2 text-xs text-fg-muted">{t.timeZoneHint(timeZone)}</p>
+      <p className="-mt-2 text-xs text-fg-muted">{timeZone}</p>
       <Field label={t.price} optional hint={parsedPrice.ok ? t.priceHint : <span className="text-danger-fg">{t.priceInvalid}</span>}>
         <span className="relative flex">
           <span className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-sm text-fg-muted">{texts.common.currency}</span>

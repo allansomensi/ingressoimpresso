@@ -2,8 +2,8 @@
 // offline page. The door (/portaria) has its own worker with a narrower scope (ADR 0018); this one
 // never answers its requests. The API lives on another origin and is never cached.
 //
-// Build files under /_next/static/ are content hashed: cache first. Icons and brand files: cache,
-// refreshed in the background. Pages always come from the network (an old copy could point at
+// Build files under /_next/static/ are content hashed: cache first. Icons, brand files and the
+// ticket typefaces (/fonts/): cache, refreshed in the background. Pages always come from the network (an old copy could point at
 // build files that no longer exist after a deploy); without network, the offline page.
 
 const CACHE = "app-v2";
@@ -117,7 +117,7 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(cacheFirst(request));
   } else if (request.mode === "navigate") {
     event.respondWith(page(request));
-  } else if (url.pathname.startsWith("/icons/") || url.pathname.startsWith("/brand/")) {
+  } else if (["/icons/", "/brand/", "/fonts/"].some((prefix) => url.pathname.startsWith(prefix))) {
     event.respondWith(staleWhileRevalidate(request));
   }
 });

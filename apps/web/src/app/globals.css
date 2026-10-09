@@ -136,6 +136,71 @@
   }
 }
 
+/*
+ * Typefaces printed on tickets (crates/render/fonts, as WOFF2), for the live preview of the
+ * editor and the template gallery. Downloaded only when a ticket uses them.
+ */
+@font-face {
+  font-family: "Ticket Bebas Neue";
+  src: url("/fonts/ticket/BebasNeue-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Ticket Space Mono";
+  src: url("/fonts/ticket/SpaceMono-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Ticket Space Mono";
+  src: url("/fonts/ticket/SpaceMono-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Ticket Lato";
+  src: url("/fonts/ticket/Lato-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Ticket Lato";
+  src: url("/fonts/ticket/Lato-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Ticket Anton";
+  src: url("/fonts/ticket/Anton-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Ticket Abril Fatface";
+  src: url("/fonts/ticket/AbrilFatface-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Ticket Great Vibes";
+  src: url("/fonts/ticket/GreatVibes-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Ticket Pacifico";
+  src: url("/fonts/ticket/Pacifico-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Ticket Alfa Slab One";
+  src: url("/fonts/ticket/AlfaSlabOne-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+
 @layer base {
   html {
     -webkit-tap-highlight-color: transparent;

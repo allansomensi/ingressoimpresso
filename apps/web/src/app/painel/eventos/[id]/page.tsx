@@ -30,7 +30,7 @@ import { EventFormDialog } from "@/components/panel/event-form";
 import { Button, ButtonLink, EmptyState, ErrorMessage, LoadingBlock, Skeleton, useConfirm } from "@/components/ui";
 import { ApiError, api } from "@/lib/api";
 import { cn } from "@/lib/cn";
-import { dateTime, money } from "@/lib/format";
+import { eventDateTime, money } from "@/lib/format";
 import { hasUnsavedChanges } from "@/lib/unsaved";
 import { texts } from "@/texts/pt-BR";
 
@@ -189,7 +189,7 @@ function EventView() {
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-fg-muted">
               <span className="flex items-center gap-1.5">
                 <CalendarDays className="size-4 text-fg-subtle" aria-hidden />
-                {dateTime(data.startsAt)}
+                {eventDateTime(data.startsAt)}
               </span>
               <span className="flex items-center gap-1.5">
                 <MapPin className="size-4 text-fg-subtle" aria-hidden />
