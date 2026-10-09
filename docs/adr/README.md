@@ -32,3 +32,4 @@ feita e as consequências.
 | [0020](0020-pagamento-stripe.md) | Pagamento dos lotes com Stripe Checkout | Aceito |
 | [0021](0021-interface-e-pwa.md) | Identidade visual, sistema de design e painel instalável (PWA) | Aceito |
 | [0022](0022-tema-e-analytics.md) | Tema escolhido pelo usuário e Vercel Web Analytics | Aceito |
+| [0023](0023-nova-marca.md) | Nova marca: ingresso com "check" | Aceito |
