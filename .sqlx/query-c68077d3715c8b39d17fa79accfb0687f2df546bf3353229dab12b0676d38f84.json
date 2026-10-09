@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update organizations set name = $2\n           where id = (select organization_id from memberships\n                       where user_id = $1 and role = 'owner' order by created_at limit 1)\n           returning id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "organizations",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "c68077d3715c8b39d17fa79accfb0687f2df546bf3353229dab12b0676d38f84"
+}

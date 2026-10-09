@@ -1,0 +1,42 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with days as (\n             select generate_series(\n               (now() at time zone 'America/Sao_Paulo')::date - 29,\n               (now() at time zone 'America/Sao_Paulo')::date,\n               interval '1 day')::date as day\n           )\n           select to_char(d.day, 'YYYY-MM-DD') as \"date!\",\n                  coalesce(sum(upper(b.numbers) - lower(b.numbers)), 0)::bigint as \"tickets!\",\n                  coalesce(sum(b.price_cents), 0)::bigint as \"revenue_cents!\",\n                  (select count(*) from organizations o\n                   where (o.created_at at time zone 'America/Sao_Paulo')::date = d.day) as \"signups!\"\n           from days d\n           left join ticket_batches b\n             on b.status = 'paid' and (b.paid_at at time zone 'America/Sao_Paulo')::date = d.day\n           group by d.day\n           order by d.day",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "date!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "tickets!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "revenue_cents!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "signups!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "6f743f9a2f2c1daa5be92386c95b1b5b3095437abf49c7a547964faec4ef2b39"
+}

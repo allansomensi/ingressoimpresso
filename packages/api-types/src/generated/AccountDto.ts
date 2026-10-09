@@ -13,7 +13,7 @@ organizationName: string,
  */
 freeTicketsLeft: number, 
 /**
- * Free tickets every organization gets.
+ * Free tickets of the organization: everyone's allowance plus any bonus from an admin.
  */
 freeTicketsTotal: number, 
 /**

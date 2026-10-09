@@ -201,7 +201,7 @@ dto! {
         pub organization_name: String,
         /// Free tickets still available to the organization.
         pub free_tickets_left: i32,
-        /// Free tickets every organization gets.
+        /// Free tickets of the organization: everyone's allowance plus any bonus from an admin.
         pub free_tickets_total: i32,
         /// Events of the organization.
         #[cfg_attr(feature = "ts", ts(type = "number"))]
@@ -209,6 +209,121 @@ dto! {
         /// Paid tickets issued by the organization.
         #[cfg_attr(feature = "ts", ts(type = "number"))]
         pub paid_tickets: i64,
+    }
+
+    /// `PUT /api/account`.
+    pub struct AccountBody {
+        /// New organization name (1–100 characters).
+        pub organization_name: String,
+    }
+
+    /// `GET /api/admin/overview`: totals of the whole service (admins only, ADR 0026).
+    pub struct AdminOverviewDto {
+        /// Organizations.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub organizations: i64,
+        /// Organizations created in the last 30 days.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub new_organizations: i64,
+        /// Users.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub users: i64,
+        /// Events.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub events: i64,
+        /// Events that have not ended yet.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub upcoming_events: i64,
+        /// Tickets of paid batches (free ones included).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub paid_tickets: i64,
+        /// Tickets given from free allowances.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub free_tickets: i64,
+        /// Money of paid batches, in centavos.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub revenue_cents: i64,
+        /// Money of batches paid in the last 30 days.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub revenue_30d_cents: i64,
+        /// Batches waiting for payment.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub awaiting_batches: i64,
+        /// Pix generated and not yet confirmed.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub processing_payments: i64,
+        /// The last 30 days, oldest first (Brasília dates).
+        pub days: Vec<AdminDayDto>,
+    }
+
+    /// One day of the admin overview.
+    pub struct AdminDayDto {
+        /// `YYYY-MM-DD`.
+        pub date: String,
+        /// Tickets of batches paid that day.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub tickets: i64,
+        /// Money of batches paid that day, in centavos.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub revenue_cents: i64,
+        /// Organizations created that day.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub signups: i64,
+    }
+
+    /// An organization as admins see it.
+    pub struct AdminOrganizationDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// Name.
+        pub name: String,
+        /// E-mail of the first owner.
+        pub owner_email: Option<String>,
+        /// Creation time.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub created_at: OffsetDateTime,
+        /// Events.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub event_count: i64,
+        /// Tickets of paid batches.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub paid_tickets: i64,
+        /// Money of paid batches, in centavos.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub revenue_cents: i64,
+        /// Free tickets used.
+        pub free_used: i32,
+        /// Free tickets granted: everyone's allowance plus the bonus.
+        pub free_total: i32,
+        /// Extra free tickets given by an admin.
+        pub bonus_free_tickets: i32,
+        /// Last batch created.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub last_batch_at: Option<OffsetDateTime>,
+    }
+
+    /// `PUT /api/admin/organizations/{id}/bonus`.
+    pub struct AdminBonusBody {
+        /// Extra free tickets (0–100000), replacing the current bonus.
+        pub bonus_free_tickets: i32,
+    }
+
+    /// A batch of any organization, as admins see it.
+    pub struct AdminBatchDto {
+        /// The batch.
+        pub batch: BatchDto,
+        /// Event id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub event_id: Uuid,
+        /// Event name.
+        pub event_name: String,
+        /// Organization name.
+        pub organization_name: String,
+        /// E-mail of the organization's first owner.
+        pub owner_email: Option<String>,
     }
 
     /// `POST /api/batches/{id}/checkout`: the Stripe payment page.

@@ -16,7 +16,7 @@ use tower_http::trace::TraceLayer;
 use crate::auth;
 use crate::error::ApiError;
 use crate::routes::events::MAX_ART_BYTES;
-use crate::routes::{account, batches, door, events, exports, report, sellers, voids};
+use crate::routes::{account, admin, batches, door, events, exports, report, sellers, voids};
 use crate::state::AppState;
 
 /// JSON bodies are small; only art uploads get a bigger limit.
@@ -29,7 +29,7 @@ pub fn router(state: AppState) -> Router {
         .route("/auth/verify", post(auth::verify_code))
         .route("/auth/logout", post(auth::logout))
         .route("/me", get(auth::me))
-        .route("/account", get(account::account))
+        .route("/account", get(account::account).put(account::update))
         .route("/events", get(events::list).post(events::create))
         .route("/events/{id}", get(events::get).put(events::update))
         .route(
@@ -52,6 +52,10 @@ pub fn router(state: AppState) -> Router {
         .route("/pricing", get(batches::pricing_table))
         .route("/stripe/webhook", post(batches::stripe_webhook))
         .route("/admin/batches/{id}/mark-paid", post(batches::mark_paid))
+        .route("/admin/overview", get(admin::overview))
+        .route("/admin/organizations", get(admin::organizations))
+        .route("/admin/organizations/{id}/bonus", put(admin::set_bonus))
+        .route("/admin/batches", get(admin::batches))
         .route(
             "/events/{id}/sellers",
             get(sellers::list).post(sellers::create),

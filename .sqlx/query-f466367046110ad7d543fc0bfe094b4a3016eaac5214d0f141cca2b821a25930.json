@@ -1,0 +1,91 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select\n             (select count(*) from organizations) as \"organizations!\",\n             (select count(*) from organizations where created_at > now() - interval '30 days') as \"new_organizations!\",\n             (select count(*) from users) as \"users!\",\n             (select count(*) from events) as \"events!\",\n             (select count(*) from events where ends_at > now()) as \"upcoming_events!\",\n             (select coalesce(sum(upper(numbers) - lower(numbers)), 0) from ticket_batches\n              where status = 'paid')::bigint as \"paid_tickets!\",\n             (select coalesce(sum(free_tickets), 0) from ticket_batches\n              where status = 'paid')::bigint as \"free_tickets!\",\n             (select coalesce(sum(price_cents), 0) from ticket_batches\n              where status = 'paid')::bigint as \"revenue_cents!\",\n             (select coalesce(sum(price_cents), 0) from ticket_batches\n              where status = 'paid' and paid_at > now() - interval '30 days')::bigint as \"revenue_30d_cents!\",\n             (select count(*) from ticket_batches where status = 'awaiting_payment') as \"awaiting_batches!\",\n             (select count(*) from payments where status = 'processing') as \"processing_payments!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "organizations!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "new_organizations!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "users!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "events!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "upcoming_events!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "paid_tickets!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "free_tickets!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 7,
+        "name": "revenue_cents!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 8,
+        "name": "revenue_30d_cents!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 9,
+        "name": "awaiting_batches!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 10,
+        "name": "processing_payments!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "f466367046110ad7d543fc0bfe094b4a3016eaac5214d0f141cca2b821a25930"
+}

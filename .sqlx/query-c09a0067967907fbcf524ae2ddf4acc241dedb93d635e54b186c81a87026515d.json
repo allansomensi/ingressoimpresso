@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update organizations set bonus_free_tickets = $2 where id = $1 returning id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "organizations",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "c09a0067967907fbcf524ae2ddf4acc241dedb93d635e54b186c81a87026515d"
+}

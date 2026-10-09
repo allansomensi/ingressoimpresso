@@ -32,20 +32,20 @@ const MAX_BATCH: i32 = 5_000;
 /// and a new one is opened (the payer needs time to scan a Pix code or type a card).
 const REUSE_MARGIN_MINUTES: i32 = 15;
 
-struct BatchRow {
-    id: Uuid,
-    numbers: PgRange<i32>,
-    status: String,
-    created_at: OffsetDateTime,
-    paid_at: Option<OffsetDateTime>,
-    price_cents: i32,
-    free_tickets: i32,
-    paid_via: Option<String>,
-    pending_payment: Option<String>,
+pub(crate) struct BatchRow {
+    pub(crate) id: Uuid,
+    pub(crate) numbers: PgRange<i32>,
+    pub(crate) status: String,
+    pub(crate) created_at: OffsetDateTime,
+    pub(crate) paid_at: Option<OffsetDateTime>,
+    pub(crate) price_cents: i32,
+    pub(crate) free_tickets: i32,
+    pub(crate) paid_via: Option<String>,
+    pub(crate) pending_payment: Option<String>,
 }
 
 impl BatchRow {
-    fn into_dto(self) -> ApiResult<BatchDto> {
+    pub(crate) fn into_dto(self) -> ApiResult<BatchDto> {
         let (first, last) = bounds(&self.numbers)?;
         Ok(BatchDto {
             id: self.id,
@@ -150,8 +150,8 @@ pub async fn create(
     .await?;
     // The organization's free tickets (ADR 0024). Its row lock keeps two batches created at the
     // same time from spending the same allowance.
-    sqlx::query!(
-        "select id from organizations where id = (select organization_id from events where id = $1) for update",
+    let bonus = sqlx::query_scalar!(
+        "select bonus_free_tickets from organizations where id = (select organization_id from events where id = $1) for update",
         event_id
     )
     .fetch_one(&mut *tx)
@@ -166,7 +166,7 @@ pub async fn create(
     )
     .fetch_one(&mut *tx)
     .await?;
-    let free = (state.config.free_tickets - free_used).clamp(0, body.quantity);
+    let free = (state.config.free_tickets + bonus - free_used).clamp(0, body.quantity);
     let price = pricing::quote_with_free(body.quantity, free);
     // A batch entirely covered by free tickets is born paid.
     let (status, paid_via) = if price == 0 {
