@@ -127,12 +127,33 @@ fn local(minutes: i16) -> UtcOffset {
     UtcOffset::from_whole_seconds(i32::from(minutes) * 60).unwrap_or(UtcOffset::UTC)
 }
 
-/// The last twelve months (by the events' local start), oldest first, empty months included.
+/// Months ahead of today the chart may reach, for events already scheduled.
+const MONTHS_AHEAD: i32 = 6;
+
+/// Twelve months by the events' local start, oldest first, empty months included: up to this
+/// month, or up to the month of the latest scheduled event (at most six months ahead).
 fn months(lines: &[EventLine], now: OffsetDateTime) -> Vec<MonthResultDto> {
     let brasilia = UtcOffset::from_hms(-3, 0, 0).unwrap_or(UtcOffset::UTC);
     let today = now.to_offset(brasilia).date();
+    let index = |year: i32, month: Month| year * 12 + i32::from(u8::from(month)) - 1;
+    let latest = lines
+        .iter()
+        .map(|line| {
+            let date = line
+                .starts_at
+                .to_offset(local(line.utc_offset_minutes))
+                .date();
+            index(date.year(), date.month())
+        })
+        .max()
+        .unwrap_or(i32::MIN);
+    let now_index = index(today.year(), today.month());
+    let end = latest.clamp(now_index, now_index + MONTHS_AHEAD);
     let mut keys = Vec::with_capacity(MONTHS);
-    let (mut year, mut month) = (today.year(), today.month());
+    let (mut year, mut month) = (
+        end.div_euclid(12),
+        Month::January.nth_next(u8::try_from(end.rem_euclid(12)).unwrap_or(0)),
+    );
     for _ in 0..MONTHS {
         keys.push((year, month));
         if month == Month::January {
@@ -475,6 +496,19 @@ mod tests {
         assert_eq!(
             (october.month.as_str(), october.events, october.gross_cents),
             ("2026-10", 1, 0)
+        );
+
+        // A show scheduled for next month moves the window forward; one years ahead does not.
+        let ahead = [
+            line(datetime!(2026-11-21 01:00 UTC), 10, 0, Some(100)),
+            line(datetime!(2030-01-01 12:00 UTC), 10, 0, Some(100)),
+        ];
+        let months = super::months(&ahead, now);
+        assert_eq!(months.first().unwrap().month, "2026-05");
+        assert_eq!(months.last().unwrap().month, "2027-04");
+        assert_eq!(
+            months.iter().find(|m| m.month == "2026-11").unwrap().events,
+            1
         );
     }
 

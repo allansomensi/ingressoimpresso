@@ -485,11 +485,12 @@ fn slug(text: &str) -> String {
         .collect()
 }
 
-/// Forgets what is only needed for a while (ADRs 0028, 0033): the IP hashes of login codes after a
-/// day, used login codes and the e-mail counter after a month, expired sessions.
+/// Forgets what is only needed for a while (ADRs 0028, 0033): the IP hashes of login codes within a
+/// day (the hourly run keeps them under 24 hours), login codes and the e-mail counter after a
+/// month, expired sessions.
 async fn prune(pool: &PgPool) -> ApiResult<()> {
     sqlx::query!(
-        "update login_codes set ip_hash = null where ip_hash is not null and created_at < now() - interval '1 day'"
+        "update login_codes set ip_hash = null where ip_hash is not null and created_at < now() - interval '23 hours'"
     )
     .execute(pool)
     .await?;

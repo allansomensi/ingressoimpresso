@@ -128,9 +128,8 @@ pub async fn organization(
     )
     .fetch_all(&state.pool)
     .await?;
-    let events = sqlx::query_as!(
-        AdminEventDto,
-        r#"select e.id, e.name, e.starts_at, e.status,
+    let events = sqlx::query!(
+        r#"select e.id, e.name, e.starts_at, e.utc_offset_minutes, e.status,
                   coalesce((select sum(upper(b.numbers) - lower(b.numbers)) from ticket_batches b
                             where b.event_id = e.id and b.status = 'paid'), 0)::bigint as "paid_tickets!",
                   coalesce((select sum(b.price_cents) from ticket_batches b
@@ -141,7 +140,22 @@ pub async fn organization(
         organization_id
     )
     .fetch_all(&state.pool)
-    .await?;
+    .await?
+    .into_iter()
+    .map(|row| AdminEventDto {
+        id: row.id,
+        name: row.name,
+        // The event's wall-clock time, as the organizer typed it.
+        starts_at: row.starts_at.to_offset(
+            time::UtcOffset::from_whole_seconds(i32::from(row.utc_offset_minutes) * 60)
+                .unwrap_or(time::UtcOffset::UTC),
+        ),
+        status: row.status,
+        paid_tickets: row.paid_tickets,
+        revenue_cents: row.revenue_cents,
+        entries: row.entries,
+    })
+    .collect();
     Ok(Json(AdminOrganizationDetailDto {
         organization: summary,
         suspended_at: status.suspended_at,

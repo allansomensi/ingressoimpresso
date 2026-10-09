@@ -70,3 +70,35 @@ export function PhoneMock({ className }: { className?: string | undefined }) {
     </div>
   );
 }
+
+/** A phone showing a digital ticket, as the buyer opens it from WhatsApp (ADR 0030). */
+export function DigitalTicketMock({ className }: { className?: string | undefined }) {
+  const d = texts.landing.digitalMock;
+  return (
+    <div className={cn("relative w-[230px] rounded-[38px] bg-[#0e0d14] p-2.5 shadow-lg ring-1 ring-white/10", className)}>
+      <div className="relative flex h-[440px] flex-col overflow-hidden rounded-[30px] bg-[#f4f3f8] text-[#0e0d14]">
+        <div aria-hidden className="absolute top-2 left-1/2 z-10 h-5 w-20 -translate-x-1/2 rounded-full bg-black" />
+        <div className="m-3 mt-9 flex flex-1 flex-col overflow-hidden rounded-[20px] bg-white shadow-md ring-1 ring-black/5">
+          <div className="flex flex-col gap-1 bg-[#5b3df5] px-4 pt-4 pb-5 text-white">
+            <span className="text-[9px] font-semibold tracking-[0.16em] uppercase opacity-80">{d.organizer}</span>
+            <span className="text-base leading-tight font-bold">{m.event}</span>
+            <span className="text-[10px] opacity-85">{d.when}</span>
+          </div>
+          <div aria-hidden className="relative h-0 border-t-2 border-dashed border-black/10">
+            <span className="absolute -top-2.5 -left-2.5 size-5 rounded-full bg-[#f4f3f8]" />
+            <span className="absolute -top-2.5 -right-2.5 size-5 rounded-full bg-[#f4f3f8]" />
+          </div>
+          <div className="flex flex-1 flex-col items-center justify-center gap-2 px-4 py-3">
+            <QrCode text={SAMPLE_QR} size={120} label={m.number} className="rounded-lg bg-white" />
+            <span className="font-mono text-lg font-bold">{m.number}</span>
+            <span className="text-[10px] text-[#5b5a6b]">{d.holder}</span>
+            <span className="inline-flex items-center gap-1 rounded-full bg-[#e7f6ec] px-2 py-0.5 text-[10px] font-semibold text-[#0f7a37]">
+              <CheckCircle2 className="size-3" aria-hidden />
+              {d.valid}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

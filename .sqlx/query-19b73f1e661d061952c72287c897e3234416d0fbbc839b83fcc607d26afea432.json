@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update login_codes set ip_hash = null where ip_hash is not null and created_at < now() - interval '23 hours'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "19b73f1e661d061952c72287c897e3234416d0fbbc839b83fcc607d26afea432"
+}

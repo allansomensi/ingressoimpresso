@@ -203,7 +203,27 @@ export function FilesTab({ eventId, onSelect }: { eventId: string; onSelect: Sel
                 </div>
               )}
             </div>
-            {kind === "whatsapp" && <Alert tone="warning">{t.whatsappWarning}</Alert>}
+            {kind === "whatsapp" && (
+              <>
+                <Alert tone="warning">{t.whatsappWarning}</Alert>
+                <Alert
+                  tone="brand"
+                  action={
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => {
+                        onSelect("digital");
+                      }}
+                    >
+                      {t.digitalTipAction}
+                    </Button>
+                  }
+                >
+                  {t.digitalTip}
+                </Alert>
+              </>
+            )}
             <ErrorMessage error={generate.error} />
             <Button type="submit" icon={<FileDown />} loading={generate.isPending} className="w-full sm:w-fit">
               {generate.isPending ? t.generating : t.generate}

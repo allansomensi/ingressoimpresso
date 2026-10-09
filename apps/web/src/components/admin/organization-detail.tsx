@@ -300,7 +300,7 @@ export function OrganizationDetail({ organizationId }: { organizationId: string 
         <Stat label={texts.admin.stats.events} value={o.eventCount.toLocaleString("pt-BR")} icon={CalendarDays} />
         <Stat
           label={texts.admin.stats.freeLabel}
-          value={texts.admin.organizations.free(o.freeUsed, o.freeTotal)}
+          value={texts.account.freeOf(o.freeUsed, o.freeTotal)}
           hint={o.bonusFreeTickets > 0 ? texts.admin.organizations.bonusBadge(o.bonusFreeTickets) : undefined}
           icon={Gift}
         />

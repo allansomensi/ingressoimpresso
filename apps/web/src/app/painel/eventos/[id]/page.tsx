@@ -13,6 +13,7 @@ import {
   LayoutDashboard,
   MapPin,
   Pencil,
+  Send,
   Smartphone,
   Tag,
   Ticket,
@@ -42,6 +43,7 @@ const OverviewTab = dynamic(() => import("@/components/event/overview").then((m)
 const DesignTab = dynamic(() => import("@/components/event/design").then((m) => m.DesignTab), { loading: tabLoading });
 const BatchesTab = dynamic(() => import("@/components/event/batches").then((m) => m.BatchesTab), { loading: tabLoading });
 const SellersTab = dynamic(() => import("@/components/event/sellers").then((m) => m.SellersTab), { loading: tabLoading });
+const DigitalTab = dynamic(() => import("@/components/event/digital").then((m) => m.DigitalTab), { loading: tabLoading });
 const VoidsTab = dynamic(() => import("@/components/event/voids").then((m) => m.VoidsTab), { loading: tabLoading });
 const FilesTab = dynamic(() => import("@/components/event/files").then((m) => m.FilesTab), { loading: tabLoading });
 const DoorTab = dynamic(() => import("@/components/event/door").then((m) => m.DoorTab), { loading: tabLoading });
@@ -52,6 +54,7 @@ const ICONS: Record<Tab, LucideIcon> = {
   design: Ticket,
   batches: Layers,
   sellers: Users,
+  digital: Send,
   voids: Ban,
   files: FileDown,
   door: Smartphone,
@@ -285,6 +288,7 @@ function EventView() {
         {tab === "design" && <DesignTab eventId={eventId} />}
         {tab === "batches" && <BatchesTab eventId={eventId} onSelect={select} />}
         {tab === "sellers" && <SellersTab eventId={eventId} />}
+        {tab === "digital" && <DigitalTab eventId={eventId} onSelect={select} />}
         {tab === "voids" && <VoidsTab eventId={eventId} />}
         {tab === "files" && <FilesTab eventId={eventId} onSelect={select} />}
         {tab === "door" && <DoorTab eventId={eventId} />}
