@@ -127,7 +127,7 @@ export default function SignInPage() {
     googleClientId === null ? null : (
       <div className="flex flex-col gap-3">
         {google.isPending ? (
-          <div className="flex h-12 items-center justify-center gap-2 rounded-xl border border-border bg-surface text-base font-semibold text-fg-muted">
+          <div className="flex h-11 items-center justify-center gap-2 rounded-full border border-border bg-surface text-sm font-medium text-fg-muted">
             <Spinner />
             {t.googleSigningIn}
           </div>
