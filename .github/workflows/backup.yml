@@ -1,19 +1,24 @@
 name: Backup
 
-# ADR 0013: weekly logical dump of the production database, encrypted with age and kept as a
-# workflow artifact for 35 days; Neon's point-in-time restore covers the days in between.
+# ADRs 0013, 0019: daily logical dump of the production database, encrypted with age and kept as
+# a workflow artifact for 30 days (Neon Free keeps only 6 hours of point-in-time history).
 # Secrets: BACKUP_DATABASE_URL (direct Neon URL; a read-only role is enough) and
 # BACKUP_AGE_RECIPIENT (public key from `age-keygen`; the private key stays in the password
 # manager, never in GitHub). Monthly restore test: `just backup-restore-test` (docs/deploy.md).
 
 on:
   schedule:
-    # Sundays 06:17 UTC (03:17 in Brasília), away from events.
-    - cron: "17 6 * * 0"
+    # Every day at 06:17 UTC (03:17 in Brasília), away from events.
+    - cron: "17 6 * * *"
   workflow_dispatch:
 
 permissions:
   contents: read
+
+# bash with pipefail: a failing pg_dump must fail the job, not upload an empty archive.
+defaults:
+  run:
+    shell: bash
 
 jobs:
   dump:
@@ -46,8 +51,10 @@ jobs:
           docker run --rm -e DATABASE_URL postgres:17 \
             sh -c 'pg_dump --format=custom --no-owner --no-privileges "$DATABASE_URL"' \
             | age --recipient "$RECIPIENT" > "$name"
-          test -s "$name"
-          ls -l "$name"
+          size=$(stat -c %s "$name")
+          echo "encrypted dump: $size bytes"
+          # An empty database still dumps to several KB; less means pg_dump printed nothing.
+          [ "$size" -gt 2048 ]
 
       - name: Keep the encrypted dump
         if: steps.secrets.outputs.ready == 'true'
@@ -55,5 +62,5 @@ jobs:
         with:
           name: database-backup
           path: ingressoimpresso-*.dump.age
-          retention-days: 35
+          retention-days: 30
           if-no-files-found: error

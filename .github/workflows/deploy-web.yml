@@ -18,6 +18,11 @@ on:
 permissions:
   contents: read
 
+# bash with pipefail: a failing `vercel deploy` must fail the job.
+defaults:
+  run:
+    shell: bash
+
 concurrency:
   group: deploy-web-${{ github.ref }}
   cancel-in-progress: false
@@ -91,6 +96,18 @@ jobs:
           fi
           vercel() { pnpm dlx "$VERCEL_CLI" "$@" --token="$VERCEL_TOKEN"; }
           vercel pull --yes --environment="$target"
+          # NEXT_PUBLIC_API_URL is baked into the bundle and the CSP: without it the site would
+          # silently call http://localhost:8080. It must be a Config (not Secret) variable.
+          env_file=""
+          for candidate in .vercel/.env."$target".local apps/web/.vercel/.env."$target".local; do
+            if [ -z "$env_file" ] && [ -f "$candidate" ]; then env_file=$candidate; fi
+          done
+          api_url=$(sed -n 's/^NEXT_PUBLIC_API_URL=//p' "${env_file:-/dev/null}" | tr -d '"' | head -n 1)
+          if [[ "$api_url" != https://* ]]; then
+            echo "::error::Set NEXT_PUBLIC_API_URL (https://api.<domain>, type Config) for $target in the Vercel project."
+            exit 1
+          fi
+          echo "API: $api_url"
           vercel build "${prod[@]}"
           # The deployment URL is the last line printed.
           url=$(vercel deploy --prebuilt "${prod[@]}" | tail -n 1)
