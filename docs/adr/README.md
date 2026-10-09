@@ -33,7 +33,7 @@ feita e as consequências.
 | [0021](0021-interface-e-pwa.md) | Identidade visual, sistema de design e painel instalável (PWA) | Aceito |
 | [0022](0022-tema-e-analytics.md) | Tema escolhido pelo usuário e Vercel Web Analytics | Aceito (seletor do site movido por 0036) |
 | [0023](0023-nova-marca.md) | Nova marca: ingresso com "check" | Aceito |
-| [0024](0024-precos-acessiveis-e-ingressos-gratis.md) | Preços acessíveis e ingressos grátis para testar | Aceito |
+| [0024](0024-precos-acessiveis-e-ingressos-gratis.md) | Preços acessíveis e ingressos grátis para testar | Aceito (preços no painel em 0039) |
 | [0025](0025-textos-e-modelos-de-ingresso.md) | Textos no ingresso, modelos prontos e horário local do evento | Aceito |
 | [0026](0026-painel-admin-e-conta.md) | Painel de administração, cortesias e página da conta | Aceito (auditoria em 0032) |
 | [0027](0027-ciclo-de-vida-do-evento.md) | Ciclo de vida do evento: duplicar, arquivar e excluir | Aceito |
@@ -46,3 +46,10 @@ feita e as consequências.
 | [0034](0034-resultados-e-financeiro.md) | Resultados do organizador e financeiro do admin | Aceito |
 | [0035](0035-rifas-sem-sorteio.md) | Rifas: imprimir números sim, sortear não | Aceito |
 | [0036](0036-tema-do-site.md) | O site segue o tema do sistema | Aceito |
+| [0037](0037-configuracoes-da-plataforma.md) | Configurações da plataforma: manutenção, novas contas e domínios bloqueados | Aceito |
+| [0038](0038-pronunciamentos-e-notificacoes.md) | Pronunciamentos e notificações | Aceito |
+| [0039](0039-precos-no-painel-e-promocoes.md) | Preços editáveis pelo painel e promoções | Aceito |
+| [0040](0040-cupons-e-credito.md) | Cupons e crédito | Aceito |
+| [0041](0041-registro-de-emails.md) | Registro de e-mails e painel de envios | Aceito |
+| [0042](0042-moderacao-de-imagens.md) | Moderação das artes enviadas | Aceito |
+| [0043](0043-pagina-de-status.md) | Página pública de status | Aceito |

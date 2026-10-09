@@ -57,3 +57,9 @@ services:
       # ADR 0029 (docs/deploy.md §5.2): optional; turns on "Entrar com Google".
       - key: GOOGLE_CLIENT_ID
         sync: false
+      # ADR 0041 (docs/deploy.md §5.4): optional; delivery statuses in the e-mail panel.
+      - key: RESEND_WEBHOOK_SECRET
+        sync: false
+      # ADR 0042 (docs/deploy.md §5.5): optional; automatic review of uploaded art.
+      - key: MODERATION_VISION_API_KEY
+        sync: false
