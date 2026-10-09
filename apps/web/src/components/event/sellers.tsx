@@ -26,7 +26,7 @@ import { texts } from "@/texts/pt-BR";
 
 const t = texts.event.sellers;
 
-function AssignForm({ seller, onDone }: { seller: SellerDto; onDone: () => void }) {
+function AssignForm({ seller, onDone, onCancel }: { seller: SellerDto; onDone: () => void; onCancel: () => void }) {
   const last = seller.ranges.at(-1)?.last;
   const [first, setFirst] = useState(last === undefined ? 1 : last + 1);
   const [lastNumber, setLastNumber] = useState(last === undefined ? 50 : last + 50);
@@ -40,23 +40,30 @@ function AssignForm({ seller, onDone }: { seller: SellerDto; onDone: () => void 
       onDone();
     },
   });
+  const valid = Number.isInteger(first) && Number.isInteger(lastNumber) && first >= 1 && lastNumber >= first;
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    assign.mutate();
+    if (valid) {
+      assign.mutate();
+    }
   };
   return (
     <form onSubmit={submit} className="flex flex-col gap-3 rounded-xl bg-surface-2 p-3 animate-fade-in sm:p-4">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-[1fr_1fr_auto_auto] sm:items-end">
         <Field label={texts.common.first}>
-          <NumberInput value={first} step={1} min={1} onChange={setFirst} />
+          <NumberInput value={first} step={1} min={1} onChange={setFirst} required />
         </Field>
         <Field label={texts.common.last}>
-          <NumberInput value={lastNumber} step={1} min={1} onChange={setLastNumber} />
+          <NumberInput value={lastNumber} step={1} min={1} onChange={setLastNumber} required />
         </Field>
-        <Button type="submit" loading={assign.isPending} className="col-span-2 sm:col-span-1">
+        <Button variant="ghost" onClick={onCancel}>
+          {texts.common.cancel}
+        </Button>
+        <Button type="submit" loading={assign.isPending} disabled={!valid}>
           {t.assign}
         </Button>
       </div>
+      {!valid && <p className="text-xs text-danger-fg">{texts.errors.invalid_range}</p>}
       <ErrorMessage error={assign.error} />
     </form>
   );
@@ -131,7 +138,17 @@ function SellerCard({ seller, onChange }: { seller: SellerDto; onChange: () => v
                 aria-label={t.removeRange(label)}
                 className="flex size-5 items-center justify-center rounded-md text-fg-subtle transition hover:bg-danger-soft hover:text-danger-fg"
                 onClick={() => {
-                  remove.mutate(`/api/ranges/${range.id}`);
+                  void confirm({ title: t.removeRangeConfirmTitle(label), description: t.removeRangeConfirmBody, confirmLabel: texts.common.remove }).then(
+                    (ok) => {
+                      if (ok) {
+                        remove.mutate(`/api/ranges/${range.id}`, {
+                          onSuccess: () => {
+                            toast.success(t.rangeRemovedToast);
+                          },
+                        });
+                      }
+                    },
+                  );
                 }}
               >
                 <X className="size-3.5" />
@@ -146,6 +163,9 @@ function SellerCard({ seller, onChange }: { seller: SellerDto; onChange: () => v
           onDone={() => {
             setAssigning(false);
             onChange();
+          }}
+          onCancel={() => {
+            setAssigning(false);
           }}
         />
       ) : (
@@ -173,6 +193,7 @@ export function SellersTab({ eventId }: { eventId: string }) {
   const [phone, setPhone] = useState("");
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: key });
+    void queryClient.invalidateQueries({ queryKey: ["report", eventId] });
   };
 
   const create = useMutation({

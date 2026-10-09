@@ -7,8 +7,10 @@ import { Toaster } from "sonner";
 import { AppWorker } from "@/components/app-worker";
 import { ConfirmProvider } from "@/components/ui";
 import { ApiError } from "@/lib/api";
+import { useTheme } from "@/lib/theme";
 
 export function Providers({ children }: { children: ReactNode }) {
+  const { theme } = useTheme();
   const [client] = useState(
     () =>
       new QueryClient({
@@ -25,6 +27,7 @@ export function Providers({ children }: { children: ReactNode }) {
       <ConfirmProvider>{children}</ConfirmProvider>
       <AppWorker />
       <Toaster
+        theme={theme}
         position="top-center"
         richColors
         closeButton

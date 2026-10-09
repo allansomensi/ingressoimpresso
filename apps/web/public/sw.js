@@ -6,16 +6,28 @@
 // refreshed in the background. Pages always come from the network (an old copy could point at
 // build files that no longer exist after a deploy); without network, the offline page.
 
-const CACHE = "app-v1";
+const CACHE = "app-v2";
 const OFFLINE = "/offline";
 const PRECACHE = [OFFLINE, "/icons/icon-192.png", "/brand/logo-mark.svg"];
 const PAGE_TIMEOUT_MS = 8000;
+const MAX_ENTRIES = 250;
+
+/** Build files the offline page needs (styles, fonts, scripts), read from its HTML. */
+async function offlineAssets(cache) {
+  const page = await cache.match(OFFLINE);
+  const html = page === undefined ? "" : await page.text();
+  return new Set(html.match(/\/_next\/static\/[^"'\s)]+/g) ?? []);
+}
+
+async function precache() {
+  const cache = await caches.open(CACHE);
+  await cache.addAll(PRECACHE);
+  await cache.addAll([...(await offlineAssets(cache))]);
+}
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches
-      .open(CACHE)
-      .then((cache) => cache.addAll(PRECACHE))
+    precache()
       .catch(() => undefined)
       .then(() => self.skipWaiting()),
   );
@@ -39,6 +51,23 @@ function isDoor(url) {
   return url.pathname === "/portaria" || url.pathname.startsWith("/portaria/") || url.pathname.startsWith("/portaria-");
 }
 
+/** Keeps the cache bounded: every deploy brings new build files; the oldest ones go first. */
+async function trim(cache) {
+  const keys = await cache.keys();
+  const extra = keys.length - MAX_ENTRIES;
+  if (extra <= 0) {
+    return;
+  }
+  const keep = await offlineAssets(cache);
+  const removable = keys.filter((request) => {
+    const path = new URL(request.url).pathname;
+    return !PRECACHE.includes(path) && !keep.has(path);
+  });
+  for (const request of removable.slice(0, extra)) {
+    await cache.delete(request);
+  }
+}
+
 async function cacheFirst(request) {
   const cache = await caches.open(CACHE);
   const cached = await cache.match(request);
@@ -48,6 +77,7 @@ async function cacheFirst(request) {
   const response = await fetch(request);
   if (response.ok) {
     await cache.put(request, response.clone());
+    await trim(cache);
   }
   return response;
 }

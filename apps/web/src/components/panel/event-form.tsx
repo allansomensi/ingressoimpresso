@@ -63,6 +63,10 @@ function EventForm({
   const [startsAt, setStartsAt] = useState(event === undefined ? "" : toLocalInput(event.startsAt));
   const [endsAt, setEndsAt] = useState(event === undefined ? "" : toLocalInput(event.endsAt));
   const [price, setPrice] = useState(priceText(event?.ticketPriceCents ?? null));
+  // The end follows the start (+5 h) until it is edited by hand.
+  const [endTouched, setEndTouched] = useState(event !== undefined);
+  const parsedPrice = parseMoney(price);
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   const save = useMutation({
     mutationFn: () => {
@@ -71,7 +75,7 @@ function EventForm({
         venue: venue.trim() === "" ? null : venue.trim(),
         startsAt: new Date(startsAt).toISOString(),
         endsAt: new Date(endsAt).toISOString(),
-        ticketPriceCents: parseMoney(price),
+        ticketPriceCents: parsedPrice.ok ? parsedPrice.cents : null,
       };
       return event === undefined
         ? api<EventDto>("/api/events", { method: "POST", body })
@@ -81,6 +85,7 @@ function EventForm({
       toast.success(event === undefined ? t.created : t.updated);
       queryClient.setQueryData(["event", saved.id], saved);
       void queryClient.invalidateQueries({ queryKey: ["events"] });
+      void queryClient.invalidateQueries({ queryKey: ["report", saved.id] });
       onSaved?.(saved);
       onClose();
     },
@@ -122,10 +127,10 @@ function EventForm({
             value={startsAt}
             onChange={(e) => {
               setStartsAt(e.target.value);
-              if (endsAt === "" && e.target.value !== "") {
+              const start = new Date(e.target.value);
+              if (!endTouched && !Number.isNaN(start.getTime())) {
                 // Suggest a five-hour event.
-                const end = new Date(new Date(e.target.value).getTime() + 5 * 3_600_000);
-                setEndsAt(toLocalInput(end.toISOString()));
+                setEndsAt(toLocalInput(new Date(start.getTime() + 5 * 3_600_000).toISOString()));
               }
             }}
             required
@@ -138,21 +143,24 @@ function EventForm({
             min={startsAt}
             onChange={(e) => {
               setEndsAt(e.target.value);
+              setEndTouched(true);
             }}
             required
           />
         </Field>
       </div>
-      <Field label={t.price} optional hint={t.priceHint}>
+      <p className="-mt-2 text-xs text-fg-muted">{t.timeZoneHint(timeZone)}</p>
+      <Field label={t.price} optional hint={parsedPrice.ok ? t.priceHint : <span className="text-danger-fg">{t.priceInvalid}</span>}>
         <span className="relative flex">
-          <span className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-sm text-fg-subtle">R$</span>
+          <span className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-sm text-fg-muted">{texts.common.currency}</span>
           <Input
             inputMode="decimal"
             value={price}
             onChange={(e) => {
               setPrice(e.target.value);
             }}
-            placeholder="30,00"
+            placeholder={t.pricePlaceholder}
+            aria-invalid={!parsedPrice.ok || undefined}
             className="pl-10"
           />
         </span>
@@ -162,7 +170,7 @@ function EventForm({
         <Button variant="secondary" onClick={onClose}>
           {texts.common.cancel}
         </Button>
-        <Button type="submit" loading={save.isPending}>
+        <Button type="submit" loading={save.isPending} disabled={!parsedPrice.ok}>
           {event === undefined ? t.create : texts.common.save}
         </Button>
       </div>

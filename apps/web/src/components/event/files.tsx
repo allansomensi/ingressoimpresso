@@ -154,7 +154,7 @@ export function FilesTab({ eventId, onSelect }: { eventId: string; onSelect: Sel
                     <label
                       key={item}
                       className={cn(
-                        "flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition",
+                        "flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand",
                         selected ? "border-brand bg-brand-soft/60 ring-2 ring-brand/20" : "border-border hover:border-border-strong hover:bg-surface-2",
                       )}
                     >
@@ -171,7 +171,7 @@ export function FilesTab({ eventId, onSelect }: { eventId: string; onSelect: Sel
                       <span
                         className={cn(
                           "flex size-9 shrink-0 items-center justify-center rounded-lg",
-                          selected ? "bg-brand text-brand-fg" : "bg-surface-2 text-fg-muted",
+                          selected ? "bg-brand-solid text-brand-fg" : "bg-surface-2 text-fg-muted",
                         )}
                       >
                         <Icon className="size-[18px]" aria-hidden />
@@ -239,10 +239,13 @@ export function FilesTab({ eventId, onSelect }: { eventId: string; onSelect: Sel
                     </span>
                   </span>
                   <Badge tone={STATUS_TONE[item.status]} dot pulse={working}>
-                    {item.status === "failed" && item.error !== null
-                      ? ((texts.errors as Readonly<Record<string, string>>)[item.error] ?? t.status.failed)
-                      : t.status[item.status]}
+                    {t.status[item.status]}
                   </Badge>
+                  {item.status === "failed" && item.error !== null && (
+                    <p className="w-full text-xs leading-relaxed text-danger-fg">
+                      {(texts.errors as Readonly<Record<string, string>>)[item.error] ?? texts.errors.generic}
+                    </p>
+                  )}
                   {item.status === "done" && (
                     <Button
                       size="sm"

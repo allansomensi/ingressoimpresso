@@ -27,6 +27,7 @@ export function Dialog({
   className?: string | undefined;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const pressedBackdrop = useRef(false);
 
   useEffect(() => {
     const dialog = ref.current;
@@ -44,11 +45,16 @@ export function Dialog({
     <dialog
       ref={ref}
       onClose={onClose}
+      onMouseDown={(event) => {
+        pressedBackdrop.current = event.target === ref.current;
+      }}
       onClick={(event) => {
-        // A click on the dialog element itself is a click on the backdrop.
-        if (event.target === ref.current) {
+        // A click on the dialog element itself is a click on the backdrop. A text selection
+        // dragged out of a field also ends there: only a press that started outside closes.
+        if (event.target === ref.current && pressedBackdrop.current) {
           onClose();
         }
+        pressedBackdrop.current = false;
       }}
       className={cn(
         "m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-lg overflow-visible rounded-2xl border border-border bg-surface p-0 text-fg shadow-lg",
@@ -132,6 +138,8 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
           <>
             <Button
               variant="secondary"
+              // Destructive confirmations start on "Cancelar": Enter must not destroy anything.
+              autoFocus={danger}
               onClick={() => {
                 finish(false);
               }}
@@ -140,7 +148,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
             </Button>
             <Button
               variant={danger ? "danger" : "primary"}
-              autoFocus
+              autoFocus={!danger}
               onClick={() => {
                 finish(true);
               }}

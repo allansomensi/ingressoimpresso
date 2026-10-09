@@ -1,8 +1,12 @@
 @import "tailwindcss";
 
+/* `dark:` utilities follow the chosen theme, not only the system setting. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
 /*
  * Design tokens (ADR 0021). Components use the semantic names (bg, surface, fg, brand...), so
- * light and dark themes switch here only. Dark follows the system setting.
+ * light and dark themes switch here only. The theme (light, dark or the system's) is applied as
+ * `data-theme` on <html> by an inline script before the first paint (src/lib/theme.ts).
  */
 :root {
   color-scheme: light;
@@ -14,54 +18,59 @@
   --border-strong: #d2d2dc;
   --fg: #0e0d14;
   --fg-muted: #5b5a6b;
-  --fg-subtle: #8c8b9b;
+  --fg-subtle: #6b6a7d;
   --brand: #5b3df5;
   --brand-hover: #4c2fe4;
   --brand-fg: #ffffff;
+  /* Filled buttons and chips with white text: at least 4.5:1 in both themes. */
+  --brand-solid: #5b3df5;
   --brand-soft: #efebff;
   --brand-soft-fg: #4a22d6;
   --accent: #ffb224;
   --success: #16a34a;
   --success-soft: #e7f6ec;
   --success-fg: #0f7a37;
+  --success-solid: #15803d;
   --warning: #d97706;
   --warning-soft: #fff3df;
   --warning-fg: #8f4b00;
   --danger: #dc2626;
   --danger-soft: #fdeded;
   --danger-fg: #b42318;
+  --danger-solid: #dc2626;
   --ring: color-mix(in oklab, var(--brand) 45%, transparent);
   --shadow-color: 250 30% 20%;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    color-scheme: dark;
-    --bg: #0a0910;
-    --surface: #12111a;
-    --surface-2: #1a1925;
-    --surface-3: #242231;
-    --border: #262433;
-    --border-strong: #363446;
-    --fg: #f3f2f9;
-    --fg-muted: #a7a5b9;
-    --fg-subtle: #75738a;
-    --brand: #7c66ff;
-    --brand-hover: #8f7cff;
-    --brand-fg: #ffffff;
-    --brand-soft: #1e1940;
-    --brand-soft-fg: #bcb1ff;
-    --success: #22c55e;
-    --success-soft: #0e2a1a;
-    --success-fg: #74e3a2;
-    --warning: #f59e0b;
-    --warning-soft: #2c2010;
-    --warning-fg: #fcd34d;
-    --danger: #f87171;
-    --danger-soft: #2d1415;
-    --danger-fg: #fca5a5;
-    --shadow-color: 250 40% 2%;
-  }
+[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0a0910;
+  --surface: #12111a;
+  --surface-2: #1a1925;
+  --surface-3: #242231;
+  --border: #262433;
+  --border-strong: #363446;
+  --fg: #f3f2f9;
+  --fg-muted: #a7a5b9;
+  --fg-subtle: #8e8ca4;
+  --brand: #7c66ff;
+  --brand-hover: #8f7cff;
+  --brand-fg: #ffffff;
+  --brand-solid: #6a52f5;
+  --brand-soft: #1e1940;
+  --brand-soft-fg: #bcb1ff;
+  --success: #22c55e;
+  --success-soft: #0e2a1a;
+  --success-fg: #74e3a2;
+  --success-solid: #15803d;
+  --warning: #f59e0b;
+  --warning-soft: #2c2010;
+  --warning-fg: #fcd34d;
+  --danger: #f87171;
+  --danger-soft: #2d1415;
+  --danger-fg: #fca5a5;
+  --danger-solid: #dc2626;
+  --shadow-color: 250 40% 2%;
 }
 
 @theme inline {
@@ -80,18 +89,21 @@
   --color-brand: var(--brand);
   --color-brand-hover: var(--brand-hover);
   --color-brand-fg: var(--brand-fg);
+  --color-brand-solid: var(--brand-solid);
   --color-brand-soft: var(--brand-soft);
   --color-brand-soft-fg: var(--brand-soft-fg);
   --color-accent: var(--accent);
   --color-success: var(--success);
   --color-success-soft: var(--success-soft);
   --color-success-fg: var(--success-fg);
+  --color-success-solid: var(--success-solid);
   --color-warning: var(--warning);
   --color-warning-soft: var(--warning-soft);
   --color-warning-fg: var(--warning-fg);
   --color-danger: var(--danger);
   --color-danger-soft: var(--danger-soft);
   --color-danger-fg: var(--danger-fg);
+  --color-danger-solid: var(--danger-solid);
   --color-ring: var(--ring);
 
   --shadow-xs: 0 1px 2px hsl(var(--shadow-color) / 0.06);
@@ -159,6 +171,7 @@
     *::before,
     *::after {
       animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
       scroll-behavior: auto !important;
     }

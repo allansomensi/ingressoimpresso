@@ -24,6 +24,7 @@ import {
 } from "@/components/ui";
 import { api, fetchBlobUrl, upload } from "@/lib/api";
 import { cn } from "@/lib/cn";
+import { useUnsavedChanges } from "@/lib/unsaved";
 import { texts } from "@/texts/pt-BR";
 
 const t = texts.event.design;
@@ -166,6 +167,9 @@ function DesignEditor({ eventId, initial }: { eventId: string; initial: DesignRe
   const [preview, setPreview] = useState<string | null>(null);
   const [savedVersion, setSavedVersion] = useState(initial.version);
   const [dirty, setDirty] = useState(false);
+  // The stub fields as typed (spaces, an empty line being typed); the design keeps the clean list.
+  const [stubText, setStubText] = useState(initial.design.stub?.fields.join("\n") ?? "");
+  useUnsavedChanges(dirty);
 
   useEffect(
     () => () => {
@@ -245,10 +249,10 @@ function DesignEditor({ eventId, initial }: { eventId: string; initial: DesignRe
           <Section icon={Ruler} title={t.size} description={t.sizeHint}>
             <div className="grid gap-4 sm:grid-cols-3">
               <Field label={t.width}>
-                <NumberInput value={design.widthMm} onChange={(widthMm) => { update((d) => ({ ...d, widthMm })); }} suffix="mm" />
+                <NumberInput value={design.widthMm} onChange={(widthMm) => { update((d) => ({ ...d, widthMm })); }} suffix={texts.common.mm} />
               </Field>
               <Field label={t.height}>
-                <NumberInput value={design.heightMm} onChange={(heightMm) => { update((d) => ({ ...d, heightMm })); }} suffix="mm" />
+                <NumberInput value={design.heightMm} onChange={(heightMm) => { update((d) => ({ ...d, heightMm })); }} suffix={texts.common.mm} />
               </Field>
               <Field label={t.background}>
                 <Input type="color" value={design.backgroundColor} onChange={(e) => { update((d) => ({ ...d, backgroundColor: e.target.value })); }} />
@@ -278,7 +282,7 @@ function DesignEditor({ eventId, initial }: { eventId: string; initial: DesignRe
                 </Select>
               </Field>
               <Field label={t.fontSize}>
-                <NumberInput value={design.number.sizePt} step={1} onChange={(sizePt) => { update((d) => ({ ...d, number: { ...d.number, sizePt } })); }} suffix="pt" />
+                <NumberInput value={design.number.sizePt} step={1} onChange={(sizePt) => { update((d) => ({ ...d, number: { ...d.number, sizePt } })); }} suffix={texts.common.pt} />
               </Field>
               <Field label={t.color}>
                 <Input type="color" value={design.number.color} onChange={(e) => { update((d) => ({ ...d, number: { ...d.number, color: e.target.value } })); }} />
@@ -308,7 +312,7 @@ function DesignEditor({ eventId, initial }: { eventId: string; initial: DesignRe
                 <NumberInput value={design.qr.yMm} onChange={(yMm) => { update((d) => ({ ...d, qr: { ...d.qr, yMm } })); }} />
               </Field>
               <Field label={t.qrSize}>
-                <NumberInput value={design.qr.sizeMm} min={22} onChange={(sizeMm) => { update((d) => ({ ...d, qr: { ...d.qr, sizeMm } })); }} suffix="mm" />
+                <NumberInput value={design.qr.sizeMm} min={22} onChange={(sizeMm) => { update((d) => ({ ...d, qr: { ...d.qr, sizeMm } })); }} suffix={texts.common.mm} />
               </Field>
             </div>
           </Section>
@@ -319,7 +323,9 @@ function DesignEditor({ eventId, initial }: { eventId: string; initial: DesignRe
                 label={t.hasStub}
                 checked={design.stub !== null}
                 onChange={(checked) => {
-                  update((d) => ({ ...d, stub: checked ? { side: "left", widthMm: 40, fields: ["Nome", "Telefone"] } : null }));
+                  const fields = [...t.defaultStubFields];
+                  setStubText(fields.join("\n"));
+                  update((d) => ({ ...d, stub: checked ? { side: "left", widthMm: 40, fields } : null }));
                 }}
               />
               {design.stub !== null && (
@@ -342,14 +348,15 @@ function DesignEditor({ eventId, initial }: { eventId: string; initial: DesignRe
                       onChange={(widthMm) => {
                         update((d) => (d.stub === null ? d : { ...d, stub: { ...d.stub, widthMm } }));
                       }}
-                      suffix="mm"
+                      suffix={texts.common.mm}
                     />
                   </Field>
                   <Field label={t.stubFields} hint={t.stubFieldsHint} className="sm:col-span-2">
                     <Textarea
                       rows={3}
-                      value={design.stub.fields.join("\n")}
+                      value={stubText}
                       onChange={(e) => {
+                        setStubText(e.target.value);
                         const fields = e.target.value.split("\n").map((line) => line.trim()).filter((line) => line !== "");
                         update((d) => (d.stub === null ? d : { ...d, stub: { ...d.stub, fields } }));
                       }}

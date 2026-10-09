@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { texts } from "@/texts/pt-BR";
 
 export const metadata: Metadata = {
-  title: `${texts.portaria.title} · ${texts.meta.title}`,
+  title: texts.portaria.title,
   manifest: "/portaria.webmanifest",
   icons: { icon: "/portaria-icon-192.png", apple: "/portaria-apple-icon.png" },
   appleWebApp: { capable: true, title: texts.portaria.title, statusBarStyle: "black" },
