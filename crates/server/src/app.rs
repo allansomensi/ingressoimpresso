@@ -6,12 +6,15 @@ use axum::Router;
 use axum::extract::{DefaultBodyLimit, State};
 use axum::http::header::{AUTHORIZATION, CONTENT_DISPOSITION, CONTENT_TYPE};
 use axum::http::{HeaderValue, Method, StatusCode};
+use axum::middleware;
+use axum::response::{IntoResponse as _, Response};
 use axum::routing::{get, post, put};
 use tower_http::catch_panic::CatchPanicLayer;
 use tower_http::cors::{AllowOrigin, CorsLayer};
 use tower_http::trace::TraceLayer;
 
 use crate::auth;
+use crate::error::ApiError;
 use crate::routes::events::MAX_ART_BYTES;
 use crate::routes::{batches, door, events, exports, report, sellers, voids};
 use crate::state::AppState;
@@ -74,7 +77,11 @@ pub fn router(state: AppState) -> Router {
         .route("/door/register", post(door::register))
         .route("/door/manifest", get(door::manifest))
         .route("/door/scans", post(door::upload_scans))
-        .layer(DefaultBodyLimit::max(JSON_BODY_LIMIT));
+        .fallback(not_found)
+        .layer(DefaultBodyLimit::max(JSON_BODY_LIMIT))
+        // Axum's own rejections (bad JSON, a malformed id, a body too large) answer plain text;
+        // the panel maps error codes, so every API error is JSON.
+        .layer(middleware::map_response(json_rejections));
 
     let origins: Vec<HeaderValue> = state
         .config
@@ -97,6 +104,36 @@ pub fn router(state: AppState) -> Router {
         .layer(cors)
         .layer(TraceLayer::new_for_http())
         .layer(CatchPanicLayer::new())
+}
+
+async fn not_found() -> ApiError {
+    ApiError::NotFound
+}
+
+async fn json_rejections(response: Response) -> Response {
+    let status = response.status();
+    let is_json = response
+        .headers()
+        .get(CONTENT_TYPE)
+        .is_some_and(|value| value.as_bytes().starts_with(b"application/json"));
+    if !status.is_client_error() || is_json {
+        return response;
+    }
+    let code = match status {
+        StatusCode::PAYLOAD_TOO_LARGE => "payload_too_large",
+        StatusCode::NOT_FOUND => "not_found",
+        StatusCode::METHOD_NOT_ALLOWED => "method_not_allowed",
+        _ => "invalid_input",
+    };
+    let message = status
+        .canonical_reason()
+        .unwrap_or("bad request")
+        .to_lowercase();
+    (
+        status,
+        axum::Json(serde_json::json!({ "error": { "code": code, "message": message } })),
+    )
+        .into_response()
 }
 
 /// `GET /healthz`: the process answers (Render's health check, every few seconds). It does not

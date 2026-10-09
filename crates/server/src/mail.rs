@@ -27,7 +27,7 @@ pub struct SentMail {
 }
 
 /// Mail transport.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub enum Mailer {
     /// Resend HTTP API.
     Resend {
@@ -44,6 +44,21 @@ pub enum Mailer {
     Log,
     /// Tests: keeps messages in memory.
     Memory(Arc<Mutex<Vec<SentMail>>>),
+}
+
+impl std::fmt::Debug for Mailer {
+    // The API key never reaches a log line.
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Resend { endpoint, from, .. } => formatter
+                .debug_struct("Mailer::Resend")
+                .field("endpoint", endpoint)
+                .field("from", from)
+                .finish_non_exhaustive(),
+            Self::Log => formatter.write_str("Mailer::Log"),
+            Self::Memory(_) => formatter.write_str("Mailer::Memory"),
+        }
+    }
 }
 
 #[derive(Serialize)]

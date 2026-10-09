@@ -9,6 +9,7 @@ import { toast } from "sonner";
 
 import { Logo, LogoMark } from "@/components/brand";
 import { OtpInput } from "@/components/otp-input";
+import { ThemeSwitcher } from "@/components/theme-switcher";
 import { Button, ErrorMessage, Field, Input } from "@/components/ui";
 import { api } from "@/lib/api";
 import { useSession } from "@/lib/session";
@@ -100,8 +101,9 @@ export default function SignInPage() {
       </aside>
 
       <main className="flex flex-col bg-glow px-4 py-6 sm:px-8">
-        <div className="lg:hidden">
-          <Logo />
+        <div className="flex items-center justify-between gap-3">
+          <Logo className="lg:invisible" />
+          <ThemeSwitcher />
         </div>
         <div className="m-auto flex w-full max-w-sm flex-col gap-8 py-12 animate-rise">
           {codeSent ? (

@@ -13,6 +13,7 @@ import {
   XCircle,
   type LucideIcon,
 } from "lucide-react";
+import type { Metadata } from "next";
 
 import { Logo } from "@/components/brand";
 import { PhoneMock, TicketMock } from "@/components/marketing/mockups";
@@ -20,6 +21,8 @@ import { PricingSection } from "@/components/marketing/pricing";
 import { SiteHeader } from "@/components/marketing/site-header";
 import { ButtonLink } from "@/components/ui";
 import { texts } from "@/texts/pt-BR";
+
+export const metadata: Metadata = { alternates: { canonical: "/" } };
 
 const t = texts.landing;
 const FEATURE_ICONS: readonly LucideIcon[] = [ShieldCheck, Printer, WifiOff, Users, XCircle, BarChart3];
@@ -109,7 +112,7 @@ export default function LandingPage() {
                 return (
                   <li key={step.title} className="relative flex flex-col gap-4 rounded-3xl border border-border bg-surface p-6 shadow-xs">
                     <div className="flex items-center justify-between">
-                      <span className="flex size-11 items-center justify-center rounded-2xl bg-brand text-brand-fg shadow-sm shadow-brand/30">
+                      <span className="flex size-11 items-center justify-center rounded-2xl bg-brand-solid text-brand-fg shadow-sm shadow-brand/30">
                         <Icon className="size-5" aria-hidden />
                       </span>
                       <span className="font-mono text-sm font-semibold text-fg-subtle">0{index + 1}</span>
@@ -145,7 +148,7 @@ export default function LandingPage() {
         </section>
 
         {/* Offline door */}
-        <section className="relative overflow-hidden bg-[#0e0d14] text-white">
+        <section className="relative overflow-hidden bg-[#0e0d14] text-white dark:border-y dark:border-border dark:bg-surface">
           <div aria-hidden className="absolute -top-40 -right-40 size-[36rem] rounded-full bg-[#5b3df5]/40 blur-3xl" />
           <div aria-hidden className="absolute -bottom-40 -left-20 size-[28rem] rounded-full bg-[#16a34a]/20 blur-3xl" />
           <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-4 py-20 sm:px-6 lg:grid-cols-2 lg:py-28">
@@ -198,7 +201,7 @@ export default function LandingPage() {
 
         {/* Final CTA */}
         <section className="px-4 py-20 sm:px-6">
-          <div className="relative mx-auto flex max-w-5xl flex-col items-center gap-6 overflow-hidden rounded-[2rem] bg-brand px-6 py-16 text-center text-white shadow-lg shadow-brand/30">
+          <div className="relative mx-auto flex max-w-5xl flex-col items-center gap-6 overflow-hidden rounded-[2rem] bg-brand-solid px-6 py-16 text-center text-white shadow-lg shadow-brand/30">
             <div aria-hidden className="absolute inset-0 bg-[radial-gradient(60%_80%_at_50%_0%,rgba(255,255,255,0.25),transparent)]" />
             <h2 className="relative max-w-2xl text-3xl font-semibold tracking-tight text-balance sm:text-4xl">{t.finalTitle}</h2>
             <p className="relative max-w-xl text-lg text-white/80">{t.finalBody}</p>

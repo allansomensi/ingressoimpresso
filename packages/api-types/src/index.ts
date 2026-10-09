@@ -41,6 +41,7 @@ export type * from "./generated/KeyStatus";
 export type * from "./generated/MeUser";
 export type * from "./generated/NumberStyle";
 export type * from "./generated/PaymentMethod";
+export type * from "./generated/PaymentState";
 export type * from "./generated/PriceTierDto";
 export type * from "./generated/PricingDto";
 export type * from "./generated/QrPlacement";

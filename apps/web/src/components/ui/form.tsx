@@ -93,6 +93,7 @@ export function NumberInput({
   suffix?: string;
   className?: string | undefined;
   "aria-label"?: string;
+  required?: boolean;
 }) {
   return (
     <span className="relative flex">

@@ -41,13 +41,27 @@ export function initials(name: string): string {
   return (first + last).toUpperCase();
 }
 
-/** Parses a typed amount ("30", "30,50", "1.234,50") into centavos; `null` when blank or invalid. */
-export function parseMoney(text: string): number | null {
-  const clean = text.trim().replace(/[R$\s]/g, "");
+/** A typed amount: `cents` is `null` when left blank; `ok: false` when it cannot be read. */
+export type MoneyInput = { ok: true; cents: number | null } | { ok: false };
+
+/**
+ * Reads an amount typed in Brazilian or plain form: "30", "30,5", "1.234,56", "1.500" (a dot
+ * before exactly three digits groups thousands) or "12.50" (a dot before one or two digits is the
+ * decimal separator).
+ */
+export function parseMoney(text: string): MoneyInput {
+  const clean = text.trim().replace(/^R\$/i, "").replace(/\s/g, "");
   if (clean === "") {
-    return null;
+    return { ok: true, cents: null };
   }
-  const normalized = clean.includes(",") ? clean.replace(/\./g, "").replace(",", ".") : clean;
-  const value = Number(normalized);
-  return Number.isFinite(value) && value >= 0 ? Math.round(value * 100) : null;
+  let normalized: string;
+  if (/^\d{1,3}(\.\d{3})*(,\d{1,2})?$/.test(clean) || /^\d+(,\d{1,2})?$/.test(clean)) {
+    normalized = clean.replace(/\./g, "").replace(",", ".");
+  } else if (/^\d+(\.\d{1,2})?$/.test(clean)) {
+    normalized = clean;
+  } else {
+    return { ok: false };
+  }
+  const cents = Math.round(Number(normalized) * 100);
+  return Number.isSafeInteger(cents) && cents <= 2_147_483_647 ? { ok: true, cents } : { ok: false };
 }

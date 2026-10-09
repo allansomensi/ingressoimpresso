@@ -3,6 +3,11 @@
 //! A batch is paid online through Stripe Checkout (ADR 0020) or, as a fallback, by an admin
 //! (ADR 0014). Stripe's word reaches us in two ways, both handled by [`apply_session`]: the
 //! signed webhook and, when the payer comes back to the site, a session read back from Stripe.
+//!
+//! Checkout, cancel and mark-paid of one batch run one at a time ([`AppState::batch_lock`]), so
+//! a batch never has two payable sessions, nor a payable session once canceled or paid by hand.
+//! Stripe is called with no database transaction open: a slow Stripe holds no row lock, no pool
+//! connection and no transaction id (which would freeze the door's sync cursor, ADR 0006).
 
 use axum::Json;
 use axum::body::Bytes;
@@ -13,7 +18,9 @@ use time::OffsetDateTime;
 use uuid::Uuid;
 
 use super::{MAX_TICKET_NUMBER, authorize_event, bounds, range};
-use crate::api::{BatchDto, BatchStatus, CheckoutDto, CreateBatchBody, PaymentMethod, PricingDto};
+use crate::api::{
+    BatchDto, BatchStatus, CheckoutDto, CreateBatchBody, PaymentMethod, PaymentState, PricingDto,
+};
 use crate::auth::AuthUser;
 use crate::error::{ApiError, ApiResult, bad_request};
 use crate::payments::{CheckoutRequest, CheckoutSession, PaymentError};
@@ -21,8 +28,8 @@ use crate::state::AppState;
 use crate::{pricing, texts};
 
 const MAX_BATCH: i32 = 5_000;
-/// An open checkout is reused only if it still has this long to live; otherwise a new one is
-/// opened (the payer needs time to scan a Pix code or type a card).
+/// An open checkout is reused only if it still has this long to live; otherwise it is expired
+/// and a new one is opened (the payer needs time to scan a Pix code or type a card).
 const REUSE_MARGIN_MINUTES: i32 = 15;
 
 struct BatchRow {
@@ -33,7 +40,7 @@ struct BatchRow {
     paid_at: Option<OffsetDateTime>,
     price_cents: i32,
     paid_via: Option<String>,
-    payment_pending: bool,
+    pending_payment: Option<String>,
 }
 
 impl BatchRow {
@@ -50,7 +57,10 @@ impl BatchRow {
             paid_at: self.paid_at,
             price_cents: self.price_cents,
             paid_via: self.paid_via.as_deref().and_then(PaymentMethod::from_db),
-            payment_pending: self.payment_pending,
+            pending_payment: self
+                .pending_payment
+                .as_deref()
+                .and_then(PaymentState::from_db),
         })
     }
 }
@@ -59,8 +69,9 @@ async fn load(state: &AppState, batch_id: Uuid) -> ApiResult<BatchDto> {
     sqlx::query_as!(
         BatchRow,
         r#"select b.id, b.numbers, b.status, b.created_at, b.paid_at, b.price_cents, b.paid_via,
-                  exists(select 1 from payments p where p.batch_id = b.id and p.status = 'open'
-                         and p.expires_at > now()) as "payment_pending!"
+                  (select case when bool_or(p.status = 'processing') then 'processing'
+                               when bool_or(p.status = 'open' and p.expires_at > now()) then 'open' end
+                   from payments p where p.batch_id = b.id) as pending_payment
            from ticket_batches b where b.id = $1"#,
         batch_id
     )
@@ -85,8 +96,9 @@ pub async fn list(
     let rows = sqlx::query_as!(
         BatchRow,
         r#"select b.id, b.numbers, b.status, b.created_at, b.paid_at, b.price_cents, b.paid_via,
-                  exists(select 1 from payments p where p.batch_id = b.id and p.status = 'open'
-                         and p.expires_at > now()) as "payment_pending!"
+                  (select case when bool_or(p.status = 'processing') then 'processing'
+                               when bool_or(p.status = 'open' and p.expires_at > now()) then 'open' end
+                   from payments p where p.batch_id = b.id) as pending_payment
            from ticket_batches b where b.event_id = $1 order by lower(b.numbers)"#,
         event_id
     )
@@ -168,6 +180,20 @@ fn provider_error(error: &PaymentError) -> ApiError {
     }
 }
 
+fn payment_pending() -> ApiError {
+    ApiError::Conflict(
+        "payment_pending",
+        "a payment of this batch is still being confirmed (Pix)".to_owned(),
+    )
+}
+
+fn not_payable() -> ApiError {
+    ApiError::Conflict(
+        "batch_not_payable",
+        "batch is not awaiting payment".to_owned(),
+    )
+}
+
 /// `POST /api/batches/{id}/checkout`: the Stripe payment page of an unpaid batch (an open one is
 /// reused, so double clicks and back buttons never create two charges).
 pub async fn checkout(
@@ -180,49 +206,51 @@ pub async fn checkout(
     }
     let event_id = batch_event(&state, batch_id).await?;
     let event = authorize_event(&state.pool, &user, event_id).await?;
+    let _guard = state.batch_lock(batch_id).await;
 
-    let mut tx = state.pool.begin().await?;
-    // The row lock serializes concurrent checkouts of the same batch.
     let batch = sqlx::query!(
-        "select numbers, status, price_cents from ticket_batches where id = $1 for update",
+        "select numbers, status, price_cents from ticket_batches where id = $1",
         batch_id
     )
-    .fetch_one(&mut *tx)
+    .fetch_one(&state.pool)
     .await?;
     if batch.status != BatchStatus::AwaitingPayment.db() {
-        return Err(ApiError::Conflict(
-            "batch_not_payable",
-            "batch is not awaiting payment".to_owned(),
-        ));
+        return Err(not_payable());
     }
-    let open = sqlx::query_scalar!(
-        r#"select checkout_url from payments
-           where batch_id = $1 and status = 'open'
-             and expires_at > now() + make_interval(mins => $2)
-           order by created_at desc limit 1"#,
+    let open = sqlx::query!(
+        r#"select status, checkout_url, expires_at > now() + make_interval(mins => $2) as "fresh!"
+           from payments where batch_id = $1 and status in ('open', 'processing')
+           order by created_at desc"#,
         batch_id,
         REUSE_MARGIN_MINUTES,
     )
-    .fetch_optional(&mut *tx)
+    .fetch_all(&state.pool)
     .await?;
-    if let Some(url) = open {
-        tx.commit().await?;
-        return Ok(Json(CheckoutDto { url }));
+    if open.iter().any(|payment| payment.status == "processing") {
+        return Err(payment_pending());
+    }
+    if let Some(reusable) = open.iter().find(|payment| payment.fresh) {
+        return Ok(Json(CheckoutDto {
+            url: reusable.checkout_url.clone(),
+        }));
+    }
+    // Sessions about to expire are closed first: a batch never has two payable sessions.
+    if close_open_checkouts(&state, batch_id).await? {
+        return Err(not_payable());
     }
 
     let (first, last) = bounds(&batch.numbers)?;
-    let quantity = last - first + 1;
     // Batches created before ADR 0020 have no price yet.
     let amount_cents = if batch.price_cents > 0 {
         batch.price_cents
     } else {
-        let price = pricing::quote(quantity);
+        let price = pricing::quote(last - first + 1);
         sqlx::query!(
             "update ticket_batches set price_cents = $2 where id = $1",
             batch_id,
             price
         )
-        .execute(&mut *tx)
+        .execute(&state.pool)
         .await?;
         price
     };
@@ -266,15 +294,14 @@ pub async fn checkout(
         user.id,
         expires_at,
     )
-    .execute(&mut *tx)
+    .execute(&state.pool)
     .await?;
-    tx.commit().await?;
     tracing::info!(%batch_id, session = %session.id, amount_cents, "checkout opened");
     Ok(Json(CheckoutDto { url }))
 }
 
-/// `POST /api/batches/{id}/checkout/sync`: asks Stripe about the open checkouts of the batch
-/// (the payer just came back; the webhook may still be on its way).
+/// `POST /api/batches/{id}/checkout/sync`: asks Stripe about the unsettled checkouts of the
+/// batch (the payer just came back; the webhook may still be on its way).
 pub async fn sync_checkout(
     State(state): State<AppState>,
     user: AuthUser,
@@ -284,7 +311,7 @@ pub async fn sync_checkout(
     authorize_event(&state.pool, &user, event_id).await?;
     if state.payments.enabled() {
         let sessions = sqlx::query_scalar!(
-            "select checkout_session_id from payments where batch_id = $1 and status = 'open'",
+            "select checkout_session_id from payments where batch_id = $1 and status in ('open', 'processing')",
             batch_id
         )
         .fetch_all(&state.pool)
@@ -301,8 +328,9 @@ pub async fn sync_checkout(
     Ok(Json(load(&state, batch_id).await?))
 }
 
-/// Records what Stripe says about a session: paid (the batch becomes paid, once), expired.
-/// Sessions we did not open are ignored; so are amounts that do not match the payment.
+/// Records what Stripe says about a session: paid (the batch becomes paid, once), complete but
+/// unpaid (Pix shown, transfer pending: "processing"), expired. Sessions we did not open are
+/// ignored; so are amounts that do not match the payment.
 pub async fn apply_session(state: &AppState, session: &CheckoutSession) -> ApiResult<()> {
     let Some(payment) = sqlx::query!(
         "select id, batch_id, amount_cents, currency from payments where checkout_session_id = $1",
@@ -316,14 +344,18 @@ pub async fn apply_session(state: &AppState, session: &CheckoutSession) -> ApiRe
     };
 
     if !session.is_paid() {
-        if session.status.as_deref() == Some("expired") {
-            sqlx::query!(
-                "update payments set status = 'expired' where id = $1 and status = 'open'",
-                payment.id
-            )
-            .execute(&state.pool)
-            .await?;
-        }
+        let status = match session.status.as_deref() {
+            Some("expired") => "expired",
+            Some("complete") => "processing",
+            _ => return Ok(()),
+        };
+        sqlx::query!(
+            "update payments set status = $2 where id = $1 and status in ('open', 'processing')",
+            payment.id,
+            status
+        )
+        .execute(&state.pool)
+        .await?;
         return Ok(());
     }
     if session.amount_total != Some(i64::from(payment.amount_cents))
@@ -358,79 +390,74 @@ pub async fn apply_session(state: &AppState, session: &CheckoutSession) -> ApiRe
     tx.commit().await?;
     if paid.is_some() {
         tracing::info!(batch_id = %payment.batch_id, session = %session.id, "batch paid online");
-    } else {
-        let status = sqlx::query_scalar!(
-            "select status from ticket_batches where id = $1",
-            payment.batch_id
-        )
-        .fetch_one(&state.pool)
-        .await?;
-        if status == BatchStatus::Canceled.db() || paid_twice(state, payment.batch_id).await? {
-            // Money without tickets: someone has to refund it in the Stripe dashboard.
-            tracing::error!(
-                batch_id = %payment.batch_id,
-                session = %session.id,
-                %status,
-                "payment received for a batch that is canceled or already paid: refund it in Stripe"
-            );
-        }
+    } else if needs_refund(state, payment.batch_id).await? {
+        // Money without tickets: someone has to refund it in the Stripe dashboard.
+        tracing::error!(
+            batch_id = %payment.batch_id,
+            session = %session.id,
+            "payment received for a batch that is canceled or already paid: refund it in Stripe"
+        );
     }
     Ok(())
 }
 
-async fn paid_twice(state: &AppState, batch_id: Uuid) -> ApiResult<bool> {
-    let count = sqlx::query_scalar!(
-        r#"select count(*) as "count!" from payments where batch_id = $1 and status = 'paid'"#,
+/// After a paid session that did not pay the batch: whether it was money the batch did not need
+/// (canceled, paid by hand, or paid by another session). A replayed webhook needs nothing.
+async fn needs_refund(state: &AppState, batch_id: Uuid) -> ApiResult<bool> {
+    let row = sqlx::query!(
+        r#"select b.status, b.paid_via,
+                  (select count(*) from payments p where p.batch_id = b.id and p.status = 'paid') as "paid_sessions!"
+           from ticket_batches b where b.id = $1"#,
         batch_id
     )
     .fetch_one(&state.pool)
     .await?;
-    let by_admin = sqlx::query_scalar!(
-        r#"select paid_via = 'admin' as "admin!" from ticket_batches where id = $1"#,
-        batch_id
-    )
-    .fetch_one(&state.pool)
-    .await?;
-    Ok(count > 1 || (count == 1 && by_admin))
+    Ok(row.status == BatchStatus::Canceled.db()
+        || row.paid_via.as_deref() == Some("admin")
+        || row.paid_sessions > 1)
 }
 
-/// Closes the open checkouts of a batch before it is canceled or marked as paid by hand, so
-/// nobody pays for it afterwards. Returns `true` if one of them turned out to be paid already.
+/// Closes the open checkouts of a batch (before cancel, mark-paid or a replacement checkout), so
+/// nobody pays for it afterwards. Returns `true` if one turned out to be paid already; fails with
+/// `payment_pending` while a Pix transfer may still arrive. Call with the batch lock held.
 async fn close_open_checkouts(state: &AppState, batch_id: Uuid) -> ApiResult<bool> {
-    let open = sqlx::query!(
-        "select id, checkout_session_id from payments where batch_id = $1 and status = 'open'",
+    let unsettled = sqlx::query!(
+        "select id, status, checkout_session_id from payments where batch_id = $1 and status in ('open', 'processing')",
         batch_id
     )
     .fetch_all(&state.pool)
     .await?;
-    for payment in open {
+    for payment in unsettled {
         if state.payments.enabled() {
-            match state
-                .payments
-                .expire_checkout(&payment.checkout_session_id)
-                .await
-            {
-                Ok(_) => {}
-                Err(error) => {
-                    // Not open anymore: paid, or expired on its own. Ask Stripe which.
-                    tracing::info!(%error, session = %payment.checkout_session_id, "could not expire checkout");
-                    let session = state
-                        .payments
-                        .retrieve_checkout(&payment.checkout_session_id)
-                        .await
-                        .map_err(|error| provider_error(&error))?;
-                    if session.is_paid() {
-                        apply_session(state, &session).await?;
-                        return Ok(true);
-                    }
-                    if session.status.as_deref() == Some("open") {
-                        return Err(provider_error(&error));
-                    }
+            let expired = if payment.status == "open" {
+                state
+                    .payments
+                    .expire_checkout(&payment.checkout_session_id)
+                    .await
+            } else {
+                Err(PaymentError::Provider("session is processing".to_owned()))
+            };
+            if let Err(error) = expired {
+                // Not open anymore: paid, waiting for a Pix transfer, or expired on its own.
+                tracing::info!(%error, session = %payment.checkout_session_id, "could not expire checkout");
+                let session = state
+                    .payments
+                    .retrieve_checkout(&payment.checkout_session_id)
+                    .await
+                    .map_err(|error| provider_error(&error))?;
+                apply_session(state, &session).await?;
+                if session.is_paid() {
+                    return Ok(true);
+                }
+                match session.status.as_deref() {
+                    Some("complete") => return Err(payment_pending()),
+                    Some("open") => return Err(provider_error(&error)),
+                    _ => {}
                 }
             }
         }
         sqlx::query!(
-            "update payments set status = 'expired' where id = $1 and status = 'open'",
+            "update payments set status = 'expired' where id = $1 and status in ('open', 'processing')",
             payment.id
         )
         .execute(&state.pool)
@@ -439,7 +466,8 @@ async fn close_open_checkouts(state: &AppState, batch_id: Uuid) -> ApiResult<boo
     Ok(false)
 }
 
-/// `POST /api/batches/{id}/cancel`: only before payment; an open checkout is closed first.
+/// `POST /api/batches/{id}/cancel`: only before payment, and only once no seller range or void
+/// refers to its numbers (they would carry over to the next batch that reuses them).
 pub async fn cancel(
     State(state): State<AppState>,
     user: AuthUser,
@@ -447,12 +475,34 @@ pub async fn cancel(
 ) -> ApiResult<Json<BatchDto>> {
     let event_id = batch_event(&state, batch_id).await?;
     authorize_event(&state.pool, &user, event_id).await?;
+    let _guard = state.batch_lock(batch_id).await;
     let not_cancelable = || {
         ApiError::Conflict(
             "batch_not_cancelable",
             "only unpaid batches can be canceled".to_owned(),
         )
     };
+    let status = sqlx::query_scalar!("select status from ticket_batches where id = $1", batch_id)
+        .fetch_one(&state.pool)
+        .await?;
+    if status != BatchStatus::AwaitingPayment.db() {
+        return Err(not_cancelable());
+    }
+    let in_use = sqlx::query_scalar!(
+        r#"select exists(select 1 from seller_assignments a where a.event_id = b.event_id and a.numbers && b.numbers)
+               or exists(select 1 from ticket_voids v where v.event_id = b.event_id and v.numbers && b.numbers
+                         and v.undone_at is null) as "in_use!"
+           from ticket_batches b where b.id = $1"#,
+        batch_id
+    )
+    .fetch_one(&state.pool)
+    .await?;
+    if in_use {
+        return Err(ApiError::Conflict(
+            "batch_has_ranges",
+            "remove the seller ranges and voids of this batch first".to_owned(),
+        ));
+    }
     if close_open_checkouts(&state, batch_id).await? {
         return Err(not_cancelable());
     }
@@ -477,6 +527,7 @@ pub async fn mark_paid(
         return Err(ApiError::Forbidden);
     }
     batch_event(&state, batch_id).await?;
+    let _guard = state.batch_lock(batch_id).await;
     if close_open_checkouts(&state, batch_id).await? {
         // Paid online in the meantime: nothing left to mark.
         return Ok(Json(load(&state, batch_id).await?));
@@ -488,12 +539,7 @@ pub async fn mark_paid(
     )
     .fetch_optional(&state.pool)
     .await?
-    .ok_or_else(|| {
-        ApiError::Conflict(
-            "batch_not_payable",
-            "batch is not awaiting payment".to_owned(),
-        )
-    })?;
+    .ok_or_else(not_payable)?;
     tracing::info!(%batch_id, admin = %user.email, "batch marked as paid");
     Ok(Json(load(&state, batch_id).await?))
 }
@@ -529,7 +575,7 @@ pub async fn stripe_webhook(
             let session: CheckoutSession = serde_json::from_value(event.data.object)
                 .map_err(|error| bad_request("invalid_event", error.to_string()))?;
             sqlx::query!(
-                "update payments set status = 'failed' where checkout_session_id = $1 and status = 'open'",
+                "update payments set status = 'failed' where checkout_session_id = $1 and status in ('open', 'processing')",
                 session.id
             )
             .execute(&state.pool)

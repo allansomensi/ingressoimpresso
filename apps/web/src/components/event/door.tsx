@@ -80,12 +80,18 @@ export function DoorTab({ eventId }: { eventId: string }) {
   });
   const revokeAccess = useMutation({
     mutationFn: (id: string) => api<DoorAccessDto>(`/api/door-accesses/${id}/revoke`, { method: "POST" }),
-    onSuccess: refresh,
+    onSuccess: () => {
+      toast.success(t.revokedToast);
+      void refresh();
+    },
     onError,
   });
   const revokeDevice = useMutation({
     mutationFn: (id: string) => api<DoorDeviceDto>(`/api/door-devices/${id}/revoke`, { method: "POST" }),
-    onSuccess: refresh,
+    onSuccess: () => {
+      toast.success(t.disconnectedToast);
+      void refresh();
+    },
     onError,
   });
 
@@ -100,6 +106,7 @@ export function DoorTab({ eventId }: { eventId: string }) {
       toast.success(t.copied);
     } catch {
       setCopied(false);
+      toast.error(t.copyFailed);
     }
   };
 

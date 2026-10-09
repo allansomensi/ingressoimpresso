@@ -14,6 +14,7 @@
     "@ingressoimpresso/api-types": "workspace:*",
     "@ingressoimpresso/ticket-core-wasm": "workspace:*",
     "@tanstack/react-query": "5.104.1",
+    "@vercel/analytics": "2.0.1",
     "geist": "1.7.2",
     "idb": "8.0.3",
     "lucide-react": "1.43.0",

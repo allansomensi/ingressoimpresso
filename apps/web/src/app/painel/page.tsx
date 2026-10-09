@@ -40,7 +40,7 @@ function EventCard({ event, now }: { event: EventDto; now: number }) {
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex w-14 flex-col items-center overflow-hidden rounded-xl border border-border bg-bg text-center">
-          <span className="w-full bg-brand py-0.5 text-[11px] font-semibold tracking-wide text-brand-fg uppercase">
+          <span className="w-full bg-brand-solid py-0.5 text-[11px] font-semibold tracking-wide text-brand-fg uppercase">
             {date.month}
           </span>
           <span className="py-1 text-xl leading-none font-semibold text-fg tabular">{date.day}</span>
@@ -58,9 +58,9 @@ function EventCard({ event, now }: { event: EventDto; now: number }) {
             {date.time}
             {event.ticketPriceCents !== null && ` · ${money(event.ticketPriceCents)}`}
           </span>
-          <span className="flex items-center gap-2 truncate">
+          <span className="flex min-w-0 items-center gap-2">
             <MapPin className="size-4 shrink-0 text-fg-subtle" aria-hidden />
-            {event.venue ?? t.noVenue}
+            <span className="truncate">{event.venue ?? t.noVenue}</span>
           </span>
         </div>
       </div>

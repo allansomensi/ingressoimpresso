@@ -14,7 +14,7 @@ mod common;
 use axum::body::Body;
 use axum::http::{Method, Request, StatusCode};
 use common::{ADMIN, Reply, TestApp, WEBHOOK_SECRET};
-use ingressoimpresso_server::payments::sign_payload;
+use ingressoimpresso_server::payments::{FakeStripe, sign_payload};
 use serde_json::{Value, json};
 use sqlx::PgPool;
 
@@ -102,7 +102,7 @@ async fn pricing_is_public_and_batches_carry_their_price(pool: PgPool) {
     let event = app.create_event(&token, "Show").await;
     let created = batch(&app, &token, &event, 150).await;
     assert_eq!(created["priceCents"], 100 * 40 + 50 * 30);
-    assert_eq!(created["paymentPending"], false);
+    assert_eq!(created["pendingPayment"], Value::Null);
     assert_eq!(created["paidVia"], Value::Null);
 
     // Without Stripe, checkout is unavailable and the admin fallback still works.
@@ -168,8 +168,8 @@ async fn checkout_and_signed_webhook_pay_the_batch_once(pool: PgPool) {
     );
     assert!(request.cancel_url.ends_with("&pagamento=cancelado"));
     assert_eq!(
-        batch_status(&app, &token, &event, &batch_id).await["paymentPending"],
-        true
+        batch_status(&app, &token, &event, &batch_id).await["pendingPayment"],
+        "open"
     );
 
     // Unsigned or wrongly signed events change nothing.
@@ -206,9 +206,9 @@ async fn checkout_and_signed_webhook_pay_the_batch_once(pool: PgPool) {
         (
             paid["status"].as_str(),
             paid["paidVia"].as_str(),
-            paid["paymentPending"].as_bool()
+            paid["pendingPayment"].as_str()
         ),
-        (Some("paid"), Some("stripe"), Some(false))
+        (Some("paid"), Some("stripe"), None)
     );
     let payment: (String, Option<String>) = sqlx::query_as(
         "select status, payment_intent_id from payments where checkout_session_id = $1",
@@ -339,7 +339,7 @@ async fn returning_payer_syncs_and_expired_sessions_are_replaced(pool: PgPool) {
         .await
         .json();
     assert_eq!(pending["status"], "awaiting_payment");
-    assert_eq!(pending["paymentPending"], true);
+    assert_eq!(pending["pendingPayment"], "open");
     stripe.lock().unwrap().pay(&second_id);
     let paid = app.request(Method::POST, &sync, Some(&token), None).await;
     assert_eq!(paid.status, StatusCode::OK);
@@ -422,8 +422,8 @@ async fn cancel_and_admin_close_open_checkouts(pool: PgPool) {
         .await
         .json();
     assert_eq!(
-        (paid["paidVia"].as_str(), paid["paymentPending"].as_bool()),
-        (Some("admin"), Some(false))
+        (paid["paidVia"].as_str(), paid["pendingPayment"].as_str()),
+        (Some("admin"), None)
     );
     assert!(
         stripe
@@ -433,4 +433,190 @@ async fn cancel_and_admin_close_open_checkouts(pool: PgPool) {
             .values()
             .all(|session| session.status.as_deref() != Some("open"))
     );
+}
+
+fn open_session(stripe: &std::sync::Mutex<FakeStripe>) -> String {
+    stripe
+        .lock()
+        .unwrap()
+        .sessions
+        .iter()
+        .find(|(_, session)| session.status.as_deref() == Some("open"))
+        .map(|(id, _)| id.clone())
+        .unwrap()
+}
+
+#[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
+async fn a_pending_pix_blocks_cancel_mark_paid_and_new_checkouts(pool: PgPool) {
+    let (app, stripe) = TestApp::with_stripe(pool);
+    let token = app.login("banda@exemplo.com").await;
+    let admin = app.login(ADMIN).await;
+    let event = app.create_event(&token, "Show").await;
+    let batch_id = batch(&app, &token, &event, 10).await["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    checkout(&app, &token, &batch_id).await;
+    let session_id = open_session(&stripe);
+
+    // The payer chose Pix: the session completes unpaid while the transfer is pending.
+    let pending = stripe.lock().unwrap().show_pix(&session_id).unwrap();
+    webhook(
+        &app,
+        WEBHOOK_SECRET,
+        "checkout.session.completed",
+        &session_json(&pending),
+    )
+    .await;
+    assert_eq!(
+        batch_status(&app, &token, &event, &batch_id).await["pendingPayment"],
+        "processing"
+    );
+    assert_eq!(
+        checkout(&app, &token, &batch_id).await.error_code(),
+        "payment_pending"
+    );
+    let cancel = app
+        .request(
+            Method::POST,
+            &format!("/api/batches/{batch_id}/cancel"),
+            Some(&token),
+            None,
+        )
+        .await;
+    assert_eq!(cancel.error_code(), "payment_pending");
+    let mark = app
+        .request(
+            Method::POST,
+            &format!("/api/admin/batches/{batch_id}/mark-paid"),
+            Some(&admin),
+            None,
+        )
+        .await;
+    assert_eq!(mark.error_code(), "payment_pending");
+
+    // The transfer lands.
+    let paid = stripe.lock().unwrap().pay(&session_id).unwrap();
+    webhook(
+        &app,
+        WEBHOOK_SECRET,
+        "checkout.session.async_payment_succeeded",
+        &session_json(&paid),
+    )
+    .await;
+    let batch = batch_status(&app, &token, &event, &batch_id).await;
+    assert_eq!(
+        (batch["status"].as_str(), batch["pendingPayment"].as_str()),
+        (Some("paid"), None)
+    );
+}
+
+#[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
+async fn a_failed_pix_frees_the_batch(pool: PgPool) {
+    let (app, stripe) = TestApp::with_stripe(pool);
+    let token = app.login("banda@exemplo.com").await;
+    let event = app.create_event(&token, "Show").await;
+    let batch_id = batch(&app, &token, &event, 10).await["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    checkout(&app, &token, &batch_id).await;
+    let session_id = open_session(&stripe);
+    let pending = stripe.lock().unwrap().show_pix(&session_id).unwrap();
+    webhook(
+        &app,
+        WEBHOOK_SECRET,
+        "checkout.session.completed",
+        &session_json(&pending),
+    )
+    .await;
+    webhook(
+        &app,
+        WEBHOOK_SECRET,
+        "checkout.session.async_payment_failed",
+        &session_json(&pending),
+    )
+    .await;
+    assert_eq!(
+        batch_status(&app, &token, &event, &batch_id).await["pendingPayment"],
+        Value::Null
+    );
+    // A new attempt opens a new session.
+    let retry = checkout(&app, &token, &batch_id).await;
+    assert_eq!(retry.status, StatusCode::OK);
+    assert_eq!(stripe.lock().unwrap().sessions.len(), 2);
+}
+
+#[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
+async fn an_expiring_session_is_closed_before_a_new_one(pool: PgPool) {
+    let (app, stripe) = TestApp::with_stripe(pool);
+    let token = app.login("banda@exemplo.com").await;
+    let event = app.create_event(&token, "Show").await;
+    let batch_id = batch(&app, &token, &event, 10).await["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    checkout(&app, &token, &batch_id).await;
+    let first = open_session(&stripe);
+    // Ten minutes left: too little to pay, so it is not offered again.
+    sqlx::query("update payments set expires_at = now() + interval '10 minutes'")
+        .execute(&app.state.pool)
+        .await
+        .unwrap();
+    assert_eq!(
+        checkout(&app, &token, &batch_id).await.status,
+        StatusCode::OK
+    );
+    let stripe = stripe.lock().unwrap();
+    assert_eq!(stripe.sessions.len(), 2);
+    assert_eq!(stripe.sessions[&first].status.as_deref(), Some("expired"));
+    assert_eq!(
+        stripe
+            .sessions
+            .values()
+            .filter(|session| session.status.as_deref() == Some("open"))
+            .count(),
+        1,
+        "never two payable sessions"
+    );
+}
+
+#[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
+async fn batches_with_ranges_cannot_be_canceled(pool: PgPool) {
+    let app = TestApp::new(pool);
+    let token = app.login("banda@exemplo.com").await;
+    let event = app.create_event(&token, "Show").await;
+    let batch_id = batch(&app, &token, &event, 100).await["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let seller = app
+        .post(
+            &format!("/api/events/{event}/sellers"),
+            &token,
+            json!({ "name": "João", "phone": null }),
+        )
+        .await
+        .json();
+    let range = app
+        .post(
+            &format!("/api/sellers/{}/ranges", seller["id"].as_str().unwrap()),
+            &token,
+            json!({ "first": 1, "last": 50 }),
+        )
+        .await
+        .json();
+    let path = format!("/api/batches/{batch_id}/cancel");
+    let cancel = || app.request(Method::POST, &path, Some(&token), None);
+    assert_eq!(cancel().await.error_code(), "batch_has_ranges");
+    let removed = app
+        .request(
+            Method::DELETE,
+            &format!("/api/ranges/{}", range["id"].as_str().unwrap()),
+            Some(&token),
+            None,
+        )
+        .await;
+    assert!(removed.status.is_success());
+    assert_eq!(cancel().await.json()["status"], "canceled");
 }

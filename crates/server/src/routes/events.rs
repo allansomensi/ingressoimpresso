@@ -13,7 +13,7 @@ use ticket_core::EventSigningKey;
 use ticket_render::{Art, RenderJob, TicketDesign, TicketQr, TicketToRender};
 use uuid::Uuid;
 
-use super::{EventRow, authorize_event, optional_text};
+use super::{EventRow, authorize_event, door, optional_text};
 use crate::api::{ArtDto, DesignBody, DesignResponse, EventBody, EventDto, EventStatus};
 use crate::auth::AuthUser;
 use crate::error::{ApiError, ApiResult, bad_request};
@@ -24,6 +24,8 @@ use crate::state::AppState;
 pub const MAX_ART_BYTES: usize = 20 * 1024 * 1024;
 const MAX_ART_SIDE_PX: u32 = 10_000;
 const MAX_ART_PIXELS: u64 = 40_000_000;
+/// Art an organization may keep (every event, every saved version): ten large files.
+const MAX_ART_BYTES_PER_ORGANIZATION: i64 = 200 * 1024 * 1024;
 const PREVIEW_DPI: u32 = 110;
 
 impl EventRow {
@@ -169,6 +171,7 @@ pub async fn update(
 ) -> ApiResult<Json<EventDto>> {
     authorize_event(&state.pool, &user, event_id).await?;
     let (name, venue) = validate_event(&body)?;
+    let mut tx = state.pool.begin().await?;
     let row = sqlx::query_as!(
         EventRow,
         r#"update events set name = $2, venue = $3, starts_at = $4, ends_at = $5, ticket_price_cents = $6
@@ -181,8 +184,18 @@ pub async fn update(
         body.ends_at,
         body.ticket_price_cents,
     )
-    .fetch_one(&state.pool)
+    .fetch_one(&mut *tx)
     .await?;
+    // Door links live until the end of the event plus a grace period: a postponed event must
+    // not lock its phones out at the gate.
+    sqlx::query!(
+        "update door_accesses set expires_at = $2 where event_id = $1 and revoked_at is null",
+        event_id,
+        row.ends_at + door::ACCESS_GRACE,
+    )
+    .execute(&mut *tx)
+    .await?;
+    tx.commit().await?;
     Ok(Json(row.into_dto()?))
 }
 
@@ -339,6 +352,32 @@ pub async fn upload_art(
     }
     let digest = Sha256::digest(&body).to_vec();
     let size = i32::try_from(body.len()).map_err(|_| ApiError::PayloadTooLarge)?;
+    // Art lives in Postgres (ADR 0011): drop this event's uploads no saved design uses (an
+    // abandoned try) and cap what an organization keeps, so one account cannot fill the database.
+    sqlx::query!(
+        r#"delete from blobs b where b.event_id = $1 and b.sha256 <> $2
+           and not exists (select 1 from ticket_designs d where d.art_blob_id = b.id)"#,
+        event_id,
+        digest,
+    )
+    .execute(&state.pool)
+    .await?;
+    let stored = sqlx::query_scalar!(
+        r#"select coalesce(sum(b.byte_size), 0)::bigint as "stored!" from blobs b
+           join events e on e.id = b.event_id
+           where e.organization_id = (select organization_id from events where id = $1)"#,
+        event_id
+    )
+    .fetch_one(&state.pool)
+    .await?;
+    if stored + i64::from(size) > MAX_ART_BYTES_PER_ORGANIZATION
+        && !blob_exists(&state, event_id, &digest).await?
+    {
+        return Err(ApiError::Conflict(
+            "art_quota",
+            "the organization stores too much art".to_owned(),
+        ));
+    }
     let (width, height) = (
         i32::try_from(width).map_err(anyhow::Error::from)?,
         i32::try_from(height).map_err(anyhow::Error::from)?,
@@ -361,6 +400,16 @@ pub async fn upload_art(
     .fetch_one(&state.pool)
     .await?;
     Ok((StatusCode::CREATED, Json(row.into())))
+}
+
+async fn blob_exists(state: &AppState, event_id: Uuid, digest: &[u8]) -> ApiResult<bool> {
+    Ok(sqlx::query_scalar!(
+        r#"select exists(select 1 from blobs where event_id = $1 and sha256 = $2) as "exists!""#,
+        event_id,
+        digest
+    )
+    .fetch_one(&state.pool)
+    .await?)
 }
 
 /// Loads art bytes for rendering.

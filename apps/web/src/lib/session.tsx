@@ -5,9 +5,14 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 
-import { api, readToken, subscribeToken, writeToken } from "@/lib/api";
+import { ApiError, api, readToken, subscribeToken, writeToken } from "@/lib/api";
 
-type SessionState = { status: "loading" } | { status: "anonymous" } | { status: "signed-in"; user: MeUser };
+type SessionState =
+  | { status: "loading" }
+  | { status: "anonymous" }
+  | { status: "signed-in"; user: MeUser }
+  /** The API could not be reached (network, server waking up): the session is kept. */
+  | { status: "error"; error: unknown; retry: () => void };
 
 /** `undefined` while rendering on the server (the token only exists in the browser). */
 function useToken(): string | null | undefined {
@@ -31,9 +36,17 @@ export function useSession(): {
   let session: SessionState;
   if (token === undefined) {
     session = { status: "loading" };
-  } else if (token === null || me.isError) {
+  } else if (token === null || (me.error instanceof ApiError && me.error.status === 401)) {
     // A 401 also clears the token inside `api`, which re-renders this as anonymous.
     session = { status: "anonymous" };
+  } else if (me.isError) {
+    session = {
+      status: "error",
+      error: me.error,
+      retry: () => {
+        void me.refetch();
+      },
+    };
   } else if (me.data === undefined) {
     session = { status: "loading" };
   } else {
@@ -51,6 +64,8 @@ export function useSession(): {
   const signOut = useCallback(async () => {
     try {
       await api<undefined>("/api/auth/logout", { method: "POST" });
+    } catch {
+      // Offline or already expired: signing out locally is what matters.
     } finally {
       writeToken(null);
       queryClient.clear();
@@ -60,8 +75,8 @@ export function useSession(): {
   return { session, signIn, signOut };
 }
 
-/** Redirects to /entrar when not signed in; returns the user once known. */
-export function useRequiredUser(): MeUser | null {
+/** Redirects to /entrar when not signed in; returns the session (loading, error or signed in). */
+export function useRequiredSession(): SessionState {
   const { session } = useSession();
   const router = useRouter();
   useEffect(() => {
@@ -69,5 +84,5 @@ export function useRequiredUser(): MeUser | null {
       router.replace("/entrar");
     }
   }, [session.status, router]);
-  return session.status === "signed-in" ? session.user : null;
+  return session;
 }

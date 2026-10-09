@@ -1,23 +1,24 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select paid_via = 'admin' as \"admin!\" from ticket_batches where id = $1",
+  "query": "select exists(select 1 from blobs where event_id = $1 and sha256 = $2) as \"exists!\"",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "admin!",
+        "name": "exists!",
         "type_info": "Bool",
         "origin": "Expression"
       }
     ],
     "parameters": {
       "Left": [
-        "Uuid"
+        "Uuid",
+        "Bytea"
       ]
     },
     "nullable": [
       null
     ]
   },
-  "hash": "78cc9d4577d3c4ebc5874fb1c2dd025084ffea0aa9f9401fdf8e9623ece227f8"
+  "hash": "daa43372e61c11a30e54734c17f44b61a8f5e1b3e5263d8002df1f8297947283"
 }

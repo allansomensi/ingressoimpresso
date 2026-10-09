@@ -1,0 +1,48 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select status, checkout_url, expires_at > now() + make_interval(mins => $2) as \"fresh!\"\n           from payments where batch_id = $1 and status in ('open', 'processing')\n           order by created_at desc",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "payments",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "checkout_url",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "payments",
+            "name": "checkout_url"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "fresh!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "0135bf0a2828eb6cc3e22d85a33816da23b8f1e9a8f25f09d23cc133b9d1c8d1"
+}

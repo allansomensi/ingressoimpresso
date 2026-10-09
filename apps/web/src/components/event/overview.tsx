@@ -4,7 +4,7 @@ import type { BatchDto, DesignResponse, DoorOverviewDto, ExportDto, SellerDto } 
 import { useQuery } from "@tanstack/react-query";
 import { Check, ChevronRight, LogIn, Smartphone, Ticket, Users } from "lucide-react";
 
-import { Card, CardHeader, Skeleton, Stat } from "@/components/ui";
+import { Card, CardHeader, ErrorMessage, Skeleton, Stat } from "@/components/ui";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { texts } from "@/texts/pt-BR";
@@ -35,11 +35,18 @@ export function OverviewTab({ eventId, onSelect }: { eventId: string; onSelect: 
     files: (exports.data ?? []).some((item) => item.status === "done"),
     door: activeDevices > 0,
   };
-  const loading = design.isPending || batches.isPending || sellers.isPending || exports.isPending || door.isPending;
+  const queries = [design, batches, sellers, exports, door];
+  const loading = queries.some((query) => query.isPending);
+  const failure = queries.find((query) => query.isError)?.error;
+  const count = (value: number) => (loading ? <Skeleton className="h-8 w-14" /> : value.toLocaleString("pt-BR"));
   const doneCount = STEPS.filter((step) => done[step]).length;
   const nextStep = STEPS.find((step) => !done[step]);
 
   return (
+    <div className="flex flex-col gap-6">
+    {failure !== undefined && (
+      <ErrorMessage error={failure} />
+    )}
     <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
       <Card>
         <CardHeader
@@ -49,7 +56,7 @@ export function OverviewTab({ eventId, onSelect }: { eventId: string; onSelect: 
         />
         <div className="mb-5 h-1.5 overflow-hidden rounded-full bg-surface-3">
           <div
-            className="h-full rounded-full bg-gradient-to-r from-[#8b6cff] to-brand transition-[width] duration-500"
+            className="h-full rounded-full bg-gradient-to-r from-brand to-brand-hover transition-[width] duration-500"
             style={{ width: `${String((doneCount / STEPS.length) * 100)}%` }}
           />
         </div>
@@ -82,9 +89,9 @@ export function OverviewTab({ eventId, onSelect }: { eventId: string; onSelect: 
                       className={cn(
                         "flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold",
                         isDone
-                          ? "bg-success text-white"
+                          ? "bg-success-solid text-white"
                           : isNext
-                            ? "bg-brand text-brand-fg"
+                            ? "bg-brand-solid text-brand-fg"
                             : "bg-surface-3 text-fg-muted",
                       )}
                     >
@@ -108,16 +115,12 @@ export function OverviewTab({ eventId, onSelect }: { eventId: string; onSelect: 
         )}
       </Card>
       <div className="grid content-start gap-4 sm:grid-cols-2 lg:grid-cols-1">
-        <Stat label={t.stats.paid} value={paidTickets.toLocaleString("pt-BR")} icon={Ticket} />
-        <Stat label={t.stats.sellers} value={(sellers.data?.length ?? 0).toLocaleString("pt-BR")} icon={Users} />
-        <Stat
-          label={t.stats.entries}
-          value={(door.data?.entryCount ?? 0).toLocaleString("pt-BR")}
-          icon={LogIn}
-          tone="success"
-        />
-        <Stat label={t.stats.devices} value={activeDevices.toLocaleString("pt-BR")} icon={Smartphone} />
+        <Stat label={t.stats.paid} value={count(paidTickets)} icon={Ticket} />
+        <Stat label={t.stats.sellers} value={count(sellers.data?.length ?? 0)} icon={Users} />
+        <Stat label={t.stats.entries} value={count(door.data?.entryCount ?? 0)} icon={LogIn} tone="success" />
+        <Stat label={t.stats.devices} value={count(activeDevices)} icon={Smartphone} />
       </div>
+    </div>
     </div>
   );
 }

@@ -28,7 +28,7 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
 - **Fase 6 (pagamento + interface): implementada.** Pagamento dos lotes com Stripe Checkout (Pix e
   cartão) confirmado por webhook assinado, preço progressivo em `pricing.rs` (ADR 0020, substitui
   o 0014; o admin ainda marca lotes como pagos); redesign do site e do painel com sistema de design,
-  logo e PWA instalável (ADR 0021). Falta o que depende do mantenedor: conta Stripe, webhook e as
+  logo e PWA instalável (ADR 0021), tema claro/escuro/sistema e Vercel Web Analytics (ADR 0022). Falta o que depende do mantenedor: conta Stripe, webhook e as
   variáveis `STRIPE_*`/`PUBLIC_WEB_URL` no Render (`docs/deploy.md` §5.1) e definir os preços
   definitivos.
 
@@ -59,6 +59,8 @@ apps/web             landing em src/app/page.tsx (+ src/components/marketing), p
                      src/app/{entrar,painel}, abas do evento em src/components/event (aba na URL,
                      ?aba=); sistema de design em src/components/ui + tokens em globals.css (ADR 0021);
                      logo em src/components/brand.tsx e public/brand, ícones em public/icons;
+                     tema em src/lib/theme{,-script}.ts (data-theme no <html>, ADR 0022);
+                     Analytics em src/components/site-analytics.tsx (fora da portaria);
                      PWA do painel: app/manifest.ts + public/sw.js (escopo /, ignora /portaria);
                      portaria em src/app/portaria + src/portaria (engine, storage, camera, logic) +
                      public/portaria-sw.js (ADR 0018); Vitest em test/
@@ -92,6 +94,11 @@ docs/deploy.md       domínio próprio: Neon, Resend, DNS (Registro.br), Render,
 - **Pagamento:** Stripe Checkout por lote (ADR 0020), confirmado pelo webhook
   `POST /api/stripe/webhook` (assinatura `Stripe-Signature`) ou pela consulta da sessão quando o
   pagador volta. Sem `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET`, só o admin marca lotes como pagos.
+  Pix gerado e não pago deixa o pagamento `processing` (bloqueia cancelar e novo checkout).
+  Checkout/cancelar/marcar pago de um lote passam por `AppState::batch_lock` (trava em memória:
+  a API roda em uma instância só) e chamam a Stripe fora de transação.
+- **Métricas:** Vercel Web Analytics (ADR 0022), ligado no painel da Vercel; nada a configurar no
+  código além de `NEXT_PUBLIC_SITE_URL` (opcional, padrão `https://ingressoimpresso.com.br`).
 
 ## Comandos
 
@@ -154,8 +161,11 @@ just backup-restore-test <dump.age> <chave-age>   # restaura um backup num banco
 - **Idioma:** identificadores, nomes de arquivos de código, commits e comentários em inglês.
   Interface, textos ao usuário e documentação (`docs/`) em português.
 - **Interface:** use os componentes de `src/components/ui` e os tokens semânticos (`bg-surface`,
-  `text-fg-muted`, `bg-brand`...), nunca cores soltas, para o modo escuro funcionar. Ações
-  destrutivas pedem `useConfirm()`; resultados de ações viram `toast`.
+  `text-fg-muted`, `bg-brand`...), nunca cores soltas, para o tema escuro funcionar. Fundo cheio
+  com texto branco usa `bg-brand-solid`/`bg-success-solid`/`bg-danger-solid` (contraste AA nos
+  dois temas). Ações destrutivas pedem `useConfirm()`; resultados de ações viram `toast`; menus
+  usam `Menu`/`MenuItem` e painéis `Popover`. Um editor com alterações pendentes chama
+  `useUnsavedChanges(dirty)`.
 - **Textos de interface centralizados:** `apps/web/src/texts/pt-BR.ts` no web e módulos `texts.rs`
   no Rust. Sem framework de i18n.
 - **Rust:**

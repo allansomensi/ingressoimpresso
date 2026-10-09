@@ -40,7 +40,11 @@ export function VoidsTab({ eventId }: { eventId: string }) {
   const [last, setLast] = useState(1);
   const [reason, setReason] = useState<VoidReason>("unsold");
   const [note, setNote] = useState("");
-  const refresh = () => queryClient.invalidateQueries({ queryKey: key });
+  const refresh = () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: key }),
+      queryClient.invalidateQueries({ queryKey: ["report", eventId] }),
+    ]);
 
   const create = useMutation({
     mutationFn: () => {
@@ -64,8 +68,12 @@ export function VoidsTab({ eventId }: { eventId: string }) {
     },
   });
 
+  const valid = Number.isInteger(first) && Number.isInteger(last) && first >= 1 && last >= first;
   const submit = async (event: FormEvent) => {
     event.preventDefault();
+    if (!valid) {
+      return;
+    }
     const range = texts.common.range(first, last);
     if (await confirm({ title: t.createConfirmTitle(range), description: t.createConfirmBody, confirmLabel: t.create })) {
       create.mutate();
@@ -79,10 +87,10 @@ export function VoidsTab({ eventId }: { eventId: string }) {
         <CardHeader title={t.newVoid} icon={Ban} />
         <form onSubmit={(event) => void submit(event)} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Field label={texts.common.first}>
-            <NumberInput value={first} step={1} min={1} onChange={setFirst} />
+            <NumberInput value={first} step={1} min={1} onChange={setFirst} required />
           </Field>
           <Field label={texts.common.last}>
-            <NumberInput value={last} step={1} min={1} onChange={setLast} />
+            <NumberInput value={last} step={1} min={1} onChange={setLast} required />
           </Field>
           <Field label={t.reason}>
             <Select value={reason} onChange={(e) => { setReason(e.target.value as VoidReason); }}>
@@ -95,7 +103,8 @@ export function VoidsTab({ eventId }: { eventId: string }) {
             <Input value={note} onChange={(e) => { setNote(e.target.value); }} placeholder={t.notePlaceholder} maxLength={200} />
           </Field>
           <div className="sm:col-span-2 lg:col-span-4">
-            <Button type="submit" variant="danger" icon={<Ban />} loading={create.isPending}>
+            {!valid && <p className="mb-3 text-xs text-danger-fg">{texts.errors.invalid_range}</p>}
+            <Button type="submit" variant="danger" icon={<Ban />} loading={create.isPending} disabled={!valid}>
               {t.create}
             </Button>
           </div>

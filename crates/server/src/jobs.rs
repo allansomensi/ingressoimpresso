@@ -26,6 +26,9 @@ const MAX_ATTEMPTS: i16 = 3;
 /// behind by a failure. Each poll wakes Neon for its 5 idle minutes: hourly costs ~15 CU-hours a
 /// month of the Free plan's 100.
 const IDLE_POLL: Duration = Duration::from_hours(1);
+/// A `running` export not finished after this long belongs to a process that died (a deploy
+/// mid-render) and is claimed again. Keep in sync with the claim query in `process_next`.
+const STALE_AFTER: Duration = Duration::from_mins(15);
 /// Generated files are a cache: older ones are deleted and regenerated on demand.
 const FILE_MAX_AGE: Duration = Duration::from_hours(24);
 
@@ -63,8 +66,30 @@ pub async fn run_worker(state: AppState) {
             cleanup(&state.config.export_dir).await;
             last_cleanup = std::time::Instant::now();
         }
-        let _ = tokio::time::timeout(IDLE_POLL, state.jobs.notified()).await;
+        let wait = match next_stale(&state).await {
+            Ok(wait) => wait,
+            Err(error) => {
+                tracing::error!(?error, "export worker error");
+                IDLE_POLL
+            }
+        };
+        let _ = tokio::time::timeout(wait, state.jobs.notified()).await;
     }
+}
+
+/// How long to sleep: until the oldest `running` export goes stale (so an export interrupted by
+/// a restart resumes in minutes, not at the next hourly poll), at most [`IDLE_POLL`].
+async fn next_stale(state: &AppState) -> ApiResult<Duration> {
+    let oldest = sqlx::query_scalar!("select min(locked_at) from exports where status = 'running'")
+        .fetch_one(&state.pool)
+        .await?;
+    Ok(oldest.map_or(IDLE_POLL, |locked_at| {
+        let stale_at = locked_at + STALE_AFTER + Duration::from_secs(5);
+        let remaining = stale_at - time::OffsetDateTime::now_utc();
+        Duration::try_from(remaining)
+            .unwrap_or(Duration::ZERO)
+            .clamp(Duration::from_secs(5), IDLE_POLL)
+    }))
 }
 
 /// Processes every queued export now (tests and graceful drains).

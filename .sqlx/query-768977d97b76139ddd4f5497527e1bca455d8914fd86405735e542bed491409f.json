@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update payments set status = $2 where id = $1 and status in ('open', 'processing')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "768977d97b76139ddd4f5497527e1bca455d8914fd86405735e542bed491409f"
+}

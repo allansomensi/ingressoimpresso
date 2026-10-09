@@ -3,7 +3,9 @@
 import type { EventDto } from "@ingressoimpresso/api-types";
 import { useQuery } from "@tanstack/react-query";
 import {
+  ArrowLeft,
   BarChart3,
+  SearchX,
   Ban,
   CalendarDays,
   ChevronLeft,
@@ -20,23 +22,28 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useRef, useState, type KeyboardEvent } from "react";
+import dynamic from "next/dynamic";
+import { Suspense, useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
 
-import { BatchesTab } from "@/components/event/batches";
-import { DesignTab } from "@/components/event/design";
-import { DoorTab } from "@/components/event/door";
-import { FilesTab } from "@/components/event/files";
-import { OverviewTab } from "@/components/event/overview";
-import { ReportTab } from "@/components/event/report";
-import { SellersTab } from "@/components/event/sellers";
 import { TABS, tabFromSlug, tabSlug, type Tab } from "@/components/event/tabs";
-import { VoidsTab } from "@/components/event/voids";
 import { EventFormDialog } from "@/components/panel/event-form";
-import { Button, ErrorMessage, Skeleton } from "@/components/ui";
-import { api } from "@/lib/api";
+import { Button, ButtonLink, EmptyState, ErrorMessage, LoadingBlock, Skeleton, useConfirm } from "@/components/ui";
+import { ApiError, api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { dateTime, money } from "@/lib/format";
+import { hasUnsavedChanges } from "@/lib/unsaved";
 import { texts } from "@/texts/pt-BR";
+
+// Each tab is its own chunk: opening an event loads only the tab on screen.
+const tabLoading = () => <LoadingBlock rows={3} />;
+const OverviewTab = dynamic(() => import("@/components/event/overview").then((m) => m.OverviewTab), { loading: tabLoading });
+const DesignTab = dynamic(() => import("@/components/event/design").then((m) => m.DesignTab), { loading: tabLoading });
+const BatchesTab = dynamic(() => import("@/components/event/batches").then((m) => m.BatchesTab), { loading: tabLoading });
+const SellersTab = dynamic(() => import("@/components/event/sellers").then((m) => m.SellersTab), { loading: tabLoading });
+const VoidsTab = dynamic(() => import("@/components/event/voids").then((m) => m.VoidsTab), { loading: tabLoading });
+const FilesTab = dynamic(() => import("@/components/event/files").then((m) => m.FilesTab), { loading: tabLoading });
+const DoorTab = dynamic(() => import("@/components/event/door").then((m) => m.DoorTab), { loading: tabLoading });
+const ReportTab = dynamic(() => import("@/components/event/report").then((m) => m.ReportTab), { loading: tabLoading });
 
 const ICONS: Record<Tab, LucideIcon> = {
   overview: LayoutDashboard,
@@ -79,7 +86,19 @@ function EventView() {
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const event = useQuery({ queryKey: ["event", eventId], queryFn: () => api<EventDto>(`/api/events/${eventId}`) });
 
-  const select = (next: Tab) => {
+  const confirm = useConfirm();
+  const leaveAllowed = async () =>
+    !hasUnsavedChanges() ||
+    confirm({
+      title: texts.event.design.leaveConfirmTitle,
+      description: texts.event.design.leaveConfirmBody,
+      confirmLabel: texts.event.design.leaveConfirm,
+    });
+
+  const select = async (next: Tab) => {
+    if (next === tab || !(await leaveAllowed())) {
+      return;
+    }
     const query = new URLSearchParams(search.toString());
     query.set("aba", tabSlug(next));
     // Payment return parameters belong to the batches tab only.
@@ -91,16 +110,43 @@ function EventView() {
   };
 
   const keyDown = (keyEvent: KeyboardEvent, index: number) => {
-    const delta = keyEvent.key === "ArrowRight" ? 1 : keyEvent.key === "ArrowLeft" ? -1 : 0;
-    if (delta === 0) {
+    const targets: Partial<Record<string, number>> = {
+      ArrowRight: (index + 1) % TABS.length,
+      ArrowLeft: (index - 1 + TABS.length) % TABS.length,
+      Home: 0,
+      End: TABS.length - 1,
+    };
+    const next = targets[keyEvent.key];
+    const target = next === undefined ? undefined : TABS[next];
+    if (next === undefined || target === undefined) {
       return;
     }
     keyEvent.preventDefault();
-    const next = (index + delta + TABS.length) % TABS.length;
-    const target = TABS[next];
-    if (target !== undefined) {
-      select(target);
-      tabRefs.current[next]?.focus();
+    tabRefs.current[next]?.focus();
+    void select(target);
+  };
+
+  // The selected tab stays visible in the scrollable strip (phones, deep links like ?aba=relatorio).
+  useEffect(() => {
+    tabRefs.current[TABS.indexOf(tab)]?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [tab, event.isSuccess]);
+
+  // The browser tab shows the event name.
+  const name = event.data?.name;
+  useEffect(() => {
+    if (name !== undefined) {
+      document.title = `${name} · ${texts.meta.title}`;
+    }
+  }, [name]);
+
+  const back = (clickEvent: MouseEvent<HTMLAnchorElement>) => {
+    if (hasUnsavedChanges()) {
+      clickEvent.preventDefault();
+      void leaveAllowed().then((ok) => {
+        if (ok) {
+          router.push("/painel");
+        }
+      });
     }
   };
 
@@ -108,6 +154,20 @@ function EventView() {
     return <HeaderSkeleton />;
   }
   if (event.isError) {
+    if (event.error instanceof ApiError && event.error.status === 404) {
+      return (
+        <EmptyState
+          icon={SearchX}
+          title={texts.event.notFoundTitle}
+          description={texts.event.notFound}
+          action={
+            <ButtonLink href="/painel" variant="secondary" icon={<ArrowLeft />}>
+              {texts.event.backToEvents}
+            </ButtonLink>
+          }
+        />
+      );
+    }
     return <ErrorMessage error={event.error} />;
   }
   const data = event.data;
@@ -117,6 +177,7 @@ function EventView() {
       <div className="flex flex-col gap-3">
         <Link
           href="/painel"
+          onClick={back}
           className="inline-flex w-fit items-center gap-1 rounded-md text-sm font-medium text-fg-muted transition hover:text-fg"
         >
           <ChevronLeft className="size-4" aria-hidden />
@@ -159,7 +220,8 @@ function EventView() {
         <nav
           role="tablist"
           aria-label={data.name}
-          className="-mb-px flex gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          // On small screens the strip fades at the edge: there are more tabs to scroll to.
+          className="-mb-px flex gap-1 overflow-x-auto [mask-image:linear-gradient(to_right,black_85%,transparent)] [scrollbar-width:none] sm:[mask-image:none] [&::-webkit-scrollbar]:hidden"
         >
           {TABS.map((item, index) => {
             const Icon = ICONS[item];
@@ -174,10 +236,10 @@ function EventView() {
                 role="tab"
                 id={`tab-${item}`}
                 aria-selected={selected}
-                aria-controls={`panel-${item}`}
+                aria-controls={selected ? `panel-${item}` : undefined}
                 tabIndex={selected ? 0 : -1}
                 onClick={() => {
-                  select(item);
+                  void select(item);
                 }}
                 onKeyDown={(keyEvent) => {
                   keyDown(keyEvent, index);

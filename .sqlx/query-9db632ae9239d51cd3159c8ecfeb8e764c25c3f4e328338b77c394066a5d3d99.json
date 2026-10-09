@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select b.id, b.numbers, b.status, b.created_at, b.paid_at, b.price_cents, b.paid_via,\n                  exists(select 1 from payments p where p.batch_id = b.id and p.status = 'open'\n                         and p.expires_at > now()) as \"payment_pending!\"\n           from ticket_batches b where b.id = $1",
+  "query": "select b.id, b.numbers, b.status, b.created_at, b.paid_at, b.price_cents, b.paid_via,\n                  (select case when bool_or(p.status = 'processing') then 'processing'\n                               when bool_or(p.status = 'open' and p.expires_at > now()) then 'open' end\n                   from payments p where p.batch_id = b.id) as pending_payment\n           from ticket_batches b where b.event_id = $1 order by lower(b.numbers)",
   "describe": {
     "columns": [
       {
@@ -82,8 +82,8 @@
       },
       {
         "ordinal": 7,
-        "name": "payment_pending!",
-        "type_info": "Bool",
+        "name": "pending_payment",
+        "type_info": "Text",
         "origin": "Expression"
       }
     ],
@@ -103,5 +103,5 @@
       null
     ]
   },
-  "hash": "3ee773403a0556b8fcee0497971c815df4e31d908d42d7dd96d84b29493203dc"
+  "hash": "9db632ae9239d51cd3159c8ecfeb8e764c25c3f4e328338b77c394066a5d3d99"
 }

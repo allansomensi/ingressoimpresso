@@ -20,7 +20,10 @@ import {
   LoadingBlock,
   NumberInput,
   Skeleton,
+  Menu,
+  MenuItem,
   Spinner,
+  buttonClass,
   errorMessage,
   useConfirm,
   type Tone,
@@ -39,6 +42,7 @@ const MAX_BATCH = 5_000;
 /** How long to keep asking after the payer comes back (Pix may confirm a bit later). */
 const RETURN_POLL_MS = 3_000;
 const RETURN_POLL_FOR_MS = 3 * 60_000;
+const PIX_POLL_MS = 10_000;
 
 const STATUS_TONE: Record<BatchDto["status"], Tone> = {
   awaiting_payment: "warning",
@@ -62,7 +66,7 @@ function NewBatch({ eventId, pricing, nextNumber }: { eventId: string; pricing: 
       return api<BatchDto>(`/api/events/${eventId}/batches`, { method: "POST", body });
     },
     onSuccess: () => {
-      toast.success(t.createdToast);
+      toast.success(pricing?.onlinePayment === true ? t.createdToast : t.createdToastManual);
       void queryClient.invalidateQueries({ queryKey: ["batches", eventId] });
     },
   });
@@ -163,7 +167,6 @@ function BatchRow({
 }) {
   const queryClient = useQueryClient();
   const confirm = useConfirm();
-  const [menu, setMenu] = useState(false);
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["batches", eventId] });
 
   const pay = useMutation({
@@ -203,18 +206,17 @@ function BatchRow({
   });
 
   const cancel = async () => {
-    setMenu(false);
     if (await confirm({ title: t.cancelConfirmTitle, description: t.cancelConfirmBody, confirmLabel: t.cancelConfirm })) {
       action.mutate(`/api/batches/${batch.id}/cancel`);
     }
   };
   const markPaid = async () => {
-    setMenu(false);
     if (await confirm({ title: t.markPaidConfirmTitle, description: t.markPaidConfirmBody, confirmLabel: t.markPaid, danger: false })) {
       action.mutate(`/api/admin/batches/${batch.id}/mark-paid`);
     }
   };
   const awaiting = batch.status === "awaiting_payment";
+  const pending = batch.pendingPayment;
 
   return (
     <li
@@ -250,88 +252,56 @@ function BatchRow({
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-        {batch.paymentPending && awaiting ? (
+        {awaiting && pending !== null ? (
           <Badge tone="brand" dot pulse>
-            {t.pending}
+            {t.pendingState[pending]}
           </Badge>
         ) : (
           <Badge tone={STATUS_TONE[batch.status]} dot>
             {batch.status === "paid" && batch.paidVia !== null ? t.paidVia[batch.paidVia] : t.status[batch.status]}
           </Badge>
         )}
-        {awaiting && onlinePayment && (
-          <>
-            {batch.paymentPending && (
-              <Button
-                variant="secondary"
-                size="sm"
-                icon={<RefreshCw />}
-                loading={sync.isPending}
-                onClick={() => {
-                  sync.mutate();
-                }}
-              >
-                {sync.isPending ? t.checking : t.checkPayment}
-              </Button>
-            )}
-            <Button
-              size="sm"
-              icon={<CreditCard />}
-              loading={pay.isPending}
-              onClick={() => {
-                pay.mutate();
-              }}
-            >
-              {pay.isPending ? t.redirecting : batch.paymentPending ? t.continuePayment : t.pay(money(batch.priceCents))}
-            </Button>
-          </>
+        {awaiting && pending !== null && (
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={<RefreshCw />}
+            loading={sync.isPending}
+            onClick={() => {
+              sync.mutate();
+            }}
+          >
+            {sync.isPending ? t.checking : t.checkPayment}
+          </Button>
+        )}
+        {awaiting && onlinePayment && pending !== "processing" && (
+          <Button
+            size="sm"
+            icon={<CreditCard />}
+            loading={pay.isPending}
+            onClick={() => {
+              pay.mutate();
+            }}
+          >
+            {pay.isPending ? t.redirecting : pending === "open" ? t.continuePayment : t.pay(money(batch.priceCents))}
+          </Button>
         )}
         {awaiting && (
-          <div className="relative">
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label={texts.common.edit}
-              aria-expanded={menu}
-              aria-haspopup="menu"
-              loading={action.isPending}
-              onClick={() => {
-                setMenu(!menu);
-              }}
-            >
-              {!action.isPending && <MoreHorizontal />}
-            </Button>
-            {menu && (
-              <div
-                role="menu"
-                className="absolute right-0 z-20 mt-1 w-56 rounded-xl border border-border bg-surface p-1 shadow-lg animate-pop"
-                onMouseLeave={() => {
-                  setMenu(false);
-                }}
-              >
-                {isAdmin && (
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => void markPaid()}
-                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-fg hover:bg-surface-2"
-                  >
-                    <ShieldCheck className="size-4 text-fg-muted" aria-hidden />
-                    {t.markPaid}
-                  </button>
-                )}
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => void cancel()}
-                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-danger-fg hover:bg-danger-soft"
-                >
-                  <X className="size-4" aria-hidden />
-                  {t.cancelBatch}
-                </button>
-              </div>
+          <Menu
+            label={t.moreActions}
+            disabled={action.isPending}
+            triggerClassName={buttonClass({ variant: "ghost", size: "icon" })}
+            trigger={action.isPending ? <Spinner /> : <MoreHorizontal aria-hidden />}
+          >
+            {isAdmin && (
+              <MenuItem icon={<ShieldCheck className="text-fg-muted" aria-hidden />} onSelect={() => void markPaid()}>
+                {t.markPaid}
+              </MenuItem>
             )}
-          </div>
+            <MenuItem tone="danger" icon={<X aria-hidden />} onSelect={() => void cancel()}>
+              {t.cancelBatch}
+            </MenuItem>
+          </Menu>
         )}
       </div>
     </li>
@@ -355,6 +325,7 @@ function PaymentReturn({
   const outcome = search.get("pagamento");
   const batchId = search.get("lote");
   const synced = useRef(false);
+  const [waited, setWaited] = useState(false);
   const batch = batches.find((item) => item.id === batchId);
 
   const sync = useMutation({
@@ -370,7 +341,20 @@ function PaymentReturn({
     }
   }, [outcome, batchId, mutate]);
 
-  if (outcome === null || batchId === null) {
+  // After a while, stop showing a spinner and offer to check again.
+  useEffect(() => {
+    if (outcome !== "sucesso") {
+      return;
+    }
+    const timer = setTimeout(() => {
+      setWaited(true);
+    }, RETURN_POLL_FOR_MS);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [outcome]);
+
+  if ((outcome !== "sucesso" && outcome !== "cancelado") || batchId === null) {
     return null;
   }
   const dismiss = () => {
@@ -380,7 +364,7 @@ function PaymentReturn({
     router.replace(`${pathname}?${query.toString()}`, { scroll: false });
   };
   const close = (
-    <button type="button" aria-label={texts.common.close} onClick={dismiss} className="opacity-70 hover:opacity-100">
+    <button type="button" aria-label={texts.common.close} onClick={dismiss} className="rounded-md opacity-70 hover:opacity-100">
       <X className="size-4" />
     </button>
   );
@@ -392,7 +376,10 @@ function PaymentReturn({
       </Alert>
     );
   }
-  if (batch?.status === "paid") {
+  if (batch === undefined || batch.status === "canceled") {
+    return null;
+  }
+  if (batch.status === "paid") {
     return (
       <Alert
         tone="success"
@@ -414,9 +401,33 @@ function PaymentReturn({
       />
     );
   }
+  const stillWaiting = waited || sync.isError;
   return (
-    <Alert tone="brand" action={<Spinner className="mt-0.5" />}>
-      {t.paymentProcessing}
+    <Alert
+      tone={sync.isError ? "warning" : "brand"}
+      title={stillWaiting ? t.paymentNotConfirmed : undefined}
+      action={
+        <div className="flex items-center gap-3">
+          {stillWaiting ? (
+            <Button
+              size="sm"
+              variant="secondary"
+              icon={<RefreshCw />}
+              loading={sync.isPending}
+              onClick={() => {
+                sync.mutate(batch.id);
+              }}
+            >
+              {t.checkPayment}
+            </Button>
+          ) : (
+            <Spinner className="mt-0.5" />
+          )}
+          {close}
+        </div>
+      }
+    >
+      {sync.isError ? errorMessage(sync.error) : batch.pendingPayment === "processing" ? t.pixProcessing : t.paymentProcessing}
     </Alert>
   );
 }
@@ -432,12 +443,16 @@ export function BatchesTab({ eventId, onSelect }: { eventId: string; onSelect: S
     queryKey: ["batches", eventId],
     queryFn: () => api<BatchDto[]>(`/api/events/${eventId}/batches`),
     // After the return from Stripe, wait for the webhook (Pix may take a moment).
-    refetchInterval: (query) =>
-      returnedBatch !== null &&
-      Date.now() < (pollUntil.current ??= Date.now() + RETURN_POLL_FOR_MS) &&
-      query.state.data?.find((batch) => batch.id === returnedBatch)?.status === "awaiting_payment"
-        ? RETURN_POLL_MS
-        : false,
+    refetchInterval: (query) => {
+      const data = query.state.data ?? [];
+      const waitingReturn =
+        returnedBatch !== null &&
+        Date.now() < (pollUntil.current ??= Date.now() + RETURN_POLL_FOR_MS) &&
+        data.find((batch) => batch.id === returnedBatch)?.status === "awaiting_payment";
+      // A Pix being confirmed settles in seconds to minutes: keep the row up to date.
+      const pix = data.some((batch) => batch.pendingPayment === "processing");
+      return waitingReturn ? RETURN_POLL_MS : pix ? PIX_POLL_MS : false;
+    },
   });
   const digits = 4;
   const list = batches.data ?? [];

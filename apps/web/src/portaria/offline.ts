@@ -10,7 +10,8 @@ function pageResources(): string[] {
   const urls = new Set<string>([window.location.pathname]);
   for (const entry of performance.getEntriesByType("resource")) {
     const url = new URL(entry.name);
-    if (url.origin === window.location.origin) {
+    // Platform endpoints (/_vercel/: analytics, insights) are not part of the app.
+    if (url.origin === window.location.origin && !url.pathname.startsWith("/_vercel/")) {
       urls.add(url.pathname + url.search);
     }
   }

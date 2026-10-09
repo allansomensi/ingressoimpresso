@@ -34,7 +34,8 @@ function lineName(row: ReportRowDto, kind: "seller" | "unassigned" | "totals"): 
 
 /** Spreadsheet-friendly CSV: `;` separators and a BOM, as Brazilian Excel expects. */
 function toCsv(report: EventReportDto): string {
-  const quote = (value: string) => `"${value.replaceAll('"', '""')}"`;
+  // Text starting like a formula (=, +, -, @) is kept as text by Excel/Sheets with a leading '.
+  const quote = (value: string) => `"${(/^[=+\-@\t\r]/.test(value) ? `'${value}` : value).replaceAll('"', '""')}"`;
   const header = [t.seller, ...COLUMNS.map((column) => t.columns[column]), t.amountDue];
   const lines: [ReportRowDto, "seller" | "unassigned" | "totals"][] = [
     ...report.sellers.map((row): [ReportRowDto, "seller"] => [row, "seller"]),
@@ -57,7 +58,10 @@ function download(report: EventReportDto) {
   link.href = url;
   link.download = t.fileName;
   link.click();
-  URL.revokeObjectURL(url);
+  // Safari starts the download asynchronously: revoke the URL only afterwards.
+  setTimeout(() => {
+    URL.revokeObjectURL(url);
+  }, 30_000);
 }
 
 const ALERT_COLUMNS = new Set<string>(["offlineDuplicates", "voidEntries"]);
@@ -180,8 +184,9 @@ export function ReportTab({ eventId }: { eventId: string }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {data.devices.map((device) => (
-                  <tr key={device.name} className="hover:bg-surface-2/60">
+                {data.devices.map((device, index) => (
+                  // Phone names are not unique: the position keeps rows apart.
+                  <tr key={`${String(index)}-${device.name}`} className="hover:bg-surface-2/60">
                     <td className="py-3 pr-2 pl-5 text-fg">{device.name}</td>
                     <td className="px-2 py-3 text-right font-mono tabular">{device.scans}</td>
                     <td className="px-2 py-3 text-right font-mono tabular">{device.firstEntries}</td>

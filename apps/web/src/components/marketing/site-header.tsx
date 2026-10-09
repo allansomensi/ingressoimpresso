@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useState, useSyncExternalStore } from "react";
 
 import { Logo } from "@/components/brand";
+import { ThemeSwitcher } from "@/components/theme-switcher";
 import { ButtonLink } from "@/components/ui";
 import { readToken, subscribeToken } from "@/lib/api";
 import { cn } from "@/lib/cn";
@@ -62,6 +63,7 @@ export function SiteHeader() {
           ))}
         </nav>
         <div className="hidden items-center gap-2 md:flex">
+          <ThemeSwitcher className="mr-1" />
           {signedIn ? (
             <ButtonLink href="/painel" icon={<ArrowRight />} className="flex-row-reverse">
               {t.panel}
@@ -103,6 +105,7 @@ export function SiteHeader() {
               </a>
             ))}
           </nav>
+          <ThemeSwitcher labels className="mt-3 flex w-full" />
           <div className="mt-3 grid gap-2">
             {signedIn ? (
               <ButtonLink href="/painel" size="lg">
