@@ -27,3 +27,7 @@ coverage/
 # Local job tooling (`ii job init`): private seeds must never be committed.
 *.seed
 /out/
+
+# Backups (`just backup-restore-test`): the age identity is a private key.
+backup-key.txt
+*.dump.age
