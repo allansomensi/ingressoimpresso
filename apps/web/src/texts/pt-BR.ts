@@ -434,7 +434,7 @@ export const texts = {
     subtitle: "Sem senha. Entre com o Google ou receba um código no seu e-mail.",
     subtitleEmail: "Sem senha: enviamos um código para o seu e-mail.",
     firstTime: "Primeira vez? A conta é criada na hora, com 30 ingressos grátis para testar.",
-    google: "Continuar com Google",
+    google: "Continuar com o Google",
     googleSigningIn: "Entrando com Google…",
     or: "ou com seu e-mail",
     emailLabel: "E-mail",
