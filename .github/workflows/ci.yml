@@ -77,3 +77,55 @@ jobs:
           name: door-e2e
           path: target/e2e/
           if-no-files-found: ignore
+
+  # The image Render builds (deploy/api.Dockerfile), built and started here first: a broken
+  # Dockerfile or a binary that does not start fails the PR instead of the production deploy.
+  api-image:
+    name: API image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build deploy/api.Dockerfile
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/api.Dockerfile
+          tags: ingressoimpresso-api:ci
+          load: true
+          cache-from: type=gha,scope=api-image
+          cache-to: type=gha,mode=max,scope=api-image
+
+      - name: Start the image against Postgres
+        run: |
+          docker run --detach --name api --network host \
+            -e DATABASE_URL=postgres://postgres:postgres@localhost:5432/postgres \
+            -e TICKET_KEY_ENCRYPTION_KEY=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY= \
+            -e ALLOWED_ORIGINS=http://localhost:3000 \
+            ingressoimpresso-api:ci
+          for _ in $(seq 1 30); do
+            curl -fsS http://localhost:8080/readyz && break
+            sleep 1
+          done
+          curl -fsS http://localhost:8080/healthz
+          curl -fsS http://localhost:8080/readyz
+          docker logs api
+
+      - name: API logs
+        if: failure()
+        run: docker logs api || true
