@@ -5,14 +5,18 @@ const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080").repl
 // ADR 0016: the session token lives in localStorage, so the CSP is its main defence. `connect-src`
 // limits where scripts can send data (no exfiltration to other hosts), images only from ourselves.
 // Next.js still needs inline bootstrap scripts; a nonce-based policy is planned (phase 8).
+// "Entrar com Google" (ADR 0029) loads Google Identity Services on the sign-in page: its script,
+// its stylesheet and the button's iframe come from accounts.google.com/gsi/.
+const googleIdentity = "https://accounts.google.com/gsi/";
 const contentSecurityPolicy = [
   "default-src 'self'",
   // WebAssembly (ticket-core and zxing at the door) needs 'wasm-unsafe-eval'; plain eval stays blocked.
-  "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'",
-  "style-src 'self' 'unsafe-inline'",
+  `script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' ${googleIdentity}client`,
+  `style-src 'self' 'unsafe-inline' ${googleIdentity}style`,
   "img-src 'self' blob: data:",
   "font-src 'self'",
-  `connect-src 'self' ${apiUrl}`,
+  `connect-src 'self' ${apiUrl} ${googleIdentity}`,
+  `frame-src ${googleIdentity}`,
   "worker-src 'self'",
   "object-src 'none'",
   "base-uri 'none'",

@@ -18,6 +18,7 @@ import {
   Ticket,
   Users,
   Layers,
+  LifeBuoy,
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
@@ -175,6 +176,15 @@ function EventView() {
 
   return (
     <main className="flex flex-col gap-6 animate-fade-in">
+      {data.supportAccess && (
+        <div role="status" className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-warning/30 bg-warning-soft px-4 py-3 text-sm text-warning-fg">
+          <LifeBuoy className="size-4 shrink-0" aria-hidden />
+          <span className="flex-1">{texts.admin.support.banner}</span>
+          <Link href="/painel/admin?aba=organizacoes" className="font-semibold underline-offset-2 hover:underline">
+            {texts.admin.support.backToAdmin}
+          </Link>
+        </div>
+      )}
       <div className="flex flex-col gap-3">
         <Link
           href="/painel"

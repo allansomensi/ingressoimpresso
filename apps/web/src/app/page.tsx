@@ -18,9 +18,9 @@ import {
 } from "lucide-react";
 import type { Metadata } from "next";
 
-import { Logo } from "@/components/brand";
 import { PhoneMock, TicketMock } from "@/components/marketing/mockups";
 import { PricingSection } from "@/components/marketing/pricing";
+import { SiteFooter } from "@/components/marketing/site-footer";
 import { SiteHeader } from "@/components/marketing/site-header";
 import { TemplateShowcase } from "@/components/marketing/template-showcase";
 import { ButtonLink } from "@/components/ui";
@@ -241,15 +241,7 @@ export default function LandingPage() {
         </section>
       </main>
 
-      <footer className="border-t border-border">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 py-10 sm:flex-row sm:px-6">
-          <div className="flex flex-col items-center gap-2 sm:items-start">
-            <Logo />
-            <p className="text-sm text-fg-muted">{t.footer}</p>
-          </div>
-          <p className="text-sm text-fg-subtle">{t.footerRights(new Date().getFullYear())}</p>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

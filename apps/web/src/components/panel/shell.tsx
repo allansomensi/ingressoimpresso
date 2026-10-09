@@ -1,15 +1,17 @@
 "use client";
 
-import { CalendarDays, LogOut, RefreshCw, ShieldCheck, UserRound, WifiOff } from "lucide-react";
+import { BarChart3, CalendarDays, LifeBuoy, LogOut, Megaphone, RefreshCw, ShieldAlert, ShieldCheck, UserRound, WifiOff } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { MouseEvent, ReactNode } from "react";
 
 import { Logo } from "@/components/brand";
 import { InstallButton } from "@/components/install-button";
+import { WhatsNew } from "@/components/panel/whats-new";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { Badge, Button, EmptyState, Popover, Skeleton, errorMessage, useConfirm } from "@/components/ui";
 import { cn } from "@/lib/cn";
+import { LEGAL_ENTITY } from "@/content/legal";
 import { initials } from "@/lib/format";
 import { useRequiredSession, useSession } from "@/lib/session";
 import { hasUnsavedChanges } from "@/lib/unsaved";
@@ -43,6 +45,27 @@ function UserMenu({ email, isAdmin, onSignOut }: { email: string; isAdmin: boole
         <UserRound className="size-4" aria-hidden />
         {t.accountPage}
       </Link>
+      <Link
+        href="/painel/resultados"
+        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-fg-muted transition hover:bg-surface-2 hover:text-fg sm:hidden"
+      >
+        <BarChart3 className="size-4" aria-hidden />
+        {t.results}
+      </Link>
+      <Link
+        href="/novidades"
+        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-fg-muted transition hover:bg-surface-2 hover:text-fg"
+      >
+        <Megaphone className="size-4" aria-hidden />
+        {t.news}
+      </Link>
+      <a
+        href={`mailto:${LEGAL_ENTITY.email}`}
+        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-fg-muted transition hover:bg-surface-2 hover:text-fg"
+      >
+        <LifeBuoy className="size-4" aria-hidden />
+        {t.support}
+      </a>
       {isAdmin && (
         <Link
           href="/painel/admin"
@@ -137,6 +160,17 @@ export function PanelShell({ children }: { children: ReactNode }) {
                 <CalendarDays className="size-4" aria-hidden />
                 {t.events}
               </Link>
+              <Link
+                href="/painel/resultados"
+                aria-current={pathname === "/painel/resultados" ? "page" : undefined}
+                className={cn(
+                  "inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition",
+                  pathname.startsWith("/painel/resultados") ? "bg-surface-2 text-fg" : "text-fg-muted hover:text-fg",
+                )}
+              >
+                <BarChart3 className="size-4" aria-hidden />
+                {t.results}
+              </Link>
               {session.status === "signed-in" && session.user.isAdmin && (
                 <Link
                   href="/painel/admin"
@@ -152,8 +186,9 @@ export function PanelShell({ children }: { children: ReactNode }) {
               )}
             </nav>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <InstallButton />
+            {session.status === "signed-in" && <WhatsNew />}
             {session.status === "signed-in" ? (
               <UserMenu email={session.user.email} isAdmin={session.user.isAdmin} onSignOut={() => void signOut()} />
             ) : (
@@ -162,6 +197,17 @@ export function PanelShell({ children }: { children: ReactNode }) {
           </div>
         </div>
       </header>
+      {session.status === "signed-in" && session.user.suspended && (
+        <div role="status" className="border-b border-danger/25 bg-danger-soft text-danger-fg">
+          <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-sm sm:px-6">
+            <ShieldAlert className="size-4 shrink-0" aria-hidden />
+            <span className="flex-1">{t.suspended}</span>
+            <Link href="/painel/conta" className="font-semibold underline-offset-2 hover:underline">
+              {t.suspendedAction}
+            </Link>
+          </div>
+        </div>
+      )}
       <div id="conteudo" className="mx-auto w-full max-w-6xl flex-1 px-4 pt-8 pb-[max(6rem,env(safe-area-inset-bottom))] sm:px-6">
         {session.status === "signed-in" ? (
           children

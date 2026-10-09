@@ -5,19 +5,19 @@ import Link from "next/link";
 import { useEffect, useState, useSyncExternalStore } from "react";
 
 import { Logo } from "@/components/brand";
-import { ThemeSwitcher } from "@/components/theme-switcher";
 import { ButtonLink } from "@/components/ui";
 import { readToken, subscribeToken } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { texts } from "@/texts/pt-BR";
 
 const t = texts.nav;
+// Absolute anchors: the header also sits on the legal pages and the changelog.
 const LINKS = [
-  { href: "#como-funciona", label: t.howItWorks },
-  { href: "#modelos", label: t.templates },
-  { href: "#recursos", label: t.features },
-  { href: "#precos", label: t.pricing },
-  { href: "#duvidas", label: t.faq },
+  { href: "/#como-funciona", label: t.howItWorks },
+  { href: "/#modelos", label: t.templates },
+  { href: "/#recursos", label: t.features },
+  { href: "/#precos", label: t.pricing },
+  { href: "/#duvidas", label: t.faq },
 ] as const;
 
 function useSignedIn(): boolean {
@@ -54,17 +54,16 @@ export function SiteHeader() {
         <Logo />
         <nav className="hidden items-center gap-1 md:flex" aria-label={t.menu}>
           {LINKS.map((link) => (
-            <a
+            <Link
               key={link.href}
               href={link.href}
               className="rounded-lg px-3 py-2 text-sm font-medium text-fg-muted transition hover:bg-surface-2 hover:text-fg"
             >
               {link.label}
-            </a>
+            </Link>
           ))}
         </nav>
         <div className="hidden items-center gap-2 md:flex">
-          <ThemeSwitcher className="mr-1" />
           {signedIn ? (
             <ButtonLink href="/painel" icon={<ArrowRight />} className="flex-row-reverse">
               {t.panel}
@@ -94,7 +93,7 @@ export function SiteHeader() {
         <div className="border-t border-border px-4 pt-2 pb-5 md:hidden animate-fade-in">
           <nav className="flex flex-col" aria-label={t.menu}>
             {LINKS.map((link) => (
-              <a
+              <Link
                 key={link.href}
                 href={link.href}
                 onClick={() => {
@@ -103,10 +102,9 @@ export function SiteHeader() {
                 className="rounded-lg px-2 py-3 text-base font-medium text-fg"
               >
                 {link.label}
-              </a>
+              </Link>
             ))}
           </nav>
-          <ThemeSwitcher labels className="mt-3 flex w-full" />
           <div className="mt-3 grid gap-2">
             {signedIn ? (
               <ButtonLink href="/painel" size="lg">
