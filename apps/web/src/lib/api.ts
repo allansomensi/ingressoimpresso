@@ -8,7 +8,7 @@ import { texts } from "@/texts/pt-BR";
 
 const TOKEN_KEY = "ingressoimpresso.session";
 
-/** Base URL of the API, e.g. `https://ingressoimpresso-api.onrender.com`. */
+/** Base URL of the API, e.g. `https://api.seudominio.com.br`. */
 export const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080").replace(/\/$/, "");
 
 export class ApiError extends Error {

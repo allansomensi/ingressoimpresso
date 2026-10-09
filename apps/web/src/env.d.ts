@@ -2,7 +2,7 @@
 // Next.js inlines into the client bundle.
 declare namespace NodeJS {
   interface ProcessEnv {
-    /** Base URL of the API, e.g. https://ingressoimpresso-api.onrender.com (no trailing slash). */
+    /** Base URL of the API, e.g. https://api.seudominio.com.br (no trailing slash). */
     readonly NEXT_PUBLIC_API_URL?: string;
   }
 }
