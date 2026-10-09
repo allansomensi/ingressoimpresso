@@ -2184,6 +2184,7 @@ dto! {
         /// Delivery webhook configured (delivered/bounced statuses).
         pub webhook: bool,
         /// Daily quota (none: unlimited).
+        #[cfg_attr(feature = "ts", ts(type = "number | null"))]
         pub daily_limit: Option<i64>,
         /// Counted against it in the last 24 hours.
         #[cfg_attr(feature = "ts", ts(type = "number"))]

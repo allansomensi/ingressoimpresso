@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use axum::Router;
 use axum::extract::{DefaultBodyLimit, State};
-use axum::http::header::{AUTHORIZATION, CONTENT_DISPOSITION, CONTENT_TYPE};
+use axum::http::header::{AUTHORIZATION, CACHE_CONTROL, CONTENT_DISPOSITION, CONTENT_TYPE};
 use axum::http::{HeaderValue, Method, StatusCode};
 use axum::middleware;
 use axum::response::{IntoResponse as _, Response};
@@ -31,7 +31,16 @@ const JSON_BODY_LIMIT: usize = 256 * 1024;
     reason = "the whole route table reads best in one place"
 )]
 pub fn router(state: AppState) -> Router {
+    // Public, anonymous answers that change rarely: browsers may reuse them for a little while.
+    let public = Router::new()
+        .route("/status", get(status::public))
+        .route("/changelog", get(changelog::public))
+        .route("/pricing", get(batches::pricing_table))
+        .route_layer(middleware::map_response(short_public_cache));
     let api = Router::new()
+        .merge(public)
+        // Not cached: a maintenance switch must reach the panel at once.
+        .route("/platform", get(platform::status))
         .route("/auth/options", get(auth::options))
         .route("/auth/code", post(auth::request_code))
         .route("/auth/verify", post(auth::verify_code))
@@ -47,14 +56,11 @@ pub fn router(state: AppState) -> Router {
         .route("/account/export", get(privacy::export))
         .route("/account/credits", get(billing::credits))
         .route("/account/redeem", post(billing::redeem))
-        .route("/platform", get(platform::status))
-        .route("/status", get(status::public))
         .route("/inbox", get(announcements::inbox))
         .route("/inbox/read", post(announcements::read))
         .route("/announcements/{id}/dismiss", post(announcements::dismiss))
         .route("/resend/webhook", post(mail_admin::webhook))
         .route("/analytics", get(analytics::organization))
-        .route("/changelog", get(changelog::public))
         .route("/events", get(events::list).post(events::create))
         .route(
             "/events/{id}",
@@ -90,7 +96,6 @@ pub fn router(state: AppState) -> Router {
         .route("/batches/{id}/cancel", post(batches::cancel))
         .route("/batches/{id}/checkout", post(batches::checkout))
         .route("/batches/{id}/checkout/sync", post(batches::sync_checkout))
-        .route("/pricing", get(batches::pricing_table))
         .route("/stripe/webhook", post(batches::stripe_webhook))
         .route("/admin/batches/{id}/mark-paid", post(batches::mark_paid))
         .route("/admin/batches/{id}/refund", post(support::refund))
@@ -230,6 +235,17 @@ pub fn router(state: AppState) -> Router {
         .layer(cors)
         .layer(TraceLayer::new_for_http())
         .layer(CatchPanicLayer::new())
+}
+
+/// `Cache-Control: public, max-age=30` on successful public reads.
+async fn short_public_cache(mut response: Response) -> Response {
+    if response.status() == StatusCode::OK {
+        response.headers_mut().insert(
+            CACHE_CONTROL,
+            HeaderValue::from_static("public, max-age=30, stale-while-revalidate=60"),
+        );
+    }
+    response
 }
 
 async fn not_found() -> ApiError {

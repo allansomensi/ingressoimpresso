@@ -146,7 +146,20 @@ impl AppState {
         email: &Email,
     ) -> Result<(), MailError> {
         let db = |error: sqlx::Error| MailError::Failed(error.to_string());
-        let subject: String = email.subject.chars().take(200).collect();
+        // A login code never reaches the log: whoever reads it could sign in as the recipient.
+        let secret = matches!(kind, MailKind::LoginCode | MailKind::SignupCode);
+        let subject: String = email
+            .subject
+            .chars()
+            .map(|c| {
+                if secret && c.is_ascii_digit() {
+                    '•'
+                } else {
+                    c
+                }
+            })
+            .take(200)
+            .collect();
         if let Some(limit) = self.config.mail_daily_limit {
             let sent = sqlx::query!(
                 r#"select count(*) as "all!", count(*) filter (where kind = 'signup_code') as "signups!"

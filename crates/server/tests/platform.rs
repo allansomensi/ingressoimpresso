@@ -309,6 +309,8 @@ async fn the_mail_log_follows_each_message(pool: PgPool) {
     assert_eq!(first["status"], "sent");
     assert_eq!(first["to"], "banda@exemplo.com");
     assert_eq!(first["kind"], "signup_code");
+    // The code itself is never logged.
+    assert_eq!(first["subject"], "Seu código de acesso: ••••••");
     let provider_id = first["providerId"].as_str().unwrap().to_owned();
 
     // Resend reports the delivery, then a stale "delayed" arrives: the status never goes back.

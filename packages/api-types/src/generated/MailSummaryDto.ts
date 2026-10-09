@@ -21,7 +21,7 @@ webhook: boolean,
 /**
  * Daily quota (none: unlimited).
  */
-dailyLimit: bigint | null, 
+dailyLimit: number | null, 
 /**
  * Counted against it in the last 24 hours.
  */

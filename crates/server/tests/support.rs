@@ -279,9 +279,9 @@ async fn admins_publish_changelog_notes(pool: PgPool) {
         .await;
     assert_eq!(draft.status, StatusCode::CREATED);
     let id = draft.json()["id"].as_str().unwrap().to_owned();
-    // The launch notes come with the migrations; drafts stay hidden.
+    // The release notes come with the migrations (phases 8 and 9); drafts stay hidden.
     let launch = public(&app).await.as_array().unwrap().len();
-    assert_eq!(launch, 4);
+    assert_eq!(launch, 8);
 
     let published = app
         .put(
