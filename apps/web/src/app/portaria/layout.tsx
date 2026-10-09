@@ -6,14 +6,14 @@ import { texts } from "@/texts/pt-BR";
 export const metadata: Metadata = {
   title: `${texts.portaria.title} · ${texts.meta.title}`,
   manifest: "/portaria.webmanifest",
-  icons: { apple: "/portaria-icon-192.png" },
+  icons: { icon: "/portaria-icon-192.png", apple: "/portaria-apple-icon.png" },
   appleWebApp: { capable: true, title: texts.portaria.title, statusBarStyle: "black" },
   // The access token is in the fragment; nothing here should be indexed or leak a referrer.
   robots: { index: false, follow: false },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#1e1e28",
+  themeColor: "#0b0a12",
   colorScheme: "dark",
 };
 

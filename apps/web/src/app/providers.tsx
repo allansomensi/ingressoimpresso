@@ -2,7 +2,9 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
+import { Toaster } from "sonner";
 
+import { ConfirmProvider } from "@/components/ui";
 import { ApiError } from "@/lib/api";
 
 export function Providers({ children }: { children: ReactNode }) {
@@ -18,6 +20,14 @@ export function Providers({ children }: { children: ReactNode }) {
       }),
   );
   return (
-    <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    <QueryClientProvider client={client}>
+      <ConfirmProvider>{children}</ConfirmProvider>
+      <Toaster
+        position="top-center"
+        richColors
+        closeButton
+        toastOptions={{ className: "font-sans", style: { borderRadius: "14px" } }}
+      />
+    </QueryClientProvider>
   );
 }

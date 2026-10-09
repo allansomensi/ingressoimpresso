@@ -1,0 +1,20 @@
+import type { PricingDto } from "@ingressoimpresso/api-types";
+
+/**
+ * Preview of what a batch will cost, from the table the API publishes (`GET /api/pricing`).
+ * Display only: the server fixes the real price when the batch is created (ADR 0020).
+ * Graduated tiers: each ticket costs the unit price of the tier its position falls in.
+ */
+export function quote(pricing: PricingDto, quantity: number): number {
+  let total = 0;
+  let previous = 0;
+  for (const tier of pricing.tiers) {
+    const inTier = Math.min(quantity, tier.upTo) - previous;
+    if (inTier <= 0) {
+      break;
+    }
+    total += inTier * tier.unitCents;
+    previous = tier.upTo;
+  }
+  return Math.max(total, pricing.minimumCents);
+}

@@ -1,107 +1,123 @@
 "use client";
 
-import type { EventBody, EventDto } from "@ingressoimpresso/api-types";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { EventDto } from "@ingressoimpresso/api-types";
+import { useQuery } from "@tanstack/react-query";
+import { CalendarPlus, ChevronRight, Clock, MapPin, Plus } from "lucide-react";
 import Link from "next/link";
-import { useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 
-import { Button, Card, ErrorMessage, Field, Input } from "@/components/ui";
+import { EventFormDialog } from "@/components/panel/event-form";
+import { Badge, Button, EmptyState, ErrorMessage, PageHeader, Skeleton, type Tone } from "@/components/ui";
 import { api } from "@/lib/api";
+import { dateParts, money } from "@/lib/format";
 import { texts } from "@/texts/pt-BR";
 
-const dateFormat = new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium", timeStyle: "short" });
+const t = texts.panel;
+
+function phase(event: EventDto, now: number): { label: string; tone: Tone } {
+  const start = Date.parse(event.startsAt);
+  const end = Date.parse(event.endsAt);
+  if (now > end) {
+    return { label: t.past, tone: "neutral" };
+  }
+  if (now >= start) {
+    return { label: t.happening, tone: "success" };
+  }
+  if (new Date(start).toDateString() === new Date(now).toDateString()) {
+    return { label: t.today, tone: "warning" };
+  }
+  return { label: t.upcoming, tone: "brand" };
+}
+
+function EventCard({ event, now }: { event: EventDto; now: number }) {
+  const date = dateParts(event.startsAt);
+  const status = phase(event, now);
+  return (
+    <Link
+      href={`/painel/eventos/${event.id}`}
+      className="group flex flex-col gap-5 rounded-2xl border border-border bg-surface p-5 shadow-xs transition hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-md"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex w-14 flex-col items-center overflow-hidden rounded-xl border border-border bg-bg text-center">
+          <span className="w-full bg-brand py-0.5 text-[11px] font-semibold tracking-wide text-brand-fg uppercase">
+            {date.month}
+          </span>
+          <span className="py-1 text-xl leading-none font-semibold text-fg tabular">{date.day}</span>
+          <span className="pb-1 text-[10px] text-fg-subtle uppercase">{date.weekday}</span>
+        </div>
+        <Badge tone={status.tone} dot pulse={status.tone === "success"}>
+          {status.label}
+        </Badge>
+      </div>
+      <div className="flex min-w-0 flex-col gap-2">
+        <h2 className="truncate text-lg font-semibold tracking-tight text-fg">{event.name}</h2>
+        <div className="flex flex-col gap-1 text-sm text-fg-muted">
+          <span className="flex items-center gap-2">
+            <Clock className="size-4 shrink-0 text-fg-subtle" aria-hidden />
+            {date.time}
+            {event.ticketPriceCents !== null && ` · ${money(event.ticketPriceCents)}`}
+          </span>
+          <span className="flex items-center gap-2 truncate">
+            <MapPin className="size-4 shrink-0 text-fg-subtle" aria-hidden />
+            {event.venue ?? t.noVenue}
+          </span>
+        </div>
+      </div>
+      <span className="mt-auto flex items-center gap-1 text-sm font-medium text-brand">
+        {texts.event.overview.go}
+        <ChevronRight className="size-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
+      </span>
+    </Link>
+  );
+}
 
 export default function EventsPage() {
-  const queryClient = useQueryClient();
+  const router = useRouter();
   const events = useQuery({ queryKey: ["events"], queryFn: () => api<EventDto[]>("/api/events") });
-  const [name, setName] = useState("");
-  const [venue, setVenue] = useState("");
-  const [startsAt, setStartsAt] = useState("");
-  const [endsAt, setEndsAt] = useState("");
-  const [price, setPrice] = useState("");
+  const [creating, setCreating] = useState(false);
+  const now = events.dataUpdatedAt;
 
-  const create = useMutation({
-    mutationFn: () => {
-      const cents = price.trim() === "" ? null : Math.round(Number(price.replace(",", ".")) * 100);
-      const body: EventBody = {
-        name,
-        venue: venue.trim() === "" ? null : venue,
-        startsAt: new Date(startsAt).toISOString(),
-        endsAt: new Date(endsAt).toISOString(),
-        ticketPriceCents: cents !== null && Number.isFinite(cents) ? cents : null,
-      };
-      return api<EventDto>("/api/events", { method: "POST", body });
-    },
-    onSuccess: () => {
-      setName("");
-      setVenue("");
-      setStartsAt("");
-      setEndsAt("");
-      setPrice("");
-      void queryClient.invalidateQueries({ queryKey: ["events"] });
-    },
-  });
-
-  const submit = (event: FormEvent) => {
-    event.preventDefault();
-    create.mutate();
-  };
+  const newButton = (
+    <Button
+      icon={<Plus />}
+      onClick={() => {
+        setCreating(true);
+      }}
+    >
+      {t.newEvent}
+    </Button>
+  );
 
   return (
-    <main className="flex flex-col gap-6">
-      <h1 className="text-2xl font-bold">{texts.panel.title}</h1>
+    <main className="flex flex-col gap-8 animate-fade-in">
+      <PageHeader title={t.title} description={t.subtitle} actions={newButton} />
       {events.isPending ? (
-        <p className="text-sm opacity-70">{texts.common.loading}</p>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {[0, 1, 2].map((item) => (
+            <Skeleton key={item} className="h-56 rounded-2xl" />
+          ))}
+        </div>
       ) : events.isError ? (
         <ErrorMessage error={events.error} />
       ) : events.data.length === 0 ? (
-        <p className="text-sm opacity-70">{texts.panel.empty}</p>
+        <EmptyState icon={CalendarPlus} title={t.emptyTitle} description={t.empty} action={newButton} />
       ) : (
-        <ul className="flex flex-col gap-2">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {events.data.map((event) => (
-            <li key={event.id}>
-              <Link
-                href={`/painel/eventos/${event.id}`}
-                className="flex flex-col rounded-lg border border-black/10 p-4 hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
-              >
-                <span className="font-semibold">{event.name}</span>
-                <span className="text-sm opacity-70">
-                  {dateFormat.format(new Date(event.startsAt))}
-                  {event.venue !== null && ` · ${event.venue}`}
-                </span>
-              </Link>
-            </li>
+            <EventCard key={event.id} event={event} now={now} />
           ))}
-        </ul>
+        </div>
       )}
-      <Card>
-        <h2 className="mb-3 font-semibold">{texts.panel.newEvent}</h2>
-        <form onSubmit={submit} className="grid gap-3 sm:grid-cols-2">
-          <Field label={texts.panel.eventName}>
-            <Input value={name} onChange={(e) => { setName(e.target.value); }} required maxLength={100} />
-          </Field>
-          <Field label={texts.panel.venue}>
-            <Input value={venue} onChange={(e) => { setVenue(e.target.value); }} maxLength={120} />
-          </Field>
-          <Field label={texts.panel.startsAt}>
-            <Input type="datetime-local" value={startsAt} onChange={(e) => { setStartsAt(e.target.value); }} required />
-          </Field>
-          <Field label={texts.panel.endsAt}>
-            <Input type="datetime-local" value={endsAt} onChange={(e) => { setEndsAt(e.target.value); }} required />
-          </Field>
-          <Field label={texts.panel.price}>
-            <Input inputMode="decimal" value={price} onChange={(e) => { setPrice(e.target.value); }} placeholder="30,00" />
-          </Field>
-          <div className="flex items-end">
-            <Button type="submit" disabled={create.isPending}>
-              {texts.panel.create}
-            </Button>
-          </div>
-          <div className="sm:col-span-2">
-            <ErrorMessage error={create.error} />
-          </div>
-        </form>
-      </Card>
+      <EventFormDialog
+        open={creating}
+        onClose={() => {
+          setCreating(false);
+        }}
+        onSaved={(event) => {
+          router.push(`/painel/eventos/${event.id}`);
+        }}
+      />
     </main>
   );
 }

@@ -1,9 +1,17 @@
-"use client";
-
 import { encode } from "uqr";
 
 /** A QR code drawn as one SVG path (crisp at any size, no image data). */
-export function QrCode({ text, size = 192, label }: { text: string; size?: number; label: string }) {
+export function QrCode({
+  text,
+  size = 192,
+  label,
+  className,
+}: {
+  text: string;
+  size?: number;
+  label: string;
+  className?: string | undefined;
+}) {
   const qr = encode(text, { ecc: "M", border: 4 });
   let path = "";
   qr.data.forEach((row, y) => {
@@ -21,7 +29,7 @@ export function QrCode({ text, size = 192, label }: { text: string; size?: numbe
       height={size}
       viewBox={`0 0 ${String(qr.size)} ${String(qr.size)}`}
       shapeRendering="crispEdges"
-      className="rounded-md bg-white"
+      className={className ?? "rounded-xl bg-white"}
     >
       <path d={path} fill="#000" />
     </svg>

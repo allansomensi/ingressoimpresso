@@ -2,16 +2,38 @@
 
 import type { CreateVoidBody, VoidDto, VoidReason } from "@ingressoimpresso/api-types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Ban, RotateCcw, ShieldX } from "lucide-react";
 import { useState, type FormEvent } from "react";
+import { toast } from "sonner";
 
-import { Button, Card, ErrorMessage, Field, Input, NumberInput, Select } from "@/components/ui";
+import {
+  Badge,
+  Button,
+  Card,
+  CardHeader,
+  EmptyState,
+  ErrorMessage,
+  Field,
+  Input,
+  Lead,
+  LoadingBlock,
+  NumberInput,
+  Select,
+  errorMessage,
+  useConfirm,
+  type Tone,
+} from "@/components/ui";
 import { api } from "@/lib/api";
+import { cn } from "@/lib/cn";
+import { shortDateTime, ticketNumber } from "@/lib/format";
 import { texts } from "@/texts/pt-BR";
 
 const t = texts.event.voids;
+const REASON_TONE: Record<VoidReason, Tone> = { unsold: "neutral", lost: "danger", revoked: "warning" };
 
 export function VoidsTab({ eventId }: { eventId: string }) {
   const queryClient = useQueryClient();
+  const confirm = useConfirm();
   const key = ["voids", eventId];
   const voids = useQuery({ queryKey: key, queryFn: () => api<VoidDto[]>(`/api/events/${eventId}/voids`) });
   const [first, setFirst] = useState(1);
@@ -22,29 +44,40 @@ export function VoidsTab({ eventId }: { eventId: string }) {
 
   const create = useMutation({
     mutationFn: () => {
-      const body: CreateVoidBody = { first, last, reason, note: note.trim() === "" ? null : note };
+      const body: CreateVoidBody = { first, last, reason, note: note.trim() === "" ? null : note.trim() };
       return api<VoidDto>(`/api/events/${eventId}/voids`, { method: "POST", body });
     },
     onSuccess: () => {
       setNote("");
+      toast.success(t.createdToast);
       void refresh();
     },
   });
   const undo = useMutation({
     mutationFn: (id: string) => api<VoidDto>(`/api/voids/${id}/undo`, { method: "POST" }),
-    onSuccess: refresh,
+    onSuccess: () => {
+      toast.success(t.undoneToast);
+      void refresh();
+    },
+    onError: (error) => {
+      toast.error(errorMessage(error));
+    },
   });
 
-  const submit = (event: FormEvent) => {
+  const submit = async (event: FormEvent) => {
     event.preventDefault();
-    create.mutate();
+    const range = texts.common.range(first, last);
+    if (await confirm({ title: t.createConfirmTitle(range), description: t.createConfirmBody, confirmLabel: t.create })) {
+      create.mutate();
+    }
   };
 
   return (
-    <div className="flex flex-col gap-4">
-      <p className="text-sm opacity-80">{t.intro}</p>
+    <div className="flex flex-col gap-6">
+      <Lead>{t.intro}</Lead>
       <Card>
-        <form onSubmit={submit} className="grid gap-3 sm:grid-cols-4">
+        <CardHeader title={t.newVoid} icon={Ban} />
+        <form onSubmit={(event) => void submit(event)} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Field label={texts.common.first}>
             <NumberInput value={first} step={1} min={1} onChange={setFirst} />
           </Field>
@@ -58,44 +91,56 @@ export function VoidsTab({ eventId }: { eventId: string }) {
               ))}
             </Select>
           </Field>
-          <Field label={t.note}>
-            <Input value={note} onChange={(e) => { setNote(e.target.value); }} maxLength={200} />
+          <Field label={t.note} optional>
+            <Input value={note} onChange={(e) => { setNote(e.target.value); }} placeholder={t.notePlaceholder} maxLength={200} />
           </Field>
-          <div className="sm:col-span-4">
-            <Button type="submit" variant="danger" disabled={create.isPending}>
+          <div className="sm:col-span-2 lg:col-span-4">
+            <Button type="submit" variant="danger" icon={<Ban />} loading={create.isPending}>
               {t.create}
             </Button>
           </div>
         </form>
-        <ErrorMessage error={create.error ?? undo.error} />
+        <ErrorMessage error={create.error} className="mt-4" />
       </Card>
       {voids.isPending ? (
-        <p className="text-sm opacity-70">{texts.common.loading}</p>
+        <LoadingBlock rows={2} />
       ) : voids.isError ? (
         <ErrorMessage error={voids.error} />
       ) : voids.data.length === 0 ? (
-        <p className="text-sm opacity-70">{t.empty}</p>
+        <EmptyState icon={ShieldX} title={t.emptyTitle} description={t.empty} />
       ) : (
-        <ul className="flex flex-col gap-2">
-          {voids.data.map((item) => (
-            <li
-              key={item.id}
-              className={`flex flex-wrap items-center justify-between gap-2 rounded-lg border border-black/10 p-3 dark:border-white/15 ${item.undoneAt === null ? "" : "opacity-50"}`}
-            >
-              <span className="font-mono">{texts.common.range(item.first, item.last)}</span>
-              <span className="text-sm">
-                {t.reasons[item.reason]}
-                {item.note !== null && ` · ${item.note}`}
-              </span>
-              {item.undoneAt === null ? (
-                <Button variant="secondary" onClick={() => { undo.mutate(item.id); }}>
-                  {t.undo}
-                </Button>
-              ) : (
-                <span className="text-sm">{t.undone}</span>
-              )}
-            </li>
-          ))}
+        <ul className="divide-y divide-border rounded-2xl border border-border bg-surface shadow-xs">
+          {voids.data.map((item) => {
+            const undone = item.undoneAt !== null;
+            return (
+              <li key={item.id} className={cn("flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3.5 sm:px-5", undone && "opacity-55")}>
+                <span className={cn("font-mono text-[15px] font-semibold tabular", undone ? "text-fg-muted line-through" : "text-fg")}>
+                  {ticketNumber(item.first)} – {ticketNumber(item.last)}
+                </span>
+                <Badge tone={undone ? "neutral" : REASON_TONE[item.reason]}>{t.reasons[item.reason]}</Badge>
+                <span className="min-w-0 flex-1 truncate text-sm text-fg-muted">
+                  {item.note ?? ""}
+                  {item.note !== null && " · "}
+                  {shortDateTime(item.createdAt)}
+                </span>
+                {undone ? (
+                  <span className="text-sm text-fg-subtle">{t.undone}</span>
+                ) : (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    icon={<RotateCcw />}
+                    loading={undo.isPending && undo.variables === item.id}
+                    onClick={() => {
+                      undo.mutate(item.id);
+                    }}
+                  >
+                    {t.undo}
+                  </Button>
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>
