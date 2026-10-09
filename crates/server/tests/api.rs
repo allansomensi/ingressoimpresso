@@ -32,6 +32,21 @@ fn png(width: u32, height: u32) -> Vec<u8> {
 }
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
+async fn liveness_skips_the_database_and_readiness_checks_it(pool: PgPool) {
+    let app = TestApp::new(pool);
+    for path in ["/healthz", "/readyz"] {
+        let reply = app.request(Method::GET, path, None, None).await;
+        assert_eq!(reply.status, StatusCode::OK, "{path}");
+    }
+    // With the database gone, the process is still alive but not ready.
+    app.state.pool.close().await;
+    let alive = app.request(Method::GET, "/healthz", None, None).await;
+    assert_eq!(alive.status, StatusCode::OK);
+    let ready = app.request(Method::GET, "/readyz", None, None).await;
+    assert_eq!(ready.status, StatusCode::SERVICE_UNAVAILABLE);
+}
+
+#[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
 async fn login_me_and_logout(pool: PgPool) {
     let app = TestApp::new(pool);
     assert_eq!(

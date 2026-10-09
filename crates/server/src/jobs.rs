@@ -22,7 +22,9 @@ use crate::routes::exports::ExportRow;
 use crate::state::AppState;
 
 const MAX_ATTEMPTS: i16 = 3;
-const IDLE_POLL: Duration = Duration::from_secs(10);
+/// New exports wake the worker at once (`AppState::jobs`); this slow poll only recovers jobs left
+/// behind by a crash. Longer than Neon's 5 idle minutes, so the database can scale to zero.
+const IDLE_POLL: Duration = Duration::from_mins(15);
 /// Generated files are a cache: older ones are deleted and regenerated on demand.
 const FILE_MAX_AGE: Duration = Duration::from_hours(24);
 
@@ -46,7 +48,7 @@ pub const fn content_type(kind: ExportKind) -> &'static str {
     }
 }
 
-/// Runs forever: processes queued exports, waking on notification or every few seconds.
+/// Runs forever: processes queued exports, waking on notification or every [`IDLE_POLL`].
 pub async fn run_worker(state: AppState) {
     let mut last_cleanup = std::time::Instant::now();
     cleanup(&state.config.export_dir).await;

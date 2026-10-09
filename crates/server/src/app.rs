@@ -86,7 +86,8 @@ pub fn router(state: AppState) -> Router {
         .max_age(Duration::from_hours(1));
 
     Router::new()
-        .route("/healthz", get(health))
+        .route("/healthz", get(alive))
+        .route("/readyz", get(ready))
         .nest("/api", api)
         .with_state(state)
         .layer(cors)
@@ -94,8 +95,14 @@ pub fn router(state: AppState) -> Router {
         .layer(CatchPanicLayer::new())
 }
 
-/// `GET /healthz`: the process is up and the database answers.
-async fn health(State(state): State<AppState>) -> StatusCode {
+/// `GET /healthz`: the process answers (Render's health check, every few seconds). It does not
+/// touch the database, so an idle Neon compute can scale to zero.
+async fn alive() -> StatusCode {
+    StatusCode::OK
+}
+
+/// `GET /readyz`: the database answers too (for people and external monitors, not Render).
+async fn ready(State(state): State<AppState>) -> StatusCode {
     match sqlx::query_scalar!("select 1 as one")
         .fetch_one(&state.pool)
         .await
