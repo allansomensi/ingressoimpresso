@@ -171,17 +171,7 @@ impl Config {
             .or_else(|| allowed_origins.first().cloned())
             .unwrap_or_else(|| "http://localhost:3000".to_owned());
         let stripe = stripe_keys(get("STRIPE_SECRET_KEY"), get("STRIPE_WEBHOOK_SECRET"))?;
-        let free_tickets = match get("FREE_TICKETS") {
-            Some(value) => value
-                .parse::<i32>()
-                .ok()
-                .filter(|count| (0..=10_000).contains(count))
-                .ok_or(ConfigError::Invalid {
-                    name: "FREE_TICKETS",
-                    reason: "must be a whole number from 0 to 10000".to_owned(),
-                })?,
-            None => crate::pricing::DEFAULT_FREE_TICKETS,
-        };
+        let free_tickets = free_tickets(get("FREE_TICKETS"))?;
         if production {
             if stripe.is_some() && !public_web_url.starts_with("https://") {
                 return Err(ConfigError::Invalid {
@@ -236,6 +226,21 @@ impl Config {
         self.admin_emails
             .iter()
             .any(|admin| admin.eq_ignore_ascii_case(email))
+    }
+}
+
+/// Free tickets of every organization (ADR 0024): `FREE_TICKETS`, 0–10000.
+fn free_tickets(value: Option<String>) -> Result<i32, ConfigError> {
+    match value {
+        Some(value) => value
+            .parse::<i32>()
+            .ok()
+            .filter(|count| (0..=10_000).contains(count))
+            .ok_or(ConfigError::Invalid {
+                name: "FREE_TICKETS",
+                reason: "must be a whole number from 0 to 10000".to_owned(),
+            }),
+        None => Ok(crate::pricing::DEFAULT_FREE_TICKETS),
     }
 }
 

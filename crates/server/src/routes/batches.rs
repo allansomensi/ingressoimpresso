@@ -156,7 +156,7 @@ pub async fn create(
     )
     .fetch_one(&mut *tx)
     .await?;
-    let used = sqlx::query_scalar!(
+    let free_used = sqlx::query_scalar!(
         r#"select coalesce(sum(b.free_tickets), 0)::int as "used!"
            from organizations o
            join events e on e.organization_id = o.id
@@ -166,7 +166,7 @@ pub async fn create(
     )
     .fetch_one(&mut *tx)
     .await?;
-    let free = (state.config.free_tickets - used).clamp(0, body.quantity);
+    let free = (state.config.free_tickets - free_used).clamp(0, body.quantity);
     let price = pricing::quote_with_free(body.quantity, free);
     // A batch entirely covered by free tickets is born paid.
     let (status, paid_via) = if price == 0 {
