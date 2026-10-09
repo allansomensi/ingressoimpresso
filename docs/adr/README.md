@@ -31,3 +31,4 @@ feita e as consequências.
 | [0019](0019-deploy-dominio-proprio.md) | Deploy com domínio próprio: imagem no Render, banco que dorme e configuração explícita | Aceito |
 | [0020](0020-pagamento-stripe.md) | Pagamento dos lotes com Stripe Checkout | Aceito |
 | [0021](0021-interface-e-pwa.md) | Identidade visual, sistema de design e painel instalável (PWA) | Aceito |
+| [0022](0022-tema-e-analytics.md) | Tema escolhido pelo usuário e Vercel Web Analytics | Aceito |

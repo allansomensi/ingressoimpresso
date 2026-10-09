@@ -280,8 +280,8 @@ outro lê) ou por WebRTC em hotspot local com sinalização trocada via QR.
   usuário (nome do evento, nomes de vendedores) entra **só via `sys.inputs`/JSON**, nunca
   concatenado no código Typst. Isso evita injeção de código Typst.
 - **Determinismo:** as entradas (spec versionada + arte + números + assinaturas determinísticas)
-  definem a saída por completo. Por isso **não armazenamos os arquivos gerados**: há um cache em
-  disco com limite de tamanho, indexado pelo hash das entradas, e qualquer arquivo pode ser regerado.
+  definem a saída por completo. Por isso **não armazenamos os arquivos gerados**: eles ficam em
+  disco como cache por 24 horas (e somem a cada deploy), e qualquer arquivo pode ser regerado.
 - **Blocos (ADR 0015):** 250 ingressos por compilação nos PDFs (juntados com `lopdf`) e 50 nas
   imagens, com o cache do Typst limpo entre blocos: cerca de 100 MiB de pico para 2.000 ingressos.
 - **Execução:** gerar 1.000 ingressos pode levar alguns segundos. A geração roda como **job em
@@ -436,6 +436,12 @@ POST /api/batches/{id}/checkout            → { url } da Stripe Checkout (reapr
 POST /api/batches/{id}/checkout/sync       → lote, depois de consultar a sessão na Stripe
 POST /api/stripe/webhook                   (sem login; assinatura Stripe-Signature)
 ```
+
+Um Pix gerado e ainda não pago deixa o pagamento `processing`: até a Stripe confirmar ou recusar,
+o lote não pode ser cancelado, marcado como pago à mão nem receber outro checkout
+(`payment_pending`). Checkout, cancelamento e "marcar como pago" de um mesmo lote rodam um de cada
+vez (trava em memória: a API tem uma instância só) e chamam a Stripe sem transação aberta no banco.
+Um lote com faixas de vendedor ou cancelamentos não pode ser cancelado (`batch_has_ranges`).
 
 Portaria, fase 4. O organizador gerencia os links pelo painel (sessão Bearer):
 

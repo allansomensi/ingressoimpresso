@@ -25,7 +25,7 @@ Troque **`seudominio.com.br`** pelo seu domínio em todos os passos.
 | Render | Starter (0,5 CPU, 512 MB, sempre ligado) | cerca de US$ 7, mais US$ 0,15 por GB baixado acima de 5 GB/mês (os PDFs e ZIPs saem pela API) |
 | Neon | Free (100 CU-hora, 1 GB de banco e 5 GB de transferência por mês) | US$ 0 |
 | Resend | Free (100 e-mails/dia, 3.000/mês) | US$ 0 |
-| Vercel | Hobby | US$ 0 (uso não comercial; o Pro custa US$ 20 quando houver clientes pagando) |
+| Vercel | Pro | US$ 20 por mês por membro (o Hobby gratuito não permite uso comercial) |
 | GitHub Actions | repositório público | US$ 0 |
 
 **Ordem:** chaves locais → código no `main` → Neon → Resend + DNS → Render → Vercel → backup →
@@ -38,7 +38,7 @@ Você vai precisar de:
 
 - um **gerenciador de senhas** (Bitwarden, 1Password ou similar) para guardar as chaves;
 - um **cartão de crédito** para o Render (o plano Starter é pago);
-- contas no **GitHub** (o repositório), na **Vercel** (plano Hobby, entrando com o GitHub), no
+- contas no **GitHub** (o repositório), na **Vercel** (plano Pro, entrando com o GitHub), no
   **Neon**, no **Resend** e no **Render**;
 - acesso ao **Registro.br** com o domínio;
 - o programa **age**, para o backup: macOS `brew install age`; Ubuntu/Debian `sudo apt install age`;
@@ -300,7 +300,7 @@ builds automáticos da Vercel.
 8. **IDs:**
    - **Project ID** (`prj_...`): projeto → **Settings** → **General**;
    - **Team ID** (`team_...`): seu time → **Settings** → **General**. Toda conta pessoal agora é um
-     time "Hobby", e é esse o `VERCEL_ORG_ID`.
+     time, e é o ID do time do plano Pro que vai no `VERCEL_ORG_ID`.
 9. No GitHub: repositório → **Settings** → **Secrets and variables** → **Actions** → aba **Secrets**
    → **New repository secret**, três vezes:
 
@@ -314,10 +314,10 @@ builds automáticos da Vercel.
     **Production deploy** → **Run workflow**. Quando terminar, o resumo da execução mostra
     `Deployed (production): https://...`. Daqui em diante, todo push no `main` publica sozinho.
 
-    No plano Hobby, a Vercel recusa o deploy quando o autor do último commit não é o dono da conta,
-    e os commits do branch de trabalho são de `Claude <noreply@anthropic.com>`. Por isso, leve
-    código ao `main` sempre por pull request com **Create a merge commit** feito por você no GitHub:
-    o commit de merge é seu.
+    A Vercel pode recusar o deploy quando o autor do último commit não tem acesso ao time, e os
+    commits do branch de trabalho são de `Claude <noreply@anthropic.com>`. Por isso, leve código ao
+    `main` sempre por pull request com **Create a merge commit** feito por você no GitHub: o commit
+    de merge é seu.
 11. Teste:
     - `https://seudominio.com.br` abre;
     - `https://www.seudominio.com.br` redireciona para ele;
@@ -325,6 +325,13 @@ builds automáticos da Vercel.
 
 Teste o site em mais de uma operadora (Vivo, Claro, TIM e a internet de casa). Se alguma não abrir e
 o registro A não for `76.76.21.21`, troque-o por esse valor.
+
+### Métricas (Vercel Web Analytics, ADR 0022)
+
+No projeto da Vercel → **Analytics** → **Enable**. O site já carrega o script; a portaria não
+(ela precisa abrir offline). Os dados aparecem na própria aba **Analytics** em alguns minutos.
+O endereço canônico do site (sitemap, Open Graph) é `https://ingressoimpresso.com.br`; para outro
+domínio, crie a variável `NEXT_PUBLIC_SITE_URL` (Config) na Vercel.
 
 ## 7. Backup (ADR 0019)
 
@@ -446,7 +453,7 @@ Depois disso, siga o ensaio geral em [`docs/ensaio.md`](ensaio.md).
     mínimo mensal, paga pelo uso), principalmente antes de um evento.
   - Render: o workspace Hobby inclui 5 GB de saída por mês; acima disso, US$ 0,15 por GB. Os PDFs
     e ZIPs são baixados pela API.
-  - Vercel: o Hobby é para uso não comercial. Quando houver clientes pagando, é preciso o Pro.
+  - Vercel: plano Pro (uso comercial). Web Analytics entra na cota do plano.
 - **Logs:** Render → serviço → **Logs**, guardados por 7 dias no plano Hobby.
 
 ## 10. Problemas comuns
@@ -460,7 +467,7 @@ Depois disso, siga o ensaio geral em [`docs/ensaio.md`](ensaio.md).
 | Um push no `main` não atualizou a API | Algum check do commit ficou vermelho, o **CI** ou o **Deploy web** (o Render espera todos), ou o commit não mexeu na API (`buildFilter`) | Corrija o check vermelho (no **Deploy web**, quase sempre é o token da Vercel vencido), ou use **Manual Deploy** → **Deploy latest commit** |
 | **Deploy web** vermelho com "Set NEXT_PUBLIC_API_URL" | Variável ausente ou do tipo Secret na Vercel | Recrie como **Config** para Production e Preview |
 | **Deploy web** verde, mas o site não mudou | Faltam os secrets da Vercel (a execução só avisa) | Veja o aviso na execução e crie os três secrets |
-| **Deploy web** vermelho com `Git author ... must have access to the team` | O último commit não é seu (plano Hobby da Vercel) | Faça o merge pelo GitHub com **Create a merge commit**, ou um commit seu no topo do branch, e rode de novo |
+| **Deploy web** vermelho com `Git author ... must have access to the team` | O último commit não é de um membro do time da Vercel | Faça o merge pelo GitHub com **Create a merge commit**, ou um commit seu no topo do branch, e rode de novo |
 | O site não abre em certa operadora | O registro A não é `76.76.21.21` | Troque no Registro.br |
 | Vercel mostra "Invalid Configuration" | Registro errado, A ou AAAA a mais, ou DNS ainda propagando | Confira a tabela do passo 6 e espere até uma hora |
 | Download diz "O arquivo expirou" | Os arquivos são cache: somem depois de 24 horas e a cada deploy ou reinício | Gere de novo na aba **Arquivos** |
@@ -507,5 +514,5 @@ login da Vercel. Ela usa a API e o banco de **produção**. Para funcionar, acre
 `ALLOWED_ORIGINS` no Render. Se a execução avisar `Could not alias the preview`, esse nome não está
 livre: em **Settings** → **Secrets and variables** → **Actions** → aba **Variables**, crie
 `VERCEL_PREVIEW_ALIAS` com outro nome (por exemplo `seudominio-preview.vercel.app`) e use esse
-endereço em `ALLOWED_ORIGINS`. No plano Hobby, o último commit do branch precisa ser seu (veja o
+endereço em `ALLOWED_ORIGINS`. O último commit do branch precisa ser de um membro do time (veja o
 passo 6).
