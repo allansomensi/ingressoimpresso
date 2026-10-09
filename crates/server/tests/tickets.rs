@@ -15,7 +15,9 @@ use axum::http::{Method, StatusCode};
 use common::TestApp;
 use serde_json::{Value, json};
 use sqlx::PgPool;
-use ticket_core::SignedTicket;
+use ticket_core::{
+    EventId, EventKey, EventPublicKey, EventTag, EventVerifier, KeyId, KeyStatus, SignedTicket,
+};
 
 async fn open(app: &TestApp, url: &str) -> common::Reply {
     let token = url.split_once('#').unwrap().1;
@@ -75,6 +77,28 @@ async fn a_link_shows_the_signed_ticket(pool: PgPool) {
     assert_eq!(pass["holderName"], "Maria Souza");
     let qr = SignedTicket::from_qr_text(pass["qrText"].as_str().unwrap()).unwrap();
     assert_eq!(qr.header().number.get(), 7);
+    // The door accepts it exactly like the printed ticket: same event key, same format.
+    let (tag, key): (i64, Vec<u8>) = sqlx::query_as(
+        "select e.qr_tag, k.public_key from events e join event_signing_keys k on k.event_id = e.id where e.id = $1::uuid",
+    )
+    .bind(&event)
+    .fetch_one(&app.state.pool)
+    .await
+    .unwrap();
+    let verifier = EventVerifier::new(
+        EventId::from(uuid::Uuid::parse_str(&event).unwrap()),
+        EventTag::new(u32::try_from(tag).unwrap()),
+        vec![EventKey {
+            key_id: KeyId::new(1),
+            public_key: EventPublicKey::from_bytes(&key.try_into().unwrap()).unwrap(),
+            status: KeyStatus::Active,
+        }],
+    )
+    .unwrap();
+    let verified = verifier
+        .verify_qr_text(pass["qrText"].as_str().unwrap())
+        .unwrap();
+    assert_eq!(verified.number().get(), 7);
 
     // The organizer sees that it was opened; one active link per number.
     let list = app

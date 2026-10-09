@@ -243,8 +243,9 @@ async fn admins_publish_changelog_notes(pool: PgPool) {
         .await;
     assert_eq!(draft.status, StatusCode::CREATED);
     let id = draft.json()["id"].as_str().unwrap().to_owned();
-    let before = public(&app).await;
-    assert_eq!(before.as_array().unwrap().len(), 0, "drafts stay hidden");
+    // The launch notes come with the migrations; drafts stay hidden.
+    let launch = public(&app).await.as_array().unwrap().len();
+    assert_eq!(launch, 4);
 
     let published = app
         .put(
@@ -256,6 +257,8 @@ async fn admins_publish_changelog_notes(pool: PgPool) {
         .json();
     assert!(published["publishedAt"].is_string());
     let after = public(&app).await;
+    assert_eq!(after.as_array().unwrap().len(), launch + 1);
+    assert_eq!(after[0]["title"], "Ingresso digital");
     assert_eq!(after[0]["kind"], "security");
     let invalid = app
         .post(
@@ -269,7 +272,7 @@ async fn admins_publish_changelog_notes(pool: PgPool) {
         .delete(&format!("/api/admin/changelog/{id}"), &admin, None)
         .await;
     assert_eq!(deleted.status, StatusCode::NO_CONTENT);
-    assert_eq!(public(&app).await.as_array().unwrap().len(), 0);
+    assert_eq!(public(&app).await.as_array().unwrap().len(), launch);
 }
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
