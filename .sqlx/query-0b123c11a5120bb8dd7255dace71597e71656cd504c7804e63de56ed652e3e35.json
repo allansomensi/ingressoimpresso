@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update organizations set suspended_at = coalesce(suspended_at, now()),\n                      suspended_reason = coalesce(suspended_reason, 'Imagem enviada fora dos Termos de Uso')\n               where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "0b123c11a5120bb8dd7255dace71597e71656cd504c7804e63de56ed652e3e35"
+}

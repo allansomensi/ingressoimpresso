@@ -17,6 +17,10 @@ pub enum ApiError {
     Forbidden,
     /// 403: the account is suspended by an admin (ADR 0032): reads only.
     Suspended,
+    /// 403 with a stable code: the platform refuses (sign-ups closed, blocked domain...).
+    Refused(&'static str, String),
+    /// 503: the platform is under maintenance (ADR 0037).
+    Maintenance,
     /// 404 (also used for resources of other organizations, to avoid leaking their existence).
     NotFound,
     /// 409 with a stable code.
@@ -58,6 +62,12 @@ impl IntoResponse for ApiError {
                 StatusCode::FORBIDDEN,
                 "account_suspended",
                 "the account is suspended".to_owned(),
+            ),
+            Self::Refused(code, message) => (StatusCode::FORBIDDEN, code, message),
+            Self::Maintenance => (
+                StatusCode::SERVICE_UNAVAILABLE,
+                "maintenance",
+                "the platform is under maintenance".to_owned(),
             ),
             Self::NotFound => (StatusCode::NOT_FOUND, "not_found", "not found".to_owned()),
             Self::Conflict(code, message) => (StatusCode::CONFLICT, code, message),

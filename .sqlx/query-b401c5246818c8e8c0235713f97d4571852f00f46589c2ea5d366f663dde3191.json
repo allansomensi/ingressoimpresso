@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update mail_sends set status = $2, provider_id = $3, error = $4, updated_at = now() where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b401c5246818c8e8c0235713f97d4571852f00f46589c2ea5d366f663dde3191"
+}

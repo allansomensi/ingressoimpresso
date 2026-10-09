@@ -60,6 +60,7 @@ pub async fn run_worker(state: AppState) {
     let mut last_cleanup = std::time::Instant::now();
     cleanup(&state.config.export_dir).await;
     loop {
+        state.worker_tick();
         match process_next(&state).await {
             Ok(true) => continue,
             Ok(false) => {}
@@ -241,6 +242,12 @@ async fn generate(state: &AppState, export: &ExportRow) -> Result<(i32, String, 
     .await?;
     if tickets.is_empty() {
         return Err(JobError::Final("no_tickets"));
+    }
+    // Flagged after the export was queued (ADR 0042).
+    match crate::moderation::ensure_event_printable(&state.pool, export.event_id).await {
+        Err(ApiError::Conflict(code, _)) => return Err(JobError::Final(code)),
+        Err(other) => return Err(JobError::Retry(anyhow::anyhow!("{other:?}"))),
+        Ok(()) => {}
     }
     if tickets.len() > ticket_render::MAX_TICKETS_PER_JOB {
         return Err(JobError::Final("too_many_tickets"));
@@ -501,6 +508,12 @@ async fn prune(pool: &PgPool) -> ApiResult<()> {
         .execute(pool)
         .await?;
     sqlx::query!("delete from sessions where expires_at < now()")
+        .execute(pool)
+        .await?;
+    sqlx::query!("delete from notifications where created_at < now() - interval '180 days'")
+        .execute(pool)
+        .await?;
+    sqlx::query!("delete from moderation_usage where day < current_date - 60")
         .execute(pool)
         .await?;
     Ok(())

@@ -43,7 +43,7 @@ pub async fn update(
 
 async fn load(state: &AppState, user: &AuthUser) -> ApiResult<AccountDto> {
     let row = sqlx::query!(
-        r#"select o.name, o.bonus_free_tickets, o.suspended_reason, o.suspended_at,
+        r#"select o.id as organization_id, o.name, o.bonus_free_tickets, o.suspended_reason, o.suspended_at,
                   (select terms_accepted_at from users where id = $1) as terms_accepted_at,
                   (select coalesce(sum(b.free_tickets), 0) from ticket_batches b
                    join events e on e.id = b.event_id
@@ -60,11 +60,14 @@ async fn load(state: &AppState, user: &AuthUser) -> ApiResult<AccountDto> {
     .fetch_optional(&state.pool)
     .await?
     .ok_or(ApiError::NotFound)?;
-    let free_total = state.config.free_tickets + row.bonus_free_tickets;
+    let free_total =
+        crate::pricing::current(&state.pool).await?.free_tickets + row.bonus_free_tickets;
+    let credit_cents = super::billing::credit_balance(&state.pool, row.organization_id).await?;
     Ok(AccountDto {
         organization_name: row.name,
         free_tickets_left: (free_total - row.free_used).max(0),
         free_tickets_total: free_total,
+        credit_cents,
         event_count: row.event_count,
         paid_tickets: row.paid_tickets,
         suspended_reason: row

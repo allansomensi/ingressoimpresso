@@ -16,7 +16,7 @@ export const LEGAL_ENTITY = {
 } as const;
 
 /** Version of the Terms + Privacy Policy accepted at sign-in (stored with the user). */
-export const TERMS_VERSION = "2026-10-09";
+export const TERMS_VERSION = "2026-10-09.2";
 
 export type LegalBlock =
   | { type: "p"; text: string }
@@ -208,6 +208,9 @@ const TERMS: LegalDocument = {
           "usar o serviço para enviar spam ou mensagens não solicitadas;",
           "criar várias contas ou organizações para obter ingressos grátis mais de uma vez;",
           "cadastrar dados pessoais de outras pessoas sem base legal para isso.",
+        ),
+        p(
+          "Para cumprir a lei e estes Termos, as artes enviadas podem ser analisadas de forma automática e por pessoas da nossa equipe. Uma imagem sinalizada não é impressa até ser revisada. Podemos recusar imagens que violem estes Termos, suspender a conta e, quando a lei exigir, comunicar o conteúdo às autoridades, como no caso de material de abuso sexual infantil.",
         ),
         p(
           "O Ingresso Impresso só imprime e confere ingressos numerados. O serviço não realiza sorteios, não apura resultados e não guarda, entrega ou administra prêmios. Se você usar números de ingresso em qualquer ação com prêmio, obter a autorização e cumprir a lei é responsabilidade sua.",
@@ -579,7 +582,7 @@ const PRIVACY: LegalDocument = {
           "Neon (Estados Unidos, AWS us-east-1): banco de dados PostgreSQL;",
           "Resend: envio dos e-mails do serviço, como os códigos de acesso;",
           "Stripe: processamento dos pagamentos por Pix e cartão;",
-          "Google: login com a conta Google, quando você escolhe essa opção;",
+          "Google: login com a conta Google, quando você escolhe essa opção, e análise automática das artes enviadas (Google Cloud Vision), para impedir conteúdo ilegal;",
           "GitHub: guarda das cópias de segurança diárias do banco de dados, cifradas antes do envio, por 30 dias.",
         ),
         p(
@@ -614,6 +617,8 @@ const PRIVACY: LegalDocument = {
           "códigos de acesso: deixam de valer em 10 minutos;",
           "sessões: expiram depois de 30 dias sem uso ou quando você sai;",
           "hash do IP usado para pedir códigos de acesso: até 24 horas;",
+          "registro dos e-mails enviados (destinatário, assunto sem o código e situação da entrega), para suporte e prevenção de abuso: 30 dias;",
+          "avisos do painel para a sua conta: 180 dias;",
           "cópias de segurança cifradas do banco de dados: 30 dias;",
           "registros de pagamentos e reembolsos: 5 anos, para cumprir obrigações fiscais e legais, mesmo depois da exclusão da conta;",
           "registros técnicos dos provedores de hospedagem: períodos curtos, definidos por eles.",
@@ -844,6 +849,9 @@ const REFUND: LegalDocument = {
         ),
         p(
           "Em um lote pago em parte com ingressos grátis, o reembolso corresponde apenas ao valor efetivamente pago.",
+        ),
+        p(
+          "O crédito da conta e os cupons promocionais também não têm valor em dinheiro: servem só para pagar lotes, não podem ser sacados e têm as condições informadas em cada cupom. Quando um lote pago em parte com crédito é cancelado ou estornado, essa parte volta como crédito; o valor pago em dinheiro segue as regras desta Política.",
         ),
       ],
     },

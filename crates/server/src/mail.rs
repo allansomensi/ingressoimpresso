@@ -44,6 +44,8 @@ pub enum MailKind {
     SignupCode,
     /// A batch paid online.
     BatchPaid,
+    /// A test sent by an admin (ADR 0041).
+    Test,
 }
 
 impl MailKind {
@@ -53,6 +55,7 @@ impl MailKind {
             Self::LoginCode => "login_code",
             Self::SignupCode => "signup_code",
             Self::BatchPaid => "batch_paid",
+            Self::Test => "test",
         }
     }
 }
@@ -143,12 +146,22 @@ impl Mailer {
         })
     }
 
-    /// Sends a message (HTML with its plain-text alternative).
+    /// Name of the transport, for the admin panel.
+    pub const fn provider(&self) -> &'static str {
+        match self {
+            Self::Resend { .. } => "resend",
+            Self::Log => "log",
+            Self::Memory(_) => "memory",
+        }
+    }
+
+    /// Sends a message (HTML with its plain-text alternative); returns the provider's id of
+    /// the message, when it gives one.
     ///
     /// # Errors
     ///
     /// [`MailError`] if the provider rejects or cannot be reached.
-    pub async fn send(&self, to: &str, email: &Email) -> Result<(), MailError> {
+    pub async fn send(&self, to: &str, email: &Email) -> Result<Option<String>, MailError> {
         let (subject, body) = (email.subject.as_str(), email.text.as_str());
         match self {
             Self::Resend {
@@ -172,7 +185,13 @@ impl Mailer {
                     .map_err(|error| MailError::Failed(error.to_string()))?;
                 let status = response.status();
                 if status.is_success() {
-                    return Ok(());
+                    // `{"id": "..."}`; a body we cannot read still means the message was accepted.
+                    let id = response
+                        .json::<serde_json::Value>()
+                        .await
+                        .ok()
+                        .and_then(|body| body["id"].as_str().map(str::to_owned));
+                    return Ok(id);
                 }
                 // Resend explains the refusal in the body (unverified domain, wrong sender,
                 // daily quota); it never echoes the API key.
@@ -187,18 +206,19 @@ impl Mailer {
             }
             Self::Log => {
                 tracing::warn!(%to, %subject, %body, "development mailer: e-mail not sent");
-                Ok(())
+                Ok(None)
             }
             Self::Memory(sent) => {
-                sent.lock()
-                    .map_err(|_| MailError::Failed("memory mailer poisoned".to_owned()))?
-                    .push(SentMail {
-                        to: to.to_owned(),
-                        subject: subject.to_owned(),
-                        body: body.to_owned(),
-                        html: email.html.clone(),
-                    });
-                Ok(())
+                let mut sent = sent
+                    .lock()
+                    .map_err(|_| MailError::Failed("memory mailer poisoned".to_owned()))?;
+                sent.push(SentMail {
+                    to: to.to_owned(),
+                    subject: subject.to_owned(),
+                    body: body.to_owned(),
+                    html: email.html.clone(),
+                });
+                Ok(Some(format!("memory-{}", sent.len())))
             }
         }
     }

@@ -40,7 +40,7 @@ fn line(row: &Value) -> Vec<i64> {
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
 async fn report_settles_sellers_and_counts_the_door(pool: PgPool) {
-    let app = TestApp::new(pool);
+    let app = TestApp::new(pool).await;
     let token = app.login("banda@exemplo.com").await;
     let admin = app.login(ADMIN).await;
     let event = app.create_event(&token, "Show").await;

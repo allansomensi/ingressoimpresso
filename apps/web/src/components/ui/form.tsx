@@ -13,7 +13,8 @@ import { cn } from "@/lib/cn";
 import { texts } from "@/texts/pt-BR";
 
 export const controlClass = cn(
-  "w-full rounded-xl border border-border-strong bg-surface px-3.5 text-[15px] text-fg shadow-xs transition",
+  // 16px on phones: iOS zooms into any field with smaller text.
+  "w-full rounded-xl border border-border-strong bg-surface px-3.5 text-base text-fg shadow-xs transition sm:text-[15px]",
   "placeholder:text-fg-subtle hover:border-fg-subtle/60",
   "focus:border-brand focus:ring-4 focus:ring-ring focus:outline-none",
   "disabled:cursor-not-allowed disabled:opacity-60 aria-invalid:border-danger",

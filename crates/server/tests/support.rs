@@ -18,7 +18,7 @@ use sqlx::PgPool;
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
 async fn admins_support_any_event_and_it_is_audited(pool: PgPool) {
-    let app = TestApp::new(pool);
+    let app = TestApp::new(pool).await;
     let admin = app.login(ADMIN).await;
     let token = app.login("banda@exemplo.com").await;
     let event = app.create_event(&token, "Show da Banda").await;
@@ -45,7 +45,7 @@ async fn admins_support_any_event_and_it_is_audited(pool: PgPool) {
     let batch = app.create_batch(&admin, &event, 10).await;
     assert_eq!(batch["first"], 1);
     let audit = app.get("/api/admin/audit", &admin).await.json();
-    let entry = &audit[0];
+    let entry = &audit["items"][0];
     assert_eq!(entry["action"], "support_write");
     assert_eq!(entry["actorEmail"], ADMIN);
     assert_eq!(entry["eventName"], "Show da Banda");
@@ -54,7 +54,8 @@ async fn admins_support_any_event_and_it_is_audited(pool: PgPool) {
         entry["detail"]["path"],
         format!("/api/events/{event}/batches")
     );
-    assert_eq!(audit.as_array().unwrap().len(), 1);
+    assert_eq!(audit["items"].as_array().unwrap().len(), 1);
+    assert_eq!(audit["total"], 1);
     assert_eq!(
         app.get("/api/admin/audit", &token).await.status,
         StatusCode::FORBIDDEN
@@ -93,7 +94,7 @@ async fn admins_support_any_event_and_it_is_audited(pool: PgPool) {
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
 async fn a_suspended_account_only_reads(pool: PgPool) {
-    let app = TestApp::new(pool);
+    let app = TestApp::new(pool).await;
     let admin = app.login(ADMIN).await;
     let token = app.login("banda@exemplo.com").await;
     let event = app.create_event(&token, "Show").await;
@@ -164,7 +165,7 @@ async fn a_suspended_account_only_reads(pool: PgPool) {
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
 async fn refunds_keep_numbers_taken_and_voided(pool: PgPool) {
-    let app = TestApp::with_free_tickets(pool, 10);
+    let app = TestApp::with_free_tickets(pool, 10).await;
     let admin = app.login(ADMIN).await;
     let token = app.login("banda@exemplo.com").await;
     let event = app.create_event(&token, "Show").await;
@@ -225,8 +226,11 @@ async fn refunds_keep_numbers_taken_and_voided(pool: PgPool) {
     // The next batch never reuses refunded numbers.
     let next = app.create_batch(&token, &event, 5).await;
     assert_eq!(next["first"], 31);
-    let audit = app.get("/api/admin/audit?q=batch", &admin).await.json();
-    let actions: Vec<&str> = audit
+    let audit = app
+        .get("/api/admin/audit?category=batch", &admin)
+        .await
+        .json();
+    let actions: Vec<&str> = audit["items"]
         .as_array()
         .unwrap()
         .iter()
@@ -254,7 +258,7 @@ async fn public(app: &TestApp) -> serde_json::Value {
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
 async fn admins_publish_changelog_notes(pool: PgPool) {
-    let app = TestApp::new(pool);
+    let app = TestApp::new(pool).await;
     let admin = app.login(ADMIN).await;
     let token = app.login("banda@exemplo.com").await;
     let forbidden = app
@@ -275,9 +279,9 @@ async fn admins_publish_changelog_notes(pool: PgPool) {
         .await;
     assert_eq!(draft.status, StatusCode::CREATED);
     let id = draft.json()["id"].as_str().unwrap().to_owned();
-    // The launch notes come with the migrations; drafts stay hidden.
+    // The release notes come with the migrations (phases 8 and 9); drafts stay hidden.
     let launch = public(&app).await.as_array().unwrap().len();
-    assert_eq!(launch, 4);
+    assert_eq!(launch, 8);
 
     let published = app
         .put(
@@ -309,7 +313,7 @@ async fn admins_publish_changelog_notes(pool: PgPool) {
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
 async fn organizers_see_their_results(pool: PgPool) {
-    let app = TestApp::with_free_tickets(pool, 50);
+    let app = TestApp::with_free_tickets(pool, 50).await;
     let token = app.login("banda@exemplo.com").await;
     let event = app.create_event(&token, "Show").await;
     app.create_batch(&token, &event, 40).await;

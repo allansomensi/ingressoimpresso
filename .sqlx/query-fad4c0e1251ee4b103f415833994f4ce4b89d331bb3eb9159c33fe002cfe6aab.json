@@ -1,0 +1,98 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select b.id, e.organization_id, o.name as organization_name, b.event_id,\n                  e.name as event_name, b.moderation_status, b.created_at\n           from blobs b join events e on e.id = b.event_id join organizations o on o.id = e.organization_id\n           order by b.created_at desc limit 60",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "blobs",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "organization_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "organization_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "organization_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "organizations",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "event_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "blobs",
+            "name": "event_id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "event_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "moderation_status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "blobs",
+            "name": "moderation_status"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "blobs",
+            "name": "created_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "fad4c0e1251ee4b103f415833994f4ce4b89d331bb3eb9159c33fe002cfe6aab"
+}

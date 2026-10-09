@@ -1,0 +1,149 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select a.id, a.actor_email, a.action, a.organization_id, o.name as \"organization_name?\",\n                  a.event_id, e.name as \"event_name?\", a.target_id, a.detail, a.created_at,\n                  count(*) over () as \"total!\"\n           from audit_log a\n           left join organizations o on o.id = a.organization_id\n           left join events e on e.id = a.event_id\n           where ($1::uuid is null or a.organization_id = $1)\n             and ($2::text is null or a.actor_email ilike $2 or a.action ilike $2\n                  or o.name ilike $2 or e.name ilike $2)\n             and ($3::text is null or a.action like $3)\n             and ($4::timestamptz is null or a.created_at >= $4)\n             and ($5::timestamptz is null or a.created_at < $5)\n           order by a.created_at desc, a.id desc\n           limit $6 offset $7",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "audit_log",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "actor_email",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "audit_log",
+            "name": "actor_email"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "action",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "audit_log",
+            "name": "action"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "organization_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "audit_log",
+            "name": "organization_id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "organization_name?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "organizations",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "event_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "audit_log",
+            "name": "event_id"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "event_name?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "target_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "audit_log",
+            "name": "target_id"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "detail",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "audit_log",
+            "name": "detail"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "audit_log",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "total!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Timestamptz",
+        "Timestamptz",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      false,
+      true,
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "1e5ec679e4f42068253f0b96c51217e24fcfddfce7c2cdc86f339f2b9dd3c2d9"
+}

@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update mail_sends set to_email = null where to_email = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "citext",
+            "kind": "Simple"
+          }
+        }
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "7d1562374359b43664129f13fa51d0087f54d5cfa356773fd36a3861c539ae9d"
+}

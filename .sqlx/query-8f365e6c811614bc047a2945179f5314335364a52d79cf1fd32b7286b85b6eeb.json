@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select status from mail_sends where provider_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "mail_sends",
+            "name": "status"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "8f365e6c811614bc047a2945179f5314335364a52d79cf1fd32b7286b85b6eeb"
+}

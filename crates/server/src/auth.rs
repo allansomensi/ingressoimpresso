@@ -16,11 +16,13 @@ use time::{Duration, OffsetDateTime};
 use uuid::Uuid;
 
 use crate::api::{
-    AuthOptionsDto, GoogleSignInBody, MeUser, RequestCodeBody, SessionResponse, VerifyCodeBody,
+    AuthOptionsDto, GoogleSignInBody, MaintenanceMode, MeUser, RequestCodeBody, SessionResponse,
+    VerifyCodeBody,
 };
 use crate::error::{ApiError, ApiResult, bad_request};
 use crate::google::GoogleError;
 use crate::mail::MailKind;
+use crate::platform::PlatformSettings;
 use crate::state::AppState;
 use crate::{emails, keys};
 
@@ -42,7 +44,7 @@ const SESSION_TTL: Duration = Duration::days(30);
 const SESSION_REFRESH_EVERY: Duration = Duration::hours(1);
 /// Version of the Terms of Use and Privacy Policy accepted by signing in (ADR 0033). Same value
 /// as `TERMS_VERSION` in apps/web/src/content/legal.ts.
-pub const TERMS_VERSION: &str = "2026-10-09";
+pub const TERMS_VERSION: &str = "2026-10-09.2";
 
 /// The authenticated user of a request.
 #[derive(Debug, Clone)]
@@ -172,6 +174,14 @@ pub async fn request_code(
     Json(body): Json<RequestCodeBody>,
 ) -> ApiResult<StatusCode> {
     let email = normalize_email(&body.email)?;
+    let known = sqlx::query_scalar!(
+        r#"select exists(select 1 from users where email = $1) as "known!""#,
+        email
+    )
+    .fetch_one(&state.pool)
+    .await?;
+    let settings = state.settings.get(&state.pool).await?;
+    check_sign_in(&state, &settings, &email, known)?;
     let recent = sqlx::query_scalar!(
         "select count(*) from login_codes where email = $1 and created_at > $2",
         email,
@@ -217,12 +227,6 @@ pub async fn request_code(
         CODE_TTL.whole_minutes(),
         &state.config.public_web_url,
     );
-    let known = sqlx::query_scalar!(
-        r#"select exists(select 1 from users where email = $1) as "known!""#,
-        email
-    )
-    .fetch_one(&state.pool)
-    .await?;
     let kind = if known {
         MailKind::LoginCode
     } else {
@@ -294,6 +298,8 @@ pub async fn verify_code(
     let existing = sqlx::query_scalar!("select id from users where email = $1", email)
         .fetch_optional(&mut *tx)
         .await?;
+    let settings = state.settings.get(&state.pool).await?;
+    check_sign_in(&state, &settings, &email, existing.is_some())?;
     let user_id = match existing {
         Some(id) => id,
         None => create_user(&mut tx, &email, None, None).await?,
@@ -332,6 +338,7 @@ pub async fn google(
             }
         })?;
     let email = normalize_email(&identity.email)?;
+    let settings = state.settings.get(&state.pool).await?;
     let mut tx = state.pool.begin().await?;
     let by_subject = sqlx::query!(
         r#"select id, email::text as "email!" from users where google_sub = $1"#,
@@ -339,6 +346,14 @@ pub async fn google(
     )
     .fetch_optional(&mut *tx)
     .await?;
+    let known = by_subject.is_some()
+        || sqlx::query_scalar!(
+            r#"select exists(select 1 from users where email = $1) as "known!""#,
+            email
+        )
+        .fetch_one(&mut *tx)
+        .await?;
+    check_sign_in(&state, &settings, &email, known)?;
     let user_id = if let Some(user) = by_subject {
         // The Google account's e-mail changed: follow it unless another account owns it.
         if user.email != email {
@@ -387,6 +402,40 @@ pub async fn google(
     let session = start_session(&state, &mut tx, user_id).await?;
     tx.commit().await?;
     Ok(Json(session))
+}
+
+/// What the platform settings say about a sign-in (ADR 0037): during full maintenance only
+/// admins get in; new accounts need sign-ups open, no maintenance and an allowed domain.
+fn check_sign_in(
+    state: &AppState,
+    settings: &PlatformSettings,
+    email: &str,
+    known: bool,
+) -> ApiResult<()> {
+    if state.config.is_admin(email) {
+        return Ok(());
+    }
+    if settings.maintenance_mode == MaintenanceMode::Full {
+        return Err(ApiError::Maintenance);
+    }
+    if !known {
+        if settings.maintenance_mode != MaintenanceMode::Off {
+            return Err(ApiError::Maintenance);
+        }
+        if !settings.registrations_open {
+            return Err(ApiError::Refused(
+                "registrations_closed",
+                "new accounts are closed for now".to_owned(),
+            ));
+        }
+        if settings.email_blocked(email) {
+            return Err(ApiError::Refused(
+                "email_domain_blocked",
+                "addresses of this domain cannot create an account".to_owned(),
+            ));
+        }
+    }
+    Ok(())
 }
 
 /// First login: the user and a personal organization named after the e-mail.
@@ -542,6 +591,13 @@ impl FromRequestParts<AppState> for AuthUser {
             .extensions
             .get::<OriginalUri>()
             .map_or_else(|| parts.uri.path().to_owned(), |uri| uri.path().to_owned());
+        if !is_admin {
+            state
+                .settings
+                .get(&state.pool)
+                .await?
+                .check_request(&parts.method, &path)?;
+        }
         if row.suspended && !is_admin && !allowed_while_suspended(&parts.method, &path) {
             return Err(ApiError::Suspended);
         }

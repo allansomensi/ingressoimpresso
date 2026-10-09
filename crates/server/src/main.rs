@@ -7,6 +7,7 @@ use anyhow::{Context, Result};
 use ingressoimpresso_server::config::Config;
 use ingressoimpresso_server::google::GoogleAuth;
 use ingressoimpresso_server::mail::Mailer;
+use ingressoimpresso_server::moderation::Classifier;
 use ingressoimpresso_server::payments::Payments;
 use ingressoimpresso_server::state::AppState;
 use ingressoimpresso_server::{MIGRATOR, app, jobs};
@@ -86,10 +87,19 @@ async fn run(config: Config) -> Result<()> {
         tracing::info!("GOOGLE_CLIENT_ID not set: sign-in by e-mail code only");
         None
     };
+    let classifier = if let Some(api_key) = &config.vision_api_key {
+        Some(Classifier::vision(api_key.clone()).map_err(|error| anyhow::anyhow!(error))?)
+    } else {
+        tracing::info!("MODERATION_VISION_API_KEY not set: art is reviewed by hand only");
+        None
+    };
     let port = config.port;
     let mut state = AppState::new(pool, config, mailer).with_payments(payments);
     if let Some(google) = google {
         state = state.with_google(google);
+    }
+    if let Some(classifier) = classifier {
+        state = state.with_classifier(classifier);
     }
     tokio::spawn(jobs::run_worker(state.clone()));
 

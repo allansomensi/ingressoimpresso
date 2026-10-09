@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update platform_settings set maintenance_mode = $1, maintenance_message = $2,\n                  maintenance_ends_at = $3, maintenance_started_at = $4, registrations_open = $5,\n                  blocked_email_domains = $6, updated_at = now(), updated_by = $7\n           where id",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Timestamptz",
+        "Timestamptz",
+        "Bool",
+        "TextArray",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "0c173e5edf67cd61b66fefa43ff3ba62b75f2a968a101c63b7dbcfbfaf62cb84"
+}

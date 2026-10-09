@@ -17,9 +17,10 @@ use sqlx::postgres::types::PgRange;
 use time::OffsetDateTime;
 use uuid::Uuid;
 
-use super::{MAX_TICKET_NUMBER, authorize_event, bounds, range};
+use super::{MAX_TICKET_NUMBER, authorize_event, billing, bounds, range};
 use crate::api::{
-    BatchDto, BatchStatus, CheckoutDto, CreateBatchBody, PaymentMethod, PaymentState, PricingDto,
+    BatchDto, BatchStatus, CheckoutDto, CreateBatchBody, CreditReason, PaymentMethod, PaymentState,
+    PricingDto,
 };
 use crate::auth::AuthUser;
 use crate::error::{ApiError, ApiResult, bad_request};
@@ -42,6 +43,9 @@ pub(crate) struct BatchRow {
     pub(crate) price_cents: i32,
     pub(crate) free_tickets: i32,
     pub(crate) paid_via: Option<String>,
+    pub(crate) list_price_cents: Option<i32>,
+    pub(crate) discount_cents: i32,
+    pub(crate) credit_cents: i32,
     pub(crate) refunded_at: Option<OffsetDateTime>,
     pub(crate) pending_payment: Option<String>,
 }
@@ -60,6 +64,9 @@ impl BatchRow {
             paid_at: self.paid_at,
             price_cents: self.price_cents,
             free_tickets: self.free_tickets,
+            list_price_cents: self.list_price_cents,
+            discount_cents: self.discount_cents,
+            credit_cents: self.credit_cents,
             paid_via: self.paid_via.as_deref().and_then(PaymentMethod::from_db),
             refunded_at: self.refunded_at,
             pending_payment: self
@@ -75,6 +82,7 @@ pub(crate) async fn load_batch(state: &AppState, batch_id: Uuid) -> ApiResult<Ba
     sqlx::query_as!(
         BatchRow,
         r#"select b.id, b.numbers, b.status, b.created_at, b.paid_at, b.price_cents, b.free_tickets, b.paid_via,
+                  b.list_price_cents, b.discount_cents, b.credit_cents,
                   b.refunded_at,
                   (select case when bool_or(p.status = 'processing') then 'processing'
                                when bool_or(p.status = 'open' and p.expires_at > now()) then 'open' end
@@ -88,12 +96,18 @@ pub(crate) async fn load_batch(state: &AppState, batch_id: Uuid) -> ApiResult<Ba
     .into_dto()
 }
 
-/// `GET /api/pricing` (no login): the price table, shown on the site and before paying.
-pub async fn pricing_table(State(state): State<AppState>) -> Json<PricingDto> {
-    Json(pricing::table(
+/// `GET /api/pricing` (no login): the price table in force, a running promotion and announced
+/// prices, shown on the site and before paying.
+pub async fn pricing_table(State(state): State<AppState>) -> ApiResult<Json<PricingDto>> {
+    let table = pricing::current(&state.pool).await?;
+    let promotion = pricing::active_promotion(&state.pool).await?;
+    let upcoming = pricing::upcoming(&state.pool).await?;
+    Ok(Json(pricing::table_dto(
+        &table,
         state.payments.enabled(),
-        state.config.free_tickets,
-    ))
+        promotion.map(|promotion| promotion.dto),
+        upcoming.as_ref(),
+    )))
 }
 
 /// `GET /api/events/{id}/batches`.
@@ -106,6 +120,7 @@ pub async fn list(
     let rows = sqlx::query_as!(
         BatchRow,
         r#"select b.id, b.numbers, b.status, b.created_at, b.paid_at, b.price_cents, b.free_tickets, b.paid_via,
+                  b.list_price_cents, b.discount_cents, b.credit_cents,
                   b.refunded_at,
                   (select case when bool_or(p.status = 'processing') then 'processing'
                                when bool_or(p.status = 'open' and p.expires_at > now()) then 'open' end
@@ -129,7 +144,8 @@ pub async fn create(
     Path(event_id): Path<Uuid>,
     Json(body): Json<CreateBatchBody>,
 ) -> ApiResult<(StatusCode, Json<BatchDto>)> {
-    let event = authorize_event(&state.pool, &user, event_id).await?;
+    let access = super::event_access(&state.pool, &user, event_id).await?;
+    let (event, organization_id) = (access.event, access.organization_id);
     if event.status == "closed" {
         return Err(ApiError::Conflict(
             "event_closed",
@@ -160,49 +176,45 @@ pub async fn create(
     )
     .fetch_one(&mut *tx)
     .await?;
-    // The organization's free tickets (ADR 0024). Its row lock keeps two batches created at the
-    // same time from spending the same allowance.
-    let bonus = sqlx::query_scalar!(
-        "select bonus_free_tickets from organizations where id = (select organization_id from events where id = $1) for update",
-        event_id
-    )
-    .fetch_one(&mut *tx)
-    .await?;
-    let free_used = sqlx::query_scalar!(
-        r#"select coalesce(sum(b.free_tickets), 0)::int as "used!"
-           from organizations o
-           join events e on e.organization_id = o.id
-           join ticket_batches b on b.event_id = e.id and b.status <> 'canceled'
-           where o.id = (select organization_id from events where id = $1)"#,
-        event_id
-    )
-    .fetch_one(&mut *tx)
-    .await?;
-    let free = (state.config.free_tickets + bonus - free_used).clamp(0, body.quantity);
-    let price = pricing::quote_with_free(body.quantity, free);
-    // A batch entirely covered by free tickets is born paid.
-    let (status, paid_via) = if price == 0 {
-        (BatchStatus::Paid, Some(PaymentMethod::Free.db()))
-    } else {
+    // Free tickets (ADR 0024), then promotion or code, then credit (ADRs 0039, 0040). The
+    // organization row stays locked until commit, so concurrent batches never spend the same
+    // allowance, code or credit.
+    let (table, breakdown, _, _, _) =
+        billing::price_new_batch(&mut tx, organization_id, body.quantity).await?;
+    // A batch with nothing left to pay is born paid.
+    let (status, paid_via) = if breakdown.total_cents > 0 {
         (BatchStatus::AwaitingPayment, None)
+    } else if breakdown.credit_cents > 0 {
+        (BatchStatus::Paid, Some(PaymentMethod::Credit.db()))
+    } else {
+        (BatchStatus::Paid, Some(PaymentMethod::Free.db()))
     };
+    let batch_id = Uuid::new_v4();
     // A concurrent request computing the same `first` loses on the exclusion constraint (409).
     let id = sqlx::query_scalar!(
         r#"insert into ticket_batches
-             (id, event_id, numbers, key_id, status, price_cents, free_tickets, paid_via, paid_at)
-           values ($1, $2, $3, $4, $5, $6, $7, $8, case when $8::text is null then null else now() end)
+             (id, event_id, numbers, key_id, status, price_cents, free_tickets, paid_via, paid_at,
+              list_price_cents, promotion_id, discount_cents, credit_cents, price_table_id)
+           values ($1, $2, $3, $4, $5, $6, $7, $8, case when $8::text is null then null else now() end,
+                   $9, $10, $11, $12, $13)
            returning id"#,
-        Uuid::new_v4(),
+        batch_id,
         event_id,
         range(first, last)?,
         key_id,
         status.db(),
-        price,
-        free,
+        breakdown.total_cents,
+        breakdown.free_tickets,
         paid_via,
+        breakdown.list_price_cents,
+        breakdown.promotion_id,
+        breakdown.discount_cents,
+        breakdown.credit_cents,
+        table.id,
     )
     .fetch_one(&mut *tx)
     .await?;
+    billing::spend_on_batch(&mut tx, organization_id, id, &breakdown, &user).await?;
     tx.commit().await?;
     Ok((StatusCode::CREATED, Json(load_batch(&state, id).await?)))
 }
@@ -291,7 +303,7 @@ pub async fn checkout(
     let amount_cents = if batch.price_cents > 0 {
         batch.price_cents
     } else {
-        let price = pricing::quote(last - first + 1);
+        let price = pricing::current(&state.pool).await?.quote(last - first + 1);
         sqlx::query!(
             "update ticket_batches set price_cents = $2 where id = $1",
             batch_id,
@@ -599,14 +611,18 @@ pub async fn cancel(
     if close_open_checkouts(&state, batch_id).await? {
         return Err(not_cancelable());
     }
+    let mut tx = state.pool.begin().await?;
     sqlx::query_scalar!(
         r#"update ticket_batches set status = 'canceled' where id = $1 and status = 'awaiting_payment'
            returning id"#,
         batch_id
     )
-    .fetch_optional(&state.pool)
+    .fetch_optional(&mut *tx)
     .await?
     .ok_or_else(not_cancelable)?;
+    // Credit and a discount code spent on the batch come back (ADR 0040).
+    billing::give_back(&mut tx, batch_id, CreditReason::BatchCancel, Some(user.id)).await?;
+    tx.commit().await?;
     Ok(Json(load_batch(&state, batch_id).await?))
 }
 

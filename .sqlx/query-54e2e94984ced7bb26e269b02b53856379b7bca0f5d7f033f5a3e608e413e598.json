@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "delete from moderation_usage where day < current_date - 60",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "54e2e94984ced7bb26e269b02b53856379b7bca0f5d7f033f5a3e608e413e598"
+}

@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select r.id, c.code, c.discount_percent as \"percent!\"\n           from promo_redemptions r join promo_codes c on c.id = r.promo_code_id\n           where r.organization_id = $1 and r.applied_at is null and c.kind = 'discount'\n             and c.disabled_at is null\n           order by c.discount_percent desc, r.redeemed_at limit 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "promo_redemptions",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "code",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "promo_codes",
+            "name": "code"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "percent!",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "promo_codes",
+            "name": "discount_percent"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "f5b4dd3389a7869cfbd18d180a5d45463fffe1b5ef2edb1079d92840dd8a5bfa"
+}

@@ -1,0 +1,110 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select maintenance_mode, maintenance_message, maintenance_ends_at, maintenance_started_at,\n                  registrations_open, blocked_email_domains, updated_at, updated_by\n           from platform_settings where id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "maintenance_mode",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "platform_settings",
+            "name": "maintenance_mode"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "maintenance_message",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "platform_settings",
+            "name": "maintenance_message"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "maintenance_ends_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "platform_settings",
+            "name": "maintenance_ends_at"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "maintenance_started_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "platform_settings",
+            "name": "maintenance_started_at"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "registrations_open",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "platform_settings",
+            "name": "registrations_open"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "blocked_email_domains",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "platform_settings",
+            "name": "blocked_email_domains"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "updated_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "platform_settings",
+            "name": "updated_at"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "updated_by",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "platform_settings",
+            "name": "updated_by"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      true,
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "03c7e6d008b74a9375e476f1ffaa0d1926d09da2dd38efb6430b5bff8f0c744d"
+}

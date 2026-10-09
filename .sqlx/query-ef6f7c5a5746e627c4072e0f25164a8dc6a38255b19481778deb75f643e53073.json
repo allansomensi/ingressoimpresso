@@ -1,0 +1,34 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into price_tables (id, tiers, minimum_cents, free_tickets, effective_at, note, created_by)\n           values ($1, $2, $3, $4, $5, $6, $7) returning id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "price_tables",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Jsonb",
+        "Int4",
+        "Int4",
+        "Timestamptz",
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "ef6f7c5a5746e627c4072e0f25164a8dc6a38255b19481778deb75f643e53073"
+}

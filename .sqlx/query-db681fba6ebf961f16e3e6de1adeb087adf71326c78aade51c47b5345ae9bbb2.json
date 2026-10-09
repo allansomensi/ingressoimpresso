@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select count(*) as \"all!\", count(*) filter (where kind = 'signup_code') as \"signups!\"\n           from mail_sends where created_at > now() - interval '24 hours' and status <> 'quota'",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "all!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "signups!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "db681fba6ebf961f16e3e6de1adeb087adf71326c78aade51c47b5345ae9bbb2"
+}

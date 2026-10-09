@@ -93,6 +93,8 @@ pub async fn create(
             "batch or seller does not belong to this event",
         ));
     }
+    // Art under review or refused is never printed (ADR 0042).
+    crate::moderation::ensure_event_printable(&state.pool, event_id).await?;
     let scope = serde_json::to_value(body.scope).map_err(anyhow::Error::from)?;
     let row = sqlx::query_as!(
         ExportRow,

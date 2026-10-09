@@ -13,6 +13,7 @@ import { GoogleSignIn } from "@/components/google-sign-in";
 import { OtpInput } from "@/components/otp-input";
 import { Alert, Button, ErrorMessage, Field, Input, Spinner } from "@/components/ui";
 import { ApiError, api } from "@/lib/api";
+import { usePlatform } from "@/lib/platform";
 import { useSession } from "@/lib/session";
 import { texts } from "@/texts/pt-BR";
 
@@ -56,6 +57,16 @@ export default function SignInPage() {
     retry: 1,
   });
   const googleClientId = googleBlocked ? null : (options.data?.googleClientId ?? null);
+  const platform = usePlatform();
+  const mode = platform.data?.maintenance.mode ?? "off";
+  const notice =
+    mode === "full"
+      ? texts.maintenance.signInClosed
+      : mode === "read_only"
+        ? texts.maintenance.signInNotice
+        : platform.data?.registrationsOpen === false
+          ? texts.maintenance.registrationsClosed
+          : null;
 
   useEffect(() => {
     if (session.status === "signed-in") {
@@ -224,6 +235,9 @@ export default function SignInPage() {
             </form>
           ) : (
             <div className="flex flex-col gap-6">
+              {notice !== null && (
+                <Alert tone={mode === "off" ? "brand" : "warning"}>{notice}</Alert>
+              )}
               {quota && googleButton !== null && (
                 <Alert tone="warning" title={t.quotaTitle}>
                   {t.quotaBody}

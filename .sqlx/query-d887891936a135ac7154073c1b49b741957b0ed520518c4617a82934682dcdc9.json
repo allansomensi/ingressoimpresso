@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into mail_sends (kind, to_email, subject, status) values ($1, $2, $3, 'quota')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        {
+          "Custom": {
+            "name": "citext",
+            "kind": "Simple"
+          }
+        },
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d887891936a135ac7154073c1b49b741957b0ed520518c4617a82934682dcdc9"
+}

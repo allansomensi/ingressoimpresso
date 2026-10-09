@@ -19,4 +19,9 @@ widthPx: number,
 /**
  * Height in pixels.
  */
-heightPx: number, };
+heightPx: number, 
+/**
+ * Moderation (ADR 0042): `unchecked`, `clean`, `flagged` (printing waits for the
+ * team), `approved` or `rejected` (never printed).
+ */
+moderation: string, };

@@ -150,7 +150,10 @@ const event = await api("/api/events", {
   },
 });
 const batch = await api(`/api/events/${event.id}/batches`, { token, body: { quantity: 5 } });
-await api(`/api/admin/batches/${batch.id}/mark-paid`, { token, method: "POST" });
+// Free tickets (ADR 0039) may cover the batch already; otherwise the admin marks it as paid.
+if (batch.status !== "paid") {
+  await api(`/api/admin/batches/${batch.id}/mark-paid`, { token, method: "POST" });
+}
 const seller = await api(`/api/events/${event.id}/sellers`, { token, body: { name: "João" } });
 await api(`/api/sellers/${seller.id}/ranges`, { token, body: { first: 1, last: 5 } });
 
@@ -231,6 +234,12 @@ await organizer.evaluate((value) => {
   window.localStorage.setItem("ingressoimpresso.session", value);
 }, token);
 await organizer.goto(`${WEB}/painel/eventos/${event.id}`);
+// An announcement published as a dialog (ADR 0038) opens over the panel: close it first.
+const announcement = organizer.locator("dialog[open]").getByRole("button", { name: "Entendi" });
+await announcement
+  .waitFor({ state: "visible", timeout: 3_000 })
+  .then(() => announcement.click())
+  .catch(() => undefined);
 await organizer.getByRole("tab", { name: "Relatório" }).click();
 const total = organizer.locator("tr", { hasText: "Total" });
 await total.waitFor({ timeout: TIMEOUT });

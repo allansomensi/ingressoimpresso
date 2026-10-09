@@ -1,0 +1,36 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into status_incidents\n             (id, kind, title, impact, status, components, scheduled_for, scheduled_until, started_at,\n              resolved_at, created_by)\n           values ($1, $2, $3, $4, $5, $6, $7, $8, coalesce($7, now()),\n                   case when $5 = 'resolved' then now() end, $9)\n           returning id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "status_incidents",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "TextArray",
+        "Timestamptz",
+        "Timestamptz",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "19354d7fbdee61f1cd38d0677def10414b174f197d785eb2196f629601485aa2"
+}

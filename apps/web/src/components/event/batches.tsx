@@ -1,11 +1,11 @@
 "use client";
 
-import type { AccountDto, BatchDto, CheckoutDto, CreateBatchBody, EventDto, PricingDto } from "@ingressoimpresso/api-types";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { AccountDto, BatchDto, BatchQuoteDto, CheckoutDto, CreateBatchBody, EventDto, PricingDto } from "@ingressoimpresso/api-types";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, CreditCard, FileDown, Layers, Lock, MoreHorizontal, Plus, RefreshCw, ShieldCheck, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useDeferredValue, useEffect, useRef, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
 import {
@@ -75,14 +75,27 @@ function NewBatch({ eventId, pricing, nextNumber }: { eventId: string; pricing: 
       );
       void queryClient.invalidateQueries({ queryKey: ["batches", eventId] });
       void queryClient.invalidateQueries({ queryKey: ["account"] });
+      void queryClient.invalidateQueries({ queryKey: ["quote", eventId] });
+      void queryClient.invalidateQueries({ queryKey: ["credits"] });
     },
   });
   const submit = (event: FormEvent) => {
     event.preventDefault();
     create.mutate();
   };
-  const total = pricing !== undefined && valid ? quote(pricing, quantity, freeLeft) : null;
-  const freeHere = valid ? Math.min(freeLeft, quantity) : 0;
+  // The server prices the batch with promotions, codes and credit (ADRs 0039, 0040); the local
+  // table only fills the gap while it answers.
+  const asked = useDeferredValue(quantity);
+  const priced = useQuery({
+    queryKey: ["quote", eventId, asked],
+    queryFn: () => api<BatchQuoteDto>(`/api/events/${eventId}/batches/quote`, { method: "POST", body: { quantity: asked } }),
+    enabled: Number.isInteger(asked) && asked >= 1 && asked <= MAX_BATCH,
+    placeholderData: keepPreviousData,
+    staleTime: 15_000,
+  });
+  const breakdown = valid && priced.data?.quantity === quantity ? priced.data : null;
+  const total = breakdown !== null ? breakdown.totalCents : pricing !== undefined && valid ? quote(pricing, quantity, freeLeft) : null;
+  const freeHere = breakdown !== null ? breakdown.freeTickets : valid ? Math.min(freeLeft, quantity) : 0;
 
   return (
     <Card>
@@ -128,17 +141,44 @@ function NewBatch({ eventId, pricing, nextNumber }: { eventId: string; pricing: 
               </span>
             )}
           </div>
-          {pricing !== undefined && total !== null && (
-            <span className="flex flex-col gap-0.5 text-xs text-fg-muted">
-              {freeHere > 0 && <span className="font-medium text-success-fg">{t.freeInBatch(freeHere)}</span>}
-              {total > 0 &&
-                (total === pricing.minimumCents
-                  ? t.minimumApplied
-                  : t.perTicket(money(Math.round(total / (quantity - freeHere)))))}
-            </span>
+          {breakdown !== null && (breakdown.discountCents > 0 || breakdown.creditCents > 0) ? (
+            <dl className="flex flex-col gap-1 text-xs">
+              <div className="flex justify-between gap-3 text-fg-muted">
+                <dt>{t.listPrice}</dt>
+                <dd className="tabular">{money(breakdown.listPriceCents)}</dd>
+              </div>
+              {freeHere > 0 && <p className="font-medium text-success-fg">{t.freeInBatch(freeHere)}</p>}
+              {breakdown.discountCents > 0 && (
+                <div className="flex justify-between gap-3 font-medium text-success-fg">
+                  <dt>
+                    {breakdown.promotion !== null
+                      ? t.promotionLine(breakdown.promotion.name, breakdown.promotion.discountPercent)
+                      : t.codeLine(breakdown.discountCode?.code ?? "", breakdown.discountCode?.discountPercent ?? 0)}
+                  </dt>
+                  <dd className="tabular">−{money(breakdown.discountCents)}</dd>
+                </div>
+              )}
+              {breakdown.creditCents > 0 && (
+                <div className="flex justify-between gap-3 font-medium text-success-fg">
+                  <dt>{t.creditLine}</dt>
+                  <dd className="tabular">−{money(breakdown.creditCents)}</dd>
+                </div>
+              )}
+            </dl>
+          ) : (
+            pricing !== undefined &&
+            total !== null && (
+              <span className="flex flex-col gap-0.5 text-xs text-fg-muted">
+                {freeHere > 0 && <span className="font-medium text-success-fg">{t.freeInBatch(freeHere)}</span>}
+                {total > 0 &&
+                  (total === pricing.minimumCents
+                    ? t.minimumApplied
+                    : t.perTicket(money(Math.round(total / Math.max(1, quantity - freeHere)))))}
+              </span>
+            )
           )}
           <Button type="submit" disabled={!valid} loading={create.isPending}>
-            {create.isPending ? t.creating : total === 0 ? t.createFree : t.create}
+            {create.isPending ? t.creating : total === 0 ? (breakdown !== null && breakdown.creditCents > 0 ? t.createWithCredit : t.createFree) : t.create}
           </Button>
         </div>
       </form>
@@ -261,6 +301,11 @@ function BatchRow({
             {texts.common.tickets(quantityOf(batch))}
             <span aria-hidden>·</span>
             <span className="tabular">{money(batch.priceCents)}</span>
+            {(batch.discountCents > 0 || batch.creditCents > 0) && (
+              <span className="text-xs text-success-fg">
+                {t.savings(money(batch.discountCents + batch.creditCents))}
+              </span>
+            )}
             {batch.paidAt !== null && (
               <>
                 <span aria-hidden>·</span>

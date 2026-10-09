@@ -1,0 +1,184 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select id, code, kind, credit_cents, free_tickets, discount_percent, description,\n                  max_redemptions, redemptions_count, new_organizations_only, starts_at, expires_at,\n                  disabled_at, created_at\n           from promo_codes where ($1::uuid is null or id = $1)\n           order by created_at desc limit 200",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "promo_codes",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "code",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "promo_codes",
+            "name": "code"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "promo_codes",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "credit_cents",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "promo_codes",
+            "name": "credit_cents"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "free_tickets",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "promo_codes",
+            "name": "free_tickets"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "discount_percent",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "promo_codes",
+            "name": "discount_percent"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "description",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "promo_codes",
+            "name": "description"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "max_redemptions",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "promo_codes",
+            "name": "max_redemptions"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "redemptions_count",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "promo_codes",
+            "name": "redemptions_count"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "new_organizations_only",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "promo_codes",
+            "name": "new_organizations_only"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "starts_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "promo_codes",
+            "name": "starts_at"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "expires_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "promo_codes",
+            "name": "expires_at"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "disabled_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "promo_codes",
+            "name": "disabled_at"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "promo_codes",
+            "name": "created_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false,
+      true,
+      true,
+      true,
+      false
+    ]
+  },
+  "hash": "d2dcabaa2b445bec1031c9f4e5508262bf2b9081d9d6de0bfc59504161c79b08"
+}

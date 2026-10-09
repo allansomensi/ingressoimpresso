@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update promo_codes set description = $2, max_redemptions = $3, expires_at = $4,\n                  disabled_at = case when $5 then coalesce(disabled_at, now()) end\n           where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Int4",
+        "Timestamptz",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f53488922d43a56f55376fa0c756f8b59d8d72b086c99ef6257f76a65c4a0c3e"
+}

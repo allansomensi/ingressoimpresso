@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select kind as \"key!\",\n                  count(*) filter (where created_at > now() - interval '24 hours') as \"day!\",\n                  count(*) as \"week!\"\n           from mail_sends where created_at > now() - interval '7 days' and status <> 'quota'\n           group by kind order by 3 desc",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "key!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "mail_sends",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "day!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "week!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      null,
+      null
+    ]
+  },
+  "hash": "7dd596e1b8c36c701276d391b85499ddac8fa0ea34c54f22282fcbf2906c7858"
+}

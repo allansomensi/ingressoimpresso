@@ -17,6 +17,10 @@ freeTicketsLeft: number,
  */
 freeTicketsTotal: number, 
 /**
+ * Credit of the organization, in centavos (ADR 0040).
+ */
+creditCents: number, 
+/**
  * Events of the organization.
  */
 eventCount: number, 

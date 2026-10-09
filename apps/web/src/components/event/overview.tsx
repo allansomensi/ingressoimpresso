@@ -48,9 +48,10 @@ export function OverviewTab({ eventId, onSelect }: { eventId: string; onSelect: 
     {failure !== undefined && (
       <ErrorMessage error={failure} />
     )}
-    {paidTickets > 0 && <EventResults eventId={eventId} />}
+    {/* Once everything is done, the results matter most; until then, the next step does. */}
+    {paidTickets > 0 && doneCount === STEPS.length && <EventResults eventId={eventId} />}
     <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
-      <Card>
+      <Card className="max-lg:order-2">
         <CardHeader
           title={t.title}
           description={t.subtitle}
@@ -116,13 +117,14 @@ export function OverviewTab({ eventId, onSelect }: { eventId: string; onSelect: 
           </ol>
         )}
       </Card>
-      <div className="grid content-start gap-4 sm:grid-cols-2 lg:grid-cols-1">
+      <div className="grid grid-cols-2 content-start gap-3 max-lg:order-1 sm:gap-4 lg:grid-cols-1">
         <Stat label={t.stats.paid} value={count(paidTickets)} icon={Ticket} />
         <Stat label={t.stats.sellers} value={count(sellers.data?.length ?? 0)} icon={Users} />
         <Stat label={t.stats.entries} value={count(door.data?.entryCount ?? 0)} icon={LogIn} tone="success" />
         <Stat label={t.stats.devices} value={count(activeDevices)} icon={Smartphone} />
       </div>
     </div>
+    {paidTickets > 0 && doneCount < STEPS.length && <EventResults eventId={eventId} />}
     </div>
   );
 }

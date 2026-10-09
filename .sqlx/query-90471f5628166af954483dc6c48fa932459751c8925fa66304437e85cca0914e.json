@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into ticket_batches\n             (id, event_id, numbers, key_id, status, price_cents, free_tickets, paid_via, paid_at,\n              list_price_cents, promotion_id, discount_cents, credit_cents, price_table_id)\n           values ($1, $2, $3, $4, $5, $6, $7, $8, case when $8::text is null then null else now() end,\n                   $9, $10, $11, $12, $13)\n           returning id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "ticket_batches",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Int4Range",
+        "Int2",
+        "Text",
+        "Int4",
+        "Int4",
+        "Text",
+        "Int4",
+        "Uuid",
+        "Int4",
+        "Int4",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "90471f5628166af954483dc6c48fa932459751c8925fa66304437e85cca0914e"
+}

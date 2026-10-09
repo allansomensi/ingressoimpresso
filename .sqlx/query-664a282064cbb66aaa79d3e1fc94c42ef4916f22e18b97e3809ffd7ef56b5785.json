@@ -1,0 +1,223 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select f.id, f.blob_id, f.organization_id, o.name as organization_name, f.event_id,\n                  e.name as event_name, up.email::text as \"uploaded_by?\", f.reasons, f.details,\n                  f.score, f.source, f.status, f.resolution_note, rb.email::text as \"resolved_by?\",\n                  f.resolved_at, f.created_at, b.width_px, b.height_px\n           from moderation_flags f\n           join blobs b on b.id = f.blob_id\n           join organizations o on o.id = f.organization_id\n           join events e on e.id = f.event_id\n           left join users up on up.id = b.uploaded_by\n           left join users rb on rb.id = f.resolved_by\n           where ($1::text is null or f.status = $1) and ($2::uuid is null or f.id = $2)\n           order by (f.status = 'open') desc, f.score desc, f.created_at desc limit 200",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "moderation_flags",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "blob_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "moderation_flags",
+            "name": "blob_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "organization_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "moderation_flags",
+            "name": "organization_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "organization_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "organizations",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "event_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "moderation_flags",
+            "name": "event_id"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "event_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "uploaded_by?",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 7,
+        "name": "reasons",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "moderation_flags",
+            "name": "reasons"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "details",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "moderation_flags",
+            "name": "details"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "score",
+        "type_info": "Float4",
+        "origin": {
+          "Table": {
+            "table": "moderation_flags",
+            "name": "score"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "source",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "moderation_flags",
+            "name": "source"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "moderation_flags",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "resolution_note",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "moderation_flags",
+            "name": "resolution_note"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "resolved_by?",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 14,
+        "name": "resolved_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "moderation_flags",
+            "name": "resolved_at"
+          }
+        }
+      },
+      {
+        "ordinal": 15,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "moderation_flags",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 16,
+        "name": "width_px",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "blobs",
+            "name": "width_px"
+          }
+        }
+      },
+      {
+        "ordinal": 17,
+        "name": "height_px",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "blobs",
+            "name": "height_px"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      null,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      null,
+      true,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "664a282064cbb66aaa79d3e1fc94c42ef4916f22e18b97e3809ffd7ef56b5785"
+}

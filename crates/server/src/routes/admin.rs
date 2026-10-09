@@ -174,7 +174,7 @@ struct OrganizationRow {
 }
 
 impl OrganizationRow {
-    fn into_dto(self, state: &AppState) -> AdminOrganizationDto {
+    fn into_dto(self, base_free: i32) -> AdminOrganizationDto {
         AdminOrganizationDto {
             id: self.id,
             name: self.name,
@@ -184,7 +184,7 @@ impl OrganizationRow {
             paid_tickets: self.paid_tickets,
             revenue_cents: self.revenue_cents,
             free_used: self.free_used,
-            free_total: state.config.free_tickets + self.bonus_free_tickets,
+            free_total: base_free + self.bonus_free_tickets,
             bonus_free_tickets: self.bonus_free_tickets,
             last_batch_at: self.last_batch_at,
             suspended: self.suspended,
@@ -252,8 +252,11 @@ pub async fn organizations(
     require_admin(&user)?;
     let pattern = like_pattern(query.q.as_deref());
     let rows = load_organizations(&state, None, pattern).await?;
+    let base_free = crate::pricing::current(&state.pool).await?.free_tickets;
     Ok(Json(
-        rows.into_iter().map(|row| row.into_dto(&state)).collect(),
+        rows.into_iter()
+            .map(|row| row.into_dto(base_free))
+            .collect(),
     ))
 }
 
@@ -299,7 +302,7 @@ pub(crate) async fn load_organization(
         .into_iter()
         .next()
         .ok_or(ApiError::NotFound)?
-        .into_dto(state))
+        .into_dto(crate::pricing::current(&state.pool).await?.free_tickets))
 }
 
 /// Filter of `GET /api/admin/batches`.
@@ -322,6 +325,9 @@ struct AdminBatchRow {
     price_cents: i32,
     free_tickets: i32,
     paid_via: Option<String>,
+    list_price_cents: Option<i32>,
+    discount_cents: i32,
+    credit_cents: i32,
     refunded_at: Option<OffsetDateTime>,
     pending_payment: Option<String>,
     event_id: Uuid,
@@ -347,6 +353,7 @@ pub async fn batches(
     let rows = sqlx::query_as!(
         AdminBatchRow,
         r#"select b.id, b.numbers, b.status, b.created_at, b.paid_at, b.price_cents, b.free_tickets, b.paid_via,
+                  b.list_price_cents, b.discount_cents, b.credit_cents,
                   b.refunded_at,
                   (select case when bool_or(p.status = 'processing') then 'processing'
                                when bool_or(p.status = 'open' and p.expires_at > now()) then 'open' end
@@ -382,6 +389,9 @@ pub async fn batches(
                     price_cents: row.price_cents,
                     free_tickets: row.free_tickets,
                     paid_via: row.paid_via,
+                    list_price_cents: row.list_price_cents,
+                    discount_cents: row.discount_cents,
+                    credit_cents: row.credit_cents,
                     refunded_at: row.refunded_at,
                     pending_payment: row.pending_payment,
                 }

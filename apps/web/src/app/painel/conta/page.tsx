@@ -21,6 +21,7 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
+import { CreditsCard } from "@/components/account/credits";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import {
   Alert,
@@ -38,7 +39,7 @@ import {
 } from "@/components/ui";
 import { api, fetchBlobUrl, writeToken } from "@/lib/api";
 import { dateTime, money } from "@/lib/format";
-import { quote } from "@/lib/pricing";
+import { discounted, quote } from "@/lib/pricing";
 import { useSession } from "@/lib/session";
 import { useUnsavedChanges } from "@/lib/unsaved";
 import { texts } from "@/texts/pt-BR";
@@ -84,8 +85,15 @@ function OrganizationForm({ account }: { account: AccountDto }) {
 }
 
 function PricingTable({ pricing }: { pricing: PricingDto }) {
+  const promotion = pricing.promotion;
   return (
     <div className="flex flex-col gap-4">
+      {promotion !== null && (
+        <Alert tone="success" title={t.promotionTitle(promotion.discountPercent)}>
+          {t.promotionBody(promotion.headline ?? promotion.name, dateTime(promotion.endsAt))}
+        </Alert>
+      )}
+      {pricing.upcoming !== null && <Alert tone="warning">{t.upcoming(dateTime(pricing.upcoming.effectiveAt))}</Alert>}
       <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border">
         {pricing.tiers.map((tier, index) => (
           <li key={tier.upTo} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
@@ -101,7 +109,14 @@ function PricingTable({ pricing }: { pricing: PricingDto }) {
           {EXAMPLES.map((quantity) => (
             <div key={quantity} className="flex flex-col gap-0.5 rounded-xl bg-surface-2 px-3 py-2.5">
               <span className="text-xs text-fg-muted">{t.example(quantity)}</span>
-              <span className="font-semibold text-fg tabular">{money(quote(pricing, quantity))}</span>
+              {promotion === null ? (
+                <span className="font-semibold text-fg tabular">{money(quote(pricing, quantity))}</span>
+              ) : (
+                <span className="flex flex-col">
+                  <span className="text-xs text-fg-subtle line-through tabular">{money(quote(pricing, quantity))}</span>
+                  <span className="font-semibold text-success-fg tabular">{money(discounted(quote(pricing, quantity), promotion.discountPercent))}</span>
+                </span>
+              )}
             </div>
           ))}
         </div>
@@ -271,7 +286,7 @@ export default function AccountPage() {
             <CardHeader icon={Building2} title={t.organization} description={t.organizationHint} />
             <OrganizationForm key={a.organizationName} account={a} />
           </Card>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4">
             <Stat label={t.events} value={a.eventCount.toLocaleString("pt-BR")} icon={CalendarDays} />
             <Stat label={t.paidTickets} value={a.paidTickets.toLocaleString("pt-BR")} icon={Ticket} tone="success" />
           </div>
@@ -301,6 +316,7 @@ export default function AccountPage() {
               </div>
             </Card>
           )}
+          <CreditsCard />
           <Card>
             <CardHeader icon={UserRound} title={t.session} />
             <div className="flex flex-col gap-4">

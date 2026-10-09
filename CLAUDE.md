@@ -43,8 +43,20 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   exportar e excluir a conta (ADR 0033); novidades (ADR 0031); modo suporte do admin com
   auditoria, suspensão, estorno e preço de lote (ADR 0032); resultados do organizador e
   financeiro do admin (ADR 0034); rifas sem sorteio (ADR 0035); tema do site no rodapé (ADR 0036).
-  Falta o que depende do mantenedor: endereço em `LEGAL_ENTITY.address`, caixa do e-mail de
-  contato, `GOOGLE_CLIENT_ID` no Render (`docs/deploy.md` §5.2) e revisão jurídica dos textos.
+  Falta o que depende do mantenedor: endereço em `LEGAL_ENTITY.address`, `GOOGLE_CLIENT_ID` no
+  Render (`docs/deploy.md` §5.2) e revisão jurídica dos textos.
+- **Fase 9 (plataforma): implementada.**
+  - Configurações pelo painel: manutenção `off`/`read_only`/`full`, novas contas e domínios de
+    e-mail bloqueados (ADR 0037).
+  - Comunicação: pronunciamentos no sininho ou em janela, e notificações por conta (ADR 0038).
+  - Vendas: preços versionados no banco com anúncio, promoções (ADR 0039), cupons e crédito
+    (ADR 0040). `FREE_TICKETS` saiu: os ingressos grátis estão na tabela de preços.
+  - Confiança: registro de e-mails com webhook da Resend (ADR 0041), moderação de artes com Cloud
+    Vision e central de revisão (ADR 0042), página pública `/status` com incidentes (ADR 0043).
+  - Painel: barra de navegação no celular, menus e diálogos como folhas de baixo para cima,
+    admin com seções agrupadas e auditoria com filtros.
+  - Falta o que depende do mantenedor, tudo opcional: `RESEND_WEBHOOK_SECRET` (§5.4) e
+    `MODERATION_VISION_API_KEY` (§5.5).
 
 Plano completo em `docs/arquitetura.md` §12.
 
@@ -71,7 +83,12 @@ crates/server        API (pacote `ingressoimpresso-server`, binário `ingressoim
                      processo (fila = tabela exports), chaves de evento seladas (keys.rs, ADR 0005),
                      DTOs em api.rs (ts-rs → packages/api-types), testes de integração em tests/;
                      admin em routes/admin.rs (ADMIN_EMAILS) + routes/support.rs (modo suporte,
-                     auditoria, suspensão, estorno), conta em routes/account.rs + routes/privacy.rs
+                     auditoria com filtros, suspensão, estorno), plataforma em platform.rs +
+                     routes/platform.rs (manutenção, cadastros, domínios), pronunciamentos e
+                     notificações em routes/announcements.rs, preços/promoções/cupons/crédito em
+                     pricing.rs + routes/billing.rs, e-mails em routes/mail_admin.rs (+ webhook),
+                     moderação em moderation.rs + routes/moderation.rs, status em routes/status.rs,
+                     conta em routes/account.rs + routes/privacy.rs
                      (exportar/excluir), ingresso digital em routes/tickets.rs, novidades em
                      routes/changelog.rs, resultados em routes/analytics.rs; login com Google em
                      google.rs, e-mails (HTML + texto) em emails.rs, cota em state.rs (send_mail)
@@ -96,8 +113,12 @@ apps/web             landing em src/app/page.tsx (+ src/components/marketing), p
                      src/components/ticket/ticket-view.tsx (regras espelhadas em lib/design-rules.ts),
                      modelos em src/lib/templates (catálogo + fundos SVG em mm), fontes do ingresso
                      em public/fonts/ticket (WOFF2); admin em src/app/painel/admin +
-                     src/components/admin (financeiro, organização, novidades, auditoria); conta em
-                     src/app/painel/conta
+                     src/components/admin (seções agrupadas: financeiro, organização, preços e
+                     cupons em billing.tsx, pronunciamentos, e-mails, moderação, auditoria,
+                     configurações, incidentes); conta em src/app/painel/conta (+ components/account);
+                     sininho e avisos em components/panel/{inbox,platform-notices}.tsx + lib/platform.ts;
+                     status público em app/status + components/status;
+                     menus e popovers em components/ui/popover.tsx (portal; folha no celular)
 e2e/                 portaria.e2e.mjs: 5 "celulares" Chromium com câmera falsa (`just e2e`)
 packages/ticket-core-wasm  wrapper TS tipado (src/), tipos gerados (src/generated/, NÃO editar),
                      pkg/ gerado por `just wasm` (não versionado), testes Vitest com os vetores
@@ -126,6 +147,9 @@ docs/deploy.md       domínio próprio: Neon, Resend, DNS (Registro.br), Render,
   API, não do usuário. Dorme quando parado (worker consulta sozinho a cada hora).
 - **E-mail:** Resend (o cliente manda `User-Agent`, senão o Resend recusa). `MAIL_DAILY_LIMIT`
   (padrão 95) segura a cota do plano grátis; esgotada, o login oferece o Google (ADR 0028).
+- **Opcionais da fase 9:** `RESEND_WEBHOOK_SECRET` (status de entrega no painel de e-mails,
+  ADR 0041) e `MODERATION_VISION_API_KEY` + `MODERATION_DAILY_LIMIT` (análise automática das
+  artes, ADR 0042). Sem eles tudo funciona, com revisão manual.
 - **Login com Google:** `GOOGLE_CLIENT_ID` liga o botão (Google Identity Services); a API confere
   o ID token com as chaves do Google (ADR 0029). A CSP libera só `accounts.google.com/gsi/`.
 - **Pagamento:** Stripe Checkout por lote (ADR 0020), confirmado pelo webhook
@@ -197,6 +221,9 @@ just backup-restore-test <dump.age> <chave-age>   # restaura um backup num banco
 11. **O ingresso digital é o mesmo QR v1 do papel** (ADR 0030): assinado só em `jobs.rs`
     (`sign_numbers`), só para lotes pagos, guardado selado; o token do link vai no fragmento
     (`/ingresso#token`) e no corpo das requisições, nunca na URL do servidor.
+12. **Arte sinalizada ou recusada não é impressa** (ADR 0042): exportações e a imagem do
+    ingresso digital passam por `moderation::ensure_printable`; só um admin libera.
+13. **Código de acesso nunca é registrado**: o assunto em `mail_sends` tem os dígitos mascarados.
 
 ## Convenções
 
@@ -207,7 +234,9 @@ just backup-restore-test <dump.age> <chave-age>   # restaura um backup num banco
   com texto branco usa `bg-brand-solid`/`bg-success-solid`/`bg-danger-solid` (contraste AA nos
   dois temas). Ações destrutivas pedem `useConfirm()`; resultados de ações viram `toast`; menus
   usam `Menu`/`MenuItem` e painéis `Popover`. Um editor com alterações pendentes chama
-  `useUnsavedChanges(dirty)`.
+  `useUnsavedChanges(dirty)`. No celular, `Menu`, `Popover` e `Dialog` viram folhas de baixo para
+  cima sozinhos (renderizados em portal, nunca cortados por um card) e os campos têm 16px, para o
+  iPhone não dar zoom. Grades de `Stat` usam duas colunas no celular.
 - **Design do ingresso em dois lados:** regras de `design.rs` e campos de `fields.rs` têm espelho
   no painel (`lib/design-rules.ts`, `lib/ticket-fields.ts`) para a prévia ao vivo; mudou um, mude
   o outro (os testes usam os mesmos exemplos). Modelo novo é só TypeScript em `lib/templates`, e

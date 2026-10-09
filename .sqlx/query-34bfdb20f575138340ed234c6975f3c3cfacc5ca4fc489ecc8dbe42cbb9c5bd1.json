@@ -1,0 +1,76 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select f.blob_id, f.organization_id, f.event_id, f.status, e.name as event_name\n           from moderation_flags f join events e on e.id = f.event_id\n           where f.id = $1 for update of f",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "blob_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "moderation_flags",
+            "name": "blob_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "organization_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "moderation_flags",
+            "name": "organization_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "event_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "moderation_flags",
+            "name": "event_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "moderation_flags",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "event_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "name"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "34bfdb20f575138340ed234c6975f3c3cfacc5ca4fc489ecc8dbe42cbb9c5bd1"
+}

@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into announcement_receipts (announcement_id, user_id)\n           select a.id, $1 from announcements a\n           where a.published_at is not null and a.archived_at is null and a.starts_at <= now()\n             and ($2 or a.id = any($3))\n           on conflict do nothing",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Bool",
+        "UuidArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d3d2c32dd88f696ea526fae27ead8ccde38474438a79cf8925b167c0250cb8b2"
+}

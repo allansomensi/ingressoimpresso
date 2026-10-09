@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into promo_redemptions (id, promo_code_id, organization_id, redeemed_by)\n           values ($1, $2, $3, $4)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f910e83bcea2851b86805e7ae34aa50499fa60396065c7a063c97f9fafa3906e"
+}

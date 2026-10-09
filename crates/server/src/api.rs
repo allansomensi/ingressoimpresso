@@ -148,6 +148,9 @@ dto! {
         pub width_px: i32,
         /// Height in pixels.
         pub height_px: i32,
+        /// Moderation (ADR 0042): `unchecked`, `clean`, `flagged` (printing waits for the
+        /// team), `approved` or `rejected` (never printed).
+        pub moderation: String,
     }
 
     /// The current design of an event.
@@ -198,6 +201,12 @@ dto! {
         pub price_cents: i32,
         /// Tickets of the batch that came from the organization's free allowance (ADR 0024).
         pub free_tickets: i32,
+        /// Price of the table before discounts and credit (ADR 0039); `null` for older batches.
+        pub list_price_cents: Option<i32>,
+        /// Discount of a promotion or code, in centavos.
+        pub discount_cents: i32,
+        /// Credit of the organization used, in centavos (ADR 0040).
+        pub credit_cents: i32,
         /// How it was paid.
         pub paid_via: Option<PaymentMethod>,
         /// When an admin refunded it (its numbers are voided for good).
@@ -229,6 +238,24 @@ dto! {
         pub online_payment: bool,
         /// Free tickets every organization gets (taken off its first batches).
         pub free_tickets: i32,
+        /// Promotion running now (ADR 0039).
+        pub promotion: Option<ActivePromotionDto>,
+        /// Announced table that starts later.
+        pub upcoming: Option<UpcomingPricesDto>,
+    }
+
+    /// A price table announced for later (ADR 0039).
+    pub struct UpcomingPricesDto {
+        /// When it starts.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub effective_at: OffsetDateTime,
+        /// Smallest charge.
+        pub minimum_cents: i32,
+        /// Tiers.
+        pub tiers: Vec<PriceTierDto>,
+        /// Free tickets of every organization.
+        pub free_tickets: i32,
     }
 
     /// `GET /api/account`: the signed-in user's organization.
@@ -239,6 +266,8 @@ dto! {
         pub free_tickets_left: i32,
         /// Free tickets of the organization: everyone's allowance plus any bonus from an admin.
         pub free_tickets_total: i32,
+        /// Credit of the organization, in centavos (ADR 0040).
+        pub credit_cents: i32,
         /// Events of the organization.
         #[cfg_attr(feature = "ts", ts(type = "number"))]
         pub event_count: i64,
@@ -1400,8 +1429,10 @@ dto_enum! {
         Stripe,
         /// Marked as paid by an admin.
         Admin,
-        /// Entirely covered by the organization's free tickets.
+        /// Entirely covered by the organization's free tickets (or a 100% discount).
         Free,
+        /// Covered by the organization's credit (ADR 0040).
+        Credit,
     }
 
     /// An unsettled online payment of a batch.
@@ -1551,7 +1582,7 @@ macro_rules! db_enum {
 db_enum!(EventStatus { Active => "active", Closed => "closed" });
 db_enum!(BatchStatus { AwaitingPayment => "awaiting_payment", Paid => "paid", Canceled => "canceled", Refunded => "refunded" });
 db_enum!(ChangelogKind { New => "new", Improvement => "improvement", Fix => "fix", Security => "security" });
-db_enum!(PaymentMethod { Stripe => "stripe", Admin => "admin", Free => "free" });
+db_enum!(PaymentMethod { Stripe => "stripe", Admin => "admin", Free => "free", Credit => "credit" });
 db_enum!(PaymentState { Open => "open", Processing => "processing" });
 db_enum!(VoidReason { Unsold => "unsold", Lost => "lost", Revoked => "revoked" });
 db_enum!(ExportKind { Home => "home", Print => "print", Control => "control", Whatsapp => "whatsapp" });
@@ -1565,3 +1596,1041 @@ db_enum!(ScanOutcome {
     RejectedOtherEvent => "rejected_other_event",
 });
 db_enum!(ScanClass { FirstEntry => "first_entry", DuplicateEntry => "duplicate_entry", VoidEntry => "void_entry" });
+
+// Platform controls (ADRs 0037–0043) --------------------------------------------------------
+
+dto! {
+    /// Maintenance state (ADR 0037).
+    pub struct MaintenanceDto {
+        /// `off`, `read_only` (organizers only read) or `full` (only admins get in).
+        pub mode: MaintenanceMode,
+        /// Message from the team, shown to organizers.
+        pub message: Option<String>,
+        /// When the team expects to be back (informative).
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub ends_at: Option<OffsetDateTime>,
+        /// When the current mode started.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub started_at: Option<OffsetDateTime>,
+    }
+
+    /// A promotion running now (ADR 0039).
+    pub struct ActivePromotionDto {
+        /// Name.
+        pub name: String,
+        /// Public sentence ("Semana do rock: 20% off").
+        pub headline: Option<String>,
+        /// Discount on every batch.
+        pub discount_percent: i32,
+        /// When it ends.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub ends_at: OffsetDateTime,
+    }
+
+    /// `GET /api/platform` (no login): what every screen needs to know about the service.
+    pub struct PlatformStatusDto {
+        /// Maintenance.
+        pub maintenance: MaintenanceDto,
+        /// Whether new accounts can be created.
+        pub registrations_open: bool,
+        /// The best promotion running now.
+        pub promotion: Option<ActivePromotionDto>,
+        /// When announced new prices start (the price table says which).
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub new_prices_at: Option<OffsetDateTime>,
+    }
+
+    /// `GET|PUT /api/admin/settings`.
+    pub struct PlatformSettingsDto {
+        /// Maintenance.
+        pub maintenance: MaintenanceDto,
+        /// Whether new accounts can be created.
+        pub registrations_open: bool,
+        /// Domains whose addresses cannot create an account (subdomains included).
+        pub blocked_email_domains: Vec<String>,
+        /// Last change.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub updated_at: OffsetDateTime,
+        /// Admin who made it.
+        pub updated_by: Option<String>,
+    }
+
+    /// `PUT /api/admin/settings`: every switch is sent, so a partial body never reopens anything.
+    pub struct PlatformSettingsBody {
+        /// Maintenance mode.
+        pub maintenance_mode: MaintenanceMode,
+        /// Message (up to 500 characters).
+        pub maintenance_message: Option<String>,
+        /// Expected end.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub maintenance_ends_at: Option<OffsetDateTime>,
+        /// New accounts.
+        pub registrations_open: bool,
+        /// Blocked domains, one per entry (normalized by the server).
+        pub blocked_email_domains: Vec<String>,
+    }
+
+    /// An announcement as an organizer sees it (ADR 0038).
+    pub struct AnnouncementDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// Title.
+        pub title: String,
+        /// Text (paragraphs separated by blank lines).
+        pub body: String,
+        /// Tone.
+        pub level: AnnouncementLevel,
+        /// Bell only, or also a dialog on opening the panel.
+        pub display: AnnouncementDisplay,
+        /// Button text.
+        pub cta_label: Option<String>,
+        /// Button target: a path of the site or an https URL.
+        pub cta_url: Option<String>,
+        /// When it started showing.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub starts_at: OffsetDateTime,
+        /// The user opened the bell or the dialog.
+        pub seen: bool,
+        /// The user closed the dialog.
+        pub dismissed: bool,
+    }
+
+    /// One notification of the signed-in user (ADR 0038). The panel writes the text from `kind`
+    /// and `data`.
+    pub struct NotificationDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// What happened.
+        pub kind: NotificationKind,
+        /// Details (event name, amount...).
+        #[cfg_attr(feature = "ts", ts(type = "Record<string, unknown>"))]
+        pub data: serde_json::Value,
+        /// When the user read it.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub read_at: Option<OffsetDateTime>,
+        /// When.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub created_at: OffsetDateTime,
+    }
+
+    /// `GET /api/inbox`: what the bell shows (announcements and notifications, newest first).
+    pub struct InboxDto {
+        /// Announcements running now.
+        pub announcements: Vec<AnnouncementDto>,
+        /// The latest notifications.
+        pub notifications: Vec<NotificationDto>,
+        /// Unseen announcements plus unread notifications.
+        pub unread: i32,
+    }
+
+    /// `POST /api/inbox/read`: marks things as seen/read (empty lists: everything).
+    pub struct InboxReadBody {
+        /// Announcements seen.
+        #[cfg_attr(feature = "ts", ts(type = "string[]"))]
+        pub announcements: Vec<Uuid>,
+        /// Notifications read.
+        #[cfg_attr(feature = "ts", ts(type = "string[]"))]
+        pub notifications: Vec<Uuid>,
+    }
+
+    /// Reads of an announcement.
+    pub struct AnnouncementStatsDto {
+        /// Accounts that can see it.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub audience: i64,
+        /// Accounts that saw it.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub seen: i64,
+        /// Accounts that closed its dialog.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub dismissed: i64,
+    }
+
+    /// An announcement in the admin panel.
+    pub struct AdminAnnouncementDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// Title.
+        pub title: String,
+        /// Text.
+        pub body: String,
+        /// Tone.
+        pub level: AnnouncementLevel,
+        /// Bell only or dialog.
+        pub display: AnnouncementDisplay,
+        /// Button text.
+        pub cta_label: Option<String>,
+        /// Button target.
+        pub cta_url: Option<String>,
+        /// Start.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub starts_at: OffsetDateTime,
+        /// End (none: until archived).
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub ends_at: Option<OffsetDateTime>,
+        /// Derived status.
+        pub status: AnnouncementStatus,
+        /// Publication time.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub published_at: Option<OffsetDateTime>,
+        /// Reads.
+        pub stats: AnnouncementStatsDto,
+        /// Author.
+        pub created_by: Option<String>,
+        /// Creation time.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub created_at: OffsetDateTime,
+    }
+
+    /// `POST /api/admin/announcements` and `PUT /api/admin/announcements/{id}`.
+    pub struct AnnouncementBody {
+        /// Title (3–120 characters).
+        pub title: String,
+        /// Text (up to 4,000 characters).
+        pub body: String,
+        /// Tone.
+        pub level: AnnouncementLevel,
+        /// Bell only or dialog.
+        pub display: AnnouncementDisplay,
+        /// Button text (with `ctaUrl`).
+        pub cta_label: Option<String>,
+        /// Button target (with `ctaLabel`): `/path` or `https://...`.
+        pub cta_url: Option<String>,
+        /// Start (default: now).
+        #[serde(default, with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub starts_at: Option<OffsetDateTime>,
+        /// End.
+        #[serde(default, with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub ends_at: Option<OffsetDateTime>,
+        /// Publish now (otherwise a draft).
+        pub publish: bool,
+    }
+
+    /// One version of the price table (ADR 0039).
+    pub struct PriceTableDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// Tiers.
+        pub tiers: Vec<PriceTierDto>,
+        /// Smallest charge, in centavos.
+        pub minimum_cents: i32,
+        /// Free tickets of every organization.
+        pub free_tickets: i32,
+        /// When it starts.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub effective_at: OffsetDateTime,
+        /// Note of the admin.
+        pub note: Option<String>,
+        /// Author.
+        pub created_by: Option<String>,
+        /// Creation time.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub created_at: OffsetDateTime,
+    }
+
+    /// `GET /api/admin/prices`.
+    pub struct AdminPricesDto {
+        /// In force now.
+        pub current: PriceTableDto,
+        /// Announced, starting later.
+        pub upcoming: Option<PriceTableDto>,
+        /// Every version, newest first.
+        pub history: Vec<PriceTableDto>,
+    }
+
+    /// `POST /api/admin/prices`: a new version of the price table.
+    pub struct PriceTableBody {
+        /// Tiers in increasing order; the last covers 5,000 tickets.
+        pub tiers: Vec<PriceTierDto>,
+        /// Smallest charge, in centavos.
+        pub minimum_cents: i32,
+        /// Free tickets of every organization.
+        pub free_tickets: i32,
+        /// Start (default: now).
+        #[serde(default, with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub effective_at: Option<OffsetDateTime>,
+        /// Note (up to 200 characters).
+        pub note: Option<String>,
+        /// Tell every organizer with an announcement.
+        pub announce: bool,
+        /// How the announcement shows.
+        pub announcement_display: AnnouncementDisplay,
+    }
+
+    /// A promotion in the admin panel.
+    pub struct PromotionDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// Name.
+        pub name: String,
+        /// Public sentence.
+        pub headline: Option<String>,
+        /// Discount.
+        pub discount_percent: i32,
+        /// Start.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub starts_at: OffsetDateTime,
+        /// End.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub ends_at: OffsetDateTime,
+        /// Switched on.
+        pub active: bool,
+        /// Batches created with it.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub batches: i64,
+        /// Discount given, in centavos.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub discount_cents: i64,
+    }
+
+    /// `POST /api/admin/promotions` and `PUT /api/admin/promotions/{id}`.
+    pub struct PromotionBody {
+        /// Name (up to 80 characters).
+        pub name: String,
+        /// Public sentence (up to 120 characters).
+        pub headline: Option<String>,
+        /// Discount, 1–100.
+        pub discount_percent: i32,
+        /// Start.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub starts_at: OffsetDateTime,
+        /// End.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub ends_at: OffsetDateTime,
+        /// Switched on.
+        pub active: bool,
+    }
+
+    /// A promo code in the admin panel (ADR 0040).
+    pub struct PromoCodeDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// The code (uppercase).
+        pub code: String,
+        /// What it gives.
+        pub kind: PromoCodeKind,
+        /// Credit, in centavos.
+        pub credit_cents: Option<i32>,
+        /// Free tickets.
+        pub free_tickets: Option<i32>,
+        /// Discount on the next batch.
+        pub discount_percent: Option<i32>,
+        /// Note of the admin.
+        pub description: Option<String>,
+        /// Uses allowed (none: unlimited).
+        pub max_redemptions: Option<i32>,
+        /// Uses so far.
+        pub redemptions_count: i32,
+        /// Only organizations created after the code.
+        pub new_organizations_only: bool,
+        /// Start.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub starts_at: Option<OffsetDateTime>,
+        /// Expiry.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub expires_at: Option<OffsetDateTime>,
+        /// Switched off.
+        pub disabled: bool,
+        /// Creation time.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub created_at: OffsetDateTime,
+    }
+
+    /// `POST /api/admin/promo-codes`.
+    pub struct PromoCodeBody {
+        /// Code (4–32 letters, digits, `-` or `_`); generated when empty.
+        pub code: Option<String>,
+        /// What it gives.
+        pub kind: PromoCodeKind,
+        /// Credit in centavos (kind `credit`).
+        pub credit_cents: Option<i32>,
+        /// Free tickets (kind `free_tickets`).
+        pub free_tickets: Option<i32>,
+        /// Discount (kind `discount`).
+        pub discount_percent: Option<i32>,
+        /// Note.
+        pub description: Option<String>,
+        /// Uses allowed.
+        pub max_redemptions: Option<i32>,
+        /// Only new organizations.
+        pub new_organizations_only: bool,
+        /// Start.
+        #[serde(default, with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub starts_at: Option<OffsetDateTime>,
+        /// Expiry.
+        #[serde(default, with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub expires_at: Option<OffsetDateTime>,
+    }
+
+    /// `PUT /api/admin/promo-codes/{id}`: what can change after a code is out.
+    pub struct PromoCodeUpdateBody {
+        /// Note.
+        pub description: Option<String>,
+        /// Uses allowed.
+        pub max_redemptions: Option<i32>,
+        /// Expiry.
+        #[serde(default, with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub expires_at: Option<OffsetDateTime>,
+        /// Switched off.
+        pub disabled: bool,
+    }
+
+    /// One use of a promo code.
+    pub struct PromoRedemptionDto {
+        /// Organization.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub organization_id: Uuid,
+        /// Its name.
+        pub organization_name: String,
+        /// Who typed it.
+        pub redeemed_by: Option<String>,
+        /// When.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub redeemed_at: OffsetDateTime,
+        /// For a discount: when a batch used it.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub applied_at: Option<OffsetDateTime>,
+    }
+
+    /// `POST /api/account/redeem`.
+    pub struct RedeemBody {
+        /// The code as typed.
+        pub code: String,
+    }
+
+    /// What a redeemed code gave.
+    pub struct RedeemResultDto {
+        /// Kind.
+        pub kind: PromoCodeKind,
+        /// Credit added, in centavos.
+        pub credit_cents: Option<i32>,
+        /// Free tickets added.
+        pub free_tickets: Option<i32>,
+        /// Discount waiting for the next batch.
+        pub discount_percent: Option<i32>,
+    }
+
+    /// One movement of an organization's credit.
+    pub struct CreditEntryDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// Amount (negative when spent), in centavos.
+        pub amount_cents: i32,
+        /// Why.
+        pub reason: CreditReason,
+        /// Code, note of the admin...
+        pub note: Option<String>,
+        /// When.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub created_at: OffsetDateTime,
+    }
+
+    /// A discount code waiting for the next batch.
+    pub struct PendingDiscountDto {
+        /// The code.
+        pub code: String,
+        /// Discount.
+        pub discount_percent: i32,
+    }
+
+    /// `GET /api/account/credits`.
+    pub struct CreditsDto {
+        /// Balance, in centavos.
+        pub balance_cents: i32,
+        /// Movements, newest first.
+        pub entries: Vec<CreditEntryDto>,
+        /// Discount waiting for the next batch.
+        pub pending_discount: Option<PendingDiscountDto>,
+    }
+
+    /// `POST /api/admin/organizations/{id}/credits`.
+    pub struct CreditAdjustBody {
+        /// Amount (negative to remove), in centavos.
+        pub amount_cents: i32,
+        /// Why (shown to the organizer).
+        pub note: Option<String>,
+    }
+
+    /// `POST /api/events/{id}/batches/quote`: what a batch would cost now, step by step.
+    pub struct BatchQuoteDto {
+        /// Tickets.
+        pub quantity: i32,
+        /// Of which free.
+        pub free_tickets: i32,
+        /// Price of the table (after free tickets, with the minimum), in centavos.
+        pub list_price_cents: i32,
+        /// Promotion applied.
+        pub promotion: Option<ActivePromotionDto>,
+        /// Discount code applied.
+        pub discount_code: Option<PendingDiscountDto>,
+        /// Discount of the promotion or the code, in centavos.
+        pub discount_cents: i32,
+        /// Credit used, in centavos.
+        pub credit_cents: i32,
+        /// What remains to pay, in centavos.
+        pub total_cents: i32,
+        /// Credit before this batch.
+        pub credit_balance_cents: i32,
+    }
+
+    /// One e-mail of the log (ADR 0041).
+    pub struct MailLogDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub id: i64,
+        /// What it was.
+        pub kind: String,
+        /// Recipient (kept 30 days).
+        pub to: Option<String>,
+        /// Subject.
+        pub subject: Option<String>,
+        /// Delivery status.
+        pub status: MailStatus,
+        /// Provider's id.
+        pub provider_id: Option<String>,
+        /// Provider's refusal.
+        pub error: Option<String>,
+        /// When.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub created_at: OffsetDateTime,
+        /// Last status change.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub updated_at: OffsetDateTime,
+    }
+
+    /// `GET /api/admin/emails`.
+    pub struct MailLogPageDto {
+        /// This page.
+        pub items: Vec<MailLogDto>,
+        /// Matching rows.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub total: i64,
+        /// Page (from 1).
+        pub page: i32,
+        /// Rows per page.
+        pub per_page: i32,
+    }
+
+    /// A count by key.
+    pub struct CountDto {
+        /// Status or kind.
+        pub key: String,
+        /// Last 24 hours.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub day: i64,
+        /// Last 7 days.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub week: i64,
+    }
+
+    /// E-mails of one day.
+    pub struct MailDayDto {
+        /// `2026-10-09` (UTC).
+        pub date: String,
+        /// Handed to the provider.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub sent: i64,
+        /// Refused or failed.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub failed: i64,
+    }
+
+    /// `GET /api/admin/emails/summary`.
+    pub struct MailSummaryDto {
+        /// `resend`, `log` (development) or `memory` (tests).
+        pub provider: String,
+        /// Sender.
+        pub from: Option<String>,
+        /// Delivery webhook configured (delivered/bounced statuses).
+        pub webhook: bool,
+        /// Daily quota (none: unlimited).
+        #[cfg_attr(feature = "ts", ts(type = "number | null"))]
+        pub daily_limit: Option<i64>,
+        /// Counted against it in the last 24 hours.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub used_today: i64,
+        /// Of which codes for new addresses.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub signups_today: i64,
+        /// Counts by status.
+        pub by_status: Vec<CountDto>,
+        /// Counts by kind.
+        pub by_kind: Vec<CountDto>,
+        /// The last 14 days.
+        pub days: Vec<MailDayDto>,
+    }
+
+    /// A flagged image (ADR 0042).
+    pub struct ModerationFlagDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// The art.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub art_id: Uuid,
+        /// Organization.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub organization_id: Uuid,
+        /// Its name.
+        pub organization_name: String,
+        /// Event.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub event_id: Uuid,
+        /// Its name.
+        pub event_name: String,
+        /// Uploader.
+        pub uploaded_by: Option<String>,
+        /// `adult`, `violence`, `racy`, `manual`...
+        pub reasons: Vec<String>,
+        /// Classifier likelihoods (0–5).
+        #[cfg_attr(feature = "ts", ts(type = "Record<string, unknown>"))]
+        pub details: serde_json::Value,
+        /// 0–1.
+        pub score: f32,
+        /// Automatic or by an admin.
+        pub source: String,
+        /// Review status.
+        pub status: ModerationStatus,
+        /// Note of the reviewer.
+        pub resolution_note: Option<String>,
+        /// Reviewer.
+        pub resolved_by: Option<String>,
+        /// Review time.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub resolved_at: Option<OffsetDateTime>,
+        /// Flag time.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub created_at: OffsetDateTime,
+        /// Width.
+        pub width_px: i32,
+        /// Height.
+        pub height_px: i32,
+    }
+
+    /// A recent upload, for manual review.
+    pub struct RecentArtDto {
+        /// The art.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub art_id: Uuid,
+        /// Organization.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub organization_id: Uuid,
+        /// Its name.
+        pub organization_name: String,
+        /// Event.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub event_id: Uuid,
+        /// Its name.
+        pub event_name: String,
+        /// Moderation of the image.
+        pub moderation: String,
+        /// Upload time.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub created_at: OffsetDateTime,
+    }
+
+    /// `GET /api/admin/moderation/summary`.
+    pub struct ModerationSummaryDto {
+        /// Flags waiting for a decision.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub open: i64,
+        /// Classifier configured.
+        pub classifier: bool,
+        /// Classifications today.
+        pub used_today: i32,
+        /// Allowed per day.
+        pub daily_limit: i32,
+    }
+
+    /// `POST /api/admin/moderation/{id}/resolve`.
+    pub struct ModerationResolveBody {
+        /// `approve` or `reject`.
+        pub action: ModerationAction,
+        /// Note (shown to the organizer when rejecting).
+        pub note: Option<String>,
+        /// Notify the organization.
+        pub notify: bool,
+        /// Also suspend the organization.
+        pub suspend: bool,
+    }
+
+    /// `POST /api/admin/moderation/arts/{id}/flag`.
+    pub struct ModerationFlagBody {
+        /// Why.
+        pub note: Option<String>,
+    }
+
+    /// One service on the status page (ADR 0043).
+    pub struct StatusComponentDto {
+        /// `api`, `database`, `files`, `email`, `payments`.
+        pub key: String,
+        /// State.
+        pub status: ServiceStatus,
+    }
+
+    /// One update of an incident.
+    pub struct IncidentUpdateDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// Status after it.
+        pub status: IncidentStatus,
+        /// Text.
+        pub body: String,
+        /// When.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub created_at: OffsetDateTime,
+    }
+
+    /// An incident or planned maintenance.
+    pub struct IncidentDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// Incident or maintenance.
+        pub kind: IncidentKind,
+        /// Title.
+        pub title: String,
+        /// Impact.
+        pub impact: IncidentImpact,
+        /// Status.
+        pub status: IncidentStatus,
+        /// Parts of the service affected.
+        pub components: Vec<String>,
+        /// Planned start (maintenance).
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub scheduled_for: Option<OffsetDateTime>,
+        /// Planned end (maintenance).
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub scheduled_until: Option<OffsetDateTime>,
+        /// Start.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub started_at: OffsetDateTime,
+        /// End.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub resolved_at: Option<OffsetDateTime>,
+        /// Timeline, newest first.
+        pub updates: Vec<IncidentUpdateDto>,
+    }
+
+    /// `GET /api/status` (no login).
+    pub struct StatusDto {
+        /// Overall state.
+        pub status: ServiceStatus,
+        /// When the server checked.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub checked_at: OffsetDateTime,
+        /// Services.
+        pub components: Vec<StatusComponentDto>,
+        /// Maintenance mode.
+        pub maintenance: MaintenanceDto,
+        /// Open incidents and planned maintenance.
+        pub active: Vec<IncidentDto>,
+        /// Resolved in the last 90 days.
+        pub recent: Vec<IncidentDto>,
+    }
+
+    /// `POST /api/admin/incidents` and `PUT /api/admin/incidents/{id}`.
+    pub struct IncidentBody {
+        /// Incident or maintenance.
+        pub kind: IncidentKind,
+        /// Title.
+        pub title: String,
+        /// Impact.
+        pub impact: IncidentImpact,
+        /// Parts affected.
+        pub components: Vec<String>,
+        /// Planned start.
+        #[serde(default, with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub scheduled_for: Option<OffsetDateTime>,
+        /// Planned end.
+        #[serde(default, with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub scheduled_until: Option<OffsetDateTime>,
+        /// First update (create only).
+        pub message: Option<String>,
+        /// Status (create only).
+        pub status: Option<IncidentStatus>,
+    }
+
+    /// `POST /api/admin/incidents/{id}/updates`.
+    pub struct IncidentUpdateBody {
+        /// New status.
+        pub status: IncidentStatus,
+        /// Text.
+        pub body: String,
+    }
+
+    /// `GET /api/admin/audit`.
+    pub struct AuditPageDto {
+        /// This page.
+        pub items: Vec<AuditEntryDto>,
+        /// Matching rows.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub total: i64,
+        /// Page (from 1).
+        pub page: i32,
+        /// Rows per page.
+        pub per_page: i32,
+    }
+}
+
+dto_enum! {
+    /// Maintenance mode (ADR 0037).
+    pub enum MaintenanceMode {
+        /// Normal.
+        Off,
+        /// Organizers read but cannot change anything.
+        ReadOnly,
+        /// Only admins get in.
+        Full,
+    }
+
+    /// Tone of an announcement.
+    pub enum AnnouncementLevel {
+        /// Neutral.
+        Info,
+        /// Good news.
+        Success,
+        /// Attention.
+        Warning,
+        /// Urgent.
+        Critical,
+    }
+
+    /// Where an announcement shows.
+    pub enum AnnouncementDisplay {
+        /// The bell only.
+        Notification,
+        /// Also a dialog when the panel opens.
+        Modal,
+    }
+
+    /// Derived status of an announcement.
+    pub enum AnnouncementStatus {
+        /// Not published.
+        Draft,
+        /// Published, starts later.
+        Scheduled,
+        /// Showing.
+        Active,
+        /// Past its end.
+        Ended,
+        /// Taken down.
+        Archived,
+    }
+
+    /// What a notification is about.
+    pub enum NotificationKind {
+        /// An image of the user was refused by an admin.
+        ArtRejected,
+        /// An image under review was approved.
+        ArtApproved,
+        /// Credit added to the organization.
+        CreditsGranted,
+        /// Free tickets added.
+        FreeTicketsGranted,
+        /// A discount waits for the next batch.
+        DiscountGranted,
+        /// Prices will change.
+        PriceChange,
+    }
+
+    /// What a promo code gives.
+    pub enum PromoCodeKind {
+        /// Credit in reais.
+        Credit,
+        /// Free tickets.
+        FreeTickets,
+        /// A discount on the next batch.
+        Discount,
+    }
+
+    /// Why credit moved.
+    pub enum CreditReason {
+        /// A promo code.
+        PromoCode,
+        /// An admin.
+        AdminAdjustment,
+        /// Spent on a batch.
+        BatchPayment,
+        /// Back from a canceled batch.
+        BatchCancel,
+        /// Back from a refunded batch.
+        BatchRefund,
+    }
+
+    /// Delivery status of an e-mail.
+    pub enum MailStatus {
+        /// Being handed to the provider.
+        Sending,
+        /// Accepted by the provider.
+        Sent,
+        /// The provider refused or could not be reached.
+        Failed,
+        /// Not sent: daily quota.
+        Quota,
+        /// Delivered to the mailbox (webhook).
+        Delivered,
+        /// Delivery delayed (webhook).
+        DeliveryDelayed,
+        /// Bounced (webhook).
+        Bounced,
+        /// Marked as spam (webhook).
+        Complained,
+    }
+
+    /// Review of a flagged image.
+    pub enum ModerationStatus {
+        /// Waiting for an admin.
+        Open,
+        /// Allowed.
+        Approved,
+        /// Refused: the image cannot be printed.
+        Rejected,
+    }
+
+    /// Decision on a flagged image.
+    pub enum ModerationAction {
+        /// Allow.
+        Approve,
+        /// Refuse.
+        Reject,
+    }
+
+    /// State of a service.
+    pub enum ServiceStatus {
+        /// Working.
+        Operational,
+        /// Slow or partly failing.
+        Degraded,
+        /// Not working.
+        Down,
+        /// Under maintenance.
+        Maintenance,
+    }
+
+    /// Incident or planned maintenance.
+    pub enum IncidentKind {
+        /// Something broke.
+        Incident,
+        /// Planned work.
+        Maintenance,
+    }
+
+    /// How bad.
+    pub enum IncidentImpact {
+        /// No visible impact.
+        None,
+        /// Some people notice.
+        Minor,
+        /// Many people affected.
+        Major,
+        /// The service is down.
+        Critical,
+    }
+
+    /// Progress of an incident.
+    pub enum IncidentStatus {
+        /// Planned.
+        Scheduled,
+        /// Looking into it.
+        Investigating,
+        /// Cause found.
+        Identified,
+        /// Fixed, watching.
+        Monitoring,
+        /// Over.
+        Resolved,
+    }
+}
+
+db_enum!(MaintenanceMode { Off => "off", ReadOnly => "read_only", Full => "full" });
+db_enum!(AnnouncementLevel { Info => "info", Success => "success", Warning => "warning", Critical => "critical" });
+db_enum!(AnnouncementDisplay { Notification => "notification", Modal => "modal" });
+db_enum!(NotificationKind {
+    ArtRejected => "art_rejected",
+    ArtApproved => "art_approved",
+    CreditsGranted => "credits_granted",
+    FreeTicketsGranted => "free_tickets_granted",
+    DiscountGranted => "discount_granted",
+    PriceChange => "price_change",
+});
+db_enum!(PromoCodeKind { Credit => "credit", FreeTickets => "free_tickets", Discount => "discount" });
+db_enum!(CreditReason {
+    PromoCode => "promo_code",
+    AdminAdjustment => "admin_adjustment",
+    BatchPayment => "batch_payment",
+    BatchCancel => "batch_cancel",
+    BatchRefund => "batch_refund",
+});
+db_enum!(MailStatus {
+    Sending => "sending",
+    Sent => "sent",
+    Failed => "failed",
+    Quota => "quota",
+    Delivered => "delivered",
+    DeliveryDelayed => "delivery_delayed",
+    Bounced => "bounced",
+    Complained => "complained",
+});
+db_enum!(ModerationStatus { Open => "open", Approved => "approved", Rejected => "rejected" });
+db_enum!(IncidentKind { Incident => "incident", Maintenance => "maintenance" });
+db_enum!(IncidentImpact { None => "none", Minor => "minor", Major => "major", Critical => "critical" });
+db_enum!(IncidentStatus {
+    Scheduled => "scheduled",
+    Investigating => "investigating",
+    Identified => "identified",
+    Monitoring => "monitoring",
+    Resolved => "resolved",
+});

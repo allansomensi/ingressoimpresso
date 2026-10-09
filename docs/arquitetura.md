@@ -28,6 +28,9 @@
 | Operação | Novidades publicadas pelo admin; admin em modo suporte em qualquer evento, com auditoria, suspensão, estorno e preço de lote | [0031](adr/0031-novidades.md), [0032](adr/0032-controle-do-admin.md) |
 | Legal e LGPD | Termos, Privacidade e Reembolso no site; aceite gravado no login; exportar e excluir a conta pelo painel; sem sorteio de rifas | [0033](adr/0033-documentos-legais-e-lgpd.md), [0035](adr/0035-rifas-sem-sorteio.md) |
 | Resultados | Vendidos, faturamento estimado, custo e entradas por evento e da conta; financeiro do admin | [0034](adr/0034-resultados-e-financeiro.md) |
+| Plataforma | Manutenção, novas contas e domínios bloqueados pelo painel; pronunciamentos e notificações; status público com incidentes | [0037](adr/0037-configuracoes-da-plataforma.md), [0038](adr/0038-pronunciamentos-e-notificacoes.md), [0043](adr/0043-pagina-de-status.md) |
+| Preços e cupons | Tabela de preços versionada no banco e editada pelo admin; promoções por período; cupons e crédito usados nos lotes | [0039](adr/0039-precos-no-painel-e-promocoes.md), [0040](adr/0040-cupons-e-credito.md) |
+| Confiança | Registro dos e-mails com status da Resend; artes analisadas (Cloud Vision) e revisadas antes de imprimir | [0041](adr/0041-registro-de-emails.md), [0042](adr/0042-moderacao-de-imagens.md) |
 
 O que muda em relação às suas hipóteses:
 
@@ -397,6 +400,15 @@ create table ticket_links (id uuid primary key, event_id uuid not null reference
   revoked_at timestamptz, first_opened_at timestamptz, last_opened_at timestamptz, open_count integer not null);
 -- um link ativo por ingresso: unique (event_id, ticket_number) where revoked_at is null
 
+-- Fase 9 (ADRs 0037–0043); detalhes em 20261016000001_platform_controls.sql.
+-- platform_settings (uma linha): maintenance_mode, mensagem, previsão, registrations_open, blocked_email_domains
+-- announcements + announcement_receipts (visto, fechado); notifications (por usuário, kind + data)
+-- price_tables (versões com effective_at); promotions; promo_codes + promo_redemptions; credit_ledger
+-- ticket_batches: list_price_cents, promotion_id, discount_cents, credit_cents, price_table_id; paid_via 'credit'
+-- mail_sends: to_email, subject (sem o código), status, provider_id, error
+-- blobs.moderation_status + uploaded_by; moderation_flags; moderation_usage (orçamento diário)
+-- status_incidents + status_incident_updates
+
 -- Jobs (geração de arquivos, e-mails)
 create table jobs (id uuid primary key, kind text not null, payload jsonb not null,
   status text not null check (status in ('queued','running','done','failed')),
@@ -482,6 +494,30 @@ POST /api/admin/users/{id}/sessions/revoke
 POST /api/admin/batches/{id}/refund        PUT /api/admin/batches/{id}/price
 GET|POST /api/admin/changelog              PUT|DELETE /api/admin/changelog/{id}
 ```
+
+Fase 9 (ADRs 0037–0043):
+
+```
+GET  /api/platform                         (sem login) manutenção, cadastros, promoção, preços anunciados
+GET  /api/status                           (sem login) serviços e incidentes
+GET  /api/inbox                            POST /api/inbox/read   POST /api/announcements/{id}/dismiss
+POST /api/events/{id}/batches/quote        { quantity } → preço passo a passo (tabela, promoção/cupom, crédito)
+GET  /api/account/credits                  POST /api/account/redeem { code }
+POST /api/resend/webhook                   (Svix) status de entrega
+GET|PUT /api/admin/settings                GET|POST /api/admin/announcements   PUT|DELETE /api/admin/announcements/{id}
+GET|POST /api/admin/prices                 DELETE /api/admin/prices/{id}       (só tabela agendada)
+GET|POST /api/admin/promotions             PUT|DELETE /api/admin/promotions/{id}
+GET|POST /api/admin/promo-codes            PUT /api/admin/promo-codes/{id}     GET .../{id}/redemptions
+GET|POST /api/admin/organizations/{id}/credits
+GET  /api/admin/emails?status=&kind=&q=&page=   GET /api/admin/emails/summary   POST /api/admin/emails/test
+GET  /api/admin/moderation?status=         GET .../summary  GET .../recent  GET .../arts/{id}
+POST /api/admin/moderation/{id}/resolve    POST .../arts/{id}/flag  POST .../arts/{id}/rescan
+GET|POST /api/admin/incidents              PUT|DELETE /api/admin/incidents/{id}  POST .../{id}/updates
+GET  /api/admin/audit?q=&category=&action=&from=&to=&page=   GET /api/admin/audit/export (CSV)
+```
+
+Em manutenção `read_only`, organizadores só fazem GET; em `full`, recebem 503 `maintenance`. Admins,
+portaria, ingresso digital e Stripe nunca param.
 
 Admins abrem qualquer evento com as rotas do organizador (modo suporte); toda alteração feita
 assim vai para `audit_log`. Uma organização suspensa só lê (`account_suspended`), menos para sair
@@ -612,7 +648,8 @@ Estimativas grosseiras, para quem tem 5 a 10 h por semana.
 | 6. Pagamento + interface | Stripe Checkout (Pix e cartão) com webhook, preço por lote; redesign do site e do painel, logo e PWA (ADRs 0020, 0021) | Pagar um lote real e receber os arquivos sem intervenção | |
 | 7. Produto para vender | Preços menores e ingressos grátis (0024); textos no ingresso, 16 modelos e editor visual com arrastar (0025); painel de administração, cortesias e página da conta (0026); duplicar, arquivar e excluir eventos (0027) | Montar um ingresso a partir de um modelo, só no celular, e imprimir | |
 | 8. Abertura | Ingresso digital (0030); login com Google, e-mails em HTML e limites de abuso (0028, 0029); termos, privacidade, reembolso e direitos LGPD (0033); novidades (0031); modo suporte, auditoria, suspensão e estorno (0032); resultados e financeiro (0034) | Mandar um ingresso pelo WhatsApp e entrar com ele na porta, sem internet | |
-| 9. Gráfica e equipe | CMYK/PDF-X, modo de sobreimpressão (arte em offset + número/QR em casa); convite de membros; carteiras da Apple e do Google | | |
+| 9. Plataforma | Manutenção, novas contas e domínios bloqueados (0037); pronunciamentos e notificações (0038); preços no painel e promoções (0039); cupons e crédito (0040); registro de e-mails (0041); moderação de artes (0042); status público (0043); painel redesenhado para o celular | Ligar a manutenção, publicar um aviso e criar um lote com cupom, tudo pelo celular | |
+| 10. Gráfica e equipe | CMYK/PDF-X, modo de sobreimpressão (arte em offset + número/QR em casa); convite de membros; carteiras da Apple e do Google | | |
 
 **Atalho, se o show for antes disso:** a fase 3 pode sair sem painel. O evento seria criado por
 comandos da CLI admin contra o banco, e o servidor teria só a API da portaria. Assim, o caminho

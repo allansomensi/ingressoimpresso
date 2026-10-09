@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into moderation_flags\n                     (id, blob_id, organization_id, event_id, reasons, details, score, source)\n                   values ($1, $2, $3, $4, $5, $6, $7, 'automatic')\n                   on conflict (blob_id) where status = 'open' do nothing",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "TextArray",
+        "Jsonb",
+        "Float4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6d8318afd5658b966356ad652ec2b5295dd1b9496b66640668302f7c277375df"
+}

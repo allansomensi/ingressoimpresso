@@ -40,6 +40,18 @@ priceCents: number,
  */
 freeTickets: number, 
 /**
+ * Price of the table before discounts and credit (ADR 0039); `null` for older batches.
+ */
+listPriceCents: number | null, 
+/**
+ * Discount of a promotion or code, in centavos.
+ */
+discountCents: number, 
+/**
+ * Credit of the organization used, in centavos (ADR 0040).
+ */
+creditCents: number, 
+/**
  * How it was paid.
  */
 paidVia: PaymentMethod | null, 

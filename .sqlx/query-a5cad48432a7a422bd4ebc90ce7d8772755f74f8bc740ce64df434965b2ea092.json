@@ -1,0 +1,35 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select to_char(d.day, 'YYYY-MM-DD') as \"date!\",\n                  count(m.id) filter (where m.status not in ('failed', 'quota', 'bounced', 'complained')) as \"sent!\",\n                  count(m.id) filter (where m.status in ('failed', 'quota', 'bounced', 'complained')) as \"failed!\"\n           from generate_series((now() at time zone 'utc')::date - 13, (now() at time zone 'utc')::date, interval '1 day') d(day)\n           left join mail_sends m on (m.created_at at time zone 'utc')::date = d.day::date\n           group by d.day order by d.day",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "date!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "sent!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "failed!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "a5cad48432a7a422bd4ebc90ce7d8772755f74f8bc740ce64df434965b2ea092"
+}

@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select b.credit_cents, e.organization_id from ticket_batches b\n           join events e on e.id = b.event_id where b.id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "credit_cents",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "ticket_batches",
+            "name": "credit_cents"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "organization_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "organization_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "5147f2bb613a97053175a0b168487f3a97bd1c4510ad24929bf9bf3914844e69"
+}

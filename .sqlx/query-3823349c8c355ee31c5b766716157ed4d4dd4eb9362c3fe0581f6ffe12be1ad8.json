@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select data from blobs where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "data",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "blobs",
+            "name": "data"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "3823349c8c355ee31c5b766716157ed4d4dd4eb9362c3fe0581f6ffe12be1ad8"
+}

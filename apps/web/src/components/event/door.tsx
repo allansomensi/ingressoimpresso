@@ -126,7 +126,7 @@ export function DoorTab({ eventId }: { eventId: string }) {
   return (
     <div className="flex flex-col gap-6">
       <Lead>{t.intro}</Lead>
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-3 gap-2 sm:gap-4">
         <Stat label={t.entriesLabel} value={overview.data.entryCount.toLocaleString("pt-BR")} hint={t.entries(overview.data.entryCount)} icon={LogIn} tone="success" />
         <Stat label={t.devicesOnline} value={overview.data.devices.filter(online).length} icon={Smartphone} />
         <Stat label={t.linksActive} value={activeLinks} icon={Link2} />

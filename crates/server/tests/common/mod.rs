@@ -62,22 +62,22 @@ impl Reply {
 }
 
 impl TestApp {
-    pub fn new(pool: PgPool) -> Self {
-        Self::build(pool, Payments::Disabled, 0)
+    pub async fn new(pool: PgPool) -> Self {
+        Self::build(pool, Payments::Disabled, 0).await
     }
 
     /// An app that gives every organization `free` tickets (ADR 0024).
-    pub fn with_free_tickets(pool: PgPool, free: i32) -> Self {
-        Self::build(pool, Payments::Disabled, free)
+    pub async fn with_free_tickets(pool: PgPool, free: i32) -> Self {
+        Self::build(pool, Payments::Disabled, free).await
     }
 
     /// An app with extra settings (environment variable name, value).
-    pub fn with_settings(pool: PgPool, settings: &[(&str, &str)]) -> Self {
-        Self::build_with(pool, Payments::Disabled, 0, settings)
+    pub async fn with_settings(pool: PgPool, settings: &[(&str, &str)]) -> Self {
+        Self::build_with(pool, Payments::Disabled, 0, settings).await
     }
 
     /// An app whose online payments go to an in-memory Stripe.
-    pub fn with_stripe(pool: PgPool) -> (Self, Arc<Mutex<FakeStripe>>) {
+    pub async fn with_stripe(pool: PgPool) -> (Self, Arc<Mutex<FakeStripe>>) {
         let stripe = Arc::new(Mutex::new(FakeStripe::default()));
         let app = Self::build(
             pool,
@@ -86,21 +86,28 @@ impl TestApp {
                 webhook_secret: WEBHOOK_SECRET.to_owned(),
             },
             0,
-        );
+        )
+        .await;
         (app, stripe)
     }
 
-    fn build(pool: PgPool, payments: Payments, free_tickets: i32) -> Self {
-        Self::build_with(pool, payments, free_tickets, &[])
+    async fn build(pool: PgPool, payments: Payments, free_tickets: i32) -> Self {
+        Self::build_with(pool, payments, free_tickets, &[]).await
     }
 
-    fn build_with(
+    /// The app over `pool`. Free tickets live in the price table (ADR 0039): the seeded table
+    /// is set to `free_tickets`, so tests choose their own allowance.
+    async fn build_with(
         pool: PgPool,
         payments: Payments,
         free_tickets: i32,
         settings: &[(&str, &str)],
     ) -> Self {
-        let free_tickets = free_tickets.to_string();
+        sqlx::query("update price_tables set free_tickets = $1")
+            .bind(free_tickets)
+            .execute(&pool)
+            .await
+            .unwrap();
         let settings: Vec<(String, String)> = settings
             .iter()
             .map(|(name, value)| ((*name).to_owned(), (*value).to_owned()))
@@ -121,7 +128,6 @@ impl TestApp {
                 "PUBLIC_API_URL" => Some("http://api.test".to_owned()),
                 "ALLOWED_ORIGINS" => Some("http://localhost:3000".to_owned()),
                 "EXPORT_DIR" => Some(dir.clone()),
-                "FREE_TICKETS" => Some(free_tickets.clone()),
                 _ => None,
             }
         })
@@ -203,6 +209,33 @@ impl TestApp {
                 ));
         self.router = ingressoimpresso_server::app::router(self.state.clone());
         self
+    }
+
+    /// Classifies uploaded art with a fixed answer (ADR 0042).
+    pub fn with_classifier(
+        mut self,
+        answer: ingressoimpresso_server::moderation::SafeSearch,
+    ) -> Self {
+        self.state = self.state.clone().with_classifier(
+            ingressoimpresso_server::moderation::Classifier::Fixed(answer),
+        );
+        self.router = ingressoimpresso_server::app::router(self.state.clone());
+        self
+    }
+
+    /// Changes the platform settings as the admin (every switch, as the panel sends them).
+    pub async fn settings(&self, admin: &str, body: Value) -> Reply {
+        let mut full = serde_json::json!({
+            "maintenanceMode": "off",
+            "maintenanceMessage": null,
+            "maintenanceEndsAt": null,
+            "registrationsOpen": true,
+            "blockedEmailDomains": [],
+        });
+        for (key, value) in body.as_object().unwrap() {
+            full[key] = value.clone();
+        }
+        self.put("/api/admin/settings", admin, full).await
     }
 
     pub async fn delete(&self, uri: &str, token: &str, body: Option<Value>) -> Reply {

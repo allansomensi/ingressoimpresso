@@ -15,6 +15,8 @@ const pricing: PricingDto = {
     { upTo: 2000, unitCents: 7 },
     { upTo: 5000, unitCents: 5 },
   ],
+  promotion: null,
+  upcoming: null,
 };
 
 describe("quote", () => {

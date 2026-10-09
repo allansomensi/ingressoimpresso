@@ -1,0 +1,32 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into moderation_flags (id, blob_id, organization_id, event_id, reasons, details, score, source)\n           values ($1, $2, $3, $4, array['manual'], jsonb_build_object('note', $5::text), 1, 'manual')\n           on conflict (blob_id) where status = 'open' do update set details = moderation_flags.details\n           returning id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "moderation_flags",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "6c64578619feb73d56149890c3e8805fa551aa04fa0f826787c8ee451d05b197"
+}

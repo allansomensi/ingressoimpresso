@@ -93,14 +93,14 @@ export function Stat({
     danger: "bg-danger-soft text-danger-fg",
   }[tone];
   return (
-    <div className="flex items-start justify-between gap-3 rounded-2xl border border-border bg-surface p-4 shadow-xs sm:p-5">
-      <div className="flex min-w-0 flex-col gap-1">
-        <span className="text-[13px] font-medium text-fg-muted">{label}</span>
-        <span className="text-2xl font-semibold tracking-tight text-fg tabular">{value}</span>
-        {hint !== undefined && <span className="text-xs text-fg-subtle">{hint}</span>}
+    <div className="flex min-w-0 items-start justify-between gap-3 rounded-2xl border border-border bg-surface p-3.5 shadow-xs sm:p-5">
+      <div className="flex min-w-0 flex-col gap-0.5 sm:gap-1">
+        <span className="text-[13px] leading-snug font-medium text-fg-muted">{label}</span>
+        <span className="truncate text-xl font-semibold tracking-tight text-fg tabular sm:text-2xl">{value}</span>
+        {hint !== undefined && <span className="text-xs leading-snug text-fg-subtle">{hint}</span>}
       </div>
       {Icon !== undefined && (
-        <span className={cn("flex size-9 shrink-0 items-center justify-center rounded-xl", toneClass)}>
+        <span className={cn("hidden size-9 shrink-0 items-center justify-center rounded-xl sm:flex", toneClass)}>
           <Icon aria-hidden className="size-[18px]" />
         </span>
       )}

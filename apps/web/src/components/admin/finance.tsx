@@ -22,6 +22,7 @@ const METHOD_TONE: Record<PaymentMethod, string> = {
   stripe: "bg-brand",
   admin: "bg-warning",
   free: "bg-success",
+  credit: "bg-brand-soft-fg",
 };
 
 /** `+12%`, `−5%` or `null` without a previous period. */
@@ -85,7 +86,7 @@ export function AdminFinance() {
         ))}
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <Stat
           label={t.revenue}
           value={money(f.revenueCents)}

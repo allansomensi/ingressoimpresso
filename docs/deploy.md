@@ -241,7 +241,9 @@ organizador pagar sozinho, com Pix ou cartão:
    | `STRIPE_WEBHOOK_SECRET` | o `whsec_...` do passo 4 |
    | `PUBLIC_WEB_URL` | `https://seudominio.com.br` (para onde a Stripe devolve o pagador) |
 
-   Opcional: `FREE_TICKETS` (ingressos grátis por conta, padrão 30; `0` desliga a oferta; ADR 0024).
+   Preços, ingressos grátis por conta, promoções e cupons ficam no painel, em **Admin** →
+   **Preços**, **Promoções** e **Cupons** (ADRs 0039 e 0040). A variável `FREE_TICKETS` não existe
+   mais: se ela estiver no Render, pode apagar.
 
    As duas chaves vão juntas: com uma só, a API não sobe e o log diz qual falta. Em produção, uma
    chave de teste só gera um aviso no log.
@@ -291,6 +293,39 @@ da Resend. Ao chegar nele, o login por código pede para entrar com o Google at�
 mudar de plano na Resend, suba o valor (ou `0` para não limitar). Códigos para e-mails sem conta
 usam no máximo dois terços do limite, para quem já tem conta sempre conseguir entrar. Cada IP pede
 no máximo 10 códigos por hora (o IP vem do `CF-Connecting-IP` que o Render recebe da Cloudflare).
+
+## 5.4 Webhook da Resend (opcional, ADR 0041)
+
+Sem ele, o painel **Admin** → **E-mails** mostra cada e-mail como "Enviado". Com ele, mostra também
+"Entregue", "Devolvido" e "Marcado como spam", o que ajuda quando alguém diz que o código não
+chegou.
+
+1. Na Resend: **Webhooks** → **Add Webhook**.
+2. Endpoint: `https://api.seudominio.com.br/api/resend/webhook`.
+3. Eventos: `email.delivered`, `email.delivery_delayed`, `email.bounced` e `email.complained`.
+4. Copie o **Signing secret** (`whsec_...`).
+5. No Render → serviço → **Environment**: `RESEND_WEBHOOK_SECRET` com esse valor → **Save and
+   deploy**.
+
+Teste: em **Admin** → **E-mails**, clique em **Enviar teste**. Em alguns segundos o e-mail aparece
+como "Entregue".
+
+## 5.5 Análise automática das artes (opcional, ADR 0042)
+
+Sem a chave, nenhuma imagem é sinalizada sozinha. Você revê as artes em **Admin** → **Moderação** →
+**Envios recentes**. Com a chave, o Google Cloud Vision analisa cada arte nova, e as que parecem
+sexuais ou violentas esperam a sua decisão antes de serem impressas.
+
+1. Em `https://console.cloud.google.com`, use o projeto do login com Google (passo 5.2) ou crie um.
+2. **APIs e serviços** → **Biblioteca** → ative a **Cloud Vision API**. O Google pede uma conta de
+   faturamento, mas as primeiras 1.000 imagens de cada mês são grátis.
+3. **Credenciais** → **Criar credenciais** → **Chave de API**. Em **Restringir chave**, permita só a
+   **Cloud Vision API**.
+4. No Render → serviço → **Environment**: `MODERATION_VISION_API_KEY` com a chave → **Save and
+   deploy**.
+
+Opcional: `MODERATION_DAILY_LIMIT` (padrão `30` imagens por dia, dentro da cota grátis). Passado o
+limite, as artes do dia ficam para revisão manual.
 
 ## 6. Vercel (site, painel e portaria)
 
@@ -502,6 +537,9 @@ Depois disso, siga o ensaio geral em [`docs/ensaio.md`](ensaio.md).
 | Painel diz "Sem conexão com o servidor", mas há internet | A origem do site não está em `ALLOWED_ORIGINS`, ou `NEXT_PUBLIC_API_URL` está errada | No navegador, abra o console (F12): um erro de CORS confirma. Corrija `ALLOWED_ORIGINS` no Render (**Save and deploy**) ou a variável na Vercel e rode o **Deploy web** de novo |
 | O código de login não chega | Domínio não verificado no Resend, `MAIL_FROM` com domínio diferente de `mail.seudominio.com.br`, ou limite diário | Nos **Logs** do Render, procure `resend answered`: a mensagem diz o motivo. Confira o spam |
 | Login diz "Os códigos por e-mail acabaram por hoje" | `MAIL_DAILY_LIMIT` atingido em 24 horas | Entre com o Google (passo 5.2). Se for frequente, mude o plano da Resend e suba `MAIL_DAILY_LIMIT` |
+| Organizadores veem "Voltamos em instantes" | O modo manutenção está ligado | **Admin** → **Configurações** → **Modo manutenção** → **Desligado** → **Salvar** |
+| Ninguém consegue criar conta | Cadastros fechados ou domínio bloqueado | **Admin** → **Configurações**: ligue **Aceitar novas contas** e confira os domínios |
+| Uma arte não gera arquivos ("em análise") | A imagem foi sinalizada | **Admin** → **Moderação** → **Liberar** ou **Recusar** |
 | O botão do Google não aparece no login | `GOOGLE_CLIENT_ID` ausente, ou a origem do site não está nas **Origens JavaScript autorizadas** | Passo 5.2. No console do navegador, o Google avisa `origin is not allowed` |
 | "Muitas tentativas" no login | Cinco pedidos de código em 15 minutos (as falhas também contam) | Espere 15 minutos depois de corrigir a causa |
 | Deploy do Render falha logo ao subir | Variável faltando ou inválida, ou `DATABASE_URL` errada | **Logs**: `configuration error: ...` mostra qual variável. `server stopped` com `connecting to the database` aponta a `DATABASE_URL`: copie de novo a string do Neon (sem `-pooler`, com `?sslmode=verify-full`) |
@@ -546,6 +584,8 @@ Depois disso, siga o ensaio geral em [`docs/ensaio.md`](ensaio.md).
 | Segredo do webhook da Stripe | `STRIPE_WEBHOOK_SECRET` | | | |
 | ID do cliente Google (não é segredo) | `GOOGLE_CLIENT_ID` | | | |
 | Limite de e-mails por dia | `MAIL_DAILY_LIMIT` (opcional) | | | |
+| Segredo do webhook da Resend | `RESEND_WEBHOOK_SECRET` (opcional) | | | |
+| Chave do Google Cloud Vision | `MODERATION_VISION_API_KEY` (opcional) | | | |
 | Token e IDs da Vercel | | | `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` | token |
 | Papel de backup | | | `BACKUP_DATABASE_URL` | sim |
 | Chave pública do backup | | | `BACKUP_AGE_RECIPIENT` | |

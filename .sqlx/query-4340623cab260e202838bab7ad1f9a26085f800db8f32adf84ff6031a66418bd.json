@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "delete from notifications where created_at < now() - interval '180 days'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "4340623cab260e202838bab7ad1f9a26085f800db8f32adf84ff6031a66418bd"
+}

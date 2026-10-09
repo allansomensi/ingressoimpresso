@@ -545,6 +545,8 @@ pub async fn image(
     if voided {
         return Err(ApiError::Gone("ticket_voided"));
     }
+    // Art under review or refused is not drawn (ADR 0042); the page still shows the QR.
+    crate::moderation::ensure_event_printable(&state.pool, link.event_id).await?;
     // Rendering is the expensive part: one image per link and design version, kept with the
     // other generated files (cleaned after a day), so repeated requests cost a file read.
     let version = sqlx::query_scalar!(

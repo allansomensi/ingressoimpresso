@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update promo_codes set redemptions_count = redemptions_count + 1\n           where id = $1 and (max_redemptions is null or redemptions_count < max_redemptions)\n           returning id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "promo_codes",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "4c96d706f8de0fb3918d184aaf9bd9a3a602787e1db095c687e74a1b42249296"
+}

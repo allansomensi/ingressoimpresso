@@ -1,0 +1,64 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select b.data, b.moderation_status, b.event_id, e.organization_id\n           from blobs b join events e on e.id = b.event_id where b.id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "data",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "blobs",
+            "name": "data"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "moderation_status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "blobs",
+            "name": "moderation_status"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "event_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "blobs",
+            "name": "event_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "organization_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "organization_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "df8cec7b9d01ffaa548fdb3dc91253e5eb58a1e67eda1a0f7c102b8d9f88c66d"
+}

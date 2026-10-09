@@ -6,7 +6,9 @@
 
 use axum::Json;
 use axum::extract::{Path, Query, State};
-use axum::http::StatusCode;
+use axum::http::header::{CONTENT_DISPOSITION, CONTENT_TYPE};
+use axum::http::{HeaderValue, StatusCode};
+use axum::response::{IntoResponse as _, Response};
 use serde::Deserialize;
 use time::OffsetDateTime;
 use uuid::Uuid;
@@ -16,14 +18,17 @@ use super::batches::{close_open_checkouts, load_batch};
 use super::bounds;
 use crate::api::{
     AdminBatchPriceBody, AdminEventDto, AdminMemberDto, AdminOrganizationDetailDto,
-    AdminRefundBody, AdminRenameBody, AdminSuspensionBody, AuditEntryDto, BatchDto,
+    AdminRefundBody, AdminRenameBody, AdminSuspensionBody, AuditEntryDto, AuditPageDto, BatchDto,
+    CreditReason,
 };
 use crate::auth::AuthUser;
 use crate::error::{ApiError, ApiResult, bad_request};
 use crate::state::AppState;
 
-/// Audit entries returned at once.
-const AUDIT_LIMIT: i64 = 200;
+/// Audit entries per page.
+const AUDIT_PAGE: i64 = 25;
+/// Most rows of an audit export.
+const AUDIT_EXPORT_LIMIT: i64 = 50_000;
 const MAX_REASON: usize = 200;
 
 struct AuditRow {
@@ -56,50 +61,249 @@ impl From<AuditRow> for AuditEntryDto {
     }
 }
 
-async fn load_audit(
-    state: &AppState,
+/// Families of audit actions (the part before the first `_` of the action, except
+/// `promo_code`), for the filter of the admin panel.
+pub const AUDIT_CATEGORIES: [&str; 14] = [
+    "batch",
+    "organization",
+    "user",
+    "support",
+    "changelog",
+    "settings",
+    "announcement",
+    "price",
+    "promotion",
+    "promo_code",
+    "credits",
+    "moderation",
+    "incident",
+    "email",
+];
+
+/// What to read from the audit log.
+#[derive(Debug, Default)]
+pub(crate) struct AuditFilter {
     organization_id: Option<Uuid>,
     pattern: Option<String>,
+    action_pattern: Option<String>,
+    from: Option<OffsetDateTime>,
+    to: Option<OffsetDateTime>,
+}
+
+async fn load_audit(
+    state: &AppState,
+    filter: &AuditFilter,
     limit: i64,
-) -> ApiResult<Vec<AuditEntryDto>> {
-    let rows = sqlx::query_as!(
-        AuditRow,
+    offset: i64,
+) -> ApiResult<(Vec<AuditEntryDto>, i64)> {
+    let rows = sqlx::query!(
         r#"select a.id, a.actor_email, a.action, a.organization_id, o.name as "organization_name?",
-                  a.event_id, e.name as "event_name?", a.target_id, a.detail, a.created_at
+                  a.event_id, e.name as "event_name?", a.target_id, a.detail, a.created_at,
+                  count(*) over () as "total!"
            from audit_log a
            left join organizations o on o.id = a.organization_id
            left join events e on e.id = a.event_id
            where ($1::uuid is null or a.organization_id = $1)
              and ($2::text is null or a.actor_email ilike $2 or a.action ilike $2
                   or o.name ilike $2 or e.name ilike $2)
-           order by a.created_at desc
-           limit $3"#,
-        organization_id,
-        pattern,
+             and ($3::text is null or a.action like $3)
+             and ($4::timestamptz is null or a.created_at >= $4)
+             and ($5::timestamptz is null or a.created_at < $5)
+           order by a.created_at desc, a.id desc
+           limit $6 offset $7"#,
+        filter.organization_id,
+        filter.pattern,
+        filter.action_pattern,
+        filter.from,
+        filter.to,
         limit,
+        offset,
     )
     .fetch_all(&state.pool)
     .await?;
-    Ok(rows.into_iter().map(Into::into).collect())
+    let total = rows.first().map_or(0, |row| row.total);
+    let items = rows
+        .into_iter()
+        .map(|row| {
+            AuditRow {
+                id: row.id,
+                actor_email: row.actor_email,
+                action: row.action,
+                organization_id: row.organization_id,
+                organization_name: row.organization_name,
+                event_id: row.event_id,
+                event_name: row.event_name,
+                target_id: row.target_id,
+                detail: row.detail,
+                created_at: row.created_at,
+            }
+            .into()
+        })
+        .collect();
+    Ok((items, total))
 }
 
-/// Search of the audit log.
+/// Filters of the audit log.
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AuditQuery {
     /// Part of the admin's e-mail, the action, the organization or the event.
     #[serde(default)]
     q: Option<String>,
+    /// One of [`AUDIT_CATEGORIES`].
+    #[serde(default)]
+    category: Option<String>,
+    /// Exact action.
+    #[serde(default)]
+    action: Option<String>,
+    /// From this instant (RFC 3339, inclusive).
+    #[serde(default)]
+    from: Option<String>,
+    /// Until this instant (RFC 3339, exclusive).
+    #[serde(default)]
+    to: Option<String>,
+    /// Page, from 1.
+    #[serde(default)]
+    page: Option<i64>,
+    /// Rows per page (up to 100).
+    #[serde(default)]
+    per_page: Option<i64>,
 }
 
-/// `GET /api/admin/audit?q=`: newest first, at most 200.
+fn instant(value: Option<&str>) -> ApiResult<Option<OffsetDateTime>> {
+    value
+        .filter(|value| !value.is_empty())
+        .map(|value| {
+            OffsetDateTime::parse(value, &time::format_description::well_known::Rfc3339)
+                .map_err(|_| bad_request("invalid_period", "dates must be RFC 3339"))
+        })
+        .transpose()
+}
+
+impl AuditQuery {
+    fn filter(&self) -> ApiResult<AuditFilter> {
+        let action_pattern = match (self.action.as_deref(), self.category.as_deref()) {
+            (Some(action), _) if !action.is_empty() => {
+                if !action.chars().all(|c| c.is_ascii_lowercase() || c == '_') {
+                    return Err(bad_request("invalid_input", "unknown action"));
+                }
+                Some(action.replace('_', "\\_"))
+            }
+            (_, Some(category)) if !category.is_empty() => {
+                if !AUDIT_CATEGORIES.contains(&category) {
+                    return Err(bad_request("invalid_input", "unknown category"));
+                }
+                Some(format!("{}\\_%", category.replace('_', "\\_")))
+            }
+            _ => None,
+        };
+        let from = instant(self.from.as_deref())?;
+        let to = instant(self.to.as_deref())?;
+        if let (Some(from), Some(to)) = (from, to)
+            && to <= from
+        {
+            return Err(bad_request(
+                "invalid_period",
+                "the end must be after the start",
+            ));
+        }
+        Ok(AuditFilter {
+            organization_id: None,
+            pattern: like_pattern(self.q.as_deref()),
+            action_pattern,
+            from,
+            to,
+        })
+    }
+}
+
+/// `GET /api/admin/audit?q=&category=&action=&from=&to=&page=&perPage=`: newest first.
 pub async fn audit_log(
     State(state): State<AppState>,
     user: AuthUser,
     Query(query): Query<AuditQuery>,
-) -> ApiResult<Json<Vec<AuditEntryDto>>> {
+) -> ApiResult<Json<AuditPageDto>> {
     require_admin(&user)?;
-    let pattern = like_pattern(query.q.as_deref());
-    Ok(Json(load_audit(&state, None, pattern, AUDIT_LIMIT).await?))
+    let filter = query.filter()?;
+    let per_page = query.per_page.unwrap_or(AUDIT_PAGE).clamp(1, 100);
+    let page = query.page.unwrap_or(1).clamp(1, 100_000);
+    let (items, total) = load_audit(&state, &filter, per_page, (page - 1) * per_page).await?;
+    Ok(Json(AuditPageDto {
+        items,
+        total,
+        page: i32::try_from(page).unwrap_or(1),
+        per_page: i32::try_from(per_page).unwrap_or(25),
+    }))
+}
+
+fn csv_cell(value: &str) -> String {
+    // Text that starts like a formula stays text in spreadsheets.
+    let value = if value.starts_with(['=', '+', '-', '@', '\t', '\r']) {
+        format!("'{value}")
+    } else {
+        value.to_owned()
+    };
+    if value.contains([',', '"', '\n', '\r', ';']) {
+        format!("\"{}\"", value.replace('"', "\"\""))
+    } else {
+        value
+    }
+}
+
+/// `GET /api/admin/audit/export?...`: the same filters as CSV (at most 50,000 rows).
+pub async fn audit_export(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Query(query): Query<AuditQuery>,
+) -> ApiResult<Response> {
+    require_admin(&user)?;
+    let filter = query.filter()?;
+    let (items, total) = load_audit(&state, &filter, AUDIT_EXPORT_LIMIT, 0).await?;
+    let mut csv = String::from("\u{feff}data,admin,acao,organizacao,evento,alvo,detalhes\r\n");
+    for item in &items {
+        let row = [
+            item.created_at
+                .format(&time::format_description::well_known::Rfc3339)
+                .unwrap_or_default(),
+            item.actor_email.clone(),
+            item.action.clone(),
+            item.organization_name.clone().unwrap_or_default(),
+            item.event_name.clone().unwrap_or_default(),
+            item.target_id.map(|id| id.to_string()).unwrap_or_default(),
+            item.detail.to_string(),
+        ];
+        csv.push_str(
+            &row.iter()
+                .map(|cell| csv_cell(cell))
+                .collect::<Vec<_>>()
+                .join(","),
+        );
+        csv.push_str("\r\n");
+    }
+    audit(
+        &state,
+        &user,
+        "audit_export",
+        None,
+        None,
+        None,
+        serde_json::json!({ "rows": items.len(), "matching": total }),
+    )
+    .await?;
+    Ok((
+        [
+            (
+                CONTENT_TYPE,
+                HeaderValue::from_static("text/csv; charset=utf-8"),
+            ),
+            (
+                CONTENT_DISPOSITION,
+                HeaderValue::from_static("attachment; filename=\"auditoria.csv\""),
+            ),
+        ],
+        csv,
+    )
+        .into_response())
 }
 
 /// `GET /api/admin/organizations/{id}`: everything support needs about one account.
@@ -162,7 +366,17 @@ pub async fn organization(
         suspended_reason: status.suspended_reason,
         members,
         events,
-        audit: load_audit(&state, Some(organization_id), None, 50).await?,
+        audit: load_audit(
+            &state,
+            &AuditFilter {
+                organization_id: Some(organization_id),
+                ..AuditFilter::default()
+            },
+            50,
+            0,
+        )
+        .await?
+        .0,
     }))
 }
 
@@ -377,6 +591,8 @@ pub async fn refund(
     )
     .execute(&mut *tx)
     .await?;
+    // Credit spent on the batch goes back to the organization (ADR 0040).
+    super::billing::give_back(&mut tx, batch_id, CreditReason::BatchRefund, Some(user.id)).await?;
     tx.commit().await?;
     audit(
         &state,

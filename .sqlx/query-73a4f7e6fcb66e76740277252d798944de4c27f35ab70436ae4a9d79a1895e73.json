@@ -1,0 +1,138 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select id, kind, title, impact, status, components, scheduled_for, scheduled_until,\n                  started_at, resolved_at\n           from status_incidents\n           where ($1::bool is null or (resolved_at is null) = $1)\n             and ($2::bigint is null or resolved_at > now() - make_interval(days => $2::int))\n             and ($3::uuid is null or id = $3)\n           order by coalesce(scheduled_for, started_at) desc limit 100",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "status_incidents",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "status_incidents",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "title",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "status_incidents",
+            "name": "title"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "impact",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "status_incidents",
+            "name": "impact"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "status_incidents",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "components",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "status_incidents",
+            "name": "components"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "scheduled_for",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "status_incidents",
+            "name": "scheduled_for"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "scheduled_until",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "status_incidents",
+            "name": "scheduled_until"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "started_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "status_incidents",
+            "name": "started_at"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "resolved_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "status_incidents",
+            "name": "resolved_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bool",
+        "Int8",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      true
+    ]
+  },
+  "hash": "73a4f7e6fcb66e76740277252d798944de4c27f35ab70436ae4a9d79a1895e73"
+}

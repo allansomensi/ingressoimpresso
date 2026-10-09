@@ -40,7 +40,7 @@ export function EventResults({ eventId }: { eventId: string }) {
   return (
     <Card>
       <CardHeader icon={BarChart3} title={t.title} description={t.subtitle} />
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <Stat label={t.sold} value={r.sold.toLocaleString("pt-BR")} hint={t.soldHint(r.paidTickets, percent(r.sold, r.paidTickets))} icon={Ticket} />
         <Stat
           label={t.gross}

@@ -7,17 +7,22 @@ import type { MouseEvent, ReactNode } from "react";
 
 import { Logo } from "@/components/brand";
 import { InstallButton } from "@/components/install-button";
-import { WhatsNew } from "@/components/panel/whats-new";
+import { Inbox } from "@/components/panel/inbox";
+import { AnnouncementHost, MaintenanceBanner, MaintenanceScreen } from "@/components/panel/platform-notices";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { Badge, Button, EmptyState, Popover, Skeleton, errorMessage, useConfirm } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { LEGAL_ENTITY } from "@/content/legal";
 import { initials } from "@/lib/format";
+import { usePlatform } from "@/lib/platform";
 import { useRequiredSession, useSession } from "@/lib/session";
 import { hasUnsavedChanges } from "@/lib/unsaved";
 import { texts } from "@/texts/pt-BR";
 
 const t = texts.panel;
+
+const menuLink =
+  "flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-fg-muted transition hover:bg-surface-2 hover:text-fg max-sm:py-3 max-sm:text-[15px]";
 
 function UserMenu({ email, isAdmin, onSignOut }: { email: string; isAdmin: boolean; onSignOut: () => void }) {
   return (
@@ -38,58 +43,80 @@ function UserMenu({ email, isAdmin, onSignOut }: { email: string; isAdmin: boole
         )}
       </div>
       <div className="my-1 h-px bg-border" />
-      <Link
-        href="/painel/conta"
-        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-fg-muted transition hover:bg-surface-2 hover:text-fg"
-      >
+      <Link href="/painel/conta" className={menuLink}>
         <UserRound className="size-4" aria-hidden />
         {t.accountPage}
       </Link>
-      <Link
-        href="/painel/resultados"
-        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-fg-muted transition hover:bg-surface-2 hover:text-fg sm:hidden"
-      >
-        <BarChart3 className="size-4" aria-hidden />
-        {t.results}
-      </Link>
-      <Link
-        href="/novidades"
-        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-fg-muted transition hover:bg-surface-2 hover:text-fg"
-      >
-        <Megaphone className="size-4" aria-hidden />
-        {t.news}
-      </Link>
-      <a
-        href={`mailto:${LEGAL_ENTITY.email}`}
-        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-fg-muted transition hover:bg-surface-2 hover:text-fg"
-      >
-        <LifeBuoy className="size-4" aria-hidden />
-        {t.support}
-      </a>
       {isAdmin && (
-        <Link
-          href="/painel/admin"
-          className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-fg-muted transition hover:bg-surface-2 hover:text-fg"
-        >
+        <Link href="/painel/admin" className={menuLink}>
           <ShieldCheck className="size-4" aria-hidden />
           {texts.admin.openPanel}
         </Link>
       )}
+      <Link href="/novidades" className={menuLink}>
+        <Megaphone className="size-4" aria-hidden />
+        {t.news}
+      </Link>
+      <a href={`mailto:${LEGAL_ENTITY.email}`} className={menuLink}>
+        <LifeBuoy className="size-4" aria-hidden />
+        {t.support}
+      </a>
       <div className="my-1 h-px bg-border" />
-      <div className="flex flex-col gap-2 px-3 py-2">
-        <span className="text-xs text-fg-muted">{texts.theme.label}</span>
-        <ThemeSwitcher labels className="flex w-full" />
+      <div className="flex items-center justify-between gap-3 px-3 py-1.5">
+        <span className="text-sm font-medium text-fg-muted">{texts.theme.label}</span>
+        <ThemeSwitcher />
       </div>
       <div className="my-1 h-px bg-border" />
-      <button
-        type="button"
-        onClick={onSignOut}
-        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-fg-muted transition hover:bg-surface-2 hover:text-fg"
-      >
+      <button type="button" onClick={onSignOut} className={menuLink}>
         <LogOut className="size-4" aria-hidden />
         {t.signOut}
       </button>
     </Popover>
+  );
+}
+
+/** Bottom tab bar on phones: the main places one thumb away. */
+function TabBar({
+  isAdmin,
+  pathname,
+  guard,
+}: {
+  isAdmin: boolean;
+  pathname: string;
+  guard: (event: MouseEvent<HTMLElement>) => void;
+}) {
+  const items: { href: string; label: string; icon: typeof CalendarDays; active: boolean }[] = [
+    { href: "/painel", label: t.events, icon: CalendarDays, active: pathname === "/painel" || pathname.startsWith("/painel/eventos") },
+    { href: "/painel/resultados", label: t.results, icon: BarChart3, active: pathname.startsWith("/painel/resultados") },
+    ...(isAdmin ? [{ href: "/painel/admin", label: texts.admin.nav, icon: ShieldCheck, active: pathname.startsWith("/painel/admin") }] : []),
+    { href: "/painel/conta", label: t.account, icon: UserRound, active: pathname.startsWith("/painel/conta") },
+  ];
+  return (
+    <nav
+      aria-label={t.mainNav}
+      onClickCapture={guard}
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-bg/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl sm:hidden"
+    >
+      <ul className="mx-auto flex max-w-md">
+        {items.map((item) => (
+          <li key={item.href} className="flex-1">
+            <Link
+              href={item.href}
+              aria-current={item.active ? "page" : undefined}
+              className={cn(
+                "flex h-16 flex-col items-center justify-center gap-1 text-[11px] font-medium transition active:scale-95",
+                item.active ? "text-brand" : "text-fg-subtle",
+              )}
+            >
+              <span className={cn("flex h-7 w-12 items-center justify-center rounded-full transition", item.active && "bg-brand-soft")}>
+                <item.icon className="size-5" aria-hidden strokeWidth={item.active ? 2.25 : 2} />
+              </span>
+              {item.label}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </nav>
   );
 }
 
@@ -113,6 +140,10 @@ export function PanelShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const confirm = useConfirm();
+  const platform = usePlatform();
+  const maintenance = platform.data?.maintenance;
+  // Full maintenance keeps organizers out (admins keep working, ADR 0037).
+  const locked = maintenance?.mode === "full" && session.status === "signed-in" && !session.user.isAdmin;
 
   // Links of the bar leave the page in-app (no beforeunload): ask first if the editor has changes.
   const guardLinks = (event: MouseEvent<HTMLElement>) => {
@@ -188,7 +219,7 @@ export function PanelShell({ children }: { children: ReactNode }) {
           </div>
           <div className="flex items-center gap-1.5">
             <InstallButton />
-            {session.status === "signed-in" && <WhatsNew />}
+            {session.status === "signed-in" && <Inbox />}
             {session.status === "signed-in" ? (
               <UserMenu email={session.user.email} isAdmin={session.user.isAdmin} onSignOut={() => void signOut()} />
             ) : (
@@ -197,6 +228,9 @@ export function PanelShell({ children }: { children: ReactNode }) {
           </div>
         </div>
       </header>
+      {session.status === "signed-in" && maintenance !== undefined && (
+        <MaintenanceBanner maintenance={maintenance} isAdmin={session.user.isAdmin} />
+      )}
       {session.status === "signed-in" && session.user.suspended && (
         <div role="status" className="border-b border-danger/25 bg-danger-soft text-danger-fg">
           <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-sm sm:px-6">
@@ -208,9 +242,19 @@ export function PanelShell({ children }: { children: ReactNode }) {
           </div>
         </div>
       )}
-      <div id="conteudo" className="mx-auto w-full max-w-6xl flex-1 px-4 pt-8 pb-[max(6rem,env(safe-area-inset-bottom))] sm:px-6">
+      <div
+        id="conteudo"
+        className="mx-auto w-full max-w-6xl flex-1 px-4 pt-6 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:px-6 sm:pt-8 sm:pb-24"
+      >
         {session.status === "signed-in" ? (
-          children
+          locked && maintenance !== undefined ? (
+            <MaintenanceScreen maintenance={maintenance} onSignOut={() => void signOut()} />
+          ) : (
+            <>
+              {children}
+              <AnnouncementHost />
+            </>
+          )
         ) : session.status === "error" ? (
           <EmptyState
             icon={WifiOff}
@@ -226,6 +270,7 @@ export function PanelShell({ children }: { children: ReactNode }) {
           <PanelSkeleton />
         )}
       </div>
+      {session.status === "signed-in" && !locked && <TabBar isAdmin={session.user.isAdmin} pathname={pathname} guard={guardLinks} />}
     </div>
   );
 }
