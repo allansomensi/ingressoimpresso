@@ -10,8 +10,8 @@ export const LEGAL_ENTITY = {
   document: "CPF 055.156.570-55",
   kind: "pessoa física",
   email: "contato@ingressoimpresso.com.br",
-  /** Physical address required by Decreto 7.962/2013; filled in by the maintainer. */
-  address: null as string | null,
+  /** Physical address required by Decreto 7.962/2013. */
+  address: "Rua Amedeu Arioli, 269, bairro Licorsul, Bento Gonçalves/RS, Brasil" as string | null,
   site: "https://ingressoimpresso.com.br",
 } as const;
 

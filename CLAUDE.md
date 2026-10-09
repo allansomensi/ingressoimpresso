@@ -43,8 +43,7 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   exportar e excluir a conta (ADR 0033); novidades (ADR 0031); modo suporte do admin com
   auditoria, suspensão, estorno e preço de lote (ADR 0032); resultados do organizador e
   financeiro do admin (ADR 0034); rifas sem sorteio (ADR 0035); tema do site no rodapé (ADR 0036).
-  Falta o que depende do mantenedor: endereço em `LEGAL_ENTITY.address`, `GOOGLE_CLIENT_ID` no
-  Render (`docs/deploy.md` §5.2) e revisão jurídica dos textos.
+  Falta o que depende do mantenedor: revisão jurídica dos textos.
 - **Fase 9 (plataforma): implementada.**
   - Configurações pelo painel: manutenção `off`/`read_only`/`full`, novas contas e domínios de
     e-mail bloqueados (ADR 0037).
