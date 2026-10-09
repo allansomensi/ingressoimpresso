@@ -1,11 +1,14 @@
 //! Outgoing e-mail (ADR 0012): Resend in production, log or memory otherwise.
 
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use serde::Serialize;
 use thiserror::Error;
 
 const RESEND_URL: &str = "https://api.resend.com/emails";
+/// Longest part of a provider error kept in the log.
+const MAX_ERROR_CHARS: usize = 500;
 
 /// Sending failed.
 #[derive(Debug, Error)]
@@ -30,6 +33,8 @@ pub enum Mailer {
     Resend {
         /// HTTP client.
         client: reqwest::Client,
+        /// Emails endpoint (Resend's, or a local server in tests).
+        endpoint: String,
         /// API key.
         api_key: String,
         /// Sender.
@@ -50,6 +55,34 @@ struct ResendEmail<'a> {
 }
 
 impl Mailer {
+    /// The Resend mailer. A rustls crypto provider must be installed first.
+    ///
+    /// # Errors
+    ///
+    /// [`MailError`] if the HTTP client cannot be built.
+    pub fn resend(api_key: String, from: String) -> Result<Self, MailError> {
+        Self::resend_at(RESEND_URL.to_owned(), api_key, from)
+    }
+
+    fn resend_at(endpoint: String, api_key: String, from: String) -> Result<Self, MailError> {
+        let client = reqwest::Client::builder()
+            .timeout(Duration::from_secs(10))
+            // Resend rejects requests without a User-Agent (403, error 1010).
+            .user_agent(concat!(
+                env!("CARGO_PKG_NAME"),
+                "/",
+                env!("CARGO_PKG_VERSION")
+            ))
+            .build()
+            .map_err(|error| MailError(error.to_string()))?;
+        Ok(Self::Resend {
+            client,
+            endpoint,
+            api_key,
+            from,
+        })
+    }
+
     /// Sends a plain-text message.
     ///
     /// # Errors
@@ -59,11 +92,12 @@ impl Mailer {
         match self {
             Self::Resend {
                 client,
+                endpoint,
                 api_key,
                 from,
             } => {
                 let response = client
-                    .post(RESEND_URL)
+                    .post(endpoint)
                     .bearer_auth(api_key)
                     .json(&ResendEmail {
                         from,
@@ -74,11 +108,15 @@ impl Mailer {
                     .send()
                     .await
                     .map_err(|error| MailError(error.to_string()))?;
-                if response.status().is_success() {
-                    Ok(())
-                } else {
-                    Err(MailError(format!("resend answered {}", response.status())))
+                let status = response.status();
+                if status.is_success() {
+                    return Ok(());
                 }
+                // Resend explains the refusal in the body (unverified domain, wrong sender,
+                // daily quota); it never echoes the API key.
+                let detail = response.text().await.unwrap_or_default();
+                let detail: String = detail.chars().take(MAX_ERROR_CHARS).collect();
+                Err(MailError(format!("resend answered {status}: {detail}")))
             }
             Self::Log => {
                 tracing::warn!(%to, %subject, %body, "development mailer: e-mail not sent");
@@ -95,5 +133,66 @@ impl Mailer {
                 Ok(())
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io::{BufRead as _, BufReader, Read as _, Write as _};
+    use std::net::TcpListener;
+
+    use super::*;
+
+    /// One HTTP exchange with a fake Resend: returns the request head, answers `response`.
+    fn fake_resend(response: String) -> (String, std::thread::JoinHandle<String>) {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let endpoint = format!("http://{}/emails", listener.local_addr().unwrap());
+        let handle = std::thread::spawn(move || {
+            let (stream, _) = listener.accept().unwrap();
+            let mut reader = BufReader::new(stream.try_clone().unwrap());
+            let mut head = String::new();
+            let mut length = 0;
+            loop {
+                let mut line = String::new();
+                reader.read_line(&mut line).unwrap();
+                if let Some(value) = line.to_ascii_lowercase().strip_prefix("content-length:") {
+                    length = value.trim().parse().unwrap();
+                }
+                if line == "\r\n" {
+                    break;
+                }
+                head.push_str(&line);
+            }
+            let mut body = vec![0; length];
+            reader.read_exact(&mut body).unwrap();
+            let mut stream = stream;
+            stream.write_all(response.as_bytes()).unwrap();
+            head
+        });
+        (endpoint, handle)
+    }
+
+    #[tokio::test]
+    async fn resend_requests_carry_a_user_agent_and_errors_keep_the_reason() {
+        let _ = rustls::crypto::ring::default_provider().install_default();
+        let body = r#"{"name":"validation_error","message":"The domain is not verified"}"#;
+        let (endpoint, server) = fake_resend(format!(
+            "HTTP/1.1 403 Forbidden\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}",
+            body.len()
+        ));
+        let mailer =
+            Mailer::resend_at(endpoint, "re_test".to_owned(), "A <a@b.c>".to_owned()).unwrap();
+        let error = mailer.send("x@y.z", "Assunto", "Corpo").await.unwrap_err();
+        let head = server.join().unwrap().to_ascii_lowercase();
+        assert!(
+            head.contains("user-agent: ingressoimpresso-server/"),
+            "{head}"
+        );
+        assert!(head.contains("authorization: bearer re_test"), "{head}");
+        let message = error.to_string();
+        assert!(
+            message.contains("403") && message.contains("validation_error"),
+            "{message}"
+        );
     }
 }

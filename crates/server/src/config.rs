@@ -100,19 +100,34 @@ impl Config {
         if production && resend_api_key.is_none() {
             return Err(ConfigError::Missing("RESEND_API_KEY"));
         }
-        let allowed_origins = list("ALLOWED_ORIGINS");
-        if let Some(bad) = allowed_origins.iter().find(|origin| {
-            !(origin.starts_with("https://") || origin.starts_with("http://localhost"))
-        }) {
-            return Err(ConfigError::Invalid {
-                name: "ALLOWED_ORIGINS",
-                reason: format!("{bad} must be https:// (or http://localhost for development)"),
-            });
-        }
+        let allowed_origins = list("ALLOWED_ORIGINS")
+            .iter()
+            .map(|origin| normalize_origin(origin, production))
+            .collect::<Result<Vec<_>, _>>()?;
         let public_api_url = get("PUBLIC_API_URL")
             .unwrap_or_else(|| format!("http://localhost:{port}"))
             .trim_end_matches('/')
             .to_owned();
+        let admin_emails: Vec<String> = list("ADMIN_EMAILS")
+            .into_iter()
+            .map(|email| email.to_lowercase())
+            .collect();
+        if production {
+            // Without these the server starts but the site cannot work: fail with the reason in
+            // the deploy log instead.
+            if allowed_origins.is_empty() {
+                return Err(ConfigError::Missing("ALLOWED_ORIGINS"));
+            }
+            if !public_api_url.starts_with("https://") {
+                return Err(ConfigError::Invalid {
+                    name: "PUBLIC_API_URL",
+                    reason: "must be the https:// address of this API".to_owned(),
+                });
+            }
+            if admin_emails.is_empty() {
+                return Err(ConfigError::Missing("ADMIN_EMAILS"));
+            }
+        }
         Ok(Self {
             database_url: require("DATABASE_URL")?,
             port,
@@ -121,10 +136,7 @@ impl Config {
             resend_api_key,
             mail_from: get("MAIL_FROM")
                 .unwrap_or_else(|| "Ingresso Impresso <onboarding@resend.dev>".to_owned()),
-            admin_emails: list("ADMIN_EMAILS")
-                .into_iter()
-                .map(|email| email.to_lowercase())
-                .collect(),
+            admin_emails,
             public_api_url,
             export_dir: get("EXPORT_DIR").map_or_else(
                 || std::env::temp_dir().join("ingressoimpresso-exports"),
@@ -134,12 +146,41 @@ impl Config {
         })
     }
 
+    /// Whether `MAIL_FROM` still uses Resend's test sender, which only reaches the Resend
+    /// account owner.
+    pub fn uses_test_sender(&self) -> bool {
+        self.mail_from.contains("@resend.dev")
+    }
+
     /// Whether `email` may perform admin actions.
     pub fn is_admin(&self, email: &str) -> bool {
         self.admin_emails
             .iter()
             .any(|admin| admin.eq_ignore_ascii_case(email))
     }
+}
+
+/// An origin exactly as browsers send it: `https://host[:port]`, lowercase, no path or
+/// trailing slash. `http://localhost` is accepted outside production only.
+fn normalize_origin(origin: &str, production: bool) -> Result<String, ConfigError> {
+    let invalid = |reason: &str| ConfigError::Invalid {
+        name: "ALLOWED_ORIGINS",
+        reason: format!("{origin}: {reason}"),
+    };
+    let origin = origin.trim_end_matches('/').to_ascii_lowercase();
+    let host = if let Some(host) = origin.strip_prefix("https://") {
+        host
+    } else if !production && origin.starts_with("http://localhost") {
+        origin.trim_start_matches("http://")
+    } else {
+        return Err(invalid("must start with https://"));
+    };
+    if host.is_empty() || host.contains(['/', '?', '#', '*', ' ']) {
+        return Err(invalid(
+            "must be only scheme and host, like https://seudominio.com.br",
+        ));
+    }
+    Ok(origin)
 }
 
 #[cfg(test)]
@@ -192,6 +233,62 @@ mod tests {
                 ..
             })
         ));
+    }
+
+    #[test]
+    fn origins_are_normalized_like_browsers_send_them() {
+        assert_eq!(
+            normalize_origin("https://Exemplo.com.br/", true).unwrap(),
+            "https://exemplo.com.br"
+        );
+        assert_eq!(
+            normalize_origin("http://localhost:3000", false).unwrap(),
+            "http://localhost:3000"
+        );
+        for bad in [
+            "https://exemplo.com.br/painel",
+            "exemplo.com.br",
+            "https://*.exemplo.com.br",
+        ] {
+            assert!(normalize_origin(bad, true).is_err(), "{bad}");
+        }
+        assert!(normalize_origin("http://localhost:3000", true).is_err());
+    }
+
+    #[test]
+    fn production_requires_what_the_site_needs() {
+        let full = [
+            ("DATABASE_URL", "postgres://localhost/db"),
+            ("TICKET_KEY_ENCRYPTION_KEY", KEY),
+            ("APP_ENV", "production"),
+            ("RESEND_API_KEY", "re_x"),
+            (
+                "ALLOWED_ORIGINS",
+                "https://seudominio.com.br/, https://www.seudominio.com.br",
+            ),
+            ("PUBLIC_API_URL", "https://api.seudominio.com.br/"),
+            ("ADMIN_EMAILS", "eu@exemplo.com"),
+        ];
+        let config = Config::from_lookup(lookup(&full)).unwrap();
+        assert_eq!(
+            config.allowed_origins,
+            ["https://seudominio.com.br", "https://www.seudominio.com.br"]
+        );
+        assert_eq!(config.public_api_url, "https://api.seudominio.com.br");
+        assert!(config.uses_test_sender());
+        for (missing, name) in [
+            ("ALLOWED_ORIGINS", "ALLOWED_ORIGINS"),
+            ("PUBLIC_API_URL", "PUBLIC_API_URL"),
+            ("ADMIN_EMAILS", "ADMIN_EMAILS"),
+        ] {
+            let partial: Vec<_> = full
+                .iter()
+                .copied()
+                .filter(|(key, _)| *key != missing)
+                .collect();
+            let error = Config::from_lookup(lookup(&partial)).unwrap_err();
+            assert!(error.to_string().contains(name), "{error}");
+        }
     }
 
     #[test]

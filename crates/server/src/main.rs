@@ -58,15 +58,14 @@ async fn run(config: Config) -> Result<()> {
 
     // reqwest is built without a crypto provider; use ring, like sqlx.
     let _ = rustls::crypto::ring::default_provider().install_default();
+    if config.production && config.uses_test_sender() {
+        tracing::warn!(
+            "MAIL_FROM uses onboarding@resend.dev: login e-mails only reach the Resend account owner"
+        );
+    }
     let mailer = match &config.resend_api_key {
-        Some(api_key) => Mailer::Resend {
-            client: reqwest::Client::builder()
-                .timeout(Duration::from_secs(10))
-                .build()
-                .context("building HTTP client")?,
-            api_key: api_key.clone(),
-            from: config.mail_from.clone(),
-        },
+        Some(api_key) => Mailer::resend(api_key.clone(), config.mail_from.clone())
+            .context("building the e-mail client")?,
         None => Mailer::Log,
     };
     let port = config.port;
