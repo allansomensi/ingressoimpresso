@@ -27,6 +27,7 @@ serde_json.workspace = true
 sha2.workspace = true
 ticket-core = { workspace = true, features = ["fast", "signing", "serde"] }
 ticket-render.workspace = true
+time.workspace = true
 uuid.workspace = true
 ts-rs = { workspace = true, optional = true }
 

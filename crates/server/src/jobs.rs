@@ -17,6 +17,7 @@ use uuid::Uuid;
 use crate::api::{ExportKind, ExportScope};
 use crate::error::{ApiError, ApiResult};
 use crate::keys;
+use crate::routes::EventRow;
 use crate::routes::events::load_art;
 use crate::routes::exports::ExportRow;
 use crate::state::AppState;
@@ -198,8 +199,11 @@ struct TicketRow {
 async fn generate(state: &AppState, export: &ExportRow) -> Result<(i32, String, i64), JobError> {
     let kind = export.kind()?;
     let scope = export.scope()?;
-    let event = sqlx::query!(
-        "select name, qr_tag from events where id = $1",
+    let event = sqlx::query_as!(
+        EventRow,
+        r#"select id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag,
+                  utc_offset_minutes
+           from events where id = $1"#,
         export.event_id
     )
     .fetch_one(&state.pool)
@@ -259,6 +263,7 @@ async fn generate(state: &AppState, export: &ExportRow) -> Result<(i32, String, 
     let ticket_count =
         i32::try_from(rendered.len()).map_err(|error| JobError::Retry(error.into()))?;
     let job = RenderJob {
+        details: event.details(),
         design,
         art,
         event_name: event.name.clone(),

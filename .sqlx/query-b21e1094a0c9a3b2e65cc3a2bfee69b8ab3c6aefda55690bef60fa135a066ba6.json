@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "insert into events (id, organization_id, name, venue, starts_at, ends_at, qr_tag, ticket_price_cents)\n               values ($1, $2, $3, $4, $5, $6, $7, $8)\n               on conflict (qr_tag) do nothing\n               returning id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag",
+  "query": "update events set name = $2, venue = $3, starts_at = $4, ends_at = $5, ticket_price_cents = $6,\n                             utc_offset_minutes = $7\n           where id = $1\n           returning id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag,\n                     utc_offset_minutes",
   "describe": {
     "columns": [
       {
@@ -90,18 +90,28 @@
             "name": "qr_tag"
           }
         }
+      },
+      {
+        "ordinal": 8,
+        "name": "utc_offset_minutes",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "utc_offset_minutes"
+          }
+        }
       }
     ],
     "parameters": {
       "Left": [
         "Uuid",
-        "Uuid",
         "Text",
         "Text",
         "Timestamptz",
         "Timestamptz",
-        "Int8",
-        "Int4"
+        "Int4",
+        "Int2"
       ]
     },
     "nullable": [
@@ -112,8 +122,9 @@
       false,
       true,
       false,
+      false,
       false
     ]
   },
-  "hash": "e86f224f2a47bdadda4a9f5202614bd1cf902fe37c76821f4a08f9ce07898c9b"
+  "hash": "b21e1094a0c9a3b2e65cc3a2bfee69b8ab3c6aefda55690bef60fa135a066ba6"
 }

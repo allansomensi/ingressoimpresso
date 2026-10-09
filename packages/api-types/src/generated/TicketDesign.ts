@@ -2,6 +2,7 @@
 import type { NumberStyle } from "./NumberStyle";
 import type { QrPlacement } from "./QrPlacement";
 import type { StubStyle } from "./StubStyle";
+import type { TextBlock } from "./TextBlock";
 
 /**
  * A ticket design.
@@ -34,4 +35,9 @@ qr: QrPlacement,
 /**
  * Optional numbered stub (canhoto), attached by a perforation.
  */
-stub: StubStyle | null, };
+stub: StubStyle | null, 
+/**
+ * Texts printed on the body, under the number and the QR. Designs saved before text
+ * blocks existed have none.
+ */
+texts: Array<TextBlock>, };

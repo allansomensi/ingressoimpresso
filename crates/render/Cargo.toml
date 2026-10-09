@@ -20,6 +20,7 @@ serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
 thiserror.workspace = true
+time.workspace = true
 ts-rs = { workspace = true, optional = true }
 ticket-core.workspace = true
 typst.workspace = true

@@ -59,6 +59,7 @@ export type * from "./generated/SessionResponse";
 export type * from "./generated/StubSide";
 export type * from "./generated/StubStyle";
 export type * from "./generated/TextAlign";
+export type * from "./generated/TextBlock";
 export type * from "./generated/TicketDesign";
 export type * from "./generated/VerifyCodeBody";
 export type * from "./generated/VoidDto";

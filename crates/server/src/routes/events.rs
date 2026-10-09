@@ -5,7 +5,7 @@ use std::io::Cursor;
 use axum::Json;
 use axum::body::Bytes;
 use axum::extract::{Path, State};
-use axum::http::header::{CONTENT_TYPE, HeaderMap};
+use axum::http::header::{CACHE_CONTROL, CONTENT_TYPE, HeaderMap};
 use axum::http::{HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use sha2::{Digest, Sha256};
@@ -27,15 +27,19 @@ const MAX_ART_PIXELS: u64 = 40_000_000;
 /// Art an organization may keep (every event, every saved version): ten large files.
 const MAX_ART_BYTES_PER_ORGANIZATION: i64 = 200 * 1024 * 1024;
 const PREVIEW_DPI: u32 = 110;
+/// Width of the art shown in the editor's live preview.
+const ART_PREVIEW_WIDTH_PX: u32 = 1600;
 
 impl EventRow {
     fn into_dto(self) -> ApiResult<EventDto> {
+        let offset = self.offset();
         Ok(EventDto {
             id: self.id,
             name: self.name,
             venue: self.venue,
-            starts_at: self.starts_at,
-            ends_at: self.ends_at,
+            // Local times with the event's offset, as the painel sent them.
+            starts_at: self.starts_at.to_offset(offset),
+            ends_at: self.ends_at.to_offset(offset),
             ticket_price_cents: self.ticket_price_cents,
             status: EventStatus::from_db(&self.status).ok_or_else(|| {
                 ApiError::Internal(anyhow::anyhow!("unknown event status {}", self.status))
@@ -44,7 +48,8 @@ impl EventRow {
     }
 }
 
-fn validate_event(body: &EventBody) -> ApiResult<(String, Option<String>)> {
+/// Name, venue and UTC offset (minutes) of a valid event body.
+fn validate_event(body: &EventBody) -> ApiResult<(String, Option<String>, i16)> {
     let name = body.name.trim().to_owned();
     if name.is_empty() || name.chars().count() > 100 {
         return Err(bad_request(
@@ -68,14 +73,22 @@ fn validate_event(body: &EventBody) -> ApiResult<(String, Option<String>)> {
     if body.ticket_price_cents.is_some_and(|price| price < 0) {
         return Err(bad_request("invalid_price", "price must not be negative"));
     }
-    Ok((name, venue))
+    let offset = body.starts_at.offset().whole_minutes();
+    if !(-720..=840).contains(&offset) {
+        return Err(bad_request(
+            "invalid_dates",
+            "offset must be -12:00 to +14:00",
+        ));
+    }
+    Ok((name, venue, offset))
 }
 
 /// `GET /api/events`.
 pub async fn list(State(state): State<AppState>, user: AuthUser) -> ApiResult<Json<Vec<EventDto>>> {
     let rows = sqlx::query_as!(
         EventRow,
-        r#"select e.id, e.name, e.venue, e.starts_at, e.ends_at, e.ticket_price_cents, e.status, e.qr_tag
+        r#"select e.id, e.name, e.venue, e.starts_at, e.ends_at, e.ticket_price_cents, e.status, e.qr_tag,
+                  e.utc_offset_minutes
            from events e join memberships m on m.organization_id = e.organization_id
            where m.user_id = $1 order by e.starts_at desc"#,
         user.id,
@@ -94,7 +107,7 @@ pub async fn create(
     user: AuthUser,
     Json(body): Json<EventBody>,
 ) -> ApiResult<(StatusCode, Json<EventDto>)> {
-    let (name, venue) = validate_event(&body)?;
+    let (name, venue, offset) = validate_event(&body)?;
     let mut tx = state.pool.begin().await?;
     let organization_id = sqlx::query_scalar!(
         "select organization_id from memberships where user_id = $1 and role = 'owner' order by created_at limit 1",
@@ -111,10 +124,12 @@ pub async fn create(
         let tag = i64::from(getrandom::u32().map_err(|error| anyhow::anyhow!("OS RNG: {error}"))?);
         created = sqlx::query_as!(
             EventRow,
-            r#"insert into events (id, organization_id, name, venue, starts_at, ends_at, qr_tag, ticket_price_cents)
-               values ($1, $2, $3, $4, $5, $6, $7, $8)
+            r#"insert into events (id, organization_id, name, venue, starts_at, ends_at, qr_tag,
+                                   ticket_price_cents, utc_offset_minutes)
+               values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
                on conflict (qr_tag) do nothing
-               returning id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag"#,
+               returning id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag,
+                         utc_offset_minutes"#,
             event_id,
             organization_id,
             name,
@@ -123,6 +138,7 @@ pub async fn create(
             body.ends_at,
             tag,
             body.ticket_price_cents,
+            offset,
         )
         .fetch_optional(&mut *tx)
         .await?;
@@ -170,19 +186,22 @@ pub async fn update(
     Json(body): Json<EventBody>,
 ) -> ApiResult<Json<EventDto>> {
     authorize_event(&state.pool, &user, event_id).await?;
-    let (name, venue) = validate_event(&body)?;
+    let (name, venue, offset) = validate_event(&body)?;
     let mut tx = state.pool.begin().await?;
     let row = sqlx::query_as!(
         EventRow,
-        r#"update events set name = $2, venue = $3, starts_at = $4, ends_at = $5, ticket_price_cents = $6
+        r#"update events set name = $2, venue = $3, starts_at = $4, ends_at = $5, ticket_price_cents = $6,
+                             utc_offset_minutes = $7
            where id = $1
-           returning id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag"#,
+           returning id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag,
+                     utc_offset_minutes"#,
         event_id,
         name,
         venue,
         body.starts_at,
         body.ends_at,
         body.ticket_price_cents,
+        offset,
     )
     .fetch_one(&mut *tx)
     .await?;
@@ -440,6 +459,7 @@ pub async fn preview(
         None => None,
     };
     let job = RenderJob {
+        details: event.details(),
         design: body.design,
         art,
         event_name: event.name,
@@ -471,4 +491,62 @@ pub async fn preview(
         .next()
         .ok_or_else(|| anyhow::anyhow!("no preview sheet"))?;
     Ok(([(CONTENT_TYPE, HeaderValue::from_static("image/png"))], png).into_response())
+}
+
+/// `GET /api/events/{id}/art/{art_id}`: the art as a JPEG at most 1600 px wide, for the editor's
+/// live preview. Art never changes once uploaded, so the browser may keep it.
+pub async fn art_preview(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path((event_id, art_id)): Path<(Uuid, Uuid)>,
+) -> ApiResult<Response> {
+    authorize_event(&state.pool, &user, event_id).await?;
+    let blob = sqlx::query!(
+        "select content_type, width_px, data from blobs where id = $1 and event_id = $2",
+        art_id,
+        event_id
+    )
+    .fetch_optional(&state.pool)
+    .await?
+    .ok_or(ApiError::NotFound)?;
+    let small_jpeg = blob.content_type == "image/jpeg"
+        && u32::try_from(blob.width_px).is_ok_and(|width| width <= ART_PREVIEW_WIDTH_PX);
+    let jpeg = if small_jpeg {
+        blob.data
+    } else {
+        let _permit = state
+            .render_permits
+            .clone()
+            .acquire_owned()
+            .await
+            .map_err(anyhow::Error::from)?;
+        tokio::task::spawn_blocking(move || shrink_to_jpeg(&blob.data, ART_PREVIEW_WIDTH_PX))
+            .await
+            .map_err(anyhow::Error::from)?
+            .map_err(anyhow::Error::from)?
+    };
+    Ok((
+        [
+            (CONTENT_TYPE, HeaderValue::from_static("image/jpeg")),
+            (
+                CACHE_CONTROL,
+                HeaderValue::from_static("private, max-age=31536000, immutable"),
+            ),
+        ],
+        jpeg,
+    )
+        .into_response())
+}
+
+/// Decodes an image and encodes it as JPEG, scaled down to `max_width` if wider.
+fn shrink_to_jpeg(bytes: &[u8], max_width: u32) -> Result<Vec<u8>, image::ImageError> {
+    let image = image::load_from_memory(bytes)?;
+    let image = if image.width() > max_width {
+        image.resize(max_width, u32::MAX, image::imageops::FilterType::Triangle)
+    } else {
+        image
+    };
+    let mut out = Cursor::new(Vec::new());
+    image::DynamicImage::ImageRgb8(image.to_rgb8()).write_to(&mut out, image::ImageFormat::Jpeg)?;
+    Ok(out.into_inner())
 }

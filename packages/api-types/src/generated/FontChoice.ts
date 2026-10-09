@@ -3,4 +3,4 @@
 /**
  * Embedded typefaces.
  */
-export type FontChoice = "display" | "mono" | "sans";
+export type FontChoice = "display" | "mono" | "sans" | "condensed" | "serif" | "script" | "casual" | "slab";

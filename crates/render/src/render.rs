@@ -15,6 +15,7 @@ use typst_render::RenderOptions;
 use zip::write::SimpleFileOptions;
 
 use crate::design::{BLEED_MM, DesignIssue, TicketDesign};
+use crate::fields::{self, EventDetails};
 use crate::layout::{Grid, a4_grid};
 use crate::merge::PdfMerger;
 use crate::qr::{self, QrError};
@@ -171,6 +172,8 @@ pub struct RenderJob {
     pub art: Option<Art>,
     /// Event name, printed on stubs and control sheets.
     pub event_name: String,
+    /// Venue, date and price, for the design's text blocks.
+    pub details: EventDetails,
     /// Tickets, in printing order.
     pub tickets: Vec<TicketToRender>,
 }
@@ -488,6 +491,8 @@ struct TemplateData<'a> {
     design: &'a TicketDesign,
     bleed_mm: f64,
     art: Option<&'static str>,
+    /// Each text block of the design with its fields replaced; `None` hides it.
+    text_values: Vec<Option<String>>,
     tickets: Vec<TemplateTicket>,
     grid: Option<Grid>,
     print: Option<PrintData>,
@@ -504,6 +509,20 @@ impl<'a> TemplateData<'a> {
             design: &job.design,
             bleed_mm: BLEED_MM,
             art: job.art.as_ref().map(|art| art.path),
+            text_values: job
+                .design
+                .texts
+                .iter()
+                .map(|block| {
+                    let value = fields::resolve(&block.text, &job.event_name, &job.details)?;
+                    let value = value.trim();
+                    match (value.is_empty(), block.uppercase) {
+                        (true, _) => None,
+                        (false, true) => Some(value.to_uppercase()),
+                        (false, false) => Some(value.to_owned()),
+                    }
+                })
+                .collect(),
             tickets: tickets
                 .iter()
                 .enumerate()
@@ -705,6 +724,7 @@ mod tests {
             design: TicketDesign::default_v1(),
             art: None,
             event_name: "Evento".to_owned(),
+            details: EventDetails::default(),
             tickets: (1..=count)
                 .map(|number| TicketToRender {
                     qr: TicketQr::Signed(

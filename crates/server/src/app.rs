@@ -41,6 +41,7 @@ pub fn router(state: AppState) -> Router {
             "/events/{id}/art",
             post(events::upload_art).layer(DefaultBodyLimit::max(MAX_ART_BYTES)),
         )
+        .route("/events/{id}/art/{art_id}", get(events::art_preview))
         .route(
             "/events/{id}/batches",
             get(batches::list).post(batches::create),
