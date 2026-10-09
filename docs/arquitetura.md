@@ -17,11 +17,11 @@
 | Portaria offline | Decisão sempre local e instantânea; log de leituras só-de-acréscimo sincronizado; confirmação online com orçamento de tempo quando há sinal | [0006](adr/0006-portaria-offline-sync.md) |
 | Acesso da portaria | Link com token no fragmento (`#`) → registro do celular como dispositivo revogável | [0007](adr/0007-acesso-portaria.md) |
 | Arquivos | Typst embutido; dados do usuário entram só como dados (nunca como código Typst); arquivos determinísticos regerados sob demanda, sem armazenamento | [0008](adr/0008-geracao-arquivos-typst.md) |
-| Frontend | Next.js na Vercel, sem regra de negócio; fala direto com a API em `api.ingressoimpresso.com.br` (CORS + cookie same-site); deploy pré-compilado pelo GitHub Actions | [0009](adr/0009-frontend-nextjs-vercel.md) |
+| Frontend | Next.js na Vercel, sem regra de negócio; fala direto com a API em `api.` do domínio (CORS + token Bearer); deploy pré-compilado pelo GitHub Actions | [0009](adr/0009-frontend-nextjs-vercel.md), [0016](adr/0016-sessao-bearer.md) |
 | Leitura de QR | `zxing-wasm` em todos os navegadores (o `BarcodeDetector` não existe no Safari do iPhone) | [0010](adr/0010-leitura-qr-navegador.md) |
 | Modelo de dados | Faixas `int4range` com restrições de exclusão; sem tabela com uma linha por ingresso | [0011](adr/0011-modelo-dados-faixas.md) |
 | Login do organizador | Código de 6 dígitos por e-mail (sem senha), enviado pelo Resend | [0012](adr/0012-autenticacao-organizador.md) |
-| Infraestrutura | API Docker no Render (Virginia) + Neon (`aws-us-east-1`, junto da API) + Resend; imagem gerada no CI | [0013](adr/0013-infraestrutura-render-neon.md) |
+| Infraestrutura | API Docker no Render (Virginia) + Neon (`aws-us-east-1`, junto da API) + Resend; imagem compilada pelo Blueprint do Render e testada no CI | [0013](adr/0013-infraestrutura-render-neon.md), [0019](adr/0019-deploy-dominio-proprio.md) |
 | Pagamento Pix | Adiado: o MVP não cobra (eu marco o lote como pago); integração com PSP na fase 6 | [0014](adr/0014-pagamento-pix-adiado.md) |
 
 O que muda em relação às suas hipóteses:
@@ -73,7 +73,7 @@ flowchart LR
   end
   DB[(Neon Postgres<br/>aws-us-east-1)]
   S --- DB
-  P -- HTTPS + cookie<br/>api.ingressoimpresso.com.br --> S
+  P -- HTTPS + Bearer<br/>api.seudominio.com.br --> S
   D -- HTTPS + token do dispositivo<br/>quando houver sinal --> S
   S -. API HTTP .-> E[Resend]
 ```
@@ -416,7 +416,7 @@ POST /api/sellers/{id}/ranges  DELETE /api/ranges/{id}
 GET|POST /api/events/{id}/voids                POST /api/voids/{id}/undo
 GET|POST /api/events/{id}/exports              GET /api/exports/{id}
 POST /api/exports/{id}/link    → link de 10 min  GET /api/downloads/{token} (sem login)
-GET /healthz
+GET /healthz (sem banco)                       GET /readyz (consulta o banco)
 ```
 
 Portaria, fase 4. O organizador gerencia os links pelo painel (sessão Bearer):
@@ -471,21 +471,26 @@ Os DTOs são structs Rust com `#[derive(TS)]` (`ts-rs`), e os tipos TS são gera
 - **Frontend:** Vercel. O deploy é pré-compilado pelo GitHub Actions (`vercel build` +
   `vercel deploy --prebuilt`), porque o WASM do núcleo precisa de Rust, que o build da Vercel não
   tem.
-- **API:** Web Service Docker no Render, região Virginia, em instância paga (sem hibernação). A
-  imagem é gerada no GitHub Actions, publicada no GHCR e implantada por deploy hook. As migrações
-  rodam na inicialização. Health check em `/healthz`.
-- **Banco:** Neon `aws-us-east-1`, na mesma área da API, com conexão direta (o pool fica no sqlx).
-  O backup é o PITR do Neon mais um `pg_dump` semanal pelo CI, com teste de restauração mensal num
-  branch do Neon.
-- **E-mail:** Resend, pela API HTTP.
-- **DNS:** o domínio raiz e `www` apontam para a Vercel, e `api.` para o Render.
+- **API:** Web Service Docker no Render, região Virginia, em instância paga (sem hibernação). O
+  Blueprint (`render.yaml`) compila `deploy/api.Dockerfile` (dependências em camada própria, com
+  cargo-chef) e só implanta commits com o CI verde; o CI compila e sobe a mesma imagem. As
+  migrações rodam na inicialização. O health check do Render chama `/healthz`, que não consulta o
+  banco; `/readyz` consulta (ADR 0019).
+- **Banco:** Neon `aws-us-east-1`, na mesma área da API, com conexão direta (o pool fica no sqlx)
+  e `sslmode=verify-full`. O banco dorme quando não há uso: o worker só consulta sozinho a cada
+  15 min. O backup é o PITR do Neon mais um `pg_dump` diário cifrado pelo CI, com teste de
+  restauração mensal num branch do Neon.
+- **E-mail:** Resend, pela API HTTP, a partir de `mail.` do domínio (região São Paulo).
+- **DNS:** no Registro.br. O domínio raiz e `www` (que redireciona para a raiz) apontam para a
+  Vercel, e `api.` para o Render. Passo a passo em [`deploy.md`](deploy.md).
 - **Segredos:** variáveis secretas no Render. A chave mestra das assinaturas também fica no
   gerenciador de senhas, fora de qualquer backup.
-- **Observabilidade mínima:** `tracing` em JSON no stdout (logs do Render), `/healthz` e um
+- **Observabilidade mínima:** `tracing` em JSON no stdout (logs do Render), `/healthz`, `/readyz` e um
   monitor externo de disponibilidade (opcional). A portaria guarda os erros no IndexedDB e os
   envia junto com o sync.
 - **Configuração:** variáveis de ambiente lidas uma vez em uma struct tipada e validada na
-  inicialização (o processo falha cedo se algo estiver errado).
+  inicialização (o processo falha cedo se algo estiver errado). Em produção, origens do CORS,
+  `PUBLIC_API_URL` em https e `ADMIN_EMAILS` são obrigatórios.
 - **Desenvolvimento local:** Postgres via `docker compose` (`deploy/compose.dev.yaml`). O Mailer
   de desenvolvimento escreve o código de login no log.
 

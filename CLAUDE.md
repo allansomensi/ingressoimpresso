@@ -22,7 +22,7 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   falsas (`just e2e`, também no CI). Falta o ensaio com celulares reais (Android + iPhone) em modo
   avião, que é o critério de pronto da fase.
 - **Fase 5 (relatório + produção): código pronto.** Relatório por vendedor (API + aba com CSV),
-  deploy do web pelo Actions, backup semanal cifrado (`backup.yml`) com teste de restauração
+  deploy do web pelo Actions, backup diário cifrado (`backup.yml`) com teste de restauração
   (`just backup-restore-test`). Falta o que depende do mantenedor: secrets da Vercel e do backup,
   deploy no `main` e o ensaio geral (`docs/ensaio.md`), que é o critério de pronto.
 - **Depois do MVP: fase 6 (Pix).**
@@ -59,19 +59,27 @@ packages/ticket-core-wasm  wrapper TS tipado (src/), tipos gerados (src/generate
 apps/web             Next.js 16 (Vercel): landing; painel e portaria nas fases 3–4
 testdata/vectors     ticket-v1.json: vetores compartilhados Rust ↔ WASM (gerados, NÃO editar)
 deploy/              compose.dev.yaml (Postgres local), api.Dockerfile, restore-test.sh
-docs/deploy.md       Neon, Resend, Render, Vercel (Actions), backup; docs/ensaio.md: ensaio geral
+docs/deploy.md       domínio próprio: Neon, Resend, DNS (Registro.br), Render, Vercel, backup;
+                     docs/ensaio.md: ensaio geral
 ```
 
 
-## Infraestrutura (ADRs 0009, 0013)
+## Infraestrutura (ADRs 0009, 0013, 0019)
 
 - **Frontend:** Next.js na Vercel, com pnpm. O deploy é pré-compilado pelo GitHub Actions
   (`.github/workflows/deploy-web.yml`, secrets `VERCEL_*`), porque o build da Vercel não tem Rust;
   `apps/web/vercel.json` desliga os builds da integração Git.
-- **API:** Rust no Render, região Virginia. Sessão do painel por token Bearer + CORS (ADR 0016),
-  porque `vercel.app` e `onrender.com` são sites diferentes; downloads por link temporário.
-- **Banco:** Neon `aws-us-east-1`. Precisa ficar junto da API, não do usuário.
-- **E-mail:** Resend.
+- **Endereços:** site no domínio raiz (`www` redireciona), API em `api.`, e-mail de `mail.`; DNS
+  no Registro.br.
+- **API:** Rust no Render, região Virginia. O Blueprint (`render.yaml`) compila
+  `deploy/api.Dockerfile` (cargo-chef) e só implanta com o CI verde; o job `api-image` do CI
+  compila e sobe a mesma imagem. `/healthz` não toca no banco (é o health check), `/readyz` toca.
+  Variáveis `sync: false` (incluindo `ALLOWED_ORIGINS`) vivem no painel do Render; em produção a
+  API não sobe sem origens, `PUBLIC_API_URL` https e `ADMIN_EMAILS`. Sessão do painel por token
+  Bearer + CORS (ADR 0016); downloads por link temporário.
+- **Banco:** Neon `aws-us-east-1`, host direto com `sslmode=verify-full`. Precisa ficar junto da
+  API, não do usuário. Dorme quando parado (worker consulta sozinho a cada 15 min).
+- **E-mail:** Resend (o cliente manda `User-Agent`, senão o Resend recusa).
 - **Pagamento:** o MVP não cobra; Pix entra na fase 6.
 
 ## Comandos

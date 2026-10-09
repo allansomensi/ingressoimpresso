@@ -2,6 +2,8 @@
 
 - **Status:** Aceito
 - **Data:** 2026-10-08
+- **Substituído em parte por:** [0019](0019-deploy-dominio-proprio.md) (compilação e deploy da imagem,
+  health check e frequência do backup)
 
 ## Contexto
 
