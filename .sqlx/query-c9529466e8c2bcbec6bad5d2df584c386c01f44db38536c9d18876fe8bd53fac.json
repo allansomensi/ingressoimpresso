@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select created_at from organizations where id = $1 for update",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "organizations",
+            "name": "created_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "c9529466e8c2bcbec6bad5d2df584c386c01f44db38536c9d18876fe8bd53fac"
+}

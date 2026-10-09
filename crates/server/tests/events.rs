@@ -33,7 +33,7 @@ fn png() -> Vec<u8> {
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
 async fn duplicating_copies_details_design_art_and_sellers(pool: PgPool) {
-    let app = TestApp::new(pool);
+    let app = TestApp::new(pool).await;
     let token = app.login("banda@exemplo.com").await;
     let event = app.create_event(&token, "Turnê de Inverno").await;
 
@@ -130,7 +130,7 @@ async fn duplicating_copies_details_design_art_and_sellers(pool: PgPool) {
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
 async fn archived_events_take_no_new_batches(pool: PgPool) {
-    let app = TestApp::new(pool);
+    let app = TestApp::new(pool).await;
     let token = app.login("escola@exemplo.com").await;
     let event = app.create_event(&token, "Festa junina").await;
     let closed = app
@@ -170,7 +170,7 @@ async fn archived_events_take_no_new_batches(pool: PgPool) {
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
 async fn only_events_without_batches_are_deleted(pool: PgPool) {
-    let app = TestApp::new(pool);
+    let app = TestApp::new(pool).await;
     let token = app.login("igreja@exemplo.com").await;
     let event = app.create_event(&token, "Retiro").await;
     let batch = app

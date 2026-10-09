@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into credit_ledger (id, organization_id, amount_cents, reason, reference_id, actor_id)\n                   values ($1, $2, $3, 'promo_code', $4, $5)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Int4",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "ef8a6e039a8a254c331f9ed31c3b38fe082d8b1a87f5db370fd2c231b0425878"
+}

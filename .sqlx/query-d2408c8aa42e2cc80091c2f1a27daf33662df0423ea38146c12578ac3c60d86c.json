@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update blobs set moderation_status = 'unchecked' where id = $1 and moderation_status in ('unchecked', 'clean')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d2408c8aa42e2cc80091c2f1a27daf33662df0423ea38146c12578ac3c60d86c"
+}

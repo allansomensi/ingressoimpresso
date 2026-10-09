@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update blobs set moderation_status = $2 where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c7b0ace46de27c16c254c79cd38a7ae1fad3268dbbb015e8a1f4f6e2c56b4b11"
+}

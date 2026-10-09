@@ -90,7 +90,7 @@ fn session_json(session: &ingressoimpresso_server::payments::CheckoutSession) ->
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
 async fn pricing_is_public_and_batches_carry_their_price(pool: PgPool) {
-    let app = TestApp::new(pool);
+    let app = TestApp::new(pool).await;
     let pricing = app.request(Method::GET, "/api/pricing", None, None).await;
     assert_eq!(pricing.status, StatusCode::OK);
     let pricing = pricing.json();
@@ -130,7 +130,7 @@ async fn pricing_is_public_and_batches_carry_their_price(pool: PgPool) {
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
 async fn checkout_and_signed_webhook_pay_the_batch_once(pool: PgPool) {
-    let (app, stripe) = TestApp::with_stripe(pool);
+    let (app, stripe) = TestApp::with_stripe(pool).await;
     let token = app.login("banda@exemplo.com").await;
     let event = app.create_event(&token, "Show de Lançamento").await;
     let created = batch(&app, &token, &event, 10).await;
@@ -251,7 +251,7 @@ async fn checkout_and_signed_webhook_pay_the_batch_once(pool: PgPool) {
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
 async fn mismatched_amounts_and_unknown_sessions_pay_nothing(pool: PgPool) {
-    let (app, stripe) = TestApp::with_stripe(pool);
+    let (app, stripe) = TestApp::with_stripe(pool).await;
     let token = app.login("banda@exemplo.com").await;
     let event = app.create_event(&token, "Show").await;
     let batch_id = batch(&app, &token, &event, 200).await["id"]
@@ -296,7 +296,7 @@ async fn mismatched_amounts_and_unknown_sessions_pay_nothing(pool: PgPool) {
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
 async fn returning_payer_syncs_and_expired_sessions_are_replaced(pool: PgPool) {
-    let (app, stripe) = TestApp::with_stripe(pool);
+    let (app, stripe) = TestApp::with_stripe(pool).await;
     let token = app.login("banda@exemplo.com").await;
     let event = app.create_event(&token, "Show").await;
     let batch_id = batch(&app, &token, &event, 50).await["id"]
@@ -359,7 +359,7 @@ async fn returning_payer_syncs_and_expired_sessions_are_replaced(pool: PgPool) {
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
 async fn cancel_and_admin_close_open_checkouts(pool: PgPool) {
-    let (app, stripe) = TestApp::with_stripe(pool);
+    let (app, stripe) = TestApp::with_stripe(pool).await;
     let token = app.login("banda@exemplo.com").await;
     let admin = app.login(ADMIN).await;
     let event = app.create_event(&token, "Show").await;
@@ -459,7 +459,7 @@ fn open_session(stripe: &std::sync::Mutex<FakeStripe>) -> String {
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
 async fn a_pending_pix_blocks_cancel_mark_paid_and_new_checkouts(pool: PgPool) {
-    let (app, stripe) = TestApp::with_stripe(pool);
+    let (app, stripe) = TestApp::with_stripe(pool).await;
     let token = app.login("banda@exemplo.com").await;
     let admin = app.login(ADMIN).await;
     let event = app.create_event(&token, "Show").await;
@@ -524,7 +524,7 @@ async fn a_pending_pix_blocks_cancel_mark_paid_and_new_checkouts(pool: PgPool) {
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
 async fn a_failed_pix_frees_the_batch(pool: PgPool) {
-    let (app, stripe) = TestApp::with_stripe(pool);
+    let (app, stripe) = TestApp::with_stripe(pool).await;
     let token = app.login("banda@exemplo.com").await;
     let event = app.create_event(&token, "Show").await;
     let batch_id = batch(&app, &token, &event, 10).await["id"]
@@ -560,7 +560,7 @@ async fn a_failed_pix_frees_the_batch(pool: PgPool) {
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
 async fn an_expiring_session_is_closed_before_a_new_one(pool: PgPool) {
-    let (app, stripe) = TestApp::with_stripe(pool);
+    let (app, stripe) = TestApp::with_stripe(pool).await;
     let token = app.login("banda@exemplo.com").await;
     let event = app.create_event(&token, "Show").await;
     let batch_id = batch(&app, &token, &event, 10).await["id"]
@@ -594,7 +594,7 @@ async fn an_expiring_session_is_closed_before_a_new_one(pool: PgPool) {
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
 async fn batches_with_ranges_cannot_be_canceled(pool: PgPool) {
-    let app = TestApp::new(pool);
+    let app = TestApp::new(pool).await;
     let token = app.login("banda@exemplo.com").await;
     let event = app.create_event(&token, "Show").await;
     let batch_id = batch(&app, &token, &event, 100).await["id"]
@@ -634,7 +634,7 @@ async fn batches_with_ranges_cannot_be_canceled(pool: PgPool) {
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
 async fn the_first_tickets_of_an_organization_are_free(pool: PgPool) {
-    let app = TestApp::with_free_tickets(pool, 30);
+    let app = TestApp::with_free_tickets(pool, 30).await;
     let token = app.login("banda@exemplo.com").await;
     let event = app.create_event(&token, "Show").await;
     let account = app.get("/api/account", &token).await.json();

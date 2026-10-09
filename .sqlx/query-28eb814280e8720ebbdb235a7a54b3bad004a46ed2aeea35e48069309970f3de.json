@@ -1,0 +1,72 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select r.organization_id, o.name as organization_name, u.email::text as \"redeemed_by?\",\n                  r.redeemed_at, r.applied_at\n           from promo_redemptions r\n           join organizations o on o.id = r.organization_id\n           left join users u on u.id = r.redeemed_by\n           where r.promo_code_id = $1 order by r.redeemed_at desc limit $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "organization_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "promo_redemptions",
+            "name": "organization_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "organization_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "organizations",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "redeemed_by?",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "redeemed_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "promo_redemptions",
+            "name": "redeemed_at"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "applied_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "promo_redemptions",
+            "name": "applied_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null,
+      false,
+      true
+    ]
+  },
+  "hash": "28eb814280e8720ebbdb235a7a54b3bad004a46ed2aeea35e48069309970f3de"
+}

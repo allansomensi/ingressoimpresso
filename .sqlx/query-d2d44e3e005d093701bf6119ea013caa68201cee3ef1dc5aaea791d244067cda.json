@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update announcements set archived_at = coalesce(archived_at, now()), updated_at = now() where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d2d44e3e005d093701bf6119ea013caa68201cee3ef1dc5aaea791d244067cda"
+}

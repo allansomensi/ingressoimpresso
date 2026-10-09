@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update promo_redemptions set applied_batch_id = $2, applied_at = now() where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "cf7a94bc631125d856d6e84bcc22d2ec34fd498741a4323dcb0b0cab569526be"
+}

@@ -33,7 +33,7 @@ fn png(width: u32, height: u32) -> Vec<u8> {
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
 async fn liveness_skips_the_database_and_readiness_checks_it(pool: PgPool) {
-    let app = TestApp::new(pool);
+    let app = TestApp::new(pool).await;
     for path in ["/healthz", "/readyz"] {
         let reply = app.request(Method::GET, path, None, None).await;
         assert_eq!(reply.status, StatusCode::OK, "{path}");
@@ -48,7 +48,7 @@ async fn liveness_skips_the_database_and_readiness_checks_it(pool: PgPool) {
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
 async fn login_me_and_logout(pool: PgPool) {
-    let app = TestApp::new(pool);
+    let app = TestApp::new(pool).await;
     assert_eq!(
         app.request(Method::GET, "/api/me", None, None).await.status,
         StatusCode::UNAUTHORIZED
@@ -77,7 +77,7 @@ async fn login_me_and_logout(pool: PgPool) {
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
 async fn wrong_codes_are_limited(pool: PgPool) {
-    let app = TestApp::new(pool);
+    let app = TestApp::new(pool).await;
     let email = "eu@exemplo.com";
     let request = json!({ "email": email });
     assert_eq!(
@@ -144,7 +144,7 @@ async fn new_codes_do_not_reset_the_guessing_budget(pool: PgPool) {
         .await
         .status
     }
-    let app = TestApp::new(pool);
+    let app = TestApp::new(pool).await;
     let email = "alvo@exemplo.com";
     for _ in 0..2 {
         assert_eq!(ask(&app, email).await, StatusCode::NO_CONTENT);
@@ -165,7 +165,7 @@ async fn new_codes_do_not_reset_the_guessing_budget(pool: PgPool) {
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
 async fn long_emails_can_sign_in(pool: PgPool) {
-    let app = TestApp::new(pool);
+    let app = TestApp::new(pool).await;
     let email = format!("{}@exemplo.com", "a".repeat(120));
     let token = app.login(&email).await;
     assert_eq!(app.get("/api/me", &token).await.status, StatusCode::OK);
@@ -173,7 +173,7 @@ async fn long_emails_can_sign_in(pool: PgPool) {
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
 async fn events_are_isolated_between_organizations(pool: PgPool) {
-    let app = TestApp::new(pool);
+    let app = TestApp::new(pool).await;
     let alice = app.login("alice@exemplo.com").await;
     let bob = app.login("bob@exemplo.com").await;
     let event = app.create_event(&alice, "Show da Alice").await;
@@ -207,7 +207,7 @@ async fn events_are_isolated_between_organizations(pool: PgPool) {
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
 async fn event_validation(pool: PgPool) {
-    let app = TestApp::new(pool);
+    let app = TestApp::new(pool).await;
     let token = app.login("eu@exemplo.com").await;
     let reply = app
         .post(
@@ -222,7 +222,7 @@ async fn event_validation(pool: PgPool) {
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
 async fn design_art_and_preview(pool: PgPool) {
-    let app = TestApp::new(pool);
+    let app = TestApp::new(pool).await;
     let token = app.login("eu@exemplo.com").await;
     let event = app.create_event(&token, "Show").await;
 
@@ -334,7 +334,7 @@ async fn design_art_and_preview(pool: PgPool) {
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
 async fn events_keep_their_local_time_and_designs_print_texts(pool: PgPool) {
-    let app = TestApp::new(pool);
+    let app = TestApp::new(pool).await;
     let token = app.login("manaus@exemplo.com").await;
     let created = app
         .post(
@@ -386,7 +386,7 @@ async fn events_keep_their_local_time_and_designs_print_texts(pool: PgPool) {
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
 async fn batches_sellers_voids_and_exports(pool: PgPool) {
-    let app = TestApp::new(pool);
+    let app = TestApp::new(pool).await;
     let token = app.login("banda@exemplo.com").await;
     let admin = app.login(ADMIN).await;
     let event = app.create_event(&token, "Show de Lançamento").await;
@@ -693,7 +693,7 @@ async fn verifier(app: &TestApp, event: &str) -> EventVerifier {
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
 async fn missing_export_file_is_gone(pool: PgPool) {
-    let app = TestApp::new(pool);
+    let app = TestApp::new(pool).await;
     let token = app.login("banda@exemplo.com").await;
     let admin = app.login(ADMIN).await;
     let event = app.create_event(&token, "Show").await;
@@ -757,7 +757,7 @@ async fn missing_export_file_is_gone(pool: PgPool) {
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
 async fn postponing_an_event_extends_its_door_links(pool: PgPool) {
-    let app = TestApp::new(pool);
+    let app = TestApp::new(pool).await;
     let token = app.login("banda@exemplo.com").await;
     let event = app.create_event(&token, "Show").await;
     let created = app
@@ -799,7 +799,7 @@ async fn postponing_an_event_extends_its_door_links(pool: PgPool) {
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
 async fn every_api_error_is_json(pool: PgPool) {
-    let app = TestApp::new(pool);
+    let app = TestApp::new(pool).await;
     let token = app.login("banda@exemplo.com").await;
     let malformed = app
         .send(

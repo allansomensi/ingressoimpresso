@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select exists(select 1 from promo_redemptions where promo_code_id = $1 and organization_id = $2) as \"redeemed!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "redeemed!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "dbb288656b2ea415582fcef92a1124588bae79008510f805acdca6f5d18d1b4e"
+}

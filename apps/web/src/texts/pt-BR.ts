@@ -647,7 +647,7 @@ export const texts = {
       refundedNote: "Lote estornado: os números ficam cancelados na porta e não voltam a ser usados.",
       pendingState: { open: "Pagamento em andamento", processing: "Confirmando Pix" },
       moreActions: "Mais ações",
-      paidVia: { stripe: "Pago online", admin: "Pago (confirmado pelo admin)", free: "Grátis (boas-vindas)" },
+      paidVia: { stripe: "Pago online", admin: "Pago (confirmado pelo admin)", free: "Grátis", credit: "Pago com crédito" },
       pay: (amount: string) => `Pagar ${amount}`,
       redirecting: "Abrindo pagamento…",
       continuePayment: "Continuar pagamento",
@@ -1160,7 +1160,7 @@ export const texts = {
       chartDaily: "Lotes pagos por dia (horário de Brasília).",
       chartMonthly: "Lotes pagos por mês (horário de Brasília).",
       methods: "Como os lotes foram pagos",
-      methodNames: { stripe: "Online (Pix ou cartão)", admin: "Marcado pelo admin", free: "Grátis e cortesias" },
+      methodNames: { stripe: "Online (Pix ou cartão)", admin: "Marcado pelo admin", free: "Grátis e cortesias", credit: "Crédito" },
       methodLine: (batches: number, tickets: number) =>
         `${batches.toLocaleString("pt-BR")} ${batches === 1 ? "lote" : "lotes"} · ${tickets.toLocaleString("pt-BR")} ingressos`,
       top: "Quem mais comprou",

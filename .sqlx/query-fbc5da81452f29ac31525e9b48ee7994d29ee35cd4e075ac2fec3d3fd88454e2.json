@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update moderation_flags set status = $2, resolution_note = $3, resolved_by = $4, resolved_at = now()\n           where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "fbc5da81452f29ac31525e9b48ee7994d29ee35cd4e075ac2fec3d3fd88454e2"
+}

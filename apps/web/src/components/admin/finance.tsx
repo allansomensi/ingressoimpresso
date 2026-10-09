@@ -22,6 +22,7 @@ const METHOD_TONE: Record<PaymentMethod, string> = {
   stripe: "bg-brand",
   admin: "bg-warning",
   free: "bg-success",
+  credit: "bg-brand-soft-fg",
 };
 
 /** `+12%`, `−5%` or `null` without a previous period. */

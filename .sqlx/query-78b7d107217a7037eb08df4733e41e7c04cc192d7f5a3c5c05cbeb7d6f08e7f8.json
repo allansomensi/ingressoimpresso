@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update promotions set name = $2, headline = $3, discount_percent = $4, starts_at = $5,\n                  ends_at = $6, active = $7 where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Int4",
+        "Timestamptz",
+        "Timestamptz",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "78b7d107217a7037eb08df4733e41e7c04cc192d7f5a3c5c05cbeb7d6f08e7f8"
+}

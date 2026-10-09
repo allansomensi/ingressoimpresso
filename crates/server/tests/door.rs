@@ -18,7 +18,7 @@ use sqlx::PgPool;
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
 async fn links_register_phones_and_revocation_cuts_them(pool: PgPool) {
-    let app = TestApp::new(pool);
+    let app = TestApp::new(pool).await;
     let token = app.login("banda@exemplo.com").await;
     let event = app.create_event(&token, "Show").await;
     let (access_id, access_token) = create_link(&app, &token, &event).await;
@@ -118,7 +118,7 @@ async fn links_register_phones_and_revocation_cuts_them(pool: PgPool) {
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
 async fn scans_are_classified_once_across_phones(pool: PgPool) {
-    let app = TestApp::new(pool);
+    let app = TestApp::new(pool).await;
     let token = app.login("banda@exemplo.com").await;
     let admin = app.login(ADMIN).await;
     let event = app.create_event(&token, "Show").await;

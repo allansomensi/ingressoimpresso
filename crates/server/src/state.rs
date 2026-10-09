@@ -1,6 +1,9 @@
 //! Shared application state.
 
+use std::collections::HashMap;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicI64, Ordering};
+use std::time::Instant;
 
 use sqlx::PgPool;
 use tokio::sync::{Mutex, MutexGuard, Notify, Semaphore};
@@ -10,7 +13,9 @@ use crate::config::Config;
 use crate::emails::Email;
 use crate::google::GoogleAuth;
 use crate::mail::{MailError, MailKind, Mailer};
+use crate::moderation::Classifier;
 use crate::payments::Payments;
+use crate::platform::SettingsCache;
 
 /// State shared by handlers and the export worker.
 #[derive(Debug, Clone)]
@@ -31,6 +36,18 @@ pub struct AppState {
     pub render_permits: Arc<Semaphore>,
     /// Serializes payment operations per batch (striped by id; see [`Self::batch_lock`]).
     batch_locks: Arc<[Mutex<()>; BATCH_LOCK_STRIPES]>,
+    /// Platform settings (ADR 0037), read through a short cache.
+    pub settings: SettingsCache,
+    /// Unix time of the export worker's last loop (status page, ADR 0043).
+    pub worker_heartbeat: Arc<AtomicI64>,
+    /// When the process started.
+    pub started_at: Instant,
+    /// Image classifier of uploaded art (ADR 0042); off without a key.
+    pub classifier: Option<Arc<Classifier>>,
+    /// Last answer of the status page (ADR 0043), reused for a few seconds.
+    pub status_cache: Arc<tokio::sync::RwLock<Option<(Instant, crate::api::StatusDto)>>>,
+    /// Recent attempts per key (promo codes): a small in-memory rate limit, see [`Self::attempt`].
+    attempts: Arc<Mutex<HashMap<String, Vec<Instant>>>>,
 }
 
 /// Number of batch locks: unrelated batches rarely share one, and the set never grows.
@@ -48,7 +65,45 @@ impl AppState {
             jobs: Arc::new(Notify::new()),
             render_permits: Arc::new(Semaphore::new(2)),
             batch_locks: Arc::new(std::array::from_fn(|_| Mutex::new(()))),
+            settings: SettingsCache::default(),
+            worker_heartbeat: Arc::new(AtomicI64::new(0)),
+            started_at: Instant::now(),
+            classifier: None,
+            attempts: Arc::new(Mutex::new(HashMap::new())),
+            status_cache: Arc::new(tokio::sync::RwLock::new(None)),
         }
+    }
+
+    /// Records the worker's loop for the status page.
+    pub fn worker_tick(&self) {
+        self.worker_heartbeat.store(
+            time::OffsetDateTime::now_utc().unix_timestamp(),
+            Ordering::Relaxed,
+        );
+    }
+
+    /// Counts an attempt under `key` and says whether it stays within `limit` per `window`
+    /// (in-process, like [`Self::batch_lock`]: the API runs as one instance).
+    pub async fn attempt(&self, key: &str, limit: usize, window: std::time::Duration) -> bool {
+        let mut attempts = self.attempts.lock().await;
+        // Forget idle keys now and then so the map never grows without bound.
+        if attempts.len() > 10_000 {
+            attempts.retain(|_, times| times.iter().any(|at| at.elapsed() < window));
+        }
+        let times = attempts.entry(key.to_owned()).or_default();
+        times.retain(|at| at.elapsed() < window);
+        if times.len() >= limit {
+            return false;
+        }
+        times.push(Instant::now());
+        true
+    }
+
+    /// Turns on the image classifier.
+    #[must_use]
+    pub fn with_classifier(mut self, classifier: Classifier) -> Self {
+        self.classifier = Some(Arc::new(classifier));
+        self
     }
 
     /// Holds checkout, cancel and mark-paid of one batch to one at a time (ADR 0020). In-process:
@@ -75,9 +130,10 @@ impl AppState {
         self
     }
 
-    /// Sends an e-mail within the daily quota (ADR 0028): every message handed to the provider
-    /// is counted in `mail_sends`, and past `MAIL_DAILY_LIMIT` in 24 hours nothing is sent. Codes
-    /// for e-mails without an account may use at most two thirds of it.
+    /// Sends an e-mail within the daily quota (ADR 0028) and logs it (ADR 0041): every message
+    /// handed to the provider is a row of `mail_sends`, and past `MAIL_DAILY_LIMIT` in 24 hours
+    /// nothing is sent (the refusal is logged as `quota`, which does not count). Codes for
+    /// e-mails without an account may use at most two thirds of the quota.
     ///
     /// # Errors
     ///
@@ -89,26 +145,59 @@ impl AppState {
         to: &str,
         email: &Email,
     ) -> Result<(), MailError> {
+        let db = |error: sqlx::Error| MailError::Failed(error.to_string());
+        let subject: String = email.subject.chars().take(200).collect();
         if let Some(limit) = self.config.mail_daily_limit {
             let sent = sqlx::query!(
                 r#"select count(*) as "all!", count(*) filter (where kind = 'signup_code') as "signups!"
-                   from mail_sends where created_at > now() - interval '24 hours'"#
+                   from mail_sends where created_at > now() - interval '24 hours' and status <> 'quota'"#
             )
             .fetch_one(&self.pool)
             .await
-            .map_err(|error| MailError::Failed(error.to_string()))?;
+            .map_err(db)?;
             let signup_limit = (limit * 2 / 3).max(1);
             if sent.all >= limit || (kind == MailKind::SignupCode && sent.signups >= signup_limit) {
+                sqlx::query!(
+                    "insert into mail_sends (kind, to_email, subject, status) values ($1, $2, $3, 'quota')",
+                    kind.db(),
+                    to,
+                    subject,
+                )
+                .execute(&self.pool)
+                .await
+                .map_err(db)?;
                 return Err(MailError::Quota(format!(
                     "{} e-mails in 24 hours ({} for new accounts)",
                     sent.all, sent.signups
                 )));
             }
         }
-        sqlx::query!("insert into mail_sends (kind) values ($1)", kind.db())
-            .execute(&self.pool)
-            .await
-            .map_err(|error| MailError::Failed(error.to_string()))?;
-        self.mailer.send(to, email).await
+        let id = sqlx::query_scalar!(
+            "insert into mail_sends (kind, to_email, subject, status) values ($1, $2, $3, 'sending') returning id",
+            kind.db(),
+            to,
+            subject,
+        )
+        .fetch_one(&self.pool)
+        .await
+        .map_err(db)?;
+        let result = self.mailer.send(to, email).await;
+        let (status, provider_id, error) = match &result {
+            Ok(provider_id) => ("sent", provider_id.clone(), None),
+            Err(MailError::Quota(detail)) => ("quota", None, Some(detail.clone())),
+            Err(MailError::Failed(detail)) => ("failed", None, Some(detail.clone())),
+        };
+        let error = error.map(|detail| detail.chars().take(500).collect::<String>());
+        sqlx::query!(
+            "update mail_sends set status = $2, provider_id = $3, error = $4, updated_at = now() where id = $1",
+            id,
+            status,
+            provider_id,
+            error,
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(db)?;
+        result.map(|_| ())
     }
 }

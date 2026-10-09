@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "delete from price_tables where id = $1 and effective_at > now()",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6b818dfd84a63fe85f222a4e757c1a0f03dff84374766dc6e96dac40e3e4731a"
+}

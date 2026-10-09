@@ -18,7 +18,7 @@ use sqlx::PgPool;
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
 async fn cursor_never_skips_a_late_commit(pool: PgPool) {
-    let app = TestApp::new(pool.clone());
+    let app = TestApp::new(pool.clone()).await;
     let token = app.login("banda@exemplo.com").await;
     let event = app.create_event(&token, "Show").await;
     let (_, access_token) = create_link(&app, &token, &event).await;

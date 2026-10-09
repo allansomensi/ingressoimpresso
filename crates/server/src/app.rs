@@ -8,7 +8,7 @@ use axum::http::header::{AUTHORIZATION, CONTENT_DISPOSITION, CONTENT_TYPE};
 use axum::http::{HeaderValue, Method, StatusCode};
 use axum::middleware;
 use axum::response::{IntoResponse as _, Response};
-use axum::routing::{get, post, put};
+use axum::routing::{delete, get, post, put};
 use tower_http::catch_panic::CatchPanicLayer;
 use tower_http::cors::{AllowOrigin, CorsLayer};
 use tower_http::trace::TraceLayer;
@@ -17,8 +17,8 @@ use crate::auth;
 use crate::error::ApiError;
 use crate::routes::events::MAX_ART_BYTES;
 use crate::routes::{
-    account, admin, analytics, batches, changelog, door, events, exports, privacy, report, sellers,
-    support, tickets, voids,
+    account, admin, analytics, announcements, batches, billing, changelog, door, events, exports,
+    mail_admin, moderation, platform, privacy, report, sellers, status, support, tickets, voids,
 };
 use crate::state::AppState;
 
@@ -45,6 +45,14 @@ pub fn router(state: AppState) -> Router {
                 .delete(privacy::delete),
         )
         .route("/account/export", get(privacy::export))
+        .route("/account/credits", get(billing::credits))
+        .route("/account/redeem", post(billing::redeem))
+        .route("/platform", get(platform::status))
+        .route("/status", get(status::public))
+        .route("/inbox", get(announcements::inbox))
+        .route("/inbox/read", post(announcements::read))
+        .route("/announcements/{id}/dismiss", post(announcements::dismiss))
+        .route("/resend/webhook", post(mail_admin::webhook))
         .route("/analytics", get(analytics::organization))
         .route("/changelog", get(changelog::public))
         .route("/events", get(events::list).post(events::create))
@@ -78,6 +86,7 @@ pub fn router(state: AppState) -> Router {
             "/events/{id}/batches",
             get(batches::list).post(batches::create),
         )
+        .route("/events/{id}/batches/quote", post(billing::quote))
         .route("/batches/{id}/cancel", post(batches::cancel))
         .route("/batches/{id}/checkout", post(batches::checkout))
         .route("/batches/{id}/checkout/sync", post(batches::sync_checkout))
@@ -104,6 +113,61 @@ pub fn router(state: AppState) -> Router {
         )
         .route("/admin/batches", get(admin::batches))
         .route("/admin/audit", get(support::audit_log))
+        .route("/admin/audit/export", get(support::audit_export))
+        .route("/admin/settings", get(platform::get).put(platform::update))
+        .route(
+            "/admin/announcements",
+            get(announcements::admin_list).post(announcements::create),
+        )
+        .route(
+            "/admin/announcements/{id}",
+            put(announcements::update).delete(announcements::delete),
+        )
+        .route(
+            "/admin/prices",
+            get(billing::admin_prices).post(billing::create_prices),
+        )
+        .route("/admin/prices/{id}", delete(billing::delete_prices))
+        .route(
+            "/admin/promotions",
+            get(billing::promotions).post(billing::create_promotion),
+        )
+        .route(
+            "/admin/promotions/{id}",
+            put(billing::update_promotion).delete(billing::delete_promotion),
+        )
+        .route(
+            "/admin/promo-codes",
+            get(billing::promo_codes).post(billing::create_promo_code),
+        )
+        .route("/admin/promo-codes/{id}", put(billing::update_promo_code))
+        .route(
+            "/admin/promo-codes/{id}/redemptions",
+            get(billing::redemptions),
+        )
+        .route(
+            "/admin/organizations/{id}/credits",
+            get(billing::admin_credits).post(billing::adjust_credits),
+        )
+        .route("/admin/emails", get(mail_admin::list))
+        .route("/admin/emails/summary", get(mail_admin::summary))
+        .route("/admin/emails/test", post(mail_admin::test))
+        .route("/admin/moderation", get(moderation::flags))
+        .route("/admin/moderation/summary", get(moderation::summary))
+        .route("/admin/moderation/recent", get(moderation::recent))
+        .route("/admin/moderation/{id}/resolve", post(moderation::resolve))
+        .route("/admin/moderation/arts/{id}", get(moderation::art))
+        .route("/admin/moderation/arts/{id}/flag", post(moderation::flag))
+        .route(
+            "/admin/moderation/arts/{id}/rescan",
+            post(moderation::rescan),
+        )
+        .route("/admin/incidents", get(status::list).post(status::create))
+        .route(
+            "/admin/incidents/{id}",
+            put(status::update).delete(status::delete),
+        )
+        .route("/admin/incidents/{id}/updates", post(status::post_update))
         .route(
             "/admin/changelog",
             get(changelog::list).post(changelog::create),
@@ -121,7 +185,7 @@ pub fn router(state: AppState) -> Router {
             put(sellers::update).delete(sellers::delete),
         )
         .route("/sellers/{id}/ranges", post(sellers::assign))
-        .route("/ranges/{id}", axum::routing::delete(sellers::unassign))
+        .route("/ranges/{id}", delete(sellers::unassign))
         .route("/events/{id}/voids", get(voids::list).post(voids::create))
         .route("/voids/{id}/undo", post(voids::undo))
         .route(

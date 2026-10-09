@@ -1,0 +1,137 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select a.id, a.title, a.body, a.level, a.display, a.cta_label, a.cta_url, a.starts_at,\n                  r.seen_at as \"seen_at?\", r.dismissed_at\n           from announcements a\n           left join announcement_receipts r on r.announcement_id = a.id and r.user_id = $1\n           where a.published_at is not null and a.archived_at is null\n             and a.starts_at <= now() and (a.ends_at is null or a.ends_at > now())\n           order by a.starts_at desc limit $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "announcements",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "title",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "announcements",
+            "name": "title"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "body",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "announcements",
+            "name": "body"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "level",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "announcements",
+            "name": "level"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "display",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "announcements",
+            "name": "display"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "cta_label",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "announcements",
+            "name": "cta_label"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "cta_url",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "announcements",
+            "name": "cta_url"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "starts_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "announcements",
+            "name": "starts_at"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "seen_at?",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "announcement_receipts",
+            "name": "seen_at"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "dismissed_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "announcement_receipts",
+            "name": "dismissed_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "048d54b8af69d16033688a0d8c923a6303e789b5c9fd05eff70449a43a1ba77b"
+}

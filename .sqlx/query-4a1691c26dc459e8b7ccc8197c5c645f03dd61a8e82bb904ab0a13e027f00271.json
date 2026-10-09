@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select published_at is not null as \"published!\" from announcements where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "published!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "4a1691c26dc459e8b7ccc8197c5c645f03dd61a8e82bb904ab0a13e027f00271"
+}

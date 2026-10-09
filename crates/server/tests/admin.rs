@@ -18,7 +18,7 @@ use sqlx::PgPool;
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
 async fn only_admins_see_the_admin_panel(pool: PgPool) {
-    let app = TestApp::new(pool);
+    let app = TestApp::new(pool).await;
     let token = app.login("banda@exemplo.com").await;
     for path in [
         "/api/admin/overview",
@@ -40,7 +40,7 @@ async fn only_admins_see_the_admin_panel(pool: PgPool) {
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
 async fn admins_see_totals_organizations_and_batches(pool: PgPool) {
-    let app = TestApp::new(pool);
+    let app = TestApp::new(pool).await;
     let admin = app.login(ADMIN).await;
     let token = app.login("banda@exemplo.com").await;
     let event = app.create_event(&token, "Show da Banda").await;
@@ -119,7 +119,7 @@ async fn admins_see_totals_organizations_and_batches(pool: PgPool) {
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
 async fn a_bonus_gives_free_tickets_to_the_next_batch(pool: PgPool) {
-    let app = TestApp::new(pool);
+    let app = TestApp::new(pool).await;
     let admin = app.login(ADMIN).await;
     let token = app.login("escola@exemplo.com").await;
     let event = app.create_event(&token, "Festa junina").await;
@@ -171,7 +171,7 @@ async fn a_bonus_gives_free_tickets_to_the_next_batch(pool: PgPool) {
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
 async fn owners_rename_their_organization(pool: PgPool) {
-    let app = TestApp::new(pool);
+    let app = TestApp::new(pool).await;
     let token = app.login("coral@exemplo.com").await;
     let renamed = app
         .put(

@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select requests from moderation_usage where day = current_date",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "requests",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "moderation_usage",
+            "name": "requests"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "236c2390c64b24e52fadc9154c5b9c8f362130e81bcd0708130df6043eea7cb5"
+}

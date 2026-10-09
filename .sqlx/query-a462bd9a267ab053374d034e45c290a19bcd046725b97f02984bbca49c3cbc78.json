@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update status_incidents set status = $2,\n                  resolved_at = case when $2 = 'resolved' then coalesce(resolved_at, now()) end\n           where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "a462bd9a267ab053374d034e45c290a19bcd046725b97f02984bbca49c3cbc78"
+}

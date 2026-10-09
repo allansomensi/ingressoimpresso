@@ -419,6 +419,7 @@ struct ArtRow {
     content_type: String,
     width_px: i32,
     height_px: i32,
+    moderation_status: String,
 }
 
 impl From<ArtRow> for ArtDto {
@@ -428,6 +429,7 @@ impl From<ArtRow> for ArtDto {
             content_type: row.content_type,
             width_px: row.width_px,
             height_px: row.height_px,
+            moderation: row.moderation_status,
         }
     }
 }
@@ -435,7 +437,7 @@ impl From<ArtRow> for ArtDto {
 async fn art_of_event(state: &AppState, event_id: Uuid, art_id: Uuid) -> ApiResult<ArtRow> {
     sqlx::query_as!(
         ArtRow,
-        "select id, content_type, width_px, height_px from blobs where id = $1 and event_id = $2",
+        "select id, content_type, width_px, height_px, moderation_status from blobs where id = $1 and event_id = $2",
         art_id,
         event_id
     )
@@ -502,6 +504,15 @@ pub async fn save_design(
         Some(art_id) => Some(art_of_event(&state, event_id, art_id).await?),
         None => None,
     };
+    if art
+        .as_ref()
+        .is_some_and(|art| art.moderation_status == "rejected")
+    {
+        return Err(ApiError::Conflict(
+            "art_rejected",
+            "the art was refused by the team".to_owned(),
+        ));
+    }
     let spec = serde_json::to_value(&body.design).map_err(anyhow::Error::from)?;
     let version = sqlx::query_scalar!(
         r#"insert into ticket_designs (id, event_id, version, spec, art_blob_id)
@@ -567,6 +578,7 @@ pub async fn upload_art(
     }
     let digest = Sha256::digest(&body).to_vec();
     let size = i32::try_from(body.len()).map_err(|_| ApiError::PayloadTooLarge)?;
+    let inherited = known_moderation(&state, &digest).await?;
     // Art lives in Postgres (ADR 0011): drop this event's older uploads no saved design uses (an
     // abandoned try; recent ones stay for the editor's undo) and cap what an organization keeps,
     // so one account cannot fill the database.
@@ -601,10 +613,11 @@ pub async fn upload_art(
     );
     let row = sqlx::query_as!(
         ArtRow,
-        r#"insert into blobs (id, event_id, sha256, content_type, width_px, height_px, byte_size, data)
-           values ($1, $2, $3, $4, $5, $6, $7, $8)
+        r#"insert into blobs (id, event_id, sha256, content_type, width_px, height_px, byte_size, data,
+                              moderation_status, uploaded_by)
+           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
            on conflict (event_id, sha256) do update set event_id = excluded.event_id
-           returning id, content_type, width_px, height_px"#,
+           returning id, content_type, width_px, height_px, moderation_status"#,
         Uuid::new_v4(),
         event_id,
         digest,
@@ -613,10 +626,36 @@ pub async fn upload_art(
         height,
         size,
         body.as_ref(),
+        inherited,
+        user.id,
     )
     .fetch_one(&state.pool)
     .await?;
+    if row.moderation_status == "unchecked" {
+        crate::moderation::spawn_check(&state, row.id);
+    }
     Ok((StatusCode::CREATED, Json(row.into())))
+}
+
+/// Moderation of an image already seen (ADR 0042): one the team refused anywhere is refused
+/// again; one already found fine is not classified twice.
+async fn known_moderation(state: &AppState, digest: &[u8]) -> ApiResult<&'static str> {
+    let known = sqlx::query_scalar!(
+        r#"select moderation_status from blobs where sha256 = $1
+           order by (moderation_status = 'rejected') desc, created_at desc limit 1"#,
+        digest
+    )
+    .fetch_optional(&state.pool)
+    .await?;
+    match known.as_deref() {
+        Some("rejected") => Err(ApiError::Conflict(
+            "art_rejected",
+            "this image was refused by the team".to_owned(),
+        )),
+        Some("clean") => Ok("clean"),
+        Some("approved") => Ok("approved"),
+        _ => Ok("unchecked"),
+    }
 }
 
 async fn blob_exists(state: &AppState, event_id: Uuid, digest: &[u8]) -> ApiResult<bool> {
@@ -652,6 +691,17 @@ pub async fn preview(
 ) -> ApiResult<Response> {
     let event = authorize_event(&state.pool, &user, event_id).await?;
     validate_design(&body.design)?;
+    if let Some(art_id) = body.art_id
+        && art_of_event(&state, event_id, art_id)
+            .await?
+            .moderation_status
+            == "rejected"
+    {
+        return Err(ApiError::Conflict(
+            "art_rejected",
+            "the art was refused by the team".to_owned(),
+        ));
+    }
     let art = match body.art_id {
         Some(art_id) => Some(load_art(&state, event_id, art_id).await?),
         None => None,
@@ -737,7 +787,7 @@ pub async fn art_preview(
 }
 
 /// Decodes an image and encodes it as JPEG, scaled down to `max_width` if wider.
-fn shrink_to_jpeg(bytes: &[u8], max_width: u32) -> Result<Vec<u8>, image::ImageError> {
+pub(crate) fn shrink_to_jpeg(bytes: &[u8], max_width: u32) -> Result<Vec<u8>, image::ImageError> {
     let image = image::load_from_memory(bytes)?;
     let image = if image.width() > max_width {
         image.resize(max_width, u32::MAX, image::imageops::FilterType::Triangle)

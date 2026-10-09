@@ -303,6 +303,13 @@ pub async fn delete(
     sqlx::query!("delete from login_codes where email = $1", user.email)
         .execute(&mut *tx)
         .await?;
+    // The mail log keeps no address of a deleted account (ADR 0041).
+    sqlx::query!(
+        "update mail_sends set to_email = null where to_email = $1",
+        user.email
+    )
+    .execute(&mut *tx)
+    .await?;
     sqlx::query!("delete from sessions where user_id = $1", user.id)
         .execute(&mut *tx)
         .await?;

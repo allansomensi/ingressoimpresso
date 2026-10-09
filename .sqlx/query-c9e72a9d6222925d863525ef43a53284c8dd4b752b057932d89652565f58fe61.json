@@ -1,0 +1,105 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select p.id, p.tiers, p.minimum_cents, p.free_tickets, p.effective_at, p.note,\n                  u.email::text as \"created_by?\", p.created_at\n           from price_tables p left join users u on u.id = p.created_by\n           order by p.effective_at desc, p.created_at desc limit 50",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "price_tables",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "tiers",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "price_tables",
+            "name": "tiers"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "minimum_cents",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "price_tables",
+            "name": "minimum_cents"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "free_tickets",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "price_tables",
+            "name": "free_tickets"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "effective_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "price_tables",
+            "name": "effective_at"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "note",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "price_tables",
+            "name": "note"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "created_by?",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 7,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "price_tables",
+            "name": "created_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      null,
+      false
+    ]
+  },
+  "hash": "c9e72a9d6222925d863525ef43a53284c8dd4b752b057932d89652565f58fe61"
+}

@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select moderation_status from blobs where sha256 = $1\n           order by (moderation_status = 'rejected') desc, created_at desc limit 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "moderation_status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "blobs",
+            "name": "moderation_status"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "c284e9a74f35fb8106f23d7e863c46d86a5ede477d6bbd136ce56964f029b58b"
+}

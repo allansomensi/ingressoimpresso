@@ -240,6 +240,34 @@ pub fn batch_paid(paid: &BatchPaid<'_>, site: &str) -> Email {
 }
 
 /// `1.234` (Brazilian thousands separator).
+/// A test sent by an admin from the e-mail panel (ADR 0041).
+pub fn test_message(admin: &str, site: &str) -> Email {
+    let subject = "Teste de envio do Ingresso Impresso".to_owned();
+    let text = format!(
+        "Este é um e-mail de teste pedido por {admin} no painel de administração.\n\n\
+         Se você recebeu, o envio de e-mails está funcionando.\n\n{site}"
+    );
+    let content = format!(
+        "{}{}{}",
+        heading("Envio de e-mails funcionando"),
+        paragraph(&format!(
+            "Este é um e-mail de teste pedido por <strong>{}</strong> no painel de administração.",
+            escape(admin)
+        )),
+        paragraph("Se você recebeu, os códigos de acesso e os avisos de pagamento estão chegando."),
+    );
+    Email {
+        html: layout(
+            site,
+            "Teste de envio",
+            &content,
+            "Enviado a pedido de um administrador.",
+        ),
+        subject,
+        text,
+    }
+}
+
 fn thousands(value: i32) -> String {
     let digits = value.unsigned_abs().to_string();
     let mut out = String::new();

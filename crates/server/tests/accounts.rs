@@ -48,7 +48,7 @@ async fn google_login(app: &TestApp, claims: &Value) -> common::Reply {
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
 async fn google_is_offered_only_when_configured(pool: PgPool) {
-    let app = TestApp::new(pool.clone());
+    let app = TestApp::new(pool.clone()).await;
     let options = app
         .request(Method::GET, "/api/auth/options", None, None)
         .await
@@ -58,7 +58,7 @@ async fn google_is_offered_only_when_configured(pool: PgPool) {
     assert_eq!(off.status, StatusCode::SERVICE_UNAVAILABLE);
     assert_eq!(off.error_code(), "google_unavailable");
 
-    let app = TestApp::new(pool).with_google(CLIENT);
+    let app = TestApp::new(pool).await.with_google(CLIENT);
     let options = app
         .request(Method::GET, "/api/auth/options", None, None)
         .await
@@ -68,7 +68,7 @@ async fn google_is_offered_only_when_configured(pool: PgPool) {
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
 async fn google_creates_and_links_accounts(pool: PgPool) {
-    let app = TestApp::new(pool).with_google(CLIENT);
+    let app = TestApp::new(pool).await.with_google(CLIENT);
 
     // New e-mail: a new account, named after the Google profile.
     let reply = google_login(&app, &google_claims("Nova@Exemplo.com", "g-1")).await;
@@ -135,7 +135,7 @@ async fn request_code(app: &TestApp, email: &str, ip: &str) -> StatusCode {
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
 async fn one_address_asks_for_few_codes(pool: PgPool) {
-    let app = TestApp::new(pool);
+    let app = TestApp::new(pool).await;
     for index in 0..10 {
         assert_eq!(
             request_code(&app, &format!("p{index}@exemplo.com"), "203.0.113.7").await,
@@ -155,7 +155,9 @@ async fn one_address_asks_for_few_codes(pool: PgPool) {
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
 async fn the_daily_quota_stops_codes_but_not_google(pool: PgPool) {
-    let app = TestApp::with_settings(pool, &[("MAIL_DAILY_LIMIT", "3")]).with_google(CLIENT);
+    let app = TestApp::with_settings(pool, &[("MAIL_DAILY_LIMIT", "3")])
+        .await
+        .with_google(CLIENT);
     // Two sign-ups (the most new addresses may use of 3) and one code for an existing account.
     app.login("p0@exemplo.com").await;
     app.login("p1@exemplo.com").await;
@@ -177,7 +179,7 @@ async fn the_daily_quota_stops_codes_but_not_google(pool: PgPool) {
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
 async fn codes_for_new_addresses_leave_room_for_existing_accounts(pool: PgPool) {
-    let app = TestApp::with_settings(pool, &[("MAIL_DAILY_LIMIT", "6")]);
+    let app = TestApp::with_settings(pool, &[("MAIL_DAILY_LIMIT", "6")]).await;
     // Existing account first (its first code was a sign-up).
     app.login("banda@exemplo.com").await;
     // Made-up addresses use up the sub-quota (two thirds of 6 = 4, one already spent)...
@@ -205,7 +207,7 @@ async fn codes_for_new_addresses_leave_room_for_existing_accounts(pool: PgPool) 
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
 async fn login_e_mails_carry_html_and_text(pool: PgPool) {
-    let app = TestApp::new(pool);
+    let app = TestApp::new(pool).await;
     app.login("banda@exemplo.com").await;
     let sent = app.sent.lock().unwrap();
     let mail = sent.last().unwrap();
@@ -218,7 +220,7 @@ async fn login_e_mails_carry_html_and_text(pool: PgPool) {
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
 async fn holders_export_their_data(pool: PgPool) {
-    let app = TestApp::with_free_tickets(pool, 30);
+    let app = TestApp::with_free_tickets(pool, 30).await;
     let token = app.login("banda@exemplo.com").await;
     let event = app.create_event(&token, "Show de Lançamento").await;
     app.create_batch(&token, &event, 10).await;
@@ -247,7 +249,7 @@ async fn holders_export_their_data(pool: PgPool) {
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
 async fn deleting_keeps_only_fiscal_records(pool: PgPool) {
-    let app = TestApp::with_free_tickets(pool.clone(), 30);
+    let app = TestApp::with_free_tickets(pool.clone(), 30).await;
 
     // An account that never got tickets disappears.
     let empty = app.login("vazia@exemplo.com").await;

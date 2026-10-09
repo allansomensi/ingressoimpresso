@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into credit_ledger (id, organization_id, amount_cents, reason, reference_id, actor_id)\n               values ($1, $2, $3, 'batch_payment', $4, $5)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Int4",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "cffde01d3f682119141068c3f0628ebcb13de726e2d46e39bbb05c73ed724209"
+}

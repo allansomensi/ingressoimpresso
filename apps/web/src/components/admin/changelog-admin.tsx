@@ -1,6 +1,6 @@
 "use client";
 
-import type { AuditEntryDto, ChangelogBody, ChangelogEntryDto, ChangelogKind } from "@ingressoimpresso/api-types";
+import type { AuditPageDto, ChangelogBody, ChangelogEntryDto, ChangelogKind } from "@ingressoimpresso/api-types";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { History, Megaphone, MoreHorizontal, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { useDeferredValue, useState } from "react";
@@ -235,7 +235,7 @@ export function AdminAudit() {
   const search = useDeferredValue(query.trim());
   const audit = useQuery({
     queryKey: ["admin", "audit", search],
-    queryFn: () => api<AuditEntryDto[]>(`/api/admin/audit?q=${encodeURIComponent(search)}`),
+    queryFn: () => api<AuditPageDto>(`/api/admin/audit?q=${encodeURIComponent(search)}&perPage=100`).then((page) => page.items),
     placeholderData: keepPreviousData,
   });
   const a = texts.admin.audit;

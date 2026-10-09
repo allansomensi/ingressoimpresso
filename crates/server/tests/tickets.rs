@@ -38,7 +38,7 @@ async fn setup(app: &TestApp) -> (String, String) {
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
 async fn a_link_shows_the_signed_ticket(pool: PgPool) {
-    let app = TestApp::with_free_tickets(pool, 30);
+    let app = TestApp::with_free_tickets(pool, 30).await;
     let (token, event) = setup(&app).await;
 
     // Nothing paid yet: no ticket to send.
@@ -130,7 +130,7 @@ async fn a_link_shows_the_signed_ticket(pool: PgPool) {
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
 async fn links_follow_voids_and_revocation(pool: PgPool) {
-    let app = TestApp::with_free_tickets(pool, 30);
+    let app = TestApp::with_free_tickets(pool, 30).await;
     let (token, event) = setup(&app).await;
     app.create_batch(&token, &event, 10).await;
     let link = app
@@ -173,7 +173,7 @@ async fn links_follow_voids_and_revocation(pool: PgPool) {
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
 async fn bulk_links_skip_taken_numbers_and_sellers_are_avoided(pool: PgPool) {
-    let app = TestApp::with_free_tickets(pool, 30);
+    let app = TestApp::with_free_tickets(pool, 30).await;
     let (token, event) = setup(&app).await;
     app.create_batch(&token, &event, 30).await;
     let seller = app
@@ -234,7 +234,7 @@ async fn bulk_links_skip_taken_numbers_and_sellers_are_avoided(pool: PgPool) {
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
 async fn the_ticket_image_is_the_printed_design(pool: PgPool) {
-    let app = TestApp::with_free_tickets(pool, 30);
+    let app = TestApp::with_free_tickets(pool, 30).await;
     let (token, event) = setup(&app).await;
     app.create_batch(&token, &event, 5).await;
     let link = app

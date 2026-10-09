@@ -35,9 +35,14 @@ pub struct Config {
     pub export_dir: PathBuf,
     /// `APP_ENV=production` enforces production-only requirements and JSON logs.
     pub production: bool,
-    /// `FREE_TICKETS`: tickets every organization gets for free (ADR 0024), default
-    /// [`crate::pricing::DEFAULT_FREE_TICKETS`]; 0 turns the offer off.
-    pub free_tickets: i32,
+    /// `RESEND_WEBHOOK_SECRET` (ADR 0041): `whsec_...` of the Resend webhook; delivery statuses
+    /// (delivered, bounced) reach the mail log only with it.
+    pub resend_webhook_secret: Option<String>,
+    /// `MODERATION_VISION_API_KEY` (ADR 0042): Google Cloud Vision key that classifies uploaded
+    /// art; without it, images are reviewed by hand only.
+    pub vision_api_key: Option<String>,
+    /// `MODERATION_DAILY_LIMIT`: classifications per day, default [`DEFAULT_MODERATION_DAILY_LIMIT`].
+    pub moderation_daily_limit: i32,
     /// `GOOGLE_CLIENT_ID` (ADR 0029): OAuth client id of "Entrar com Google"; off without it.
     pub google_client_id: Option<String>,
     /// `MAIL_DAILY_LIMIT` (ADR 0028): e-mails sent in any 24 hours, default
@@ -47,6 +52,9 @@ pub struct Config {
 
 /// Default of `MAIL_DAILY_LIMIT`: a little under Resend's free 100 a day.
 pub const DEFAULT_MAIL_DAILY_LIMIT: i64 = 95;
+
+/// Default of `MODERATION_DAILY_LIMIT`: Cloud Vision's free 1,000 a month, spread over the days.
+pub const DEFAULT_MODERATION_DAILY_LIMIT: i32 = 30;
 
 impl std::fmt::Debug for Config {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -62,7 +70,9 @@ impl std::fmt::Debug for Config {
             .field("stripe", &self.stripe)
             .field("export_dir", &self.export_dir)
             .field("production", &self.production)
-            .field("free_tickets", &self.free_tickets)
+            .field("resend_webhook", &self.resend_webhook_secret.is_some())
+            .field("vision", &self.vision_api_key.is_some())
+            .field("moderation_daily_limit", &self.moderation_daily_limit)
             .field("google_client_id", &self.google_client_id)
             .field("mail_daily_limit", &self.mail_daily_limit)
             .finish_non_exhaustive()
@@ -185,7 +195,27 @@ impl Config {
             .or_else(|| allowed_origins.first().cloned())
             .unwrap_or_else(|| "http://localhost:3000".to_owned());
         let stripe = stripe_keys(get("STRIPE_SECRET_KEY"), get("STRIPE_WEBHOOK_SECRET"))?;
-        let free_tickets = free_tickets(get("FREE_TICKETS"))?;
+        let resend_webhook_secret = get("RESEND_WEBHOOK_SECRET");
+        if resend_webhook_secret
+            .as_ref()
+            .is_some_and(|secret| !secret.starts_with("whsec_"))
+        {
+            return Err(ConfigError::Invalid {
+                name: "RESEND_WEBHOOK_SECRET",
+                reason: "must be the whsec_... signing secret of the Resend webhook".to_owned(),
+            });
+        }
+        let moderation_daily_limit = match get("MODERATION_DAILY_LIMIT") {
+            Some(value) => value
+                .parse::<i32>()
+                .ok()
+                .filter(|limit| (0..=100_000).contains(limit))
+                .ok_or(ConfigError::Invalid {
+                    name: "MODERATION_DAILY_LIMIT",
+                    reason: "must be a whole number from 0 to 100000".to_owned(),
+                })?,
+            None => DEFAULT_MODERATION_DAILY_LIMIT,
+        };
         let mail_daily_limit = mail_daily_limit(get("MAIL_DAILY_LIMIT"))?;
         let google_client_id = get("GOOGLE_CLIENT_ID");
         if google_client_id
@@ -237,7 +267,9 @@ impl Config {
                 PathBuf::from,
             ),
             production,
-            free_tickets,
+            resend_webhook_secret,
+            vision_api_key: get("MODERATION_VISION_API_KEY"),
+            moderation_daily_limit,
             google_client_id,
             mail_daily_limit,
         })
@@ -254,21 +286,6 @@ impl Config {
         self.admin_emails
             .iter()
             .any(|admin| admin.eq_ignore_ascii_case(email))
-    }
-}
-
-/// Free tickets of every organization (ADR 0024): `FREE_TICKETS`, 0–10000.
-fn free_tickets(value: Option<String>) -> Result<i32, ConfigError> {
-    match value {
-        Some(value) => value
-            .parse::<i32>()
-            .ok()
-            .filter(|count| (0..=10_000).contains(count))
-            .ok_or(ConfigError::Invalid {
-                name: "FREE_TICKETS",
-                reason: "must be a whole number from 0 to 10000".to_owned(),
-            }),
-        None => Ok(crate::pricing::DEFAULT_FREE_TICKETS),
     }
 }
 

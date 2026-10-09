@@ -1,0 +1,114 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select p.id, p.name, p.headline, p.discount_percent, p.starts_at, p.ends_at, p.active,\n                  (select count(*) from ticket_batches b where b.promotion_id = p.id and b.status <> 'canceled') as \"batches!\",\n                  (select coalesce(sum(b.discount_cents), 0) from ticket_batches b\n                   where b.promotion_id = p.id and b.status <> 'canceled')::bigint as \"discount_cents!\"\n           from promotions p where ($1::uuid is null or p.id = $1)\n           order by p.starts_at desc limit 100",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "promotions",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "promotions",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "headline",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "promotions",
+            "name": "headline"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "discount_percent",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "promotions",
+            "name": "discount_percent"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "starts_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "promotions",
+            "name": "starts_at"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "ends_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "promotions",
+            "name": "ends_at"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "active",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "promotions",
+            "name": "active"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "batches!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 8,
+        "name": "discount_cents!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      null,
+      null
+    ]
+  },
+  "hash": "5b71c81fc968bf7aadd90c86f7772c0014eeb43f1df0afb2600e4f9ff269862b"
+}

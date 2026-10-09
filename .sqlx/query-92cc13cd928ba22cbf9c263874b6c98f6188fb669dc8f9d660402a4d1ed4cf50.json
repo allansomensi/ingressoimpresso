@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into moderation_usage (day, requests) values (current_date, 1)\n           on conflict (day) do update set requests = moderation_usage.requests + 1\n           where moderation_usage.requests < $1\n           returning requests",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "requests",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "moderation_usage",
+            "name": "requests"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "92cc13cd928ba22cbf9c263874b6c98f6188fb669dc8f9d660402a4d1ed4cf50"
+}

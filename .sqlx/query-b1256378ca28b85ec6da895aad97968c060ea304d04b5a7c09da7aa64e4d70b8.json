@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update blobs set moderation_status = 'flagged' where id = $1 and moderation_status <> 'rejected'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b1256378ca28b85ec6da895aad97968c060ea304d04b5a7c09da7aa64e4d70b8"
+}

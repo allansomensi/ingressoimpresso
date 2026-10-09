@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update organizations set bonus_free_tickets = least(bonus_free_tickets + $2, 100000) where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6a95c4c465d252431323dc658e771ca6e39c01dfa010d2a233860d17714e7da7"
+}

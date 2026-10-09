@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into notifications (id, user_id, kind, data)\n           select gen_random_uuid(), m.user_id, $2, $3 from memberships m where m.organization_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Jsonb"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "fcefa17ccab6d59c9b21b8e4dcf5c09265b433abc918b313018d885512b8a5bc"
+}

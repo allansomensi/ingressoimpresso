@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update announcements set title = $2, body = $3, level = $4, display = $5,\n                  cta_label = $6, cta_url = $7, starts_at = $8, ends_at = $9,\n                  published_at = coalesce(published_at, case when $10 then now() end),\n                  updated_at = now()\n           where id = $1 and archived_at is null",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Timestamptz",
+        "Timestamptz",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "eeb4f1f81f72b83c064a1a654f1903762627a901a841cb6898f333285856960c"
+}

@@ -1,0 +1,39 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into promo_codes\n             (id, code, kind, credit_cents, free_tickets, discount_percent, description, max_redemptions,\n              new_organizations_only, starts_at, expires_at, created_by)\n           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) returning id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "promo_codes",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Text",
+        "Int4",
+        "Bool",
+        "Timestamptz",
+        "Timestamptz",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "ffe21d18aa30dfb9936034487981b26dae89c046f134eaa3ffe40ace7de5d725"
+}
