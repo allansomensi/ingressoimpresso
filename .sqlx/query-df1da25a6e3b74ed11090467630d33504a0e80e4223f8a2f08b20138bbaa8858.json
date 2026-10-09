@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update payments set status = 'expired' where id = $1 and status in ('open', 'processing')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "df1da25a6e3b74ed11090467630d33504a0e80e4223f8a2f08b20138bbaa8858"
+}

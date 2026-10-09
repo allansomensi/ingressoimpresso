@@ -52,7 +52,9 @@ pub enum WebhookError {
 /// What a Checkout Session costs and where the customer comes back to.
 #[derive(Debug, Clone)]
 pub struct CheckoutRequest {
-    /// Our payment id: Stripe's idempotency key, so a retried request never opens two sessions.
+    /// Our payment id, sent as Stripe's idempotency key. Concurrent checkouts of one batch are
+    /// serialized by [`crate::state::AppState::batch_lock`]; the key keeps a retry of this same
+    /// request from opening a second session.
     pub payment_id: Uuid,
     /// The batch being paid.
     pub batch_id: Uuid,
@@ -127,6 +129,14 @@ pub struct FakeStripe {
 }
 
 impl FakeStripe {
+    /// Completes a session unpaid, as Stripe does when the customer gets a Pix code.
+    pub fn show_pix(&mut self, session_id: &str) -> Option<CheckoutSession> {
+        let session = self.sessions.get_mut(session_id)?;
+        session.status = Some("complete".to_owned());
+        session.url = None;
+        Some(session.clone())
+    }
+
     /// Marks a session as paid, as Stripe does when the customer pays.
     pub fn pay(&mut self, session_id: &str) -> Option<CheckoutSession> {
         let session = self.sessions.get_mut(session_id)?;

@@ -123,6 +123,55 @@ async fn wrong_codes_are_limited(pool: PgPool) {
 }
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
+async fn new_codes_do_not_reset_the_guessing_budget(pool: PgPool) {
+    async fn ask(app: &TestApp, email: &str) -> StatusCode {
+        app.request(
+            Method::POST,
+            "/api/auth/code",
+            None,
+            Some(json!({ "email": email })),
+        )
+        .await
+        .status
+    }
+    async fn verify(app: &TestApp, email: &str, code: &str) -> StatusCode {
+        app.request(
+            Method::POST,
+            "/api/auth/verify",
+            None,
+            Some(json!({ "email": email, "code": code })),
+        )
+        .await
+        .status
+    }
+    let app = TestApp::new(pool);
+    let email = "alvo@exemplo.com";
+    for _ in 0..2 {
+        assert_eq!(ask(&app, email).await, StatusCode::NO_CONTENT);
+        let code = app.last_code(email);
+        let wrong = if code == "000000" { "111111" } else { "000000" };
+        for _ in 0..5 {
+            assert_eq!(verify(&app, email, wrong).await, StatusCode::BAD_REQUEST);
+        }
+    }
+    // Ten wrong codes in the hour: even a fresh, right code waits.
+    assert_eq!(ask(&app, email).await, StatusCode::NO_CONTENT);
+    let code = app.last_code(email);
+    assert_eq!(
+        verify(&app, email, &code).await,
+        StatusCode::TOO_MANY_REQUESTS
+    );
+}
+
+#[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
+async fn long_emails_can_sign_in(pool: PgPool) {
+    let app = TestApp::new(pool);
+    let email = format!("{}@exemplo.com", "a".repeat(120));
+    let token = app.login(&email).await;
+    assert_eq!(app.get("/api/me", &token).await.status, StatusCode::OK);
+}
+
+#[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
 async fn events_are_isolated_between_organizations(pool: PgPool) {
     let app = TestApp::new(pool);
     let alice = app.login("alice@exemplo.com").await;
@@ -625,4 +674,70 @@ async fn missing_export_file_is_gone(pool: PgPool) {
         .await;
     assert_eq!(reply.status, StatusCode::GONE);
     assert_eq!(reply.error_code(), "export_expired");
+}
+
+#[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
+async fn postponing_an_event_extends_its_door_links(pool: PgPool) {
+    let app = TestApp::new(pool);
+    let token = app.login("banda@exemplo.com").await;
+    let event = app.create_event(&token, "Show").await;
+    let created = app
+        .post(
+            &format!("/api/events/{event}/door/accesses"),
+            &token,
+            json!({ "label": "Porta" }),
+        )
+        .await;
+    assert_eq!(created.status, StatusCode::CREATED);
+    let moved = app
+        .put(
+            &format!("/api/events/{event}"),
+            &token,
+            json!({
+                "name": "Show",
+                "venue": null,
+                "startsAt": "2026-12-20T22:00:00-03:00",
+                "endsAt": "2026-12-21T03:00:00-03:00",
+                "ticketPriceCents": null
+            }),
+        )
+        .await;
+    assert_eq!(moved.status, StatusCode::OK);
+    let overview = app
+        .get(&format!("/api/events/{event}/door"), &token)
+        .await
+        .json();
+    let expires = time::OffsetDateTime::parse(
+        overview["accesses"][0]["expiresAt"].as_str().unwrap(),
+        &time::format_description::well_known::Rfc3339,
+    )
+    .unwrap();
+    assert_eq!(
+        expires,
+        time::macros::datetime!(2026-12-21 03:00 -03:00) + time::Duration::hours(12)
+    );
+}
+
+#[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
+async fn every_api_error_is_json(pool: PgPool) {
+    let app = TestApp::new(pool);
+    let token = app.login("banda@exemplo.com").await;
+    let malformed = app
+        .send(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/events")
+                .header(header::AUTHORIZATION, format!("Bearer {token}"))
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from("{not json"))
+                .unwrap(),
+        )
+        .await;
+    assert!(malformed.status.is_client_error());
+    assert_eq!(malformed.error_code(), "invalid_input");
+    let bad_id = app.get("/api/events/not-a-uuid", &token).await;
+    assert_eq!(bad_id.error_code(), "invalid_input");
+    let unknown = app.get("/api/nothing-here", &token).await;
+    assert_eq!(unknown.status, StatusCode::NOT_FOUND);
+    assert_eq!(unknown.error_code(), "not_found");
 }

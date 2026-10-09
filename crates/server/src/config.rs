@@ -6,8 +6,8 @@ use thiserror::Error;
 
 use crate::keys::MasterKey;
 
-/// Runtime configuration.
-#[derive(Debug, Clone)]
+/// Runtime configuration. `Debug` leaves secrets out (CLAUDE.md invariant 4).
+#[derive(Clone)]
 pub struct Config {
     /// `DATABASE_URL`: direct (non-pooled) Postgres connection string.
     pub database_url: String,
@@ -35,6 +35,24 @@ pub struct Config {
     pub export_dir: PathBuf,
     /// `APP_ENV=production` enforces production-only requirements and JSON logs.
     pub production: bool,
+}
+
+impl std::fmt::Debug for Config {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("Config")
+            .field("port", &self.port)
+            .field("allowed_origins", &self.allowed_origins)
+            .field("resend", &self.resend_api_key.is_some())
+            .field("mail_from", &self.mail_from)
+            .field("admin_emails", &self.admin_emails)
+            .field("public_api_url", &self.public_api_url)
+            .field("public_web_url", &self.public_web_url)
+            .field("stripe", &self.stripe)
+            .field("export_dir", &self.export_dir)
+            .field("production", &self.production)
+            .finish_non_exhaustive()
+    }
 }
 
 /// Stripe credentials.
@@ -391,9 +409,14 @@ mod tests {
         full.push(("STRIPE_WEBHOOK_SECRET", "whsec_y"));
         full.push(("PUBLIC_WEB_URL", "https://seudominio.com.br/"));
         let config = Config::from_lookup(lookup(&full)).unwrap();
+        let printed = format!("{config:?}");
+        assert!(
+            !printed.contains("sk_test_x") && !printed.contains("whsec_y"),
+            "{printed}"
+        );
+        assert!(!printed.contains("postgres://"), "{printed}");
         let stripe = config.stripe.unwrap();
         assert!(stripe.test_mode());
-        assert!(!format!("{stripe:?}").contains("sk_test_x"));
         assert_eq!(config.public_web_url, "https://seudominio.com.br");
     }
 

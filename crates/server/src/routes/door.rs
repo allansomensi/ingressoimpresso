@@ -24,7 +24,7 @@ use crate::error::{ApiError, ApiResult, bad_request};
 use crate::state::AppState;
 
 /// Links keep working until the end of the event plus this grace (ADR 0007).
-const ACCESS_GRACE: Duration = Duration::hours(12);
+pub(crate) const ACCESS_GRACE: Duration = Duration::hours(12);
 const MAX_DEVICES_PER_ACCESS: i64 = 50;
 const MAX_SCANS_PER_UPLOAD: usize = 500;
 const MAX_LABEL_CHARS: usize = 60;
@@ -585,6 +585,17 @@ async fn record_scan(
             .fetch_optional(&mut **tx)
             .await?
             .is_some();
+            // A concurrent upload of this same scan (the confirm and the sync loop racing) may
+            // have inserted the entry first: it is still this scan's first entry.
+            let first = first
+                || sqlx::query_scalar!(
+                    "select first_scan_id from entries where event_id = $1 and ticket_number = $2",
+                    device.event_id,
+                    number,
+                )
+                .fetch_optional(&mut **tx)
+                .await?
+                    == Some(scan.id);
             // Same precedence as the door decision: voided > already entered > first entry.
             Some(
                 if void_reason(tx, device.event_id, number).await?.is_some() {

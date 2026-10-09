@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select exists(select 1 from seller_assignments a where a.event_id = b.event_id and a.numbers && b.numbers)\n               or exists(select 1 from ticket_voids v where v.event_id = b.event_id and v.numbers && b.numbers\n                         and v.undone_at is null) as \"in_use!\"\n           from ticket_batches b where b.id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "in_use!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "e3747201898fd96266dc10fc1a76783a79057fd94e4f9140a65ff753914f57cc"
+}

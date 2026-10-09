@@ -166,8 +166,9 @@ dto! {
         pub price_cents: i32,
         /// How it was paid.
         pub paid_via: Option<PaymentMethod>,
-        /// A checkout is open: the payer may still be paying (Pix can take a while).
-        pub payment_pending: bool,
+        /// An unsettled online payment: a checkout page is open, or a Pix transfer is being
+        /// confirmed. `null` when there is none.
+        pub pending_payment: Option<PaymentState>,
     }
 
     /// One price tier: tickets up to `upTo` (counted within the batch) cost `unitCents` each.
@@ -674,6 +675,14 @@ dto_enum! {
         Admin,
     }
 
+    /// An unsettled online payment of a batch.
+    pub enum PaymentState {
+        /// The Stripe payment page is open.
+        Open,
+        /// Paid by Pix, waiting for Stripe to confirm the transfer.
+        Processing,
+    }
+
     /// Why a range was voided.
     pub enum VoidReason {
         /// Returned unsold.
@@ -791,6 +800,7 @@ macro_rules! db_enum {
 db_enum!(EventStatus { Active => "active", Closed => "closed" });
 db_enum!(BatchStatus { AwaitingPayment => "awaiting_payment", Paid => "paid", Canceled => "canceled" });
 db_enum!(PaymentMethod { Stripe => "stripe", Admin => "admin" });
+db_enum!(PaymentState { Open => "open", Processing => "processing" });
 db_enum!(VoidReason { Unsold => "unsold", Lost => "lost", Revoked => "revoked" });
 db_enum!(ExportKind { Home => "home", Print => "print", Control => "control", Whatsapp => "whatsapp" });
 db_enum!(ExportStatus { Queued => "queued", Running => "running", Done => "done", Failed => "failed" });

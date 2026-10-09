@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select first_scan_id from entries where event_id = $1 and ticket_number = $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "first_scan_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "entries",
+            "name": "first_scan_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "c3209626d1b095e23dc8bef79393b547c222f510ad4c3ece14db25dae421602b"
+}

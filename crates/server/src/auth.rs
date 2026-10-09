@@ -19,6 +19,12 @@ const CODE_TTL: Duration = Duration::minutes(10);
 const MAX_ATTEMPTS_PER_CODE: i16 = 5;
 const MAX_CODES_PER_WINDOW: i64 = 5;
 const CODE_WINDOW: Duration = Duration::minutes(15);
+/// Wrong codes allowed per e-mail (across all its codes) before verification pauses: asking for
+/// new codes must not reset the guessing budget.
+const MAX_FAILURES_PER_WINDOW: i64 = 10;
+const FAILURE_WINDOW: Duration = Duration::hours(1);
+/// `organizations.name` holds at most this many characters.
+const MAX_ORGANIZATION_NAME: usize = 100;
 const SESSION_TTL: Duration = Duration::days(30);
 /// Sliding expiry is refreshed at most this often, to avoid a write on every request.
 const SESSION_REFRESH_EVERY: Duration = Duration::hours(1);
@@ -171,6 +177,17 @@ pub async fn verify_code(
     if code.len() != 6 || !code.chars().all(|c| c.is_ascii_digit()) {
         return Err(invalid());
     }
+    let failures = sqlx::query_scalar!(
+        r#"select coalesce(sum(attempts), 0)::bigint as "failures!" from login_codes
+           where email = $1 and created_at > $2"#,
+        email,
+        OffsetDateTime::now_utc() - FAILURE_WINDOW,
+    )
+    .fetch_one(&state.pool)
+    .await?;
+    if failures >= MAX_FAILURES_PER_WINDOW {
+        return Err(ApiError::TooManyRequests);
+    }
     let mut tx = state.pool.begin().await?;
     let Some(row) = sqlx::query!(
         r#"select id, code_hash, attempts from login_codes
@@ -219,10 +236,11 @@ pub async fn verify_code(
         )
         .execute(&mut *tx)
         .await?;
+        let name: String = email.chars().take(MAX_ORGANIZATION_NAME).collect();
         sqlx::query!(
             "insert into organizations (id, name) values ($1, $2)",
             organization_id,
-            email
+            name
         )
         .execute(&mut *tx)
         .await?;
