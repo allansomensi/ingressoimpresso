@@ -33,3 +33,4 @@ feita e as consequências.
 | [0021](0021-interface-e-pwa.md) | Identidade visual, sistema de design e painel instalável (PWA) | Aceito |
 | [0022](0022-tema-e-analytics.md) | Tema escolhido pelo usuário e Vercel Web Analytics | Aceito |
 | [0023](0023-nova-marca.md) | Nova marca: ingresso com "check" | Aceito |
+| [0024](0024-precos-acessiveis-e-ingressos-gratis.md) | Preços acessíveis e ingressos grátis para testar | Aceito |

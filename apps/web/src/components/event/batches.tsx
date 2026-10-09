@@ -1,6 +1,6 @@
 "use client";
 
-import type { BatchDto, CheckoutDto, CreateBatchBody, PricingDto } from "@ingressoimpresso/api-types";
+import type { AccountDto, BatchDto, CheckoutDto, CreateBatchBody, PricingDto } from "@ingressoimpresso/api-types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, CreditCard, FileDown, Layers, Lock, MoreHorizontal, Plus, RefreshCw, ShieldCheck, X } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -56,6 +56,8 @@ function quantityOf(batch: BatchDto): number {
 
 function NewBatch({ eventId, pricing, nextNumber }: { eventId: string; pricing: PricingDto | undefined; nextNumber: number }) {
   const queryClient = useQueryClient();
+  const account = useQuery({ queryKey: ["account"], queryFn: () => api<AccountDto>("/api/account") });
+  const freeLeft = account.data?.freeTicketsLeft ?? 0;
   const [quantity, setQuantity] = useState(100);
   const [showTable, setShowTable] = useState(false);
   const valid = Number.isInteger(quantity) && quantity >= 1 && quantity <= MAX_BATCH;
@@ -65,20 +67,29 @@ function NewBatch({ eventId, pricing, nextNumber }: { eventId: string; pricing: 
       const body: CreateBatchBody = { quantity };
       return api<BatchDto>(`/api/events/${eventId}/batches`, { method: "POST", body });
     },
-    onSuccess: () => {
-      toast.success(pricing?.onlinePayment === true ? t.createdToast : t.createdToastManual);
+    onSuccess: (batch) => {
+      toast.success(
+        batch.status === "paid" ? t.createdFreeToast : pricing?.onlinePayment === true ? t.createdToast : t.createdToastManual,
+      );
       void queryClient.invalidateQueries({ queryKey: ["batches", eventId] });
+      void queryClient.invalidateQueries({ queryKey: ["account"] });
     },
   });
   const submit = (event: FormEvent) => {
     event.preventDefault();
     create.mutate();
   };
-  const total = pricing !== undefined && valid ? quote(pricing, quantity) : null;
+  const total = pricing !== undefined && valid ? quote(pricing, quantity, freeLeft) : null;
+  const freeHere = valid ? Math.min(freeLeft, quantity) : 0;
 
   return (
     <Card>
       <CardHeader title={t.newBatch} icon={Plus} />
+      {freeLeft > 0 && (
+        <Alert tone="success" className="mb-5" title={t.freeTitle(freeLeft)}>
+          {t.freeBody}
+        </Alert>
+      )}
       <form onSubmit={submit} className="grid gap-6 md:grid-cols-[1fr_auto] md:items-end">
         <div className="flex flex-col gap-3">
           <Field label={t.quantity} hint={valid ? t.numbering(nextNumber, nextNumber + quantity - 1) : texts.errors.invalid_quantity}>
@@ -110,16 +121,22 @@ function NewBatch({ eventId, pricing, nextNumber }: { eventId: string; pricing: 
             {pricing === undefined ? (
               <Skeleton className="h-7 w-24" />
             ) : (
-              <span className="text-2xl font-semibold tracking-tight text-fg tabular">{total === null ? "—" : money(total)}</span>
+              <span className="text-2xl font-semibold tracking-tight text-fg tabular">
+                {total === null ? "—" : total === 0 ? t.free : money(total)}
+              </span>
             )}
           </div>
           {pricing !== undefined && total !== null && (
-            <span className="text-xs text-fg-muted">
-              {total === pricing.minimumCents ? t.minimumApplied : t.perTicket(money(Math.round(total / quantity)))}
+            <span className="flex flex-col gap-0.5 text-xs text-fg-muted">
+              {freeHere > 0 && <span className="font-medium text-success-fg">{t.freeInBatch(freeHere)}</span>}
+              {total > 0 &&
+                (total === pricing.minimumCents
+                  ? t.minimumApplied
+                  : t.perTicket(money(Math.round(total / (quantity - freeHere)))))}
             </span>
           )}
           <Button type="submit" disabled={!valid} loading={create.isPending}>
-            {create.isPending ? t.creating : t.create}
+            {create.isPending ? t.creating : total === 0 ? t.createFree : t.create}
           </Button>
         </div>
       </form>

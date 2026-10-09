@@ -2,7 +2,7 @@
 
 import type { PricingDto } from "@ingressoimpresso/api-types";
 import { useQuery } from "@tanstack/react-query";
-import { Check } from "lucide-react";
+import { Check, Gift } from "lucide-react";
 
 import { ButtonLink, Skeleton } from "@/components/ui";
 import { api } from "@/lib/api";
@@ -43,7 +43,16 @@ export function PricingSection() {
                 );
               })}
             </ul>
-            <div className="mt-4 flex flex-col gap-1 rounded-2xl bg-brand-soft px-4 py-3 text-sm text-brand-soft-fg">
+            {pricing.data.freeTickets > 0 && (
+              <div className="mt-4 flex items-start gap-3 rounded-2xl border border-success/25 bg-success-soft px-4 py-3 text-sm text-success-fg">
+                <Gift className="mt-0.5 size-4 shrink-0" aria-hidden />
+                <span className="flex flex-col gap-0.5">
+                  <span className="font-semibold">{t.pricingFree(pricing.data.freeTickets)}</span>
+                  <span className="opacity-90">{t.pricingFreeBody}</span>
+                </span>
+              </div>
+            )}
+            <div className="mt-3 flex flex-col gap-1 rounded-2xl bg-brand-soft px-4 py-3 text-sm text-brand-soft-fg">
               <span className="font-semibold">
                 {t.pricingExample(EXAMPLE_QUANTITY, money(quote(pricing.data, EXAMPLE_QUANTITY)))}
               </span>

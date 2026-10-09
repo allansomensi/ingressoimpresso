@@ -63,7 +63,12 @@ impl Reply {
 
 impl TestApp {
     pub fn new(pool: PgPool) -> Self {
-        Self::build(pool, Payments::Disabled)
+        Self::build(pool, Payments::Disabled, 0)
+    }
+
+    /// An app that gives every organization `free` tickets (ADR 0024).
+    pub fn with_free_tickets(pool: PgPool, free: i32) -> Self {
+        Self::build(pool, Payments::Disabled, free)
     }
 
     /// An app whose online payments go to an in-memory Stripe.
@@ -75,11 +80,13 @@ impl TestApp {
                 stripe: stripe.clone(),
                 webhook_secret: WEBHOOK_SECRET.to_owned(),
             },
+            0,
         );
         (app, stripe)
     }
 
-    fn build(pool: PgPool, payments: Payments) -> Self {
+    fn build(pool: PgPool, payments: Payments, free_tickets: i32) -> Self {
+        let free_tickets = free_tickets.to_string();
         let export_dir = std::env::temp_dir().join(format!("ii-exports-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(&export_dir).unwrap();
         let dir = export_dir.display().to_string();
@@ -92,6 +99,7 @@ impl TestApp {
             "PUBLIC_API_URL" => Some("http://api.test".to_owned()),
             "ALLOWED_ORIGINS" => Some("http://localhost:3000".to_owned()),
             "EXPORT_DIR" => Some(dir.clone()),
+            "FREE_TICKETS" => Some(free_tickets.clone()),
             _ => None,
         })
         .unwrap();

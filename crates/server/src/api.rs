@@ -162,8 +162,10 @@ dto! {
         #[serde(with = "time::serde::rfc3339::option")]
         #[cfg_attr(feature = "ts", ts(type = "string | null"))]
         pub paid_at: Option<OffsetDateTime>,
-        /// What the batch costs, in centavos (ADR 0020).
+        /// What the batch costs, in centavos (ADR 0020), after its free tickets.
         pub price_cents: i32,
+        /// Tickets of the batch that came from the organization's free allowance (ADR 0024).
+        pub free_tickets: i32,
         /// How it was paid.
         pub paid_via: Option<PaymentMethod>,
         /// An unsettled online payment: a checkout page is open, or a Pix transfer is being
@@ -189,6 +191,24 @@ dto! {
         pub tiers: Vec<PriceTierDto>,
         /// Whether batches can be paid online (Stripe configured).
         pub online_payment: bool,
+        /// Free tickets every organization gets (taken off its first batches).
+        pub free_tickets: i32,
+    }
+
+    /// `GET /api/account`: the signed-in user's organization.
+    pub struct AccountDto {
+        /// Organization name.
+        pub organization_name: String,
+        /// Free tickets still available to the organization.
+        pub free_tickets_left: i32,
+        /// Free tickets every organization gets.
+        pub free_tickets_total: i32,
+        /// Events of the organization.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub event_count: i64,
+        /// Paid tickets issued by the organization.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub paid_tickets: i64,
     }
 
     /// `POST /api/batches/{id}/checkout`: the Stripe payment page.
@@ -673,6 +693,8 @@ dto_enum! {
         Stripe,
         /// Marked as paid by an admin.
         Admin,
+        /// Entirely covered by the organization's free tickets.
+        Free,
     }
 
     /// An unsettled online payment of a batch.
@@ -799,7 +821,7 @@ macro_rules! db_enum {
 
 db_enum!(EventStatus { Active => "active", Closed => "closed" });
 db_enum!(BatchStatus { AwaitingPayment => "awaiting_payment", Paid => "paid", Canceled => "canceled" });
-db_enum!(PaymentMethod { Stripe => "stripe", Admin => "admin" });
+db_enum!(PaymentMethod { Stripe => "stripe", Admin => "admin", Free => "free" });
 db_enum!(PaymentState { Open => "open", Processing => "processing" });
 db_enum!(VoidReason { Unsold => "unsold", Lost => "lost", Revoked => "revoked" });
 db_enum!(ExportKind { Home => "home", Print => "print", Control => "control", Whatsapp => "whatsapp" });

@@ -16,7 +16,7 @@ use tower_http::trace::TraceLayer;
 use crate::auth;
 use crate::error::ApiError;
 use crate::routes::events::MAX_ART_BYTES;
-use crate::routes::{batches, door, events, exports, report, sellers, voids};
+use crate::routes::{account, batches, door, events, exports, report, sellers, voids};
 use crate::state::AppState;
 
 /// JSON bodies are small; only art uploads get a bigger limit.
@@ -29,6 +29,7 @@ pub fn router(state: AppState) -> Router {
         .route("/auth/verify", post(auth::verify_code))
         .route("/auth/logout", post(auth::logout))
         .route("/me", get(auth::me))
+        .route("/account", get(account::account))
         .route("/events", get(events::list).post(events::create))
         .route("/events/{id}", get(events::get).put(events::update))
         .route(

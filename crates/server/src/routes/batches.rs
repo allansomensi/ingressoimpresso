@@ -39,6 +39,7 @@ struct BatchRow {
     created_at: OffsetDateTime,
     paid_at: Option<OffsetDateTime>,
     price_cents: i32,
+    free_tickets: i32,
     paid_via: Option<String>,
     pending_payment: Option<String>,
 }
@@ -56,6 +57,7 @@ impl BatchRow {
             created_at: self.created_at,
             paid_at: self.paid_at,
             price_cents: self.price_cents,
+            free_tickets: self.free_tickets,
             paid_via: self.paid_via.as_deref().and_then(PaymentMethod::from_db),
             pending_payment: self
                 .pending_payment
@@ -68,7 +70,7 @@ impl BatchRow {
 async fn load(state: &AppState, batch_id: Uuid) -> ApiResult<BatchDto> {
     sqlx::query_as!(
         BatchRow,
-        r#"select b.id, b.numbers, b.status, b.created_at, b.paid_at, b.price_cents, b.paid_via,
+        r#"select b.id, b.numbers, b.status, b.created_at, b.paid_at, b.price_cents, b.free_tickets, b.paid_via,
                   (select case when bool_or(p.status = 'processing') then 'processing'
                                when bool_or(p.status = 'open' and p.expires_at > now()) then 'open' end
                    from payments p where p.batch_id = b.id) as pending_payment
@@ -83,7 +85,10 @@ async fn load(state: &AppState, batch_id: Uuid) -> ApiResult<BatchDto> {
 
 /// `GET /api/pricing` (no login): the price table, shown on the site and before paying.
 pub async fn pricing_table(State(state): State<AppState>) -> Json<PricingDto> {
-    Json(pricing::table(state.payments.enabled()))
+    Json(pricing::table(
+        state.payments.enabled(),
+        state.config.free_tickets,
+    ))
 }
 
 /// `GET /api/events/{id}/batches`.
@@ -95,7 +100,7 @@ pub async fn list(
     authorize_event(&state.pool, &user, event_id).await?;
     let rows = sqlx::query_as!(
         BatchRow,
-        r#"select b.id, b.numbers, b.status, b.created_at, b.paid_at, b.price_cents, b.paid_via,
+        r#"select b.id, b.numbers, b.status, b.created_at, b.paid_at, b.price_cents, b.free_tickets, b.paid_via,
                   (select case when bool_or(p.status = 'processing') then 'processing'
                                when bool_or(p.status = 'open' and p.expires_at > now()) then 'open' end
                    from payments p where p.batch_id = b.id) as pending_payment
@@ -143,16 +148,46 @@ pub async fn create(
     )
     .fetch_one(&mut *tx)
     .await?;
+    // The organization's free tickets (ADR 0024). Its row lock keeps two batches created at the
+    // same time from spending the same allowance.
+    sqlx::query!(
+        "select id from organizations where id = (select organization_id from events where id = $1) for update",
+        event_id
+    )
+    .fetch_one(&mut *tx)
+    .await?;
+    let used = sqlx::query_scalar!(
+        r#"select coalesce(sum(b.free_tickets), 0)::int as "used!"
+           from organizations o
+           join events e on e.organization_id = o.id
+           join ticket_batches b on b.event_id = e.id and b.status <> 'canceled'
+           where o.id = (select organization_id from events where id = $1)"#,
+        event_id
+    )
+    .fetch_one(&mut *tx)
+    .await?;
+    let free = (state.config.free_tickets - used).clamp(0, body.quantity);
+    let price = pricing::quote_with_free(body.quantity, free);
+    // A batch entirely covered by free tickets is born paid.
+    let (status, paid_via) = if price == 0 {
+        (BatchStatus::Paid, Some(PaymentMethod::Free.db()))
+    } else {
+        (BatchStatus::AwaitingPayment, None)
+    };
     // A concurrent request computing the same `first` loses on the exclusion constraint (409).
     let id = sqlx::query_scalar!(
-        r#"insert into ticket_batches (id, event_id, numbers, key_id, status, price_cents)
-           values ($1, $2, $3, $4, 'awaiting_payment', $5)
+        r#"insert into ticket_batches
+             (id, event_id, numbers, key_id, status, price_cents, free_tickets, paid_via, paid_at)
+           values ($1, $2, $3, $4, $5, $6, $7, $8, case when $8::text is null then null else now() end)
            returning id"#,
         Uuid::new_v4(),
         event_id,
         range(first, last)?,
         key_id,
-        pricing::quote(body.quantity),
+        status.db(),
+        price,
+        free,
+        paid_via,
     )
     .fetch_one(&mut *tx)
     .await?;

@@ -11,6 +11,8 @@ export NEXT_PUBLIC_API_URL=http://localhost:8080
 # A fresh address per run: login codes are rate limited per e-mail.
 export E2E_EMAIL="e2e-$(date +%s)@exemplo.com"
 export ADMIN_EMAILS="$E2E_EMAIL"
+# The test pays its batches by hand (admin): no free tickets (ADR 0024).
+export FREE_TICKETS=0
 export EXPORT_DIR="$out/exports"
 # A throwaway master key: the e2e database holds test events only.
 export TICKET_KEY_ENCRYPTION_KEY=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=

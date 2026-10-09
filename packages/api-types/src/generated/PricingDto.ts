@@ -20,4 +20,8 @@ tiers: Array<PriceTierDto>,
 /**
  * Whether batches can be paid online (Stripe configured).
  */
-onlinePayment: boolean, };
+onlinePayment: boolean, 
+/**
+ * Free tickets every organization gets (taken off its first batches).
+ */
+freeTickets: number, };

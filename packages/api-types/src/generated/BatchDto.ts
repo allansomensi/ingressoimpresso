@@ -32,9 +32,13 @@ createdAt: string,
  */
 paidAt: string | null, 
 /**
- * What the batch costs, in centavos (ADR 0020).
+ * What the batch costs, in centavos (ADR 0020), after its free tickets.
  */
 priceCents: number, 
+/**
+ * Tickets of the batch that came from the organization's free allowance (ADR 0024).
+ */
+freeTickets: number, 
 /**
  * How it was paid.
  */

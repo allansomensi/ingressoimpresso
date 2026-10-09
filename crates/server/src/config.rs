@@ -35,6 +35,9 @@ pub struct Config {
     pub export_dir: PathBuf,
     /// `APP_ENV=production` enforces production-only requirements and JSON logs.
     pub production: bool,
+    /// `FREE_TICKETS`: tickets every organization gets for free (ADR 0024), default
+    /// [`crate::pricing::DEFAULT_FREE_TICKETS`]; 0 turns the offer off.
+    pub free_tickets: i32,
 }
 
 impl std::fmt::Debug for Config {
@@ -51,6 +54,7 @@ impl std::fmt::Debug for Config {
             .field("stripe", &self.stripe)
             .field("export_dir", &self.export_dir)
             .field("production", &self.production)
+            .field("free_tickets", &self.free_tickets)
             .finish_non_exhaustive()
     }
 }
@@ -167,6 +171,17 @@ impl Config {
             .or_else(|| allowed_origins.first().cloned())
             .unwrap_or_else(|| "http://localhost:3000".to_owned());
         let stripe = stripe_keys(get("STRIPE_SECRET_KEY"), get("STRIPE_WEBHOOK_SECRET"))?;
+        let free_tickets = match get("FREE_TICKETS") {
+            Some(value) => value
+                .parse::<i32>()
+                .ok()
+                .filter(|count| (0..=10_000).contains(count))
+                .ok_or(ConfigError::Invalid {
+                    name: "FREE_TICKETS",
+                    reason: "must be a whole number from 0 to 10000".to_owned(),
+                })?,
+            None => crate::pricing::DEFAULT_FREE_TICKETS,
+        };
         if production {
             if stripe.is_some() && !public_web_url.starts_with("https://") {
                 return Err(ConfigError::Invalid {
@@ -206,6 +221,7 @@ impl Config {
                 PathBuf::from,
             ),
             production,
+            free_tickets,
         })
     }
 
