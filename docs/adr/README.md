@@ -31,9 +31,18 @@ feita e as consequências.
 | [0019](0019-deploy-dominio-proprio.md) | Deploy com domínio próprio: imagem no Render, banco que dorme e configuração explícita | Aceito |
 | [0020](0020-pagamento-stripe.md) | Pagamento dos lotes com Stripe Checkout | Aceito |
 | [0021](0021-interface-e-pwa.md) | Identidade visual, sistema de design e painel instalável (PWA) | Aceito |
-| [0022](0022-tema-e-analytics.md) | Tema escolhido pelo usuário e Vercel Web Analytics | Aceito |
+| [0022](0022-tema-e-analytics.md) | Tema escolhido pelo usuário e Vercel Web Analytics | Aceito (seletor do site movido por 0036) |
 | [0023](0023-nova-marca.md) | Nova marca: ingresso com "check" | Aceito |
 | [0024](0024-precos-acessiveis-e-ingressos-gratis.md) | Preços acessíveis e ingressos grátis para testar | Aceito |
 | [0025](0025-textos-e-modelos-de-ingresso.md) | Textos no ingresso, modelos prontos e horário local do evento | Aceito |
-| [0026](0026-painel-admin-e-conta.md) | Painel de administração, cortesias e página da conta | Aceito |
+| [0026](0026-painel-admin-e-conta.md) | Painel de administração, cortesias e página da conta | Aceito (auditoria em 0032) |
 | [0027](0027-ciclo-de-vida-do-evento.md) | Ciclo de vida do evento: duplicar, arquivar e excluir | Aceito |
+| [0028](0028-emails-html-e-cota.md) | E-mails em HTML, cota diária e limite por endereço | Aceito |
+| [0029](0029-login-com-google.md) | Login com Google | Aceito |
+| [0030](0030-ingresso-digital.md) | Ingresso digital: o mesmo ingresso, entregue por link | Aceito |
+| [0031](0031-novidades.md) | Novidades publicadas pelos admins | Aceito |
+| [0032](0032-controle-do-admin.md) | Controle do admin: modo suporte, auditoria, suspensão e estorno | Aceito |
+| [0033](0033-documentos-legais-e-lgpd.md) | Documentos legais, aceite dos termos e direitos do titular | Aceito |
+| [0034](0034-resultados-e-financeiro.md) | Resultados do organizador e financeiro do admin | Aceito |
+| [0035](0035-rifas-sem-sorteio.md) | Rifas: imprimir números sim, sortear não | Aceito |
+| [0036](0036-tema-do-site.md) | O site segue o tema do sistema | Aceito |

@@ -20,10 +20,14 @@
 | Frontend | Next.js na Vercel, sem regra de negócio; fala direto com a API em `api.` do domínio (CORS + token Bearer); deploy pré-compilado pelo GitHub Actions | [0009](adr/0009-frontend-nextjs-vercel.md), [0016](adr/0016-sessao-bearer.md) |
 | Leitura de QR | `zxing-wasm` em todos os navegadores (o `BarcodeDetector` não existe no Safari do iPhone) | [0010](adr/0010-leitura-qr-navegador.md) |
 | Modelo de dados | Faixas `int4range` com restrições de exclusão; sem tabela com uma linha por ingresso | [0011](adr/0011-modelo-dados-faixas.md) |
-| Login do organizador | Código de 6 dígitos por e-mail (sem senha), enviado pelo Resend | [0012](adr/0012-autenticacao-organizador.md) |
+| Login do organizador | Código de 6 dígitos por e-mail (sem senha), enviado pelo Resend, ou "Entrar com Google" (ID token verificado na API); e-mails em HTML com cota diária e limite por IP | [0012](adr/0012-autenticacao-organizador.md), [0028](adr/0028-emails-html-e-cota.md), [0029](adr/0029-login-com-google.md) |
 | Infraestrutura | API Docker no Render (Virginia) + Neon (`aws-us-east-1`, junto da API) + Resend; imagem compilada pelo Blueprint do Render e testada no CI | [0013](adr/0013-infraestrutura-render-neon.md), [0019](adr/0019-deploy-dominio-proprio.md) |
 | Pagamento | Stripe Checkout por lote (Pix ou cartão), confirmado por webhook assinado; preço progressivo por quantidade; o admin ainda pode marcar lotes como pagos | [0020](adr/0020-pagamento-stripe.md) (substitui [0014](adr/0014-pagamento-pix-adiado.md)) |
 | Interface e PWA | Identidade visual própria, sistema de design com tokens claro/escuro, painel instalável como app | [0021](adr/0021-interface-e-pwa.md) |
+| Ingresso digital | O mesmo QR v1 do papel, entregue por um link (`/ingresso#token`) que abre offline no celular; QR assinado na criação e guardado selado | [0030](adr/0030-ingresso-digital.md) |
+| Operação | Novidades publicadas pelo admin; admin em modo suporte em qualquer evento, com auditoria, suspensão, estorno e preço de lote | [0031](adr/0031-novidades.md), [0032](adr/0032-controle-do-admin.md) |
+| Legal e LGPD | Termos, Privacidade e Reembolso no site; aceite gravado no login; exportar e excluir a conta pelo painel; sem sorteio de rifas | [0033](adr/0033-documentos-legais-e-lgpd.md), [0035](adr/0035-rifas-sem-sorteio.md) |
+| Resultados | Vendidos, faturamento estimado, custo e entradas por evento e da conta; financeiro do admin | [0034](adr/0034-resultados-e-financeiro.md) |
 
 O que muda em relação às suas hipóteses:
 
@@ -379,6 +383,20 @@ create table payments (id uuid primary key, batch_id uuid not null references ti
   expires_at timestamptz not null, paid_at timestamptz);
 -- ticket_batches.paid_via: 'stripe' ou 'admin'
 
+-- Fase 8 (ADRs 0028–0034); detalhes nas migrações 20261014*.
+-- users: google_sub, name, terms_version, terms_accepted_at, last_login_at
+-- login_codes.ip_hash (HMAC do IP, apagado em menos de 24 h); mail_sends (contador da cota diária)
+-- organizations: suspended_at, suspended_reason; ticket_batches: status 'refunded', refunded_at
+create table audit_log (id uuid primary key, actor_id uuid, actor_email text not null, action text not null,
+  organization_id uuid, event_id uuid, target_id uuid, detail jsonb not null, created_at timestamptz not null);
+create table changelog_entries (id uuid primary key, kind text not null check (kind in
+  ('new','improvement','fix','security')), title text not null, body text not null, published_at timestamptz, ...);
+create table ticket_links (id uuid primary key, event_id uuid not null references events,
+  ticket_number integer not null, holder_name text, token_hash bytea not null unique,
+  sealed bytea not null,                              -- token + texto do QR, selados sob a chave mestra
+  revoked_at timestamptz, first_opened_at timestamptz, last_opened_at timestamptz, open_count integer not null);
+-- um link ativo por ingresso: unique (event_id, ticket_number) where revoked_at is null
+
 -- Jobs (geração de arquivos, e-mails)
 create table jobs (id uuid primary key, kind text not null, payload jsonb not null,
   status text not null check (status in ('queued','running','done','failed')),
@@ -443,6 +461,32 @@ o lote não pode ser cancelado, marcado como pago à mão nem receber outro chec
 vez (trava em memória: a API tem uma instância só) e chamam a Stripe sem transação aberta no banco.
 Um lote com faixas de vendedor ou cancelamentos não pode ser cancelado (`batch_has_ranges`).
 
+Fase 8 (ADRs 0028–0034):
+
+```
+GET  /api/auth/options                     (sem login) → { googleClientId }
+POST /api/auth/google { credential }       → sessão (ID token do Google Identity Services)
+GET  /api/account/export                   → JSON com os dados da conta (LGPD)
+DELETE /api/account { email }              → exclui ou anonimiza a conta
+GET  /api/changelog                        (sem login) novidades publicadas
+GET  /api/analytics                        resultados da organização
+GET  /api/events/{id}/analytics            resultados do evento e entradas a cada 15 min
+GET|POST /api/events/{id}/tickets          ingressos digitais (POST: { number?, holderName? })
+POST /api/events/{id}/tickets/bulk         { first, last } → até 500 links
+PUT  /api/ticket-links/{id}                POST /api/ticket-links/{id}/revoke
+POST /api/ticket { token }                 (sem login) o ingresso no celular
+POST /api/ticket/image { token }           (sem login) JPEG com a arte
+GET  /api/admin/finance?days=              GET /api/admin/audit?q=
+GET|PUT /api/admin/organizations/{id}      PUT /api/admin/organizations/{id}/suspension
+POST /api/admin/users/{id}/sessions/revoke
+POST /api/admin/batches/{id}/refund        PUT /api/admin/batches/{id}/price
+GET|POST /api/admin/changelog              PUT|DELETE /api/admin/changelog/{id}
+```
+
+Admins abrem qualquer evento com as rotas do organizador (modo suporte); toda alteração feita
+assim vai para `audit_log`. Uma organização suspensa só lê (`account_suspended`), menos para sair
+e excluir a conta.
+
 Portaria, fase 4. O organizador gerencia os links pelo painel (sessão Bearer):
 
 ```
@@ -479,7 +523,9 @@ Os DTOs são structs Rust com `#[derive(TS)]` (`ts-rs`), e os tipos TS são gera
   de QR de ponta a ponta.
 - **Rotas:**
   - `/`: landing (com a tabela de preços de `GET /api/pricing`);
-  - `/entrar`: login;
+  - `/entrar`: login (código por e-mail ou Google);
+  - `/termos`, `/privacidade`, `/reembolso` (textos em `src/content/legal.ts`) e `/novidades`;
+  - `/ingresso#<token>`: o ingresso digital no celular, que abre offline;
   - `/painel/...`: área do organizador, com componentes de cliente que chamam a API Rust. Não há
     Server Actions nem Route Handlers com regra de negócio;
   - `/portaria`: PWA, com o Service Worker no escopo `/portaria/`.
@@ -493,8 +539,9 @@ Os DTOs são structs Rust com `#[derive(TS)]` (`ts-rs`), e os tipos TS são gera
   (`?aba=lotes`).
 - **PWA do painel (ADR 0021):** `app/manifest.ts` e `public/sw.js` (escopo `/`, ignora
   `/portaria`): arquivos de build em cache e página `/offline` sem rede; botão "Instalar app".
-- **Textos centralizados:** `apps/web/src/texts/pt-BR.ts` (objeto tipado `as const`). No Rust, os
-  textos de e-mail e PDF ficam em módulos `texts.rs`. Não há framework de i18n.
+- **Textos centralizados:** `apps/web/src/texts/pt-BR.ts` (objeto tipado `as const`); os
+  documentos legais em `src/content/legal.ts`. No Rust, os e-mails ficam em `emails.rs` e os
+  textos de PDF em módulos `texts.rs`. Não há framework de i18n.
 
 ## 10. Infraestrutura e operação
 
@@ -564,7 +611,8 @@ Estimativas grosseiras, para quem tem 5 a 10 h por semana.
 | **MVP: show da banda** | | | **~120 h** |
 | 6. Pagamento + interface | Stripe Checkout (Pix e cartão) com webhook, preço por lote; redesign do site e do painel, logo e PWA (ADRs 0020, 0021) | Pagar um lote real e receber os arquivos sem intervenção | |
 | 7. Produto para vender | Preços menores e ingressos grátis (0024); textos no ingresso, 16 modelos e editor visual com arrastar (0025); painel de administração, cortesias e página da conta (0026); duplicar, arquivar e excluir eventos (0027) | Montar um ingresso a partir de um modelo, só no celular, e imprimir | |
-| 8. Gráfica e abertura | CMYK/PDF-X, modo de sobreimpressão (arte em offset + número/QR em casa); convite de membros, termos/LGPD, limites de abuso | | |
+| 8. Abertura | Ingresso digital (0030); login com Google, e-mails em HTML e limites de abuso (0028, 0029); termos, privacidade, reembolso e direitos LGPD (0033); novidades (0031); modo suporte, auditoria, suspensão e estorno (0032); resultados e financeiro (0034) | Mandar um ingresso pelo WhatsApp e entrar com ele na porta, sem internet | |
+| 9. Gráfica e equipe | CMYK/PDF-X, modo de sobreimpressão (arte em offset + número/QR em casa); convite de membros; carteiras da Apple e do Google | | |
 
 **Atalho, se o show for antes disso:** a fase 3 pode sair sem painel. O evento seria criado por
 comandos da CLI admin contra o banco, e o servidor teria só a API da portaria. Assim, o caminho

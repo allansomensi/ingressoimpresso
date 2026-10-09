@@ -54,3 +54,6 @@ services:
         sync: false
       - key: STRIPE_WEBHOOK_SECRET
         sync: false
+      # ADR 0029 (docs/deploy.md §5.2): optional; turns on "Entrar com Google".
+      - key: GOOGLE_CLIENT_ID
+        sync: false
