@@ -563,8 +563,8 @@ Estimativas grosseiras, para quem tem 5 a 10 h por semana.
 | **5. Relatório + produção** | Relatório por vendedor, deploy (Vercel + Render + Neon), backup testado, ensaio geral | Ensaio com cerca de 50 ingressos impressos e duas portas | ~15 h |
 | **MVP: show da banda** | | | **~120 h** |
 | 6. Pagamento + interface | Stripe Checkout (Pix e cartão) com webhook, preço por lote; redesign do site e do painel, logo e PWA (ADRs 0020, 0021) | Pagar um lote real e receber os arquivos sem intervenção | |
-| 7. Editor visual e gráfica | Arrastar e redimensionar no editor, templates prontos, CMYK/PDF-X, modo de sobreimpressão (arte em offset + número/QR em casa) | | |
-| 8. Abertura para clientes | Convite de membros, termos/LGPD, landing, limites de abuso | | |
+| 7. Produto para vender | Preços menores e ingressos grátis (0024); textos no ingresso, 16 modelos e editor visual com arrastar (0025); painel de administração, cortesias e página da conta (0026); duplicar, arquivar e excluir eventos (0027) | Montar um ingresso a partir de um modelo, só no celular, e imprimir | |
+| 8. Gráfica e abertura | CMYK/PDF-X, modo de sobreimpressão (arte em offset + número/QR em casa); convite de membros, termos/LGPD, limites de abuso | | |
 
 **Atalho, se o show for antes disso:** a fase 3 pode sair sem painel. O evento seria criado por
 comandos da CLI admin contra o banco, e o servidor teria só a API da portaria. Assim, o caminho

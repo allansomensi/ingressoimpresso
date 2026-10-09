@@ -31,6 +31,12 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   logo e PWA instalável (ADR 0021), tema claro/escuro/sistema e Vercel Web Analytics (ADR 0022). Falta o que depende do mantenedor: conta Stripe, webhook e as
   variáveis `STRIPE_*`/`PUBLIC_WEB_URL` no Render (`docs/deploy.md` §5.1) e definir os preços
   definitivos.
+- **Fase 7 (produto para vender): implementada.** Preços menores e 30 ingressos grátis por
+  organização (`FREE_TICKETS`, ADR 0024); textos no ingresso com campos (`{evento}`, `{data}`…),
+  oito fontes, 16 modelos por tipo de evento e editor visual com arrastar, desfazer e prévia ao
+  vivo (ADR 0025); horário local do evento (`utc_offset_minutes`); painel `/painel/admin` com
+  métricas, organizações, cortesias e lotes, e página `/painel/conta` (ADR 0026); duplicar,
+  arquivar e excluir eventos (ADR 0027).
 
 Plano completo em `docs/arquitetura.md` §12.
 
@@ -48,12 +54,15 @@ crates/ticket-core   formato v1, base45, Ed25519, decisão da portaria, DTOs: pu
 crates/ticket-wasm   bindings wasm-bindgen: DoorCore (verificação + decisão), nunca assinatura
 crates/render        Typst embutido (pacote `ticket-render`): design versionado, QR vetorial, A4 casa,
                      gráfica (TrimBox/BleedBox), controle, ZIP WhatsApp; templates em templates/*.typ,
-                     fontes OFL em fonts/; gera em blocos e junta com merge.rs (ADRs 0015, 0017)
+                     fontes OFL em fonts/ (8 famílias, world.rs); blocos de texto com campos
+                     resolvidos em fields.rs (espelho em apps/web/src/lib/ticket-fields.ts);
+                     gera em blocos e junta com merge.rs (ADRs 0015, 0017, 0025)
 crates/cli           binário `ii`: vectors generate|check, job init, render, verify
 crates/server        API (pacote `ingressoimpresso-server`, binário `ingressoimpresso`): Axum 0.8 + sqlx 0.9,
                      migrações em migrations/ (aplicadas no start), worker de exportação no mesmo
                      processo (fila = tabela exports), chaves de evento seladas (keys.rs, ADR 0005),
-                     DTOs em api.rs (ts-rs → packages/api-types), testes de integração em tests/
+                     DTOs em api.rs (ts-rs → packages/api-types), testes de integração em tests/;
+                     admin em routes/admin.rs (ADMIN_EMAILS), conta em routes/account.rs
 packages/api-types   tipos TS da API gerados (src/generated + src/index.ts, NÃO editar)
 apps/web             landing em src/app/page.tsx (+ src/components/marketing), painel em
                      src/app/{entrar,painel}, abas do evento em src/components/event (aba na URL,
@@ -63,7 +72,12 @@ apps/web             landing em src/app/page.tsx (+ src/components/marketing), p
                      Analytics em src/components/site-analytics.tsx (fora da portaria);
                      PWA do painel: app/manifest.ts + public/sw.js (escopo /, ignora /portaria);
                      portaria em src/app/portaria + src/portaria (engine, storage, camera, logic) +
-                     public/portaria-sw.js (ADR 0018); Vitest em test/
+                     public/portaria-sw.js (ADR 0018); Vitest em test/;
+                     editor do ingresso em src/components/event/design*.tsx + prévia ao vivo em
+                     src/components/ticket/ticket-view.tsx (regras espelhadas em lib/design-rules.ts),
+                     modelos em src/lib/templates (catálogo + fundos SVG em mm), fontes do ingresso
+                     em public/fonts/ticket (WOFF2); admin em src/app/painel/admin +
+                     src/components/admin; conta em src/app/painel/conta
 e2e/                 portaria.e2e.mjs: 5 "celulares" Chromium com câmera falsa (`just e2e`)
 packages/ticket-core-wasm  wrapper TS tipado (src/), tipos gerados (src/generated/, NÃO editar),
                      pkg/ gerado por `just wasm` (não versionado), testes Vitest com os vetores
@@ -166,6 +180,11 @@ just backup-restore-test <dump.age> <chave-age>   # restaura um backup num banco
   dois temas). Ações destrutivas pedem `useConfirm()`; resultados de ações viram `toast`; menus
   usam `Menu`/`MenuItem` e painéis `Popover`. Um editor com alterações pendentes chama
   `useUnsavedChanges(dirty)`.
+- **Design do ingresso em dois lados:** regras de `design.rs` e campos de `fields.rs` têm espelho
+  no painel (`lib/design-rules.ts`, `lib/ticket-fields.ts`) para a prévia ao vivo; mudou um, mude
+  o outro (os testes usam os mesmos exemplos). Modelo novo é só TypeScript em `lib/templates`, e
+  `test/templates.test.ts` valida todo modelo em toda paleta. Fonte nova entra nos dois lados
+  (`crates/render/fonts` + `world.rs` + `ticket.typ` e `public/fonts/ticket` em WOFF2).
 - **Textos de interface centralizados:** `apps/web/src/texts/pt-BR.ts` no web e módulos `texts.rs`
   no Rust. Sem framework de i18n.
 - **Rust:**
