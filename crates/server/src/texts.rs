@@ -15,6 +15,9 @@ pub(crate) fn login_body(code: &str) -> String {
     )
 }
 
+/// Appended to the name of a duplicated event.
+pub(crate) const COPY_SUFFIX: &str = " (cópia)";
+
 /// Line item of a batch on the Stripe payment page.
 pub(crate) fn checkout_description(event: &str, first: i32, last: i32) -> String {
     let quantity = last - first + 1;

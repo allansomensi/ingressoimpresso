@@ -123,7 +123,13 @@ pub async fn create(
     Path(event_id): Path<Uuid>,
     Json(body): Json<CreateBatchBody>,
 ) -> ApiResult<(StatusCode, Json<BatchDto>)> {
-    authorize_event(&state.pool, &user, event_id).await?;
+    let event = authorize_event(&state.pool, &user, event_id).await?;
+    if event.status == "closed" {
+        return Err(ApiError::Conflict(
+            "event_closed",
+            "reopen the event to create batches".to_owned(),
+        ));
+    }
     if !(1..=MAX_BATCH).contains(&body.quantity) {
         return Err(bad_request(
             "invalid_quantity",

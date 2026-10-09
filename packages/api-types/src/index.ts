@@ -39,6 +39,7 @@ export type * from "./generated/EventBody";
 export type * from "./generated/EventDto";
 export type * from "./generated/EventReportDto";
 export type * from "./generated/EventStatus";
+export type * from "./generated/EventStatusBody";
 export type * from "./generated/ExportDto";
 export type * from "./generated/ExportKind";
 export type * from "./generated/ExportScope";

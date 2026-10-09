@@ -31,7 +31,12 @@ pub fn router(state: AppState) -> Router {
         .route("/me", get(auth::me))
         .route("/account", get(account::account).put(account::update))
         .route("/events", get(events::list).post(events::create))
-        .route("/events/{id}", get(events::get).put(events::update))
+        .route(
+            "/events/{id}",
+            get(events::get).put(events::update).delete(events::delete),
+        )
+        .route("/events/{id}/duplicate", post(events::duplicate))
+        .route("/events/{id}/status", put(events::set_status))
         .route(
             "/events/{id}/design",
             get(events::get_design).put(events::save_design),

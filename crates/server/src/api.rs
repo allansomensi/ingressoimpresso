@@ -82,6 +82,12 @@ dto! {
         pub ticket_price_cents: Option<i32>,
     }
 
+    /// `PUT /api/events/{id}/status`: archive (`closed`) or reopen (`active`).
+    pub struct EventStatusBody {
+        /// New lifecycle state.
+        pub status: EventStatus,
+    }
+
     /// An event.
     pub struct EventDto {
         /// Id.

@@ -9,16 +9,21 @@ use axum::http::header::{CACHE_CONTROL, CONTENT_TYPE, HeaderMap};
 use axum::http::{HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use sha2::{Digest, Sha256};
+use sqlx::{Postgres, Transaction};
 use ticket_core::EventSigningKey;
 use ticket_render::{Art, RenderJob, TicketDesign, TicketQr, TicketToRender};
+use time::OffsetDateTime;
 use uuid::Uuid;
 
 use super::{EventRow, authorize_event, door, optional_text};
-use crate::api::{ArtDto, DesignBody, DesignResponse, EventBody, EventDto, EventStatus};
+use crate::api::{
+    ArtDto, DesignBody, DesignResponse, EventBody, EventDto, EventStatus, EventStatusBody,
+};
 use crate::auth::AuthUser;
 use crate::error::{ApiError, ApiResult, bad_request};
 use crate::keys;
 use crate::state::AppState;
+use crate::texts;
 
 /// Upload limit for art (also enforced by the router body limit).
 pub const MAX_ART_BYTES: usize = 20 * 1024 * 1024;
@@ -101,6 +106,70 @@ pub async fn list(State(state): State<AppState>, user: AuthUser) -> ApiResult<Js
         .map(Json)
 }
 
+/// A new event: its row and its first signing key.
+struct NewEvent<'a> {
+    organization_id: Uuid,
+    name: &'a str,
+    venue: Option<&'a str>,
+    starts_at: OffsetDateTime,
+    ends_at: OffsetDateTime,
+    ticket_price_cents: Option<i32>,
+    utc_offset_minutes: i16,
+}
+
+/// Inserts an event with a random QR tag and its first signing key (ADR 0004, 0005).
+async fn insert_event(
+    state: &AppState,
+    tx: &mut Transaction<'_, Postgres>,
+    event: NewEvent<'_>,
+) -> ApiResult<EventRow> {
+    let event_id = Uuid::new_v4();
+    let mut created = None;
+    // The tag is random; a collision on the unique index just means "draw again".
+    for _ in 0..8 {
+        let tag = i64::from(getrandom::u32().map_err(|error| anyhow::anyhow!("OS RNG: {error}"))?);
+        created = sqlx::query_as!(
+            EventRow,
+            r#"insert into events (id, organization_id, name, venue, starts_at, ends_at, qr_tag,
+                                   ticket_price_cents, utc_offset_minutes)
+               values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+               on conflict (qr_tag) do nothing
+               returning id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag,
+                         utc_offset_minutes"#,
+            event_id,
+            event.organization_id,
+            event.name,
+            event.venue,
+            event.starts_at,
+            event.ends_at,
+            tag,
+            event.ticket_price_cents,
+            event.utc_offset_minutes,
+        )
+        .fetch_optional(&mut **tx)
+        .await?;
+        if created.is_some() {
+            break;
+        }
+    }
+    let row = created.ok_or_else(|| anyhow::anyhow!("could not draw a free event tag"))?;
+
+    let seed = keys::generate_seed().map_err(anyhow::Error::from)?;
+    let sealed =
+        keys::seal(&state.config.master_key, event_id, 1, &seed).map_err(anyhow::Error::from)?;
+    let public_key = EventSigningKey::from_seed(&seed).public_key().to_bytes();
+    sqlx::query!(
+        r#"insert into event_signing_keys (event_id, key_id, public_key, sealed_private_key, status)
+           values ($1, 1, $2, $3, 'active')"#,
+        event_id,
+        public_key.as_slice(),
+        sealed,
+    )
+    .execute(&mut **tx)
+    .await?;
+    Ok(row)
+}
+
 /// `POST /api/events`: creates the event and its first signing key (ADR 0004, 0005).
 pub async fn create(
     State(state): State<AppState>,
@@ -116,53 +185,180 @@ pub async fn create(
     .fetch_optional(&mut *tx)
     .await?
     .ok_or(ApiError::Forbidden)?;
-
-    let event_id = Uuid::new_v4();
-    let mut created = None;
-    // The tag is random; a collision on the unique index just means "draw again".
-    for _ in 0..8 {
-        let tag = i64::from(getrandom::u32().map_err(|error| anyhow::anyhow!("OS RNG: {error}"))?);
-        created = sqlx::query_as!(
-            EventRow,
-            r#"insert into events (id, organization_id, name, venue, starts_at, ends_at, qr_tag,
-                                   ticket_price_cents, utc_offset_minutes)
-               values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-               on conflict (qr_tag) do nothing
-               returning id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag,
-                         utc_offset_minutes"#,
-            event_id,
+    let event = insert_event(
+        &state,
+        &mut tx,
+        NewEvent {
             organization_id,
-            name,
-            venue,
-            body.starts_at,
-            body.ends_at,
-            tag,
-            body.ticket_price_cents,
-            offset,
-        )
-        .fetch_optional(&mut *tx)
-        .await?;
-        if created.is_some() {
-            break;
-        }
-    }
-    let event = created.ok_or_else(|| anyhow::anyhow!("could not draw a free event tag"))?;
+            name: &name,
+            venue: venue.as_deref(),
+            starts_at: body.starts_at,
+            ends_at: body.ends_at,
+            ticket_price_cents: body.ticket_price_cents,
+            utc_offset_minutes: offset,
+        },
+    )
+    .await?;
+    tx.commit().await?;
+    Ok((StatusCode::CREATED, Json(event.into_dto()?)))
+}
 
-    let seed = keys::generate_seed().map_err(anyhow::Error::from)?;
-    let sealed =
-        keys::seal(&state.config.master_key, event_id, 1, &seed).map_err(anyhow::Error::from)?;
-    let public_key = EventSigningKey::from_seed(&seed).public_key().to_bytes();
+/// The name of a copy: "Show (cópia)", cut to fit 100 characters.
+fn copy_name(name: &str) -> String {
+    let suffix = texts::COPY_SUFFIX;
+    let room = 100 - suffix.chars().count();
+    let base: String = name.trim().chars().take(room).collect();
+    format!("{}{suffix}", base.trim_end())
+}
+
+/// `POST /api/events/{id}/duplicate`: a new event with the same details, the latest ticket
+/// design (art included) and the same sellers, without batches, ranges or door links. It gets
+/// its own QR tag and signing key: tickets of one event never open the other's door.
+pub async fn duplicate(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(event_id): Path<Uuid>,
+) -> ApiResult<(StatusCode, Json<EventDto>)> {
+    let source = authorize_event(&state.pool, &user, event_id).await?;
+    let mut tx = state.pool.begin().await?;
+    let organization_id =
+        sqlx::query_scalar!("select organization_id from events where id = $1", event_id)
+            .fetch_one(&mut *tx)
+            .await?;
+    let name = copy_name(&source.name);
+    let copy = insert_event(
+        &state,
+        &mut tx,
+        NewEvent {
+            organization_id,
+            name: &name,
+            venue: source.venue.as_deref(),
+            starts_at: source.starts_at,
+            ends_at: source.ends_at,
+            ticket_price_cents: source.ticket_price_cents,
+            utc_offset_minutes: source.utc_offset_minutes,
+        },
+    )
+    .await?;
+
+    let design = sqlx::query!(
+        "select spec, art_blob_id from ticket_designs where event_id = $1 order by version desc limit 1",
+        event_id
+    )
+    .fetch_optional(&mut *tx)
+    .await?;
+    if let Some(design) = design {
+        let art = match design.art_blob_id {
+            Some(blob_id) => Some(copy_art(&mut tx, organization_id, blob_id, copy.id).await?),
+            None => None,
+        };
+        sqlx::query!(
+            r#"insert into ticket_designs (id, event_id, version, spec, art_blob_id)
+               values ($1, $2, 1, $3, $4)"#,
+            Uuid::new_v4(),
+            copy.id,
+            design.spec,
+            art,
+        )
+        .execute(&mut *tx)
+        .await?;
+    }
     sqlx::query!(
-        r#"insert into event_signing_keys (event_id, key_id, public_key, sealed_private_key, status)
-           values ($1, 1, $2, $3, 'active')"#,
+        r#"insert into sellers (id, event_id, name, phone)
+           select gen_random_uuid(), $2, name, phone from sellers where event_id = $1"#,
         event_id,
-        public_key.as_slice(),
-        sealed,
+        copy.id,
     )
     .execute(&mut *tx)
     .await?;
     tx.commit().await?;
-    Ok((StatusCode::CREATED, Json(event.into_dto()?)))
+    Ok((StatusCode::CREATED, Json(copy.into_dto()?)))
+}
+
+/// Copies an art blob to another event of the same organization, within its art quota.
+async fn copy_art(
+    tx: &mut Transaction<'_, Postgres>,
+    organization_id: Uuid,
+    blob_id: Uuid,
+    to_event: Uuid,
+) -> ApiResult<Uuid> {
+    let stored = sqlx::query_scalar!(
+        r#"select coalesce(sum(b.byte_size), 0)::bigint as "stored!" from blobs b
+           join events e on e.id = b.event_id where e.organization_id = $1"#,
+        organization_id
+    )
+    .fetch_one(&mut **tx)
+    .await?;
+    let size = sqlx::query_scalar!("select byte_size from blobs where id = $1", blob_id)
+        .fetch_one(&mut **tx)
+        .await?;
+    if stored + i64::from(size) > MAX_ART_BYTES_PER_ORGANIZATION {
+        return Err(ApiError::Conflict(
+            "art_quota",
+            "the organization stores too much art".to_owned(),
+        ));
+    }
+    let id = Uuid::new_v4();
+    sqlx::query!(
+        r#"insert into blobs (id, event_id, sha256, content_type, width_px, height_px, byte_size, data)
+           select $1, $2, sha256, content_type, width_px, height_px, byte_size, data
+           from blobs where id = $3"#,
+        id,
+        to_event,
+        blob_id,
+    )
+    .execute(&mut **tx)
+    .await?;
+    Ok(id)
+}
+
+/// `PUT /api/events/{id}/status`: archives (`closed`) or reopens (`active`) an event. A closed
+/// event leaves the main list and takes no new batches; its files and door keep working.
+pub async fn set_status(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(event_id): Path<Uuid>,
+    Json(body): Json<EventStatusBody>,
+) -> ApiResult<Json<EventDto>> {
+    authorize_event(&state.pool, &user, event_id).await?;
+    let row = sqlx::query_as!(
+        EventRow,
+        r#"update events set status = $2 where id = $1
+           returning id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag,
+                     utc_offset_minutes"#,
+        event_id,
+        body.status.db(),
+    )
+    .fetch_one(&state.pool)
+    .await?;
+    Ok(Json(row.into_dto()?))
+}
+
+/// `DELETE /api/events/{id}`: only an event without batches (canceled ones aside): nothing was
+/// paid or printed for it. Mistakes and tests go away; real events are archived instead.
+pub async fn delete(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(event_id): Path<Uuid>,
+) -> ApiResult<StatusCode> {
+    authorize_event(&state.pool, &user, event_id).await?;
+    let deleted = sqlx::query_scalar!(
+        r#"delete from events e where e.id = $1
+           and not exists (select 1 from ticket_batches b
+                           where b.event_id = e.id and b.status <> 'canceled')
+           returning e.id"#,
+        event_id
+    )
+    .fetch_optional(&state.pool)
+    .await?;
+    match deleted {
+        Some(_) => Ok(StatusCode::NO_CONTENT),
+        None => Err(ApiError::Conflict(
+            "event_has_batches",
+            "cancel the event's unpaid batches first; events with paid batches are archived"
+                .to_owned(),
+        )),
+    }
 }
 
 /// `GET /api/events/{id}`.
@@ -371,10 +567,12 @@ pub async fn upload_art(
     }
     let digest = Sha256::digest(&body).to_vec();
     let size = i32::try_from(body.len()).map_err(|_| ApiError::PayloadTooLarge)?;
-    // Art lives in Postgres (ADR 0011): drop this event's uploads no saved design uses (an
-    // abandoned try) and cap what an organization keeps, so one account cannot fill the database.
+    // Art lives in Postgres (ADR 0011): drop this event's older uploads no saved design uses (an
+    // abandoned try; recent ones stay for the editor's undo) and cap what an organization keeps,
+    // so one account cannot fill the database.
     sqlx::query!(
         r#"delete from blobs b where b.event_id = $1 and b.sha256 <> $2
+           and b.created_at < now() - interval '2 hours'
            and not exists (select 1 from ticket_designs d where d.art_blob_id = b.id)"#,
         event_id,
         digest,
