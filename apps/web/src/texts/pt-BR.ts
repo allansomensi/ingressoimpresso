@@ -22,7 +22,7 @@ export const texts = {
     faq: "Dúvidas",
     templates: "Modelos",
     signIn: "Entrar",
-    start: "Começar agora",
+    start: "Começar grátis",
     panel: "Abrir o painel",
     menu: "Menu",
   },
@@ -55,7 +55,7 @@ export const texts = {
       newYear: { name: "Réveillon da Praia", venue: "Quiosque do Mar" },
       classic: { name: "Recital de Piano", venue: "Auditório da Escola de Música" },
     },
-    audienceTitle: "Usado por quem organiza evento sem bilheteria",
+    audienceTitle: "Feito para quem organiza evento sem bilheteria",
     audience: ["Bandas independentes", "Festas de escola", "Igrejas e quermesses", "Formaturas", "Teatro e dança", "Pequenos produtores"],
     mock: {
       event: "Show de Lançamento",

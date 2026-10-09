@@ -184,7 +184,7 @@ export default function LandingPage() {
               <div className="relative">
                 <div aria-hidden className="absolute -inset-10 rounded-full bg-brand/15 blur-3xl" />
                 <DigitalTicketMock className="relative -rotate-2" />
-                <span className="absolute -right-6 bottom-16 flex items-center gap-2 rounded-2xl bg-[#1f9d55] px-3.5 py-2 text-sm font-semibold text-white shadow-lg animate-pop [animation-delay:300ms]">
+                <span className="absolute top-28 -right-12 flex items-center gap-2 rounded-2xl bg-[#1f9d55] px-3.5 py-2 text-sm font-semibold text-white shadow-lg animate-pop [animation-delay:300ms]">
                   <MessageCircle className="size-4" aria-hidden />
                   WhatsApp
                 </span>
