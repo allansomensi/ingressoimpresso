@@ -1,12 +1,11 @@
 "use client";
 
-import type { AuditPageDto, ChangelogBody, ChangelogEntryDto, ChangelogKind } from "@ingressoimpresso/api-types";
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { History, Megaphone, MoreHorizontal, Pencil, Plus, Search, Trash2 } from "lucide-react";
-import { useDeferredValue, useState } from "react";
+import type { ChangelogBody, ChangelogEntryDto, ChangelogKind } from "@ingressoimpresso/api-types";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Megaphone, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
+import { useState } from "react";
 import { toast } from "sonner";
 
-import { AuditLine } from "@/components/admin/organization-detail";
 import { KindBadge } from "@/components/changelog/kind-badge";
 import {
   Badge,
@@ -30,7 +29,6 @@ import {
 } from "@/components/ui";
 import { api } from "@/lib/api";
 import { CHANGELOG_KINDS, paragraphs } from "@/lib/changelog";
-import { cn } from "@/lib/cn";
 import { dateTime } from "@/lib/format";
 import { texts } from "@/texts/pt-BR";
 
@@ -226,48 +224,6 @@ export function AdminChangelog() {
           setEditing(null);
         }}
       />
-    </div>
-  );
-}
-
-export function AdminAudit() {
-  const [query, setQuery] = useState("");
-  const search = useDeferredValue(query.trim());
-  const audit = useQuery({
-    queryKey: ["admin", "audit", search],
-    queryFn: () => api<AuditPageDto>(`/api/admin/audit?q=${encodeURIComponent(search)}&perPage=100`).then((page) => page.items),
-    placeholderData: keepPreviousData,
-  });
-  const a = texts.admin.audit;
-  return (
-    <div className="flex flex-col gap-4">
-      <Lead>{a.intro}</Lead>
-      <span className="relative flex w-full sm:max-w-md">
-        <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-fg-subtle" aria-hidden />
-        <Input
-          type="search"
-          value={query}
-          placeholder={a.search}
-          aria-label={a.search}
-          onChange={(event) => {
-            setQuery(event.target.value);
-          }}
-          className="pl-10"
-        />
-      </span>
-      {audit.isPending ? (
-        <LoadingBlock rows={4} />
-      ) : audit.isError ? (
-        <ErrorMessage error={audit.error} />
-      ) : audit.data.length === 0 ? (
-        <EmptyState icon={History} title={a.empty} />
-      ) : (
-        <List className={cn(audit.isPlaceholderData && "opacity-60")}>
-          {audit.data.map((entry) => (
-            <AuditLine key={entry.id} entry={entry} />
-          ))}
-        </List>
-      )}
     </div>
   );
 }

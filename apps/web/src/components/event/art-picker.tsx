@@ -111,6 +111,8 @@ export function ArtPicker({
             {t.removeArt}
           </Button>
           {dpi !== null && dpi < 300 && <p className="w-full text-xs text-warning-fg">{t.artLowDpi}</p>}
+          {art.moderation === "flagged" && <p className="w-full text-xs leading-relaxed text-warning-fg">{t.artUnderReview}</p>}
+          {art.moderation === "rejected" && <p className="w-full text-xs leading-relaxed text-danger-fg">{t.artRejected}</p>}
         </div>
       )}
     </div>

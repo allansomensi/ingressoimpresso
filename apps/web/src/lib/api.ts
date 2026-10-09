@@ -8,6 +8,9 @@ import { texts } from "@/texts/pt-BR";
 
 const TOKEN_KEY = "ingressoimpresso.session";
 
+/** Window event fired when a request meets maintenance mode (ADR 0037): the panel refreshes. */
+export const MAINTENANCE_EVENT = "ingressoimpresso:maintenance";
+
 /** Base URL of the API, e.g. `https://api.seudominio.com.br`. */
 export const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080").replace(/\/$/, "");
 
@@ -100,6 +103,9 @@ async function send(path: string, init: RequestInit): Promise<Response> {
     }
     if (response.status === 401) {
       writeToken(null);
+    }
+    if (code === "maintenance") {
+      window.dispatchEvent(new Event(MAINTENANCE_EVENT));
     }
     throw new ApiError(response.status, code);
   }

@@ -22,6 +22,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { BonusDialog } from "@/components/admin/admin-views";
+import { OrganizationCredits } from "@/components/admin/organization-credits";
 import {
   Alert,
   Badge,
@@ -52,6 +53,14 @@ export function AuditLine({ entry, showOrganization = true }: { entry: AuditEntr
   const action = texts.admin.audit.actions[entry.action] ?? entry.action;
   const detail = entry.detail;
   const path = typeof detail["path"] === "string" ? `${String(detail["method"] ?? "")} ${detail["path"]}` : null;
+  // A few details of the action (amounts, names, switches), never the request path twice.
+  const facts = Object.entries(detail)
+    .filter(([key, value]) => key !== "path" && key !== "method" && value !== null && value !== "")
+    .slice(0, 4)
+    .map(([key, value]) => {
+      const text = typeof value === "object" ? JSON.stringify(value) : String(value);
+      return `${key}: ${text.length > 60 ? `${text.slice(0, 59)}…` : text}`;
+    });
   return (
     <ListItem className="justify-between">
       <div className="flex min-w-0 flex-col gap-0.5">
@@ -70,6 +79,15 @@ export function AuditLine({ entry, showOrganization = true }: { entry: AuditEntr
           )}
           {path !== null && <span className="font-mono">{path}</span>}
         </span>
+        {facts.length > 0 && (
+          <span className="flex flex-wrap gap-1 pt-0.5">
+            {facts.map((fact) => (
+              <span key={fact} className="rounded-md bg-surface-2 px-1.5 py-0.5 font-mono text-[11px] text-fg-muted">
+                {fact}
+              </span>
+            ))}
+          </span>
+        )}
       </div>
       <time dateTime={entry.createdAt} className="text-xs text-fg-subtle tabular">
         {shortDateTime(entry.createdAt)}
@@ -294,7 +312,7 @@ export function OrganizationDetail({ organizationId }: { organizationId: string 
         </Alert>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <Stat label={texts.admin.stats.revenue} value={money(o.revenueCents)} icon={Building2} tone="success" />
         <Stat label={texts.admin.stats.paidTickets} value={o.paidTickets.toLocaleString("pt-BR")} icon={Ticket} />
         <Stat label={texts.admin.stats.events} value={o.eventCount.toLocaleString("pt-BR")} icon={CalendarDays} />
@@ -341,6 +359,7 @@ export function OrganizationDetail({ organizationId }: { organizationId: string 
         </Card>
 
         <div className="flex flex-col gap-6">
+          <OrganizationCredits organizationId={organizationId} />
           <Card>
             <CardHeader icon={Users} title={t.members} />
             <ul className="flex flex-col gap-4">

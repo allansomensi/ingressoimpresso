@@ -40,6 +40,9 @@ export function Dialog({
     }
     if (open && !dialog.open) {
       dialog.showModal();
+      // The browser focuses the first control (the close button), which then shows a focus
+      // ring for no reason: start from the dialog body instead; Tab still reaches everything.
+      dialog.querySelector<HTMLElement>("[data-dialog-start]")?.focus({ preventScroll: true });
     } else if (!open && dialog.open) {
       dialog.close();
     }
@@ -62,14 +65,16 @@ export function Dialog({
       }}
       className={cn(
         "m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] overflow-visible rounded-2xl border border-border bg-surface p-0 text-fg shadow-lg",
-        "open:animate-pop",
+        "open:animate-pop backdrop:bg-black/40 backdrop:backdrop-blur-[2px]",
+        // Phones: a sheet from the bottom edge, within thumb reach.
+        "max-sm:mb-0 max-sm:max-h-[92dvh] max-sm:w-full max-sm:max-w-none max-sm:rounded-b-none max-sm:border-x-0 max-sm:border-b-0 max-sm:open:animate-sheet",
         SIZES[size],
         className,
       )}
     >
       {open && (
-        <div className="flex max-h-[calc(100dvh-2rem)] flex-col">
-          <header className="flex items-start justify-between gap-4 px-6 pt-6 pb-2">
+        <div data-dialog-start tabIndex={-1} className="flex max-h-[calc(100dvh-2rem)] flex-col outline-none max-sm:max-h-[92dvh]">
+          <header className="flex items-start justify-between gap-4 px-5 pt-6 pb-2 sm:px-6">
             <div className="flex flex-col gap-1">
               <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
               {description !== undefined && <p className="text-sm leading-relaxed text-fg-muted">{description}</p>}
@@ -78,9 +83,11 @@ export function Dialog({
               <X />
             </Button>
           </header>
-          {children !== undefined && <div className="overflow-y-auto px-6 py-4">{children}</div>}
+          {children !== undefined && <div className="overflow-y-auto overscroll-contain px-5 py-4 sm:px-6">{children}</div>}
           {footer !== undefined && (
-            <footer className="flex flex-col-reverse gap-2 border-t border-border px-6 py-4 sm:flex-row sm:justify-end">{footer}</footer>
+            <footer className="flex flex-col-reverse gap-2 border-t border-border px-6 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex-row sm:justify-end sm:pb-4">
+              {footer}
+            </footer>
           )}
         </div>
       )}

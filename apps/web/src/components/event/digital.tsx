@@ -385,7 +385,7 @@ export function DigitalTab({ eventId, onSelect }: { eventId: string; onSelect: S
   return (
     <div className="flex flex-col gap-6">
       <Lead>{t.intro}</Lead>
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-3 gap-2 sm:gap-4">
         <Stat label={t.stats.active} value={active.length.toLocaleString("pt-BR")} icon={Send} />
         <Stat label={t.stats.opened} value={active.filter((link) => link.openCount > 0).length.toLocaleString("pt-BR")} icon={Eye} />
         <Stat

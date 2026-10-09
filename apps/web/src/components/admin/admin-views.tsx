@@ -74,7 +74,7 @@ export function AdminOverview() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <Stat label={t.stats.revenue} value={money(o.revenueCents)} hint={`${t.stats.ticketShare}: ${money(Math.round(perTicket))}`} icon={CircleDollarSign} tone="success" />
         <Stat label={t.stats.revenue30} value={money(o.revenue30dCents)} icon={TrendingUp} tone="success" />
         <Stat label={t.stats.paidTickets} value={integer(o.paidTickets)} icon={Ticket} />

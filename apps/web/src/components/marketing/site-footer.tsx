@@ -18,6 +18,7 @@ const COLUMNS = [
       { href: "/#precos", label: t.pricing },
       { href: "/#duvidas", label: t.faq },
       { href: "/novidades", label: t.news },
+      { href: "/status", label: t.status },
     ],
   },
   {

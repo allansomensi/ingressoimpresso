@@ -101,7 +101,7 @@ export function ReportTab({ eventId }: { eventId: string }) {
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <Stat label={t.stats.sold} value={data.totals.declaredSold.toLocaleString("pt-BR")} icon={Ticket} />
         <Stat label={t.stats.entries} value={data.totals.entries.toLocaleString("pt-BR")} icon={LogIn} tone="success" />
         <Stat label={t.stats.blocked} value={data.totals.blockedCopies.toLocaleString("pt-BR")} icon={Ban} tone="danger" />

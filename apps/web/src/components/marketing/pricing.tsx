@@ -2,12 +2,12 @@
 
 import type { PricingDto } from "@ingressoimpresso/api-types";
 import { useQuery } from "@tanstack/react-query";
-import { Check, Gift } from "lucide-react";
+import { BadgePercent, Check, Gift } from "lucide-react";
 
 import { ButtonLink, Skeleton } from "@/components/ui";
 import { api } from "@/lib/api";
-import { money } from "@/lib/format";
-import { quote } from "@/lib/pricing";
+import { dateTime, money } from "@/lib/format";
+import { discounted, quote } from "@/lib/pricing";
 import { texts } from "@/texts/pt-BR";
 
 const t = texts.landing;
@@ -29,6 +29,15 @@ export function PricingSection() {
           <p className="text-sm text-fg-muted">{t.pricingUnavailable}</p>
         ) : (
           <>
+            {pricing.data.promotion !== null && (
+              <div className="mb-4 flex items-center gap-3 rounded-2xl bg-gradient-to-r from-success-solid to-[#16a34a] px-4 py-3 text-white shadow-sm">
+                <BadgePercent className="size-5 shrink-0" aria-hidden />
+                <span className="flex min-w-0 flex-col">
+                  <span className="font-semibold">{pricing.data.promotion.headline ?? t.pricingPromotion(pricing.data.promotion.discountPercent)}</span>
+                  <span className="text-xs opacity-90">{t.pricingPromotionUntil(dateTime(pricing.data.promotion.endsAt))}</span>
+                </span>
+              </div>
+            )}
             <ul className="divide-y divide-border">
               {pricing.data.tiers.map((tier, index) => {
                 const from = index === 0 ? 1 : (pricing.data.tiers[index - 1]?.upTo ?? 0) + 1;
@@ -36,7 +45,12 @@ export function PricingSection() {
                   <li key={tier.upTo} className="flex items-center justify-between gap-4 py-4">
                     <span className="text-[15px] text-fg-muted">{t.pricingTier(from, tier.upTo)}</span>
                     <span className="flex items-baseline gap-1.5">
-                      <span className="text-xl font-semibold tracking-tight text-fg tabular">{money(tier.unitCents)}</span>
+                      {pricing.data.promotion !== null && (
+                        <span className="text-sm text-fg-subtle line-through tabular">{money(tier.unitCents)}</span>
+                      )}
+                      <span className="text-xl font-semibold tracking-tight text-fg tabular">
+                        {money(pricing.data.promotion === null ? tier.unitCents : discounted(tier.unitCents, pricing.data.promotion.discountPercent))}
+                      </span>
                       <span className="text-xs text-fg-subtle">{t.pricingPerTicket}</span>
                     </span>
                   </li>
@@ -54,10 +68,16 @@ export function PricingSection() {
             )}
             <div className="mt-3 flex flex-col gap-1 rounded-2xl bg-brand-soft px-4 py-3 text-sm text-brand-soft-fg">
               <span className="font-semibold">
-                {t.pricingExample(EXAMPLE_QUANTITY, money(quote(pricing.data, EXAMPLE_QUANTITY)))}
+                {t.pricingExample(
+                  EXAMPLE_QUANTITY,
+                  money(discounted(quote(pricing.data, EXAMPLE_QUANTITY), pricing.data.promotion?.discountPercent ?? 0)),
+                )}
               </span>
               <span className="opacity-80">{t.pricingMinimum(money(pricing.data.minimumCents))}</span>
             </div>
+            {pricing.data.upcoming !== null && (
+              <p className="mt-3 text-xs text-fg-muted">{t.pricingUpcoming(dateTime(pricing.data.upcoming.effectiveAt))}</p>
+            )}
           </>
         )}
       </div>
