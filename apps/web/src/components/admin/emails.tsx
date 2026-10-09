@@ -3,7 +3,7 @@
 import type { CountDto, MailLogPageDto, MailStatus, MailSummaryDto } from "@ingressoimpresso/api-types";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Inbox, Mail, Search, Send, Webhook } from "lucide-react";
-import { useDeferredValue, useState } from "react";
+import { Fragment, useDeferredValue, useState } from "react";
 import { toast } from "sonner";
 
 import { BarChart } from "@/components/admin/bar-chart";
@@ -31,6 +31,13 @@ import { shortDateTime } from "@/lib/format";
 import { texts } from "@/texts/pt-BR";
 
 const t = texts.admin.emails;
+
+/** `login@mail.example.com` out of `Name <login@mail.example.com>` (the name is the site's own); it
+ * wraps after the `@` and before each dot, never mid-word. */
+function senderAddress(from: string): string {
+  return /<([^>]+)>/.exec(from)?.[1] ?? from;
+}
+
 const STATUSES: readonly MailStatus[] = ["sent", "delivered", "delivery_delayed", "bounced", "complained", "failed", "quota", "sending"];
 const STATUS_TONE: Record<MailStatus, Tone> = {
   sending: "neutral",
@@ -118,7 +125,20 @@ function Summary({ summary }: { summary: MailSummaryDto }) {
         <Stat
           label={t.provider}
           value={summary.provider === "resend" ? "Resend" : t.providers[summary.provider === "memory" ? "memory" : "log"]}
-          hint={summary.from ?? undefined}
+          hint={
+            summary.from === null ? undefined : (
+              <span title={summary.from}>
+                {senderAddress(summary.from)
+                  .split(/(?<=@)|(?=\.)/)
+                  .map((part, index) => (
+                    <Fragment key={index}>
+                      {index > 0 && <wbr />}
+                      {part}
+                    </Fragment>
+                  ))}
+              </span>
+            )
+          }
           icon={Mail}
         />
       </div>

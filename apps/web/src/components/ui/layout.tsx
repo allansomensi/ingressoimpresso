@@ -97,7 +97,7 @@ export function Stat({
       <div className="flex min-w-0 flex-col gap-0.5 sm:gap-1">
         <span className="text-[13px] leading-snug font-medium text-fg-muted">{label}</span>
         <span className="truncate text-xl font-semibold tracking-tight text-fg tabular sm:text-2xl">{value}</span>
-        {hint !== undefined && <span className="text-xs leading-snug text-fg-subtle">{hint}</span>}
+        {hint !== undefined && <span className="min-w-0 text-xs leading-snug [overflow-wrap:anywhere] text-fg-subtle">{hint}</span>}
       </div>
       {Icon !== undefined && (
         <span className={cn("hidden size-9 shrink-0 items-center justify-center rounded-xl sm:flex", toneClass)}>
