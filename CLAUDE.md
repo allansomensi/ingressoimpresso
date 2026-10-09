@@ -78,7 +78,7 @@ docs/deploy.md       domínio próprio: Neon, Resend, DNS (Registro.br), Render,
   API não sobe sem origens, `PUBLIC_API_URL` https e `ADMIN_EMAILS`. Sessão do painel por token
   Bearer + CORS (ADR 0016); downloads por link temporário.
 - **Banco:** Neon `aws-us-east-1`, host direto com `sslmode=verify-full`. Precisa ficar junto da
-  API, não do usuário. Dorme quando parado (worker consulta sozinho a cada 15 min).
+  API, não do usuário. Dorme quando parado (worker consulta sozinho a cada hora).
 - **E-mail:** Resend (o cliente manda `User-Agent`, senão o Resend recusa).
 - **Pagamento:** o MVP não cobra; Pix entra na fase 6.
 

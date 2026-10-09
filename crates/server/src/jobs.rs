@@ -23,8 +23,9 @@ use crate::state::AppState;
 
 const MAX_ATTEMPTS: i16 = 3;
 /// New exports wake the worker at once (`AppState::jobs`); this slow poll only recovers jobs left
-/// behind by a crash. Longer than Neon's 5 idle minutes, so the database can scale to zero.
-const IDLE_POLL: Duration = Duration::from_mins(15);
+/// behind by a failure. Each poll wakes Neon for its 5 idle minutes: hourly costs ~15 CU-hours a
+/// month of the Free plan's 100.
+const IDLE_POLL: Duration = Duration::from_hours(1);
 /// Generated files are a cache: older ones are deleted and regenerated on demand.
 const FILE_MAX_AGE: Duration = Duration::from_hours(24);
 

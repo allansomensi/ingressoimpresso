@@ -35,7 +35,7 @@ o ADR 0013 e o que o código faz, além de limites dos serviços que o ADR não 
 
 1. **Plano pago (Launch) com o banco sempre ligado.** Cerca de US$ 19 por mês só de computação.
 2. **Deixar o banco dormir.** O health check não toca no banco, e o worker só consulta por conta
-   própria a cada 15 min (novas exportações já o acordam na hora). O custo é o *cold start* de
+   própria a cada hora (novas exportações já o acordam na hora). O custo é o *cold start* de
    centenas de milissegundos no primeiro acesso depois de 5 min parado, que o ADR 0013 já aceitava.
 
 **Imagem:**
@@ -56,8 +56,8 @@ o ADR 0013 e o que o código faz, além de limites dos serviços que o ADR não 
   `autoDeployTrigger: checksPass` só implanta commits com o CI verde. O CI compila e sobe a mesma
   imagem a cada execução.
 - **Banco que dorme:** `/healthz` responde sem consultar o banco (é o que o Render chama), e
-  `/readyz` consulta. O worker consulta sozinho a cada 15 min. Com isso o plano gratuito do Neon
-  basta no MVP.
+  `/readyz` consulta. O worker consulta sozinho a cada hora (cerca de 15 CU-hora por mês). Com isso
+  o plano gratuito do Neon basta no MVP.
 - **Conexão:** `DATABASE_URL` usa o host direto do Neon com `?sslmode=verify-full`. O sqlx confere a
   cadeia com as raízes embutidas.
 - **Configuração explícita:** `ALLOWED_ORIGINS` passa a `sync: false` (vive no painel do Render). As
@@ -79,4 +79,9 @@ o ADR 0013 e o que o código faz, além de limites dos serviços que o ADR não 
   sai cifrado com age, e a chave privada nunca vai para o GitHub.
 - Limites dos planos gratuitos que pedem atenção quando houver clientes: Vercel Hobby é para uso
   não comercial (Pro custa US$ 20 por mês); Resend gratuito entrega até 100 e-mails por dia; o Neon
-  gratuito guarda até 1 GB, e a arte de cada evento fica no banco.
+  gratuito guarda até 1 GB e transfere até 5 GB por mês para fora, e a arte de cada evento fica no
+  banco. O backup diário copia o banco inteiro: com o banco acima de uns 100 MB, só ele gasta mais
+  da metade da transferência. Ao esgotar CU-hora ou transferência, o Neon suspende o banco até o
+  mês seguinte; o plano Launch não tem mínimo mensal e cobra pelo uso.
+- O workspace Hobby do Render inclui 5 GB de saída por mês (US$ 0,15 por GB acima disso), e os
+  arquivos gerados são baixados pela API.

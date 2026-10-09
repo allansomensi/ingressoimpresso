@@ -478,7 +478,7 @@ Os DTOs são structs Rust com `#[derive(TS)]` (`ts-rs`), e os tipos TS são gera
   banco; `/readyz` consulta (ADR 0019).
 - **Banco:** Neon `aws-us-east-1`, na mesma área da API, com conexão direta (o pool fica no sqlx)
   e `sslmode=verify-full`. O banco dorme quando não há uso: o worker só consulta sozinho a cada
-  15 min. O backup é o PITR do Neon mais um `pg_dump` diário cifrado pelo CI, com teste de
+  hora. O backup é o PITR do Neon mais um `pg_dump` diário cifrado pelo CI, com teste de
   restauração mensal num branch do Neon.
 - **E-mail:** Resend, pela API HTTP, a partir de `mail.` do domínio (região São Paulo).
 - **DNS:** no Registro.br. O domínio raiz e `www` (que redireciona para a raiz) apontam para a
