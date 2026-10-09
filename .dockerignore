@@ -3,8 +3,15 @@ node_modules
 **/node_modules
 apps
 packages
+e2e
+docs
+testdata
+.github
 .git
 .next
 out
 *.seed
 .env
+# The image's Rust (deploy/api.Dockerfile) is the pinned version; without this file rustup does
+# not fetch clippy, rustfmt and the wasm32 target during the build.
+rust-toolchain.toml
