@@ -25,7 +25,12 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   deploy do web pelo Actions, backup diário cifrado (`backup.yml`) com teste de restauração
   (`just backup-restore-test`). Falta o que depende do mantenedor: secrets da Vercel e do backup,
   deploy no `main` e o ensaio geral (`docs/ensaio.md`), que é o critério de pronto.
-- **Depois do MVP: fase 6 (Pix).**
+- **Fase 6 (pagamento + interface): implementada.** Pagamento dos lotes com Stripe Checkout (Pix e
+  cartão) confirmado por webhook assinado, preço progressivo em `pricing.rs` (ADR 0020, substitui
+  o 0014; o admin ainda marca lotes como pagos); redesign do site e do painel com sistema de design,
+  logo e PWA instalável (ADR 0021). Falta o que depende do mantenedor: conta Stripe, webhook e as
+  variáveis `STRIPE_*`/`PUBLIC_WEB_URL` no Render (`docs/deploy.md` §5.1) e definir os preços
+  definitivos.
 
 Plano completo em `docs/arquitetura.md` §12.
 
@@ -50,7 +55,11 @@ crates/server        API (pacote `ingressoimpresso-server`, binário `ingressoim
                      processo (fila = tabela exports), chaves de evento seladas (keys.rs, ADR 0005),
                      DTOs em api.rs (ts-rs → packages/api-types), testes de integração em tests/
 packages/api-types   tipos TS da API gerados (src/generated + src/index.ts, NÃO editar)
-apps/web             painel em src/app/{entrar,painel}, abas do evento em src/components/event;
+apps/web             landing em src/app/page.tsx (+ src/components/marketing), painel em
+                     src/app/{entrar,painel}, abas do evento em src/components/event (aba na URL,
+                     ?aba=); sistema de design em src/components/ui + tokens em globals.css (ADR 0021);
+                     logo em src/components/brand.tsx e public/brand, ícones em public/icons;
+                     PWA do painel: app/manifest.ts + public/sw.js (escopo /, ignora /portaria);
                      portaria em src/app/portaria + src/portaria (engine, storage, camera, logic) +
                      public/portaria-sw.js (ADR 0018); Vitest em test/
 e2e/                 portaria.e2e.mjs: 5 "celulares" Chromium com câmera falsa (`just e2e`)
@@ -80,7 +89,9 @@ docs/deploy.md       domínio próprio: Neon, Resend, DNS (Registro.br), Render,
 - **Banco:** Neon `aws-us-east-1`, host direto com `sslmode=verify-full`. Precisa ficar junto da
   API, não do usuário. Dorme quando parado (worker consulta sozinho a cada hora).
 - **E-mail:** Resend (o cliente manda `User-Agent`, senão o Resend recusa).
-- **Pagamento:** o MVP não cobra; Pix entra na fase 6.
+- **Pagamento:** Stripe Checkout por lote (ADR 0020), confirmado pelo webhook
+  `POST /api/stripe/webhook` (assinatura `Stripe-Signature`) ou pela consulta da sessão quando o
+  pagador volta. Sem `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET`, só o admin marca lotes como pagos.
 
 ## Comandos
 
@@ -120,7 +131,9 @@ just backup-restore-test <dump.age> <chave-age>   # restaura um backup num banco
 1. **O formato QR v1 é imutável** depois do primeiro ingresso real. Uma mudança exige um novo
    `version` e um ADR. Mudar `payload.rs`, `base45.rs` ou `SIGNING_DOMAIN` quebra
    `testdata/vectors`, e isso é intencional.
-2. **Só lotes pagos são assinados.** Prévias usam QR de amostra inválido e marca d'água.
+2. **Só lotes pagos são assinados.** Prévias usam QR de amostra inválido e marca d'água. Um lote só
+   vira `paid` por webhook da Stripe com assinatura válida, por sessão lida da própria Stripe (valor
+   conferido) ou pelo admin.
 3. **A deduplicação usa `(event_id, ticket_number)`**, nunca os bytes do QR.
 4. **A chave privada nunca sai do servidor.** O `ticket-wasm` depende do `ticket-core` sem
    `signing`, e a chave mestra (`TICKET_KEY_ENCRYPTION_KEY`) nunca vai para o banco nem para os
@@ -140,6 +153,9 @@ just backup-restore-test <dump.age> <chave-age>   # restaura um backup num banco
 
 - **Idioma:** identificadores, nomes de arquivos de código, commits e comentários em inglês.
   Interface, textos ao usuário e documentação (`docs/`) em português.
+- **Interface:** use os componentes de `src/components/ui` e os tokens semânticos (`bg-surface`,
+  `text-fg-muted`, `bg-brand`...), nunca cores soltas, para o modo escuro funcionar. Ações
+  destrutivas pedem `useConfirm()`; resultados de ações viram `toast`.
 - **Textos de interface centralizados:** `apps/web/src/texts/pt-BR.ts` no web e módulos `texts.rs`
   no Rust. Sem framework de i18n.
 - **Rust:**

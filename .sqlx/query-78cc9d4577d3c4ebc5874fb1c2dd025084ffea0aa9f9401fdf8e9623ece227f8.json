@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select paid_via = 'admin' as \"admin!\" from ticket_batches where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "admin!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "78cc9d4577d3c4ebc5874fb1c2dd025084ffea0aa9f9401fdf8e9623ece227f8"
+}

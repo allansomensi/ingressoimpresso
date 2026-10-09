@@ -1,81 +1,481 @@
 "use client";
 
-import type { BatchDto, CreateBatchBody } from "@ingressoimpresso/api-types";
+import type { BatchDto, CheckoutDto, CreateBatchBody, PricingDto } from "@ingressoimpresso/api-types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, type FormEvent } from "react";
+import { CheckCircle2, CreditCard, FileDown, Layers, Lock, MoreHorizontal, Plus, RefreshCw, ShieldCheck, X } from "lucide-react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import { toast } from "sonner";
 
-import { Button, Card, ErrorMessage, Field, NumberInput } from "@/components/ui";
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  CardHeader,
+  EmptyState,
+  ErrorMessage,
+  Field,
+  Lead,
+  LoadingBlock,
+  NumberInput,
+  Skeleton,
+  Spinner,
+  errorMessage,
+  useConfirm,
+  type Tone,
+} from "@/components/ui";
 import { api } from "@/lib/api";
+import { cn } from "@/lib/cn";
+import { money, shortDateTime, ticketNumber } from "@/lib/format";
+import { quote } from "@/lib/pricing";
 import { useSession } from "@/lib/session";
 import { texts } from "@/texts/pt-BR";
 
-const t = texts.event.batches;
+import type { SelectTab } from "./tabs";
 
-export function BatchesTab({ eventId }: { eventId: string }) {
+const t = texts.event.batches;
+const MAX_BATCH = 5_000;
+/** How long to keep asking after the payer comes back (Pix may confirm a bit later). */
+const RETURN_POLL_MS = 3_000;
+const RETURN_POLL_FOR_MS = 3 * 60_000;
+
+const STATUS_TONE: Record<BatchDto["status"], Tone> = {
+  awaiting_payment: "warning",
+  paid: "success",
+  canceled: "neutral",
+};
+
+function quantityOf(batch: BatchDto): number {
+  return batch.last - batch.first + 1;
+}
+
+function NewBatch({ eventId, pricing, nextNumber }: { eventId: string; pricing: PricingDto | undefined; nextNumber: number }) {
   const queryClient = useQueryClient();
-  const { session } = useSession();
-  const isAdmin = session.status === "signed-in" && session.user.isAdmin;
-  const key = ["batches", eventId];
-  const batches = useQuery({ queryKey: key, queryFn: () => api<BatchDto[]>(`/api/events/${eventId}/batches`) });
-  const [quantity, setQuantity] = useState(50);
-  const refresh = () => queryClient.invalidateQueries({ queryKey: key });
+  const [quantity, setQuantity] = useState(100);
+  const [showTable, setShowTable] = useState(false);
+  const valid = Number.isInteger(quantity) && quantity >= 1 && quantity <= MAX_BATCH;
 
   const create = useMutation({
     mutationFn: () => {
       const body: CreateBatchBody = { quantity };
       return api<BatchDto>(`/api/events/${eventId}/batches`, { method: "POST", body });
     },
-    onSuccess: refresh,
+    onSuccess: () => {
+      toast.success(t.createdToast);
+      void queryClient.invalidateQueries({ queryKey: ["batches", eventId] });
+    },
   });
-  const action = useMutation({
-    mutationFn: (path: string) => api<BatchDto>(path, { method: "POST" }),
-    onSuccess: refresh,
-  });
-
   const submit = (event: FormEvent) => {
     event.preventDefault();
     create.mutate();
   };
+  const total = pricing !== undefined && valid ? quote(pricing, quantity) : null;
 
   return (
-    <div className="flex flex-col gap-4">
-      <p className="text-sm opacity-80">{t.intro}</p>
-      <Card>
-        <form onSubmit={submit} className="flex flex-wrap items-end gap-3">
-          <Field label={t.quantity}>
-            <NumberInput value={quantity} step={1} min={1} onChange={setQuantity} />
+    <Card>
+      <CardHeader title={t.newBatch} icon={Plus} />
+      <form onSubmit={submit} className="grid gap-6 md:grid-cols-[1fr_auto] md:items-end">
+        <div className="flex flex-col gap-3">
+          <Field label={t.quantity} hint={valid ? t.numbering(nextNumber, nextNumber + quantity - 1) : texts.errors.invalid_quantity}>
+            <NumberInput value={quantity} step={1} min={1} max={MAX_BATCH} onChange={setQuantity} />
           </Field>
-          <Button type="submit" disabled={create.isPending}>
-            {t.create}
+          <div className="flex flex-wrap gap-2">
+            {t.presets.map((preset) => (
+              <button
+                key={preset}
+                type="button"
+                onClick={() => {
+                  setQuantity(preset);
+                }}
+                className={cn(
+                  "rounded-full border px-3 py-1 text-sm font-medium tabular transition",
+                  quantity === preset
+                    ? "border-brand bg-brand-soft text-brand-soft-fg"
+                    : "border-border text-fg-muted hover:border-border-strong hover:text-fg",
+                )}
+              >
+                {preset.toLocaleString("pt-BR")}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="flex flex-col gap-3 rounded-2xl bg-surface-2 p-4 md:min-w-64">
+          <div className="flex items-baseline justify-between gap-4">
+            <span className="text-sm text-fg-muted">{t.total}</span>
+            {pricing === undefined ? (
+              <Skeleton className="h-7 w-24" />
+            ) : (
+              <span className="text-2xl font-semibold tracking-tight text-fg tabular">{total === null ? "—" : money(total)}</span>
+            )}
+          </div>
+          {pricing !== undefined && total !== null && (
+            <span className="text-xs text-fg-muted">
+              {total === pricing.minimumCents ? t.minimumApplied : t.perTicket(money(Math.round(total / quantity)))}
+            </span>
+          )}
+          <Button type="submit" disabled={!valid} loading={create.isPending}>
+            {create.isPending ? t.creating : t.create}
           </Button>
-        </form>
-        <ErrorMessage error={create.error ?? action.error} />
-      </Card>
+        </div>
+      </form>
+      <ErrorMessage error={create.error} className="mt-4" />
+      {pricing !== undefined && (
+        <div className="mt-4 border-t border-border pt-4">
+          <button
+            type="button"
+            className="text-sm font-medium text-brand hover:underline"
+            aria-expanded={showTable}
+            onClick={() => {
+              setShowTable(!showTable);
+            }}
+          >
+            {t.priceTable}
+          </button>
+          {showTable && (
+            <ul className="mt-3 grid gap-2 text-sm text-fg-muted sm:grid-cols-2 animate-fade-in">
+              {pricing.tiers.map((tier, index) => (
+                <li key={tier.upTo} className="rounded-lg bg-surface-2 px-3 py-2 tabular">
+                  {t.tier(index === 0 ? 1 : (pricing.tiers[index - 1]?.upTo ?? 0) + 1, tier.upTo, money(tier.unitCents))}
+                </li>
+              ))}
+              <li className="rounded-lg bg-surface-2 px-3 py-2">{texts.landing.pricingMinimum(money(pricing.minimumCents))}</li>
+            </ul>
+          )}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function BatchRow({
+  batch,
+  digits,
+  onlinePayment,
+  isAdmin,
+  eventId,
+}: {
+  batch: BatchDto;
+  digits: number;
+  onlinePayment: boolean;
+  isAdmin: boolean;
+  eventId: string;
+}) {
+  const queryClient = useQueryClient();
+  const confirm = useConfirm();
+  const [menu, setMenu] = useState(false);
+  const refresh = () => queryClient.invalidateQueries({ queryKey: ["batches", eventId] });
+
+  const pay = useMutation({
+    mutationFn: () => api<CheckoutDto>(`/api/batches/${batch.id}/checkout`, { method: "POST" }),
+    onSuccess: (checkout) => {
+      window.location.assign(checkout.url);
+    },
+    onError: (error) => {
+      toast.error(errorMessage(error));
+    },
+  });
+  const sync = useMutation({
+    mutationFn: () => api<BatchDto>(`/api/batches/${batch.id}/checkout/sync`, { method: "POST" }),
+    onSuccess: (updated) => {
+      if (updated.status === "paid") {
+        toast.success(t.paymentSuccess);
+      } else {
+        toast.info(t.paymentProcessing);
+      }
+      void refresh();
+    },
+    onError: (error) => {
+      toast.error(errorMessage(error));
+    },
+  });
+  const action = useMutation({
+    mutationFn: (path: string) => api<BatchDto>(path, { method: "POST" }),
+    onSuccess: (updated) => {
+      if (updated.status === "canceled") {
+        toast.success(t.canceledToast);
+      }
+      void refresh();
+    },
+    onError: (error) => {
+      toast.error(errorMessage(error));
+    },
+  });
+
+  const cancel = async () => {
+    setMenu(false);
+    if (await confirm({ title: t.cancelConfirmTitle, description: t.cancelConfirmBody, confirmLabel: t.cancelConfirm })) {
+      action.mutate(`/api/batches/${batch.id}/cancel`);
+    }
+  };
+  const markPaid = async () => {
+    setMenu(false);
+    if (await confirm({ title: t.markPaidConfirmTitle, description: t.markPaidConfirmBody, confirmLabel: t.markPaid, danger: false })) {
+      action.mutate(`/api/admin/batches/${batch.id}/mark-paid`);
+    }
+  };
+  const awaiting = batch.status === "awaiting_payment";
+
+  return (
+    <li
+      className={cn(
+        "flex flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:px-5",
+        batch.status === "canceled" && "opacity-60",
+      )}
+    >
+      <div className="flex min-w-0 flex-1 items-center gap-4">
+        <span
+          className={cn(
+            "flex size-11 shrink-0 items-center justify-center rounded-xl",
+            batch.status === "paid" ? "bg-success-soft text-success-fg" : "bg-surface-2 text-fg-muted",
+          )}
+        >
+          {batch.status === "paid" ? <CheckCircle2 className="size-5" aria-hidden /> : <Layers className="size-5" aria-hidden />}
+        </span>
+        <div className="flex min-w-0 flex-col gap-1">
+          <span className="font-mono text-[15px] font-semibold text-fg tabular">
+            {ticketNumber(batch.first, digits)} – {ticketNumber(batch.last, digits)}
+          </span>
+          <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-fg-muted">
+            {texts.common.tickets(quantityOf(batch))}
+            <span aria-hidden>·</span>
+            <span className="tabular">{money(batch.priceCents)}</span>
+            {batch.paidAt !== null && (
+              <>
+                <span aria-hidden>·</span>
+                {shortDateTime(batch.paidAt)}
+              </>
+            )}
+          </span>
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+        {batch.paymentPending && awaiting ? (
+          <Badge tone="brand" dot pulse>
+            {t.pending}
+          </Badge>
+        ) : (
+          <Badge tone={STATUS_TONE[batch.status]} dot>
+            {batch.status === "paid" && batch.paidVia !== null ? t.paidVia[batch.paidVia] : t.status[batch.status]}
+          </Badge>
+        )}
+        {awaiting && onlinePayment && (
+          <>
+            {batch.paymentPending && (
+              <Button
+                variant="secondary"
+                size="sm"
+                icon={<RefreshCw />}
+                loading={sync.isPending}
+                onClick={() => {
+                  sync.mutate();
+                }}
+              >
+                {sync.isPending ? t.checking : t.checkPayment}
+              </Button>
+            )}
+            <Button
+              size="sm"
+              icon={<CreditCard />}
+              loading={pay.isPending}
+              onClick={() => {
+                pay.mutate();
+              }}
+            >
+              {pay.isPending ? t.redirecting : batch.paymentPending ? t.continuePayment : t.pay(money(batch.priceCents))}
+            </Button>
+          </>
+        )}
+        {awaiting && (
+          <div className="relative">
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={texts.common.edit}
+              aria-expanded={menu}
+              aria-haspopup="menu"
+              loading={action.isPending}
+              onClick={() => {
+                setMenu(!menu);
+              }}
+            >
+              {!action.isPending && <MoreHorizontal />}
+            </Button>
+            {menu && (
+              <div
+                role="menu"
+                className="absolute right-0 z-20 mt-1 w-56 rounded-xl border border-border bg-surface p-1 shadow-lg animate-pop"
+                onMouseLeave={() => {
+                  setMenu(false);
+                }}
+              >
+                {isAdmin && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => void markPaid()}
+                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-fg hover:bg-surface-2"
+                  >
+                    <ShieldCheck className="size-4 text-fg-muted" aria-hidden />
+                    {t.markPaid}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => void cancel()}
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-danger-fg hover:bg-danger-soft"
+                >
+                  <X className="size-4" aria-hidden />
+                  {t.cancelBatch}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </li>
+  );
+}
+
+/** Banner after coming back from Stripe (`?pagamento=sucesso|cancelado&lote=<id>`). */
+function PaymentReturn({
+  batches,
+  eventId,
+  onSelect,
+}: {
+  batches: BatchDto[];
+  eventId: string;
+  onSelect: SelectTab;
+}) {
+  const search = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const queryClient = useQueryClient();
+  const outcome = search.get("pagamento");
+  const batchId = search.get("lote");
+  const synced = useRef(false);
+  const batch = batches.find((item) => item.id === batchId);
+
+  const sync = useMutation({
+    mutationFn: (id: string) => api<BatchDto>(`/api/batches/${id}/checkout/sync`, { method: "POST" }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["batches", eventId] }),
+  });
+  const { mutate } = sync;
+
+  useEffect(() => {
+    if (outcome === "sucesso" && batchId !== null && !synced.current) {
+      synced.current = true;
+      mutate(batchId);
+    }
+  }, [outcome, batchId, mutate]);
+
+  if (outcome === null || batchId === null) {
+    return null;
+  }
+  const dismiss = () => {
+    const query = new URLSearchParams(search.toString());
+    query.delete("pagamento");
+    query.delete("lote");
+    router.replace(`${pathname}?${query.toString()}`, { scroll: false });
+  };
+  const close = (
+    <button type="button" aria-label={texts.common.close} onClick={dismiss} className="opacity-70 hover:opacity-100">
+      <X className="size-4" />
+    </button>
+  );
+
+  if (outcome === "cancelado") {
+    return (
+      <Alert tone="warning" action={close}>
+        {t.paymentCanceled}
+      </Alert>
+    );
+  }
+  if (batch?.status === "paid") {
+    return (
+      <Alert
+        tone="success"
+        title={t.paymentSuccess}
+        action={
+          <div className="flex items-center gap-3">
+            <Button
+              size="sm"
+              icon={<FileDown />}
+              onClick={() => {
+                onSelect("files");
+              }}
+            >
+              {t.goToFiles}
+            </Button>
+            {close}
+          </div>
+        }
+      />
+    );
+  }
+  return (
+    <Alert tone="brand" action={<Spinner className="mt-0.5" />}>
+      {t.paymentProcessing}
+    </Alert>
+  );
+}
+
+export function BatchesTab({ eventId, onSelect }: { eventId: string; onSelect: SelectTab }) {
+  const { session } = useSession();
+  const search = useSearchParams();
+  const isAdmin = session.status === "signed-in" && session.user.isAdmin;
+  const returnedBatch = search.get("pagamento") === "sucesso" ? search.get("lote") : null;
+  const pollUntil = useRef<number | null>(null);
+  const pricing = useQuery({ queryKey: ["pricing"], queryFn: () => api<PricingDto>("/api/pricing"), staleTime: 60 * 60_000 });
+  const batches = useQuery({
+    queryKey: ["batches", eventId],
+    queryFn: () => api<BatchDto[]>(`/api/events/${eventId}/batches`),
+    // After the return from Stripe, wait for the webhook (Pix may take a moment).
+    refetchInterval: (query) =>
+      returnedBatch !== null &&
+      Date.now() < (pollUntil.current ??= Date.now() + RETURN_POLL_FOR_MS) &&
+      query.state.data?.find((batch) => batch.id === returnedBatch)?.status === "awaiting_payment"
+        ? RETURN_POLL_MS
+        : false,
+  });
+  const digits = 4;
+  const list = batches.data ?? [];
+  const nextNumber = list.filter((batch) => batch.status !== "canceled").reduce((max, batch) => Math.max(max, batch.last + 1), 1);
+  const onlinePayment = pricing.data?.onlinePayment ?? false;
+  const hasUnpaid = list.some((batch) => batch.status === "awaiting_payment");
+
+  return (
+    <div className="flex flex-col gap-6">
+      <Lead>{t.intro}</Lead>
+      <PaymentReturn batches={list} eventId={eventId} onSelect={onSelect} />
+      <NewBatch eventId={eventId} pricing={pricing.data} nextNumber={nextNumber} />
+      {pricing.data !== undefined && !onlinePayment && hasUnpaid && !isAdmin && <Alert tone="warning">{t.paymentDisabled}</Alert>}
       {batches.isPending ? (
-        <p className="text-sm opacity-70">{texts.common.loading}</p>
+        <LoadingBlock rows={2} />
       ) : batches.isError ? (
         <ErrorMessage error={batches.error} />
-      ) : batches.data.length === 0 ? (
-        <p className="text-sm opacity-70">{t.empty}</p>
+      ) : list.length === 0 ? (
+        <EmptyState icon={Layers} title={t.emptyTitle} description={t.empty} />
       ) : (
-        <ul className="flex flex-col gap-2">
-          {batches.data.map((batch) => (
-            <li key={batch.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-black/10 p-3 dark:border-white/15">
-              <span className="font-mono">{texts.common.range(batch.first, batch.last)}</span>
-              <span className="text-sm">{t.status[batch.status]}</span>
-              {batch.status === "awaiting_payment" && (
-                <span className="flex gap-2">
-                  {isAdmin && (
-                    <Button onClick={() => { action.mutate(`/api/admin/batches/${batch.id}/mark-paid`); }}>{t.markPaid}</Button>
-                  )}
-                  <Button variant="danger" onClick={() => { action.mutate(`/api/batches/${batch.id}/cancel`); }}>
-                    {t.cancelBatch}
-                  </Button>
-                </span>
-              )}
-            </li>
+        <ul className="divide-y divide-border rounded-2xl border border-border bg-surface shadow-xs">
+          {list.map((batch) => (
+            <BatchRow
+              key={batch.id}
+              batch={batch}
+              digits={digits}
+              onlinePayment={onlinePayment}
+              isAdmin={isAdmin}
+              eventId={eventId}
+            />
           ))}
         </ul>
+      )}
+      {onlinePayment && (
+        <p className="flex items-center justify-center gap-2 text-xs text-fg-subtle">
+          <Lock className="size-3.5" aria-hidden />
+          {t.secure}
+        </p>
       )}
     </div>
   );

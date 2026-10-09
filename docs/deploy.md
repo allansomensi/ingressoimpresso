@@ -213,6 +213,46 @@ padrão).
 Para mudar uma variável depois: serviço → **Environment** → editar → no botão de salvar, escolha
 **Save and deploy**. Ele reaproveita a compilação; **Save, rebuild, and deploy** recompila tudo à toa.
 
+## 5.1 Stripe (pagamento dos lotes, ADR 0020)
+
+Sem a Stripe a API funciona, mas só o admin libera lotes (**Marcar como pago**). Para o
+organizador pagar sozinho, com Pix ou cartão:
+
+1. Crie a conta em `https://dashboard.stripe.com/register`, com país **Brasil**, e complete a
+   ativação (dados da pessoa ou da empresa e a conta bancária do repasse).
+2. **Settings** → **Payments** → **Payment methods**: ative **Cartões** e **Pix**. O Checkout mostra
+   o que estiver ativo aqui; nada muda no código.
+3. Comece em **modo de teste** (chave `sk_test_...`): faça o passo a passo abaixo, pague um lote
+   com o cartão `4242 4242 4242 4242` (qualquer validade futura e CVC) e só depois repita com as
+   chaves de produção.
+4. **Developers** → **Webhooks** → **Add endpoint**:
+   - **Endpoint URL:** `https://api.seudominio.com.br/api/stripe/webhook`;
+   - **Events:** `checkout.session.completed`, `checkout.session.async_payment_succeeded`,
+     `checkout.session.async_payment_failed` e `checkout.session.expired`.
+
+   Depois de criar, copie o **Signing secret** (`whsec_...`).
+5. **Developers** → **API keys**: copie a **Secret key** (`sk_live_...`). Uma **restricted key** com
+   escrita em **Checkout Sessions** também serve e é mais segura.
+6. No Render → serviço → **Environment**, acrescente (e **Save and deploy**):
+
+   | Variável | Valor |
+   |---|---|
+   | `STRIPE_SECRET_KEY` | `sk_live_...` (ou `sk_test_...` no ensaio) |
+   | `STRIPE_WEBHOOK_SECRET` | o `whsec_...` do passo 4 |
+   | `PUBLIC_WEB_URL` | `https://seudominio.com.br` (para onde a Stripe devolve o pagador) |
+
+   As duas chaves vão juntas: com uma só, a API não sobe e o log diz qual falta. Em produção, uma
+   chave de teste só gera um aviso no log.
+7. Teste: crie um lote, clique em **Pagar** e pague. Ao voltar ao painel, o lote aparece **Pago**.
+   Em **Developers** → **Webhooks** → o endpoint, as entregas devem estar com `200`.
+
+Desenvolvimento local: com a [Stripe CLI](https://docs.stripe.com/stripe-cli), rode
+`stripe listen --forward-to localhost:8080/api/stripe/webhook`, ponha o `whsec_...` que ela mostra
+em `STRIPE_WEBHOOK_SECRET` e uma `sk_test_...` em `STRIPE_SECRET_KEY` no `.env`.
+
+Estornos (raros: lote cancelado e pago ao mesmo tempo, ou pago duas vezes) aparecem no log como
+`refund it in Stripe` e são feitos à mão no painel da Stripe, em **Payments**.
+
 ## 6. Vercel (site, painel e portaria)
 
 O build da Vercel não tem Rust, e a portaria precisa do WebAssembly do núcleo. Por isso quem
@@ -371,7 +411,8 @@ repositório é público, mas o arquivo só abre com a sua chave privada.
    - No Gmail, abra o e-mail → **Mostrar original**: SPF, DKIM e DMARC devem estar `PASS`.
    - Teste também um Hotmail/Outlook e confira a caixa de spam.
 2. Crie um evento, envie a arte e salve o ingresso (aba **Ingresso**).
-3. Crie um lote (aba **Lotes**) e clique em **Marcar como pago**.
+3. Crie um lote (aba **Lotes**) e clique em **Pagar** (com a Stripe configurada, passo 5.1) ou em
+   **Marcar como pago** (admin).
 4. Cadastre vendedores e entregue faixas.
 5. Na aba **Arquivos**, gere o A4 e baixe.
 6. Na aba **Portaria**, crie um link e abra no celular (ou leia o QR do link com a câmera). Dê um
@@ -425,6 +466,8 @@ Depois disso, siga o ensaio geral em [`docs/ensaio.md`](ensaio.md).
 | Download diz "O arquivo expirou" | Os arquivos são cache: somem depois de 24 horas e a cada deploy ou reinício | Gere de novo na aba **Arquivos** |
 | **Backup** vermelho no passo *Dump and encrypt* | O `pg_dump` falhou (URL, senha ou papel) ou gerou um arquivo quase vazio | Veja o log da execução e confira o secret `BACKUP_DATABASE_URL` |
 | A API para de responder no fim do mês, e o Neon mostra o banco suspenso | Acabou a CU-hora ou a transferência do plano gratuito | Mude o projeto do Neon para o plano **Launch**; o banco volta na hora |
+| O pagamento foi feito, mas o lote continua **Aguardando pagamento** | O webhook da Stripe não chega ou é recusado (`STRIPE_WEBHOOK_SECRET` de outro endpoint, URL errada) | Em **Developers** → **Webhooks**, veja as entregas: `400` é segredo errado. Corrija e clique em **Resend**. No painel, **Já paguei** consulta a Stripe direto |
+| Botão **Pagar** diz "Pagamento online indisponível" | `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET` não configuradas | Passo 5.1; enquanto isso, o admin marca o lote como pago |
 | Primeiro acesso do dia demora um pouco | O banco do Neon estava dormindo (econômico de propósito) | Normal: leva menos de um segundo para acordar |
 
 ## Resumo
@@ -450,6 +493,9 @@ Depois disso, siga o ensaio geral em [`docs/ensaio.md`](ensaio.md).
 | Chave do Resend | `RESEND_API_KEY` | | | sim |
 | Endereço da API | `PUBLIC_API_URL` | `NEXT_PUBLIC_API_URL` (Config) | | |
 | Origens do site | `ALLOWED_ORIGINS` | | | |
+| Endereço do site (retorno da Stripe) | `PUBLIC_WEB_URL` | | | |
+| Chave da Stripe | `STRIPE_SECRET_KEY` | | | sim |
+| Segredo do webhook da Stripe | `STRIPE_WEBHOOK_SECRET` | | | |
 | Token e IDs da Vercel | | | `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` | token |
 | Papel de backup | | | `BACKUP_DATABASE_URL` | sim |
 | Chave pública do backup | | | `BACKUP_AGE_RECIPIENT` | |

@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update ticket_batches set status = 'canceled' where id = $1 and status = 'awaiting_payment'\n           returning id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "ticket_batches",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "84bab484a80a02ea7f3b1786677966ccabfe3e3447d6bfd1a6efa5c1e262709c"
+}

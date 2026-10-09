@@ -2,6 +2,7 @@
 export type * from "./generated/ArtDto";
 export type * from "./generated/BatchDto";
 export type * from "./generated/BatchStatus";
+export type * from "./generated/CheckoutDto";
 export type * from "./generated/CreateBatchBody";
 export type * from "./generated/CreateDoorAccessBody";
 export type * from "./generated/CreateExportBody";
@@ -39,6 +40,9 @@ export type * from "./generated/FontChoice";
 export type * from "./generated/KeyStatus";
 export type * from "./generated/MeUser";
 export type * from "./generated/NumberStyle";
+export type * from "./generated/PaymentMethod";
+export type * from "./generated/PriceTierDto";
+export type * from "./generated/PricingDto";
 export type * from "./generated/QrPlacement";
 export type * from "./generated/RangeBody";
 export type * from "./generated/RangeDto";

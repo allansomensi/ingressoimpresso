@@ -2,13 +2,20 @@
 
 import type { SessionResponse } from "@ingressoimpresso/api-types";
 import { useMutation } from "@tanstack/react-query";
+import { ArrowLeft, Check, Mail } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
+import { toast } from "sonner";
 
+import { Logo, LogoMark } from "@/components/brand";
+import { OtpInput } from "@/components/otp-input";
 import { Button, ErrorMessage, Field, Input } from "@/components/ui";
 import { api } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { texts } from "@/texts/pt-BR";
+
+const t = texts.login;
+const RESEND_AFTER_S = 30;
 
 export default function SignInPage() {
   const router = useRouter();
@@ -16,6 +23,8 @@ export default function SignInPage() {
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [codeSent, setCodeSent] = useState(false);
+  const [sentAt, setSentAt] = useState(0);
+  const [now, setNow] = useState(0);
 
   useEffect(() => {
     if (session.status === "signed-in") {
@@ -23,14 +32,33 @@ export default function SignInPage() {
     }
   }, [session.status, router]);
 
+  // Countdown of the resend link.
+  useEffect(() => {
+    if (!codeSent) {
+      return;
+    }
+    const timer = setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+    return () => {
+      clearInterval(timer);
+    };
+  }, [codeSent]);
+
   const requestCode = useMutation({
-    mutationFn: () => api<undefined>("/api/auth/code", { method: "POST", body: { email } }),
+    mutationFn: () => api<undefined>("/api/auth/code", { method: "POST", body: { email: email.trim() } }),
     onSuccess: () => {
+      if (codeSent) {
+        toast.success(t.resent);
+      }
       setCodeSent(true);
+      setSentAt(Date.now());
+      setNow(Date.now());
     },
   });
   const verify = useMutation({
-    mutationFn: () => api<SessionResponse>("/api/auth/verify", { method: "POST", body: { email, code } }),
+    mutationFn: (value: string) =>
+      api<SessionResponse>("/api/auth/verify", { method: "POST", body: { email: email.trim(), code: value } }),
     onSuccess: (response) => {
       signIn(response);
       router.replace("/painel");
@@ -40,67 +68,128 @@ export default function SignInPage() {
   const submit = (event: FormEvent) => {
     event.preventDefault();
     if (codeSent) {
-      verify.mutate();
+      verify.mutate(code);
     } else {
       requestCode.mutate();
     }
   };
+  const wait = Math.max(0, RESEND_AFTER_S - Math.floor((now - sentAt) / 1000));
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-6 px-4">
-      <h1 className="text-2xl font-bold">{texts.login.title}</h1>
-      <form onSubmit={submit} className="flex flex-col gap-4">
-        {codeSent ? (
-          <>
-            <p className="text-sm">{texts.login.codeSentTo(email)}</p>
-            <Field label={texts.login.codeLabel}>
-              <Input
-                value={code}
-                onChange={(event) => {
-                  setCode(event.target.value.replace(/\D/g, "").slice(0, 6));
-                }}
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                autoFocus
-                required
-              />
-            </Field>
-            <ErrorMessage error={verify.error} />
-            <Button type="submit" disabled={code.length !== 6 || verify.isPending}>
-              {texts.login.verify}
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() => {
-                setCodeSent(false);
-                setCode("");
-              }}
-            >
-              {texts.login.otherEmail}
-            </Button>
-          </>
-        ) : (
-          <>
-            <Field label={texts.login.emailLabel}>
-              <Input
-                type="email"
-                value={email}
-                onChange={(event) => {
-                  setEmail(event.target.value);
-                }}
-                placeholder={texts.login.emailPlaceholder}
-                autoComplete="email"
-                autoFocus
-                required
-              />
-            </Field>
-            <ErrorMessage error={requestCode.error} />
-            <Button type="submit" disabled={requestCode.isPending}>
-              {texts.login.sendCode}
-            </Button>
-          </>
-        )}
-      </form>
-    </main>
+    <div className="grid min-h-dvh lg:grid-cols-[1fr_1.1fr]">
+      <aside className="relative hidden overflow-hidden bg-[#0e0d14] p-12 text-white lg:flex lg:flex-col lg:justify-between">
+        <div aria-hidden className="absolute -top-32 -left-32 size-[30rem] rounded-full bg-[#5b3df5]/50 blur-3xl" />
+        <div aria-hidden className="absolute -right-24 -bottom-24 size-[24rem] rounded-full bg-[#ffb224]/25 blur-3xl" />
+        <div aria-hidden className="absolute inset-0 bg-dots opacity-20" />
+        <Logo inverse className="relative" />
+        <div className="relative flex flex-col gap-8">
+          <LogoMark className="size-16" />
+          <h2 className="max-w-md text-4xl leading-tight font-semibold tracking-tight">{t.asideTitle}</h2>
+          <ul className="flex flex-col gap-3">
+            {t.asidePoints.map((point) => (
+              <li key={point} className="flex items-center gap-3 text-white/80">
+                <span className="flex size-6 items-center justify-center rounded-full bg-white/10">
+                  <Check className="size-3.5" aria-hidden />
+                </span>
+                {point}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <p className="relative text-sm text-white/50">{texts.meta.description}</p>
+      </aside>
+
+      <main className="flex flex-col bg-glow px-4 py-6 sm:px-8">
+        <div className="lg:hidden">
+          <Logo />
+        </div>
+        <div className="m-auto flex w-full max-w-sm flex-col gap-8 py-12 animate-rise">
+          {codeSent ? (
+            <div className="flex flex-col gap-3">
+              <span className="flex size-12 items-center justify-center rounded-2xl bg-brand-soft text-brand-soft-fg">
+                <Mail className="size-6" aria-hidden />
+              </span>
+              <h1 className="text-3xl font-semibold tracking-tight text-fg">{t.codeTitle}</h1>
+              <p className="text-[15px] leading-relaxed text-fg-muted">{t.codeSentTo(email.trim())}</p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              <h1 className="text-3xl font-semibold tracking-tight text-fg">{t.title}</h1>
+              <p className="text-[15px] leading-relaxed text-fg-muted">{t.subtitle}</p>
+            </div>
+          )}
+
+          <form onSubmit={submit} className="flex flex-col gap-5">
+            {codeSent ? (
+              <>
+                <OtpInput
+                  value={code}
+                  onChange={(value) => {
+                    setCode(value);
+                    verify.reset();
+                  }}
+                  onComplete={(value) => {
+                    verify.mutate(value);
+                  }}
+                  invalid={verify.isError}
+                  disabled={verify.isPending}
+                />
+                <ErrorMessage error={verify.error} />
+                <Button type="submit" size="lg" disabled={code.length !== 6} loading={verify.isPending}>
+                  {verify.isPending ? t.verifying : t.verify}
+                </Button>
+                <div className="flex items-center justify-between gap-2 text-sm">
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1.5 font-medium text-fg-muted hover:text-fg"
+                    onClick={() => {
+                      setCodeSent(false);
+                      setCode("");
+                      verify.reset();
+                    }}
+                  >
+                    <ArrowLeft className="size-4" aria-hidden />
+                    {t.otherEmail}
+                  </button>
+                  <button
+                    type="button"
+                    className="font-medium text-brand disabled:text-fg-subtle"
+                    disabled={wait > 0 || requestCode.isPending}
+                    onClick={() => {
+                      requestCode.mutate();
+                    }}
+                  >
+                    {wait > 0 ? t.resendIn(wait) : t.resend}
+                  </button>
+                </div>
+                <ErrorMessage error={requestCode.error} />
+                <p className="text-xs text-fg-subtle">{t.spamHint}</p>
+              </>
+            ) : (
+              <>
+                <Field label={t.emailLabel}>
+                  <Input
+                    type="email"
+                    value={email}
+                    onChange={(event) => {
+                      setEmail(event.target.value);
+                    }}
+                    placeholder={t.emailPlaceholder}
+                    autoComplete="email"
+                    autoFocus
+                    required
+                  />
+                </Field>
+                <ErrorMessage error={requestCode.error} />
+                <Button type="submit" size="lg" loading={requestCode.isPending}>
+                  {requestCode.isPending ? t.sending : t.sendCode}
+                </Button>
+                <p className="text-xs leading-relaxed text-fg-subtle">{t.terms}</p>
+              </>
+            )}
+          </form>
+        </div>
+      </main>
+    </div>
   );
 }

@@ -162,6 +162,38 @@ dto! {
         #[serde(with = "time::serde::rfc3339::option")]
         #[cfg_attr(feature = "ts", ts(type = "string | null"))]
         pub paid_at: Option<OffsetDateTime>,
+        /// What the batch costs, in centavos (ADR 0020).
+        pub price_cents: i32,
+        /// How it was paid.
+        pub paid_via: Option<PaymentMethod>,
+        /// A checkout is open: the payer may still be paying (Pix can take a while).
+        pub payment_pending: bool,
+    }
+
+    /// One price tier: tickets up to `upTo` (counted within the batch) cost `unitCents` each.
+    pub struct PriceTierDto {
+        /// Last ticket of the tier.
+        pub up_to: i32,
+        /// Price per ticket, in centavos.
+        pub unit_cents: i32,
+    }
+
+    /// `GET /api/pricing`: graduated price table of batches.
+    pub struct PricingDto {
+        /// Lowercase ISO 4217 currency (`brl`).
+        pub currency: String,
+        /// Smallest charge, in centavos.
+        pub minimum_cents: i32,
+        /// Tiers in increasing order.
+        pub tiers: Vec<PriceTierDto>,
+        /// Whether batches can be paid online (Stripe configured).
+        pub online_payment: bool,
+    }
+
+    /// `POST /api/batches/{id}/checkout`: the Stripe payment page.
+    pub struct CheckoutDto {
+        /// Where to send the browser.
+        pub url: String,
     }
 
     /// `POST /api/events/{id}/sellers` and `PUT /api/sellers/{id}`.
@@ -634,6 +666,14 @@ dto_enum! {
         Canceled,
     }
 
+    /// How a batch was paid.
+    pub enum PaymentMethod {
+        /// Online, through Stripe Checkout.
+        Stripe,
+        /// Marked as paid by an admin.
+        Admin,
+    }
+
     /// Why a range was voided.
     pub enum VoidReason {
         /// Returned unsold.
@@ -750,6 +790,7 @@ macro_rules! db_enum {
 
 db_enum!(EventStatus { Active => "active", Closed => "closed" });
 db_enum!(BatchStatus { AwaitingPayment => "awaiting_payment", Paid => "paid", Canceled => "canceled" });
+db_enum!(PaymentMethod { Stripe => "stripe", Admin => "admin" });
 db_enum!(VoidReason { Unsold => "unsold", Lost => "lost", Revoked => "revoked" });
 db_enum!(ExportKind { Home => "home", Print => "print", Control => "control", Whatsapp => "whatsapp" });
 db_enum!(ExportStatus { Queued => "queued", Running => "running", Done => "done", Failed => "failed" });

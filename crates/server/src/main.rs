@@ -6,6 +6,7 @@ use std::time::Duration;
 use anyhow::{Context, Result};
 use ingressoimpresso_server::config::Config;
 use ingressoimpresso_server::mail::Mailer;
+use ingressoimpresso_server::payments::Payments;
 use ingressoimpresso_server::state::AppState;
 use ingressoimpresso_server::{MIGRATOR, app, jobs};
 use sqlx::postgres::PgPoolOptions;
@@ -68,8 +69,18 @@ async fn run(config: Config) -> Result<()> {
             .context("building the e-mail client")?,
         None => Mailer::Log,
     };
+    let payments = if let Some(keys) = &config.stripe {
+        if config.production && keys.test_mode() {
+            tracing::warn!("Stripe is in test mode: no real payment is collected");
+        }
+        Payments::stripe(keys.secret_key.clone(), keys.webhook_secret.clone())
+            .context("building the Stripe client")?
+    } else {
+        tracing::info!("Stripe not configured: batches are marked as paid by an admin");
+        Payments::Disabled
+    };
     let port = config.port;
-    let state = AppState::new(pool, config, mailer);
+    let state = AppState::new(pool, config, mailer).with_payments(payments);
     tokio::spawn(jobs::run_worker(state.clone()));
 
     let listener = tokio::net::TcpListener::bind(("0.0.0.0", port))

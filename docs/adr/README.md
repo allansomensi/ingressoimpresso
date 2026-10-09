@@ -23,9 +23,11 @@ feita e as consequências.
 | [0011](0011-modelo-dados-faixas.md) | Modelo de dados baseado em faixas | Aceito |
 | [0012](0012-autenticacao-organizador.md) | Login do organizador por código via e-mail | Aceito (sessão por cookie substituída por 0016) |
 | [0013](0013-infraestrutura-render-neon.md) | Infraestrutura: Render + Neon + Resend | Aceito (deploy e backup substituídos por 0019) |
-| [0014](0014-pagamento-pix-adiado.md) | Pagamento Pix adiado para depois do MVP | Aceito |
+| [0014](0014-pagamento-pix-adiado.md) | Pagamento Pix adiado para depois do MVP | Substituído por 0020 |
 | [0015](0015-renderizacao-em-blocos.md) | Renderização em blocos, sangria nativa e JPEG para WhatsApp | Aceito (junção e folha de controle substituídas por 0017) |
 | [0016](0016-sessao-bearer.md) | Sessão do painel por token Bearer e links de download assinados | Aceito |
 | [0017](0017-juncao-pdf-e-sangria.md) | Junção de PDFs com objetos compartilhados, BleedBox e folha de controle em blocos | Aceito |
 | [0018](0018-portaria-pwa.md) | Portaria no navegador: service worker, WebAssembly e regras da leitura | Aceito |
 | [0019](0019-deploy-dominio-proprio.md) | Deploy com domínio próprio: imagem no Render, banco que dorme e configuração explícita | Aceito |
+| [0020](0020-pagamento-stripe.md) | Pagamento dos lotes com Stripe Checkout | Aceito |
+| [0021](0021-interface-e-pwa.md) | Identidade visual, sistema de design e painel instalável (PWA) | Aceito |

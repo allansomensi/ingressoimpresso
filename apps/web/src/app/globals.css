@@ -1,23 +1,183 @@
 @import "tailwindcss";
 
-@theme {
-  --color-brand: oklch(0.55 0.2 25);
-  --color-ink: oklch(0.2 0.02 260);
-  --color-paper: oklch(0.985 0.005 85);
-}
-
+/*
+ * Design tokens (ADR 0021). Components use the semantic names (bg, surface, fg, brand...), so
+ * light and dark themes switch here only. Dark follows the system setting.
+ */
 :root {
-  color-scheme: light dark;
-}
-
-body {
-  background: var(--color-paper);
-  color: var(--color-ink);
+  color-scheme: light;
+  --bg: #f7f7f9;
+  --surface: #ffffff;
+  --surface-2: #f2f2f6;
+  --surface-3: #e9e9ef;
+  --border: #e4e4ea;
+  --border-strong: #d2d2dc;
+  --fg: #0e0d14;
+  --fg-muted: #5b5a6b;
+  --fg-subtle: #8c8b9b;
+  --brand: #5b3df5;
+  --brand-hover: #4c2fe4;
+  --brand-fg: #ffffff;
+  --brand-soft: #efebff;
+  --brand-soft-fg: #4a22d6;
+  --accent: #ffb224;
+  --success: #16a34a;
+  --success-soft: #e7f6ec;
+  --success-fg: #0f7a37;
+  --warning: #d97706;
+  --warning-soft: #fff3df;
+  --warning-fg: #8f4b00;
+  --danger: #dc2626;
+  --danger-soft: #fdeded;
+  --danger-fg: #b42318;
+  --ring: color-mix(in oklab, var(--brand) 45%, transparent);
+  --shadow-color: 250 30% 20%;
 }
 
 @media (prefers-color-scheme: dark) {
-  body {
-    background: oklch(0.18 0.01 260);
-    color: oklch(0.95 0.005 85);
+  :root {
+    color-scheme: dark;
+    --bg: #0a0910;
+    --surface: #12111a;
+    --surface-2: #1a1925;
+    --surface-3: #242231;
+    --border: #262433;
+    --border-strong: #363446;
+    --fg: #f3f2f9;
+    --fg-muted: #a7a5b9;
+    --fg-subtle: #75738a;
+    --brand: #7c66ff;
+    --brand-hover: #8f7cff;
+    --brand-fg: #ffffff;
+    --brand-soft: #1e1940;
+    --brand-soft-fg: #bcb1ff;
+    --success: #22c55e;
+    --success-soft: #0e2a1a;
+    --success-fg: #74e3a2;
+    --warning: #f59e0b;
+    --warning-soft: #2c2010;
+    --warning-fg: #fcd34d;
+    --danger: #f87171;
+    --danger-soft: #2d1415;
+    --danger-fg: #fca5a5;
+    --shadow-color: 250 40% 2%;
   }
+}
+
+@theme inline {
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, "SFMono-Regular", monospace;
+
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-subtle: var(--fg-subtle);
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-fg: var(--brand-fg);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-soft-fg: var(--brand-soft-fg);
+  --color-accent: var(--accent);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-success-fg: var(--success-fg);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-fg: var(--warning-fg);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-fg: var(--danger-fg);
+  --color-ring: var(--ring);
+
+  --shadow-xs: 0 1px 2px hsl(var(--shadow-color) / 0.06);
+  --shadow-sm: 0 1px 2px hsl(var(--shadow-color) / 0.06), 0 2px 6px hsl(var(--shadow-color) / 0.05);
+  --shadow-md: 0 2px 4px hsl(var(--shadow-color) / 0.05), 0 8px 24px hsl(var(--shadow-color) / 0.08);
+  --shadow-lg: 0 4px 8px hsl(var(--shadow-color) / 0.06), 0 24px 48px hsl(var(--shadow-color) / 0.14);
+
+  --animate-fade-in: fade-in 0.2s ease-out both;
+  --animate-rise: rise 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  --animate-pop: pop 0.25s cubic-bezier(0.2, 0.9, 0.3, 1.3) both;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-feature-settings: "ss01", "cv11";
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--brand) 25%, transparent);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--brand);
+    outline-offset: 2px;
+  }
+
+  input[type="number"] {
+    font-variant-numeric: tabular-nums;
+  }
+
+  dialog::backdrop {
+    background: rgb(10 9 16 / 0.55);
+    backdrop-filter: blur(4px);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Soft brand glow behind hero sections. */
+@utility bg-glow {
+  background-image:
+    radial-gradient(60rem 30rem at 50% -10%, color-mix(in oklab, var(--brand) 22%, transparent), transparent 70%),
+    radial-gradient(30rem 20rem at 90% 10%, color-mix(in oklab, var(--accent) 14%, transparent), transparent 70%);
+}
+
+/* Subtle dotted grid. */
+@utility bg-dots {
+  background-image: radial-gradient(color-mix(in oklab, var(--fg) 12%, transparent) 1px, transparent 1px);
+  background-size: 18px 18px;
 }

@@ -25,10 +25,42 @@ pub struct Config {
     pub admin_emails: Vec<String>,
     /// `PUBLIC_API_URL`: absolute base URL of this API, used in download links.
     pub public_api_url: String,
+    /// `PUBLIC_WEB_URL`: the site, where Stripe sends the payer back. Defaults to the first
+    /// allowed origin.
+    pub public_web_url: String,
+    /// `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` (ADR 0020): both or neither. Without them
+    /// batches are paid only by an admin.
+    pub stripe: Option<StripeKeys>,
     /// `EXPORT_DIR`: where generated files are cached (ephemeral disk is fine, ADR 0008).
     pub export_dir: PathBuf,
     /// `APP_ENV=production` enforces production-only requirements and JSON logs.
     pub production: bool,
+}
+
+/// Stripe credentials.
+#[derive(Clone)]
+pub struct StripeKeys {
+    /// `sk_live_...`/`sk_test_...` (or a restricted `rk_...` key).
+    pub secret_key: String,
+    /// `whsec_...` of the webhook endpoint.
+    pub webhook_secret: String,
+}
+
+impl std::fmt::Debug for StripeKeys {
+    // Never print the keys (CLAUDE.md: secrets stay out of the logs).
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("StripeKeys")
+            .field("test_mode", &self.test_mode())
+            .finish_non_exhaustive()
+    }
+}
+
+impl StripeKeys {
+    /// Whether these are test-mode keys (no real money moves).
+    pub fn test_mode(&self) -> bool {
+        self.secret_key.starts_with("sk_test_") || self.secret_key.starts_with("rk_test_")
+    }
 }
 
 /// A missing or invalid setting.
@@ -112,7 +144,18 @@ impl Config {
             .into_iter()
             .map(|email| email.to_lowercase())
             .collect();
+        let public_web_url = get("PUBLIC_WEB_URL")
+            .map(|url| url.trim_end_matches('/').to_owned())
+            .or_else(|| allowed_origins.first().cloned())
+            .unwrap_or_else(|| "http://localhost:3000".to_owned());
+        let stripe = stripe_keys(get("STRIPE_SECRET_KEY"), get("STRIPE_WEBHOOK_SECRET"))?;
         if production {
+            if stripe.is_some() && !public_web_url.starts_with("https://") {
+                return Err(ConfigError::Invalid {
+                    name: "PUBLIC_WEB_URL",
+                    reason: "must be the https:// address of the site".to_owned(),
+                });
+            }
             // Without these the server starts but the site cannot work: fail with the reason in
             // the deploy log instead.
             if allowed_origins.is_empty() {
@@ -138,6 +181,8 @@ impl Config {
                 .unwrap_or_else(|| "Ingresso Impresso <onboarding@resend.dev>".to_owned()),
             admin_emails,
             public_api_url,
+            public_web_url,
+            stripe,
             export_dir: get("EXPORT_DIR").map_or_else(
                 || std::env::temp_dir().join("ingressoimpresso-exports"),
                 PathBuf::from,
@@ -157,6 +202,31 @@ impl Config {
         self.admin_emails
             .iter()
             .any(|admin| admin.eq_ignore_ascii_case(email))
+    }
+}
+
+/// Stripe keys come in pairs (ADR 0020).
+fn stripe_keys(
+    secret_key: Option<String>,
+    webhook_secret: Option<String>,
+) -> Result<Option<StripeKeys>, ConfigError> {
+    match (secret_key, webhook_secret) {
+        (Some(secret_key), Some(webhook_secret)) => {
+            if !webhook_secret.starts_with("whsec_") {
+                return Err(ConfigError::Invalid {
+                    name: "STRIPE_WEBHOOK_SECRET",
+                    reason: "must be the whsec_... signing secret of the webhook endpoint"
+                        .to_owned(),
+                });
+            }
+            Ok(Some(StripeKeys {
+                secret_key,
+                webhook_secret,
+            }))
+        }
+        (None, None) => Ok(None),
+        (Some(_), None) => Err(ConfigError::Missing("STRIPE_WEBHOOK_SECRET")),
+        (None, Some(_)) => Err(ConfigError::Missing("STRIPE_SECRET_KEY")),
     }
 }
 
@@ -289,6 +359,42 @@ mod tests {
             let error = Config::from_lookup(lookup(&partial)).unwrap_err();
             assert!(error.to_string().contains(name), "{error}");
         }
+    }
+
+    #[test]
+    fn stripe_keys_come_in_pairs() {
+        let base = [
+            ("DATABASE_URL", "postgres://localhost/db"),
+            ("TICKET_KEY_ENCRYPTION_KEY", KEY),
+            ("ALLOWED_ORIGINS", "http://localhost:3000"),
+        ];
+        let config = Config::from_lookup(lookup(&base)).unwrap();
+        assert!(config.stripe.is_none());
+        assert_eq!(config.public_web_url, "http://localhost:3000");
+
+        let mut half = base.to_vec();
+        half.push(("STRIPE_SECRET_KEY", "sk_test_x"));
+        assert!(matches!(
+            Config::from_lookup(lookup(&half)),
+            Err(ConfigError::Missing("STRIPE_WEBHOOK_SECRET"))
+        ));
+        half.push(("STRIPE_WEBHOOK_SECRET", "sk_test_wrong_field"));
+        assert!(matches!(
+            Config::from_lookup(lookup(&half)),
+            Err(ConfigError::Invalid {
+                name: "STRIPE_WEBHOOK_SECRET",
+                ..
+            })
+        ));
+        let mut full = base.to_vec();
+        full.push(("STRIPE_SECRET_KEY", "sk_test_x"));
+        full.push(("STRIPE_WEBHOOK_SECRET", "whsec_y"));
+        full.push(("PUBLIC_WEB_URL", "https://seudominio.com.br/"));
+        let config = Config::from_lookup(lookup(&full)).unwrap();
+        let stripe = config.stripe.unwrap();
+        assert!(stripe.test_mode());
+        assert!(!format!("{stripe:?}").contains("sk_test_x"));
+        assert_eq!(config.public_web_url, "https://seudominio.com.br");
     }
 
     #[test]

@@ -1,6 +1,6 @@
 # 0014. Pagamento Pix adiado para depois do MVP
 
-- **Status:** Aceito
+- **Status:** Substituído por [0020](0020-pagamento-stripe.md)
 - **Data:** 2026-10-08
 
 ## Contexto

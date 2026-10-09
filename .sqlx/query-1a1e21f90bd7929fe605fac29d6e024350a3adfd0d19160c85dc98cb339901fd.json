@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update ticket_batches set status = 'paid', paid_at = now(), paid_via = 'admin'\n           where id = $1 and status = 'awaiting_payment' returning id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "ticket_batches",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "1a1e21f90bd7929fe605fac29d6e024350a3adfd0d19160c85dc98cb339901fd"
+}

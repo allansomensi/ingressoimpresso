@@ -190,7 +190,7 @@ console.log("ok: online copy detected");
 const c = await phone(camera2);
 await register(c, doorLink, "Porta C");
 await until("app cached for offline use", async () =>
-  (await c.page.locator("li", { hasText: "App salvo para abrir sem internet" }).innerText()).includes("✔"),
+  (await c.page.locator("li", { hasText: "App salvo para abrir sem internet" }).getAttribute("data-ok")) === "true",
 );
 await c.context.setOffline(true);
 await c.page.reload();
