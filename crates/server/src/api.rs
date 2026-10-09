@@ -60,8 +60,32 @@ dto! {
         pub id: Uuid,
         /// E-mail.
         pub email: String,
-        /// May mark batches as paid (MVP, ADR 0014).
+        /// Name shared by Google, if any.
+        pub name: Option<String>,
+        /// In `ADMIN_EMAILS`: the admin panel and every organization (ADRs 0026, 0032).
         pub is_admin: bool,
+        /// Signs in with Google too (ADR 0029).
+        pub google: bool,
+        /// The organization is suspended: the panel only reads (ADR 0032).
+        pub suspended: bool,
+    }
+
+    /// `GET /api/auth/options`: how this server lets people sign in.
+    pub struct AuthOptionsDto {
+        /// OAuth client id of "Entrar com Google"; `null` when it is off.
+        pub google_client_id: Option<String>,
+    }
+
+    /// `POST /api/auth/google`.
+    pub struct GoogleSignInBody {
+        /// ID token (JWT) from Google Identity Services.
+        pub credential: String,
+    }
+
+    /// `DELETE /api/account`.
+    pub struct DeleteAccountBody {
+        /// The account's e-mail, typed as confirmation.
+        pub email: String,
     }
 
     /// `POST /api/events` and `PUT /api/events/{id}`.
@@ -109,6 +133,8 @@ dto! {
         pub ticket_price_cents: Option<i32>,
         /// Lifecycle.
         pub status: EventStatus,
+        /// Opened by an admin outside their own organization (support mode, ADR 0032).
+        pub support_access: bool,
     }
 
     /// Uploaded art.
@@ -174,6 +200,10 @@ dto! {
         pub free_tickets: i32,
         /// How it was paid.
         pub paid_via: Option<PaymentMethod>,
+        /// When an admin refunded it (its numbers are voided for good).
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub refunded_at: Option<OffsetDateTime>,
         /// An unsettled online payment: a checkout page is open, or a Pix transfer is being
         /// confirmed. `null` when there is none.
         pub pending_payment: Option<PaymentState>,
@@ -215,6 +245,12 @@ dto! {
         /// Paid tickets issued by the organization.
         #[cfg_attr(feature = "ts", ts(type = "number"))]
         pub paid_tickets: i64,
+        /// Why an admin suspended the organization, if it is suspended.
+        pub suspended_reason: Option<String>,
+        /// When the account accepted the current terms.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub terms_accepted_at: Option<OffsetDateTime>,
     }
 
     /// `PUT /api/account`.
@@ -309,6 +345,274 @@ dto! {
         #[serde(with = "time::serde::rfc3339::option")]
         #[cfg_attr(feature = "ts", ts(type = "string | null"))]
         pub last_batch_at: Option<OffsetDateTime>,
+        /// Suspended by an admin.
+        pub suspended: bool,
+    }
+
+    /// `GET /api/admin/organizations/{id}`: one account for support.
+    pub struct AdminOrganizationDetailDto {
+        /// Usage summary.
+        pub organization: AdminOrganizationDto,
+        /// When it was suspended, if it is.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub suspended_at: Option<OffsetDateTime>,
+        /// Why.
+        pub suspended_reason: Option<String>,
+        /// People of the organization.
+        pub members: Vec<AdminMemberDto>,
+        /// Events, newest first.
+        pub events: Vec<AdminEventDto>,
+        /// Latest admin actions on this organization.
+        pub audit: Vec<AuditEntryDto>,
+    }
+
+    /// A member of an organization, as admins see it.
+    pub struct AdminMemberDto {
+        /// User id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub user_id: Uuid,
+        /// E-mail.
+        pub email: String,
+        /// Name shared by Google.
+        pub name: Option<String>,
+        /// `owner` or `member`.
+        pub role: String,
+        /// Account created at.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub created_at: OffsetDateTime,
+        /// Last sign-in.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub last_login_at: Option<OffsetDateTime>,
+        /// Signs in with Google.
+        pub google: bool,
+        /// Open sessions.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub sessions: i64,
+    }
+
+    /// An event in the admin view of an organization.
+    pub struct AdminEventDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// Name.
+        pub name: String,
+        /// Start.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub starts_at: OffsetDateTime,
+        /// `active` or `closed`.
+        pub status: String,
+        /// Tickets of paid batches.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub paid_tickets: i64,
+        /// Money of paid batches, in centavos.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub revenue_cents: i64,
+        /// Tickets that entered.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub entries: i64,
+    }
+
+    /// One line of the audit log (ADR 0032).
+    pub struct AuditEntryDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// Admin who acted.
+        pub actor_email: String,
+        /// What, e.g. `batch_refund` or `support_write`.
+        pub action: String,
+        /// Organization concerned.
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub organization_id: Option<Uuid>,
+        /// Its name.
+        pub organization_name: Option<String>,
+        /// Event concerned.
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub event_id: Option<Uuid>,
+        /// Its name.
+        pub event_name: Option<String>,
+        /// Batch, user or note concerned.
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub target_id: Option<Uuid>,
+        /// Details (amounts, the request path...).
+        #[cfg_attr(feature = "ts", ts(type = "Record<string, unknown>"))]
+        pub detail: serde_json::Value,
+        /// When.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub created_at: OffsetDateTime,
+    }
+
+    /// `PUT /api/admin/organizations/{id}/suspension`.
+    pub struct AdminSuspensionBody {
+        /// Suspend (`true`) or lift (`false`).
+        pub suspended: bool,
+        /// Why (shown to the organization, up to 200 characters).
+        pub reason: Option<String>,
+    }
+
+    /// `PUT /api/admin/organizations/{id}`.
+    pub struct AdminRenameBody {
+        /// New name (1–100 characters).
+        pub name: String,
+    }
+
+    /// `POST /api/admin/batches/{id}/refund`.
+    pub struct AdminRefundBody {
+        /// Refund the payment on Stripe too (batches paid online); otherwise only record it.
+        pub refund_on_stripe: bool,
+        /// Note for the log (up to 200 characters).
+        pub note: Option<String>,
+    }
+
+    /// `PUT /api/admin/batches/{id}/price`.
+    pub struct AdminBatchPriceBody {
+        /// New price in centavos; 0 frees the batch.
+        pub price_cents: i32,
+    }
+
+    /// `GET /api/admin/finance?days=`: the service's revenue (ADR 0034).
+    pub struct AdminFinanceDto {
+        /// Length of the period.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub days: i64,
+        /// Batches paid in the period, in centavos.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub revenue_cents: i64,
+        /// Same, in the period before.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub previous_revenue_cents: i64,
+        /// Refunded in the period.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub refunds_cents: i64,
+        /// Batches refunded in the period.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub refunded_batches: i64,
+        /// Revenue minus refunds.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub net_cents: i64,
+        /// Batches that cost money, paid in the period.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub charged_batches: i64,
+        /// Tickets charged (free ones excluded).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub charged_tickets: i64,
+        /// Revenue per charged batch.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub average_batch_cents: i64,
+        /// Batches waiting for payment now.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub pending_batches: i64,
+        /// Their value.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub pending_cents: i64,
+        /// Batches of the period by how they were paid.
+        pub methods: Vec<AdminMethodDto>,
+        /// Whether `series` is by month (a year) or by day.
+        pub monthly: bool,
+        /// Revenue over the period, oldest first.
+        pub series: Vec<AdminSeriesPointDto>,
+        /// Organizations that paid the most in the period.
+        pub top_organizations: Vec<AdminTopOrganizationDto>,
+        /// Organizations created in the period...
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub signups: i64,
+        /// ...that created an event...
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub signups_with_event: i64,
+        /// ...that got tickets (free ones count)...
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub signups_with_tickets: i64,
+        /// ...and that paid for a batch.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub signups_paying: i64,
+    }
+
+    /// Batches of a payment method.
+    pub struct AdminMethodDto {
+        /// How they were paid.
+        pub method: PaymentMethod,
+        /// Batches.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub batches: i64,
+        /// Tickets.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub tickets: i64,
+        /// Money, in centavos.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub revenue_cents: i64,
+    }
+
+    /// One day or month of the finance chart.
+    pub struct AdminSeriesPointDto {
+        /// `YYYY-MM-DD` or `YYYY-MM` (Brasília).
+        pub label: String,
+        /// Money of batches paid, in centavos.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub revenue_cents: i64,
+        /// Tickets of batches paid.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub tickets: i64,
+        /// Batches paid.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub batches: i64,
+    }
+
+    /// An organization among those that paid the most.
+    pub struct AdminTopOrganizationDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// Name.
+        pub name: String,
+        /// Money paid in the period, in centavos.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub revenue_cents: i64,
+        /// Tickets bought in the period.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub tickets: i64,
+    }
+
+    /// A changelog note (ADR 0031).
+    pub struct ChangelogEntryDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// New, improvement, fix or security.
+        pub kind: ChangelogKind,
+        /// Title.
+        pub title: String,
+        /// Text (paragraphs separated by blank lines).
+        pub body: String,
+        /// Publication time; `null` for a draft.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub published_at: Option<OffsetDateTime>,
+        /// Created at.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub created_at: OffsetDateTime,
+        /// Last edit.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub updated_at: OffsetDateTime,
+    }
+
+    /// `POST /api/admin/changelog` and `PUT /api/admin/changelog/{id}`.
+    pub struct ChangelogBody {
+        /// New, improvement, fix or security.
+        pub kind: ChangelogKind,
+        /// Title (1–120 characters).
+        pub title: String,
+        /// Text (up to 4000 characters).
+        pub body: String,
+        /// Published (`false`: draft).
+        pub published: bool,
     }
 
     /// `PUT /api/admin/organizations/{id}/bonus`.
@@ -330,6 +634,284 @@ dto! {
         pub organization_name: String,
         /// E-mail of the organization's first owner.
         pub owner_email: Option<String>,
+    }
+
+    /// `POST /api/events/{id}/tickets`: a digital ticket link (ADR 0030).
+    pub struct CreateTicketLinkBody {
+        /// Ticket number; `null` takes the next free paid number.
+        pub number: Option<i32>,
+        /// Who receives it (optional, up to 80 characters).
+        pub holder_name: Option<String>,
+    }
+
+    /// `POST /api/events/{id}/tickets/bulk`: links for a range (up to 500 numbers).
+    pub struct CreateTicketLinksBody {
+        /// First number.
+        pub first: i32,
+        /// Last number (inclusive).
+        pub last: i32,
+    }
+
+    /// `PUT /api/ticket-links/{id}`.
+    pub struct UpdateTicketLinkBody {
+        /// Who receives it; `null` clears it.
+        pub holder_name: Option<String>,
+    }
+
+    /// A digital ticket link, as the organizer sees it.
+    pub struct TicketLinkDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// Ticket number.
+        pub number: i32,
+        /// Number as printed (zero padded).
+        pub number_label: String,
+        /// Who receives it.
+        pub holder_name: Option<String>,
+        /// The link to send (`/ingresso#<token>`).
+        pub url: String,
+        /// Created at.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub created_at: OffsetDateTime,
+        /// When it was revoked, if it was.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub revoked_at: Option<OffsetDateTime>,
+        /// First time the holder opened it.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub first_opened_at: Option<OffsetDateTime>,
+        /// Last time it was opened.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub last_opened_at: Option<OffsetDateTime>,
+        /// How many times it was opened.
+        pub open_count: i32,
+        /// Valid, voided or already used at the door.
+        pub state: TicketState,
+        /// When the ticket entered.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub entered_at: Option<OffsetDateTime>,
+    }
+
+    /// `GET /api/events/{id}/tickets`.
+    pub struct TicketLinksDto {
+        /// Every link, active first.
+        pub links: Vec<TicketLinkDto>,
+        /// Smallest paid number with no seller, void, link or entry.
+        pub next_number: Option<i32>,
+        /// Paid tickets of the event.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub paid_tickets: i64,
+        /// Digits of printed numbers.
+        pub number_digits: u8,
+    }
+
+    /// `POST /api/ticket` and `POST /api/ticket/image` (no login).
+    pub struct OpenTicketBody {
+        /// Token from the link's fragment.
+        pub token: String,
+    }
+
+    /// What the holder's phone shows.
+    pub struct TicketPassDto {
+        /// The event.
+        pub event: TicketPassEvent,
+        /// Ticket number.
+        pub number: i32,
+        /// Number as printed.
+        pub number_label: String,
+        /// Text before the number on paper, e.g. "Nº ".
+        pub number_prefix: String,
+        /// Who it was sent to.
+        pub holder_name: Option<String>,
+        /// The signed QR text; `null` when the ticket is voided.
+        pub qr_text: Option<String>,
+        /// Valid, voided or used.
+        pub state: TicketState,
+        /// When it entered.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub entered_at: Option<OffsetDateTime>,
+        /// Background colour of the ticket design (`#rrggbb`).
+        pub background_color: String,
+    }
+
+    /// The event on a digital ticket.
+    pub struct TicketPassEvent {
+        /// Name.
+        pub name: String,
+        /// Venue.
+        pub venue: Option<String>,
+        /// Start, with the event's offset.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub starts_at: OffsetDateTime,
+        /// End.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub ends_at: OffsetDateTime,
+        /// Organization name.
+        pub organizer: String,
+    }
+
+    /// `GET /api/analytics`: results of every event of the organization (ADR 0034).
+    pub struct OrgAnalyticsDto {
+        /// Sums.
+        pub totals: ResultTotalsDto,
+        /// One line per event, newest first.
+        pub events: Vec<EventResultDto>,
+        /// The last twelve months by event start, oldest first.
+        pub months: Vec<MonthResultDto>,
+    }
+
+    /// Sums of the organization.
+    #[derive(Default)]
+    pub struct ResultTotalsDto {
+        /// Events.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub events: i64,
+        /// Paid tickets.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub paid_tickets: i64,
+        /// Declared sold.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub sold: i64,
+        /// Entries.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub entries: i64,
+        /// Sold × price, in centavos (events with a price).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub gross_cents: i64,
+        /// Paid for batches, in centavos.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub cost_cents: i64,
+        /// Gross minus cost.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub net_cents: i64,
+    }
+
+    /// One event's results.
+    pub struct EventResultDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// Name.
+        pub name: String,
+        /// Start, with the event's offset.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub starts_at: OffsetDateTime,
+        /// `active` or `closed`.
+        pub status: String,
+        /// Ticket price.
+        pub ticket_price_cents: Option<i32>,
+        /// Paid tickets.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub paid_tickets: i64,
+        /// Declared sold.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub sold: i64,
+        /// Entries.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub entries: i64,
+        /// Sold × price.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub gross_cents: i64,
+        /// Paid for batches.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub cost_cents: i64,
+    }
+
+    /// One month of the organization's results.
+    #[derive(Default)]
+    pub struct MonthResultDto {
+        /// `YYYY-MM`.
+        pub month: String,
+        /// Events starting that month.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub events: i64,
+        /// Declared sold.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub sold: i64,
+        /// Entries.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub entries: i64,
+        /// Sold × price.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub gross_cents: i64,
+        /// Paid for batches.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub cost_cents: i64,
+    }
+
+    /// `GET /api/events/{id}/analytics`.
+    pub struct EventAnalyticsDto {
+        /// Ticket price.
+        pub ticket_price_cents: Option<i32>,
+        /// Paid tickets.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub paid_tickets: i64,
+        /// Declared sold: paid − unsold − lost.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub sold: i64,
+        /// Voided as unsold.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub unsold: i64,
+        /// Voided as lost.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub lost: i64,
+        /// Voided for another reason.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub revoked: i64,
+        /// Tickets that entered.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub entries: i64,
+        /// Copies stopped at the door.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub blocked_copies: i64,
+        /// Sold × price, when the event has a price.
+        #[cfg_attr(feature = "ts", ts(type = "number | null"))]
+        pub gross_cents: Option<i64>,
+        /// Paid for the batches.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub cost_cents: i64,
+        /// Gross minus cost.
+        #[cfg_attr(feature = "ts", ts(type = "number | null"))]
+        pub net_cents: Option<i64>,
+        /// Tickets that came free.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub free_tickets: i64,
+        /// Active digital links.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub digital_tickets: i64,
+        /// Of those, opened at least once.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub digital_opened: i64,
+        /// First entry.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub first_entry_at: Option<OffsetDateTime>,
+        /// Last entry.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub last_entry_at: Option<OffsetDateTime>,
+        /// Entries per 15 minutes.
+        pub timeline: Vec<EntryBucketDto>,
+    }
+
+    /// Entries in a 15-minute bar.
+    pub struct EntryBucketDto {
+        /// Start of the bar, with the event's offset.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub at: OffsetDateTime,
+        /// First entries in it.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub entries: i64,
     }
 
     /// `POST /api/batches/{id}/checkout`: the Stripe payment page.
@@ -411,6 +993,8 @@ dto! {
         #[serde(with = "time::serde::rfc3339::option")]
         #[cfg_attr(feature = "ts", ts(type = "string | null"))]
         pub undone_at: Option<OffsetDateTime>,
+        /// Covers a refunded batch: permanent, cannot be undone (ADR 0032).
+        pub locked: bool,
     }
 
     /// `POST /api/events/{id}/exports`.
@@ -806,6 +1390,8 @@ dto_enum! {
         Paid,
         /// Canceled before payment.
         Canceled,
+        /// Paid, then refunded by an admin: its numbers stay taken and voided.
+        Refunded,
     }
 
     /// How a batch was paid.
@@ -884,6 +1470,28 @@ dto_enum! {
         RejectedOtherEvent,
     }
 
+    /// Kind of a changelog note.
+    pub enum ChangelogKind {
+        /// A new feature.
+        New,
+        /// Something that got better.
+        Improvement,
+        /// A bug fixed.
+        Fix,
+        /// A security change.
+        Security,
+    }
+
+    /// A ticket as the door sees it now.
+    pub enum TicketState {
+        /// Can enter.
+        Valid,
+        /// Voided: blocked at the door.
+        Voided,
+        /// Already entered.
+        Entered,
+    }
+
     /// Server classification of an admitted scan.
     pub enum ScanClass {
         /// First entry of the ticket.
@@ -941,7 +1549,8 @@ macro_rules! db_enum {
 }
 
 db_enum!(EventStatus { Active => "active", Closed => "closed" });
-db_enum!(BatchStatus { AwaitingPayment => "awaiting_payment", Paid => "paid", Canceled => "canceled" });
+db_enum!(BatchStatus { AwaitingPayment => "awaiting_payment", Paid => "paid", Canceled => "canceled", Refunded => "refunded" });
+db_enum!(ChangelogKind { New => "new", Improvement => "improvement", Fix => "fix", Security => "security" });
 db_enum!(PaymentMethod { Stripe => "stripe", Admin => "admin", Free => "free" });
 db_enum!(PaymentState { Open => "open", Processing => "processing" });
 db_enum!(VoidReason { Unsold => "unsold", Lost => "lost", Revoked => "revoked" });

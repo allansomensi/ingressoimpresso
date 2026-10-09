@@ -1,6 +1,6 @@
 "use client";
 
-import type { AdminBatchDto, AdminOrganizationDto, AdminOverviewDto, BatchStatus } from "@ingressoimpresso/api-types";
+import type { AdminBatchDto, AdminOrganizationDto, AdminOverviewDto, BatchDto, BatchStatus } from "@ingressoimpresso/api-types";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   BadgeCheck,
@@ -10,9 +10,12 @@ import {
   ExternalLink,
   Gift,
   Hourglass,
+  MoreHorizontal,
   Search,
+  Tag,
   Ticket,
   TrendingUp,
+  Undo2,
 } from "lucide-react";
 import Link from "next/link";
 import { useDeferredValue, useState } from "react";
@@ -32,15 +35,18 @@ import {
   List,
   ListItem,
   LoadingBlock,
+  Menu,
+  MenuItem,
   errorMessage,
   NumberInput,
   Stat,
+  Switch,
   useConfirm,
   type Tone,
 } from "@/components/ui";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
-import { money, shortDateTime } from "@/lib/format";
+import { money, parseMoney, shortDateTime } from "@/lib/format";
 import { texts } from "@/texts/pt-BR";
 
 const t = texts.admin;
@@ -140,7 +146,7 @@ function SearchBox({ value, onChange }: { value: string; onChange: (value: strin
   );
 }
 
-function BonusDialog({ organization, onClose }: { organization: AdminOrganizationDto | null; onClose: () => void }) {
+export function BonusDialog({ organization, onClose }: { organization: AdminOrganizationDto | null; onClose: () => void }) {
   const queryClient = useQueryClient();
   const [bonus, setBonus] = useState(organization?.bonusFreeTickets ?? 0);
   const save = useMutation({
@@ -219,7 +225,17 @@ export function AdminOrganizations() {
             <ListItem key={organization.id} className="justify-between">
               <div className="flex min-w-0 flex-col gap-1">
                 <span className="flex flex-wrap items-center gap-2">
-                  <span className="truncate font-semibold text-fg">{organization.name}</span>
+                  <Link
+                    href={`/painel/admin/organizacoes/${organization.id}`}
+                    className="truncate font-semibold text-fg underline-offset-2 hover:text-brand hover:underline"
+                  >
+                    {organization.name}
+                  </Link>
+                  {organization.suspended && (
+                    <Badge tone="danger" dot>
+                      {t.organization.suspendedBadge}
+                    </Badge>
+                  )}
                   {organization.bonusFreeTickets > 0 && (
                     <Badge tone="brand">
                       <Gift className="size-3" aria-hidden />
@@ -270,7 +286,131 @@ export function AdminOrganizations() {
 }
 
 type BatchFilter = BatchStatus | "all";
-const STATUS_TONE: Record<BatchStatus, Tone> = { awaiting_payment: "warning", paid: "success", canceled: "neutral" };
+
+function PriceDialog({ batch, onClose }: { batch: BatchDto | null; onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const [text, setText] = useState(batch === null ? "" : (batch.priceCents / 100).toFixed(2).replace(".", ","));
+  const parsed = parseMoney(text);
+  const save = useMutation({
+    mutationFn: (cents: number) => api<BatchDto>(`/api/admin/batches/${batch?.id ?? ""}/price`, { method: "PUT", body: { priceCents: cents } }),
+    onSuccess: () => {
+      toast.success(t.batches.priceSaved);
+      void queryClient.invalidateQueries({ queryKey: ["admin"] });
+      onClose();
+    },
+  });
+  const cents = parsed.ok ? (parsed.cents ?? 0) : null;
+  return (
+    <Dialog
+      open={batch !== null}
+      onClose={onClose}
+      size="sm"
+      title={t.batches.priceTitle}
+      description={batch === null ? undefined : t.batches.priceDescription(batch.last - batch.first + 1)}
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>
+            {texts.common.cancel}
+          </Button>
+          <Button
+            icon={<Tag />}
+            loading={save.isPending}
+            disabled={cents === null}
+            onClick={() => {
+              if (cents !== null) {
+                save.mutate(cents);
+              }
+            }}
+          >
+            {texts.common.save}
+          </Button>
+        </>
+      }
+    >
+      <form
+        className="flex flex-col gap-3"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (cents !== null) {
+            save.mutate(cents);
+          }
+        }}
+      >
+        <Field label={t.batches.priceLabel}>
+          <Input
+            inputMode="decimal"
+            value={text}
+            aria-invalid={!parsed.ok}
+            onChange={(event) => {
+              setText(event.target.value);
+            }}
+          />
+        </Field>
+        <ErrorMessage error={save.error} />
+      </form>
+    </Dialog>
+  );
+}
+
+function RefundDialog({ batch, onClose }: { batch: BatchDto | null; onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const [onStripe, setOnStripe] = useState(batch?.paidVia === "stripe");
+  const [note, setNote] = useState("");
+  const refund = useMutation({
+    mutationFn: () =>
+      api<BatchDto>(`/api/admin/batches/${batch?.id ?? ""}/refund`, {
+        method: "POST",
+        body: { refundOnStripe: onStripe, note: note.trim() === "" ? null : note.trim() },
+      }),
+    onSuccess: () => {
+      toast.success(t.batches.refunded);
+      void queryClient.invalidateQueries({ queryKey: ["admin"] });
+      onClose();
+    },
+  });
+  return (
+    <Dialog
+      open={batch !== null}
+      onClose={onClose}
+      size="sm"
+      title={t.batches.refundTitle}
+      description={t.batches.refundBody}
+      footer={
+        <>
+          <Button variant="secondary" autoFocus onClick={onClose}>
+            {texts.common.cancel}
+          </Button>
+          <Button variant="danger" icon={<Undo2 />} loading={refund.isPending} onClick={() => refund.mutate()}>
+            {t.batches.refund}
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        {batch !== null && (
+          <p className="rounded-xl bg-surface-2 px-4 py-3 text-sm text-fg">
+            {t.batches.numbers(batch.first, batch.last)} · {money(batch.priceCents)}
+          </p>
+        )}
+        {batch?.paidVia === "stripe" && (
+          <Switch checked={onStripe} onChange={setOnStripe} label={t.batches.refundOnStripe} description={t.batches.refundOnStripeHint} />
+        )}
+        <Field label={t.batches.refundNote} optional>
+          <Input
+            value={note}
+            maxLength={200}
+            placeholder={t.batches.refundNotePlaceholder}
+            onChange={(event) => {
+              setNote(event.target.value);
+            }}
+          />
+        </Field>
+        <ErrorMessage error={refund.error} />
+      </div>
+    </Dialog>
+  );
+}
+const STATUS_TONE: Record<BatchStatus, Tone> = { awaiting_payment: "warning", paid: "success", canceled: "neutral", refunded: "danger" };
 
 export function AdminBatches() {
   const queryClient = useQueryClient();
@@ -295,9 +435,25 @@ export function AdminBatches() {
     },
   });
   const b = texts.event.batches;
+  const [pricing, setPricing] = useState<BatchDto | null>(null);
+  const [refunding, setRefunding] = useState<BatchDto | null>(null);
 
   return (
     <div className="flex flex-col gap-4">
+      <PriceDialog
+        key={`price-${pricing?.id ?? "none"}`}
+        batch={pricing}
+        onClose={() => {
+          setPricing(null);
+        }}
+      />
+      <RefundDialog
+        key={`refund-${refunding?.id ?? "none"}`}
+        batch={refunding}
+        onClose={() => {
+          setRefunding(null);
+        }}
+      />
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div role="radiogroup" aria-label={texts.admin.tabs.batches} className="flex w-fit rounded-full border border-border bg-surface-2 p-0.5">
           {(Object.keys(t.batches.filters) as BatchFilter[]).map((option) => (
@@ -352,6 +508,7 @@ export function AdminBatches() {
                     <span>{t.batches.numbers(batch.first, batch.last)}</span>
                     <span>{t.batches.created(shortDateTime(batch.createdAt))}</span>
                     {batch.paidAt !== null && <span>{t.batches.paid(shortDateTime(batch.paidAt))}</span>}
+                    {batch.refundedAt !== null && <span>{t.batches.refundedAt(shortDateTime(batch.refundedAt))}</span>}
                   </span>
                 </div>
                 <div className="flex items-center gap-3">
@@ -367,20 +524,46 @@ export function AdminBatches() {
                   >
                     <ExternalLink className="size-4" aria-hidden />
                   </Link>
-                  {payable && (
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      icon={<BadgeCheck />}
-                      loading={markPaid.isPending && markPaid.variables === batch.id}
-                      onClick={async () => {
-                        if (await confirm({ title: b.markPaidConfirmTitle, description: b.markPaidConfirmBody, confirmLabel: b.markPaid, danger: false })) {
-                          markPaid.mutate(batch.id);
-                        }
-                      }}
+                  {(payable || batch.status === "paid") && (
+                    <Menu
+                      label={t.batches.actions}
+                      trigger={<MoreHorizontal className="size-4" aria-hidden />}
+                      triggerClassName="flex size-9 items-center justify-center rounded-lg text-fg-muted transition hover:bg-surface-2 hover:text-fg"
                     >
-                      {b.markPaid}
-                    </Button>
+                      {payable && (
+                        <MenuItem
+                          icon={<BadgeCheck />}
+                          onSelect={async () => {
+                            if (await confirm({ title: b.markPaidConfirmTitle, description: b.markPaidConfirmBody, confirmLabel: b.markPaid, danger: false })) {
+                              markPaid.mutate(batch.id);
+                            }
+                          }}
+                        >
+                          {b.markPaid}
+                        </MenuItem>
+                      )}
+                      {payable && (
+                        <MenuItem
+                          icon={<Tag />}
+                          onSelect={() => {
+                            setPricing(batch);
+                          }}
+                        >
+                          {t.batches.changePrice}
+                        </MenuItem>
+                      )}
+                      {batch.status === "paid" && (
+                        <MenuItem
+                          tone="danger"
+                          icon={<Undo2 />}
+                          onSelect={() => {
+                            setRefunding(batch);
+                          }}
+                        >
+                          {t.batches.refund}
+                        </MenuItem>
+                      )}
+                    </Menu>
                   )}
                 </div>
               </ListItem>

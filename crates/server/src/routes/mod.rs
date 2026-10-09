@@ -2,16 +2,22 @@
 
 pub mod account;
 pub mod admin;
+pub mod analytics;
 pub mod batches;
+pub mod changelog;
 pub mod door;
 pub mod events;
 pub mod exports;
+pub mod privacy;
 pub mod report;
 pub mod sellers;
+pub mod support;
+pub mod tickets;
 pub mod voids;
 
 use std::ops::Bound;
 
+use axum::http::Method;
 use sqlx::PgPool;
 use sqlx::postgres::types::PgRange;
 use ticket_render::EventDetails;
@@ -59,25 +65,77 @@ impl EventRow {
     }
 }
 
-/// Loads an event if the user is a member of its organization; 404 otherwise (never reveals
-/// that another organization's event exists).
-pub async fn authorize_event(
+/// An event the user may access, and how.
+#[derive(Debug, Clone)]
+pub struct EventAccess {
+    /// The event.
+    pub event: EventRow,
+    /// Its organization.
+    pub organization_id: Uuid,
+    /// Opened by an admin who is not a member (support mode, ADR 0032).
+    pub support: bool,
+}
+
+/// Loads an event if the user is a member of its organization, or an admin (support mode); 404
+/// otherwise (never reveals that another organization's event exists). Every change an admin
+/// makes in support mode is written to the audit log.
+pub async fn event_access(
     pool: &PgPool,
     user: &AuthUser,
     event_id: Uuid,
-) -> ApiResult<EventRow> {
-    sqlx::query_as!(
-        EventRow,
+) -> ApiResult<EventAccess> {
+    let row = sqlx::query!(
         r#"select e.id, e.name, e.venue, e.starts_at, e.ends_at, e.ticket_price_cents, e.status, e.qr_tag,
-                  e.utc_offset_minutes
-           from events e join memberships m on m.organization_id = e.organization_id
-           where e.id = $1 and m.user_id = $2"#,
+                  e.utc_offset_minutes, e.organization_id,
+                  exists(select 1 from memberships m
+                         where m.organization_id = e.organization_id and m.user_id = $2) as "member!"
+           from events e where e.id = $1"#,
         event_id,
         user.id,
     )
     .fetch_optional(pool)
     .await?
-    .ok_or(ApiError::NotFound)
+    .ok_or(ApiError::NotFound)?;
+    if !row.member && !user.is_admin {
+        return Err(ApiError::NotFound);
+    }
+    let support = !row.member;
+    if support && !matches!(user.method, Method::GET | Method::HEAD) {
+        admin::audit_with(
+            pool,
+            user,
+            "support_write",
+            Some(row.organization_id),
+            Some(row.id),
+            None,
+            serde_json::json!({ "method": user.method.as_str(), "path": user.path }),
+        )
+        .await?;
+    }
+    Ok(EventAccess {
+        event: EventRow {
+            id: row.id,
+            name: row.name,
+            venue: row.venue,
+            starts_at: row.starts_at,
+            ends_at: row.ends_at,
+            ticket_price_cents: row.ticket_price_cents,
+            status: row.status,
+            qr_tag: row.qr_tag,
+            utc_offset_minutes: row.utc_offset_minutes,
+        },
+        organization_id: row.organization_id,
+        support,
+    })
+}
+
+/// [`event_access`], keeping only the event.
+pub async fn authorize_event(
+    pool: &PgPool,
+    user: &AuthUser,
+    event_id: Uuid,
+) -> ApiResult<EventRow> {
+    Ok(event_access(pool, user, event_id).await?.event)
 }
 
 /// Validates an inclusive range and converts it to Postgres' canonical `[first, last + 1)`.

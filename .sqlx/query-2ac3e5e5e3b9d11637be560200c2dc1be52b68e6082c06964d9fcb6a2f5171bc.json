@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with events as (select id from events where organization_id = $1),\n               designs as (delete from ticket_designs where event_id in (select id from events)),\n               sellers as (delete from sellers where event_id in (select id from events)),\n               links as (delete from ticket_links where event_id in (select id from events)),\n               doors as (delete from door_accesses where event_id in (select id from events)),\n               files as (delete from exports where event_id in (select id from events)),\n               notes as (update ticket_voids set note = null where event_id in (select id from events))\n               update events set name = $2, venue = null where organization_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "2ac3e5e5e3b9d11637be560200c2dc1be52b68e6082c06964d9fcb6a2f5171bc"
+}

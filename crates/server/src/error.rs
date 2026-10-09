@@ -15,6 +15,8 @@ pub enum ApiError {
     Unauthorized,
     /// 403: authenticated but not allowed.
     Forbidden,
+    /// 403: the account is suspended by an admin (ADR 0032): reads only.
+    Suspended,
     /// 404 (also used for resources of other organizations, to avoid leaking their existence).
     NotFound,
     /// 409 with a stable code.
@@ -25,7 +27,7 @@ pub enum ApiError {
     PayloadTooLarge,
     /// 429.
     TooManyRequests,
-    /// 503: a dependency (e-mail provider) failed.
+    /// 503: a dependency (e-mail provider, Google, Stripe) failed or a quota ran out.
     Unavailable(&'static str),
     /// 500. The cause is logged, never returned.
     Internal(anyhow::Error),
@@ -52,6 +54,11 @@ impl IntoResponse for ApiError {
                 "sign in again".to_owned(),
             ),
             Self::Forbidden => (StatusCode::FORBIDDEN, "forbidden", "not allowed".to_owned()),
+            Self::Suspended => (
+                StatusCode::FORBIDDEN,
+                "account_suspended",
+                "the account is suspended".to_owned(),
+            ),
             Self::NotFound => (StatusCode::NOT_FOUND, "not_found", "not found".to_owned()),
             Self::Conflict(code, message) => (StatusCode::CONFLICT, code, message),
             Self::Gone(code) => (StatusCode::GONE, code, "no longer available".to_owned()),

@@ -1,0 +1,92 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select o.name, o.bonus_free_tickets, o.suspended_reason, o.suspended_at,\n                  (select terms_accepted_at from users where id = $1) as terms_accepted_at,\n                  (select coalesce(sum(b.free_tickets), 0) from ticket_batches b\n                   join events e on e.id = b.event_id\n                   where e.organization_id = o.id and b.status <> 'canceled')::int as \"free_used!\",\n                  (select count(*) from events e where e.organization_id = o.id) as \"event_count!\",\n                  (select coalesce(sum(upper(b.numbers) - lower(b.numbers)), 0) from ticket_batches b\n                   join events e on e.id = b.event_id\n                   where e.organization_id = o.id and b.status = 'paid')::bigint as \"paid_tickets!\"\n           from memberships m join organizations o on o.id = m.organization_id\n           where m.user_id = $1\n           order by m.created_at limit 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "organizations",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "bonus_free_tickets",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "organizations",
+            "name": "bonus_free_tickets"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "suspended_reason",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "organizations",
+            "name": "suspended_reason"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "suspended_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "organizations",
+            "name": "suspended_at"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "terms_accepted_at",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "free_used!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "event_count!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 7,
+        "name": "paid_tickets!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "857acc90c75673480bf49f076e84143c04d3a299723c9d458942e6110edcb722"
+}

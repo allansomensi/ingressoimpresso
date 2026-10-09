@@ -13,6 +13,18 @@ id: string,
  */
 email: string, 
 /**
- * May mark batches as paid (MVP, ADR 0014).
+ * Name shared by Google, if any.
  */
-isAdmin: boolean, };
+name: string | null, 
+/**
+ * In `ADMIN_EMAILS`: the admin panel and every organization (ADRs 0026, 0032).
+ */
+isAdmin: boolean, 
+/**
+ * Signs in with Google too (ADR 0029).
+ */
+google: boolean, 
+/**
+ * The organization is suspended: the panel only reads (ADR 0032).
+ */
+suspended: boolean, };

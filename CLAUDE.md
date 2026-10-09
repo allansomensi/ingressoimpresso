@@ -37,6 +37,14 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   vivo (ADR 0025); horário local do evento (`utc_offset_minutes`); painel `/painel/admin` com
   métricas, organizações, cortesias e lotes, e página `/painel/conta` (ADR 0026); duplicar,
   arquivar e excluir eventos (ADR 0027).
+- **Fase 8 (abertura): implementada.** Ingresso digital por link no celular, que abre offline
+  (`/ingresso#token`, aba Digitais, ADR 0030); login com Google e e-mails em HTML com cota diária
+  e limite por IP (ADRs 0028, 0029); Termos, Privacidade e Reembolso, aceite gravado no login,
+  exportar e excluir a conta (ADR 0033); novidades (ADR 0031); modo suporte do admin com
+  auditoria, suspensão, estorno e preço de lote (ADR 0032); resultados do organizador e
+  financeiro do admin (ADR 0034); rifas sem sorteio (ADR 0035); tema do site no rodapé (ADR 0036).
+  Falta o que depende do mantenedor: endereço em `LEGAL_ENTITY.address`, caixa do e-mail de
+  contato, `GOOGLE_CLIENT_ID` no Render (`docs/deploy.md` §5.2) e revisão jurídica dos textos.
 
 Plano completo em `docs/arquitetura.md` §12.
 
@@ -62,7 +70,11 @@ crates/server        API (pacote `ingressoimpresso-server`, binário `ingressoim
                      migrações em migrations/ (aplicadas no start), worker de exportação no mesmo
                      processo (fila = tabela exports), chaves de evento seladas (keys.rs, ADR 0005),
                      DTOs em api.rs (ts-rs → packages/api-types), testes de integração em tests/;
-                     admin em routes/admin.rs (ADMIN_EMAILS), conta em routes/account.rs
+                     admin em routes/admin.rs (ADMIN_EMAILS) + routes/support.rs (modo suporte,
+                     auditoria, suspensão, estorno), conta em routes/account.rs + routes/privacy.rs
+                     (exportar/excluir), ingresso digital em routes/tickets.rs, novidades em
+                     routes/changelog.rs, resultados em routes/analytics.rs; login com Google em
+                     google.rs, e-mails (HTML + texto) em emails.rs, cota em state.rs (send_mail)
 packages/api-types   tipos TS da API gerados (src/generated + src/index.ts, NÃO editar)
 apps/web             landing em src/app/page.tsx (+ src/components/marketing), painel em
                      src/app/{entrar,painel}, abas do evento em src/components/event (aba na URL,
@@ -70,14 +82,22 @@ apps/web             landing em src/app/page.tsx (+ src/components/marketing), p
                      logo em src/components/brand.tsx e public/brand, ícones em public/icons;
                      tema em src/lib/theme{,-script}.ts (data-theme no <html>, ADR 0022);
                      Analytics em src/components/site-analytics.tsx (fora da portaria);
-                     PWA do painel: app/manifest.ts + public/sw.js (escopo /, ignora /portaria);
+                     PWA do painel: app/manifest.ts + public/sw.js (escopo /, ignora /portaria;
+                     guarda /ingresso para abrir offline);
+                     ingresso digital: app/ingresso + components/ticket/ticket-pass.tsx +
+                     lib/ticket-pass.ts, aba components/event/digital.tsx;
+                     documentos legais em src/content/legal.ts (LEGAL_ENTITY, TERMS_VERSION) e
+                     components/legal; rodapé em components/marketing/site-footer.tsx;
+                     novidades em app/novidades + components/changelog + lib/changelog.ts;
+                     resultados em app/painel/resultados + components/event/event-results.tsx;
                      portaria em src/app/portaria + src/portaria (engine, storage, camera, logic) +
                      public/portaria-sw.js (ADR 0018); Vitest em test/;
                      editor do ingresso em src/components/event/design*.tsx + prévia ao vivo em
                      src/components/ticket/ticket-view.tsx (regras espelhadas em lib/design-rules.ts),
                      modelos em src/lib/templates (catálogo + fundos SVG em mm), fontes do ingresso
                      em public/fonts/ticket (WOFF2); admin em src/app/painel/admin +
-                     src/components/admin; conta em src/app/painel/conta
+                     src/components/admin (financeiro, organização, novidades, auditoria); conta em
+                     src/app/painel/conta
 e2e/                 portaria.e2e.mjs: 5 "celulares" Chromium com câmera falsa (`just e2e`)
 packages/ticket-core-wasm  wrapper TS tipado (src/), tipos gerados (src/generated/, NÃO editar),
                      pkg/ gerado por `just wasm` (não versionado), testes Vitest com os vetores
@@ -104,7 +124,10 @@ docs/deploy.md       domínio próprio: Neon, Resend, DNS (Registro.br), Render,
   Bearer + CORS (ADR 0016); downloads por link temporário.
 - **Banco:** Neon `aws-us-east-1`, host direto com `sslmode=verify-full`. Precisa ficar junto da
   API, não do usuário. Dorme quando parado (worker consulta sozinho a cada hora).
-- **E-mail:** Resend (o cliente manda `User-Agent`, senão o Resend recusa).
+- **E-mail:** Resend (o cliente manda `User-Agent`, senão o Resend recusa). `MAIL_DAILY_LIMIT`
+  (padrão 95) segura a cota do plano grátis; esgotada, o login oferece o Google (ADR 0028).
+- **Login com Google:** `GOOGLE_CLIENT_ID` liga o botão (Google Identity Services); a API confere
+  o ID token com as chaves do Google (ADR 0029). A CSP libera só `accounts.google.com/gsi/`.
 - **Pagamento:** Stripe Checkout por lote (ADR 0020), confirmado pelo webhook
   `POST /api/stripe/webhook` (assinatura `Stripe-Signature`) ou pela consulta da sessão quando o
   pagador volta. Sem `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET`, só o admin marca lotes como pagos.
@@ -128,7 +151,7 @@ Pré-requisitos:
 just            # = just check: exatamente o que o CI roda
 just fmt        # formata o Rust
 just clippy     # clippy -D warnings (host + wasm32)
-just test-rust  # testes Rust (--all-features; também regenera os tipos TS via ts-rs)
+just test-rust  # testes Rust (--all-features: inclui `test-util`, o Google falso; regenera os tipos TS)
 just vectors    # regenera testdata/vectors/ticket-v1.json: só em mudança intencional, revise o diff
 just wasm       # compila o ticket-wasm e gera packages/ticket-core-wasm/pkg
 just js-check   # typecheck + lint + Vitest + build do web (exige `just wasm` antes)
@@ -169,6 +192,11 @@ just backup-restore-test <dump.age> <chave-age>   # restaura um backup num banco
    nunca carregados de CDN.
 9. **Os vetores são especificação:** as decisões esperadas em `crates/cli/src/vectors.rs` são
    escritas à mão, nunca calculadas pelo código testado.
+10. **Um número estornado nunca volta a valer.** Lote `refunded` mantém a faixa ocupada (a
+    exclusão só ignora `canceled`) e ganha um cancelamento permanente (ADR 0032).
+11. **O ingresso digital é o mesmo QR v1 do papel** (ADR 0030): assinado só em `jobs.rs`
+    (`sign_numbers`), só para lotes pagos, guardado selado; o token do link vai no fragmento
+    (`/ingresso#token`) e no corpo das requisições, nunca na URL do servidor.
 
 ## Convenções
 
@@ -186,7 +214,9 @@ just backup-restore-test <dump.age> <chave-age>   # restaura um backup num banco
   `test/templates.test.ts` valida todo modelo em toda paleta. Fonte nova entra nos dois lados
   (`crates/render/fonts` + `world.rs` + `ticket.typ` e `public/fonts/ticket` em WOFF2).
 - **Textos de interface centralizados:** `apps/web/src/texts/pt-BR.ts` no web e módulos `texts.rs`
-  no Rust. Sem framework de i18n.
+  no Rust; e-mails em `emails.rs` (todo texto do usuário passa por `escape`); documentos legais
+  em `apps/web/src/content/legal.ts`. Mudou Termos ou Privacidade: mude a data e o
+  `TERMS_VERSION` nos dois lados (`legal.ts` e `auth.rs`). Sem framework de i18n.
 - **Rust:**
   - toolchain 1.97 (edition 2024);
   - lints do workspace: clippy `all` como erro e `pedantic` como aviso, com `-D warnings` no CI;
@@ -201,10 +231,14 @@ just backup-restore-test <dump.age> <chave-age>   # restaura um backup num banco
 - **sqlx:** queries com macros (`query!`/`query_as!`) verificadas em compilação; `.sqlx/` versionado
   (`just db-prepare`), CI e Docker compilam com `SQLX_OFFLINE=true`. Migrações em
   `crates/server/migrations`, só de avanço. Faixas são `int4range` canônicos `[a, b)`; use
-  `routes::range`/`routes::bounds`.
+  `routes::range`/`routes::bounds`. A limpeza horária do worker (`jobs::prune`) apaga o que só
+  vale por um tempo (hash de IP, códigos antigos, sessões vencidas).
 - **API:** erros JSON `{"error": {"code", "message"}}`; o `code` é estável e o painel o traduz em
-  `texts.errors`. Recursos de outra organização respondem 404 (`authorize_event`). Só o worker
-  (`jobs.rs`) dessela chaves e assina, e só ingressos de lotes `paid` não cancelados.
+  `texts.errors`. Recursos de outra organização respondem 404 (`authorize_event`/`event_access`);
+  admins entram em modo suporte e cada alteração vai para `audit_log` (ADR 0032); ações só de
+  admin chamam `require_admin` e `audit`. Só `jobs.rs` dessela chaves e assina (arquivos e
+  ingressos digitais), e só ingressos de lotes `paid` não cancelados. E-mails passam por
+  `AppState::send_mail` (cota diária).
 - **TypeScript:**
   - TS 6.0 (o `typescript-eslint` ainda não suporta a 7);
   - `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes` e

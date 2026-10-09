@@ -15,7 +15,7 @@ use ticket_render::{Art, RenderJob, TicketDesign, TicketQr, TicketToRender};
 use time::OffsetDateTime;
 use uuid::Uuid;
 
-use super::{EventRow, authorize_event, door, optional_text};
+use super::{EventRow, authorize_event, door, event_access, optional_text};
 use crate::api::{
     ArtDto, DesignBody, DesignResponse, EventBody, EventDto, EventStatus, EventStatusBody,
 };
@@ -49,6 +49,7 @@ impl EventRow {
             status: EventStatus::from_db(&self.status).ok_or_else(|| {
                 ApiError::Internal(anyhow::anyhow!("unknown event status {}", self.status))
             })?,
+            support_access: false,
         })
     }
 }
@@ -367,11 +368,10 @@ pub async fn get(
     user: AuthUser,
     Path(event_id): Path<Uuid>,
 ) -> ApiResult<Json<EventDto>> {
-    Ok(Json(
-        authorize_event(&state.pool, &user, event_id)
-            .await?
-            .into_dto()?,
-    ))
+    let access = event_access(&state.pool, &user, event_id).await?;
+    let mut event = access.event.into_dto()?;
+    event.support_access = access.support;
+    Ok(Json(event))
 }
 
 /// `PUT /api/events/{id}`.

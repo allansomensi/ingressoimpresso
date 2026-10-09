@@ -2,14 +2,42 @@
 
 import type { AccountDto, PricingDto } from "@ingressoimpresso/api-types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Building2, CalendarDays, Gift, LogOut, Receipt, Save, Ticket, UserRound } from "lucide-react";
+import {
+  BadgeCheck,
+  Building2,
+  CalendarDays,
+  Download,
+  Gift,
+  LogOut,
+  Receipt,
+  Save,
+  ShieldCheck,
+  Ticket,
+  Trash2,
+  UserRound,
+} from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
 import { ThemeSwitcher } from "@/components/theme-switcher";
-import { Button, Card, CardHeader, ErrorMessage, Field, Input, LoadingBlock, PageHeader, Stat } from "@/components/ui";
-import { api } from "@/lib/api";
-import { money } from "@/lib/format";
+import {
+  Alert,
+  Button,
+  Card,
+  CardHeader,
+  Dialog,
+  ErrorMessage,
+  Field,
+  Input,
+  LoadingBlock,
+  PageHeader,
+  Stat,
+  errorMessage,
+} from "@/components/ui";
+import { api, fetchBlobUrl, writeToken } from "@/lib/api";
+import { dateTime, money } from "@/lib/format";
 import { quote } from "@/lib/pricing";
 import { useSession } from "@/lib/session";
 import { useUnsavedChanges } from "@/lib/unsaved";
@@ -82,6 +110,138 @@ function PricingTable({ pricing }: { pricing: PricingDto }) {
   );
 }
 
+function DeleteAccount({ email }: { email: string }) {
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [typed, setTyped] = useState("");
+  const remove = useMutation({
+    mutationFn: () => api<undefined>("/api/account", { method: "DELETE", body: { email: typed.trim() } }),
+    onSuccess: () => {
+      writeToken(null);
+      queryClient.clear();
+      toast.success(t.deleted);
+      router.replace("/");
+    },
+  });
+  const matches = typed.trim().toLowerCase() === email.toLowerCase();
+  return (
+    <>
+      <Button
+        variant="danger-ghost"
+        icon={<Trash2 />}
+        onClick={() => {
+          setTyped("");
+          remove.reset();
+          setOpen(true);
+        }}
+        className="justify-start"
+      >
+        {t.delete}
+      </Button>
+      <Dialog
+        open={open}
+        onClose={() => {
+          setOpen(false);
+        }}
+        size="sm"
+        title={t.deleteTitle}
+        description={t.deleteBody}
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              autoFocus
+              onClick={() => {
+                setOpen(false);
+              }}
+            >
+              {texts.common.cancel}
+            </Button>
+            <Button variant="danger" icon={<Trash2 />} disabled={!matches} loading={remove.isPending} onClick={() => remove.mutate()}>
+              {t.deleteConfirm}
+            </Button>
+          </>
+        }
+      >
+        <form
+          className="flex flex-col gap-3"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (matches) {
+              remove.mutate();
+            }
+          }}
+        >
+          <Field label={t.deleteConfirmLabel(email)}>
+            <Input
+              type="email"
+              value={typed}
+              autoComplete="off"
+              onChange={(event) => {
+                setTyped(event.target.value);
+              }}
+            />
+          </Field>
+          <ErrorMessage error={remove.error} />
+        </form>
+      </Dialog>
+    </>
+  );
+}
+
+function PrivacyCard({ account, email }: { account: AccountDto; email: string }) {
+  const [exporting, setExporting] = useState(false);
+  const download = async () => {
+    setExporting(true);
+    try {
+      const url = await fetchBlobUrl("/api/account/export");
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = t.exportFile;
+      link.click();
+      setTimeout(() => {
+        URL.revokeObjectURL(url);
+      }, 10_000);
+      toast.success(t.exported);
+    } catch (error) {
+      toast.error(errorMessage(error));
+    } finally {
+      setExporting(false);
+    }
+  };
+  const link = "font-medium text-brand underline-offset-2 hover:underline";
+  return (
+    <Card>
+      <CardHeader icon={ShieldCheck} title={t.privacy} description={t.privacyHint} />
+      <div className="flex flex-col gap-4">
+        {account.termsAcceptedAt !== null && (
+          <p className="text-sm leading-relaxed text-fg-muted">
+            {t.termsAccepted(dateTime(account.termsAcceptedAt))}{" "}
+            <Link href="/termos" className={link}>
+              {t.readTerms}
+            </Link>
+            {" · "}
+            <Link href="/privacidade" className={link}>
+              {t.readPrivacy}
+            </Link>
+          </p>
+        )}
+        <div className="flex flex-col gap-1">
+          <Button variant="secondary" icon={<Download />} loading={exporting} onClick={() => void download()} className="justify-start">
+            {t.export}
+          </Button>
+          <span className="text-xs text-fg-muted">{t.exportHint}</span>
+        </div>
+        <div className="flex flex-col gap-1 border-t border-border pt-4">
+          <DeleteAccount email={email} />
+          <span className="text-xs text-fg-muted">{t.deleteHint}</span>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 export default function AccountPage() {
   const { session, signOut } = useSession();
   const account = useQuery({ queryKey: ["account"], queryFn: () => api<AccountDto>("/api/account") });
@@ -100,6 +260,11 @@ export default function AccountPage() {
   return (
     <main className="flex flex-col gap-8 animate-fade-in">
       <PageHeader title={t.title} description={t.subtitle} />
+      {a.suspendedReason !== null && (
+        <Alert tone="danger" title={t.suspendedTitle}>
+          {t.suspendedBody(a.suspendedReason)}
+        </Alert>
+      )}
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="flex min-w-0 flex-col gap-6">
           <Card>
@@ -140,9 +305,17 @@ export default function AccountPage() {
             <CardHeader icon={UserRound} title={t.session} />
             <div className="flex flex-col gap-4">
               {session.status === "signed-in" && (
-                <div className="flex flex-col gap-0.5">
+                <div className="flex flex-col gap-1">
                   <span className="text-xs text-fg-muted">{t.signedInAs}</span>
                   <span className="truncate text-sm font-medium text-fg">{session.user.email}</span>
+                  {session.user.google ? (
+                    <span className="flex items-center gap-1.5 text-xs text-success-fg">
+                      <BadgeCheck className="size-3.5" aria-hidden />
+                      {t.googleLinked}
+                    </span>
+                  ) : (
+                    <span className="text-xs leading-relaxed text-fg-subtle">{t.googleNotLinked}</span>
+                  )}
                 </div>
               )}
               <div className="flex flex-col gap-2">
@@ -154,6 +327,7 @@ export default function AccountPage() {
               </Button>
             </div>
           </Card>
+          {session.status === "signed-in" && <PrivacyCard account={a} email={session.user.email} />}
         </div>
       </div>
     </main>

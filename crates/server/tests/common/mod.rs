@@ -71,6 +71,11 @@ impl TestApp {
         Self::build(pool, Payments::Disabled, free)
     }
 
+    /// An app with extra settings (environment variable name, value).
+    pub fn with_settings(pool: PgPool, settings: &[(&str, &str)]) -> Self {
+        Self::build_with(pool, Payments::Disabled, 0, settings)
+    }
+
     /// An app whose online payments go to an in-memory Stripe.
     pub fn with_stripe(pool: PgPool) -> (Self, Arc<Mutex<FakeStripe>>) {
         let stripe = Arc::new(Mutex::new(FakeStripe::default()));
@@ -86,21 +91,39 @@ impl TestApp {
     }
 
     fn build(pool: PgPool, payments: Payments, free_tickets: i32) -> Self {
+        Self::build_with(pool, payments, free_tickets, &[])
+    }
+
+    fn build_with(
+        pool: PgPool,
+        payments: Payments,
+        free_tickets: i32,
+        settings: &[(&str, &str)],
+    ) -> Self {
         let free_tickets = free_tickets.to_string();
+        let settings: Vec<(String, String)> = settings
+            .iter()
+            .map(|(name, value)| ((*name).to_owned(), (*value).to_owned()))
+            .collect();
         let export_dir = std::env::temp_dir().join(format!("ii-exports-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(&export_dir).unwrap();
         let dir = export_dir.display().to_string();
-        let config = Config::from_lookup(|name| match name {
-            "DATABASE_URL" => Some("postgres://unused".to_owned()),
-            "TICKET_KEY_ENCRYPTION_KEY" => {
-                Some("MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=".to_owned())
+        let config = Config::from_lookup(|name| {
+            if let Some((_, value)) = settings.iter().find(|(key, _)| key == name) {
+                return Some(value.clone());
             }
-            "ADMIN_EMAILS" => Some(ADMIN.to_owned()),
-            "PUBLIC_API_URL" => Some("http://api.test".to_owned()),
-            "ALLOWED_ORIGINS" => Some("http://localhost:3000".to_owned()),
-            "EXPORT_DIR" => Some(dir.clone()),
-            "FREE_TICKETS" => Some(free_tickets.clone()),
-            _ => None,
+            match name {
+                "DATABASE_URL" => Some("postgres://unused".to_owned()),
+                "TICKET_KEY_ENCRYPTION_KEY" => {
+                    Some("MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=".to_owned())
+                }
+                "ADMIN_EMAILS" => Some(ADMIN.to_owned()),
+                "PUBLIC_API_URL" => Some("http://api.test".to_owned()),
+                "ALLOWED_ORIGINS" => Some("http://localhost:3000".to_owned()),
+                "EXPORT_DIR" => Some(dir.clone()),
+                "FREE_TICKETS" => Some(free_tickets.clone()),
+                _ => None,
+            }
         })
         .unwrap();
         let sent = Arc::new(Mutex::new(Vec::new()));
@@ -165,6 +188,43 @@ impl TestApp {
     pub async fn put(&self, uri: &str, token: &str, body: Value) -> Reply {
         self.request(Method::PUT, uri, Some(token), Some(body))
             .await
+    }
+
+    /// Sets the app's Google sign-in to the test signer's keys (ADR 0029).
+    #[cfg(feature = "test-util")]
+    pub fn with_google(mut self, client_id: &str) -> Self {
+        let signer = ingressoimpresso_server::google::testing::TestSigner::new();
+        self.state =
+            self.state
+                .clone()
+                .with_google(ingressoimpresso_server::google::GoogleAuth::with_keys(
+                    client_id.to_owned(),
+                    signer.keys(),
+                ));
+        self.router = ingressoimpresso_server::app::router(self.state.clone());
+        self
+    }
+
+    pub async fn delete(&self, uri: &str, token: &str, body: Option<Value>) -> Reply {
+        self.request(Method::DELETE, uri, Some(token), body).await
+    }
+
+    /// Creates a batch and returns it.
+    pub async fn create_batch(&self, token: &str, event: &str, quantity: i32) -> Value {
+        let reply = self
+            .post(
+                &format!("/api/events/{event}/batches"),
+                token,
+                serde_json::json!({ "quantity": quantity }),
+            )
+            .await;
+        assert_eq!(
+            reply.status,
+            StatusCode::CREATED,
+            "{}",
+            String::from_utf8_lossy(&reply.bytes)
+        );
+        reply.json()
     }
 
     /// The last login code e-mailed to `email`.

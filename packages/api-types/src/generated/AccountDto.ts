@@ -23,4 +23,12 @@ eventCount: number,
 /**
  * Paid tickets issued by the organization.
  */
-paidTickets: number, };
+paidTickets: number, 
+/**
+ * Why an admin suspended the organization, if it is suspended.
+ */
+suspendedReason: string | null, 
+/**
+ * When the account accepted the current terms.
+ */
+termsAcceptedAt: string | null, };

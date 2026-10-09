@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update ticket_links set revoked_at = coalesce(revoked_at, now()) where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9a4119c6b4f411bb46abbc8fa44f1161842e671da730f4cec5f354b37bed222d"
+}

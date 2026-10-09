@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select count(*) as \"batches!\", coalesce(sum(price_cents), 0)::bigint as \"cents!\"\n           from ticket_batches where status = 'awaiting_payment'",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "batches!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "cents!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "bbb2180125676d7be6e8d739f5f6f7ede2a0c85363d4610748d8788f9c7abce9"
+}

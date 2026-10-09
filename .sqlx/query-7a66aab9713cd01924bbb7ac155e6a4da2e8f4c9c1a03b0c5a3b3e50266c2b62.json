@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "delete from login_codes where email = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "citext",
+            "kind": "Simple"
+          }
+        }
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "7a66aab9713cd01924bbb7ac155e6a4da2e8f4c9c1a03b0c5a3b3e50266c2b62"
+}

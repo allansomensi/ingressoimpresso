@@ -1,0 +1,44 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select count(*) as \"signups!\",\n                  count(*) filter (where exists (select 1 from events e where e.organization_id = o.id)) as \"with_event!\",\n                  count(*) filter (where exists (select 1 from ticket_batches b join events e on e.id = b.event_id\n                                                 where e.organization_id = o.id and b.status in ('paid', 'refunded'))) as \"with_tickets!\",\n                  count(*) filter (where exists (select 1 from ticket_batches b join events e on e.id = b.event_id\n                                                 where e.organization_id = o.id and b.status in ('paid', 'refunded')\n                                                   and b.price_cents > 0)) as \"paying!\"\n           from organizations o where o.created_at >= $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "signups!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "with_event!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "with_tickets!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "paying!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "c72de23e826561349c9afc51650f2d08fef17d9198facb0cbd929b8ead926006"
+}

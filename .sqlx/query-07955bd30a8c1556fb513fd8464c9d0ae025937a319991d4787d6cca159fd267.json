@@ -1,0 +1,49 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select u.email::text as \"email!\", u.name, u.google_sub is not null as \"google!\",\n                  exists(select 1 from memberships m join organizations o on o.id = m.organization_id\n                         where m.user_id = u.id and o.suspended_at is not null) as \"suspended!\"\n           from users u where u.id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "email!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "users",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "google!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "suspended!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null,
+      true,
+      null,
+      null
+    ]
+  },
+  "hash": "07955bd30a8c1556fb513fd8464c9d0ae025937a319991d4787d6cca159fd267"
+}

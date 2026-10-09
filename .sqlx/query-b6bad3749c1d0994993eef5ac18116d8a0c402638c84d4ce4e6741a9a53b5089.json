@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select min(n) as \"n\" from ticket_batches b\n           cross join lateral generate_series(lower(b.numbers), upper(b.numbers) - 1) as n\n           where b.event_id = $1 and b.status = 'paid'\n             and not exists (select 1 from seller_assignments a where a.event_id = b.event_id and a.numbers @> n)\n             and not exists (select 1 from ticket_voids v where v.event_id = b.event_id and v.undone_at is null\n                             and v.numbers @> n)\n             and not exists (select 1 from ticket_links l where l.event_id = b.event_id and l.revoked_at is null\n                             and l.ticket_number = n)\n             and not exists (select 1 from entries e where e.event_id = b.event_id and e.ticket_number = n)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "n",
+        "type_info": "Int4",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "b6bad3749c1d0994993eef5ac18116d8a0c402638c84d4ce4e6741a9a53b5089"
+}

@@ -4,32 +4,36 @@ import { useState } from "react";
 
 import { cn } from "@/lib/cn";
 
-/** A day of a bar chart. */
+/** A bar of the chart. */
 export interface Bar {
-  /** `YYYY-MM-DD`. */
+  /** `YYYY-MM-DD` (a day), `YYYY-MM` (a month) or any key given to `formatLabel`. */
   date: string;
   value: number;
 }
 
 const HEIGHT = 140;
 
-function dayLabel(date: string): string {
-  const [, month = "", day = ""] = date.split("-");
-  return `${day}/${month}`;
+/** `20/11` for a day, `11/26` for a month. */
+function defaultLabel(date: string): string {
+  const [year = "", month = "", day] = date.split("-");
+  return day === undefined ? `${month}/${year.slice(2)}` : `${day}/${month}`;
 }
 
-/** Daily bars with a highlighted bar under the pointer; values and labels formatted by the caller. */
+/** Bars with a highlighted bar under the pointer; values and labels formatted by the caller. */
 export function BarChart({
   bars,
   format,
   describe,
   label,
+  formatLabel = defaultLabel,
 }: {
   bars: readonly Bar[];
   format: (value: number) => string;
   describe: (date: string, value: string) => string;
   label: string;
+  formatLabel?: (date: string) => string;
 }) {
+  const dayLabel = formatLabel;
   const [active, setActive] = useState<number | null>(null);
   const max = Math.max(1, ...bars.map((bar) => bar.value));
   const width = 100 / Math.max(bars.length, 1);

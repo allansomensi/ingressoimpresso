@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select event_id from ticket_links where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "event_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "ticket_links",
+            "name": "event_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "eb1fdf6734f568452e7c4dc528d8b60e3221e36f445edab9fba553e244fe2133"
+}

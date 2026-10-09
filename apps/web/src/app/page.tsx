@@ -6,8 +6,9 @@ import {
   FileText,
   LayoutTemplate,
   MousePointerClick,
+  MessageCircle,
   Printer,
-  QrCode,
+  Send,
   ShieldCheck,
   Smartphone,
   Ticket,
@@ -18,9 +19,9 @@ import {
 } from "lucide-react";
 import type { Metadata } from "next";
 
-import { Logo } from "@/components/brand";
-import { PhoneMock, TicketMock } from "@/components/marketing/mockups";
+import { DigitalTicketMock, PhoneMock, TicketMock } from "@/components/marketing/mockups";
 import { PricingSection } from "@/components/marketing/pricing";
+import { SiteFooter } from "@/components/marketing/site-footer";
 import { SiteHeader } from "@/components/marketing/site-header";
 import { TemplateShowcase } from "@/components/marketing/template-showcase";
 import { ButtonLink } from "@/components/ui";
@@ -33,14 +34,14 @@ const FEATURE_ICONS: readonly LucideIcon[] = [
   ShieldCheck,
   Printer,
   WifiOff,
+  Send,
   Users,
   XCircle,
   BarChart3,
   LayoutTemplate,
   MousePointerClick,
-  Ticket,
 ];
-const STEP_ICONS: readonly LucideIcon[] = [FileText, QrCode, Printer, Smartphone];
+const STEP_ICONS: readonly LucideIcon[] = [FileText, Ticket, Printer, Smartphone];
 
 function SectionHeading({ eyebrow, title, lead }: { eyebrow?: string; title: string; lead?: string }) {
   return (
@@ -176,6 +177,37 @@ export default function LandingPage() {
           </div>
         </section>
 
+        {/* Digital tickets */}
+        <section id="no-celular" className="scroll-mt-16 border-t border-border bg-bg">
+          <div className="mx-auto grid max-w-6xl items-center gap-12 px-4 py-20 sm:px-6 lg:grid-cols-2 lg:py-28">
+            <div className="order-2 flex justify-center lg:order-1">
+              <div className="relative">
+                <div aria-hidden className="absolute -inset-10 rounded-full bg-brand/15 blur-3xl" />
+                <DigitalTicketMock className="relative -rotate-2" />
+                <span className="absolute top-28 -right-12 flex items-center gap-2 rounded-2xl bg-[#1f9d55] px-3.5 py-2 text-sm font-semibold text-white shadow-lg animate-pop [animation-delay:300ms]">
+                  <MessageCircle className="size-4" aria-hidden />
+                  WhatsApp
+                </span>
+              </div>
+            </div>
+            <div className="order-1 flex flex-col gap-6 lg:order-2">
+              <span className="flex size-12 items-center justify-center rounded-2xl bg-brand-soft text-brand-soft-fg">
+                <Smartphone className="size-6" aria-hidden />
+              </span>
+              <h2 className="text-3xl font-semibold tracking-tight text-balance text-fg sm:text-4xl">{t.digitalTitle}</h2>
+              <p className="text-lg leading-relaxed text-pretty text-fg-muted">{t.digitalBody}</p>
+              <ul className="flex flex-col gap-3">
+                {t.digitalPoints.map((point) => (
+                  <li key={point} className="flex items-center gap-3 text-[15px] text-fg">
+                    <Check className="size-5 shrink-0 text-success" aria-hidden />
+                    {point}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </section>
+
         {/* Offline door */}
         <section className="relative overflow-hidden bg-[#0e0d14] text-white dark:border-y dark:border-border dark:bg-surface">
           <div aria-hidden className="absolute -top-40 -right-40 size-[36rem] rounded-full bg-[#5b3df5]/40 blur-3xl" />
@@ -241,15 +273,7 @@ export default function LandingPage() {
         </section>
       </main>
 
-      <footer className="border-t border-border">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 py-10 sm:flex-row sm:px-6">
-          <div className="flex flex-col items-center gap-2 sm:items-start">
-            <Logo />
-            <p className="text-sm text-fg-muted">{t.footer}</p>
-          </div>
-          <p className="text-sm text-fg-subtle">{t.footerRights(new Date().getFullYear())}</p>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

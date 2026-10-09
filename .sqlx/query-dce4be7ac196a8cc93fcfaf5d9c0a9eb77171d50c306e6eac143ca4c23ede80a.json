@@ -1,0 +1,34 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into ticket_links (id, event_id, ticket_number, holder_name, token_hash, sealed, created_by)\n               values ($1, $2, $3, $4, $5, $6, $7)\n               on conflict (event_id, ticket_number) where revoked_at is null do nothing\n               returning id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "ticket_links",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Int4",
+        "Text",
+        "Bytea",
+        "Bytea",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "dce4be7ac196a8cc93fcfaf5d9c0a9eb77171d50c306e6eac143ca4c23ede80a"
+}

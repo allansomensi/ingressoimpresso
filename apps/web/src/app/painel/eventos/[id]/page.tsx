@@ -13,11 +13,13 @@ import {
   LayoutDashboard,
   MapPin,
   Pencil,
+  Send,
   Smartphone,
   Tag,
   Ticket,
   Users,
   Layers,
+  LifeBuoy,
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
@@ -41,6 +43,7 @@ const OverviewTab = dynamic(() => import("@/components/event/overview").then((m)
 const DesignTab = dynamic(() => import("@/components/event/design").then((m) => m.DesignTab), { loading: tabLoading });
 const BatchesTab = dynamic(() => import("@/components/event/batches").then((m) => m.BatchesTab), { loading: tabLoading });
 const SellersTab = dynamic(() => import("@/components/event/sellers").then((m) => m.SellersTab), { loading: tabLoading });
+const DigitalTab = dynamic(() => import("@/components/event/digital").then((m) => m.DigitalTab), { loading: tabLoading });
 const VoidsTab = dynamic(() => import("@/components/event/voids").then((m) => m.VoidsTab), { loading: tabLoading });
 const FilesTab = dynamic(() => import("@/components/event/files").then((m) => m.FilesTab), { loading: tabLoading });
 const DoorTab = dynamic(() => import("@/components/event/door").then((m) => m.DoorTab), { loading: tabLoading });
@@ -51,6 +54,7 @@ const ICONS: Record<Tab, LucideIcon> = {
   design: Ticket,
   batches: Layers,
   sellers: Users,
+  digital: Send,
   voids: Ban,
   files: FileDown,
   door: Smartphone,
@@ -175,6 +179,15 @@ function EventView() {
 
   return (
     <main className="flex flex-col gap-6 animate-fade-in">
+      {data.supportAccess && (
+        <div role="status" className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-warning/30 bg-warning-soft px-4 py-3 text-sm text-warning-fg">
+          <LifeBuoy className="size-4 shrink-0" aria-hidden />
+          <span className="flex-1">{texts.admin.support.banner}</span>
+          <Link href="/painel/admin?aba=organizacoes" className="font-semibold underline-offset-2 hover:underline">
+            {texts.admin.support.backToAdmin}
+          </Link>
+        </div>
+      )}
       <div className="flex flex-col gap-3">
         <Link
           href="/painel"
@@ -275,6 +288,7 @@ function EventView() {
         {tab === "design" && <DesignTab eventId={eventId} />}
         {tab === "batches" && <BatchesTab eventId={eventId} onSelect={select} />}
         {tab === "sellers" && <SellersTab eventId={eventId} />}
+        {tab === "digital" && <DigitalTab eventId={eventId} onSelect={select} />}
         {tab === "voids" && <VoidsTab eventId={eventId} />}
         {tab === "files" && <FilesTab eventId={eventId} onSelect={select} />}
         {tab === "door" && <DoorTab eventId={eventId} />}

@@ -134,6 +134,10 @@ export function VoidsTab({ eventId }: { eventId: string }) {
                 </span>
                 {undone ? (
                   <span className="text-sm text-fg-subtle">{t.undone}</span>
+                ) : item.locked ? (
+                  <span className="text-sm text-fg-subtle" title={t.lockedHint}>
+                    {t.locked}
+                  </span>
                 ) : (
                   <Button
                     variant="ghost"

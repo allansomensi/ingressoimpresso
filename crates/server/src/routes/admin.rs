@@ -1,9 +1,11 @@
-//! The admin panel (ADR 0026): totals of the whole service, organizations with their usage and
-//! courtesy free tickets, and batches of every organization. Admins are the `ADMIN_EMAILS`.
+//! The admin panel (ADRs 0026, 0032): totals of the whole service, organizations with their usage
+//! and courtesy free tickets, batches of every organization, and the audit log every admin action
+//! writes to. Admins are the `ADMIN_EMAILS`. Support tools are in `support.rs`.
 
 use axum::Json;
 use axum::extract::{Path, Query, State};
 use serde::Deserialize;
+use sqlx::PgPool;
 use sqlx::postgres::types::PgRange;
 use time::OffsetDateTime;
 use uuid::Uuid;
@@ -20,12 +22,62 @@ use crate::state::AppState;
 const LIST_LIMIT: i64 = 200;
 const MAX_BONUS: i32 = 100_000;
 
-fn require_admin(state: &AppState, user: &AuthUser) -> ApiResult<()> {
-    if user.is_admin(state) {
+/// 403 unless the user is an admin.
+pub(crate) fn require_admin(user: &AuthUser) -> ApiResult<()> {
+    if user.is_admin {
         Ok(())
     } else {
         Err(ApiError::Forbidden)
     }
+}
+
+/// Writes an admin action to the audit log (ADR 0032).
+pub(crate) async fn audit(
+    state: &AppState,
+    user: &AuthUser,
+    action: &str,
+    organization_id: Option<Uuid>,
+    event_id: Option<Uuid>,
+    target_id: Option<Uuid>,
+    detail: serde_json::Value,
+) -> ApiResult<()> {
+    audit_with(
+        &state.pool,
+        user,
+        action,
+        organization_id,
+        event_id,
+        target_id,
+        detail,
+    )
+    .await
+}
+
+/// [`audit`] with a pool.
+pub(crate) async fn audit_with(
+    pool: &PgPool,
+    user: &AuthUser,
+    action: &str,
+    organization_id: Option<Uuid>,
+    event_id: Option<Uuid>,
+    target_id: Option<Uuid>,
+    detail: serde_json::Value,
+) -> ApiResult<()> {
+    sqlx::query!(
+        r#"insert into audit_log (id, actor_id, actor_email, action, organization_id, event_id, target_id, detail)
+           values ($1, $2, $3, $4, $5, $6, $7, $8)"#,
+        Uuid::new_v4(),
+        user.id,
+        user.email,
+        action,
+        organization_id,
+        event_id,
+        target_id,
+        detail,
+    )
+    .execute(pool)
+    .await?;
+    Ok(())
 }
 
 /// `GET /api/admin/overview`.
@@ -33,7 +85,7 @@ pub async fn overview(
     State(state): State<AppState>,
     user: AuthUser,
 ) -> ApiResult<Json<AdminOverviewDto>> {
-    require_admin(&state, &user)?;
+    require_admin(&user)?;
     let totals = sqlx::query!(
         r#"select
              (select count(*) from organizations) as "organizations!",
@@ -118,6 +170,7 @@ struct OrganizationRow {
     free_used: i32,
     bonus_free_tickets: i32,
     last_batch_at: Option<OffsetDateTime>,
+    suspended: bool,
 }
 
 impl OrganizationRow {
@@ -134,12 +187,13 @@ impl OrganizationRow {
             free_total: state.config.free_tickets + self.bonus_free_tickets,
             bonus_free_tickets: self.bonus_free_tickets,
             last_batch_at: self.last_batch_at,
+            suspended: self.suspended,
         }
     }
 }
 
 /// `%text%` for `ilike`, with the wildcards of the search itself escaped.
-fn like_pattern(query: Option<&str>) -> Option<String> {
+pub(crate) fn like_pattern(query: Option<&str>) -> Option<String> {
     let text = query.map(str::trim).filter(|text| !text.is_empty())?;
     let escaped = text
         .replace('\\', "\\\\")
@@ -156,7 +210,7 @@ async fn load_organizations(
 ) -> ApiResult<Vec<OrganizationRow>> {
     Ok(sqlx::query_as!(
         OrganizationRow,
-        r#"select o.id, o.name, o.created_at, o.bonus_free_tickets,
+        r#"select o.id, o.name, o.created_at, o.bonus_free_tickets, o.suspended_at is not null as "suspended!",
                   (select u.email::text from memberships m join users u on u.id = m.user_id
                    where m.organization_id = o.id and m.role = 'owner'
                    order by m.created_at limit 1) as owner_email,
@@ -195,7 +249,7 @@ pub async fn organizations(
     user: AuthUser,
     Query(query): Query<SearchQuery>,
 ) -> ApiResult<Json<Vec<AdminOrganizationDto>>> {
-    require_admin(&state, &user)?;
+    require_admin(&user)?;
     let pattern = like_pattern(query.q.as_deref());
     let rows = load_organizations(&state, None, pattern).await?;
     Ok(Json(
@@ -210,7 +264,7 @@ pub async fn set_bonus(
     Path(organization_id): Path<Uuid>,
     Json(body): Json<AdminBonusBody>,
 ) -> ApiResult<Json<AdminOrganizationDto>> {
-    require_admin(&state, &user)?;
+    require_admin(&user)?;
     if !(0..=MAX_BONUS).contains(&body.bonus_free_tickets) {
         return Err(bad_request("invalid_bonus", "bonus must be 0-100000"));
     }
@@ -222,19 +276,36 @@ pub async fn set_bonus(
     .fetch_optional(&state.pool)
     .await?
     .ok_or(ApiError::NotFound)?;
-    tracing::info!(%organization_id, bonus = body.bonus_free_tickets, admin = %user.email, "free ticket bonus set");
-    let row = load_organizations(&state, Some(organization_id), None)
+    audit(
+        &state,
+        &user,
+        "organization_bonus",
+        Some(organization_id),
+        None,
+        None,
+        serde_json::json!({ "bonusFreeTickets": body.bonus_free_tickets }),
+    )
+    .await?;
+    Ok(Json(load_organization(&state, organization_id).await?))
+}
+
+/// One organization's usage summary.
+pub(crate) async fn load_organization(
+    state: &AppState,
+    organization_id: Uuid,
+) -> ApiResult<AdminOrganizationDto> {
+    Ok(load_organizations(state, Some(organization_id), None)
         .await?
         .into_iter()
         .next()
-        .ok_or(ApiError::NotFound)?;
-    Ok(Json(row.into_dto(&state)))
+        .ok_or(ApiError::NotFound)?
+        .into_dto(state))
 }
 
 /// Filter of `GET /api/admin/batches`.
 #[derive(Debug, Deserialize)]
 pub struct BatchQuery {
-    /// `awaiting_payment`, `paid`, `canceled`; every status when absent.
+    /// `awaiting_payment`, `paid`, `canceled`, `refunded`; every status when absent.
     #[serde(default)]
     status: Option<String>,
     /// Part of the event or organization name, or of the owner's e-mail.
@@ -251,6 +322,7 @@ struct AdminBatchRow {
     price_cents: i32,
     free_tickets: i32,
     paid_via: Option<String>,
+    refunded_at: Option<OffsetDateTime>,
     pending_payment: Option<String>,
     event_id: Uuid,
     event_name: String,
@@ -264,18 +336,18 @@ pub async fn batches(
     user: AuthUser,
     Query(query): Query<BatchQuery>,
 ) -> ApiResult<Json<Vec<AdminBatchDto>>> {
-    require_admin(&state, &user)?;
+    require_admin(&user)?;
     let status = query.status.filter(|status| !status.is_empty());
-    if status
-        .as_deref()
-        .is_some_and(|status| !["awaiting_payment", "paid", "canceled"].contains(&status))
-    {
+    if status.as_deref().is_some_and(|status| {
+        !["awaiting_payment", "paid", "canceled", "refunded"].contains(&status)
+    }) {
         return Err(bad_request("invalid_input", "unknown batch status"));
     }
     let pattern = like_pattern(query.q.as_deref());
     let rows = sqlx::query_as!(
         AdminBatchRow,
         r#"select b.id, b.numbers, b.status, b.created_at, b.paid_at, b.price_cents, b.free_tickets, b.paid_via,
+                  b.refunded_at,
                   (select case when bool_or(p.status = 'processing') then 'processing'
                                when bool_or(p.status = 'open' and p.expires_at > now()) then 'open' end
                    from payments p where p.batch_id = b.id) as pending_payment,
@@ -310,6 +382,7 @@ pub async fn batches(
                     price_cents: row.price_cents,
                     free_tickets: row.free_tickets,
                     paid_via: row.paid_via,
+                    refunded_at: row.refunded_at,
                     pending_payment: row.pending_payment,
                 }
                 .into_dto()?,

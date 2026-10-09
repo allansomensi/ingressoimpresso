@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "delete from blobs where event_id in (select id from events where organization_id = $1)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "59dcd579f0543d756985f9655722896c3a3a65319d0ac03bf8384aa14b7fda09"
+}

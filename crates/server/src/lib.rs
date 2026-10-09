@@ -1,5 +1,6 @@
-//! Ingresso Impresso API: organizer login, events, designs, batches and their payment (Stripe),
-//! sellers, voids, file exports, the door and the report. See `docs/arquitetura.md` §8.
+//! Ingresso Impresso API: organizer login (e-mail code or Google), events, designs, batches and
+//! their payment (Stripe), sellers, voids, file exports, digital tickets, the door, the report and
+//! results, the changelog and the admin tools. See `docs/arquitetura.md` §8.
 #![allow(
     clippy::missing_errors_doc,
     reason = "HTTP handlers fail with ApiError, whose variants and status codes are documented once in error.rs"
@@ -9,7 +10,9 @@ pub mod api;
 pub mod app;
 pub mod auth;
 pub mod config;
+pub mod emails;
 pub mod error;
+pub mod google;
 pub mod jobs;
 pub mod keys;
 pub mod mail;

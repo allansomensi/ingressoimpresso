@@ -255,6 +255,43 @@ em `STRIPE_WEBHOOK_SECRET` e uma `sk_test_...` em `STRIPE_SECRET_KEY` no `.env`.
 Estornos (raros: lote cancelado e pago ao mesmo tempo, ou pago duas vezes) aparecem no log como
 `refund it in Stripe` e são feitos à mão no painel da Stripe, em **Payments**.
 
+Pedidos de reembolso de um lote pago (arrependimento em 7 dias, Política de Reembolso) são feitos
+pelo painel: **Admin** → **Lotes** → filtro **Pagos** → menu do lote → **Estornar**. Com
+"Devolver o dinheiro pela Stripe agora" ligado, a API pede o estorno à Stripe; a chave precisa de
+escrita em **Refunds** (uma restricted key com Checkout Sessions e Refunds). Em qualquer caso, o
+lote vira **Estornado** e os números dele ficam cancelados na porta para sempre (ADR 0032).
+
+## 5.2 Login com Google (ADR 0029)
+
+Opcional, mas recomendado: o plano grátis da Resend envia 100 e-mails por dia, e com o Google o
+login não depende de e-mail.
+
+1. Em `https://console.cloud.google.com`, crie um projeto (`Ingresso Impresso`).
+2. **APIs e serviços** → **Tela de consentimento OAuth** (ou **Google Auth Platform**): tipo
+   **Externo**, nome `Ingresso Impresso`, e-mail de suporte, logo (opcional), domínio autorizado
+   `seudominio.com.br` e os links `https://seudominio.com.br/privacidade` e
+   `https://seudominio.com.br/termos`. Escopos: só os padrão (`openid`, `email`, `profile`).
+   Publique o app (**Em produção**); com esses escopos não há revisão do Google.
+3. **Credenciais** → **Criar credenciais** → **ID do cliente OAuth** → **Aplicativo da Web**:
+   - **Origens JavaScript autorizadas:** `https://seudominio.com.br` e
+     `https://www.seudominio.com.br` (e `http://localhost:3000` para testar em casa);
+   - **URIs de redirecionamento:** deixe em branco (o botão usa popup).
+4. Copie o **ID do cliente** (`...apps.googleusercontent.com`). Não é segredo; o "segredo do
+   cliente" não é usado.
+5. No Render → serviço → **Environment**: `GOOGLE_CLIENT_ID` = o ID do passo 4 → **Save and
+   deploy**. O botão "Continuar com Google" aparece no `/entrar` sozinho (o site pergunta à API).
+
+Teste: entre com uma conta Google cujo e-mail já tem conta por código. É a mesma conta, agora com
+"Login com Google ligado" em **Minha conta**.
+
+## 5.3 Limite de e-mails (ADR 0028)
+
+`MAIL_DAILY_LIMIT` (padrão `95`) é o máximo de e-mails em 24 horas, abaixo dos 100 do plano grátis
+da Resend. Ao chegar nele, o login por código pede para entrar com o Google até o dia virar. Se
+mudar de plano na Resend, suba o valor (ou `0` para não limitar). Códigos para e-mails sem conta
+usam no máximo dois terços do limite, para quem já tem conta sempre conseguir entrar. Cada IP pede
+no máximo 10 códigos por hora (o IP vem do `CF-Connecting-IP` que o Render recebe da Cloudflare).
+
 ## 6. Vercel (site, painel e portaria)
 
 O build da Vercel não tem Rust, e a portaria precisa do WebAssembly do núcleo. Por isso quem
@@ -464,6 +501,8 @@ Depois disso, siga o ensaio geral em [`docs/ensaio.md`](ensaio.md).
 |---|---|---|
 | Painel diz "Sem conexão com o servidor", mas há internet | A origem do site não está em `ALLOWED_ORIGINS`, ou `NEXT_PUBLIC_API_URL` está errada | No navegador, abra o console (F12): um erro de CORS confirma. Corrija `ALLOWED_ORIGINS` no Render (**Save and deploy**) ou a variável na Vercel e rode o **Deploy web** de novo |
 | O código de login não chega | Domínio não verificado no Resend, `MAIL_FROM` com domínio diferente de `mail.seudominio.com.br`, ou limite diário | Nos **Logs** do Render, procure `resend answered`: a mensagem diz o motivo. Confira o spam |
+| Login diz "Os códigos por e-mail acabaram por hoje" | `MAIL_DAILY_LIMIT` atingido em 24 horas | Entre com o Google (passo 5.2). Se for frequente, mude o plano da Resend e suba `MAIL_DAILY_LIMIT` |
+| O botão do Google não aparece no login | `GOOGLE_CLIENT_ID` ausente, ou a origem do site não está nas **Origens JavaScript autorizadas** | Passo 5.2. No console do navegador, o Google avisa `origin is not allowed` |
 | "Muitas tentativas" no login | Cinco pedidos de código em 15 minutos (as falhas também contam) | Espere 15 minutos depois de corrigir a causa |
 | Deploy do Render falha logo ao subir | Variável faltando ou inválida, ou `DATABASE_URL` errada | **Logs**: `configuration error: ...` mostra qual variável. `server stopped` com `connecting to the database` aponta a `DATABASE_URL`: copie de novo a string do Neon (sem `-pooler`, com `?sslmode=verify-full`) |
 | Um push no `main` não atualizou a API | Algum check do commit ficou vermelho, o **CI** ou o **Deploy web** (o Render espera todos), ou o commit não mexeu na API (`buildFilter`) | Corrija o check vermelho (no **Deploy web**, quase sempre é o token da Vercel vencido), ou use **Manual Deploy** → **Deploy latest commit** |
@@ -505,6 +544,8 @@ Depois disso, siga o ensaio geral em [`docs/ensaio.md`](ensaio.md).
 | Endereço do site (retorno da Stripe) | `PUBLIC_WEB_URL` | | | |
 | Chave da Stripe | `STRIPE_SECRET_KEY` | | | sim |
 | Segredo do webhook da Stripe | `STRIPE_WEBHOOK_SECRET` | | | |
+| ID do cliente Google (não é segredo) | `GOOGLE_CLIENT_ID` | | | |
+| Limite de e-mails por dia | `MAIL_DAILY_LIMIT` (opcional) | | | |
 | Token e IDs da Vercel | | | `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` | token |
 | Papel de backup | | | `BACKUP_DATABASE_URL` | sim |
 | Chave pública do backup | | | `BACKUP_AGE_RECIPIENT` | |
@@ -518,3 +559,15 @@ livre: em **Settings** → **Secrets and variables** → **Actions** → aba **V
 `VERCEL_PREVIEW_ALIAS` com outro nome (por exemplo `seudominio-preview.vercel.app`) e use esse
 endereço em `ALLOWED_ORIGINS`. O último commit do branch precisa ser de um membro do time (veja o
 passo 6).
+
+## Antes de abrir ao público
+
+- **Identificação do fornecedor** (Decreto 7.962/2013): preencha o endereço físico em
+  `LEGAL_ENTITY.address` (`apps/web/src/content/legal.ts`). Pode ser um endereço comercial ou de
+  escritório virtual. Ele aparece nos três documentos legais.
+- **E-mail de contato:** `contato@seudominio.com.br` (em `LEGAL_ENTITY.email`) precisa receber
+  mensagens. A Resend só envia: use o encaminhamento de e-mail do seu provedor de domínio, ou um
+  serviço como ImprovMX ou Cloudflare Email Routing, para mandar esse endereço para o seu e-mail.
+- **Novidades:** publique a primeira nota em **Admin** → **Novidades**; ela aparece em `/novidades`
+  e no sino do painel de todo mundo.
+

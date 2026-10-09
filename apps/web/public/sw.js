@@ -5,18 +5,29 @@
 // Build files under /_next/static/ are content hashed: cache first. Icons, brand files and the
 // ticket typefaces (/fonts/): cache, refreshed in the background. Pages always come from the network (an old copy could point at
 // build files that no longer exist after a deploy); without network, the offline page.
+//
+// The digital ticket (/ingresso, ADR 0030) is the exception: the holder opens it at the door, often
+// without signal. Its page and build files are kept (refreshed on every online visit), and the
+// ticket itself is in the page's localStorage.
 
-const CACHE = "app-v2";
+const CACHE = "app-v3";
 const OFFLINE = "/offline";
-const PRECACHE = [OFFLINE, "/icons/icon-192.png", "/brand/logo-mark.svg"];
+const TICKET = "/ingresso";
+const PRECACHE = [OFFLINE, TICKET, "/icons/icon-192.png", "/brand/logo-mark.svg"];
 const PAGE_TIMEOUT_MS = 8000;
 const MAX_ENTRIES = 250;
 
-/** Build files the offline page needs (styles, fonts, scripts), read from its HTML. */
+/** Build files the offline and ticket pages need (styles, fonts, scripts), read from their HTML. */
 async function offlineAssets(cache) {
-  const page = await cache.match(OFFLINE);
-  const html = page === undefined ? "" : await page.text();
-  return new Set(html.match(/\/_next\/static\/[^"'\s)]+/g) ?? []);
+  const assets = new Set();
+  for (const path of [OFFLINE, TICKET]) {
+    const page = await cache.match(path);
+    const html = page === undefined ? "" : await page.text();
+    for (const asset of html.match(/\/_next\/static\/[^"'\s)]+/g) ?? []) {
+      assets.add(asset);
+    }
+  }
+  return assets;
 }
 
 async function precache() {
@@ -96,10 +107,31 @@ async function staleWhileRevalidate(request) {
   return cached ?? (await refresh) ?? Response.error();
 }
 
-async function page(request) {
+/** Stores the ticket page and the build files it points at (after the page was answered). */
+async function keepTicket(response) {
+  const cache = await caches.open(CACHE);
+  const html = await response.clone().text();
+  await cache.put(TICKET, response);
+  await Promise.all(
+    (html.match(/\/_next\/static\/[^"'\s)]+/g) ?? []).map((asset) => cacheFirst(new Request(asset)).catch(() => undefined)),
+  );
+}
+
+async function page(request, event) {
+  const ticket = new URL(request.url).pathname === TICKET;
   try {
-    return await fetch(request, { signal: AbortSignal.timeout(PAGE_TIMEOUT_MS) });
+    const response = await fetch(request, { signal: AbortSignal.timeout(PAGE_TIMEOUT_MS) });
+    if (ticket && response.ok) {
+      event.waitUntil(keepTicket(response.clone()).catch(() => undefined));
+    }
+    return response;
   } catch {
+    if (ticket) {
+      const cached = await caches.match(TICKET);
+      if (cached !== undefined) {
+        return cached;
+      }
+    }
     return (await caches.match(OFFLINE)) ?? Response.error();
   }
 }
@@ -116,7 +148,7 @@ self.addEventListener("fetch", (event) => {
   if (url.pathname.startsWith("/_next/static/")) {
     event.respondWith(cacheFirst(request));
   } else if (request.mode === "navigate") {
-    event.respondWith(page(request));
+    event.respondWith(page(request, event));
   } else if (["/icons/", "/brand/", "/fonts/"].some((prefix) => url.pathname.startsWith(prefix))) {
     event.respondWith(staleWhileRevalidate(request));
   }

@@ -1,0 +1,110 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select e.name, e.venue, e.starts_at, e.ends_at, e.utc_offset_minutes, o.name as organizer,\n                  coalesce((select spec ->> 'backgroundColor' from ticket_designs d\n                            where d.event_id = e.id order by version desc limit 1), '#ffffff') as \"background!\",\n                  exists(select 1 from ticket_voids v where v.event_id = e.id and v.undone_at is null\n                         and v.numbers @> $2::int4) as \"voided!\",\n                  (select s.scanned_at from entries en join scans s on s.id = en.first_scan_id\n                   where en.event_id = e.id and en.ticket_number = $2) as \"entered_at?\"\n           from events e join organizations o on o.id = e.organization_id\n           where e.id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "venue",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "venue"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "starts_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "starts_at"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "ends_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "ends_at"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "utc_offset_minutes",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "utc_offset_minutes"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "organizer",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "organizations",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "background!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 7,
+        "name": "voided!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 8,
+        "name": "entered_at?",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "2a70d95256858bad54d502097238d9ed761bb2cd246c08deb05932034323b483"
+}

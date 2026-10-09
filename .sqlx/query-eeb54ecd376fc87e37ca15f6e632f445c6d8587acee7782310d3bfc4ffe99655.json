@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select suspended_at, suspended_reason from organizations where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "suspended_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "organizations",
+            "name": "suspended_at"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "suspended_reason",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "organizations",
+            "name": "suspended_reason"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true,
+      true
+    ]
+  },
+  "hash": "eeb54ecd376fc87e37ca15f6e632f445c6d8587acee7782310d3bfc4ffe99655"
+}

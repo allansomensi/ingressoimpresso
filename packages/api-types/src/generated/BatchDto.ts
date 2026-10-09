@@ -44,6 +44,10 @@ freeTickets: number,
  */
 paidVia: PaymentMethod | null, 
 /**
+ * When an admin refunded it (its numbers are voided for good).
+ */
+refundedAt: string | null, 
+/**
  * An unsettled online payment: a checkout page is open, or a Pix transfer is being
  * confirmed. `null` when there is none.
  */

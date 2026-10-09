@@ -221,6 +221,17 @@ async fn checkout_and_signed_webhook_pay_the_batch_once(pool: PgPool) {
         payment,
         ("paid".to_owned(), Some(format!("pi_{session_id}")))
     );
+    // The payer gets one e-mail (ADR 0028), however many times the webhook arrives.
+    let paid_mails: Vec<_> = app
+        .sent
+        .lock()
+        .unwrap()
+        .iter()
+        .filter(|mail| mail.subject.starts_with("Pagamento confirmado"))
+        .cloned()
+        .collect();
+    assert_eq!(paid_mails.len(), 1);
+    assert!(paid_mails[0].html.contains("aba=arquivos"));
 
     // A paid batch is neither payable nor cancelable.
     assert_eq!(

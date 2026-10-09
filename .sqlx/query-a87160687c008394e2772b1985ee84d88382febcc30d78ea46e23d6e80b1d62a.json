@@ -1,0 +1,76 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select id, event_id, ticket_number, holder_name, sealed from ticket_links\n               where token_hash = $1 and revoked_at is null",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "ticket_links",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "event_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "ticket_links",
+            "name": "event_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "ticket_number",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "ticket_links",
+            "name": "ticket_number"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "holder_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ticket_links",
+            "name": "holder_name"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "sealed",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "ticket_links",
+            "name": "sealed"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "a87160687c008394e2772b1985ee84d88382febcc30d78ea46e23d6e80b1d62a"
+}

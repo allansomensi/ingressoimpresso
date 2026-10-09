@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update users set google_sub = $2, name = coalesce(name, $3) where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "8943b9c4329803fcc21e77376afce2dae06efb76493029b9c20ad5298d53a81a"
+}

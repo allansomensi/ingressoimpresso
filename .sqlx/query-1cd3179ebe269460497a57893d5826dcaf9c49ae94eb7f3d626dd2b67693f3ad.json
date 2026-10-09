@@ -1,0 +1,45 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with buckets as (\n             select generate_series(\n               date_trunc(case when $2 then 'month' else 'day' end, ($1 at time zone 'America/Sao_Paulo')),\n               date_trunc(case when $2 then 'month' else 'day' end, (now() at time zone 'America/Sao_Paulo')),\n               case when $2 then interval '1 month' else interval '1 day' end) as bucket\n           )\n           select to_char(k.bucket, case when $2 then 'YYYY-MM' else 'YYYY-MM-DD' end) as \"label!\",\n                  coalesce(sum(b.price_cents), 0)::bigint as \"revenue!\",\n                  coalesce(sum(upper(b.numbers) - lower(b.numbers)), 0)::bigint as \"tickets!\",\n                  count(b.id) as \"batches!\"\n           from buckets k\n           left join ticket_batches b\n             on b.status in ('paid', 'refunded') and b.paid_at >= $1\n            and date_trunc(case when $2 then 'month' else 'day' end, (b.paid_at at time zone 'America/Sao_Paulo')) = k.bucket\n           group by k.bucket order by k.bucket",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "label!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "revenue!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "tickets!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "batches!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamptz",
+        "Bool"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "1cd3179ebe269460497a57893d5826dcaf9c49ae94eb7f3d626dd2b67693f3ad"
+}

@@ -9,6 +9,7 @@ import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { texts } from "@/texts/pt-BR";
 
+import { EventResults } from "./event-results";
 import type { SelectTab, Tab } from "./tabs";
 
 const t = texts.event.overview;
@@ -47,6 +48,7 @@ export function OverviewTab({ eventId, onSelect }: { eventId: string; onSelect: 
     {failure !== undefined && (
       <ErrorMessage error={failure} />
     )}
+    {paidTickets > 0 && <EventResults eventId={eventId} />}
     <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
       <Card>
         <CardHeader

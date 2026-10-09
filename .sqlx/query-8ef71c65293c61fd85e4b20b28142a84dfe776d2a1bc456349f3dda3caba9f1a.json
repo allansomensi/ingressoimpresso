@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select spec -> 'number' ->> 'prefix' as prefix, (spec -> 'number' ->> 'digits')::int as digits\n           from ticket_designs where event_id = $1 order by version desc limit 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "prefix",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "digits",
+        "type_info": "Int4",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "8ef71c65293c61fd85e4b20b28142a84dfe776d2a1bc456349f3dda3caba9f1a"
+}

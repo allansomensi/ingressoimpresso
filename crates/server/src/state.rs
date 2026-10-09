@@ -7,7 +7,9 @@ use tokio::sync::{Mutex, MutexGuard, Notify, Semaphore};
 use uuid::Uuid;
 
 use crate::config::Config;
-use crate::mail::Mailer;
+use crate::emails::Email;
+use crate::google::GoogleAuth;
+use crate::mail::{MailError, MailKind, Mailer};
 use crate::payments::Payments;
 
 /// State shared by handlers and the export worker.
@@ -21,6 +23,8 @@ pub struct AppState {
     pub mailer: Mailer,
     /// Online payment of batches (ADR 0020); disabled unless set with [`Self::with_payments`].
     pub payments: Payments,
+    /// "Entrar com Google" (ADR 0029); off unless set with [`Self::with_google`].
+    pub google: Option<Arc<GoogleAuth>>,
     /// Wakes the export worker when a job is queued.
     pub jobs: Arc<Notify>,
     /// Bounds concurrent synchronous renders (design previews) to protect memory.
@@ -40,6 +44,7 @@ impl AppState {
             config: Arc::new(config),
             mailer,
             payments: Payments::Disabled,
+            google: None,
             jobs: Arc::new(Notify::new()),
             render_permits: Arc::new(Semaphore::new(2)),
             batch_locks: Arc::new(std::array::from_fn(|_| Mutex::new(()))),
@@ -61,5 +66,49 @@ impl AppState {
     pub fn with_payments(mut self, payments: Payments) -> Self {
         self.payments = payments;
         self
+    }
+
+    /// Turns on "Entrar com Google".
+    #[must_use]
+    pub fn with_google(mut self, google: GoogleAuth) -> Self {
+        self.google = Some(Arc::new(google));
+        self
+    }
+
+    /// Sends an e-mail within the daily quota (ADR 0028): every message handed to the provider
+    /// is counted in `mail_sends`, and past `MAIL_DAILY_LIMIT` in 24 hours nothing is sent. Codes
+    /// for e-mails without an account may use at most two thirds of it.
+    ///
+    /// # Errors
+    ///
+    /// [`MailError::Quota`] when the quota is spent; [`MailError::Failed`] if the database or the
+    /// provider fails.
+    pub async fn send_mail(
+        &self,
+        kind: MailKind,
+        to: &str,
+        email: &Email,
+    ) -> Result<(), MailError> {
+        if let Some(limit) = self.config.mail_daily_limit {
+            let sent = sqlx::query!(
+                r#"select count(*) as "all!", count(*) filter (where kind = 'signup_code') as "signups!"
+                   from mail_sends where created_at > now() - interval '24 hours'"#
+            )
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|error| MailError::Failed(error.to_string()))?;
+            let signup_limit = (limit * 2 / 3).max(1);
+            if sent.all >= limit || (kind == MailKind::SignupCode && sent.signups >= signup_limit) {
+                return Err(MailError::Quota(format!(
+                    "{} e-mails in 24 hours ({} for new accounts)",
+                    sent.all, sent.signups
+                )));
+            }
+        }
+        sqlx::query!("insert into mail_sends (kind) values ($1)", kind.db())
+            .execute(&self.pool)
+            .await
+            .map_err(|error| MailError::Failed(error.to_string()))?;
+        self.mailer.send(to, email).await
     }
 }

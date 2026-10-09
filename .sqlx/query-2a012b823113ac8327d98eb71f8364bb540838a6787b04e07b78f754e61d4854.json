@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select numbers from seller_assignments where seller_id = $1 order by lower(numbers)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "numbers",
+        "type_info": "Int4Range",
+        "origin": {
+          "Table": {
+            "table": "seller_assignments",
+            "name": "numbers"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "2a012b823113ac8327d98eb71f8364bb540838a6787b04e07b78f754e61d4854"
+}

@@ -3,6 +3,7 @@
 import type { AccountDto, BatchDto, CheckoutDto, CreateBatchBody, EventDto, PricingDto } from "@ingressoimpresso/api-types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, CreditCard, FileDown, Layers, Lock, MoreHorizontal, Plus, RefreshCw, ShieldCheck, X } from "lucide-react";
+import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { toast } from "sonner";
@@ -48,6 +49,7 @@ const STATUS_TONE: Record<BatchDto["status"], Tone> = {
   awaiting_payment: "warning",
   paid: "success",
   canceled: "neutral",
+  refunded: "danger",
 };
 
 function quantityOf(batch: BatchDto): number {
@@ -266,6 +268,7 @@ function BatchRow({
               </>
             )}
           </span>
+          {batch.status === "refunded" && <span className="text-xs text-danger-fg">{t.refundedNote}</span>}
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2 sm:justify-end">
@@ -510,10 +513,23 @@ export function BatchesTab({ eventId, onSelect }: { eventId: string; onSelect: S
         </ul>
       )}
       {onlinePayment && (
-        <p className="flex items-center justify-center gap-2 text-xs text-fg-subtle">
-          <Lock className="size-3.5" aria-hidden />
-          {t.secure}
-        </p>
+        <div className="flex flex-col items-center gap-1 text-center text-xs text-fg-subtle">
+          <p className="flex items-center justify-center gap-2">
+            <Lock className="size-3.5" aria-hidden />
+            {t.secure}
+          </p>
+          <p>
+            {t.legalBefore}
+            <Link href="/termos" className="underline underline-offset-2 hover:text-fg">
+              {t.legalTerms}
+            </Link>
+            {t.legalMiddle}
+            <Link href="/reembolso" className="underline underline-offset-2 hover:text-fg">
+              {t.legalRefund}
+            </Link>
+            {t.legalAfter}
+          </p>
+        </div>
       )}
     </div>
   );

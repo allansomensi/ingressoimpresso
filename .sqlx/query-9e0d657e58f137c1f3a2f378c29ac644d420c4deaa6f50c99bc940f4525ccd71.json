@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select organization_id from memberships where user_id = $1 order by created_at limit 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "organization_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "memberships",
+            "name": "organization_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "9e0d657e58f137c1f3a2f378c29ac644d420c4deaa6f50c99bc940f4525ccd71"
+}

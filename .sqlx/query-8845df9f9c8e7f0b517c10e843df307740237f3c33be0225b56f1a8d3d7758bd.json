@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update payments set status = 'refunded' where batch_id = $1 and status = 'paid'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "8845df9f9c8e7f0b517c10e843df307740237f3c33be0225b56f1a8d3d7758bd"
+}

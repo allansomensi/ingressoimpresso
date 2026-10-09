@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update ticket_links set holder_name = $2 where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f37c29089c2c4716df7d8e971824cdead44b264a4abae0e6a34b65c6ac2f1a73"
+}

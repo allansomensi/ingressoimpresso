@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update organizations\n           set suspended_at = case when $2 then coalesce(suspended_at, now()) end,\n               suspended_reason = case when $2 then $3 end\n           where id = $1 returning id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "organizations",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Bool",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "3171affabd3e77f9d7f134f5b38c3bd6cd8c2d59881566fa2d301a5b8d9d49a2"
+}
