@@ -1,6 +1,6 @@
 "use client";
 
-import type { AccountDto, BatchDto, CheckoutDto, CreateBatchBody, PricingDto } from "@ingressoimpresso/api-types";
+import type { AccountDto, BatchDto, CheckoutDto, CreateBatchBody, EventDto, PricingDto } from "@ingressoimpresso/api-types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, CreditCard, FileDown, Layers, Lock, MoreHorizontal, Plus, RefreshCw, ShieldCheck, X } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -456,6 +456,8 @@ export function BatchesTab({ eventId, onSelect }: { eventId: string; onSelect: S
   const returnedBatch = search.get("pagamento") === "sucesso" ? search.get("lote") : null;
   const pollUntil = useRef<number | null>(null);
   const pricing = useQuery({ queryKey: ["pricing"], queryFn: () => api<PricingDto>("/api/pricing"), staleTime: 60 * 60_000 });
+  const event = useQuery({ queryKey: ["event", eventId], queryFn: () => api<EventDto>(`/api/events/${eventId}`) });
+  const closed = event.data?.status === "closed";
   const batches = useQuery({
     queryKey: ["batches", eventId],
     queryFn: () => api<BatchDto[]>(`/api/events/${eventId}/batches`),
@@ -481,7 +483,11 @@ export function BatchesTab({ eventId, onSelect }: { eventId: string; onSelect: S
     <div className="flex flex-col gap-6">
       <Lead>{t.intro}</Lead>
       <PaymentReturn batches={list} eventId={eventId} onSelect={onSelect} />
-      <NewBatch eventId={eventId} pricing={pricing.data} nextNumber={nextNumber} />
+      {closed ? (
+        <Alert tone="warning">{texts.event.actions.archivedNote}</Alert>
+      ) : (
+        <NewBatch eventId={eventId} pricing={pricing.data} nextNumber={nextNumber} />
+      )}
       {pricing.data !== undefined && !onlinePayment && hasUnpaid && !isAdmin && <Alert tone="warning">{t.paymentDisabled}</Alert>}
       {batches.isPending ? (
         <LoadingBlock rows={2} />

@@ -14,6 +14,7 @@ import { texts } from "@/texts/pt-BR";
 const t = texts.nav;
 const LINKS = [
   { href: "#como-funciona", label: t.howItWorks },
+  { href: "#modelos", label: t.templates },
   { href: "#recursos", label: t.features },
   { href: "#precos", label: t.pricing },
   { href: "#duvidas", label: t.faq },
