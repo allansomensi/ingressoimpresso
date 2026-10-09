@@ -22,7 +22,8 @@
 | Modelo de dados | Faixas `int4range` com restrições de exclusão; sem tabela com uma linha por ingresso | [0011](adr/0011-modelo-dados-faixas.md) |
 | Login do organizador | Código de 6 dígitos por e-mail (sem senha), enviado pelo Resend | [0012](adr/0012-autenticacao-organizador.md) |
 | Infraestrutura | API Docker no Render (Virginia) + Neon (`aws-us-east-1`, junto da API) + Resend; imagem compilada pelo Blueprint do Render e testada no CI | [0013](adr/0013-infraestrutura-render-neon.md), [0019](adr/0019-deploy-dominio-proprio.md) |
-| Pagamento Pix | Adiado: o MVP não cobra (eu marco o lote como pago); integração com PSP na fase 6 | [0014](adr/0014-pagamento-pix-adiado.md) |
+| Pagamento | Stripe Checkout por lote (Pix ou cartão), confirmado por webhook assinado; preço progressivo por quantidade; o admin ainda pode marcar lotes como pagos | [0020](adr/0020-pagamento-stripe.md) (substitui [0014](adr/0014-pagamento-pix-adiado.md)) |
+| Interface e PWA | Identidade visual própria, sistema de design com tokens claro/escuro, painel instalável como app | [0021](adr/0021-interface-e-pwa.md) |
 
 O que muda em relação às suas hipóteses:
 
@@ -80,7 +81,7 @@ flowchart LR
 
 Em produção há **um processo nosso** (o binário Rust no Render, que serve a API e roda o worker
 de jobs), **um banco gerenciado** (Neon) e o frontend na CDN da Vercel. Os fornecedores são Vercel,
-Render, Neon, Resend e o domínio, mais o PSP do Pix na fase 6. Banco e API ficam na mesma região:
+Render, Neon, Resend, Stripe e o domínio. Banco e API ficam na mesma região:
 o banco precisa ficar perto da API, não do usuário (ADR 0013).
 
 ## 3. Estrutura do repositório
@@ -370,6 +371,14 @@ create table entries (                                -- primeira entrada de cad
   event_id uuid references events, ticket_number integer,
   first_scan_id uuid not null references scans, primary key (event_id, ticket_number));
 
+-- Pagamentos (ADR 0020): uma linha por Checkout Session da Stripe
+create table payments (id uuid primary key, batch_id uuid not null references ticket_batches,
+  checkout_session_id text not null unique, checkout_url text not null, amount_cents integer not null,
+  currency text not null, status text not null check (status in ('open','paid','expired','failed')),
+  payment_intent_id text, created_by uuid not null references users, created_at timestamptz not null,
+  expires_at timestamptz not null, paid_at timestamptz);
+-- ticket_batches.paid_via: 'stripe' ou 'admin'
+
 -- Jobs (geração de arquivos, e-mails)
 create table jobs (id uuid primary key, kind text not null, payload jsonb not null,
   status text not null check (status in ('queued','running','done','failed')),
@@ -410,13 +419,22 @@ GET|POST /api/events           GET|PUT /api/events/{id}
 GET|PUT /api/events/{id}/design                POST /api/events/{id}/design/preview (PNG, amostras)
 POST /api/events/{id}/art      (PNG/JPEG cru, até 20 MB)
 GET|POST /api/events/{id}/batches              POST /api/batches/{id}/cancel
-POST /api/admin/batches/{id}/mark-paid         (MVP, ADMIN_EMAILS)
+POST /api/admin/batches/{id}/mark-paid         (pagamento por fora, ADMIN_EMAILS)
 GET|POST /api/events/{id}/sellers              PUT|DELETE /api/sellers/{id}
 POST /api/sellers/{id}/ranges  DELETE /api/ranges/{id}
 GET|POST /api/events/{id}/voids                POST /api/voids/{id}/undo
 GET|POST /api/events/{id}/exports              GET /api/exports/{id}
 POST /api/exports/{id}/link    → link de 10 min  GET /api/downloads/{token} (sem login)
 GET /healthz (sem banco)                       GET /readyz (consulta o banco)
+```
+
+Pagamento, fase 6 (ADR 0020):
+
+```
+GET  /api/pricing                          (sem login) tabela progressiva de preços
+POST /api/batches/{id}/checkout            → { url } da Stripe Checkout (reaproveita a sessão aberta)
+POST /api/batches/{id}/checkout/sync       → lote, depois de consultar a sessão na Stripe
+POST /api/stripe/webhook                   (sem login; assinatura Stripe-Signature)
 ```
 
 Portaria, fase 4. O organizador gerencia os links pelo painel (sessão Bearer):
@@ -454,7 +472,7 @@ Os DTOs são structs Rust com `#[derive(TS)]` (`ts-rs`), e os tipos TS são gera
   vídeo falso para a câmera (`--use-file-for-fake-video-capture`), o que permite testar a leitura
   de QR de ponta a ponta.
 - **Rotas:**
-  - `/`: landing;
+  - `/`: landing (com a tabela de preços de `GET /api/pricing`);
   - `/entrar`: login;
   - `/painel/...`: área do organizador, com componentes de cliente que chamam a API Rust. Não há
     Server Actions nem Route Handlers com regra de negócio;
@@ -463,6 +481,12 @@ Os DTOs são structs Rust com `#[derive(TS)]` (`ts-rs`), e os tipos TS são gera
   todos servidos por nós (o `zxing-wasm` busca o `.wasm` em CDN por padrão; é preciso configurar
   `locateFile`). O IndexedDB é acessado via `idb`. A sincronização roda em primeiro plano enquanto
   a tela está aberta (não há Background Sync no iPhone), e a tela mantém o Wake Lock ativo.
+- **Interface (ADR 0021):** sistema de design próprio sobre Tailwind 4 (tokens claro/escuro em
+  `globals.css`, componentes em `src/components/ui`, ícones `lucide-react`, toasts `sonner`, fonte
+  Geist servida por nós). A página do evento tem uma visão geral com o passo a passo e abas na URL
+  (`?aba=lotes`).
+- **PWA do painel (ADR 0021):** `app/manifest.ts` e `public/sw.js` (escopo `/`, ignora
+  `/portaria`): arquivos de build em cache e página `/offline` sem rede; botão "Instalar app".
 - **Textos centralizados:** `apps/web/src/texts/pt-BR.ts` (objeto tipado `as const`). No Rust, os
   textos de e-mail e PDF ficam em módulos `texts.rs`. Não há framework de i18n.
 
@@ -532,7 +556,7 @@ Estimativas grosseiras, para quem tem 5 a 10 h por semana.
 | **4. Portaria PWA** | Acesso por link, registro do dispositivo, manifesto, leitura, decisão offline, sync, confirmação online, lista de prontidão | Três celulares (Android + iPhone) em modo avião lendo, depois sincronizando e convergindo | ~30 h |
 | **5. Relatório + produção** | Relatório por vendedor, deploy (Vercel + Render + Neon), backup testado, ensaio geral | Ensaio com cerca de 50 ingressos impressos e duas portas | ~15 h |
 | **MVP: show da banda** | | | **~120 h** |
-| 6. Pix | PSP com cobrança dinâmica + webhook, preço por lote | Pagar um lote real e receber os arquivos sem intervenção | |
+| 6. Pagamento + interface | Stripe Checkout (Pix e cartão) com webhook, preço por lote; redesign do site e do painel, logo e PWA (ADRs 0020, 0021) | Pagar um lote real e receber os arquivos sem intervenção | |
 | 7. Editor visual e gráfica | Arrastar e redimensionar no editor, templates prontos, CMYK/PDF-X, modo de sobreimpressão (arte em offset + número/QR em casa) | | |
 | 8. Abertura para clientes | Convite de membros, termos/LGPD, landing, limites de abuso | | |
 
@@ -551,6 +575,7 @@ comandos da CLI admin contra o banco, e o servidor teria só a API da portaria. 
   **não a autenticidade**; nesse caso a entrada é marcada como "manual".
 - **Atualizações do Typst quebram a API com frequência:** a versão fica fixa e todo uso fica
   isolado no crate `render`.
-- **Escolha do PSP do Pix:** fica para a fase 6, comparando taxas, exigência de CNPJ e webhook.
+- **Taxa da Stripe:** maior que a de um PSP de Pix. O modelo de pagamento (`payments`, `paid_via`,
+  preço no lote) não depende da Stripe; trocar de provedor é um ADR novo (0020).
 - **Mais de uma fila sem sinal:** é um limite do produto que precisa ser comunicado ao organizador
   na própria interface.
