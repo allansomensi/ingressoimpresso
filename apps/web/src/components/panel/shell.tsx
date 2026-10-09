@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, LogOut, RefreshCw, ShieldCheck, WifiOff } from "lucide-react";
+import { CalendarDays, LogOut, RefreshCw, ShieldCheck, UserRound, WifiOff } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { MouseEvent, ReactNode } from "react";
@@ -35,6 +35,23 @@ function UserMenu({ email, isAdmin, onSignOut }: { email: string; isAdmin: boole
           </Badge>
         )}
       </div>
+      <div className="my-1 h-px bg-border" />
+      <Link
+        href="/painel/conta"
+        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-fg-muted transition hover:bg-surface-2 hover:text-fg"
+      >
+        <UserRound className="size-4" aria-hidden />
+        {t.accountPage}
+      </Link>
+      {isAdmin && (
+        <Link
+          href="/painel/admin"
+          className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-fg-muted transition hover:bg-surface-2 hover:text-fg"
+        >
+          <ShieldCheck className="size-4" aria-hidden />
+          {texts.admin.openPanel}
+        </Link>
+      )}
       <div className="my-1 h-px bg-border" />
       <div className="flex flex-col gap-2 px-3 py-2">
         <span className="text-xs text-fg-muted">{texts.theme.label}</span>
@@ -108,18 +125,31 @@ export function PanelShell({ children }: { children: ReactNode }) {
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
           <div className="flex min-w-0 items-center gap-6">
             <Logo href="/painel" />
-            <nav className="hidden sm:block" aria-label={t.events}>
+            <nav className="hidden items-center gap-1 sm:flex" aria-label={t.events}>
               <Link
                 href="/painel"
                 aria-current={pathname === "/painel" ? "page" : undefined}
                 className={cn(
                   "inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition",
-                  pathname.startsWith("/painel") ? "bg-surface-2 text-fg" : "text-fg-muted hover:text-fg",
+                  pathname === "/painel" || pathname.startsWith("/painel/eventos") ? "bg-surface-2 text-fg" : "text-fg-muted hover:text-fg",
                 )}
               >
                 <CalendarDays className="size-4" aria-hidden />
                 {t.events}
               </Link>
+              {session.status === "signed-in" && session.user.isAdmin && (
+                <Link
+                  href="/painel/admin"
+                  aria-current={pathname === "/painel/admin" ? "page" : undefined}
+                  className={cn(
+                    "inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition",
+                    pathname.startsWith("/painel/admin") ? "bg-surface-2 text-fg" : "text-fg-muted hover:text-fg",
+                  )}
+                >
+                  <ShieldCheck className="size-4" aria-hidden />
+                  {texts.admin.nav}
+                </Link>
+              )}
             </nav>
           </div>
           <div className="flex items-center gap-2">

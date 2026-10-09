@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select b.id, b.numbers, b.status, b.created_at, b.paid_at, b.price_cents, b.paid_via,\n                  (select case when bool_or(p.status = 'processing') then 'processing'\n                               when bool_or(p.status = 'open' and p.expires_at > now()) then 'open' end\n                   from payments p where p.batch_id = b.id) as pending_payment\n           from ticket_batches b where b.event_id = $1 order by lower(b.numbers)",
+  "query": "select b.id, b.numbers, b.status, b.created_at, b.paid_at, b.price_cents, b.free_tickets, b.paid_via,\n                  (select case when bool_or(p.status = 'processing') then 'processing'\n                               when bool_or(p.status = 'open' and p.expires_at > now()) then 'open' end\n                   from payments p where p.batch_id = b.id) as pending_payment\n           from ticket_batches b where b.event_id = $1 order by lower(b.numbers)",
   "describe": {
     "columns": [
       {
@@ -71,6 +71,17 @@
       },
       {
         "ordinal": 6,
+        "name": "free_tickets",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "ticket_batches",
+            "name": "free_tickets"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
         "name": "paid_via",
         "type_info": "Text",
         "origin": {
@@ -81,7 +92,7 @@
         }
       },
       {
-        "ordinal": 7,
+        "ordinal": 8,
         "name": "pending_payment",
         "type_info": "Text",
         "origin": "Expression"
@@ -99,9 +110,10 @@
       false,
       true,
       false,
+      false,
       true,
       null
     ]
   },
-  "hash": "9db632ae9239d51cd3159c8ecfeb8e764c25c3f4e328338b77c394066a5d3d99"
+  "hash": "4c8952dfc74b7779b01180c06c4516f8a06ae21bbc65580c4071d867de3778d3"
 }

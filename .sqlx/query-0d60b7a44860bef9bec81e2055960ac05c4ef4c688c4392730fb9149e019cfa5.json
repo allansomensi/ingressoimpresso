@@ -1,0 +1,53 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select content_type, width_px, data from blobs where id = $1 and event_id = $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "content_type",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "blobs",
+            "name": "content_type"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "width_px",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "blobs",
+            "name": "width_px"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "data",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "blobs",
+            "name": "data"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "0d60b7a44860bef9bec81e2055960ac05c4ef4c688c4392730fb9149e019cfa5"
+}

@@ -32,3 +32,8 @@ feita e as consequências.
 | [0020](0020-pagamento-stripe.md) | Pagamento dos lotes com Stripe Checkout | Aceito |
 | [0021](0021-interface-e-pwa.md) | Identidade visual, sistema de design e painel instalável (PWA) | Aceito |
 | [0022](0022-tema-e-analytics.md) | Tema escolhido pelo usuário e Vercel Web Analytics | Aceito |
+| [0023](0023-nova-marca.md) | Nova marca: ingresso com "check" | Aceito |
+| [0024](0024-precos-acessiveis-e-ingressos-gratis.md) | Preços acessíveis e ingressos grátis para testar | Aceito |
+| [0025](0025-textos-e-modelos-de-ingresso.md) | Textos no ingresso, modelos prontos e horário local do evento | Aceito |
+| [0026](0026-painel-admin-e-conta.md) | Painel de administração, cortesias e página da conta | Aceito |
+| [0027](0027-ciclo-de-vida-do-evento.md) | Ciclo de vida do evento: duplicar, arquivar e excluir | Aceito |

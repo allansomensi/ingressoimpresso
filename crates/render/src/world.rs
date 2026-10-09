@@ -20,6 +20,11 @@ const FONT_FILES: &[&[u8]] = &[
     include_bytes!("../fonts/BebasNeue-Regular.ttf"),
     include_bytes!("../fonts/SpaceMono-Regular.ttf"),
     include_bytes!("../fonts/SpaceMono-Bold.ttf"),
+    include_bytes!("../fonts/Anton-Regular.ttf"),
+    include_bytes!("../fonts/AbrilFatface-Regular.ttf"),
+    include_bytes!("../fonts/GreatVibes-Regular.ttf"),
+    include_bytes!("../fonts/Pacifico-Regular.ttf"),
+    include_bytes!("../fonts/AlfaSlabOne-Regular.ttf"),
 ];
 
 /// Shared, immutable parts of every world: the standard library and the fonts.
@@ -119,5 +124,35 @@ impl World for MemoryWorld {
     fn today(&self, _offset: Option<Duration>) -> Option<Datetime> {
         // Deterministic output: templates never read the clock.
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn every_template_font_is_embedded() {
+        // The families of `fonts` in templates/ticket.typ; Typst would silently fall back.
+        let families = [
+            "Bebas Neue",
+            "Space Mono",
+            "Lato",
+            "Anton",
+            "Abril Fatface",
+            "Great Vibes",
+            "Pacifico",
+            "Alfa Slab One",
+        ];
+        for family in families {
+            assert!(
+                SHARED
+                    .book
+                    .select_family(&family.to_lowercase())
+                    .next()
+                    .is_some(),
+                "{family} is missing"
+            );
+        }
     }
 }

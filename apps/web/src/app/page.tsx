@@ -4,10 +4,13 @@ import {
   Check,
   ChevronDown,
   FileText,
+  LayoutTemplate,
+  MousePointerClick,
   Printer,
   QrCode,
   ShieldCheck,
   Smartphone,
+  Ticket,
   Users,
   WifiOff,
   XCircle,
@@ -19,13 +22,24 @@ import { Logo } from "@/components/brand";
 import { PhoneMock, TicketMock } from "@/components/marketing/mockups";
 import { PricingSection } from "@/components/marketing/pricing";
 import { SiteHeader } from "@/components/marketing/site-header";
+import { TemplateShowcase } from "@/components/marketing/template-showcase";
 import { ButtonLink } from "@/components/ui";
 import { texts } from "@/texts/pt-BR";
 
 export const metadata: Metadata = { alternates: { canonical: "/" } };
 
 const t = texts.landing;
-const FEATURE_ICONS: readonly LucideIcon[] = [ShieldCheck, Printer, WifiOff, Users, XCircle, BarChart3];
+const FEATURE_ICONS: readonly LucideIcon[] = [
+  ShieldCheck,
+  Printer,
+  WifiOff,
+  Users,
+  XCircle,
+  BarChart3,
+  LayoutTemplate,
+  MousePointerClick,
+  Ticket,
+];
 const STEP_ICONS: readonly LucideIcon[] = [FileText, QrCode, Printer, Smartphone];
 
 function SectionHeading({ eyebrow, title, lead }: { eyebrow?: string; title: string; lead?: string }) {
@@ -123,6 +137,21 @@ export default function LandingPage() {
                 );
               })}
             </ol>
+          </div>
+        </section>
+
+        {/* Templates */}
+        <section id="modelos" className="scroll-mt-16 overflow-hidden border-y border-border bg-bg">
+          <div className="flex flex-col gap-12 py-20 lg:py-28">
+            <div className="px-4 sm:px-6">
+              <SectionHeading eyebrow={texts.nav.templates} title={t.templatesTitle} lead={t.templatesLead} />
+            </div>
+            <TemplateShowcase />
+            <div className="flex justify-center px-4">
+              <ButtonLink href="/entrar" size="lg" icon={<ArrowRight />} className="flex-row-reverse">
+                {t.templatesCta}
+              </ButtonLink>
+            </div>
           </div>
         </section>
 

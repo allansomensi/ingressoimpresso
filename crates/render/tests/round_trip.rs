@@ -17,8 +17,9 @@ use ticket_core::{
     TicketIssuer, TicketNumber,
 };
 use ticket_render::{
-    Art, PrintOptions, RenderJob, StubSide, TicketDesign, TicketQr, TicketToRender,
-    control_sheet_pdf, home_pdf, home_sheet_pngs, print_pdf, ticket_images, whatsapp_zip,
+    Art, EventDetails, FontChoice, PrintOptions, RenderJob, StubSide, TextAlign, TextBlock,
+    TicketDesign, TicketQr, TicketToRender, control_sheet_pdf, home_pdf, home_sheet_pngs,
+    print_pdf, ticket_images, whatsapp_zip,
 };
 
 const SEED: [u8; 32] = [7; 32];
@@ -70,6 +71,7 @@ fn job(numbers: &[u32], design: TicketDesign) -> RenderJob {
         design,
         art: Some(art()),
         event_name: "Show de Lançamento — Banda Teste".to_owned(),
+        details: EventDetails::default(),
         tickets: numbers
             .iter()
             .map(|&number| TicketToRender {
@@ -274,6 +276,10 @@ fn user_text_is_data_not_code() {
         stub.fields = vec!["#{1/0}".to_owned()];
     }
     job.design.number.prefix = "#sys ".to_owned();
+    job.design.texts = vec![text_block(
+        "#panic(\"text\") {evento} {nada}",
+        FontChoice::Sans,
+    )];
     home_pdf(&job).unwrap();
     control_sheet_pdf(&job).unwrap();
 }
@@ -315,5 +321,133 @@ fn sample_watermark_fits_any_shape() {
                 "{width}×{height}: watermark cut at {x}, {y}"
             );
         }
+    }
+}
+
+fn text_block(text: &str, font: FontChoice) -> TextBlock {
+    TextBlock {
+        text: text.to_owned(),
+        x_mm: 6.0,
+        y_mm: 20.0,
+        width_mm: 90.0,
+        height_mm: 12.0,
+        font,
+        size_pt: 30.0,
+        color: "#000000".to_owned(),
+        align: TextAlign::Center,
+        lines: 1,
+        bold: false,
+        uppercase: false,
+        letter_spacing: 0.0,
+    }
+}
+
+/// Dark pixels of a 600 px wide image of the default body (4 px/mm), outside the number box
+/// and the QR, as millimetre boxes they fall in.
+fn dark_text_pixels(job: &RenderJob) -> Vec<(u32, u32)> {
+    let images = ticket_images(job, 600).unwrap();
+    let image = image::load_from_memory(&images[0].jpeg).unwrap().to_luma8();
+    let number = job.design.number.clone();
+    let qr = job.design.qr.clone();
+    let inside = |x: u32, y: u32, (bx, by, bw, bh): (f64, f64, f64, f64)| {
+        let (x, y) = (f64::from(x) / 4.0, f64::from(y) / 4.0);
+        x >= bx && x <= bx + bw && y >= by && y <= by + bh
+    };
+    image
+        .enumerate_pixels()
+        .filter(|(_, _, p)| p[0] < 100)
+        .map(|(x, y, _)| (x, y))
+        .filter(|&(x, y)| {
+            !inside(
+                x,
+                y,
+                (number.x_mm, number.y_mm, number.width_mm, number.height_mm),
+            ) && !inside(x, y, (qr.x_mm, qr.y_mm, qr.size_mm, qr.size_mm))
+        })
+        .collect()
+}
+
+#[test]
+fn text_blocks_print_their_fields_inside_their_box_in_every_font() {
+    let fonts = [
+        FontChoice::Display,
+        FontChoice::Mono,
+        FontChoice::Sans,
+        FontChoice::Condensed,
+        FontChoice::Serif,
+        FontChoice::Script,
+        FontChoice::Casual,
+        FontChoice::Slab,
+    ];
+    for font in fonts {
+        let mut design = TicketDesign::default_v1();
+        design.stub = None;
+        // A long name on one line must shrink into the box instead of overflowing it.
+        design.texts = vec![text_block("{evento} · {local} · {data} {hora}", font)];
+        let mut job = job(&[7], design);
+        job.art = None;
+        job.details = EventDetails {
+            venue: Some("Ginásio Municipal de Esportes".to_owned()),
+            starts_at: Some(time::macros::datetime!(2026-06-20 19:30)),
+            price_cents: None,
+        };
+        let dark = dark_text_pixels(&job);
+        assert!(
+            dark.len() > 50,
+            "{font:?}: text not printed ({})",
+            dark.len()
+        );
+        for (x, y) in dark {
+            // Box 6–96 × 20–32 mm, plus 1 mm for antialiasing and script swashes.
+            let (x, y) = (f64::from(x) / 4.0, f64::from(y) / 4.0);
+            assert!(
+                (5.0..=97.0).contains(&x) && (17.0..=35.0).contains(&y),
+                "{font:?}: ink outside the box at {x} × {y} mm"
+            );
+        }
+        let image = ticket_images(&job, 1080).unwrap();
+        let decoded = image::load_from_memory(&image[0].jpeg).unwrap().to_luma8();
+        assert_eq!(verified_numbers(&decode_all(&decoded)), BTreeSet::from([7]));
+    }
+}
+
+#[test]
+fn text_blocks_with_empty_fields_are_hidden() {
+    let mut design = TicketDesign::default_v1();
+    design.stub = None;
+    design.texts = vec![text_block("Local: {local}", FontChoice::Sans)];
+    let mut job = job(&[1], design);
+    job.art = None;
+    assert!(dark_text_pixels(&job).is_empty());
+    job.details.venue = Some("Teatro".to_owned());
+    assert!(!dark_text_pixels(&job).is_empty());
+}
+
+#[test]
+fn multi_line_text_blocks_wrap_and_stay_in_their_box() {
+    let mut design = TicketDesign::default_v1();
+    design.stub = None;
+    let mut block = text_block(&"Palavra ".repeat(24), FontChoice::Serif);
+    block.lines = 3;
+    block.height_mm = 25.0;
+    block.align = TextAlign::Left;
+    design.texts = vec![block];
+    let mut job = job(&[1], design);
+    job.art = None;
+    let dark = dark_text_pixels(&job);
+    assert!(dark.len() > 200);
+    let rows: BTreeSet<u32> = dark.iter().map(|&(_, y)| y).collect();
+    // Three lines: ink spans most of the box height, never past it.
+    let (top, bottom) = (
+        rows.first().copied().unwrap(),
+        rows.last().copied().unwrap(),
+    );
+    assert!(f64::from(bottom - top) / 4.0 > 15.0, "{top}–{bottom}");
+    for (x, y) in dark {
+        let (x, y) = (f64::from(x) / 4.0, f64::from(y) / 4.0);
+        assert!(
+            (5.0..=97.0).contains(&x) && (19.0..=46.0).contains(&y),
+            "{x} × {y}"
+        );
     }
 }

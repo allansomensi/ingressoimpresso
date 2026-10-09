@@ -33,3 +33,33 @@ pub(crate) const PT_BR: Texts = Texts {
     page: "Página",
     continued: "(continuação)",
 };
+
+/// Month names for text fields (`fields.rs`), January first.
+pub(crate) const MONTHS: [&str; 12] = [
+    "janeiro",
+    "fevereiro",
+    "março",
+    "abril",
+    "maio",
+    "junho",
+    "julho",
+    "agosto",
+    "setembro",
+    "outubro",
+    "novembro",
+    "dezembro",
+];
+
+/// Weekday names for text fields, Monday first.
+pub(crate) const WEEKDAYS: [&str; 7] = [
+    "segunda-feira",
+    "terça-feira",
+    "quarta-feira",
+    "quinta-feira",
+    "sexta-feira",
+    "sábado",
+    "domingo",
+];
+
+/// The `{preco}` field of a free event.
+pub(crate) const FREE_PRICE: &str = "Gratuito";

@@ -26,11 +26,12 @@ import dynamic from "next/dynamic";
 import { Suspense, useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
 
 import { TABS, tabFromSlug, tabSlug, type Tab } from "@/components/event/tabs";
+import { EventActions } from "@/components/event/event-actions";
 import { EventFormDialog } from "@/components/panel/event-form";
-import { Button, ButtonLink, EmptyState, ErrorMessage, LoadingBlock, Skeleton, useConfirm } from "@/components/ui";
+import { Badge, Button, ButtonLink, EmptyState, ErrorMessage, LoadingBlock, Skeleton, useConfirm } from "@/components/ui";
 import { ApiError, api } from "@/lib/api";
 import { cn } from "@/lib/cn";
-import { dateTime, money } from "@/lib/format";
+import { eventDateTime, money } from "@/lib/format";
 import { hasUnsavedChanges } from "@/lib/unsaved";
 import { texts } from "@/texts/pt-BR";
 
@@ -185,11 +186,18 @@ function EventView() {
         </Link>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex min-w-0 flex-col gap-2">
-            <h1 className="text-2xl font-semibold tracking-tight text-balance text-fg sm:text-3xl">{data.name}</h1>
+            <h1 className="text-2xl font-semibold tracking-tight text-balance text-fg sm:text-3xl">
+              {data.name}
+              {data.status === "closed" && (
+                <Badge tone="neutral" className="ml-3 align-middle">
+                  {texts.event.actions.archivedBadge}
+                </Badge>
+              )}
+            </h1>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-fg-muted">
               <span className="flex items-center gap-1.5">
                 <CalendarDays className="size-4 text-fg-subtle" aria-hidden />
-                {dateTime(data.startsAt)}
+                {eventDateTime(data.startsAt)}
               </span>
               <span className="flex items-center gap-1.5">
                 <MapPin className="size-4 text-fg-subtle" aria-hidden />
@@ -203,16 +211,19 @@ function EventView() {
               )}
             </div>
           </div>
-          <Button
-            variant="secondary"
-            size="sm"
-            icon={<Pencil />}
-            onClick={() => {
-              setEditing(true);
-            }}
-          >
-            {texts.panel.editEvent}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={<Pencil />}
+              onClick={() => {
+                setEditing(true);
+              }}
+            >
+              {texts.panel.editEvent}
+            </Button>
+            <EventActions event={data} />
+          </div>
         </div>
       </div>
 

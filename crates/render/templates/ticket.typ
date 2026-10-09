@@ -2,7 +2,10 @@
 // only ever displayed as a string value, never evaluated as Typst code.
 
 #let mm(value) = value * 1mm
-#let fonts = (display: "Bebas Neue", mono: "Space Mono", sans: "Lato")
+#let fonts = (
+  display: "Bebas Neue", mono: "Space Mono", sans: "Lato", condensed: "Anton",
+  serif: "Abril Fatface", script: "Great Vibes", casual: "Pacifico", slab: "Alfa Slab One",
+)
 #let aligns = (left: left, center: center, right: right)
 
 // `body` on a single line, shrunk (never enlarged) to fit `width` × `height`.
@@ -31,7 +34,23 @@
   }
 }
 
-// The ticket body (art, number, QR). The art always covers body + bleed on every side.
+// A text block: one line shrunk to fit, or up to `lines` lines cut with "…" and shrunk to fit
+// the box height.
+#let text-block(b, value) = {
+  let (w, h) = (mm(b.widthMm), mm(b.heightMm))
+  let style(s) = text(font: fonts.at(b.font), size: b.sizePt * 1pt, fill: rgb(b.color),
+    weight: if b.bold { "bold" } else { "regular" }, tracking: b.letterSpacing * 1em, s)
+  let a = aligns.at(b.align)
+  box(width: w, height: h, align(a + horizon,
+    if b.lines == 1 {
+      fit(w, h, style(value))
+    } else {
+      set par(leading: 0.3em, justify: false)
+      fit(w, h, block(width: w, align(a, clamp(value, w, b.lines, style))))
+    }))
+}
+
+// The ticket body (art, texts, number, QR). The art always covers body + bleed on every side.
 // `clip`: cut everything at the trim (home sheets, images); `false` lets the art run into the
 // bleed (print-shop output).
 #let body(data, t, clip: true) = {
@@ -45,6 +64,11 @@
     if data.art != none {
       place(top + left, dx: -b, dy: -b,
         image(data.art, width: w + 2 * b, height: h + 2 * b, fit: "cover"))
+    }
+    for (block, value) in d.texts.zip(data.textValues) {
+      if value != none {
+        place(top + left, dx: mm(block.xMm), dy: mm(block.yMm), text-block(block, value))
+      }
     }
     let n = d.number
     let (nw, nh) = (mm(n.widthMm), mm(n.heightMm))

@@ -8,6 +8,8 @@ import { texts } from "@/texts/pt-BR";
 
 import { Button } from "./button";
 
+const SIZES = { sm: "max-w-md", md: "max-w-lg", lg: "max-w-3xl", xl: "max-w-6xl" } as const;
+
 /** A modal on the native `<dialog>`: focus trap, Escape and the top layer come from the browser. */
 export function Dialog({
   open,
@@ -16,6 +18,7 @@ export function Dialog({
   description,
   children,
   footer,
+  size = "md",
   className,
 }: {
   open: boolean;
@@ -24,6 +27,7 @@ export function Dialog({
   description?: ReactNode;
   children?: ReactNode;
   footer?: ReactNode;
+  size?: keyof typeof SIZES;
   className?: string | undefined;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
@@ -57,8 +61,9 @@ export function Dialog({
         pressedBackdrop.current = false;
       }}
       className={cn(
-        "m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-lg overflow-visible rounded-2xl border border-border bg-surface p-0 text-fg shadow-lg",
+        "m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] overflow-visible rounded-2xl border border-border bg-surface p-0 text-fg shadow-lg",
         "open:animate-pop",
+        SIZES[size],
         className,
       )}
     >
@@ -133,7 +138,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
           </span>
         }
         description={pending?.description}
-        className="max-w-md"
+        size="sm"
         footer={
           <>
             <Button

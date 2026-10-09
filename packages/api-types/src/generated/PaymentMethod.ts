@@ -3,4 +3,4 @@
 /**
  * How a batch was paid.
  */
-export type PaymentMethod = "stripe" | "admin";
+export type PaymentMethod = "stripe" | "admin" | "free";

@@ -1,6 +1,8 @@
-//! What a batch costs (ADR 0020). Graduated tiers: the first 100 tickets cost the first tier's
-//! unit price, the next ones the second tier's, and so on, so a bigger batch never costs less
-//! than a smaller one. Prices are a business decision: change them here, with a commit.
+//! What a batch costs (ADRs 0020, 0024). Graduated tiers: the first 100 tickets cost the first
+//! tier's unit price, the next ones the second tier's, and so on, so a bigger batch never costs
+//! less than a smaller one. Each organization gets its first tickets for free (`FREE_TICKETS`,
+//! default [`DEFAULT_FREE_TICKETS`]).
+//! Prices are a business decision: change them here, with a commit.
 
 use crate::api::{PriceTierDto, PricingDto};
 
@@ -18,27 +20,37 @@ pub struct Tier {
 pub const TIERS: [Tier; 4] = [
     Tier {
         up_to: 100,
-        unit_cents: 40,
+        unit_cents: 15,
     },
     Tier {
         up_to: 500,
-        unit_cents: 30,
+        unit_cents: 10,
     },
     Tier {
         up_to: 2_000,
-        unit_cents: 20,
+        unit_cents: 7,
     },
     Tier {
         up_to: 5_000,
-        unit_cents: 15,
+        unit_cents: 5,
     },
 ];
 
-/// Smallest charge, so card and Pix fees never exceed the price of a tiny batch.
-pub const MINIMUM_CENTS: i32 = 500;
+/// Smallest charge, so card fees (a fixed part plus a percentage) never eat a tiny batch.
+pub const MINIMUM_CENTS: i32 = 290;
+
+/// Tickets every organization gets for free, to try the whole flow (print and door) at no cost.
+pub const DEFAULT_FREE_TICKETS: i32 = 30;
 
 /// Currency of every charge (ISO 4217, lowercase as Stripe expects).
 pub const CURRENCY: &str = "brl";
+
+/// Price of a batch of `quantity` tickets when `free` of them are free (the organization's
+/// remaining free tickets), in centavos. Zero when the whole batch is free.
+pub fn quote_with_free(quantity: i32, free: i32) -> i32 {
+    let charged = quantity - free.clamp(0, quantity);
+    if charged == 0 { 0 } else { quote(charged) }
+}
 
 /// Price of a batch of `quantity` tickets, in centavos.
 pub fn quote(quantity: i32) -> i32 {
@@ -57,7 +69,7 @@ pub fn quote(quantity: i32) -> i32 {
 }
 
 /// The price table, for the web app (the server stays the only one that computes a charge).
-pub fn table(online_payment: bool) -> PricingDto {
+pub fn table(online_payment: bool, free_tickets: i32) -> PricingDto {
     PricingDto {
         currency: CURRENCY.to_owned(),
         minimum_cents: MINIMUM_CENTS,
@@ -69,6 +81,7 @@ pub fn table(online_payment: bool) -> PricingDto {
             })
             .collect(),
         online_payment,
+        free_tickets,
     }
 }
 
@@ -79,13 +92,22 @@ mod tests {
     #[test]
     fn graduated_prices() {
         assert_eq!(quote(1), MINIMUM_CENTS);
-        assert_eq!(quote(12), MINIMUM_CENTS);
-        assert_eq!(quote(13), 520);
-        assert_eq!(quote(100), 4_000);
-        assert_eq!(quote(101), 4_030);
-        assert_eq!(quote(500), 4_000 + 400 * 30);
-        assert_eq!(quote(2_000), 16_000 + 1_500 * 20);
-        assert_eq!(quote(5_000), 46_000 + 3_000 * 15);
+        assert_eq!(quote(19), MINIMUM_CENTS);
+        assert_eq!(quote(20), 300);
+        assert_eq!(quote(100), 1_500);
+        assert_eq!(quote(101), 1_510);
+        assert_eq!(quote(500), 1_500 + 400 * 10);
+        assert_eq!(quote(2_000), 5_500 + 1_500 * 7);
+        assert_eq!(quote(5_000), 16_000 + 3_000 * 5);
+    }
+
+    #[test]
+    fn free_tickets_come_off_the_batch() {
+        assert_eq!(quote_with_free(30, 30), 0);
+        assert_eq!(quote_with_free(10, 30), 0);
+        assert_eq!(quote_with_free(130, 30), quote(100));
+        assert_eq!(quote_with_free(50, 0), quote(50));
+        assert_eq!(quote_with_free(50, -5), quote(50));
     }
 
     #[test]

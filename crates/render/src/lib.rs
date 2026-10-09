@@ -6,6 +6,7 @@
 //! watermark (CLAUDE.md invariant 2).
 
 mod design;
+mod fields;
 mod layout;
 mod merge;
 mod qr;
@@ -15,8 +16,9 @@ mod world;
 
 pub use design::{
     BLEED_MM, DESIGN_VERSION, DesignIssue, FontChoice, MIN_QR_SIZE_MM, NumberStyle, QrPlacement,
-    StubSide, StubStyle, TextAlign, TicketDesign,
+    StubSide, StubStyle, TextAlign, TextBlock, TicketDesign,
 };
+pub use fields::{EventDetails, FIELDS};
 pub use qr::QrError;
 pub use render::{
     Art, MAX_TICKETS_PER_JOB, PrintOptions, RenderError, RenderJob, SLUG_MM, TicketImage, TicketQr,

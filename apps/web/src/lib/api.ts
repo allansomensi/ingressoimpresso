@@ -127,12 +127,13 @@ export async function upload<T>(path: string, file: Blob): Promise<T> {
   return (await response.json()) as T;
 }
 
-/** Binary response (preview PNG) as an object URL; revoke it when replaced. */
-export async function fetchBlobUrl(path: string, body: unknown): Promise<string> {
-  const response = await send(path, {
-    method: "POST",
-    body: JSON.stringify(body),
-    headers: { "Content-Type": "application/json" },
-  });
+/** Binary response (preview PNG, art) as an object URL; revoke it when replaced. GET without a body. */
+export async function fetchBlobUrl(path: string, body?: unknown): Promise<string> {
+  const response = await send(
+    path,
+    body === undefined
+      ? { method: "GET" }
+      : { method: "POST", body: JSON.stringify(body), headers: { "Content-Type": "application/json" } },
+  );
   return URL.createObjectURL(await response.blob());
 }

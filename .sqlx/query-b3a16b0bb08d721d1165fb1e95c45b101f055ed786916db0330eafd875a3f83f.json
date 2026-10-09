@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select coalesce(sum(b.free_tickets), 0)::int as \"used!\"\n           from organizations o\n           join events e on e.organization_id = o.id\n           join ticket_batches b on b.event_id = e.id and b.status <> 'canceled'\n           where o.id = (select organization_id from events where id = $1)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "used!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "b3a16b0bb08d721d1165fb1e95c45b101f055ed786916db0330eafd875a3f83f"
+}

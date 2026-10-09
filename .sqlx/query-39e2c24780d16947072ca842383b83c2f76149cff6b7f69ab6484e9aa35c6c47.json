@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "insert into events (id, organization_id, name, venue, starts_at, ends_at, qr_tag, ticket_price_cents)\n               values ($1, $2, $3, $4, $5, $6, $7, $8)\n               on conflict (qr_tag) do nothing\n               returning id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag",
+  "query": "select id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag,\n                  utc_offset_minutes\n           from events where id = $1",
   "describe": {
     "columns": [
       {
@@ -90,18 +90,22 @@
             "name": "qr_tag"
           }
         }
+      },
+      {
+        "ordinal": 8,
+        "name": "utc_offset_minutes",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "utc_offset_minutes"
+          }
+        }
       }
     ],
     "parameters": {
       "Left": [
-        "Uuid",
-        "Uuid",
-        "Text",
-        "Text",
-        "Timestamptz",
-        "Timestamptz",
-        "Int8",
-        "Int4"
+        "Uuid"
       ]
     },
     "nullable": [
@@ -112,8 +116,9 @@
       false,
       true,
       false,
+      false,
       false
     ]
   },
-  "hash": "e86f224f2a47bdadda4a9f5202614bd1cf902fe37c76821f4a08f9ce07898c9b"
+  "hash": "39e2c24780d16947072ca842383b83c2f76149cff6b7f69ab6484e9aa35c6c47"
 }

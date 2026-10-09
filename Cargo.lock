@@ -1950,6 +1950,7 @@ dependencies = [
  "sha2 0.11.0",
  "ticket-core",
  "ticket-render",
+ "time",
  "ts-rs",
  "uuid",
 ]
@@ -4015,6 +4016,7 @@ dependencies = [
  "sha2 0.11.0",
  "thiserror",
  "ticket-core",
+ "time",
  "ts-rs",
  "typst",
  "typst-layout",

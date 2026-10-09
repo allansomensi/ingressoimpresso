@@ -96,12 +96,12 @@ async fn pricing_is_public_and_batches_carry_their_price(pool: PgPool) {
     let pricing = pricing.json();
     assert_eq!(pricing["currency"], "brl");
     assert_eq!(pricing["onlinePayment"], false);
-    assert_eq!(pricing["tiers"][0], json!({ "upTo": 100, "unitCents": 40 }));
+    assert_eq!(pricing["tiers"][0], json!({ "upTo": 100, "unitCents": 15 }));
 
     let token = app.login("banda@exemplo.com").await;
     let event = app.create_event(&token, "Show").await;
     let created = batch(&app, &token, &event, 150).await;
-    assert_eq!(created["priceCents"], 100 * 40 + 50 * 30);
+    assert_eq!(created["priceCents"], 100 * 15 + 50 * 10);
     assert_eq!(created["pendingPayment"], Value::Null);
     assert_eq!(created["paidVia"], Value::Null);
 
@@ -135,7 +135,7 @@ async fn checkout_and_signed_webhook_pay_the_batch_once(pool: PgPool) {
     let event = app.create_event(&token, "Show de Lançamento").await;
     let created = batch(&app, &token, &event, 10).await;
     let batch_id = created["id"].as_str().unwrap().to_owned();
-    assert_eq!(created["priceCents"], 500, "minimum charge");
+    assert_eq!(created["priceCents"], 290, "minimum charge");
 
     // Another organization cannot pay (or see) the batch.
     let intruder = app.login("intruso@exemplo.com").await;
@@ -156,7 +156,7 @@ async fn checkout_and_signed_webhook_pay_the_batch_once(pool: PgPool) {
         let request = stripe.requests[0].clone();
         (stripe.sessions.keys().next().unwrap().clone(), request)
     };
-    assert_eq!(request.amount_cents, 500);
+    assert_eq!(request.amount_cents, 290);
     assert_eq!(request.customer_email, "banda@exemplo.com");
     assert!(request.description.contains("Show de Lançamento"));
     assert!(request.description.contains("nº 1 a 10"));
@@ -619,4 +619,66 @@ async fn batches_with_ranges_cannot_be_canceled(pool: PgPool) {
         .await;
     assert!(removed.status.is_success());
     assert_eq!(cancel().await.json()["status"], "canceled");
+}
+
+#[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
+async fn the_first_tickets_of_an_organization_are_free(pool: PgPool) {
+    let app = TestApp::with_free_tickets(pool, 30);
+    let token = app.login("banda@exemplo.com").await;
+    let event = app.create_event(&token, "Show").await;
+    let account = app.get("/api/account", &token).await.json();
+    assert_eq!(
+        (
+            account["freeTicketsLeft"].as_i64(),
+            account["freeTicketsTotal"].as_i64()
+        ),
+        (Some(30), Some(30))
+    );
+
+    // Entirely free: born paid, nothing to charge.
+    let free = batch(&app, &token, &event, 20).await;
+    assert_eq!(
+        (
+            free["status"].as_str(),
+            free["paidVia"].as_str(),
+            free["priceCents"].as_i64(),
+            free["freeTickets"].as_i64()
+        ),
+        (Some("paid"), Some("free"), Some(0), Some(20))
+    );
+    // The rest of the allowance comes off the next batch, in any event of the organization.
+    let other = app.create_event(&token, "Outro show").await;
+    let mixed = batch(&app, &token, &other, 110).await;
+    assert_eq!(
+        (
+            mixed["status"].as_str(),
+            mixed["freeTickets"].as_i64(),
+            mixed["priceCents"].as_i64()
+        ),
+        (Some("awaiting_payment"), Some(10), Some(1_500))
+    );
+    let account = app.get("/api/account", &token).await.json();
+    assert_eq!(account["freeTicketsLeft"], 0);
+    assert_eq!(account["paidTickets"], 20);
+
+    // Canceling an unpaid batch gives its free tickets back.
+    let cancel = app
+        .request(
+            Method::POST,
+            &format!("/api/batches/{}/cancel", mixed["id"].as_str().unwrap()),
+            Some(&token),
+            None,
+        )
+        .await;
+    assert_eq!(cancel.json()["status"], "canceled");
+    assert_eq!(
+        app.get("/api/account", &token).await.json()["freeTicketsLeft"],
+        10
+    );
+    // Another organization has its own allowance.
+    let other_org = app.login("escola@exemplo.com").await;
+    assert_eq!(
+        app.get("/api/account", &other_org).await.json()["freeTicketsLeft"],
+        30
+    );
 }

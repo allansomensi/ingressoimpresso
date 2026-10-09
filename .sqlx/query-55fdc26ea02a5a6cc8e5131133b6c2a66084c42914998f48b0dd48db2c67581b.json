@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into blobs (id, event_id, sha256, content_type, width_px, height_px, byte_size, data)\n           select $1, $2, sha256, content_type, width_px, height_px, byte_size, data\n           from blobs where id = $3",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "55fdc26ea02a5a6cc8e5131133b6c2a66084c42914998f48b0dd48db2c67581b"
+}

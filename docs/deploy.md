@@ -241,6 +241,8 @@ organizador pagar sozinho, com Pix ou cartão:
    | `STRIPE_WEBHOOK_SECRET` | o `whsec_...` do passo 4 |
    | `PUBLIC_WEB_URL` | `https://seudominio.com.br` (para onde a Stripe devolve o pagador) |
 
+   Opcional: `FREE_TICKETS` (ingressos grátis por conta, padrão 30; `0` desliga a oferta; ADR 0024).
+
    As duas chaves vão juntas: com uma só, a API não sobe e o log diz qual falta. Em produção, uma
    chave de teste só gera um aviso no log.
 7. Teste: crie um lote, clique em **Pagar** e pague. Ao voltar ao painel, o lote aparece **Pago**.

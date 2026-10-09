@@ -32,19 +32,20 @@ const MAX_BATCH: i32 = 5_000;
 /// and a new one is opened (the payer needs time to scan a Pix code or type a card).
 const REUSE_MARGIN_MINUTES: i32 = 15;
 
-struct BatchRow {
-    id: Uuid,
-    numbers: PgRange<i32>,
-    status: String,
-    created_at: OffsetDateTime,
-    paid_at: Option<OffsetDateTime>,
-    price_cents: i32,
-    paid_via: Option<String>,
-    pending_payment: Option<String>,
+pub(crate) struct BatchRow {
+    pub(crate) id: Uuid,
+    pub(crate) numbers: PgRange<i32>,
+    pub(crate) status: String,
+    pub(crate) created_at: OffsetDateTime,
+    pub(crate) paid_at: Option<OffsetDateTime>,
+    pub(crate) price_cents: i32,
+    pub(crate) free_tickets: i32,
+    pub(crate) paid_via: Option<String>,
+    pub(crate) pending_payment: Option<String>,
 }
 
 impl BatchRow {
-    fn into_dto(self) -> ApiResult<BatchDto> {
+    pub(crate) fn into_dto(self) -> ApiResult<BatchDto> {
         let (first, last) = bounds(&self.numbers)?;
         Ok(BatchDto {
             id: self.id,
@@ -56,6 +57,7 @@ impl BatchRow {
             created_at: self.created_at,
             paid_at: self.paid_at,
             price_cents: self.price_cents,
+            free_tickets: self.free_tickets,
             paid_via: self.paid_via.as_deref().and_then(PaymentMethod::from_db),
             pending_payment: self
                 .pending_payment
@@ -68,7 +70,7 @@ impl BatchRow {
 async fn load(state: &AppState, batch_id: Uuid) -> ApiResult<BatchDto> {
     sqlx::query_as!(
         BatchRow,
-        r#"select b.id, b.numbers, b.status, b.created_at, b.paid_at, b.price_cents, b.paid_via,
+        r#"select b.id, b.numbers, b.status, b.created_at, b.paid_at, b.price_cents, b.free_tickets, b.paid_via,
                   (select case when bool_or(p.status = 'processing') then 'processing'
                                when bool_or(p.status = 'open' and p.expires_at > now()) then 'open' end
                    from payments p where p.batch_id = b.id) as pending_payment
@@ -83,7 +85,10 @@ async fn load(state: &AppState, batch_id: Uuid) -> ApiResult<BatchDto> {
 
 /// `GET /api/pricing` (no login): the price table, shown on the site and before paying.
 pub async fn pricing_table(State(state): State<AppState>) -> Json<PricingDto> {
-    Json(pricing::table(state.payments.enabled()))
+    Json(pricing::table(
+        state.payments.enabled(),
+        state.config.free_tickets,
+    ))
 }
 
 /// `GET /api/events/{id}/batches`.
@@ -95,7 +100,7 @@ pub async fn list(
     authorize_event(&state.pool, &user, event_id).await?;
     let rows = sqlx::query_as!(
         BatchRow,
-        r#"select b.id, b.numbers, b.status, b.created_at, b.paid_at, b.price_cents, b.paid_via,
+        r#"select b.id, b.numbers, b.status, b.created_at, b.paid_at, b.price_cents, b.free_tickets, b.paid_via,
                   (select case when bool_or(p.status = 'processing') then 'processing'
                                when bool_or(p.status = 'open' and p.expires_at > now()) then 'open' end
                    from payments p where p.batch_id = b.id) as pending_payment
@@ -118,7 +123,13 @@ pub async fn create(
     Path(event_id): Path<Uuid>,
     Json(body): Json<CreateBatchBody>,
 ) -> ApiResult<(StatusCode, Json<BatchDto>)> {
-    authorize_event(&state.pool, &user, event_id).await?;
+    let event = authorize_event(&state.pool, &user, event_id).await?;
+    if event.status == "closed" {
+        return Err(ApiError::Conflict(
+            "event_closed",
+            "reopen the event to create batches".to_owned(),
+        ));
+    }
     if !(1..=MAX_BATCH).contains(&body.quantity) {
         return Err(bad_request(
             "invalid_quantity",
@@ -143,16 +154,46 @@ pub async fn create(
     )
     .fetch_one(&mut *tx)
     .await?;
+    // The organization's free tickets (ADR 0024). Its row lock keeps two batches created at the
+    // same time from spending the same allowance.
+    let bonus = sqlx::query_scalar!(
+        "select bonus_free_tickets from organizations where id = (select organization_id from events where id = $1) for update",
+        event_id
+    )
+    .fetch_one(&mut *tx)
+    .await?;
+    let free_used = sqlx::query_scalar!(
+        r#"select coalesce(sum(b.free_tickets), 0)::int as "used!"
+           from organizations o
+           join events e on e.organization_id = o.id
+           join ticket_batches b on b.event_id = e.id and b.status <> 'canceled'
+           where o.id = (select organization_id from events where id = $1)"#,
+        event_id
+    )
+    .fetch_one(&mut *tx)
+    .await?;
+    let free = (state.config.free_tickets + bonus - free_used).clamp(0, body.quantity);
+    let price = pricing::quote_with_free(body.quantity, free);
+    // A batch entirely covered by free tickets is born paid.
+    let (status, paid_via) = if price == 0 {
+        (BatchStatus::Paid, Some(PaymentMethod::Free.db()))
+    } else {
+        (BatchStatus::AwaitingPayment, None)
+    };
     // A concurrent request computing the same `first` loses on the exclusion constraint (409).
     let id = sqlx::query_scalar!(
-        r#"insert into ticket_batches (id, event_id, numbers, key_id, status, price_cents)
-           values ($1, $2, $3, $4, 'awaiting_payment', $5)
+        r#"insert into ticket_batches
+             (id, event_id, numbers, key_id, status, price_cents, free_tickets, paid_via, paid_at)
+           values ($1, $2, $3, $4, $5, $6, $7, $8, case when $8::text is null then null else now() end)
            returning id"#,
         Uuid::new_v4(),
         event_id,
         range(first, last)?,
         key_id,
-        pricing::quote(body.quantity),
+        status.db(),
+        price,
+        free,
+        paid_via,
     )
     .fetch_one(&mut *tx)
     .await?;

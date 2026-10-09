@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "update events set name = $2, venue = $3, starts_at = $4, ends_at = $5, ticket_price_cents = $6\n           where id = $1\n           returning id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag",
+  "query": "select e.id, e.name, e.venue, e.starts_at, e.ends_at, e.ticket_price_cents, e.status, e.qr_tag,\n                  e.utc_offset_minutes\n           from events e join memberships m on m.organization_id = e.organization_id\n           where m.user_id = $1 order by e.starts_at desc",
   "describe": {
     "columns": [
       {
@@ -90,16 +90,22 @@
             "name": "qr_tag"
           }
         }
+      },
+      {
+        "ordinal": 8,
+        "name": "utc_offset_minutes",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "utc_offset_minutes"
+          }
+        }
       }
     ],
     "parameters": {
       "Left": [
-        "Uuid",
-        "Text",
-        "Text",
-        "Timestamptz",
-        "Timestamptz",
-        "Int4"
+        "Uuid"
       ]
     },
     "nullable": [
@@ -110,8 +116,9 @@
       false,
       true,
       false,
+      false,
       false
     ]
   },
-  "hash": "0da04f023a71a9a5b052dcd10b31ef5c3b2973ad91bbf6ce69db391213a9380b"
+  "hash": "47de960089ed8dac2eef058103c013cceeb62eafbfe8e600599482ba31c66b04"
 }

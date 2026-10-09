@@ -13,7 +13,11 @@ use ticket_core::{
     EventId, EventKey, EventSigningKey, EventTag, EventVerifier, KeyId, KeyStatus, TicketIssuer,
     TicketNumber,
 };
-use ticket_render::{Art, MAX_TICKETS_PER_JOB, RenderJob, TicketDesign, TicketQr, TicketToRender};
+use ticket_render::{
+    Art, EventDetails, MAX_TICKETS_PER_JOB, RenderJob, TicketDesign, TicketQr, TicketToRender,
+};
+use time::PrimitiveDateTime;
+use time::macros::format_description;
 
 /// A local job file.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -43,6 +47,15 @@ pub struct JobEvent {
     pub key_id: u8,
     /// Name printed on stubs and control sheets.
     pub name: String,
+    /// Venue, for the design's text blocks (`{local}`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub venue: Option<String>,
+    /// Local start as `2026-03-14T21:00`, for `{data}`, `{hora}` and the other date fields.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub starts_at: Option<String>,
+    /// Ticket price in cents, for `{preco}`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub price_cents: Option<i64>,
 }
 
 /// Inclusive number range.
@@ -100,6 +113,9 @@ pub fn init(name: &str, job_path: &Path, seed_path: &Path) -> Result<JobFile> {
             tag,
             key_id: 1,
             name: name.to_owned(),
+            venue: None,
+            starts_at: None,
+            price_cents: None,
         },
         design: TicketDesign::default_v1(),
         art: None,
@@ -228,7 +244,26 @@ impl JobFile {
             design: self.design.clone(),
             art,
             event_name: self.event.name.clone(),
+            details: self.details()?,
             tickets,
+        })
+    }
+
+    fn details(&self) -> Result<EventDetails> {
+        let starts_at = match &self.event.starts_at {
+            Some(text) => Some(
+                PrimitiveDateTime::parse(
+                    text,
+                    format_description!("[year]-[month]-[day]T[hour]:[minute]"),
+                )
+                .with_context(|| format!("event.startsAt {text:?} is not like 2026-03-14T21:00"))?,
+            ),
+            None => None,
+        };
+        Ok(EventDetails {
+            venue: self.event.venue.clone(),
+            starts_at,
+            price_cents: self.event.price_cents,
         })
     }
 

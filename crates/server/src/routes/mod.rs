@@ -1,5 +1,7 @@
 //! HTTP handlers grouped by resource.
 
+pub mod account;
+pub mod admin;
 pub mod batches;
 pub mod door;
 pub mod events;
@@ -12,11 +14,16 @@ use std::ops::Bound;
 
 use sqlx::PgPool;
 use sqlx::postgres::types::PgRange;
-use time::OffsetDateTime;
+use ticket_render::EventDetails;
+use time::macros::offset;
+use time::{OffsetDateTime, PrimitiveDateTime, UtcOffset};
 use uuid::Uuid;
 
 use crate::auth::AuthUser;
 use crate::error::{ApiError, ApiResult, bad_request};
+
+/// Offset of events created before offsets were stored (ADR 0025).
+const BRASILIA: UtcOffset = offset!(-3);
 
 /// Largest ticket number accepted (keeps `last + 1` inside i32 and batches reasonable).
 pub const MAX_TICKET_NUMBER: i32 = 9_999_999;
@@ -32,6 +39,24 @@ pub struct EventRow {
     pub ticket_price_cents: Option<i32>,
     pub status: String,
     pub qr_tag: i64,
+    pub utc_offset_minutes: i16,
+}
+
+impl EventRow {
+    /// The event's UTC offset (Brasília time if the stored value were ever out of range).
+    pub fn offset(&self) -> UtcOffset {
+        UtcOffset::from_whole_seconds(i32::from(self.utc_offset_minutes) * 60).unwrap_or(BRASILIA)
+    }
+
+    /// Venue, local start and price for the design's text blocks.
+    pub fn details(&self) -> EventDetails {
+        let start = self.starts_at.to_offset(self.offset());
+        EventDetails {
+            venue: self.venue.clone(),
+            starts_at: Some(PrimitiveDateTime::new(start.date(), start.time())),
+            price_cents: self.ticket_price_cents.map(i64::from),
+        }
+    }
 }
 
 /// Loads an event if the user is a member of its organization; 404 otherwise (never reveals
@@ -43,7 +68,8 @@ pub async fn authorize_event(
 ) -> ApiResult<EventRow> {
     sqlx::query_as!(
         EventRow,
-        r#"select e.id, e.name, e.venue, e.starts_at, e.ends_at, e.ticket_price_cents, e.status, e.qr_tag
+        r#"select e.id, e.name, e.venue, e.starts_at, e.ends_at, e.ticket_price_cents, e.status, e.qr_tag,
+                  e.utc_offset_minutes
            from events e join memberships m on m.organization_id = e.organization_id
            where e.id = $1 and m.user_id = $2"#,
         event_id,

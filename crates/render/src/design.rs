@@ -26,6 +26,11 @@ const MAX_STUB_FIELD_CHARS: usize = 24;
 const STUB_BASE_HEIGHT_MM: f64 = 15.1;
 /// Height of each stub field: gap, label and room to write by hand above the line.
 const STUB_FIELD_HEIGHT_MM: f64 = 7.6;
+const MAX_TEXT_BLOCKS: usize = 8;
+const MAX_TEXT_CHARS: usize = 200;
+const TEXT_SIZE_PT: (f64, f64) = (3.0, 200.0);
+const MAX_TEXT_LINES: u8 = 4;
+const LETTER_SPACING_EM: (f64, f64) = (-0.1, 1.0);
 
 /// A ticket design.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -50,6 +55,48 @@ pub struct TicketDesign {
     pub qr: QrPlacement,
     /// Optional numbered stub (canhoto), attached by a perforation.
     pub stub: Option<StubStyle>,
+    /// Texts printed on the body, under the number and the QR. Designs saved before text
+    /// blocks existed have none.
+    #[serde(default)]
+    pub texts: Vec<TextBlock>,
+}
+
+/// A box of text on the body. `{evento}`, `{data}` and the other fields of
+/// [`crate::fields::FIELDS`] are replaced by the event's details when printing.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[cfg_attr(
+    feature = "ts",
+    derive(ts_rs::TS),
+    ts(export, export_to = "api-types/src/generated/")
+)]
+pub struct TextBlock {
+    /// Text, possibly with fields such as `{evento}`.
+    pub text: String,
+    /// Box left edge.
+    pub x_mm: f64,
+    /// Box top edge.
+    pub y_mm: f64,
+    /// Box width.
+    pub width_mm: f64,
+    /// Box height.
+    pub height_mm: f64,
+    /// Typeface.
+    pub font: FontChoice,
+    /// Font size in points; the text shrinks to fit its box.
+    pub size_pt: f64,
+    /// Text colour (`#rrggbb`).
+    pub color: String,
+    /// Horizontal alignment inside the box (always vertically centred).
+    pub align: TextAlign,
+    /// Most lines before the text is cut with "…"; 1 keeps it on a single line.
+    pub lines: u8,
+    /// Bold weight (typefaces with a bold variant).
+    pub bold: bool,
+    /// Printed in capitals.
+    pub uppercase: bool,
+    /// Extra space between letters, in em.
+    pub letter_spacing: f64,
 }
 
 /// Where and how the ticket number is printed.
@@ -98,6 +145,16 @@ pub enum FontChoice {
     Mono,
     /// Lato: neutral sans serif.
     Sans,
+    /// Anton: heavy condensed capitals (sports, rock).
+    Condensed,
+    /// Abril Fatface: high-contrast display serif (theatre, galas).
+    Serif,
+    /// Great Vibes: formal script (weddings, graduations).
+    Script,
+    /// Pacifico: casual brush script (parties, kids).
+    Casual,
+    /// Alfa Slab One: bold slab serif (festa junina, country).
+    Slab,
 }
 
 /// Horizontal alignment.
@@ -187,8 +244,32 @@ pub enum DesignIssue {
     /// A box is not entirely inside the body.
     #[error("{element} must lie entirely inside the ticket")]
     OutOfBounds {
-        /// `"number"` or `"qr"`.
+        /// `"number"`, `"qr"` or `"text"`.
         element: &'static str,
+    },
+    /// Too many text blocks, or a text too long.
+    #[error("a ticket accepts up to {max_blocks} texts of up to {max_chars} characters")]
+    Texts {
+        /// Maximum number of blocks.
+        max_blocks: usize,
+        /// Maximum characters per block.
+        max_chars: usize,
+    },
+    /// A text block's font size, lines or letter spacing outside the supported range.
+    #[error(
+        "texts must be {min_pt}–{max_pt} pt, 1–{max_lines} lines and {min_spacing}–{max_spacing} em apart"
+    )]
+    TextStyle {
+        /// Minimum size.
+        min_pt: f64,
+        /// Maximum size.
+        max_pt: f64,
+        /// Maximum lines.
+        max_lines: u8,
+        /// Minimum letter spacing.
+        min_spacing: f64,
+        /// Maximum letter spacing.
+        max_spacing: f64,
     },
     /// QR smaller than the minimum.
     #[error("QR code must be at least {min_mm} mm")]
@@ -276,6 +357,7 @@ impl TicketDesign {
                 width_mm: 40.0,
                 fields: vec!["Nome".to_owned(), "Telefone".to_owned()],
             }),
+            texts: Vec::new(),
         }
     }
 
@@ -331,6 +413,7 @@ impl TicketDesign {
         }
         self.validate_number(&mut issues);
         self.validate_qr(&mut issues);
+        self.validate_texts(&mut issues);
         if let Some(stub) = &self.stub {
             if !within(stub.width_mm, STUB_WIDTH_MM) {
                 issues.push(DesignIssue::StubWidth {
@@ -397,6 +480,45 @@ impl TicketDesign {
         }
         if !self.contains(qr.x_mm, qr.y_mm, qr.size_mm, qr.size_mm) {
             issues.push(DesignIssue::OutOfBounds { element: "qr" });
+        }
+    }
+
+    fn validate_texts(&self, issues: &mut Vec<DesignIssue>) {
+        let texts = &self.texts;
+        if texts.len() > MAX_TEXT_BLOCKS
+            || texts
+                .iter()
+                .any(|block| block.text.chars().count() > MAX_TEXT_CHARS)
+        {
+            issues.push(DesignIssue::Texts {
+                max_blocks: MAX_TEXT_BLOCKS,
+                max_chars: MAX_TEXT_CHARS,
+            });
+        }
+        if texts
+            .iter()
+            .any(|b| !self.contains(b.x_mm, b.y_mm, b.width_mm, b.height_mm))
+        {
+            issues.push(DesignIssue::OutOfBounds { element: "text" });
+        }
+        if texts.iter().any(|b| {
+            !within(b.size_pt, TEXT_SIZE_PT)
+                || b.lines == 0
+                || b.lines > MAX_TEXT_LINES
+                || !within(b.letter_spacing, LETTER_SPACING_EM)
+        }) {
+            issues.push(DesignIssue::TextStyle {
+                min_pt: TEXT_SIZE_PT.0,
+                max_pt: TEXT_SIZE_PT.1,
+                max_lines: MAX_TEXT_LINES,
+                min_spacing: LETTER_SPACING_EM.0,
+                max_spacing: LETTER_SPACING_EM.1,
+            });
+        }
+        if texts.iter().any(|b| !is_hex_color(&b.color)) {
+            issues.push(DesignIssue::InvalidColor {
+                field: "texts.color",
+            });
         }
     }
 
@@ -506,6 +628,60 @@ mod tests {
             stub.fields.pop();
         }
         assert_eq!(design.validate(), Ok(()));
+    }
+
+    fn text(text: &str) -> TextBlock {
+        TextBlock {
+            text: text.to_owned(),
+            x_mm: 6.0,
+            y_mm: 20.0,
+            width_mm: 100.0,
+            height_mm: 12.0,
+            font: FontChoice::Serif,
+            size_pt: 20.0,
+            color: "#222222".to_owned(),
+            align: TextAlign::Left,
+            lines: 2,
+            bold: false,
+            uppercase: false,
+            letter_spacing: 0.0,
+        }
+    }
+
+    #[test]
+    fn accepts_text_blocks() {
+        let mut design = TicketDesign::default_v1();
+        design.texts = vec![text("{evento}"), text("{data_extenso} · {hora}")];
+        assert_eq!(design.validate(), Ok(()));
+    }
+
+    #[test]
+    fn rejects_bad_text_blocks() {
+        let mut design = TicketDesign::default_v1();
+        let mut outside = text("Fora");
+        outside.x_mm = 100.0;
+        let mut huge = text("Grande");
+        huge.size_pt = 500.0;
+        huge.lines = 0;
+        let mut colorless = text("Sem cor");
+        colorless.color = "red".to_owned();
+        design.texts = vec![outside, huge, colorless, text(&"x".repeat(201))];
+        let issues = design.validate().unwrap_err();
+        assert_eq!(issues.len(), 4, "{issues:?}");
+        assert!(issues.contains(&DesignIssue::OutOfBounds { element: "text" }));
+        design.texts = vec![text("a"); 9];
+        assert!(matches!(
+            design.validate().unwrap_err().as_slice(),
+            [DesignIssue::Texts { .. }]
+        ));
+    }
+
+    #[test]
+    fn designs_without_texts_still_load() {
+        let mut json = serde_json::to_value(TicketDesign::default_v1()).unwrap();
+        json.as_object_mut().unwrap().remove("texts");
+        let design: TicketDesign = serde_json::from_value(json).unwrap();
+        assert_eq!(design, TicketDesign::default_v1());
     }
 
     #[test]

@@ -253,6 +253,33 @@ async fn design_art_and_preview(pool: PgPool) {
     // Same bytes → same blob.
     let again = app.send(upload(png(1843, 720), "image/png")).await.json();
     assert_eq!(again["id"], art["id"]);
+    // The editor's live preview: a JPEG at most 1600 px wide, cacheable.
+    let shown = app
+        .get(
+            &format!("/api/events/{event}/art/{}", art["id"].as_str().unwrap()),
+            &token,
+        )
+        .await;
+    assert_eq!(shown.status, StatusCode::OK);
+    assert_eq!(shown.headers[header::CONTENT_TYPE], "image/jpeg");
+    assert!(
+        shown.headers[header::CACHE_CONTROL]
+            .to_str()
+            .unwrap()
+            .contains("immutable")
+    );
+    assert_eq!(image::load_from_memory(&shown.bytes).unwrap().width(), 1600);
+    let other_event = app.create_event(&token, "Outro show").await;
+    let hidden = app
+        .get(
+            &format!(
+                "/api/events/{other_event}/art/{}",
+                art["id"].as_str().unwrap()
+            ),
+            &token,
+        )
+        .await;
+    assert_eq!(hidden.status, StatusCode::NOT_FOUND);
     let svg = app.send(upload(b"<svg/>".to_vec(), "image/svg+xml")).await;
     assert_eq!(svg.status, StatusCode::BAD_REQUEST);
     assert_eq!(svg.error_code(), "unsupported_art");
@@ -303,6 +330,58 @@ async fn design_art_and_preview(pool: PgPool) {
         )
         .await;
     assert_eq!(foreign.error_code(), "unknown_art");
+}
+
+#[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
+async fn events_keep_their_local_time_and_designs_print_texts(pool: PgPool) {
+    let app = TestApp::new(pool);
+    let token = app.login("manaus@exemplo.com").await;
+    let created = app
+        .post(
+            "/api/events",
+            &token,
+            json!({
+                "name": "Boi na Arena",
+                "venue": "Arena da Amazônia",
+                "startsAt": "2026-06-27T20:30:00-04:00",
+                "endsAt": "2026-06-28T02:00:00-04:00",
+                "ticketPriceCents": 3000
+            }),
+        )
+        .await;
+    assert_eq!(created.status, StatusCode::CREATED);
+    let event = created.json();
+    // The API answers in the event's own offset, not in UTC.
+    assert_eq!(event["startsAt"], "2026-06-27T20:30:00-04:00");
+    let id = event["id"].as_str().unwrap();
+
+    let mut design = app
+        .get(&format!("/api/events/{id}/design"), &token)
+        .await
+        .json()["design"]
+        .clone();
+    assert_eq!(design["texts"], json!([]));
+    design["texts"] = json!([{
+        "text": "{evento} · {data_extenso} · {hora} · {preco}",
+        "xMm": 6, "yMm": 20, "widthMm": 100, "heightMm": 14,
+        "font": "script", "sizePt": 18, "color": "#202020", "align": "left",
+        "lines": 2, "bold": false, "uppercase": true, "letterSpacing": 0.05
+    }]);
+    let body = json!({ "design": design, "artId": null });
+    let saved = app
+        .put(&format!("/api/events/{id}/design"), &token, body.clone())
+        .await;
+    assert_eq!(
+        saved.status,
+        StatusCode::OK,
+        "{}",
+        String::from_utf8_lossy(&saved.bytes)
+    );
+    assert_eq!(saved.json()["design"]["texts"][0]["font"], "script");
+    let preview = app
+        .post(&format!("/api/events/{id}/design/preview"), &token, body)
+        .await;
+    assert_eq!(preview.status, StatusCode::OK);
 }
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]

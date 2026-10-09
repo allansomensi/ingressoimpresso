@@ -10,12 +10,16 @@ import { useState } from "react";
 import { EventFormDialog } from "@/components/panel/event-form";
 import { Badge, Button, EmptyState, ErrorMessage, PageHeader, Skeleton, type Tone } from "@/components/ui";
 import { api } from "@/lib/api";
+import { cn } from "@/lib/cn";
 import { dateParts, money } from "@/lib/format";
 import { texts } from "@/texts/pt-BR";
 
 const t = texts.panel;
 
 function phase(event: EventDto, now: number): { label: string; tone: Tone } {
+  if (event.status === "closed") {
+    return { label: texts.event.actions.archivedBadge, tone: "neutral" };
+  }
   const start = Date.parse(event.startsAt);
   const end = Date.parse(event.endsAt);
   if (now > end) {
@@ -76,7 +80,10 @@ export default function EventsPage() {
   const router = useRouter();
   const events = useQuery({ queryKey: ["events"], queryFn: () => api<EventDto[]>("/api/events") });
   const [creating, setCreating] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
   const now = events.dataUpdatedAt;
+  const archived = events.data?.filter((event) => event.status === "closed") ?? [];
+  const shown = events.data?.filter((event) => (event.status === "closed") === showArchived) ?? [];
 
   const newButton = (
     <Button
@@ -103,10 +110,37 @@ export default function EventsPage() {
       ) : events.data.length === 0 ? (
         <EmptyState icon={CalendarPlus} title={t.emptyTitle} description={t.empty} action={newButton} />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {events.data.map((event) => (
-            <EventCard key={event.id} event={event} now={now} />
-          ))}
+        <div className="flex flex-col gap-4">
+          {archived.length > 0 && (
+            <div role="radiogroup" aria-label={t.title} className="flex w-fit rounded-full border border-border bg-surface-2 p-0.5">
+              {[false, true].map((option) => (
+                <button
+                  key={String(option)}
+                  type="button"
+                  role="radio"
+                  aria-checked={showArchived === option}
+                  onClick={() => {
+                    setShowArchived(option);
+                  }}
+                  className={cn(
+                    "rounded-full px-3 py-1.5 text-sm font-medium transition",
+                    showArchived === option ? "bg-surface text-fg shadow-sm ring-1 ring-border" : "text-fg-muted hover:text-fg",
+                  )}
+                >
+                  {option ? t.archivedFilter(archived.length) : t.activeFilter}
+                </button>
+              ))}
+            </div>
+          )}
+          {shown.length === 0 ? (
+            <EmptyState icon={CalendarPlus} title={t.noActiveTitle} description={t.empty} action={newButton} />
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {shown.map((event) => (
+                <EventCard key={event.id} event={event} now={now} />
+              ))}
+            </div>
+          )}
         </div>
       )}
       <EventFormDialog
