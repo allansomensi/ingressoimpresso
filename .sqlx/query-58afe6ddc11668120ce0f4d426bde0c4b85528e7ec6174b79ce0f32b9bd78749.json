@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update ticket_batches set price_cents = $2 where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "58afe6ddc11668120ce0f4d426bde0c4b85528e7ec6174b79ce0f32b9bd78749"
+}

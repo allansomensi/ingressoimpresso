@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "update ticket_batches set status = 'canceled' where id = $1 and status = 'awaiting_payment'\n           returning id, numbers, status, created_at, paid_at",
+  "query": "select b.id, b.numbers, b.status, b.created_at, b.paid_at, b.price_cents, b.paid_via,\n                  exists(select 1 from payments p where p.batch_id = b.id and p.status = 'open'\n                         and p.expires_at > now()) as \"payment_pending!\"\n           from ticket_batches b where b.event_id = $1 order by lower(b.numbers)",
   "describe": {
     "columns": [
       {
@@ -57,6 +57,34 @@
             "name": "paid_at"
           }
         }
+      },
+      {
+        "ordinal": 5,
+        "name": "price_cents",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "ticket_batches",
+            "name": "price_cents"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "paid_via",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ticket_batches",
+            "name": "paid_via"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "payment_pending!",
+        "type_info": "Bool",
+        "origin": "Expression"
       }
     ],
     "parameters": {
@@ -69,8 +97,11 @@
       false,
       false,
       false,
-      true
+      true,
+      false,
+      true,
+      null
     ]
   },
-  "hash": "f40f1709225d56edf9421c5c04624bdae342ca8bf5b9e4eaafad2b6c19c8ea81"
+  "hash": "729a74ec8be3fa9a13456fa684e8ba4fc8d6689683e2b893b68936a68a08d1d4"
 }

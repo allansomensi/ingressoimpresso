@@ -18,12 +18,15 @@ use axum::http::{Method, Request, StatusCode, header};
 use http_body_util::BodyExt as _;
 use ingressoimpresso_server::config::Config;
 use ingressoimpresso_server::mail::{Mailer, SentMail};
+use ingressoimpresso_server::payments::{FakeStripe, Payments};
 use ingressoimpresso_server::state::AppState;
 use serde_json::Value;
 use sqlx::PgPool;
 use tower::ServiceExt as _;
 
 pub const ADMIN: &str = "admin@exemplo.com";
+/// Webhook secret of the fake Stripe.
+pub const WEBHOOK_SECRET: &str = "whsec_test_fake";
 
 pub struct TestApp {
     pub router: Router,
@@ -60,6 +63,23 @@ impl Reply {
 
 impl TestApp {
     pub fn new(pool: PgPool) -> Self {
+        Self::build(pool, Payments::Disabled)
+    }
+
+    /// An app whose online payments go to an in-memory Stripe.
+    pub fn with_stripe(pool: PgPool) -> (Self, Arc<Mutex<FakeStripe>>) {
+        let stripe = Arc::new(Mutex::new(FakeStripe::default()));
+        let app = Self::build(
+            pool,
+            Payments::Fake {
+                stripe: stripe.clone(),
+                webhook_secret: WEBHOOK_SECRET.to_owned(),
+            },
+        );
+        (app, stripe)
+    }
+
+    fn build(pool: PgPool, payments: Payments) -> Self {
         let export_dir = std::env::temp_dir().join(format!("ii-exports-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(&export_dir).unwrap();
         let dir = export_dir.display().to_string();
@@ -76,7 +96,8 @@ impl TestApp {
         })
         .unwrap();
         let sent = Arc::new(Mutex::new(Vec::new()));
-        let state = AppState::new(pool, config, Mailer::Memory(sent.clone()));
+        let state =
+            AppState::new(pool, config, Mailer::Memory(sent.clone())).with_payments(payments);
         Self {
             router: ingressoimpresso_server::app::router(state.clone()),
             state,

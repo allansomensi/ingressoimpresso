@@ -47,3 +47,10 @@ services:
         sync: false
       - key: PUBLIC_API_URL
         sync: false
+      # ADR 0020 (docs/deploy.md §5.1): optional pair; without it an admin marks batches as paid.
+      - key: PUBLIC_WEB_URL
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false

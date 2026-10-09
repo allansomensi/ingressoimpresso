@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into payments\n             (id, batch_id, checkout_session_id, checkout_url, amount_cents, currency, created_by, expires_at)\n           values ($1, $2, $3, $4, $5, $6, $7, $8)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Text",
+        "Int4",
+        "Text",
+        "Uuid",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d15521fc54aab4ce38eadcb5aa3e8bab8c9dcb5e23553ce7b0c0cec5fb39152c"
+}

@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update payments set status = 'failed' where checkout_session_id = $1 and status = 'open'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "3d76041d34bfba03cedf0d3d2b647eb85f758d82adca1507a38c38c7e96a0a10"
+}

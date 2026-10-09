@@ -34,7 +34,9 @@ clap = { version = "4.6.7", features = ["derive"] }
 curve25519-dalek = { version = "5.0.0", default-features = false }
 ed25519-dalek = { version = "3.0.0", default-features = false, features = ["zeroize"] }
 getrandom = { version = "0.4.3", default-features = false }
+form_urlencoded = "1.2.2"
 hex = "0.4.3"
+hmac = "0.13.0"
 image = { version = "0.25.10", default-features = false, features = ["png", "jpeg"] }
 lopdf = "0.45.0"
 qrcodegen = "1.8.0"

@@ -42,6 +42,10 @@ pub fn router(state: AppState) -> Router {
             get(batches::list).post(batches::create),
         )
         .route("/batches/{id}/cancel", post(batches::cancel))
+        .route("/batches/{id}/checkout", post(batches::checkout))
+        .route("/batches/{id}/checkout/sync", post(batches::sync_checkout))
+        .route("/pricing", get(batches::pricing_table))
+        .route("/stripe/webhook", post(batches::stripe_webhook))
         .route("/admin/batches/{id}/mark-paid", post(batches::mark_paid))
         .route(
             "/events/{id}/sellers",
