@@ -22,8 +22,8 @@ Troque **`seudominio.com.br`** pelo seu domínio em todos os passos.
 
 | Serviço | Plano | Custo |
 |---|---|---|
-| Render | Starter (0,5 CPU, 512 MB, sempre ligado) | cerca de US$ 7 |
-| Neon | Free (100 CU-hora/mês, 1 GB) | US$ 0 |
+| Render | Starter (0,5 CPU, 512 MB, sempre ligado) | cerca de US$ 7, mais US$ 0,15 por GB baixado acima de 5 GB/mês (os PDFs e ZIPs saem pela API) |
+| Neon | Free (100 CU-hora, 1 GB de banco e 5 GB de transferência por mês) | US$ 0 |
 | Resend | Free (100 e-mails/dia, 3.000/mês) | US$ 0 |
 | Vercel | Hobby | US$ 0 (uso não comercial; o Pro custa US$ 20 quando houver clientes pagando) |
 | GitHub Actions | repositório público | US$ 0 |
@@ -38,6 +38,8 @@ Você vai precisar de:
 
 - um **gerenciador de senhas** (Bitwarden, 1Password ou similar) para guardar as chaves;
 - um **cartão de crédito** para o Render (o plano Starter é pago);
+- contas no **GitHub** (o repositório), na **Vercel** (plano Hobby, entrando com o GitHub), no
+  **Neon**, no **Resend** e no **Render**;
 - acesso ao **Registro.br** com o domínio;
 - o programa **age**, para o backup: macOS `brew install age`; Ubuntu/Debian `sudo apt install age`;
   Windows `winget install --id FiloSottile.age` (depois abra um terminal novo).
@@ -121,7 +123,14 @@ termina verde. É esperado.
    - **Name:** `mail.seudominio.com.br` (um subdomínio, como o Resend recomenda);
    - **Region:** **São Paulo (sa-east-1)**. Não dá para mudar depois;
    - mantenha o *Return-Path* padrão (`send`) e clique em **Add**.
-3. Deixe a aba **Records** aberta: os valores dela entram no DNS no passo seguinte.
+3. Deixe a aba **Records** aberta: os registros dela entram no DNS no passo seguinte.
+4. **API Keys** → **Create API Key**:
+   - **Name:** `ingressoimpresso-render`;
+   - **Permission:** **Sending access**;
+   - **Domain:** **All domains**. Uma chave restrita a `mail.seudominio.com.br` só pode ser criada
+     depois da verificação e não envia pelo remetente de teste do Resend.
+
+   Copie a chave (`re_...`) para o gerenciador de senhas: ela só aparece uma vez.
 
 ## 4. DNS no Registro.br: modo avançado e registros do e-mail
 
@@ -141,20 +150,18 @@ termina verde. É esperado.
    | TXT | `resend._domainkey.mail` | o `p=...` da aba Records, inteiro, sem aspas |
    | TXT | `_dmarc` | `v=DMARC1; p=none;` |
 
-   - Copie os valores **da aba Records do Resend**: se forem diferentes da tabela, valem os do
-     Resend.
+   - Copie os registros **da aba Records do Resend**, inclusive o **tipo**: se forem diferentes da
+     tabela, valem os do Resend. Domínios novos podem receber, no lugar do MX e do TXT de
+     `send.mail`, dois registros **CNAME** (por exemplo `send.mail` e `rsend.mail`). Nesse caso,
+     crie só os CNAME, e não o MX nem o TXT de `send.mail`: um CNAME não divide o nome com nenhum
+     outro registro.
    - Se o formulário do MX não tiver campo de prioridade, escreva `10 feedback-smtp...`.
    - Só pode existir **um** MX em `send.mail`.
 4. Clique em **Salvar alterações**. Nada é publicado sem isso.
 5. No Resend: **Domains** → `mail.seudominio.com.br` → **Verify DNS Records**. Costuma ficar
    **Verified** em uns 15 minutos (no pior caso, até 72 horas). Se ficar **Failed**, corrija o
-   registro que não ficou verde e clique em **Restart verification**.
-6. Depois de verificado: **API Keys** → **Create API Key**:
-   - **Name:** `ingressoimpresso-render`;
-   - **Permission:** **Sending access**;
-   - **Domain:** `mail.seudominio.com.br`.
-
-   Copie a chave (`re_...`) para o gerenciador de senhas: ela só aparece uma vez.
+   registro que não ficou verde e clique em **Restart verification**. Com dois CNAME, o domínio
+   pode aparecer como **Partially verified** até o segundo ser confirmado.
 
 Em **Domains** → **Configuration**, deixe o rastreamento de cliques e aberturas desligado (é o
 padrão).
@@ -164,15 +171,16 @@ padrão).
 1. Entre em `https://dashboard.render.com` com o GitHub e cadastre o cartão em **Billing**.
 2. **New** → **Blueprint** → escolha o repositório `allansomensi/ingressoimpresso`. Se ele não
    aparecer, clique em **Configure GitHub** e libere o repositório para o app do Render.
-3. **Branch:** `main`. Deixe o caminho do Blueprint em branco (`render.yaml`). A revisão deve mostrar
-   um serviço: `ingressoimpresso-api`, Docker, Virginia, Starter.
+3. **Blueprint Name:** `ingressoimpresso`; **Branch:** `main`. Deixe o caminho do Blueprint em
+   branco (`render.yaml`). A revisão deve mostrar um serviço: `ingressoimpresso-api`, Docker,
+   Virginia, Starter.
 4. Preencha as variáveis pedidas:
 
    | Variável | Valor |
    |---|---|
    | `DATABASE_URL` | a string do Neon com `?sslmode=verify-full` (passo 2) |
    | `TICKET_KEY_ENCRYPTION_KEY` | a chave mestra (passo 0) |
-   | `RESEND_API_KEY` | a chave `re_...` (passo 4) |
+   | `RESEND_API_KEY` | a chave `re_...` (passo 3) |
    | `MAIL_FROM` | `Ingresso Impresso <login@mail.seudominio.com.br>` |
    | `ADMIN_EMAILS` | seu e-mail (pode marcar lotes como pagos); vários, separados por vírgula |
    | `PUBLIC_API_URL` | `https://api.seudominio.com.br` |
@@ -181,7 +189,8 @@ padrão).
    - Sem barra no fim, sem espaços dentro dos endereços.
    - Se o Resend ainda não verificou o domínio, use por enquanto
      `Ingresso Impresso <onboarding@resend.dev>` em `MAIL_FROM`. Nesse modo, só o e-mail da sua conta
-     no Resend recebe os códigos.
+     no Resend recebe os códigos. Quando ficar **Verified**, troque `MAIL_FROM` por
+     `Ingresso Impresso <login@mail.seudominio.com.br>` (**Save and deploy**, abaixo).
 5. Clique em **Deploy Blueprint**. A primeira compilação do Rust leva de 20 a 40 minutos; as
    seguintes são bem mais rápidas. Acompanhe em `ingressoimpresso-api` → **Events** → o deploy em
    andamento.
@@ -190,8 +199,10 @@ padrão).
    - `…/healthz` → 200 (a API está de pé);
    - `…/readyz` → 200 (o banco também respondeu).
 
-   Se o deploy falhar, abra **Logs**: um erro de configuração aparece como
-   `configuration error: ...` com o nome da variável.
+   Se o deploy falhar, abra **Logs**. Uma variável faltando ou inválida aparece como
+   `configuration error: ...`, com o nome dela. Um problema na `DATABASE_URL` (senha, host com
+   `-pooler` ou `sslmode`) aparece como `server stopped` com `connecting to the database`: copie de
+   novo a string do Neon (passo 2).
 7. **Domínio da API:** em **Settings** → **Custom Domains** → **Add Custom Domain**, digite
    `api.seudominio.com.br` e salve.
 8. No Registro.br, **Nova entrada**: tipo **CNAME**, nome `api`, valor = o host do serviço sem
@@ -208,20 +219,25 @@ O build da Vercel não tem Rust, e a portaria precisa do WebAssembly do núcleo.
 compila e publica é o GitHub Actions (workflow **Deploy web**). O `apps/web/vercel.json` desliga os
 builds automáticos da Vercel.
 
-1. No projeto da Vercel, em **Settings**:
-   - **Build and Deployment:** **Root Directory** = `apps/web`, **Node.js Version** = 22.x;
+1. Se ainda não tem o projeto: **Add New** → **Project** → importe `allansomensi/ingressoimpresso`.
+   Antes de clicar em **Deploy**, escolha **Root Directory** = `apps/web` e confira que o
+   **Framework Preset** ficou **Next.js**. Esse primeiro build falha, porque a Vercel não tem Rust:
+   é esperado.
+2. No projeto da Vercel, em **Settings**:
+   - **Build and Deployment:** **Root Directory** = `apps/web`, **Framework Preset** = Next.js,
+     **Node.js Version** = 22.x;
    - **Git:** se houver um repositório conectado, desconecte. Assim nenhum push dispara um build
      que falharia.
-2. **Settings** → **Environment Variables** → nova variável:
+3. **Settings** → **Environment Variables** → nova variável:
    - **Key:** `NEXT_PUBLIC_API_URL`;
    - **Value:** `https://api.seudominio.com.br` (sem barra no fim);
    - **Type:** **Config**, não Secret: variáveis `NEXT_PUBLIC_` vão para o navegador, e uma Secret
      chegaria vazia no build;
    - **Environments:** Production e Preview.
-3. **Settings** → **Domains** → **Add Domain** → `seudominio.com.br`. Aceite adicionar também o
+4. **Settings** → **Domains** → **Add Domain** → `seudominio.com.br`. Aceite adicionar também o
    `www.seudominio.com.br` e escolha **redirecionar `www` para `seudominio.com.br`** (308). O site
    fica no domínio sem `www`, e o link da portaria também.
-4. No Registro.br, **Nova entrada** para cada registro e depois **Salvar alterações**:
+5. No Registro.br, **Nova entrada** para cada registro e depois **Salvar alterações**:
 
    | Tipo | Nome | Valor |
    |---|---|---|
@@ -233,30 +249,36 @@ builds automáticos da Vercel.
      operadoras brasileiras sem acesso aos IPs novos. Para um público no Brasil, prefira os da
      tabela.
    - Só um registro A no domínio raiz, e nenhum AAAA em `@`, `www` ou `api`.
-5. Na Vercel, **Domains** → **Refresh** até os dois aparecerem como **Valid Configuration**, com
+6. Na Vercel, **Domains** → **Refresh** até os dois aparecerem como **Valid Configuration**, com
    certificado emitido.
-6. **Token para o GitHub:** avatar → **Account Settings** → **Tokens** → **Create**:
-   - **Scope:** o time dono do projeto (não "Full Account");
+7. **Token para o GitHub:** avatar → **Account Settings** → **Tokens** → **Create**:
+   - **Scope:** clique no time dono do projeto e escolha **All Projects** (não "Full Account" nem um
+     projeto só);
    - **Expiration:** 1 ano, com um lembrete na agenda para renovar.
 
    Copie o token: ele só aparece uma vez.
-7. **IDs:**
+8. **IDs:**
    - **Project ID** (`prj_...`): projeto → **Settings** → **General**;
    - **Team ID** (`team_...`): seu time → **Settings** → **General**. Toda conta pessoal agora é um
      time "Hobby", e é esse o `VERCEL_ORG_ID`.
-8. No GitHub: repositório → **Settings** → **Secrets and variables** → **Actions** → aba **Secrets**
+9. No GitHub: repositório → **Settings** → **Secrets and variables** → **Actions** → aba **Secrets**
    → **New repository secret**, três vezes:
 
    | Secret | Valor |
    |---|---|
-   | `VERCEL_TOKEN` | o token do item 6 |
+   | `VERCEL_TOKEN` | o token do item 7 |
    | `VERCEL_ORG_ID` | o Team ID (`team_...`) |
    | `VERCEL_PROJECT_ID` | o Project ID (`prj_...`) |
 
-9. **Publicar:** aba **Actions** → **Deploy web** → **Run workflow** → **Branch: main** → marque
-   **Production deploy** → **Run workflow**. Quando terminar, o resumo da execução mostra
-   `Deployed (production): https://...`. Daqui em diante, todo push no `main` publica sozinho.
-10. Teste:
+10. **Publicar:** aba **Actions** → **Deploy web** → **Run workflow** → **Branch: main** → marque
+    **Production deploy** → **Run workflow**. Quando terminar, o resumo da execução mostra
+    `Deployed (production): https://...`. Daqui em diante, todo push no `main` publica sozinho.
+
+    No plano Hobby, a Vercel recusa o deploy quando o autor do último commit não é o dono da conta,
+    e os commits do branch de trabalho são de `Claude <noreply@anthropic.com>`. Por isso, leve
+    código ao `main` sempre por pull request com **Create a merge commit** feito por você no GitHub:
+    o commit de merge é seu.
+11. Teste:
     - `https://seudominio.com.br` abre;
     - `https://www.seudominio.com.br` redireciona para ele;
     - em `https://seudominio.com.br/entrar`, peça um código de login.
@@ -273,9 +295,17 @@ repositório é público, mas o arquivo só abre com a sua chave privada.
 1. **Papel só de leitura no Neon**, criado **depois** que a API subiu (as tabelas precisam
    existir). Gere uma senha só com letras e números:
 
-   ```sh
-   openssl rand -hex 24
-   ```
+   - macOS, Linux ou Git Bash no Windows:
+
+     ```sh
+     openssl rand -hex 24
+     ```
+
+   - Windows PowerShell:
+
+     ```powershell
+     $b = New-Object byte[] 24; [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($b); -join ($b | ForEach-Object { $_.ToString('x2') })
+     ```
 
    No Neon, **SQL Editor** (banco `neondb`), rode, trocando `SENHA`:
 
@@ -314,7 +344,17 @@ repositório é público, mas o arquivo só abre com a sua chave privada.
 2. Com o branch `restore-test` selecionado no menu do topo: **Postgres database** → **Databases** →
    **Add database** → nome `restore_test` → **Create**.
 3. **Connect** → branch `restore-test`, banco `restore_test`, pooling desligado → copie a string.
-4. No seu computador (macOS, Linux ou WSL no Windows), com o artefato descompactado:
+4. Prepare o computador (macOS, Linux ou WSL no Windows) uma vez: instale o `git`, o
+   [`just`](https://just.systems) (macOS `brew install just`; Ubuntu/Debian/WSL
+   `sudo apt install just`), o age (no WSL, `sudo apt install age`: o do Windows não vale lá
+   dentro) e as ferramentas do Postgres 17 (ou o Docker). Depois clone o repositório:
+
+   ```sh
+   git clone https://github.com/allansomensi/ingressoimpresso
+   ```
+
+5. Copie para a pasta do clone o `.dump.age` descompactado e recrie o `backup-key.txt` a partir do
+   gerenciador de senhas (o `.gitignore` impede que eles sejam commitados). Na pasta do clone:
 
    ```sh
    RESTORE_DATABASE_URL='<string do item 3>' \
@@ -322,7 +362,7 @@ repositório é público, mas o arquivo só abre com a sua chave privada.
    ```
 
    O script se recusa a restaurar num banco que já tenha tabelas, e no fim mostra contagens para
-   comparar com o painel. Ele precisa do age e das ferramentas do Postgres 17 (ou do Docker).
+   comparar com o painel. Depois, apague o `backup-key.txt` e o `.dump.age` da pasta.
 
 ## 8. Primeiro uso de ponta a ponta
 
@@ -345,16 +385,27 @@ Depois disso, siga o ensaio geral em [`docs/ensaio.md`](ensaio.md).
 ## 9. Rotina
 
 - **Nada de deploy em dia de evento.** Todo push no `main` que mexe na API vai para produção depois
-  do CI verde. Em dia de evento, não faça merge.
+  dos checks verdes. Em dia de evento, não faça merge.
 - **Backup:** confira de vez em quando que o **Backup** rodou (aba **Actions**) e que o artefato
   não está minúsculo. Em repositório público, o GitHub desliga agendamentos depois de 60 dias sem
   atividade e avisa por e-mail. Para religar: **Actions** → **Backup** → **Enable workflow**.
 - **Restauração:** uma vez por mês (passo 7).
-- **Token da Vercel:** renove antes de expirar. Vencido, o **Deploy web** falha.
+- **Token da Vercel:** renove antes de expirar. Vencido, o **Deploy web** falha, e com ele o Render
+  deixa de publicar a API: ele só publica commits com todos os checks verdes.
 - **Neon:** o plano gratuito reinicia o banco para atualizações e avisa no painel com um dia de
   antecedência. Antes de um evento, confira se não há reinício marcado para a hora do show.
-- **Limites gratuitos:** Resend, até 100 e-mails por dia (cada código de login é um e-mail); Neon,
-  1 GB (a arte fica no banco). Quando houver clientes pagando, a Vercel exige o plano Pro.
+- **Limites gratuitos e uso:**
+  - Resend: até 100 e-mails por dia (cada código de login é um e-mail).
+  - Neon, por mês: 100 CU-hora, 1 GB de banco e 5 GB de transferência para fora. Se a CU-hora ou a
+    transferência acabar, o Neon **suspende o banco até o mês seguinte** e a API para. Só a API
+    acordando o banco de hora em hora gasta uns 15 CU-hora. O backup diário baixa o banco inteiro
+    todo dia, e cada prévia ou arquivo gerado lê a arte do banco: com o banco acima de uns 100 MB,
+    o backup sozinho passa da metade dos 5 GB. Uma vez por semana, confira no **Dashboard** do
+    projeto **Compute** e **Network transfer** do mês. Perto do limite, mude para o plano **Launch** (sem
+    mínimo mensal, paga pelo uso), principalmente antes de um evento.
+  - Render: o workspace Hobby inclui 5 GB de saída por mês; acima disso, US$ 0,15 por GB. Os PDFs
+    e ZIPs são baixados pela API.
+  - Vercel: o Hobby é para uso não comercial. Quando houver clientes pagando, é preciso o Pro.
 - **Logs:** Render → serviço → **Logs**, guardados por 7 dias no plano Hobby.
 
 ## 10. Problemas comuns
@@ -364,14 +415,16 @@ Depois disso, siga o ensaio geral em [`docs/ensaio.md`](ensaio.md).
 | Painel diz "Sem conexão com o servidor", mas há internet | A origem do site não está em `ALLOWED_ORIGINS`, ou `NEXT_PUBLIC_API_URL` está errada | No navegador, abra o console (F12): um erro de CORS confirma. Corrija `ALLOWED_ORIGINS` no Render (**Save and deploy**) ou a variável na Vercel e rode o **Deploy web** de novo |
 | O código de login não chega | Domínio não verificado no Resend, `MAIL_FROM` com domínio diferente de `mail.seudominio.com.br`, ou limite diário | Nos **Logs** do Render, procure `resend answered`: a mensagem diz o motivo. Confira o spam |
 | "Muitas tentativas" no login | Cinco pedidos de código em 15 minutos (as falhas também contam) | Espere 15 minutos depois de corrigir a causa |
-| Deploy do Render falha logo ao subir | Variável faltando ou inválida | **Logs**: `configuration error: ...` mostra qual |
-| Um push no `main` não atualizou a API | O CI ficou vermelho (o Render espera os checks) ou o commit não mexeu na API (`buildFilter`) | Corrija o CI, ou use **Manual Deploy** → **Deploy latest commit** |
+| Deploy do Render falha logo ao subir | Variável faltando ou inválida, ou `DATABASE_URL` errada | **Logs**: `configuration error: ...` mostra qual variável. `server stopped` com `connecting to the database` aponta a `DATABASE_URL`: copie de novo a string do Neon (sem `-pooler`, com `?sslmode=verify-full`) |
+| Um push no `main` não atualizou a API | Algum check do commit ficou vermelho, o **CI** ou o **Deploy web** (o Render espera todos), ou o commit não mexeu na API (`buildFilter`) | Corrija o check vermelho (no **Deploy web**, quase sempre é o token da Vercel vencido), ou use **Manual Deploy** → **Deploy latest commit** |
 | **Deploy web** vermelho com "Set NEXT_PUBLIC_API_URL" | Variável ausente ou do tipo Secret na Vercel | Recrie como **Config** para Production e Preview |
 | **Deploy web** verde, mas o site não mudou | Faltam os secrets da Vercel (a execução só avisa) | Veja o aviso na execução e crie os três secrets |
+| **Deploy web** vermelho com `Git author ... must have access to the team` | O último commit não é seu (plano Hobby da Vercel) | Faça o merge pelo GitHub com **Create a merge commit**, ou um commit seu no topo do branch, e rode de novo |
 | O site não abre em certa operadora | O registro A não é `76.76.21.21` | Troque no Registro.br |
 | Vercel mostra "Invalid Configuration" | Registro errado, A ou AAAA a mais, ou DNS ainda propagando | Confira a tabela do passo 6 e espere até uma hora |
-| Download diz "O arquivo expirou" | Os arquivos são cache e somem a cada deploy ou reinício | Gere de novo na aba **Arquivos** |
-| **Backup** vermelho no tamanho do arquivo | O `pg_dump` falhou (URL, senha ou papel) | Veja o log da execução e confira o secret `BACKUP_DATABASE_URL` |
+| Download diz "O arquivo expirou" | Os arquivos são cache: somem depois de 24 horas e a cada deploy ou reinício | Gere de novo na aba **Arquivos** |
+| **Backup** vermelho no passo *Dump and encrypt* | O `pg_dump` falhou (URL, senha ou papel) ou gerou um arquivo quase vazio | Veja o log da execução e confira o secret `BACKUP_DATABASE_URL` |
+| A API para de responder no fim do mês, e o Neon mostra o banco suspenso | Acabou a CU-hora ou a transferência do plano gratuito | Mude o projeto do Neon para o plano **Launch**; o banco volta na hora |
 | Primeiro acesso do dia demora um pouco | O banco do Neon estava dormindo (econômico de propósito) | Normal: leva menos de um segundo para acordar |
 
 ## Resumo
@@ -383,7 +436,7 @@ Depois disso, siga o ensaio geral em [`docs/ensaio.md`](ensaio.md).
 | A | (vazio) | `76.76.21.21` | site (Vercel) |
 | CNAME | `www` | `cname.vercel-dns.com` | site (redireciona) |
 | CNAME | `api` | host do serviço no Render, ex. `ingressoimpresso-api.onrender.com` | API |
-| MX | `send.mail` | `feedback-smtp.sa-east-1.amazonses.com` (prioridade 10) | Resend |
+| MX | `send.mail` | `feedback-smtp.sa-east-1.amazonses.com` (prioridade 10), **ou** os CNAME que a aba Records mostrar (nunca os dois jeitos juntos) | Resend |
 | TXT | `send.mail` | `v=spf1 include:amazonses.com ~all` | Resend |
 | TXT | `resend._domainkey.mail` | `p=...` (copie do Resend) | Resend |
 | TXT | `_dmarc` | `v=DMARC1; p=none;` | e-mail |
@@ -405,4 +458,8 @@ Depois disso, siga o ensaio geral em [`docs/ensaio.md`](ensaio.md).
 **Prévias de um branch** (opcional): depois do merge, **Actions** → **Deploy web** → **Run workflow**
 com outro branch publica uma prévia em `https://ingressoimpresso-preview.vercel.app`, protegida pelo
 login da Vercel. Ela usa a API e o banco de **produção**. Para funcionar, acrescente esse endereço em
-`ALLOWED_ORIGINS` no Render.
+`ALLOWED_ORIGINS` no Render. Se a execução avisar `Could not alias the preview`, esse nome não está
+livre: em **Settings** → **Secrets and variables** → **Actions** → aba **Variables**, crie
+`VERCEL_PREVIEW_ALIAS` com outro nome (por exemplo `seudominio-preview.vercel.app`) e use esse
+endereço em `ALLOWED_ORIGINS`. No plano Hobby, o último commit do branch precisa ser seu (veja o
+passo 6).
