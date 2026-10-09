@@ -33,7 +33,13 @@ const nextConfig: NextConfig = {
     if (process.env.NODE_ENV === "production") {
       security.push({ key: "Content-Security-Policy", value: contentSecurityPolicy });
     }
-    return Promise.resolve([{ source: "/:path*", headers: security }]);
+    // Service workers must never be served stale, or an update would wait for the HTTP cache.
+    const worker = [{ key: "Cache-Control", value: "no-cache, no-store, must-revalidate" }];
+    return Promise.resolve([
+      { source: "/:path*", headers: security },
+      { source: "/sw.js", headers: worker },
+      { source: "/portaria-sw.js", headers: worker },
+    ]);
   },
 };
 

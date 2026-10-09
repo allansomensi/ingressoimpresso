@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 import { Toaster } from "sonner";
 
+import { AppWorker } from "@/components/app-worker";
 import { ConfirmProvider } from "@/components/ui";
 import { ApiError } from "@/lib/api";
 
@@ -22,6 +23,7 @@ export function Providers({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={client}>
       <ConfirmProvider>{children}</ConfirmProvider>
+      <AppWorker />
       <Toaster
         position="top-center"
         richColors

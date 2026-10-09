@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { Logo } from "@/components/brand";
+import { InstallButton } from "@/components/install-button";
 import { Badge, Skeleton } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { initials } from "@/lib/format";
@@ -105,6 +106,7 @@ export function PanelShell({ children }: { children: ReactNode }) {
             </nav>
           </div>
           <div className="flex items-center gap-2">
+            <InstallButton />
             {user === null ? (
               <Skeleton className="size-9 rounded-full" />
             ) : (

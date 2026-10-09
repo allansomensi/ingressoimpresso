@@ -23,7 +23,8 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(
     (async () => {
       for (const key of await caches.keys()) {
-        if (key !== CACHE) {
+        // Only our own old versions: "app-*" belongs to the site's worker (/sw.js).
+        if (key !== CACHE && key.startsWith("portaria-")) {
           await caches.delete(key);
         }
       }
