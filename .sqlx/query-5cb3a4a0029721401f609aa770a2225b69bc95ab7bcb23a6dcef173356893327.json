@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select undone_at is not null from ticket_voids where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "?column?",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "5cb3a4a0029721401f609aa770a2225b69bc95ab7bcb23a6dcef173356893327"
+}

@@ -993,6 +993,8 @@ dto! {
         #[serde(with = "time::serde::rfc3339::option")]
         #[cfg_attr(feature = "ts", ts(type = "string | null"))]
         pub undone_at: Option<OffsetDateTime>,
+        /// Covers a refunded batch: permanent, cannot be undone (ADR 0032).
+        pub locked: bool,
     }
 
     /// `POST /api/events/{id}/exports`.

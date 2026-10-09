@@ -38,7 +38,8 @@ Opção 2.
 - Comprador: `/ingresso#<token>`. O token fica no fragmento (não chega a servidor, log, métrica nem
   `Referer`) e vai no corpo de `POST /api/ticket`, que devolve o evento, o número, o nome e o QR, e
   conta as aberturas. `POST /api/ticket/image` desenha o ingresso com a arte (Typst, mesmo semáforo
-  das prévias). A página guarda o ingresso no `localStorage`, o service worker guarda a página, a
+  das prévias) e guarda o JPEG por versão do design; sem vaga em 15 s, responde `busy` antes de
+  carregar a arte, para uma fila de pedidos não acumular memória. A página guarda o ingresso no `localStorage`, o service worker guarda a página, a
   tela fica acesa (Wake Lock) e "Salvar imagem" gera um PNG no próprio celular.
 - Revogar o link só para a página: o QR que a pessoa já viu continua valendo até o número ser
   cancelado. A interface diz isso.

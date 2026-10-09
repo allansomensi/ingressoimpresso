@@ -34,6 +34,8 @@ const MAX_BULK: i32 = 500;
 const MAX_HOLDER_NAME: usize = 80;
 /// Width of the ticket image shown on the holder's phone.
 const IMAGE_WIDTH_PX: u32 = 1080;
+/// Longest wait for a render slot before answering `busy`.
+const RENDER_WAIT: std::time::Duration = std::time::Duration::from_secs(15);
 
 /// A link row with what the organizer sees.
 struct LinkRow {
@@ -558,12 +560,24 @@ pub async fn image(
     let jpeg = if let Ok(bytes) = tokio::fs::read(&cached).await {
         bytes
     } else {
-        let jpeg = render_image(&state, &link).await?;
-        let partial = cached.with_extension("partial");
-        if tokio::fs::write(&partial, &jpeg).await.is_ok() {
-            let _ = tokio::fs::rename(&partial, &cached).await;
+        // Wait for a render slot (shared with the design previews) before loading anything big,
+        // and give up after a while instead of queueing without bound.
+        let _permit =
+            tokio::time::timeout(RENDER_WAIT, state.render_permits.clone().acquire_owned())
+                .await
+                .map_err(|_| ApiError::Unavailable("busy"))?
+                .map_err(anyhow::Error::from)?;
+        // Another request for the same link may have drawn it while this one waited.
+        if let Ok(bytes) = tokio::fs::read(&cached).await {
+            bytes
+        } else {
+            let jpeg = render_image(&state, &link).await?;
+            let partial = cached.with_extension("partial");
+            if tokio::fs::write(&partial, &jpeg).await.is_ok() {
+                let _ = tokio::fs::rename(&partial, &cached).await;
+            }
+            jpeg
         }
-        jpeg
     };
     Ok((
         [
@@ -578,7 +592,8 @@ pub async fn image(
         .into_response())
 }
 
-/// The ticket of a link drawn with the event's current design, art and its signed QR.
+/// The ticket of a link drawn with the event's current design, art and its signed QR. The
+/// caller holds a render permit.
 async fn render_image(state: &AppState, link: &OpenRow) -> ApiResult<Vec<u8>> {
     let secret = unseal(state, link.id, &link.sealed)?;
     let ticket = SignedTicket::from_qr_text(&secret.qr_text)
@@ -602,12 +617,6 @@ async fn render_image(state: &AppState, link: &OpenRow) -> ApiResult<Vec<u8>> {
             seller: None,
         }],
     };
-    let _permit = state
-        .render_permits
-        .clone()
-        .acquire_owned()
-        .await
-        .map_err(anyhow::Error::from)?;
     let images =
         tokio::task::spawn_blocking(move || ticket_render::ticket_images(&job, IMAGE_WIDTH_PX))
             .await

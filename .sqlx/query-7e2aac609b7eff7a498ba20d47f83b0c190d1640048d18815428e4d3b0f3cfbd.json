@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "insert into ticket_voids (id, event_id, numbers, reason, note, created_by)\n           values ($1, $2, $3, $4, $5, $6)\n           returning id, numbers, reason, note, created_at, undone_at",
+  "query": "insert into ticket_voids (id, event_id, numbers, reason, note, created_by)\n           values ($1, $2, $3, $4, $5, $6)\n           returning id, numbers, reason, note, created_at, undone_at,\n                     exists(select 1 from ticket_batches b where b.event_id = ticket_voids.event_id\n                         and b.status = 'refunded' and b.numbers && ticket_voids.numbers) as \"locked!\"",
   "describe": {
     "columns": [
       {
@@ -68,6 +68,12 @@
             "name": "undone_at"
           }
         }
+      },
+      {
+        "ordinal": 6,
+        "name": "locked!",
+        "type_info": "Bool",
+        "origin": "Expression"
       }
     ],
     "parameters": {
@@ -86,8 +92,9 @@
       false,
       true,
       false,
-      true
+      true,
+      null
     ]
   },
-  "hash": "fe89ff8a35100b75c8868a470bbe6a6d744dc6dec9f2922139483d4bbbd09bea"
+  "hash": "7e2aac609b7eff7a498ba20d47f83b0c190d1640048d18815428e4d3b0f3cfbd"
 }

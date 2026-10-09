@@ -288,8 +288,9 @@ Teste: entre com uma conta Google cujo e-mail já tem conta por código. É a me
 
 `MAIL_DAILY_LIMIT` (padrão `95`) é o máximo de e-mails em 24 horas, abaixo dos 100 do plano grátis
 da Resend. Ao chegar nele, o login por código pede para entrar com o Google até o dia virar. Se
-mudar de plano na Resend, suba o valor (ou `0` para não limitar). Cada IP pede no máximo 10
-códigos por hora.
+mudar de plano na Resend, suba o valor (ou `0` para não limitar). Códigos para e-mails sem conta
+usam no máximo dois terços do limite, para quem já tem conta sempre conseguir entrar. Cada IP pede
+no máximo 10 códigos por hora (o IP vem do `CF-Connecting-IP` que o Render recebe da Cloudflare).
 
 ## 6. Vercel (site, painel e portaria)
 

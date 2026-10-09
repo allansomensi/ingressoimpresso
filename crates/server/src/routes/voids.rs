@@ -20,6 +20,7 @@ struct VoidRow {
     note: Option<String>,
     created_at: OffsetDateTime,
     undone_at: Option<OffsetDateTime>,
+    locked: bool,
 }
 
 impl VoidRow {
@@ -35,6 +36,7 @@ impl VoidRow {
             note: self.note,
             created_at: self.created_at,
             undone_at: self.undone_at,
+            locked: self.locked,
         })
     }
 }
@@ -48,7 +50,10 @@ pub async fn list(
     authorize_event(&state.pool, &user, event_id).await?;
     let rows = sqlx::query_as!(
         VoidRow,
-        "select id, numbers, reason, note, created_at, undone_at from ticket_voids where event_id = $1 order by created_at desc",
+        r#"select id, numbers, reason, note, created_at, undone_at,
+                  exists(select 1 from ticket_batches b where b.event_id = ticket_voids.event_id
+                         and b.status = 'refunded' and b.numbers && ticket_voids.numbers) as "locked!"
+           from ticket_voids where event_id = $1 order by created_at desc"#,
         event_id
     )
     .fetch_all(&state.pool)
@@ -85,7 +90,9 @@ pub async fn create(
         VoidRow,
         r#"insert into ticket_voids (id, event_id, numbers, reason, note, created_by)
            values ($1, $2, $3, $4, $5, $6)
-           returning id, numbers, reason, note, created_at, undone_at"#,
+           returning id, numbers, reason, note, created_at, undone_at,
+                     exists(select 1 from ticket_batches b where b.event_id = ticket_voids.event_id
+                         and b.status = 'refunded' and b.numbers && ticket_voids.numbers) as "locked!""#,
         Uuid::new_v4(),
         event_id,
         numbers,
@@ -109,15 +116,35 @@ pub async fn undo(
         .await?
         .ok_or(ApiError::NotFound)?;
     authorize_event(&state.pool, &user, event_id).await?;
+    // A void over a refunded batch is permanent (ADR 0032): its tickets were paid back.
     let row = sqlx::query_as!(
         VoidRow,
-        r#"update ticket_voids set undone_at = now(), undone_by = $2 where id = $1 and undone_at is null
-           returning id, numbers, reason, note, created_at, undone_at"#,
+        r#"update ticket_voids set undone_at = now(), undone_by = $2
+           where id = $1 and undone_at is null
+             and not exists(select 1 from ticket_batches b where b.event_id = ticket_voids.event_id
+                            and b.status = 'refunded' and b.numbers && ticket_voids.numbers)
+           returning id, numbers, reason, note, created_at, undone_at, false as "locked!""#,
         void_id,
         user.id,
     )
     .fetch_optional(&state.pool)
+    .await?;
+    if let Some(row) = row {
+        return Ok(Json(row.into_dto()?));
+    }
+    let undone = sqlx::query_scalar!(
+        "select undone_at is not null from ticket_voids where id = $1",
+        void_id
+    )
+    .fetch_one(&state.pool)
     .await?
-    .ok_or_else(|| ApiError::Conflict("already_undone", "void was already undone".to_owned()))?;
-    Ok(Json(row.into_dto()?))
+    .unwrap_or(false);
+    Err(if undone {
+        ApiError::Conflict("already_undone", "void was already undone".to_owned())
+    } else {
+        ApiError::Conflict(
+            "void_locked",
+            "the void of a refunded batch is permanent".to_owned(),
+        )
+    })
 }

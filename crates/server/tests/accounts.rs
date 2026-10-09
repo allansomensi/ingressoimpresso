@@ -156,9 +156,10 @@ async fn one_address_asks_for_few_codes(pool: PgPool) {
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
 async fn the_daily_quota_stops_codes_but_not_google(pool: PgPool) {
     let app = TestApp::with_settings(pool, &[("MAIL_DAILY_LIMIT", "3")]).with_google(CLIENT);
-    for index in 0..3 {
-        app.login(&format!("p{index}@exemplo.com")).await;
-    }
+    // Two sign-ups (the most new addresses may use of 3) and one code for an existing account.
+    app.login("p0@exemplo.com").await;
+    app.login("p1@exemplo.com").await;
+    app.login("p0@exemplo.com").await;
     let reply = app
         .request(
             Method::POST,
@@ -172,6 +173,34 @@ async fn the_daily_quota_stops_codes_but_not_google(pool: PgPool) {
     assert_eq!(app.sent.lock().unwrap().len(), 3);
     let google = google_login(&app, &google_claims("p3@exemplo.com", "g-9")).await;
     assert_eq!(google.status, StatusCode::OK);
+}
+
+#[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
+async fn codes_for_new_addresses_leave_room_for_existing_accounts(pool: PgPool) {
+    let app = TestApp::with_settings(pool, &[("MAIL_DAILY_LIMIT", "6")]);
+    // Existing account first (its first code was a sign-up).
+    app.login("banda@exemplo.com").await;
+    // Made-up addresses use up the sub-quota (two thirds of 6 = 4, one already spent)...
+    for index in 0..3 {
+        assert_eq!(
+            request_code(
+                &app,
+                &format!("x{index}@exemplo.com"),
+                &format!("203.0.113.{index}")
+            )
+            .await,
+            StatusCode::NO_CONTENT
+        );
+    }
+    assert_eq!(
+        request_code(&app, "x9@exemplo.com", "203.0.113.9").await,
+        StatusCode::SERVICE_UNAVAILABLE
+    );
+    // ...but the existing account still gets its code.
+    assert_eq!(
+        request_code(&app, "banda@exemplo.com", "198.51.100.1").await,
+        StatusCode::NO_CONTENT
+    );
 }
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]

@@ -5,7 +5,7 @@
 //! Google instead.
 
 use axum::Json;
-use axum::extract::{FromRequestParts, State};
+use axum::extract::{FromRequestParts, OriginalUri, State};
 use axum::http::header::AUTHORIZATION;
 use axum::http::request::Parts;
 use axum::http::{HeaderMap, Method, StatusCode};
@@ -139,17 +139,20 @@ pub fn new_token() -> ApiResult<(String, Vec<u8>)> {
     Ok((token, hash))
 }
 
-/// The client address as the proxy in front of the API reports it (first `X-Forwarded-For`
-/// entry). A client can forge it, which only lets it dodge its own per-IP limit: the daily quota
-/// still holds (ADR 0028).
+/// The client address. Render's edge is Cloudflare, which sets `CF-Connecting-IP` itself (a
+/// client cannot forge it); without it, the first `X-Forwarded-For` entry, which a client can
+/// forge to dodge only its own per-IP limit (the daily quota and its sub-quota still hold).
 fn client_ip(headers: &HeaderMap) -> Option<String> {
-    headers
-        .get("x-forwarded-for")
-        .and_then(|value| value.to_str().ok())
-        .and_then(|value| value.split(',').next())
-        .map(str::trim)
-        .filter(|ip| !ip.is_empty() && ip.len() <= 64)
-        .map(str::to_owned)
+    let header = |name: &str| {
+        headers
+            .get(name)
+            .and_then(|value| value.to_str().ok())
+            .and_then(|value| value.split(',').next())
+            .map(str::trim)
+            .filter(|ip| !ip.is_empty() && ip.len() <= 64)
+            .map(str::to_owned)
+    };
+    header("cf-connecting-ip").or_else(|| header("x-forwarded-for"))
 }
 
 /// `GET /api/auth/options` (no login): the sign-in methods this server offers.
@@ -180,8 +183,11 @@ pub async fn request_code(
     if recent >= MAX_CODES_PER_WINDOW {
         return Err(ApiError::TooManyRequests);
     }
-    let ip_hash = client_ip(&headers)
-        .map(|ip| keys::keyed_hash(&state.config.master_key, "login-ip", ip.as_bytes()).to_vec());
+    // In production every request comes through the proxy; one without an address shares a
+    // single bucket rather than escaping the limit.
+    let ip = client_ip(&headers).or_else(|| state.config.production.then(|| "unknown".to_owned()));
+    let ip_hash =
+        ip.map(|ip| keys::keyed_hash(&state.config.master_key, "login-ip", ip.as_bytes()).to_vec());
     if let Some(ip_hash) = &ip_hash {
         let from_ip = sqlx::query_scalar!(
             r#"select count(*) as "count!" from login_codes where ip_hash = $1 and created_at > $2"#,
@@ -211,8 +217,19 @@ pub async fn request_code(
         CODE_TTL.whole_minutes(),
         &state.config.public_web_url,
     );
+    let known = sqlx::query_scalar!(
+        r#"select exists(select 1 from users where email = $1) as "known!""#,
+        email
+    )
+    .fetch_one(&state.pool)
+    .await?;
+    let kind = if known {
+        MailKind::LoginCode
+    } else {
+        MailKind::SignupCode
+    };
     state
-        .send_mail(MailKind::LoginCode, &email, &message)
+        .send_mail(kind, &email, &message)
         .await
         .map_err(|error| {
             tracing::error!(%error, "login e-mail failed");
@@ -520,7 +537,12 @@ impl FromRequestParts<AppState> for AuthUser {
             .await?;
         }
         let is_admin = state.config.is_admin(&row.email);
-        if row.suspended && !is_admin && !allowed_while_suspended(&parts.method, parts.uri.path()) {
+        // The API is nested under `/api`, and nesting strips the prefix from `parts.uri`.
+        let path = parts
+            .extensions
+            .get::<OriginalUri>()
+            .map_or_else(|| parts.uri.path().to_owned(), |uri| uri.path().to_owned());
+        if row.suspended && !is_admin && !allowed_while_suspended(&parts.method, &path) {
             return Err(ApiError::Suspended);
         }
         Ok(Self {
@@ -529,7 +551,7 @@ impl FromRequestParts<AppState> for AuthUser {
             is_admin,
             suspended: row.suspended,
             method: parts.method.clone(),
-            path: parts.uri.path().chars().take(200).collect(),
+            path: path.chars().take(200).collect(),
             token_hash: hash,
         })
     }
@@ -582,7 +604,7 @@ mod tests {
     }
 
     #[test]
-    fn client_ip_is_the_first_forwarded_address() {
+    fn client_ip_prefers_the_cloudflare_address() {
         let mut headers = HeaderMap::new();
         assert_eq!(client_ip(&headers), None);
         headers.insert(
@@ -590,6 +612,8 @@ mod tests {
             HeaderValue::from_static("203.0.113.7, 10.0.0.1"),
         );
         assert_eq!(client_ip(&headers).as_deref(), Some("203.0.113.7"));
+        headers.insert("cf-connecting-ip", HeaderValue::from_static("198.51.100.4"));
+        assert_eq!(client_ip(&headers).as_deref(), Some("198.51.100.4"));
     }
 
     #[test]

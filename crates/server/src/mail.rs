@@ -37,8 +37,11 @@ impl MailError {
 /// What an e-mail is for, counted against the daily quota (`mail_sends.kind`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MailKind {
-    /// Login code.
+    /// Login code for an existing account.
     LoginCode,
+    /// Login code for an e-mail with no account yet: counted against a sub-quota, so codes for
+    /// made-up addresses can never use up the day of the people who already have an account.
+    SignupCode,
     /// A batch paid online.
     BatchPaid,
 }
@@ -48,6 +51,7 @@ impl MailKind {
     pub const fn db(self) -> &'static str {
         match self {
             Self::LoginCode => "login_code",
+            Self::SignupCode => "signup_code",
             Self::BatchPaid => "batch_paid",
         }
     }

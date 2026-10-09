@@ -9,7 +9,8 @@ create index login_codes_ip_idx on login_codes (ip_hash, created_at desc) where 
 -- Every e-mail handed to the provider, with no address or content: the daily quota counter.
 create table mail_sends (
     id bigint generated always as identity primary key,
-    kind text not null check (kind in ('login_code', 'batch_paid')),
+    -- signup_code: a code for an e-mail with no account yet (a sub-quota, see ADR 0028).
+    kind text not null check (kind in ('login_code', 'signup_code', 'batch_paid')),
     created_at timestamptz not null default now()
 );
 create index mail_sends_created_idx on mail_sends (created_at);

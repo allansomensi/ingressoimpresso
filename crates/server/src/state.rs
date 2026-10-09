@@ -76,7 +76,8 @@ impl AppState {
     }
 
     /// Sends an e-mail within the daily quota (ADR 0028): every message handed to the provider
-    /// is counted in `mail_sends`, and past `MAIL_DAILY_LIMIT` in 24 hours nothing is sent.
+    /// is counted in `mail_sends`, and past `MAIL_DAILY_LIMIT` in 24 hours nothing is sent. Codes
+    /// for e-mails without an account may use at most two thirds of it.
     ///
     /// # Errors
     ///
@@ -89,14 +90,19 @@ impl AppState {
         email: &Email,
     ) -> Result<(), MailError> {
         if let Some(limit) = self.config.mail_daily_limit {
-            let sent = sqlx::query_scalar!(
-                r#"select count(*) as "sent!" from mail_sends where created_at > now() - interval '24 hours'"#
+            let sent = sqlx::query!(
+                r#"select count(*) as "all!", count(*) filter (where kind = 'signup_code') as "signups!"
+                   from mail_sends where created_at > now() - interval '24 hours'"#
             )
             .fetch_one(&self.pool)
             .await
             .map_err(|error| MailError::Failed(error.to_string()))?;
-            if sent >= limit {
-                return Err(MailError::Quota(format!("{sent} e-mails in 24 hours")));
+            let signup_limit = (limit * 2 / 3).max(1);
+            if sent.all >= limit || (kind == MailKind::SignupCode && sent.signups >= signup_limit) {
+                return Err(MailError::Quota(format!(
+                    "{} e-mails in 24 hours ({} for new accounts)",
+                    sent.all, sent.signups
+                )));
             }
         }
         sqlx::query!("insert into mail_sends (kind) values ($1)", kind.db())

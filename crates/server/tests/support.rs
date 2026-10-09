@@ -50,6 +50,10 @@ async fn admins_support_any_event_and_it_is_audited(pool: PgPool) {
     assert_eq!(entry["actorEmail"], ADMIN);
     assert_eq!(entry["eventName"], "Show da Banda");
     assert_eq!(entry["detail"]["method"], "POST");
+    assert_eq!(
+        entry["detail"]["path"],
+        format!("/api/events/{event}/batches")
+    );
     assert_eq!(audit.as_array().unwrap().len(), 1);
     assert_eq!(
         app.get("/api/admin/audit", &token).await.status,
@@ -129,6 +133,24 @@ async fn a_suspended_account_only_reads(pool: PgPool) {
         .await;
     assert_eq!(blocked.status, StatusCode::FORBIDDEN);
     assert_eq!(blocked.error_code(), "account_suspended");
+    // Signing out stays possible (as does deleting the account, LGPD).
+    let wrong = app
+        .delete(
+            "/api/account",
+            &token,
+            Some(json!({ "email": "outra@exemplo.com" })),
+        )
+        .await;
+    assert_eq!(
+        wrong.error_code(),
+        "confirmation_mismatch",
+        "deleting is allowed"
+    );
+    let other = app.login("banda@exemplo.com").await;
+    let logout = app
+        .request(Method::POST, "/api/auth/logout", Some(&other), None)
+        .await;
+    assert_eq!(logout.status, StatusCode::NO_CONTENT);
     // Admins still act on it; lifting restores the account.
     app.create_batch(&admin, &event, 5).await;
     app.put(
@@ -186,6 +208,16 @@ async fn refunds_keep_numbers_taken_and_voided(pool: PgPool) {
         .get(&format!("/api/events/{event}/voids"), &token)
         .await
         .json();
+    assert_eq!(voids[0]["locked"], true);
+    // The refund's void is permanent: the organizer cannot bring the tickets back.
+    let undo = app
+        .post(
+            &format!("/api/voids/{}/undo", voids[0]["id"].as_str().unwrap()),
+            &token,
+            json!({}),
+        )
+        .await;
+    assert_eq!(undo.error_code(), "void_locked");
     assert_eq!(
         (voids[0]["first"].clone(), voids[0]["last"].clone()),
         (json!(1), json!(10))

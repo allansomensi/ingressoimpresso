@@ -32,4 +32,8 @@ createdAt: string,
 /**
  * When it was undone, if it was.
  */
-undoneAt: string | null, };
+undoneAt: string | null, 
+/**
+ * Covers a refunded batch: permanent, cannot be undone (ADR 0032).
+ */
+locked: boolean, };
