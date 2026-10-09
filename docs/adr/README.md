@@ -35,3 +35,4 @@ feita e as consequências.
 | [0023](0023-nova-marca.md) | Nova marca: ingresso com "check" | Aceito |
 | [0024](0024-precos-acessiveis-e-ingressos-gratis.md) | Preços acessíveis e ingressos grátis para testar | Aceito |
 | [0025](0025-textos-e-modelos-de-ingresso.md) | Textos no ingresso, modelos prontos e horário local do evento | Aceito |
+| [0026](0026-painel-admin-e-conta.md) | Painel de administração, cortesias e página da conta | Aceito |
