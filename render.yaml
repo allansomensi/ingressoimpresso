@@ -1,5 +1,8 @@
-# Render Blueprint (ADR 0013): API in Virginia, next to Neon aws-us-east-1.
-# Secrets marked `sync: false` are asked once in the Render dashboard and never stored here.
+# Render Blueprint (ADRs 0013, 0019): API in Virginia, next to Neon aws-us-east-1.
+#
+# `sync: false` values are asked only when the Blueprint is first created. After that they live in
+# the dashboard (service → Environment) and a Blueprint sync never overwrites them. A key added here
+# later is not asked for: set it by hand in the dashboard too.
 services:
   - type: web
     name: ingressoimpresso-api
@@ -9,7 +12,23 @@ services:
     region: virginia
     plan: starter
     branch: main
-    autoDeploy: true
+    # Deploy only commits whose GitHub checks (CI with the door e2e) passed.
+    autoDeployTrigger: checksPass
+    # Only changes that affect the API image trigger a (long) Rust build.
+    buildFilter:
+      paths:
+        - crates/server/**
+        - crates/render/**
+        - crates/ticket-core/**
+        - .sqlx/**
+        - .cargo/**
+        - Cargo.toml
+        - Cargo.lock
+        - deploy/api.Dockerfile
+        - .dockerignore
+      ignoredPaths:
+        - crates/**/tests/**
+    # Liveness only: it does not touch Postgres, so an idle Neon compute can scale to zero.
     healthCheckPath: /healthz
     envVars:
       - key: APP_ENV
@@ -25,6 +44,6 @@ services:
       - key: ADMIN_EMAILS
         sync: false
       - key: ALLOWED_ORIGINS
-        value: https://ingressoimpresso.vercel.app
+        sync: false
       - key: PUBLIC_API_URL
         sync: false
