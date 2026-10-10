@@ -30,6 +30,7 @@ import {
 import { api } from "@/lib/api";
 import { CHANGELOG_KINDS, paragraphs } from "@/lib/changelog";
 import { dateTime } from "@/lib/format";
+import { APP_VERSION, isVersion } from "@/lib/version";
 import { texts } from "@/texts/pt-BR";
 
 const t = texts.changelog.admin;
@@ -39,10 +40,13 @@ function EntryEditor({ entry, open, onClose }: { entry: ChangelogEntryDto | null
   const [kind, setKind] = useState<ChangelogKind>(entry?.kind ?? "new");
   const [title, setTitle] = useState(entry?.title ?? "");
   const [body, setBody] = useState(entry?.body ?? "");
+  // A new note usually tells what the release now live brought (ADR 0049).
+  const [version, setVersion] = useState(entry === null ? APP_VERSION : (entry.version ?? ""));
+  const versionValid = version.trim() === "" || isVersion(version.trim());
   const [published, setPublished] = useState(entry === null ? true : entry.publishedAt !== null);
   const save = useMutation({
     mutationFn: () => {
-      const payload: ChangelogBody = { kind, title: title.trim(), body: body.trim(), published };
+      const payload: ChangelogBody = { kind, title: title.trim(), body: body.trim(), version: version.trim(), published };
       return entry === null
         ? api<ChangelogEntryDto>("/api/admin/changelog", { method: "POST", body: payload })
         : api<ChangelogEntryDto>(`/api/admin/changelog/${entry.id}`, { method: "PUT", body: payload });
@@ -65,7 +69,7 @@ function EntryEditor({ entry, open, onClose }: { entry: ChangelogEntryDto | null
           <Button variant="secondary" onClick={onClose}>
             {texts.common.cancel}
           </Button>
-          <Button loading={save.isPending} disabled={title.trim() === ""} onClick={() => save.mutate()}>
+          <Button loading={save.isPending} disabled={title.trim() === "" || !versionValid} onClick={() => save.mutate()}>
             {texts.common.save}
           </Button>
         </>
@@ -75,7 +79,9 @@ function EntryEditor({ entry, open, onClose }: { entry: ChangelogEntryDto | null
         className="grid gap-5 md:grid-cols-2"
         onSubmit={(event) => {
           event.preventDefault();
-          save.mutate();
+          if (title.trim() !== "" && versionValid) {
+            save.mutate();
+          }
         }}
       >
         <div className="flex flex-col gap-4">
@@ -92,6 +98,19 @@ function EntryEditor({ entry, open, onClose }: { entry: ChangelogEntryDto | null
                 </option>
               ))}
             </Select>
+          </Field>
+          <Field label={t.version} optional hint={versionValid ? t.versionHint : <span className="text-danger-fg">{t.versionInvalid}</span>}>
+            <Input
+              value={version}
+              maxLength={20}
+              inputMode="decimal"
+              placeholder={APP_VERSION}
+              aria-invalid={!versionValid}
+              className="tabular"
+              onChange={(event) => {
+                setVersion(event.target.value);
+              }}
+            />
           </Field>
           <Field label={t.titleLabel}>
             <Input
@@ -118,7 +137,10 @@ function EntryEditor({ entry, open, onClose }: { entry: ChangelogEntryDto | null
           <ErrorMessage error={save.error} />
         </div>
         <div className="flex flex-col gap-3 rounded-2xl border border-dashed border-border-strong bg-bg p-5">
-          <KindBadge kind={kind} className="w-fit" />
+          <span className="flex flex-wrap items-center gap-2">
+            <KindBadge kind={kind} />
+            {version.trim() !== "" && <span className="text-xs text-fg-subtle tabular">{texts.changelog.release(version.trim())}</span>}
+          </span>
           <p className="text-lg font-semibold tracking-tight text-fg">{title.trim() === "" ? t.titlePlaceholder : title}</p>
           {paragraphs(body).map((paragraph, index) => (
             <p key={index} className="text-[15px] leading-relaxed whitespace-pre-line text-fg-muted">
@@ -178,6 +200,7 @@ export function AdminChangelog() {
               <div className="flex min-w-0 flex-1 flex-col gap-1.5">
                 <span className="flex flex-wrap items-center gap-2">
                   <KindBadge kind={entry.kind} />
+                  {entry.version !== null && <span className="text-xs font-medium text-fg-muted tabular">v{entry.version}</span>}
                   {entry.publishedAt === null ? (
                     <Badge tone="warning">{t.draft}</Badge>
                   ) : (
