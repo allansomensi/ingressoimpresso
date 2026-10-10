@@ -203,22 +203,29 @@ just e2e    # a portaria ponta a ponta: API + site + 5 navegadores com câmera f
   códigos.
 - Arte sinalizada pela moderação não é impressa até um admin liberar.
 
-Encontrou uma vulnerabilidade? Escreva para **contato@ingressoimpresso.com.br** antes de abrir uma
-issue pública. Respondemos em até 5 dias.
+Encontrou uma vulnerabilidade? **Não abra uma issue pública**: siga a
+[Política de Segurança](SECURITY.md) (relato privado pelo GitHub ou por
+**contato@ingressoimpresso.com.br**). Respondemos em até 5 dias.
 
 ## Contribuindo
 
-Contribuições são bem-vindas. Antes de abrir um pull request:
+Contribuições são bem-vindas! Leia o [guia de contribuição](CONTRIBUTING.md) antes de abrir um pull
+request. Em resumo:
 
-1. Rode `just` e deixe tudo verde. As novidades passam pelo branch `staging` (o ambiente de
+1. Para mudanças maiores, abra ou comente uma issue antes. Dúvidas e ideias vão para as
+   [Discussions](https://github.com/allansomensi/ingressoimpresso/discussions).
+2. Rode `just` e deixe tudo verde. Os pull requests vão para o branch `staging` (o ambiente de
    testes) antes do `main`, que é a produção.
-2. Siga as convenções do [`CLAUDE.md`](CLAUDE.md): código e commits em inglês, interface e
+3. Siga as convenções do [`CLAUDE.md`](CLAUDE.md): código e commits em inglês, interface e
    documentação em português, e commits no formato
    [Conventional Commits](https://www.conventionalcommits.org) com gitmoji
    (`feat(server): ✨ ...`, `fix(web): 🐛 ...`).
-3. Uma decisão nova de arquitetura pede um [ADR](docs/adr/README.md) novo. Um ADR aceito não é
+4. Uma decisão nova de arquitetura pede um [ADR](docs/adr/README.md) novo. Um ADR aceito não é
    reescrito: um novo o substitui.
-4. Respeite as invariantes listadas no `CLAUDE.md`. A principal: o formato QR v1 é imutável.
+5. Respeite as invariantes listadas no `CLAUDE.md`. A principal: o formato QR v1 é imutável.
+
+Ao participar, você concorda com o [Código de Conduta](CODE_OF_CONDUCT.md). Precisa de ajuda com a
+sua conta ou o seu evento? Veja o [Suporte](SUPPORT.md).
 
 ## Licença
 
