@@ -44,6 +44,7 @@ import {
   useConfirm,
 } from "@/components/ui";
 import { api } from "@/lib/api";
+import { useSession } from "@/lib/session";
 import { dateTime, eventDateTime, money, shortDateTime } from "@/lib/format";
 import { texts } from "@/texts/pt-BR";
 
@@ -209,6 +210,7 @@ export function OrganizationDetail({ organizationId }: { organizationId: string 
     queryFn: () => api<AdminOrganizationDetailDto>(`/api/admin/organizations/${organizationId}`),
   });
   const [dialog, setDialog] = useState<"rename" | "suspend" | "bonus" | null>(null);
+  const { session } = useSession();
   const refresh = () => queryClient.invalidateQueries({ queryKey: key });
   const unsuspend = useMutation({
     mutationFn: () =>
@@ -255,6 +257,8 @@ export function OrganizationDetail({ organizationId }: { organizationId: string 
   }
   const d = detail.data;
   const o = d.organization;
+  // An admin never suspends the organization they belong to (the API refuses it too).
+  const own = session.status === "signed-in" && d.members.some((member) => member.userId === session.user.id);
 
   return (
     <main className="flex flex-col gap-6 animate-fade-in">
@@ -302,7 +306,7 @@ export function OrganizationDetail({ organizationId }: { organizationId: string 
               <Button size="sm" icon={<ShieldCheck />} loading={unsuspend.isPending} onClick={() => unsuspend.mutate()}>
                 {t.unsuspend}
               </Button>
-            ) : (
+            ) : own ? null : (
               <Button
                 variant="danger-ghost"
                 size="sm"

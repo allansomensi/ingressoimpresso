@@ -1995,6 +1995,7 @@ export const texts = {
     google_unavailable: "O login com Google está indisponível agora. Use o código por e-mail.",
     captcha_failed: "A verificação anti-robô falhou ou expirou. Tente de novo.",
     two_factor_required: "Digite o código do app autenticador.",
+    cannot_suspend_own: "Você não pode suspender a organização da qual faz parte.",
     invalid_two_factor_code: "Código incorreto ou já usado. Confira o app autenticador e tente de novo.",
     two_factor_enabled: "A verificação em duas etapas já está ligada.",
     two_factor_disabled: "A verificação em duas etapas está desligada.",

@@ -391,6 +391,21 @@ pub async fn set_suspension(
     Json(body): Json<AdminSuspensionBody>,
 ) -> ApiResult<Json<AdminOrganizationDetailDto>> {
     require_admin(&user)?;
+    if body.suspended {
+        let own = sqlx::query_scalar!(
+            r#"select exists(select 1 from memberships where organization_id = $1 and user_id = $2) as "own!""#,
+            organization_id,
+            user.id,
+        )
+        .fetch_one(&state.pool)
+        .await?;
+        if own {
+            return Err(ApiError::Conflict(
+                "cannot_suspend_own",
+                "an admin cannot suspend their own organization".to_owned(),
+            ));
+        }
+    }
     let reason = super::optional_text(body.reason);
     if reason
         .as_ref()

@@ -93,6 +93,31 @@ async fn admins_support_any_event_and_it_is_audited(pool: PgPool) {
 }
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
+async fn admins_cannot_suspend_their_own_organization(pool: PgPool) {
+    let app = TestApp::new(pool).await;
+    let admin = app.login(ADMIN).await;
+    let organizations = app.get("/api/admin/organizations", &admin).await.json();
+    let own = organizations
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|organization| organization["ownerEmail"] == ADMIN)
+        .unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let refused = app
+        .put(
+            &format!("/api/admin/organizations/{own}/suspension"),
+            &admin,
+            json!({ "suspended": true, "reason": null }),
+        )
+        .await;
+    assert_eq!(refused.status, StatusCode::CONFLICT);
+    assert_eq!(refused.error_code(), "cannot_suspend_own");
+}
+
+#[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
 async fn a_suspended_account_only_reads(pool: PgPool) {
     let app = TestApp::new(pool).await;
     let admin = app.login(ADMIN).await;
