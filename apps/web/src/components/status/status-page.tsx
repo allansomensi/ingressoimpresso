@@ -3,11 +3,13 @@
 import type { IncidentDto, IncidentImpact, ServiceStatus, StatusDto } from "@ingressoimpresso/api-types";
 import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, CalendarClock, CheckCircle2, RefreshCw, Wrench, XCircle } from "lucide-react";
+import Link from "next/link";
 
 import { Button, Skeleton } from "@/components/ui";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { dateTime, shortDateTime } from "@/lib/format";
+import { APP_COMMIT, RELEASE_NOTES_HREF, VERSION_LABEL } from "@/lib/version";
 import { texts } from "@/texts/pt-BR";
 
 const t = texts.status;
@@ -229,6 +231,14 @@ export function StatusPage() {
           (data?.recent ?? []).map((incident) => <Timeline key={incident.id} incident={incident} />)
         )}
       </section>
+
+      <p className="flex flex-wrap gap-x-3 gap-y-1 border-t border-border pt-5 text-xs text-fg-subtle tabular">
+        <span title={APP_COMMIT === "" ? undefined : APP_COMMIT}>{t.siteVersion(VERSION_LABEL)}</span>
+        {data !== undefined && !unreachable && <span>{t.apiVersion(`v${data.version}`)}</span>}
+        <Link href={RELEASE_NOTES_HREF} className="font-medium text-fg-muted transition hover:text-fg">
+          {t.releaseNotes}
+        </Link>
+      </p>
     </div>
   );
 }

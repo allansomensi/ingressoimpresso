@@ -68,6 +68,22 @@ Vision são opcionais. Os detalhes estão no [README](README.md#rodando-localmen
 - `staging` é o **ambiente de testes** (ADR 0046). Abra o seu pull request **para `staging`**.
 - Crie o seu branch a partir de `staging`, com um nome curto: `fix/portaria-lanterna`,
   `feat/relatorio-csv`.
+- Só `main` e `staging` são permanentes: o branch de trabalho é apagado sozinho quando o pull
+  request é integrado (ADR 0049).
+
+## Changelog e versões
+
+O projeto usa [Versionamento Semântico](https://semver.org/lang/pt-BR/), com uma versão para o
+produto inteiro, e registra as mudanças no [`CHANGELOG.md`](CHANGELOG.md)
+([Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/), em português).
+
+- Mudança que alguém percebe (organizador, público, portaria ou admin) ganha uma linha em
+  **`## [Não lançado]`**, na seção certa (Adicionado, Alterado, Obsoleto, Removido, Corrigido ou
+  Segurança), escrita do ponto de vista de quem usa.
+- Não mude o número da versão no seu pull request: quem mantém o projeto corta a versão no
+  `staging` com `just release` e o CI cria a tag e a release quando ela chega ao `main`.
+
+O passo a passo está em [`docs/versionamento.md`](docs/versionamento.md).
 
 ## Commits
 
@@ -158,7 +174,7 @@ O que esperamos de cada parte:
 ## Abrindo o pull request
 
 1. Rode `just` e deixe tudo verde.
-2. Abra o PR **para `staging`** e preencha o modelo.
+2. Abra o PR **para `staging`** e preencha o modelo, com a sua linha no `CHANGELOG.md`.
 3. Descreva o que muda, por que muda e como você testou. Capturas de tela ajudam em mudanças de
    interface (em tema claro e escuro, no celular e no computador).
 4. **Nunca inclua dados reais:** e-mails de clientes, tokens, links de portaria (`#acesso=`) ou de

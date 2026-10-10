@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "insert into changelog_entries (id, kind, title, body, published_at, created_by)\n           values ($1, $2, $3, $4, case when $5 then now() end, $6)\n           returning id, kind, title, body, published_at, created_at, updated_at",
+  "query": "select id, kind, title, body, version, published_at, created_at, updated_at from changelog_entries\n           order by published_at is not null, coalesce(published_at, created_at) desc",
   "describe": {
     "columns": [
       {
@@ -49,6 +49,17 @@
       },
       {
         "ordinal": 4,
+        "name": "version",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "changelog_entries",
+            "name": "version"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
         "name": "published_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -59,7 +70,7 @@
         }
       },
       {
-        "ordinal": 5,
+        "ordinal": 6,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -70,7 +81,7 @@
         }
       },
       {
-        "ordinal": 6,
+        "ordinal": 7,
         "name": "updated_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -82,14 +93,7 @@
       }
     ],
     "parameters": {
-      "Left": [
-        "Uuid",
-        "Text",
-        "Text",
-        "Text",
-        "Bool",
-        "Uuid"
-      ]
+      "Left": []
     },
     "nullable": [
       false,
@@ -97,9 +101,10 @@
       false,
       false,
       true,
+      true,
       false,
       false
     ]
   },
-  "hash": "62c62b34bbfd104e7fbe4a240ec6b814e6ec49b3fb6ccd63bab639d371914a3f"
+  "hash": "d28edb688e5241b3c3bd838f25e3c59cb92622424f19fd635b0d94365f3a45ac"
 }

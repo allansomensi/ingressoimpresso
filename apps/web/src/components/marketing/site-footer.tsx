@@ -5,6 +5,7 @@ import { Logo } from "@/components/brand";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { ButtonLink } from "@/components/ui";
 import { LEGAL_ENTITY } from "@/content/legal";
+import { APP_COMMIT, APP_VERSION, RELEASE_NOTES_HREF, VERSION_LABEL } from "@/lib/version";
 import { texts } from "@/texts/pt-BR";
 
 const t = texts.footer;
@@ -33,8 +34,8 @@ const COLUMNS = [
 
 /**
  * Footer of the public pages: navigation, legal documents, the provider's identification
- * (Decreto 7.962/2013) and, tucked away at the bottom, the theme switcher (the site follows the
- * system theme by default).
+ * (Decreto 7.962/2013) and, tucked away at the bottom, the version of the site (ADR 0049, linking
+ * to its release notes) and the theme switcher (the site follows the system theme by default).
  */
 export function SiteFooter() {
   return (
@@ -78,6 +79,9 @@ export function SiteFooter() {
           <p className="flex flex-wrap gap-x-3 gap-y-1">
             <span>{t.rights(new Date().getFullYear())}</span>
             <span>{t.provider(LEGAL_ENTITY.name, LEGAL_ENTITY.document)}</span>
+            <Link href={RELEASE_NOTES_HREF} title={t.version(APP_VERSION, APP_COMMIT)} className="tabular transition hover:text-fg-muted">
+              {VERSION_LABEL}
+            </Link>
           </p>
           <div className="flex items-center gap-2 opacity-70 transition hover:opacity-100 focus-within:opacity-100">
             <span>{t.theme}</span>

@@ -385,6 +385,7 @@ async fn the_status_page_shows_checks_and_incidents(pool: PgPool) {
         .await
         .json();
     assert_eq!(status["status"], "operational");
+    assert_eq!(status["version"], ingressoimpresso_server::VERSION);
     let keys: Vec<&str> = status["components"]
         .as_array()
         .unwrap()

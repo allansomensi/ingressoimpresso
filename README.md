@@ -11,11 +11,13 @@ Para bandas independentes, festas de escola, igrejas e pequenos produtores que v
 mão.
 
 [![CI](https://github.com/allansomensi/ingressoimpresso/actions/workflows/ci.yml/badge.svg)](https://github.com/allansomensi/ingressoimpresso/actions/workflows/ci.yml)
+[![Versão](https://img.shields.io/github/v/release/allansomensi/ingressoimpresso?label=vers%C3%A3o&color=5b3df5)](CHANGELOG.md)
 [![Licença: MIT](https://img.shields.io/badge/licen%C3%A7a-MIT-5b3df5.svg)](LICENSE)
 ![Rust](https://img.shields.io/badge/Rust-1.99-orange?logo=rust)
 ![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)
 
 [Site](https://ingressoimpresso.com.br) · [Status](https://ingressoimpresso.com.br/status) ·
+[Novidades](https://ingressoimpresso.com.br/novidades) · [Histórico de versões](CHANGELOG.md) ·
 [Arquitetura](docs/arquitetura.md) · [Decisões (ADRs)](docs/adr/README.md) ·
 [Implantação](docs/deploy.md)
 
@@ -220,9 +222,12 @@ request. Em resumo:
    documentação em português, e commits no formato
    [Conventional Commits](https://www.conventionalcommits.org) com gitmoji
    (`feat(server): ✨ ...`, `fix(web): 🐛 ...`).
-4. Uma decisão nova de arquitetura pede um [ADR](docs/adr/README.md) novo. Um ADR aceito não é
+4. Mudança que alguém percebe ganha uma linha em **Não lançado** no [`CHANGELOG.md`](CHANGELOG.md).
+   As versões seguem o [Versionamento Semântico](https://semver.org/lang/pt-BR/) e são publicadas
+   como tags `vX.Y.Z` ([como lançar](docs/versionamento.md)).
+5. Uma decisão nova de arquitetura pede um [ADR](docs/adr/README.md) novo. Um ADR aceito não é
    reescrito: um novo o substitui.
-5. Respeite as invariantes listadas no `CLAUDE.md`. A principal: o formato QR v1 é imutável.
+6. Respeite as invariantes listadas no `CLAUDE.md`. A principal: o formato QR v1 é imutável.
 
 Ao participar, você concorda com o [Código de Conduta](CODE_OF_CONDUCT.md). Precisa de ajuda com a
 sua conta ou o seu evento? Veja o [Suporte](SUPPORT.md).

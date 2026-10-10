@@ -13,6 +13,10 @@ export type StatusDto = {
  */
 status: ServiceStatus, 
 /**
+ * Version of the API that answered (ADR 0049).
+ */
+version: string, 
+/**
  * When the server checked.
  */
 checkedAt: string, 
