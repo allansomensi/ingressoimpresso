@@ -209,7 +209,8 @@ issue pública. Respondemos em até 5 dias.
 
 Contribuições são bem-vindas. Antes de abrir um pull request:
 
-1. Rode `just` e deixe tudo verde.
+1. Rode `just` e deixe tudo verde. As novidades passam pelo branch `staging` (o ambiente de
+   testes) antes do `main`, que é a produção.
 2. Siga as convenções do [`CLAUDE.md`](CLAUDE.md): código e commits em inglês, interface e
    documentação em português, e commits no formato
    [Conventional Commits](https://www.conventionalcommits.org) com gitmoji

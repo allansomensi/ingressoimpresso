@@ -577,6 +577,111 @@ Depois disso, siga o ensaio geral em [`docs/ensaio.md`](ensaio.md).
 | Botão **Pagar** diz "Pagamento online indisponível" | `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET` não configuradas | Passo 5.1; enquanto isso, o admin marca o lote como pago |
 | Primeiro acesso do dia demora um pouco | O banco do Neon estava dormindo (econômico de propósito) | Normal: leva menos de um segundo para acordar |
 
+## 11. Ambiente de staging (testes, ADR 0046)
+
+Um segundo site e uma segunda API, com banco e chaves próprios, para testar uma novidade antes de
+ela chegar a quem usa. O branch `staging` publica em `staging.seudominio.com.br` e
+`api-staging.seudominio.com.br`; o `main` continua sendo a produção.
+
+```
+branch da novidade ──► staging ──► (testes) ──► main
+                     site + API de teste        produção
+```
+
+O site de staging mostra o selo **Ambiente de testes** em toda página e não aparece no Google.
+
+### 11.1 GitHub
+
+1. **Branches** → **New branch**: nome `staging`, a partir do `main`.
+2. Depois disso, todo push no `staging` roda o **CI** e o **Deploy web**, como no `main`.
+
+### 11.2 Neon (banco de testes)
+
+1. **Branches** → **Create branch**: nome `staging`, pai `production`. Em **Data**, escolha
+   **Schema only**, para nenhum dado de cliente ir para os testes.
+2. Com o branch `staging` selecionado: **Databases** → **Add database** → nome `staging`. Use esse
+   banco **vazio**, não o `neondb` do branch: a API cria as tabelas sozinha ao subir (o `neondb`
+   copiado tem as tabelas, mas não o registro das migrações, e a API não subiria).
+3. **Connect** → branch `staging`, banco `staging`, pooling desligado → troque o final por
+   `?sslmode=verify-full`. Essa é a `DATABASE_URL` do staging.
+
+Se **Schema only** não aparecer, crie o branch com **Current data**, faça o passo 2 e, em
+**Databases**, apague o `neondb` do branch `staging` (a cópia com os dados reais).
+
+O branch de staging dorme quando parado e só gasta quando está em uso.
+
+### 11.3 Chave mestra do staging
+
+Gere uma chave **nova**, diferente da produção, como no passo 0, e guarde-a separada, com
+"staging" no nome:
+
+```sh
+openssl rand -base64 32
+```
+
+### 11.4 Render (API de testes)
+
+1. Com este `render.yaml` no `main`, o Render cria o serviço `ingressoimpresso-api-staging` (plano
+   grátis) na próxima sincronização do Blueprint e pede as variáveis:
+
+   | Variável | Valor no staging |
+   |---|---|
+   | `DATABASE_URL` | a do passo 11.2 |
+   | `TICKET_KEY_ENCRYPTION_KEY` | a do passo 11.3 |
+   | `RESEND_API_KEY` | a mesma da produção (ou outra chave só de envio) |
+   | `MAIL_FROM` | `Ingresso Impresso (testes) <login@mail.seudominio.com.br>` |
+   | `ADMIN_EMAILS` | o seu e-mail |
+   | `ALLOWED_ORIGINS` | `https://staging.seudominio.com.br` |
+   | `PUBLIC_API_URL` | `https://api-staging.seudominio.com.br` |
+   | `PUBLIC_WEB_URL` | `https://staging.seudominio.com.br` |
+   | `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` | chaves de **teste** (`sk_test_...`) e um webhook de teste para `https://api-staging.seudominio.com.br/api/stripe/webhook` (passo 5.1, no modo de teste) |
+   | `GOOGLE_CLIENT_ID` | o mesmo; adicione `https://staging.seudominio.com.br` às **Origens JavaScript autorizadas** (passo 5.2) |
+   | `TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY` | as mesmas; adicione `staging.seudominio.com.br` em **Hostnames** do widget (passo 5.6) |
+
+   Pode deixar vazias as que não for testar: sem Stripe, o admin marca o lote como pago; sem
+   Google ou Turnstile, eles somem do staging.
+2. **Settings** → **Custom Domains** → `api-staging.seudominio.com.br`.
+3. **Cota de e-mail compartilhada:** o staging vem com `MAIL_DAILY_LIMIT=15`. Para as duas APIs não
+   passarem dos 100 por dia da Resend, baixe o da produção para `85` (serviço de produção →
+   **Environment**).
+
+O plano grátis dorme depois de 15 minutos sem uso: o primeiro acesso depois disso leva cerca de um
+minuto.
+
+### 11.5 Vercel (site de testes)
+
+O staging usa o mesmo projeto da Vercel, como um preview com endereço fixo.
+
+1. **Settings** → **Domains** → **Add**: `staging.seudominio.com.br`. Não ligue esse domínio à
+   produção: deixe-o sem ambiente, ou ligado ao branch `staging`.
+2. **Settings** → **Environment Variables**, ambiente **Preview**, branch **`staging`**, todas do
+   tipo comum (não **Sensitive**):
+   - `NEXT_PUBLIC_API_URL` = `https://api-staging.seudominio.com.br`
+   - `NEXT_PUBLIC_SITE_URL` = `https://staging.seudominio.com.br`
+   - `NEXT_PUBLIC_ENVIRONMENT` = `staging`
+3. **Deployment Protection:** por padrão a Vercel pede login da Vercel para abrir previews. Isso
+   deixa o staging fechado só para você, o que é bom; para testar a portaria em vários celulares sem
+   entrar na Vercel em cada um, desligue a proteção em **Settings** → **Deployment Protection**.
+
+O endereço pode ser outro: crie a variável `VERCEL_STAGING_ALIAS` em **GitHub** → **Settings** →
+**Secrets and variables** → **Actions** → **Variables**.
+
+### 11.6 DNS (Registro.br)
+
+| Tipo | Nome | Valor |
+|---|---|---|
+| CNAME | `staging` | `cname.vercel-dns.com` |
+| CNAME | `api-staging` | o endereço `.onrender.com` do serviço de staging |
+
+### 11.7 No dia a dia
+
+1. Cada novidade nasce num branch e entra no `staging` (merge ou pull request).
+2. Em uns 2 minutos o site de testes atualiza; a API de testes, depois que o CI passar.
+3. Teste tudo em `staging.seudominio.com.br`, inclusive as migrações do banco, que rodam primeiro
+   no staging.
+4. Aprovado, leve o `staging` para o `main` (pull request `staging` → `main`). A produção atualiza
+   do mesmo jeito de sempre.
+
 ## Resumo
 
 **Registros no Registro.br** (nomes relativos ao domínio):

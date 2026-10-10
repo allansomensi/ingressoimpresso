@@ -169,6 +169,12 @@ docs/deploy.md       domínio próprio: Neon, Resend, DNS (Registro.br), Render,
   Pix gerado e não pago deixa o pagamento `processing` (bloqueia cancelar e novo checkout).
   Checkout/cancelar/marcar pago de um lote passam por `AppState::batch_lock` (trava em memória:
   a API roda em uma instância só) e chamam a Stripe fora de transação.
+- **Staging (ADR 0046):** o branch `staging` publica um ambiente separado: API
+  `ingressoimpresso-api-staging` no mesmo `render.yaml` (plano grátis), branch do Neon sem dados
+  reais, site como preview da Vercel com as variáveis de Preview do branch `staging` e endereço
+  fixo (`VERCEL_STAGING_ALIAS`, padrão `staging.ingressoimpresso.com.br`).
+  `NEXT_PUBLIC_ENVIRONMENT=staging` mostra o selo "Ambiente de testes" e bloqueia a indexação.
+  Novidades passam por `staging` antes do `main`; variável nova da API vai para os dois serviços.
 - **Métricas:** Vercel Web Analytics (ADR 0022), ligado no painel da Vercel; nada a configurar no
   código além de `NEXT_PUBLIC_SITE_URL` (opcional, padrão `https://ingressoimpresso.com.br`).
 

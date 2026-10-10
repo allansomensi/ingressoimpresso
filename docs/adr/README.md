@@ -55,3 +55,4 @@ feita e as consequências.
 | [0043](0043-pagina-de-status.md) | Página pública de status | Aceito |
 | [0044](0044-captcha-no-login.md) | Verificação anti-robô antes do código por e-mail | Aceito |
 | [0045](0045-verificacao-em-duas-etapas.md) | Verificação em duas etapas (opcional) | Aceito |
+| [0046](0046-ambiente-de-staging.md) | Ambiente de staging | Aceito |
