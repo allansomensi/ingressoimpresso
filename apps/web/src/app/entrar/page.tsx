@@ -5,13 +5,13 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Check, Mail } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
 import { Logo, LogoMark } from "@/components/brand";
 import { GoogleSignIn } from "@/components/google-sign-in";
 import { OtpInput } from "@/components/otp-input";
-import { Turnstile } from "@/components/turnstile";
+import { Turnstile, type TurnstileHandle } from "@/components/turnstile";
 import { Alert, Button, ErrorMessage, Field, Input, Spinner } from "@/components/ui";
 import { ApiError, api } from "@/lib/api";
 import { usePlatform } from "@/lib/platform";
@@ -58,12 +58,10 @@ export default function SignInPage() {
     retry: 1,
   });
   const googleClientId = googleBlocked ? null : (options.data?.googleClientId ?? null);
-  // Anti-bot check before a code is e-mailed (ADR 0044): each token works once.
+  // Anti-bot check before a code is e-mailed (ADR 0044): a token is asked for on each request.
   const captchaSiteKey = options.data?.captchaSiteKey ?? null;
-  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
-  const [captchaRound, setCaptchaRound] = useState(0);
+  const turnstile = useRef<TurnstileHandle>(null);
   const [captchaBlocked, setCaptchaBlocked] = useState(false);
-  const captchaPending = captchaSiteKey !== null && captchaToken === null;
   const platform = usePlatform();
   const mode = platform.data?.maintenance.mode ?? "off";
   const notice =
@@ -99,18 +97,16 @@ export default function SignInPage() {
     router.replace("/painel");
   };
   const requestCode = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
       const body: RequestCodeBody = { email: email.trim() };
-      if (captchaToken !== null) {
-        body.captchaToken = captchaToken;
+      if (captchaSiteKey !== null && !captchaBlocked && turnstile.current !== null) {
+        try {
+          body.captchaToken = await turnstile.current.token();
+        } catch {
+          throw new ApiError(403, "captcha_failed");
+        }
       }
       return api<undefined>("/api/auth/code", { method: "POST", body });
-    },
-    onSettled: () => {
-      if (captchaSiteKey !== null) {
-        setCaptchaToken(null);
-        setCaptchaRound((round) => round + 1);
-      }
     },
     onSuccess: () => {
       if (codeSent) {
@@ -135,7 +131,7 @@ export default function SignInPage() {
     event.preventDefault();
     if (codeSent) {
       verify.mutate(code);
-    } else if (!captchaPending || captchaBlocked) {
+    } else {
       requestCode.mutate();
     }
   };
@@ -147,9 +143,8 @@ export default function SignInPage() {
       <Alert tone="warning">{t.captchaBlocked}</Alert>
     ) : (
       <Turnstile
+        ref={turnstile}
         siteKey={captchaSiteKey}
-        round={captchaRound}
-        onToken={setCaptchaToken}
         onUnavailable={() => {
           setCaptchaBlocked(true);
         }}
@@ -255,7 +250,7 @@ export default function SignInPage() {
                 <button
                   type="button"
                   className="font-medium text-brand disabled:text-fg-subtle"
-                  disabled={wait > 0 || requestCode.isPending || captchaPending}
+                  disabled={wait > 0 || requestCode.isPending}
                   onClick={() => {
                     requestCode.mutate();
                   }}
@@ -306,9 +301,8 @@ export default function SignInPage() {
                   size="lg"
                   variant={googleButton === null ? "primary" : "secondary"}
                   loading={requestCode.isPending}
-                  disabled={captchaPending && !captchaBlocked}
                 >
-                  {requestCode.isPending ? t.sending : captchaPending && !captchaBlocked ? t.checking : t.sendCode}
+                  {requestCode.isPending ? t.sending : t.sendCode}
                 </Button>
               </form>
               <div className="flex flex-col gap-2">

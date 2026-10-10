@@ -441,7 +441,6 @@ export const texts = {
     emailPlaceholder: "voce@exemplo.com",
     sendCode: "Receber código por e-mail",
     sending: "Enviando…",
-    checking: "Verificando…",
     captchaBlocked:
       "A verificação anti-robô não carregou. Desative o bloqueador de anúncios desta página ou entre com o Google.",
     codeTitle: "Confira seu e-mail",
