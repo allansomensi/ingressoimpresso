@@ -1,0 +1,54 @@
+name: ✨ Sugestão de recurso
+description: Uma ideia para o Ingresso Impresso resolver melhor um problema real.
+title: "[Sugestão] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        As melhores sugestões começam pelo **problema**, não pela solução. Conte o que acontece no
+        seu evento (ou no de quem você conhece) e o que fica difícil hoje.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Qual problema você quer resolver?
+      placeholder: "Ex.: na festa junina da escola, cada turma vende ingressos e eu não sei quanto cada uma precisa devolver..."
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Como você imagina a solução?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Como você resolve isso hoje?
+      description: Planilha, caderno, outro sistema... Ajuda a entender o tamanho do problema.
+  - type: dropdown
+    id: audience
+    attributes:
+      label: Para quem é?
+      multiple: true
+      options:
+        - Quem organiza o evento
+        - Quem vende (vendedores)
+        - Quem trabalha na porta
+        - Quem compra o ingresso
+        - Administração da plataforma
+        - Quem desenvolve (código, documentação)
+    validations:
+      required: true
+  - type: input
+    id: event
+    attributes:
+      label: Tipo e tamanho do evento
+      placeholder: "Ex.: show em bar, 150 ingressos / formatura, 600 convites"
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Confirmações
+      options:
+        - label: Procurei nas issues e nas Discussions e não encontrei esta ideia.
+          required: true

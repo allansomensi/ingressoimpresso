@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 🔒 Falha de segurança
+    url: https://github.com/allansomensi/ingressoimpresso/security/advisories/new
+    about: Relate em particular, nunca numa issue pública. Veja o SECURITY.md.
+  - name: 🎟️ Suporte da sua conta ou do seu evento
+    url: https://ingressoimpresso.com.br/#duvidas
+    about: Lotes, pagamentos e reembolsos são atendidos pelo e-mail contato@ingressoimpresso.com.br, não aqui.
+  - name: 📶 O site ou a portaria estão fora do ar?
+    url: https://ingressoimpresso.com.br/status
+    about: Veja a página de status antes de abrir uma issue.
+  - name: 💬 Dúvidas e ideias
+    url: https://github.com/allansomensi/ingressoimpresso/discussions
+    about: Perguntas sobre o código, a arquitetura ou ideias ainda sem forma.
