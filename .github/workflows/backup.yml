@@ -47,8 +47,8 @@ jobs:
         run: |
           sudo apt-get update -q && sudo apt-get install -y -q age
           name="ingressoimpresso-$(date -u +%Y%m%dT%H%MZ).dump.age"
-          # The client matches the server (Postgres 17); the plain dump never touches the disk.
-          docker run --rm -e DATABASE_URL postgres:17 \
+          # The client matches the server (Postgres 18, like Neon); the plain dump never touches the disk.
+          docker run --rm -e DATABASE_URL postgres:18 \
             sh -c 'pg_dump --format=custom --no-owner --no-privileges "$DATABASE_URL"' \
             | age --recipient "$RECIPIENT" > "$name"
           size=$(stat -c %s "$name")

@@ -487,7 +487,7 @@ repositório é público, mas o arquivo só abre com a sua chave privada.
 4. Prepare o computador (macOS, Linux ou WSL no Windows) uma vez: instale o `git`, o
    [`just`](https://just.systems) (macOS `brew install just`; Ubuntu/Debian/WSL
    `sudo apt install just`), o age (no WSL, `sudo apt install age`: o do Windows não vale lá
-   dentro) e as ferramentas do Postgres 17 (ou o Docker). Depois clone o repositório:
+   dentro) e as ferramentas do Postgres 18 (ou o Docker). Depois clone o repositório:
 
    ```sh
    git clone https://github.com/allansomensi/ingressoimpresso
