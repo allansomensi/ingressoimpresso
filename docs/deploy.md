@@ -580,8 +580,9 @@ Depois disso, siga o ensaio geral em [`docs/ensaio.md`](ensaio.md).
 ## 11. Ambiente de staging (testes, ADR 0046)
 
 Um segundo site e uma segunda API, com banco e chaves próprios, para testar uma novidade antes de
-ela chegar a quem usa. O branch `staging` publica em `staging.seudominio.com.br` e
-`api-staging.seudominio.com.br`; o `main` continua sendo a produção.
+ela chegar a quem usa. O branch `staging` publica o site em `staging.seudominio.com.br` e a API no
+endereço do Render (`https://ingressoimpresso-api-staging.onrender.com`; um domínio próprio é
+opcional); o `main` continua sendo a produção.
 
 ```
 branch da novidade ──► staging ──► (testes) ──► main
@@ -632,15 +633,16 @@ openssl rand -base64 32
    | `MAIL_FROM` | `Ingresso Impresso (testes) <login@mail.seudominio.com.br>` |
    | `ADMIN_EMAILS` | o seu e-mail |
    | `ALLOWED_ORIGINS` | `https://staging.seudominio.com.br` |
-   | `PUBLIC_API_URL` | `https://api-staging.seudominio.com.br` |
+   | `PUBLIC_API_URL` | `https://ingressoimpresso-api-staging.onrender.com` (ou o domínio próprio, se usar) |
    | `PUBLIC_WEB_URL` | `https://staging.seudominio.com.br` |
-   | `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` | chaves de **teste** (`sk_test_...`) e um webhook de teste para `https://api-staging.seudominio.com.br/api/stripe/webhook` (passo 5.1, no modo de teste) |
+   | `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` | chaves de **teste** (`sk_test_...`) e um webhook de teste para `https://ingressoimpresso-api-staging.onrender.com/api/stripe/webhook` (passo 5.1, no modo de teste) |
    | `GOOGLE_CLIENT_ID` | o mesmo; adicione `https://staging.seudominio.com.br` às **Origens JavaScript autorizadas** (passo 5.2) |
    | `TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY` | as mesmas; adicione `staging.seudominio.com.br` em **Hostnames** do widget (passo 5.6) |
 
    Pode deixar vazias as que não for testar: sem Stripe, o admin marca o lote como pago; sem
    Google ou Turnstile, eles somem do staging.
-2. **Settings** → **Custom Domains** → `api-staging.seudominio.com.br`.
+2. Opcional: **Settings** → **Custom Domains** → `api-staging.seudominio.com.br`. O plano do Render
+   tem um limite de domínios próprios; sem ele, use o endereço `.onrender.com` em todo lugar.
 3. **Cota de e-mail compartilhada:** o staging vem com `MAIL_DAILY_LIMIT=15`. Para as duas APIs não
    passarem dos 100 por dia da Resend, baixe o da produção para `85` (serviço de produção →
    **Environment**).
@@ -656,7 +658,7 @@ O staging usa o mesmo projeto da Vercel, como um preview com endereço fixo.
    produção: deixe-o sem ambiente, ou ligado ao branch `staging`.
 2. **Settings** → **Environment Variables**, ambiente **Preview**, branch **`staging`**, todas do
    tipo comum (não **Sensitive**):
-   - `NEXT_PUBLIC_API_URL` = `https://api-staging.seudominio.com.br`
+   - `NEXT_PUBLIC_API_URL` = `https://ingressoimpresso-api-staging.onrender.com` (sem barra no fim)
    - `NEXT_PUBLIC_SITE_URL` = `https://staging.seudominio.com.br`
    - `NEXT_PUBLIC_ENVIRONMENT` = `staging`
 3. **Deployment Protection:** por padrão a Vercel pede login da Vercel para abrir previews. Isso
@@ -671,7 +673,7 @@ O endereço pode ser outro: crie a variável `VERCEL_STAGING_ALIAS` em **GitHub*
 | Tipo | Nome | Valor |
 |---|---|---|
 | CNAME | `staging` | `cname.vercel-dns.com` |
-| CNAME | `api-staging` | o endereço `.onrender.com` do serviço de staging |
+| CNAME | `api-staging` | só se usar domínio próprio na API: o endereço `.onrender.com` do serviço |
 
 ### 11.7 No dia a dia
 
