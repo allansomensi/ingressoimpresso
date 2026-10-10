@@ -130,7 +130,11 @@ async fn run(config: Config) -> Result<()> {
     let listener = tokio::net::TcpListener::bind(("0.0.0.0", port))
         .await
         .with_context(|| format!("binding port {port}"))?;
-    tracing::info!(port, "listening");
+    tracing::info!(
+        port,
+        version = ingressoimpresso_server::VERSION,
+        "listening"
+    );
     axum::serve(listener, app::router(state))
         .with_graceful_shutdown(shutdown_signal())
         .await

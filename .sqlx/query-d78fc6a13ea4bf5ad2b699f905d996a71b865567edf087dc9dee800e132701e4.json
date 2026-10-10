@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "update changelog_entries\n           set kind = $2, title = $3, body = $4, updated_at = now(),\n               published_at = case when $5 then coalesce(published_at, now()) end\n           where id = $1\n           returning id, kind, title, body, published_at, created_at, updated_at",
+  "query": "update changelog_entries\n           set kind = $2, title = $3, body = $4, version = $5, updated_at = now(),\n               published_at = case when $6 then coalesce(published_at, now()) end\n           where id = $1\n           returning id, kind, title, body, version, published_at, created_at, updated_at",
   "describe": {
     "columns": [
       {
@@ -49,6 +49,17 @@
       },
       {
         "ordinal": 4,
+        "name": "version",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "changelog_entries",
+            "name": "version"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
         "name": "published_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -59,7 +70,7 @@
         }
       },
       {
-        "ordinal": 5,
+        "ordinal": 6,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -70,7 +81,7 @@
         }
       },
       {
-        "ordinal": 6,
+        "ordinal": 7,
         "name": "updated_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -87,6 +98,7 @@
         "Text",
         "Text",
         "Text",
+        "Text",
         "Bool"
       ]
     },
@@ -96,9 +108,10 @@
       false,
       false,
       true,
+      true,
       false,
       false
     ]
   },
-  "hash": "ac10316e92c2f3f92750429f13169e632b37246a5c1dcfc4f2a3f617ac23aa01"
+  "hash": "d78fc6a13ea4bf5ad2b699f905d996a71b865567edf087dc9dee800e132701e4"
 }

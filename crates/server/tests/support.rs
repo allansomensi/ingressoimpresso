@@ -321,6 +321,43 @@ async fn admins_publish_changelog_notes(pool: PgPool) {
     assert_eq!(after.as_array().unwrap().len(), launch + 1);
     assert_eq!(after[0]["title"], "Ingresso digital");
     assert_eq!(after[0]["kind"], "security");
+    // Notes published before versioning belong to 1.0.0 (ADR 0049); this one names no release.
+    assert!(after[0]["version"].is_null());
+    assert!(
+        after.as_array().unwrap()[1..]
+            .iter()
+            .all(|note| note["version"] == "1.0.0")
+    );
+
+    let versioned = app
+        .put(
+            &format!("/api/admin/changelog/{id}"),
+            &admin,
+            json!({ "kind": "security", "title": "Ingresso digital", "body": "Texto", "version": " 1.2.0 ", "published": true }),
+        )
+        .await
+        .json();
+    assert_eq!(versioned["version"], "1.2.0");
+    assert_eq!(versioned["publishedAt"], published["publishedAt"]);
+    let cleared = app
+        .put(
+            &format!("/api/admin/changelog/{id}"),
+            &admin,
+            json!({ "kind": "security", "title": "Ingresso digital", "body": "Texto", "version": "", "published": true }),
+        )
+        .await
+        .json();
+    assert!(cleared["version"].is_null());
+    for version in ["v1.2.0", "1.2", "01.2.0", "1.2.0-beta", "1.2.0.1"] {
+        let response = app
+            .post(
+                "/api/admin/changelog",
+                &admin,
+                json!({ "kind": "fix", "title": "X", "body": "", "version": version, "published": false }),
+            )
+            .await;
+        assert_eq!(response.error_code(), "invalid_version", "{version}");
+    }
     let invalid = app
         .post(
             "/api/admin/changelog",

@@ -680,6 +680,8 @@ dto! {
         pub title: String,
         /// Text (paragraphs separated by blank lines).
         pub body: String,
+        /// Release that brought the change (`1.4.0`, ADR 0049); `null` outside any release.
+        pub version: Option<String>,
         /// Publication time; `null` for a draft.
         #[serde(with = "time::serde::rfc3339::option")]
         #[cfg_attr(feature = "ts", ts(type = "string | null"))]
@@ -702,6 +704,10 @@ dto! {
         pub title: String,
         /// Text (up to 4000 characters).
         pub body: String,
+        /// Release that brought the change (`1.4.0`, ADR 0049); empty or absent: none.
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional))]
+        pub version: Option<String>,
         /// Published (`false`: draft).
         pub published: bool,
     }
@@ -2427,6 +2433,8 @@ dto! {
     pub struct StatusDto {
         /// Overall state.
         pub status: ServiceStatus,
+        /// Version of the API that answered (ADR 0049).
+        pub version: String,
         /// When the server checked.
         #[serde(with = "time::serde::rfc3339")]
         #[cfg_attr(feature = "ts", ts(type = "string"))]
