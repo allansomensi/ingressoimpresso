@@ -1,6 +1,7 @@
 import { GeistMono } from "geist/font/mono";
 import { GeistSans } from "geist/font/sans";
 import type { Metadata, Viewport } from "next";
+import { headers } from "next/headers";
 import type { ReactNode } from "react";
 
 import { SiteAnalytics } from "@/components/site-analytics";
@@ -41,12 +42,15 @@ export const viewport: Viewport = {
   ],
 };
 
-export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
+export default async function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
+  // The request's CSP nonce (src/proxy.ts, ADR 0048). Reading the headers renders every page per
+  // request, which the nonce needs anyway: a prerendered page could not carry it.
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
   return (
     // `data-theme` is set before hydration by THEME_SCRIPT, so React must not complain about it.
     <html lang="pt-BR" className={`${GeistSans.variable} ${GeistMono.variable}`} suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       </head>
       <body className="min-h-dvh font-sans antialiased">
         <Providers>{children}</Providers>

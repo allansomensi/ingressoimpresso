@@ -63,9 +63,10 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   endereço nos endpoints sem sessão (`ratelimit.rs`), caminhos da API validados no painel
   (`safePath`/`isUuid`), moderação que acompanha cópias e sobrevive a exclusões (`rejected_art`),
   cabeçalhos e timeout na API, produção que recusa chaves de teste, deploy do site só depois do CI
-  verde, `cargo audit`/`pnpm audit` e Dependabot. Falta o que depende do mantenedor: ligar a
-  verificação em duas etapas na conta admin, rulesets/Environments no GitHub, chave da Resend
-  separada para o staging e `sslmode=verify-full` na URL do backup (`docs/deploy.md` §7–§9, §11).
+  verde, `cargo audit`/`pnpm audit` e Dependabot; CSP com nonce por requisição no site
+  (`apps/web/src/proxy.ts`, ADR 0048: toda página é dinâmica). Do lado do mantenedor já estão
+  feitos: duas etapas na conta admin, rulesets e Environments no GitHub (Production, Staging,
+  Preview, Backup), backup com `verify-full` e chave da Resend separada no staging.
 
 Plano completo em `docs/arquitetura.md` §12.
 
@@ -112,7 +113,8 @@ apps/web             landing em src/app/page.tsx (+ src/components/marketing), p
                      tema em src/lib/theme{,-script}.ts (data-theme no <html>, ADR 0022);
                      Analytics em src/components/site-analytics.tsx (fora da portaria);
                      PWA do painel: app/manifest.ts + public/sw.js (escopo /, ignora /portaria;
-                     guarda /ingresso para abrir offline);
+                     guarda /ingresso para abrir offline); CSP com nonce em src/proxy.ts (ADR 0048:
+                     o layout raiz lê x-nonce; script inline novo precisa de nonce={nonce});
                      ingresso digital: app/ingresso + components/ticket/ticket-pass.tsx +
                      lib/ticket-pass.ts, aba components/event/digital.tsx;
                      documentos legais em src/content/legal.ts (LEGAL_ENTITY, TERMS_VERSION) e
@@ -133,7 +135,8 @@ apps/web             landing em src/app/page.tsx (+ src/components/marketing), p
                      login em components/two-factor-step.tsx;
                      status público em app/status + components/status;
                      menus e popovers em components/ui/popover.tsx (portal; folha no celular)
-e2e/                 portaria.e2e.mjs: 5 "celulares" Chromium com câmera falsa (`just e2e`)
+e2e/                 portaria.e2e.mjs: 5 "celulares" Chromium com câmera falsa (`just e2e`);
+                     csp.e2e.mjs: toda página com nonce e nada recusado (ADR 0048)
 packages/ticket-core-wasm  wrapper TS tipado (src/), tipos gerados (src/generated/, NÃO editar),
                      pkg/ gerado por `just wasm` (não versionado), testes Vitest com os vetores
 apps/web             Next.js 16 (Vercel): landing; painel e portaria nas fases 3–4
@@ -168,8 +171,9 @@ docs/deploy.md       domínio próprio: Neon, Resend, DNS (Registro.br), Render,
   0044) fazem `POST /api/auth/code` exigir um token do Cloudflare Turnstile, conferido em
   `siteverify`. Se o Cloudflare não responder, o código sai assim mesmo (os limites seguem).
 - **Login com Google:** `GOOGLE_CLIENT_ID` liga o botão (Google Identity Services); a API confere
-  o ID token com as chaves do Google (ADR 0029). A CSP libera só `accounts.google.com/gsi/` e,
-  para o Turnstile, `challenges.cloudflare.com`. O botão é o oficial, com o tema do site e o
+  o ID token com as chaves do Google (ADR 0029). A CSP (`src/proxy.ts`, nonce por requisição com
+  `'strict-dynamic'`, ADR 0048) libera só `accounts.google.com/gsi/` e, para o Turnstile,
+  `challenges.cloudflare.com`; scripts de terceiros entram por `document.createElement`. O botão é o oficial, com o tema do site e o
   script carregado com `?hl=pt-BR` (a opção `locale` do botão é ignorada).
 - **Pagamento:** Stripe Checkout por lote (ADR 0020), confirmado pelo webhook
   `POST /api/stripe/webhook` (assinatura `Stripe-Signature`) ou pela consulta da sessão quando o

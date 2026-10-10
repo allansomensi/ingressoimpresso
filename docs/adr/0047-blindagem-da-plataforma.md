@@ -78,7 +78,7 @@ invariante, mas juntas davam caminhos reais de abuso:
   instâncias, mas depende de configuração fora do repositório. Como a API é uma instância só,
   a contagem em memória resolve e fica versionada com o código.
 - **CSP com nonce no site:** tira o `'unsafe-inline'` e protege o token da sessão contra um XSS
-  futuro. Exige `proxy.ts` e páginas dinâmicas; fica como próximo passo, testado no staging.
+  futuro. Exige `proxy.ts` e páginas dinâmicas; feito em seguida, na ADR 0048.
 - **Pinar as actions por SHA:** recomendado; o Dependabot de `github-actions` mantém os pins.
   Fica para quando houver como conferir os SHAs com calma.
 

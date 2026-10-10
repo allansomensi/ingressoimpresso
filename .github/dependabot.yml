@@ -53,3 +53,6 @@ updates:
       day: monday
       time: "06:00"
       timezone: America/Sao_Paulo
+    ignore:
+      # The build image's Rust must match rust-toolchain.toml: both move together, by hand.
+      - dependency-name: rust

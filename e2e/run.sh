@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Runs the door end-to-end test: API (cargo, DATABASE_URL from the environment) on :8080 and the
+# Runs the door end-to-end test and the CSP check: API (cargo, DATABASE_URL from the environment) on :8080 and the
 # production web build on :3000, then e2e/portaria.e2e.mjs. Called by `just e2e` and by CI.
 set -euo pipefail
 
@@ -39,3 +39,5 @@ for url in http://localhost:8080/healthz http://localhost:3000/portaria; do
 done
 
 E2E_API_LOG="$out/api.log" E2E_OUT="$out" node e2e/portaria.e2e.mjs
+# The same production server: every page carries its CSP nonce (ADR 0048).
+node e2e/csp.e2e.mjs
