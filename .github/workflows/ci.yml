@@ -2,7 +2,8 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    # staging: the test environment deploys only commits with green checks too (ADR 0046).
+    branches: [main, staging]
   pull_request:
   workflow_dispatch:
 

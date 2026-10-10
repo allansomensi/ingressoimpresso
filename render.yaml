@@ -68,3 +68,62 @@ services:
         sync: false
       - key: TURNSTILE_SECRET_KEY
         sync: false
+
+  # The test environment (ADR 0046, docs/deploy.md §11): the same image from the staging branch,
+  # with its own Neon branch, keys and domain. The free plan sleeps when idle (the first request
+  # after a pause takes about a minute), which is fine for tests.
+  - type: web
+    name: ingressoimpresso-api-staging
+    runtime: docker
+    dockerfilePath: ./deploy/api.Dockerfile
+    dockerContext: .
+    region: virginia
+    plan: free
+    branch: staging
+    autoDeployTrigger: checksPass
+    buildFilter:
+      paths:
+        - crates/server/**
+        - crates/render/**
+        - crates/ticket-core/**
+        - .sqlx/**
+        - .cargo/**
+        - Cargo.toml
+        - Cargo.lock
+        - deploy/api.Dockerfile
+        - .dockerignore
+      ignoredPaths:
+        - crates/**/tests/**
+    healthCheckPath: /healthz
+    envVars:
+      - key: APP_ENV
+        value: production
+      # Leaves room in the shared Resend quota for production's codes.
+      - key: MAIL_DAILY_LIMIT
+        value: "15"
+      - key: DATABASE_URL
+        sync: false
+      - key: TICKET_KEY_ENCRYPTION_KEY
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: MAIL_FROM
+        sync: false
+      - key: ADMIN_EMAILS
+        sync: false
+      - key: ALLOWED_ORIGINS
+        sync: false
+      - key: PUBLIC_API_URL
+        sync: false
+      - key: PUBLIC_WEB_URL
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: TURNSTILE_SITE_KEY
+        sync: false
+      - key: TURNSTILE_SECRET_KEY
+        sync: false

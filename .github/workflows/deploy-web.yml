@@ -1,13 +1,15 @@
 name: Deploy web
 
 # ADR 0009: the Vercel build has no Rust, so the door's WebAssembly is compiled here and the
-# site is uploaded prebuilt. Pushes to main deploy production; a manual run deploys any branch
-# as a preview (or production, from main). Needs the VERCEL_TOKEN, VERCEL_ORG_ID and
-# VERCEL_PROJECT_ID secrets (docs/deploy.md); without them the job only warns.
+# site is uploaded prebuilt. Pushes to main deploy production; pushes to staging deploy the test
+# environment (ADR 0046): a preview built with the staging branch's Preview variables, aliased to
+# its own domain. A manual run deploys any branch as a preview (or production, from main). Needs
+# the VERCEL_TOKEN, VERCEL_ORG_ID and VERCEL_PROJECT_ID secrets (docs/deploy.md); without them the
+# job only warns.
 
 on:
   push:
-    branches: [main]
+    branches: [main, staging]
   workflow_dispatch:
     inputs:
       production:
@@ -32,6 +34,8 @@ env:
   VERCEL_CLI: vercel@59.26.0
   # Previews get a fixed address, so the API's ALLOWED_ORIGINS can list it once.
   PREVIEW_ALIAS: ${{ vars.VERCEL_PREVIEW_ALIAS || 'ingressoimpresso-preview.vercel.app' }}
+  # The staging site's address (a domain added to the Vercel project, not assigned to production).
+  STAGING_ALIAS: ${{ vars.VERCEL_STAGING_ALIAS || 'staging.ingressoimpresso.com.br' }}
   VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
   VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
@@ -87,15 +91,22 @@ jobs:
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           PRODUCTION: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.production) }}
+          STAGING: ${{ github.ref == 'refs/heads/staging' }}
         run: |
           target=preview
           prod=()
+          branch=()
+          alias="$PREVIEW_ALIAS"
           if [ "$PRODUCTION" = "true" ]; then
             target=production
             prod=(--prod)
+          elif [ "$STAGING" = "true" ]; then
+            # Preview variables scoped to the staging branch: its API, NEXT_PUBLIC_ENVIRONMENT=staging.
+            branch=(--git-branch=staging)
+            alias="$STAGING_ALIAS"
           fi
           vercel() { pnpm dlx "$VERCEL_CLI" "$@" --token="$VERCEL_TOKEN"; }
-          vercel pull --yes --environment="$target"
+          vercel pull --yes --environment="$target" "${branch[@]}"
           # NEXT_PUBLIC_API_URL is baked into the bundle and the CSP: without it the site would
           # silently call http://localhost:8080. It must be a Config (not Secret) variable.
           env_file=""
@@ -113,9 +124,12 @@ jobs:
           url=$(vercel deploy --prebuilt "${prod[@]}" | tail -n 1)
           echo "Deployed ($target): $url" >> "$GITHUB_STEP_SUMMARY"
           if [ "$target" = preview ]; then
-            if vercel alias set "$url" "$PREVIEW_ALIAS"; then
-              echo "Preview: https://$PREVIEW_ALIAS" >> "$GITHUB_STEP_SUMMARY"
+            if vercel alias set "$url" "$alias"; then
+              echo "Preview: https://$alias" >> "$GITHUB_STEP_SUMMARY"
+            elif [ "$STAGING" = "true" ]; then
+              echo "::error::Could not alias staging to $alias: add the domain to the Vercel project (docs/deploy.md §11)."
+              exit 1
             else
-              echo "::warning::Could not alias the preview to $PREVIEW_ALIAS (set the VERCEL_PREVIEW_ALIAS variable)."
+              echo "::warning::Could not alias the preview to $alias (set the VERCEL_PREVIEW_ALIAS variable)."
             fi
           fi
