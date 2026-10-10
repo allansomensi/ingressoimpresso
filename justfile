@@ -11,7 +11,7 @@ wasm_out := "packages/ticket-core-wasm/pkg"
 # Everything CI runs, in order.
 default: check
 
-check: fmt-check clippy test-rust generated-check wasm js-install js-check
+check: release-check fmt-check clippy test-rust generated-check wasm js-install js-check
 
 # --- Rust -------------------------------------------------------------------
 
