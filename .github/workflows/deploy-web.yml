@@ -49,6 +49,10 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    # The VERCEL_* secrets live in GitHub Environments (ADR 0047): Production (branch main),
+    # Staging (branch staging) and Preview (manual previews of any other branch).
+    environment:
+      name: ${{ (github.event.workflow_run.head_branch || github.ref_name) == 'main' && 'Production' || (github.event.workflow_run.head_branch || github.ref_name) == 'staging' && 'Staging' || 'Preview' }}
     env:
       # The branch and commit CI just checked (a manual run uses the chosen branch).
       BRANCH: ${{ github.event.workflow_run.head_branch || github.ref_name }}

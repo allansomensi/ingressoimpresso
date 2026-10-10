@@ -25,6 +25,9 @@ jobs:
     name: pg_dump | age
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    # BACKUP_DATABASE_URL and BACKUP_AGE_RECIPIENT live in the Backup environment (ADR 0047),
+    # whose deployment branches are limited to main.
+    environment: Backup
     steps:
       - name: Backup secrets
         id: secrets

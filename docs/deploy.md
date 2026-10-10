@@ -549,10 +549,12 @@ Depois disso, siga o ensaio geral em [`docs/ensaio.md`](ensaio.md).
 - **Proteção dos branches (uma vez, no GitHub):** **Settings** → **Rules** → **Rulesets** → **New
   branch ruleset** para `main` e `staging`: *Require a pull request*, *Require status checks*
   (`just check`, `API image`, `Dependency audit`) e *Block force pushes*. Em **Settings** →
-  **Environments**, crie `production` (branch `main`) e `staging` e mova para lá os secrets
-  `VERCEL_*` e `BACKUP_*`, com *Deployment branches* restrito: assim um branch qualquer não
-  consegue publicar nem baixar o banco. **Settings** → **Code security**: ligue *Dependabot
-  alerts* e *security updates*.
+  **Environments**, os workflows usam quatro: **Production** (`VERCEL_*`, branch `main`),
+  **Staging** (`VERCEL_*`, branch `staging`), **Preview** (`VERCEL_*`, prévias manuais de qualquer
+  branch) e **Backup** (`BACKUP_DATABASE_URL` e `BACKUP_AGE_RECIPIENT`, branch `main`). Com os
+  secrets lá e *Deployment branches* restrito, um branch qualquer não consegue publicar nem baixar
+  o banco; os secrets do nível do repositório podem ser apagados. **Settings** → **Code
+  security**: ligue *Dependabot alerts* e *security updates*.
 - **Neon:** o plano gratuito reinicia o banco para atualizações e avisa no painel com um dia de
   antecedência. Antes de um evento, confira se não há reinício marcado para a hora do show.
 - **Limites gratuitos e uso:**
@@ -735,9 +737,9 @@ O endereço pode ser outro: crie a variável `VERCEL_STAGING_ALIAS` em **GitHub*
 | Segredo do webhook da Resend | `RESEND_WEBHOOK_SECRET` (opcional) | | | |
 | Chave do Google Cloud Vision | `MODERATION_VISION_API_KEY` (opcional) | | | |
 | Chaves do Cloudflare Turnstile | `TURNSTILE_SITE_KEY` e `TURNSTILE_SECRET_KEY` (recomendado) | | | |
-| Token e IDs da Vercel | | | `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` | token |
-| Papel de backup | | | `BACKUP_DATABASE_URL` | sim |
-| Chave pública do backup | | | `BACKUP_AGE_RECIPIENT` | |
+| Token e IDs da Vercel | | | `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` (environments Production, Staging e Preview) | token |
+| Papel de backup | | | `BACKUP_DATABASE_URL` (environment Backup) | sim |
+| Chave pública do backup | | | `BACKUP_AGE_RECIPIENT` (environment Backup) | |
 | Chave privada do backup | | | | `backup-key.txt` |
 
 **Prévias de um branch** (opcional): depois do merge, **Actions** → **Deploy web** → **Run workflow**
