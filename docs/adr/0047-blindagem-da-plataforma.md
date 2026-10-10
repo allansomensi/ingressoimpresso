@@ -65,8 +65,9 @@ invariante, mas juntas davam caminhos reais de abuso:
   portaria, nome do celular, portador do ingresso e organização não aceitam caracteres de
   controle (quebras de linha incluídas). Números de ingresso digital respeitam
   `MAX_TICKET_NUMBER`. Mensagens do banco (nomes de constraints) não chegam ao cliente.
-- **CI e deploy:** o **Deploy web** só roda depois de um **CI** verde no commit (`workflow_run`),
-  como o Render já faz; o job **Dependency audit** roda `cargo audit` e `pnpm audit --prod`; o
+- **CI e deploy:** o **Deploy web** é o último job do **CI** em um push (workflow reutilizável,
+  no branch empurrado: um `workflow_run` rodaria sempre como `main` e as proteções dos
+  Environments o recusariam no staging), como o Render já faz; o job **Dependency audit** roda `cargo audit` e `pnpm audit --prod`; o
   Dependabot propõe atualizações semanais de actions, Cargo, npm e Docker; `render.yaml` fixa
   `numInstances: 1` (as travas de pagamento e o worker vivem no processo).
 
