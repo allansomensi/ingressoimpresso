@@ -1,0 +1,23 @@
+name: 📝 Documentação
+description: Algo errado, desatualizado ou faltando no README, em docs/ ou nos textos do site.
+title: "[Docs] "
+labels: ["documentation"]
+body:
+  - type: input
+    id: where
+    attributes:
+      label: Onde?
+      placeholder: "Ex.: docs/deploy.md §5.1, ou a pergunta \"Funciona no iPhone?\" do site"
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: O que está errado ou faltando?
+    validations:
+      required: true
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Sugestão de texto
+      description: Opcional, mas ajuda muito.

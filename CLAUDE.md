@@ -76,6 +76,11 @@ Plano completo em `docs/arquitetura.md` §12.
   API, fases).
 - `docs/adr/`: decisões e alternativas. Uma decisão nova exige um ADR novo. Um ADR aceito não é
   reescrito: um ADR novo o substitui.
+- Comunidade: `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md` e `SUPPORT.md` na raiz;
+  formulários de issue em `.github/ISSUE_TEMPLATE/`, modelo de PR em
+  `.github/pull_request_template.md` e imagem de compartilhamento do repositório em
+  `.github/social-preview.png` (subida à mão em Settings → Social preview).
+  `apps/web/public/.well-known/security.txt` vence em `Expires`: renove todo ano.
 
 ```
 crates/ticket-core   formato v1, base45, Ed25519, decisão da portaria, DTOs: puro, sem IO, compila p/ wasm32

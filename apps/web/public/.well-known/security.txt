@@ -1,0 +1,6 @@
+Contact: mailto:contato@ingressoimpresso.com.br
+Contact: https://github.com/allansomensi/ingressoimpresso/security/advisories/new
+Expires: 2027-10-10T00:00:00.000Z
+Preferred-Languages: pt-BR, en
+Canonical: https://ingressoimpresso.com.br/.well-known/security.txt
+Policy: https://github.com/allansomensi/ingressoimpresso/blob/main/SECURITY.md
