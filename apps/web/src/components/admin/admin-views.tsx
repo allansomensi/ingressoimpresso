@@ -455,7 +455,7 @@ export function AdminBatches() {
         }}
       />
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div role="radiogroup" aria-label={texts.admin.tabs.batches} className="flex w-fit rounded-full border border-border bg-surface-2 p-0.5">
+        <div role="radiogroup" aria-label={texts.admin.tabs.batches} className="flex w-fit max-w-full overflow-x-auto rounded-full border border-border bg-surface-2 p-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {(Object.keys(t.batches.filters) as BatchFilter[]).map((option) => (
             <button
               key={option}
@@ -466,7 +466,7 @@ export function AdminBatches() {
                 setFilter(option);
               }}
               className={cn(
-                "rounded-full px-3 py-1.5 text-sm font-medium transition",
+                "shrink-0 rounded-full px-3 py-1.5 text-sm font-medium whitespace-nowrap transition",
                 filter === option ? "bg-surface text-fg shadow-sm ring-1 ring-border" : "text-fg-muted hover:text-fg",
               )}
             >

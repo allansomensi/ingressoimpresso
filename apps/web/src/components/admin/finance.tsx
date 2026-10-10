@@ -66,7 +66,7 @@ export function AdminFinance() {
 
   return (
     <div className={cn("flex flex-col gap-6 transition-opacity", finance.isPlaceholderData && "opacity-60")}>
-      <div role="radiogroup" aria-label={t.chartTitle} className="flex w-fit rounded-full border border-border bg-surface-2 p-0.5">
+      <div role="radiogroup" aria-label={t.chartTitle} className="flex w-fit max-w-full overflow-x-auto rounded-full border border-border bg-surface-2 p-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {PERIODS.map((option) => (
           <button
             key={option}
@@ -77,7 +77,7 @@ export function AdminFinance() {
               setPeriod(option);
             }}
             className={cn(
-              "rounded-full px-3.5 py-1.5 text-sm font-medium transition",
+              "shrink-0 rounded-full px-3.5 py-1.5 text-sm font-medium whitespace-nowrap transition",
               period === option ? "bg-surface text-fg shadow-sm ring-1 ring-border" : "text-fg-muted hover:text-fg",
             )}
           >

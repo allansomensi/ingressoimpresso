@@ -112,7 +112,7 @@ export default function EventsPage() {
       ) : (
         <div className="flex flex-col gap-4">
           {archived.length > 0 && (
-            <div role="radiogroup" aria-label={t.title} className="flex w-fit rounded-full border border-border bg-surface-2 p-0.5">
+            <div role="radiogroup" aria-label={t.title} className="flex w-fit max-w-full overflow-x-auto rounded-full border border-border bg-surface-2 p-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {[false, true].map((option) => (
                 <button
                   key={String(option)}
@@ -123,7 +123,7 @@ export default function EventsPage() {
                     setShowArchived(option);
                   }}
                   className={cn(
-                    "rounded-full px-3 py-1.5 text-sm font-medium transition",
+                    "shrink-0 rounded-full px-3 py-1.5 text-sm font-medium whitespace-nowrap transition",
                     showArchived === option ? "bg-surface text-fg shadow-sm ring-1 ring-border" : "text-fg-muted hover:text-fg",
                   )}
                 >

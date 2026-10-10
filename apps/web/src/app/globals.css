@@ -227,6 +227,12 @@
     font-feature-settings: "ss01", "cv11";
   }
 
+  /* A grid cell may shrink below its content (min-width: auto would let one long name or a
+     truncated line widen the whole column past the screen on phones). Utilities still win. */
+  .grid > * {
+    min-width: 0;
+  }
+
   ::selection {
     background: color-mix(in oklab, var(--brand) 25%, transparent);
   }
