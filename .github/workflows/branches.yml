@@ -1,0 +1,85 @@
+name: Branches
+
+# Only main (production) and staging (the test environment) are permanent (ADR 0049). A work
+# branch is deleted as soon as its pull request is merged; a manual run lists, or deletes, the
+# branches already fully merged into main. main and staging are never touched, and neither is a
+# branch with work that is not in main yet.
+
+on:
+  pull_request:
+    types: [closed]
+  workflow_dispatch:
+    inputs:
+      delete:
+        description: "Delete the merged branches (off: only list them)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  merged-head:
+    name: Delete the merged branch
+    # Same-repository pull requests only (a fork's branch is not ours to delete).
+    if: >-
+      github.event_name == 'pull_request' && github.event.pull_request.merged &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref != 'main' && github.event.pull_request.head.ref != 'staging'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Delete the head branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # Through the environment, never interpolated into the script: a branch name is input.
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          # Another open pull request may still start from it.
+          open=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$BRANCH" --state open --json number --jq length)
+          if [ "$open" != "0" ]; then
+            echo "$BRANCH still has an open pull request; kept."
+            exit 0
+          fi
+          if gh api --method DELETE "repos/$GITHUB_REPOSITORY/git/refs/heads/$BRANCH" --silent; then
+            echo "Deleted $BRANCH." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "$BRANCH was already gone or is protected."
+          fi
+
+  prune:
+    name: Merged branches
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: List or delete the branches merged into main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DELETE: ${{ inputs.delete }}
+        run: |
+          git fetch --prune origin '+refs/heads/*:refs/remotes/origin/*'
+          echo "| Branch | Last commit | Action |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---|---|" >> "$GITHUB_STEP_SUMMARY"
+          git for-each-ref --format='%(refname:strip=3)' refs/remotes/origin | while read -r branch; do
+            case "$branch" in main | staging | HEAD) continue ;; esac
+            last=$(git log -1 --format='%cs %s' "origin/$branch" | tr '|' '/')
+            if ! git merge-base --is-ancestor "origin/$branch" origin/main; then
+              echo "| \`$branch\` | $last | kept: work not in main |" >> "$GITHUB_STEP_SUMMARY"
+              continue
+            fi
+            open=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$branch" --state open --json number --jq length)
+            if [ "$open" != "0" ]; then
+              echo "| \`$branch\` | $last | kept: open pull request |" >> "$GITHUB_STEP_SUMMARY"
+            elif [ "$DELETE" = "true" ]; then
+              gh api --method DELETE "repos/$GITHUB_REPOSITORY/git/refs/heads/$branch" --silent
+              echo "| \`$branch\` | $last | deleted |" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "| \`$branch\` | $last | merged (run with delete to remove) |" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
