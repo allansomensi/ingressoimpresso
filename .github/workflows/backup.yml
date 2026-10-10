@@ -63,7 +63,7 @@ jobs:
 
       - name: Keep the encrypted dump
         if: steps.secrets.outputs.ready == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: database-backup
           path: ingressoimpresso-*.dump.age
