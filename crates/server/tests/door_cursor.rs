@@ -57,7 +57,7 @@ async fn cursor_never_skips_a_late_commit(pool: PgPool) {
 
     // The quick commit is held back while the slow one is open...
     let held = manifest(&app, &door, Some(&cursor)).await;
-    assert!(held["entries"].as_array().unwrap().is_empty());
+    assert_eq!(held["entries"], serde_json::json!([]));
     slow.commit().await.unwrap();
     // ...and both arrive once it commits.
     let (both, _) = sync_entries(&app, &door, held["cursor"].as_str().unwrap(), 2).await;

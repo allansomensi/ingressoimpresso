@@ -651,7 +651,8 @@ async fn batches_sellers_voids_and_exports(pool: PgPool) {
     let verifier = verifier(&app, &event).await;
     for index in 0..archive.len() {
         let mut entry = archive.by_index(index).unwrap();
-        assert!(entry.name().starts_with("João/"), "{}", entry.name());
+        let name = entry.name().unwrap().into_owned();
+        assert!(name.starts_with("João/"), "{name}");
         let mut jpeg = Vec::new();
         std::io::Read::read_to_end(&mut entry, &mut jpeg).unwrap();
         let luma = image::load_from_memory(&jpeg).unwrap().to_luma8();

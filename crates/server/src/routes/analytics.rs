@@ -527,6 +527,6 @@ mod tests {
         assert_eq!(bars[3].entries, 1);
         assert_eq!(bars[0].at.offset(), offset);
         assert_eq!(bars[0].at.hour(), 22);
-        assert!(buckets(&[], offset).is_empty());
+        assert_eq!(buckets(&[], offset).len(), 0);
     }
 }

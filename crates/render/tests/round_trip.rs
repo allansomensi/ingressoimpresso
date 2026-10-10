@@ -248,7 +248,10 @@ fn outputs_are_reproducible() {
 fn whatsapp_zip_has_one_folder_per_seller() {
     let zip_bytes = whatsapp_zip(&job(&[1, 2, 4], TicketDesign::default_v1()), 600).unwrap();
     let archive = zip::ZipArchive::new(std::io::Cursor::new(zip_bytes)).unwrap();
-    let mut names: Vec<&str> = archive.file_names().collect();
+    let mut names: Vec<String> = archive
+        .file_names()
+        .map(|name| name.unwrap().into_owned())
+        .collect();
     names.sort_unstable();
     assert_eq!(names, ["João/0001.jpg", "João/0002.jpg", "Maria/0004.jpg"]);
 }
@@ -418,9 +421,9 @@ fn text_blocks_with_empty_fields_are_hidden() {
     design.texts = vec![text_block("Local: {local}", FontChoice::Sans)];
     let mut job = job(&[1], design);
     job.art = None;
-    assert!(dark_text_pixels(&job).is_empty());
+    assert_eq!(dark_text_pixels(&job), Vec::new());
     job.details.venue = Some("Teatro".to_owned());
-    assert!(!dark_text_pixels(&job).is_empty());
+    assert_ne!(dark_text_pixels(&job), Vec::new());
 }
 
 #[test]

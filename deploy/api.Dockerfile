@@ -5,7 +5,7 @@
 # download extra components during the build: bump both together. Dependencies are compiled in
 # their own layer (cargo-chef), so a change to our code does not rebuild ~600 crates.
 
-FROM rust:1.97.0-bookworm AS chef
+FROM rust:1.99.0-bookworm AS chef
 RUN cargo install cargo-chef --version 0.1.78 --locked
 WORKDIR /src
 

@@ -87,7 +87,7 @@ fn event<'a>(file: &'a VectorsFile, name: &str) -> &'a VectorEvent {
 #[test]
 fn issuer_reproduces_every_issued_vector() {
     let file = load();
-    assert!(!file.issued.is_empty());
+    assert_ne!(file.issued.len(), 0);
     for vector in &file.issued {
         let event = event(&file, &vector.event);
         let seed_hex = &event

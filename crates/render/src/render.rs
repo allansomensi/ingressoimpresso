@@ -653,8 +653,10 @@ fn describe(diagnostics: &EcoVec<SourceDiagnostic>) -> String {
 fn encode_jpeg(width: u32, height: u32, rgba: &[u8]) -> Result<Vec<u8>, RenderError> {
     // Pages have an opaque background, so premultiplied RGBA equals straight RGBA here.
     let rgb: Vec<u8> = rgba
-        .chunks_exact(4)
-        .flat_map(|pixel| pixel.iter().take(3).copied())
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .flat_map(|&[r, g, b, _]| [r, g, b])
         .collect();
     let mut jpeg = Vec::new();
     image::codecs::jpeg::JpegEncoder::new_with_quality(&mut jpeg, JPEG_QUALITY)
