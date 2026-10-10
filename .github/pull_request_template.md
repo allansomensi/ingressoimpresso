@@ -29,6 +29,7 @@ Fecha #
 
 - [ ] `just` (o mesmo que o CI roda) passa sem erros.
 - [ ] Commits no formato `tipo(escopo): <gitmoji> assunto`, em inglês.
+- [ ] Mudança perceptível? Acrescentei uma linha em **Não lançado** no `CHANGELOG.md`.
 - [ ] Textos novos da interface estão em `texts/pt-BR.ts` ou `texts.rs`, em português.
 - [ ] Nenhuma invariante do `CLAUDE.md` foi quebrada (formato QR v1, só lotes pagos assinados,
       chave privada no servidor, portaria sem esperar a rede...).

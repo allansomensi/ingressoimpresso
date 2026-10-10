@@ -58,3 +58,4 @@ feita e as consequências.
 | [0046](0046-ambiente-de-staging.md) | Ambiente de staging | Aceito |
 | [0047](0047-blindagem-da-plataforma.md) | Blindagem da plataforma: admin com duas etapas, limites por endereço e checagens de produção | Aceito |
 | [0048](0048-csp-com-nonce.md) | CSP com nonce por requisição no site | Aceito |
+| [0049](0049-versionamento-e-releases.md) | Versionamento semântico, releases e branches | Aceito |
