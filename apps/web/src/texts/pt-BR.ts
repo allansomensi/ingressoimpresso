@@ -1220,10 +1220,6 @@ export const texts = {
     minimum: (amount: string) => `Lote mínimo de ${amount}.`,
     examples: "Exemplos",
     example: (quantity: number) => `${quantity.toLocaleString("pt-BR")} ingressos`,
-    session: "Sessão",
-    signedInAs: "Conectado como",
-    googleLinked: "Login com Google ligado",
-    googleNotLinked: "Entre uma vez com o Google para ligar sua conta Google a este e-mail.",
     suspendedTitle: "Conta suspensa",
     suspendedBody: (reason: string) =>
       `Sua conta pode ver tudo, mas não pode criar lotes, gerar arquivos nem enviar ingressos.${reason === "" ? "" : ` Motivo: ${reason}.`} Fale com o suporte para reativar.`,

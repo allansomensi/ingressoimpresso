@@ -3,18 +3,15 @@
 import type { AccountDto, PricingDto } from "@ingressoimpresso/api-types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  BadgeCheck,
   Building2,
   CalendarDays,
   Download,
   Gift,
-  LogOut,
   Receipt,
   Save,
   ShieldCheck,
   Ticket,
   Trash2,
-  UserRound,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -22,7 +19,6 @@ import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
 import { CreditsCard } from "@/components/account/credits";
-import { ThemeSwitcher } from "@/components/theme-switcher";
 import {
   Alert,
   Button,
@@ -258,7 +254,7 @@ function PrivacyCard({ account, email }: { account: AccountDto; email: string })
 }
 
 export default function AccountPage() {
-  const { session, signOut } = useSession();
+  const { session } = useSession();
   const account = useQuery({ queryKey: ["account"], queryFn: () => api<AccountDto>("/api/account") });
   const pricing = useQuery({ queryKey: ["pricing"], queryFn: () => api<PricingDto>("/api/pricing"), staleTime: 60 * 60_000 });
 
@@ -317,32 +313,6 @@ export default function AccountPage() {
             </Card>
           )}
           <CreditsCard />
-          <Card>
-            <CardHeader icon={UserRound} title={t.session} />
-            <div className="flex flex-col gap-4">
-              {session.status === "signed-in" && (
-                <div className="flex flex-col gap-1">
-                  <span className="text-xs text-fg-muted">{t.signedInAs}</span>
-                  <span className="truncate text-sm font-medium text-fg">{session.user.email}</span>
-                  {session.user.google ? (
-                    <span className="flex items-center gap-1.5 text-xs text-success-fg">
-                      <BadgeCheck className="size-3.5" aria-hidden />
-                      {t.googleLinked}
-                    </span>
-                  ) : (
-                    <span className="text-xs leading-relaxed text-fg-subtle">{t.googleNotLinked}</span>
-                  )}
-                </div>
-              )}
-              <div className="flex flex-col gap-2">
-                <span className="text-xs text-fg-muted">{texts.theme.label}</span>
-                <ThemeSwitcher labels className="flex w-full" />
-              </div>
-              <Button variant="secondary" icon={<LogOut />} onClick={() => void signOut()}>
-                {texts.panel.signOut}
-              </Button>
-            </div>
-          </Card>
           {session.status === "signed-in" && <PrivacyCard account={a} email={session.user.email} />}
         </div>
       </div>
