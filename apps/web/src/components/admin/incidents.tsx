@@ -293,7 +293,7 @@ export function AdminIncidents() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Lead>{t.intro}</Lead>
         <div className="flex gap-2">
-          <ButtonLink href="/status" target="_blank" variant="secondary" icon={<ExternalLink />}>
+          <ButtonLink href="/status" target="_blank" rel="noopener noreferrer" variant="secondary" icon={<ExternalLink />}>
             {t.openPage}
           </ButtonLink>
           {newButton}

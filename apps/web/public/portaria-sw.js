@@ -93,10 +93,15 @@ self.addEventListener("message", (event) => {
     (async () => {
       const cache = await caches.open(CACHE);
       let missing = 0;
-      for (const url of data.urls) {
-        if (typeof url !== "string" || !url.startsWith("/")) {
+      for (const raw of data.urls) {
+        if (typeof raw !== "string" || !raw.startsWith("/") || raw.startsWith("//")) {
           continue;
         }
+        const parsed = new URL(raw, self.location.origin);
+        if (parsed.origin !== self.location.origin) {
+          continue;
+        }
+        const url = parsed.pathname + parsed.search;
         const key = url === PAGE || url.startsWith(`${PAGE}?`) || url.startsWith(`${PAGE}/`) ? PAGE : url;
         if ((await cache.match(key)) !== undefined) {
           continue;

@@ -107,7 +107,11 @@ export function FilesTab({ eventId, onSelect }: { eventId: string; onSelect: Sel
   const download = useMutation({
     mutationFn: (id: string) => api<DownloadLinkDto>(`/api/exports/${id}/link`, { method: "POST" }),
     onSuccess: (link) => {
-      window.location.assign(link.url);
+      // An anchor, not a navigation: the temporary link never lands in the browser history.
+      const anchor = document.createElement("a");
+      anchor.href = link.url;
+      anchor.rel = "noopener";
+      anchor.click();
     },
     onError: (error) => {
       toast.error(errorMessage(error));
