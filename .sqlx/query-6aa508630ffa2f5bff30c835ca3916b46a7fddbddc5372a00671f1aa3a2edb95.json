@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into second_factor_attempts (user_id) values ($1)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6aa508630ffa2f5bff30c835ca3916b46a7fddbddc5372a00671f1aa3a2edb95"
+}

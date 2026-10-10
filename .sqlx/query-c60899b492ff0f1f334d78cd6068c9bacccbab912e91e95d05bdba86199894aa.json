@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into moderation_flags (id, blob_id, organization_id, event_id, reasons, details, score, source)\n               select gen_random_uuid(), $1, f.organization_id, $2, f.reasons, f.details, f.score, f.source\n               from moderation_flags f where f.blob_id = $3 and f.status = 'open'\n               on conflict (blob_id) where status = 'open' do nothing",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c60899b492ff0f1f334d78cd6068c9bacccbab912e91e95d05bdba86199894aa"
+}

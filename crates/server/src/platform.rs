@@ -132,7 +132,10 @@ pub fn maintenance_blocks(mode: MaintenanceMode, method: &Method, path: &str) ->
     match mode {
         MaintenanceMode::Off => false,
         MaintenanceMode::ReadOnly => {
-            !(method == Method::GET || method == Method::HEAD || path == "/api/auth/logout")
+            !(method == Method::GET
+                || method == Method::HEAD
+                || path == "/api/auth/logout"
+                || (method == Method::DELETE && path == "/api/account"))
         }
         MaintenanceMode::Full => path != "/api/auth/logout",
     }
@@ -255,6 +258,16 @@ mod tests {
             MaintenanceMode::ReadOnly,
             &post,
             "/api/auth/logout"
+        ));
+        assert!(!maintenance_blocks(
+            MaintenanceMode::ReadOnly,
+            &Method::DELETE,
+            "/api/account"
+        ));
+        assert!(maintenance_blocks(
+            MaintenanceMode::ReadOnly,
+            &Method::DELETE,
+            "/api/events/x"
         ));
         assert!(maintenance_blocks(
             MaintenanceMode::Full,

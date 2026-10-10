@@ -109,14 +109,26 @@ impl IntoResponse for ApiError {
 impl From<sqlx::Error> for ApiError {
     fn from(error: sqlx::Error) -> Self {
         if let sqlx::Error::Database(db) = &error {
-            match db.code().as_deref() {
+            // The database's own message names tables and constraints: it goes to the log, and
+            // the client gets a stable code with a neutral hint.
+            let mapped = match db.code().as_deref() {
                 // unique_violation
-                Some("23505") => return Self::Conflict("duplicate", db.message().to_owned()),
+                Some("23505") => Some(Self::Conflict("duplicate", "already exists".to_owned())),
                 // exclusion_violation: overlapping ranges (ADR 0011)
-                Some("23P01") => return Self::Conflict("range_overlap", db.message().to_owned()),
+                Some("23P01") => Some(Self::Conflict(
+                    "range_overlap",
+                    "the numbers overlap an existing range".to_owned(),
+                )),
                 // check_violation: input outside a column constraint
-                Some("23514") => return Self::BadRequest("invalid_input", db.message().to_owned()),
-                _ => {}
+                Some("23514") => Some(Self::BadRequest(
+                    "invalid_input",
+                    "a value is out of range".to_owned(),
+                )),
+                _ => None,
+            };
+            if let Some(mapped) = mapped {
+                tracing::warn!(code = ?db.code(), message = %db.message(), "constraint refused the request");
+                return mapped;
             }
         }
         Self::Internal(error.into())

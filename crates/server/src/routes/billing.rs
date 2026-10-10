@@ -552,7 +552,7 @@ pub async fn redeem(
     )
     .await?;
     tx.commit().await?;
-    tracing::info!(%organization_id, code = %code, "promo code redeemed");
+    tracing::info!(%organization_id, promo_id = %promo.id, "promo code redeemed");
     Ok(Json(RedeemResultDto {
         kind,
         credit_cents: promo.credit_cents,

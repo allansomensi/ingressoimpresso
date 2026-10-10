@@ -498,7 +498,7 @@ pub fn verify_signature(
     if !matches {
         return Err(WebhookError::BadSignature);
     }
-    if (now_unix - timestamp).abs() > WEBHOOK_TOLERANCE_SECS {
+    if now_unix.abs_diff(timestamp) > WEBHOOK_TOLERANCE_SECS.unsigned_abs() {
         return Err(WebhookError::Expired);
     }
     Ok(())

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select moderation_status from blobs where sha256 = $1\n           order by (moderation_status = 'rejected') desc, created_at desc limit 1",
+  "query": "select moderation_status from blobs where sha256 = $1\n           order by (moderation_status = 'rejected') desc, (moderation_status = 'flagged') desc,\n                    created_at desc limit 1",
   "describe": {
     "columns": [
       {
@@ -24,5 +24,5 @@
       false
     ]
   },
-  "hash": "c284e9a74f35fb8106f23d7e863c46d86a5ede477d6bbd136ce56964f029b58b"
+  "hash": "53d279deeccce6c1871b94a8087d61f789bd511bdc3bb5d98cc13bece9fb1f8d"
 }

@@ -189,6 +189,19 @@ pub async fn is_issued(pool: &PgPool, event_id: Uuid, numbers: &PgRange<i32>) ->
     Ok(covered == i64::from(last) - i64::from(first) + 1)
 }
 
+/// Refuses names and labels with control characters (line breaks included): they are printed,
+/// e-mailed and shown on one line, and a stray CR or LF has no place in any of them.
+///
+/// # Errors
+///
+/// `code` as a 400.
+pub fn one_line(text: &str, code: &'static str) -> ApiResult<()> {
+    if text.chars().any(char::is_control) {
+        return Err(bad_request(code, "control characters are not allowed"));
+    }
+    Ok(())
+}
+
 /// Trims an optional text and turns blanks into `None`.
 pub fn optional_text(value: Option<String>) -> Option<String> {
     value

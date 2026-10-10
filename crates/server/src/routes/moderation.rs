@@ -318,6 +318,17 @@ pub async fn resolve(
     )
     .execute(&mut *tx)
     .await?;
+    if body.action == ModerationAction::Reject {
+        // Remembered by hash, so the decision outlives the upload, the event and the account.
+        sqlx::query!(
+            r#"insert into rejected_art (sha256, rejected_by)
+               select sha256, $2 from blobs where id = $1 on conflict do nothing"#,
+            flag.blob_id,
+            user.id,
+        )
+        .execute(&mut *tx)
+        .await?;
+    }
     if body.notify {
         notify_organization(
             &mut *tx,
@@ -386,5 +397,15 @@ pub async fn rescan(
         ));
     }
     crate::moderation::check_art(&state, blob_id).await;
+    audit(
+        &state,
+        &user,
+        "moderation_rescan",
+        None,
+        None,
+        Some(blob_id),
+        serde_json::json!({}),
+    )
+    .await?;
     Ok(StatusCode::NO_CONTENT)
 }

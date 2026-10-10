@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select exists(select 1 from rejected_art where sha256 = $1) as \"refused!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "refused!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "8e680ff2f5e6725b7eb34d16719496b2d305c491d8454e9f72a49de5b7c6885d"
+}

@@ -27,6 +27,7 @@ pub async fn update(
             "name must have 1-100 characters",
         ));
     }
+    super::one_line(name, "invalid_name")?;
     sqlx::query_scalar!(
         r#"update organizations set name = $2
            where id = (select organization_id from memberships

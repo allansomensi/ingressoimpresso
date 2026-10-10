@@ -20,11 +20,15 @@ use ingressoimpresso_server::config::Config;
 use ingressoimpresso_server::mail::{Mailer, SentMail};
 use ingressoimpresso_server::payments::{FakeStripe, Payments};
 use ingressoimpresso_server::state::AppState;
+use ingressoimpresso_server::two_factor;
 use serde_json::Value;
 use sqlx::PgPool;
 use tower::ServiceExt as _;
 
 pub const ADMIN: &str = "admin@exemplo.com";
+/// The admin's authenticator secret in tests: admin powers need two-step verification (ADR 0047),
+/// which the harness turns on at the admin's first sign-in.
+pub const ADMIN_TOTP_SECRET: &[u8; 20] = b"admin-test-totp-seed";
 /// Webhook secret of the fake Stripe.
 pub const WEBHOOK_SECRET: &str = "whsec_test_fake";
 
@@ -283,7 +287,8 @@ impl TestApp {
         mail.subject.chars().filter(char::is_ascii_digit).collect()
     }
 
-    /// Signs in and returns the bearer token.
+    /// Signs in and returns the bearer token. The admin signs in with the second step too
+    /// (ADR 0047); the harness turns it on with [`ADMIN_TOTP_SECRET`] the first time.
     pub async fn login(&self, email: &str) -> String {
         let reply = self
             .request(
@@ -295,12 +300,17 @@ impl TestApp {
             .await;
         assert_eq!(reply.status, StatusCode::NO_CONTENT);
         let code = self.last_code(email);
+        let second = if email.eq_ignore_ascii_case(ADMIN) {
+            self.admin_second_factor().await
+        } else {
+            None
+        };
         let reply = self
             .request(
                 Method::POST,
                 "/api/auth/verify",
                 None,
-                Some(serde_json::json!({ "email": email, "code": code })),
+                Some(serde_json::json!({ "email": email, "code": code, "twoFactorCode": second })),
             )
             .await;
         assert_eq!(
@@ -309,7 +319,50 @@ impl TestApp {
             "{}",
             String::from_utf8_lossy(&reply.bytes)
         );
-        reply.json()["token"].as_str().unwrap().to_owned()
+        let token = reply.json()["token"].as_str().unwrap().to_owned();
+        if email.eq_ignore_ascii_case(ADMIN) && second.is_none() {
+            self.enable_admin_two_factor().await;
+        }
+        token
+    }
+
+    /// The admin's current authenticator code, once the second step is on; the last accepted
+    /// step is cleared first, so two sign-ins within 30 seconds both work.
+    async fn admin_second_factor(&self) -> Option<String> {
+        let enabled: Option<bool> =
+            sqlx::query_scalar("select totp_enabled_at is not null from users where email = $1")
+                .bind(ADMIN)
+                .fetch_optional(&self.state.pool)
+                .await
+                .unwrap();
+        if enabled != Some(true) {
+            return None;
+        }
+        sqlx::query("update users set totp_last_step = null where email = $1")
+            .bind(ADMIN)
+            .execute(&self.state.pool)
+            .await
+            .unwrap();
+        let step = time::OffsetDateTime::now_utc().unix_timestamp() / two_factor::STEP_SECONDS;
+        Some(two_factor::code_at(ADMIN_TOTP_SECRET, step))
+    }
+
+    /// Turns two-step verification on for the admin, straight in the database.
+    async fn enable_admin_two_factor(&self) {
+        let user_id: uuid::Uuid = sqlx::query_scalar("select id from users where email = $1")
+            .bind(ADMIN)
+            .fetch_one(&self.state.pool)
+            .await
+            .unwrap();
+        let sealed = two_factor::seal(&self.state, user_id, ADMIN_TOTP_SECRET).unwrap();
+        sqlx::query(
+            "update users set totp_secret = $2, totp_enabled_at = now(), totp_last_step = null where id = $1",
+        )
+        .bind(user_id)
+        .bind(sealed)
+        .execute(&self.state.pool)
+        .await
+        .unwrap();
     }
 
     /// Creates an event and returns its id.

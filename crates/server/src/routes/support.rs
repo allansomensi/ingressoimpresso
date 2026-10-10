@@ -460,6 +460,7 @@ pub async fn rename(
             "name must have 1-100 characters",
         ));
     }
+    super::one_line(name, "invalid_name")?;
     let previous = sqlx::query_scalar!(
         "update organizations o set name = $2 from organizations old where o.id = $1 and old.id = o.id returning old.name",
         organization_id,

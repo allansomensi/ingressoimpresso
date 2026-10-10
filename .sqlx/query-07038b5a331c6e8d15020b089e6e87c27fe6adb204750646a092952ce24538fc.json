@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select byte_size, moderation_status, sha256 from blobs where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "byte_size",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "blobs",
+            "name": "byte_size"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "moderation_status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "blobs",
+            "name": "moderation_status"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "sha256",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "blobs",
+            "name": "sha256"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "07038b5a331c6e8d15020b089e6e87c27fe6adb204750646a092952ce24538fc"
+}

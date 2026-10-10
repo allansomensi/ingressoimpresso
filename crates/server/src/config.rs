@@ -51,7 +51,18 @@ pub struct Config {
     /// `MAIL_DAILY_LIMIT` (ADR 0028): e-mails sent in any 24 hours, default
     /// [`DEFAULT_MAIL_DAILY_LIMIT`] (Resend's free plan sends 100 a day); 0 means no limit.
     pub mail_daily_limit: Option<i64>,
+    /// `STRIPE_ALLOW_TEST_MODE=true` (ADR 0047): lets a production build run with Stripe test
+    /// keys (the staging environment). Production refuses them otherwise: a test card would buy
+    /// real signed tickets.
+    pub stripe_allow_test_mode: bool,
 }
+
+/// Master keys that appear in the repository (CI, the door's end-to-end test): never in
+/// production (ADR 0047).
+const KNOWN_TEST_KEYS: [&str; 2] = [
+    "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=",
+    "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+];
 
 /// Default of `MAIL_DAILY_LIMIT`: a little under Resend's free 100 a day.
 pub const DEFAULT_MAIL_DAILY_LIMIT: i64 = 95;
@@ -189,13 +200,23 @@ impl Config {
             })?,
             None => 8080,
         };
+        let master_key_value = require("TICKET_KEY_ENCRYPTION_KEY")?;
         let master_key =
-            MasterKey::from_base64(&require("TICKET_KEY_ENCRYPTION_KEY")?).map_err(|reason| {
-                ConfigError::Invalid {
-                    name: "TICKET_KEY_ENCRYPTION_KEY",
-                    reason: reason.to_owned(),
-                }
+            MasterKey::from_base64(&master_key_value).map_err(|reason| ConfigError::Invalid {
+                name: "TICKET_KEY_ENCRYPTION_KEY",
+                reason: reason.to_owned(),
             })?;
+        if production
+            && KNOWN_TEST_KEYS
+                .iter()
+                .any(|known| *known == master_key_value.trim())
+        {
+            return Err(ConfigError::Invalid {
+                name: "TICKET_KEY_ENCRYPTION_KEY",
+                reason: "this is a test key from the repository; generate one with `openssl rand -base64 32`"
+                    .to_owned(),
+            });
+        }
         let resend_api_key = get("RESEND_API_KEY");
         if production && resend_api_key.is_none() {
             return Err(ConfigError::Missing("RESEND_API_KEY"));
@@ -259,13 +280,9 @@ impl Config {
                     .to_owned(),
             });
         }
+        let stripe_allow_test_mode =
+            get("STRIPE_ALLOW_TEST_MODE").is_some_and(|value| value == "true");
         if production {
-            if stripe.is_some() && !public_web_url.starts_with("https://") {
-                return Err(ConfigError::Invalid {
-                    name: "PUBLIC_WEB_URL",
-                    reason: "must be the https:// address of the site".to_owned(),
-                });
-            }
             // Without these the server starts but the site cannot work: fail with the reason in
             // the deploy log instead.
             if allowed_origins.is_empty() {
@@ -279,6 +296,21 @@ impl Config {
             }
             if admin_emails.is_empty() {
                 return Err(ConfigError::Missing("ADMIN_EMAILS"));
+            }
+            // Digital ticket links, e-mails and Stripe's return address all point here.
+            if !public_web_url.starts_with("https://") {
+                return Err(ConfigError::Invalid {
+                    name: "PUBLIC_WEB_URL",
+                    reason: "must be the https:// address of the site".to_owned(),
+                });
+            }
+            if stripe.as_ref().is_some_and(StripeKeys::test_mode) && !stripe_allow_test_mode {
+                return Err(ConfigError::Invalid {
+                    name: "STRIPE_SECRET_KEY",
+                    reason: "a test key in production would sell signed tickets for play money; \
+                             use the live key, or STRIPE_ALLOW_TEST_MODE=true on a test environment"
+                        .to_owned(),
+                });
             }
         }
         Ok(Self {
@@ -304,6 +336,7 @@ impl Config {
             google_client_id,
             turnstile,
             mail_daily_limit,
+            stripe_allow_test_mode,
         })
     }
 
@@ -417,7 +450,7 @@ mod tests {
     fn production_requires_resend_and_https_origins() {
         let base = [
             ("DATABASE_URL", "postgres://localhost/db"),
-            ("TICKET_KEY_ENCRYPTION_KEY", KEY),
+            ("TICKET_KEY_ENCRYPTION_KEY", REAL_KEY),
             ("APP_ENV", "production"),
         ];
         assert!(matches!(
@@ -456,11 +489,14 @@ mod tests {
         assert!(normalize_origin("http://localhost:3000", true).is_err());
     }
 
+    /// A key that is not one of the repository's test keys.
+    const REAL_KEY: &str = "u7uZl1YtR7T4m2Gf7m7JkQ8m3n1s7X6s5l2k9c0d8bE=";
+
     #[test]
     fn production_requires_what_the_site_needs() {
         let full = [
             ("DATABASE_URL", "postgres://localhost/db"),
-            ("TICKET_KEY_ENCRYPTION_KEY", KEY),
+            ("TICKET_KEY_ENCRYPTION_KEY", REAL_KEY),
             ("APP_ENV", "production"),
             ("RESEND_API_KEY", "re_x"),
             (
@@ -490,6 +526,56 @@ mod tests {
             let error = Config::from_lookup(lookup(&partial)).unwrap_err();
             assert!(error.to_string().contains(name), "{error}");
         }
+    }
+
+    #[test]
+    fn production_refuses_test_keys_and_play_money() {
+        let base = [
+            ("DATABASE_URL", "postgres://localhost/db"),
+            ("APP_ENV", "production"),
+            ("RESEND_API_KEY", "re_x"),
+            ("ALLOWED_ORIGINS", "https://seudominio.com.br"),
+            ("PUBLIC_API_URL", "https://api.seudominio.com.br"),
+            ("ADMIN_EMAILS", "eu@exemplo.com"),
+        ];
+        let mut repo_key = base.to_vec();
+        repo_key.push(("TICKET_KEY_ENCRYPTION_KEY", KEY));
+        assert!(matches!(
+            Config::from_lookup(lookup(&repo_key)),
+            Err(ConfigError::Invalid {
+                name: "TICKET_KEY_ENCRYPTION_KEY",
+                ..
+            })
+        ));
+        let mut test_stripe = base.to_vec();
+        test_stripe.push(("TICKET_KEY_ENCRYPTION_KEY", REAL_KEY));
+        test_stripe.push(("STRIPE_SECRET_KEY", "sk_test_x"));
+        test_stripe.push(("STRIPE_WEBHOOK_SECRET", "whsec_y"));
+        assert!(matches!(
+            Config::from_lookup(lookup(&test_stripe)),
+            Err(ConfigError::Invalid {
+                name: "STRIPE_SECRET_KEY",
+                ..
+            })
+        ));
+        test_stripe.push(("STRIPE_ALLOW_TEST_MODE", "true"));
+        let config = Config::from_lookup(lookup(&test_stripe)).unwrap();
+        assert!(config.stripe_allow_test_mode);
+        let mut live = base.to_vec();
+        live.push(("TICKET_KEY_ENCRYPTION_KEY", REAL_KEY));
+        live.push(("STRIPE_SECRET_KEY", "sk_live_x"));
+        live.push(("STRIPE_WEBHOOK_SECRET", "whsec_y"));
+        assert!(Config::from_lookup(lookup(&live)).is_ok());
+        let mut plain_site = base.to_vec();
+        plain_site.push(("TICKET_KEY_ENCRYPTION_KEY", REAL_KEY));
+        plain_site.push(("PUBLIC_WEB_URL", "http://seudominio.com.br"));
+        assert!(matches!(
+            Config::from_lookup(lookup(&plain_site)),
+            Err(ConfigError::Invalid {
+                name: "PUBLIC_WEB_URL",
+                ..
+            })
+        ));
     }
 
     #[test]

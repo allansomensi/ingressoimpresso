@@ -20,6 +20,9 @@ use crate::jobs;
 use crate::state::AppState;
 
 const LINK_TTL: Duration = Duration::minutes(10);
+/// Exports of one event waiting or running at once: the panel asks for four kinds at most, and
+/// the worker renders one at a time for everybody.
+const MAX_PENDING_PER_EVENT: i64 = 6;
 
 pub(crate) struct ExportRow {
     pub id: Uuid,
@@ -95,6 +98,19 @@ pub async fn create(
     }
     // Art under review or refused is never printed (ADR 0042).
     crate::moderation::ensure_event_printable(&state.pool, event_id).await?;
+    let pending = sqlx::query_scalar!(
+        r#"select count(*) as "count!" from exports
+           where event_id = $1 and status in ('queued', 'running')"#,
+        event_id
+    )
+    .fetch_one(&state.pool)
+    .await?;
+    if pending >= MAX_PENDING_PER_EVENT {
+        return Err(ApiError::Conflict(
+            "export_queue_full",
+            "wait for the files already being generated".to_owned(),
+        ));
+    }
     let scope = serde_json::to_value(body.scope).map_err(anyhow::Error::from)?;
     let row = sqlx::query_as!(
         ExportRow,

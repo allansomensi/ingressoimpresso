@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into rejected_art (sha256, rejected_by)\n               select sha256, $2 from blobs where id = $1 on conflict do nothing",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "67652bee575a940dd62306e6b3773e56fc26b624bd1f31d01837cc7cec1ca4bc"
+}

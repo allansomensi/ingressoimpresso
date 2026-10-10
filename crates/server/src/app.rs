@@ -4,13 +4,17 @@ use std::time::Duration;
 
 use axum::Router;
 use axum::extract::{DefaultBodyLimit, State};
-use axum::http::header::{AUTHORIZATION, CACHE_CONTROL, CONTENT_DISPOSITION, CONTENT_TYPE};
+use axum::http::header::{
+    AUTHORIZATION, CACHE_CONTROL, CONTENT_DISPOSITION, CONTENT_TYPE, REFERRER_POLICY,
+    STRICT_TRANSPORT_SECURITY, X_CONTENT_TYPE_OPTIONS, X_FRAME_OPTIONS,
+};
 use axum::http::{HeaderValue, Method, StatusCode};
 use axum::middleware;
 use axum::response::{IntoResponse as _, Response};
 use axum::routing::{delete, get, post, put};
 use tower_http::catch_panic::CatchPanicLayer;
 use tower_http::cors::{AllowOrigin, CorsLayer};
+use tower_http::timeout::TimeoutLayer;
 use tower_http::trace::TraceLayer;
 
 use crate::auth;
@@ -25,6 +29,9 @@ use crate::state::AppState;
 
 /// JSON bodies are small; only art uploads get a bigger limit.
 const JSON_BODY_LIMIT: usize = 256 * 1024;
+/// Longest a handler may take to answer (the body may stream longer): a slow client or a stuck
+/// dependency releases its connection and its database slot instead of holding them.
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(90);
 
 /// Builds the application router.
 #[expect(
@@ -240,14 +247,42 @@ pub fn router(state: AppState) -> Router {
         .expose_headers([CONTENT_DISPOSITION])
         .max_age(Duration::from_hours(1));
 
+    let production = state.config.production;
     Router::new()
         .route("/healthz", get(alive))
         .route("/readyz", get(ready))
         .nest("/api", api)
         .with_state(state)
+        .layer(middleware::map_response(move |response| async move {
+            security_headers(response, production)
+        }))
         .layer(cors)
         .layer(TraceLayer::new_for_http())
+        .layer(TimeoutLayer::with_status_code(
+            StatusCode::REQUEST_TIMEOUT,
+            REQUEST_TIMEOUT,
+        ))
         .layer(CatchPanicLayer::new())
+}
+
+/// Browser-facing hardening on every answer (ADR 0047): the API is never framed or sniffed, it
+/// sends no referrer, its answers are personal unless a handler says otherwise, and in production
+/// browsers remember to use HTTPS for the whole domain.
+fn security_headers(mut response: Response, production: bool) -> Response {
+    let headers = response.headers_mut();
+    headers.insert(X_CONTENT_TYPE_OPTIONS, HeaderValue::from_static("nosniff"));
+    headers.insert(X_FRAME_OPTIONS, HeaderValue::from_static("DENY"));
+    headers.insert(REFERRER_POLICY, HeaderValue::from_static("no-referrer"));
+    headers
+        .entry(CACHE_CONTROL)
+        .or_insert(HeaderValue::from_static("no-store"));
+    if production {
+        headers.insert(
+            STRICT_TRANSPORT_SECURITY,
+            HeaderValue::from_static("max-age=63072000; includeSubDomains; preload"),
+        );
+    }
+    response
 }
 
 /// `Cache-Control: public, max-age=30` on successful public reads.

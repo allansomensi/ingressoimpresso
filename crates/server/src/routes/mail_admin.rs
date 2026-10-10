@@ -218,7 +218,7 @@ fn verify_svix(secret: &str, headers: &HeaderMap, body: &[u8], now: i64) -> bool
     let Ok(sent_at) = timestamp.parse::<i64>() else {
         return false;
     };
-    if (now - sent_at).abs() > WEBHOOK_TOLERANCE_SECONDS {
+    if now.abs_diff(sent_at) > WEBHOOK_TOLERANCE_SECONDS.unsigned_abs() {
         return false;
     }
     let Some(key) = secret

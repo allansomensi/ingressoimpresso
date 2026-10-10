@@ -34,8 +34,21 @@ fn optional_rfc3339(at: Option<OffsetDateTime>) -> Value {
     at.map_or(Value::Null, rfc3339)
 }
 
+/// Account exports one person may ask for per hour: each one walks every event of the account.
+const EXPORTS_PER_HOUR: usize = 5;
+
 /// `GET /api/account/export`: a JSON file with the account's data (LGPD art. 18, II and V).
 pub async fn export(State(state): State<AppState>, user: AuthUser) -> ApiResult<Response> {
+    if !state
+        .attempt(
+            &format!("account-export:{}", user.id),
+            EXPORTS_PER_HOUR,
+            std::time::Duration::from_hours(1),
+        )
+        .await
+    {
+        return Err(ApiError::TooManyRequests);
+    }
     let account = sqlx::query!(
         r#"select u.email::text as "email!", u.name, u.created_at, u.google_sub is not null as "google!",
                   u.terms_version, u.terms_accepted_at, u.last_login_at,
@@ -230,6 +243,10 @@ async fn export_event(state: &AppState, event_id: Uuid) -> ApiResult<Value> {
 }
 
 /// `DELETE /api/account` with `{ "email": "<the account's e-mail>" }` as confirmation.
+#[expect(
+    clippy::too_many_lines,
+    reason = "one statement per kind of data, written out so the deletion is easy to audit"
+)]
 pub async fn delete(
     State(state): State<AppState>,
     user: AuthUser,
@@ -242,6 +259,9 @@ pub async fn delete(
         ));
     }
     let mut tx = state.pool.begin().await?;
+    // A stolen session token must not be enough to erase an organization: the second step is
+    // asked for whenever the account has one (ADR 0045).
+    crate::two_factor::check(&state, &mut tx, user.id, body.two_factor_code.as_deref()).await?;
     let organizations = sqlx::query_scalar!(
         r#"select m.organization_id from memberships m
            where m.user_id = $1 and m.role = 'owner'
@@ -313,9 +333,33 @@ pub async fn delete(
     sqlx::query!("delete from sessions where user_id = $1", user.id)
         .execute(&mut *tx)
         .await?;
+    // Nothing of the person stays on the row: no second-factor secret, no recovery codes, no
+    // notifications, no memberships beyond the anonymized organizations' owner row.
+    sqlx::query!("delete from recovery_codes where user_id = $1", user.id)
+        .execute(&mut *tx)
+        .await?;
+    sqlx::query!("delete from notifications where user_id = $1", user.id)
+        .execute(&mut *tx)
+        .await?;
+    sqlx::query!(
+        "delete from announcement_receipts where user_id = $1",
+        user.id
+    )
+    .execute(&mut *tx)
+    .await?;
+    sqlx::query!(
+        r#"delete from memberships m where m.user_id = $1
+           and not exists (select 1 from organizations o where o.id = m.organization_id and o.name = $2)"#,
+        user.id,
+        DELETED_ORGANIZATION,
+    )
+    .execute(&mut *tx)
+    .await?;
     sqlx::query!(
         r#"update users set email = $2, name = null, google_sub = null, terms_version = null,
-                  terms_accepted_at = null, last_login_at = null where id = $1"#,
+                  terms_accepted_at = null, last_login_at = null,
+                  totp_secret = null, totp_enabled_at = null, totp_last_step = null
+           where id = $1"#,
         user.id,
         placeholder,
     )

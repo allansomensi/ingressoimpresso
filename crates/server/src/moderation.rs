@@ -233,12 +233,22 @@ async fn try_check_art(state: &AppState, blob_id: Uuid) -> ApiResult<()> {
         return Ok(());
     }
     let data = blob.data;
-    let jpeg = tokio::task::spawn_blocking(move || {
-        crate::routes::events::shrink_to_jpeg(&data, CLASSIFY_WIDTH_PX)
-    })
-    .await
-    .map_err(anyhow::Error::from)?
-    .map_err(anyhow::Error::from)?;
+    // Decoding is the memory-hungry part: it shares the render permits, so a burst of uploads
+    // never decodes more than a couple of images at once.
+    let jpeg = {
+        let _permit = state
+            .render_permits
+            .clone()
+            .acquire_owned()
+            .await
+            .map_err(anyhow::Error::from)?;
+        tokio::task::spawn_blocking(move || {
+            crate::routes::events::shrink_to_jpeg(&data, CLASSIFY_WIDTH_PX)
+        })
+        .await
+        .map_err(anyhow::Error::from)?
+        .map_err(anyhow::Error::from)?
+    };
     let verdict = classifier
         .classify(&jpeg)
         .await

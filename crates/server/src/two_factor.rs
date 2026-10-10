@@ -26,8 +26,9 @@ pub const RECOVERY_CODES: usize = 10;
 pub const ISSUER: &str = "Ingresso Impresso";
 /// Purpose of the sealed secret ([`keys::seal_data`]).
 pub const SEAL_PURPOSE: &str = "totp-secret";
-/// Wrong second-factor codes per account in [`ATTEMPT_WINDOW`].
-const MAX_ATTEMPTS: usize = 10;
+/// Wrong second-factor codes per account in [`ATTEMPT_WINDOW`]. Counted in the database
+/// (`second_factor_attempts`), so a restart never resets a lockout.
+const MAX_ATTEMPTS: i64 = 10;
 const ATTEMPT_WINDOW: Duration = Duration::from_mins(15);
 /// Recovery codes avoid look-alikes (0/O, 1/I/L).
 const RECOVERY_ALPHABET: &[u8] = b"23456789ABCDEFGHJKMNPQRSTUVWXYZ";
@@ -220,7 +221,7 @@ pub async fn check(
     input: Option<&str>,
 ) -> ApiResult<()> {
     let row = sqlx::query!(
-        "select totp_secret, totp_enabled_at, totp_last_step from users where id = $1 for update",
+        "select totp_secret, totp_enabled_at, totp_last_step from users where id = $1 for no key update",
         user_id
     )
     .fetch_one(&mut **tx)
@@ -234,8 +235,7 @@ pub async fn check(
             "enter the code of your authenticator app".to_owned(),
         ));
     };
-    let key = attempt_key(user_id);
-    if state.exhausted(&key, MAX_ATTEMPTS, ATTEMPT_WINDOW).await {
+    if locked(state, user_id).await? {
         return Err(ApiError::TooManyRequests);
     }
     let digits: String = input.chars().filter(|c| !c.is_whitespace()).collect();
@@ -268,23 +268,37 @@ pub async fn check(
     Err(failed(state, user_id).await)
 }
 
-fn attempt_key(user_id: Uuid) -> String {
-    format!("two-factor:{user_id}")
-}
-
-/// Counts a wrong second-factor code (only wrong ones count toward [`MAX_ATTEMPTS`]).
+/// Counts a wrong second-factor code (only wrong ones count toward [`MAX_ATTEMPTS`]) and answers
+/// the error for it. The row is written outside the caller's transaction, which rolls back.
 pub async fn failed(state: &AppState, user_id: Uuid) -> ApiError {
-    state
-        .attempt(&attempt_key(user_id), MAX_ATTEMPTS, ATTEMPT_WINDOW)
-        .await;
+    let recorded = sqlx::query!(
+        "insert into second_factor_attempts (user_id) values ($1)",
+        user_id
+    )
+    .execute(&state.pool)
+    .await;
+    if let Err(error) = recorded {
+        return ApiError::Internal(error.into());
+    }
     bad_request("invalid_two_factor_code", "wrong or used verification code")
 }
 
 /// Whether the account ran out of second-factor tries for now.
-pub async fn locked(state: &AppState, user_id: Uuid) -> bool {
-    state
-        .exhausted(&attempt_key(user_id), MAX_ATTEMPTS, ATTEMPT_WINDOW)
-        .await
+///
+/// # Errors
+///
+/// Database errors.
+pub async fn locked(state: &AppState, user_id: Uuid) -> ApiResult<bool> {
+    let window = i32::try_from(ATTEMPT_WINDOW.as_secs()).unwrap_or(900);
+    let failures = sqlx::query_scalar!(
+        r#"select count(*) as "count!" from second_factor_attempts
+           where user_id = $1 and created_at > now() - make_interval(secs => $2::int)"#,
+        user_id,
+        window,
+    )
+    .fetch_one(&state.pool)
+    .await?;
+    Ok(failures >= MAX_ATTEMPTS)
 }
 
 #[cfg(test)]

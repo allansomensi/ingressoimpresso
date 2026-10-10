@@ -7,7 +7,7 @@ use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use uuid::Uuid;
 
-use super::{authorize_event, bounds, is_issued, optional_text, range};
+use super::{authorize_event, bounds, is_issued, one_line, optional_text, range};
 use crate::api::{RangeBody, RangeDto, SellerBody, SellerDto};
 use crate::auth::AuthUser;
 use crate::error::{ApiError, ApiResult, bad_request};
@@ -21,6 +21,7 @@ fn validate(body: &SellerBody) -> ApiResult<(String, Option<String>)> {
             "name must have 1-60 characters",
         ));
     }
+    one_line(&name, "invalid_name")?;
     let phone = optional_text(body.phone.clone());
     if phone
         .as_ref()
@@ -30,6 +31,9 @@ fn validate(body: &SellerBody) -> ApiResult<(String, Option<String>)> {
             "invalid_phone",
             "phone must have up to 30 characters",
         ));
+    }
+    if let Some(phone) = &phone {
+        one_line(phone, "invalid_phone")?;
     }
     Ok((name, phone))
 }

@@ -17,9 +17,15 @@ email: string,
  */
 name: string | null, 
 /**
- * In `ADMIN_EMAILS`: the admin panel and every organization (ADRs 0026, 0032).
+ * In `ADMIN_EMAILS` with two-step verification on: the admin panel and every
+ * organization (ADRs 0026, 0032, 0047).
  */
 isAdmin: boolean, 
+/**
+ * In `ADMIN_EMAILS` but without two-step verification: admin powers wait for it
+ * (ADR 0047).
+ */
+adminPendingTwoFactor: boolean, 
 /**
  * Signs in with Google too (ADR 0029).
  */

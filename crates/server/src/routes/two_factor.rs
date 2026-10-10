@@ -78,7 +78,7 @@ pub async fn enable(
 ) -> ApiResult<Json<RecoveryCodesDto>> {
     let mut tx = state.pool.begin().await?;
     let row = sqlx::query!(
-        "select totp_secret, totp_enabled_at from users where id = $1 for update",
+        "select totp_secret, totp_enabled_at from users where id = $1 for no key update",
         user.id
     )
     .fetch_one(&mut *tx)
@@ -89,7 +89,7 @@ pub async fn enable(
     let sealed = row.totp_secret.ok_or_else(|| {
         ApiError::Conflict("two_factor_not_set_up", "start the setup again".to_owned())
     })?;
-    if two_factor::locked(&state, user.id).await {
+    if two_factor::locked(&state, user.id).await? {
         return Err(ApiError::TooManyRequests);
     }
     let secret = two_factor::unseal(&state, user.id, &sealed)?;

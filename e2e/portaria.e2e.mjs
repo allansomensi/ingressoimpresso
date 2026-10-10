@@ -6,6 +6,7 @@
 // the app opening offline from the service worker, an offline decision, sync on reconnect and
 // convergence of the first entry across phones.
 import assert from "node:assert/strict";
+import { createHmac } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
@@ -57,6 +58,39 @@ async function login() {
     return /development mailer[^\n]*?subject\S*?=\S*?[^\d\n]*(\d{6})/.exec(log)?.[1];
   });
   return (await api("/api/auth/verify", { body: { email: EMAIL, code } })).token;
+}
+
+/** RFC 4648 base32 (no padding), as the authenticator setup prints the key. */
+function base32Decode(text) {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+  const out = [];
+  let buffer = 0;
+  let bits = 0;
+  for (const char of text.replace(/\s/g, "")) {
+    buffer = (buffer << 5) | alphabet.indexOf(char);
+    bits += 5;
+    if (bits >= 8) {
+      bits -= 8;
+      out.push((buffer >> bits) & 0xff);
+    }
+  }
+  return Buffer.from(out);
+}
+
+/** The 6-digit TOTP (RFC 6238, SHA-1, 30 s) of `secret` now. */
+function totp(secret) {
+  const counter = Buffer.alloc(8);
+  counter.writeBigUInt64BE(BigInt(Math.floor(Date.now() / 1000 / 30)));
+  const digest = createHmac("sha1", secret).update(counter).digest();
+  const offset = digest[digest.length - 1] & 0x0f;
+  const value = ((digest[offset] & 0x7f) << 24) | (digest[offset + 1] << 16) | (digest[offset + 2] << 8) | digest[offset + 3];
+  return String(value % 1_000_000).padStart(6, "0");
+}
+
+/** Admin powers need two-step verification (ADR 0047): the e2e account turns it on like a person. */
+async function enableTwoFactor(token) {
+  const setup = await api("/api/account/two-factor/setup", { token, body: {} });
+  await api("/api/account/two-factor/enable", { token, body: { code: totp(base32Decode(setup.secret)) } });
 }
 
 /** The entries of a ZIP written by the API (stored, sizes in the local headers). */
@@ -152,6 +186,7 @@ const event = await api("/api/events", {
 const batch = await api(`/api/events/${event.id}/batches`, { token, body: { quantity: 5 } });
 // Free tickets (ADR 0039) may cover the batch already; otherwise the admin marks it as paid.
 if (batch.status !== "paid") {
+  await enableTwoFactor(token);
   await api(`/api/admin/batches/${batch.id}/mark-paid`, { token, method: "POST" });
 }
 const seller = await api(`/api/events/${event.id}/sellers`, { token, body: { name: "João" } });

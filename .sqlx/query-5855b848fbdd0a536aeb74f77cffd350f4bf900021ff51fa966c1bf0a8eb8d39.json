@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "delete from second_factor_attempts where created_at < now() - interval '1 day'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "5855b848fbdd0a536aeb74f77cffd350f4bf900021ff51fa966c1bf0a8eb8d39"
+}

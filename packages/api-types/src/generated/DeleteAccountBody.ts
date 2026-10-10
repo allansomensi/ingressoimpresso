@@ -7,4 +7,8 @@ export type DeleteAccountBody = {
 /**
  * The account's e-mail, typed as confirmation.
  */
-email: string, };
+email: string, 
+/**
+ * Authenticator or recovery code, required when two-step verification is on (ADR 0045).
+ */
+twoFactorCode?: string, };

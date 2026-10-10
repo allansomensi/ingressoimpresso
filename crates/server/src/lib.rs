@@ -21,6 +21,7 @@ pub mod moderation;
 pub mod payments;
 pub mod platform;
 pub mod pricing;
+pub mod ratelimit;
 pub mod routes;
 pub mod state;
 mod texts;

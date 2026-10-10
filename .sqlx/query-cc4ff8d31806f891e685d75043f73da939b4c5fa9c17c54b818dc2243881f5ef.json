@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "delete from memberships m where m.user_id = $1\n           and not exists (select 1 from organizations o where o.id = m.organization_id and o.name = $2)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "cc4ff8d31806f891e685d75043f73da939b4c5fa9c17c54b818dc2243881f5ef"
+}

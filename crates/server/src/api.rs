@@ -62,6 +62,10 @@ dto! {
     }
 
     /// The signed-in user.
+    #[expect(
+        clippy::struct_excessive_bools,
+        reason = "flat flags are what the panel reads; they are not a state machine"
+    )]
     pub struct MeUser {
         /// User id.
         #[cfg_attr(feature = "ts", ts(type = "string"))]
@@ -70,8 +74,12 @@ dto! {
         pub email: String,
         /// Name shared by Google, if any.
         pub name: Option<String>,
-        /// In `ADMIN_EMAILS`: the admin panel and every organization (ADRs 0026, 0032).
+        /// In `ADMIN_EMAILS` with two-step verification on: the admin panel and every
+        /// organization (ADRs 0026, 0032, 0047).
         pub is_admin: bool,
+        /// In `ADMIN_EMAILS` but without two-step verification: admin powers wait for it
+        /// (ADR 0047).
+        pub admin_pending_two_factor: bool,
         /// Signs in with Google too (ADR 0029).
         pub google: bool,
         /// The organization is suspended: the panel only reads (ADR 0032).
@@ -134,6 +142,10 @@ dto! {
     pub struct DeleteAccountBody {
         /// The account's e-mail, typed as confirmation.
         pub email: String,
+        /// Authenticator or recovery code, required when two-step verification is on (ADR 0045).
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional))]
+        pub two_factor_code: Option<String>,
     }
 
     /// `POST /api/events` and `PUT /api/events/{id}`.

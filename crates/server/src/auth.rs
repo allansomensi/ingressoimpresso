@@ -25,7 +25,7 @@ use crate::google::GoogleError;
 use crate::mail::MailKind;
 use crate::platform::PlatformSettings;
 use crate::state::AppState;
-use crate::{emails, keys, two_factor};
+use crate::{emails, keys, ratelimit, two_factor};
 
 const CODE_TTL: Duration = Duration::minutes(10);
 const MAX_ATTEMPTS_PER_CODE: i16 = 5;
@@ -54,8 +54,11 @@ pub struct AuthUser {
     pub id: Uuid,
     /// E-mail.
     pub email: String,
-    /// In `ADMIN_EMAILS`: may act on any organization (ADR 0032).
+    /// In `ADMIN_EMAILS` with two-step verification on (ADR 0047): may act on any organization
+    /// (ADR 0032). An admin without the second step is an ordinary organizer until it is set up.
     pub is_admin: bool,
+    /// In `ADMIN_EMAILS` but without two-step verification yet (ADR 0047).
+    pub admin_pending_two_factor: bool,
     /// The user's organization is suspended (ADR 0032): reads only.
     pub suspended: bool,
     /// Method of the request (support-mode audit).
@@ -145,7 +148,7 @@ pub fn new_token() -> ApiResult<(String, Vec<u8>)> {
 /// The client address. Render's edge is Cloudflare, which sets `CF-Connecting-IP` itself (a
 /// client cannot forge it); without it, the first `X-Forwarded-For` entry, which a client can
 /// forge to dodge only its own per-IP limit (the daily quota and its sub-quota still hold).
-fn client_ip(headers: &HeaderMap) -> Option<String> {
+pub(crate) fn client_ip(headers: &HeaderMap) -> Option<String> {
     let header = |name: &str| {
         headers
             .get(name)
@@ -178,6 +181,7 @@ pub async fn request_code(
     headers: HeaderMap,
     Json(body): Json<RequestCodeBody>,
 ) -> ApiResult<StatusCode> {
+    ratelimit::by_ip(&state, &headers, ratelimit::LOGIN_CODES).await?;
     let email = normalize_email(&body.email)?;
     if let Some(captcha) = &state.captcha {
         let ip = client_ip(&headers);
@@ -263,8 +267,10 @@ pub async fn request_code(
 /// `POST /api/auth/verify`: exchanges a valid code for a session token.
 pub async fn verify_code(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Json(body): Json<VerifyCodeBody>,
 ) -> ApiResult<Json<SessionResponse>> {
+    ratelimit::by_ip(&state, &headers, ratelimit::LOGIN_VERIFY).await?;
     let email = normalize_email(&body.email)?;
     let code = body.code.trim();
     let invalid = || bad_request("invalid_code", "wrong or expired code");
@@ -337,8 +343,10 @@ pub async fn verify_code(
 /// codes gets linked); a new e-mail creates an account, as a first code would.
 pub async fn google(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Json(body): Json<GoogleSignInBody>,
 ) -> ApiResult<Json<SessionResponse>> {
+    ratelimit::by_ip(&state, &headers, ratelimit::LOGIN_VERIFY).await?;
     let google = state
         .google
         .clone()
@@ -537,6 +545,7 @@ where
 {
     let row = sqlx::query!(
         r#"select u.email::text as "email!", u.name, u.google_sub is not null as "google!",
+                  u.totp_enabled_at is not null as "two_factor!",
                   exists(select 1 from memberships m join organizations o on o.id = m.organization_id
                          where m.user_id = u.id and o.suspended_at is not null) as "suspended!"
            from users u where u.id = $1"#,
@@ -544,9 +553,11 @@ where
     )
     .fetch_one(executor)
     .await?;
+    let listed = state.config.is_admin(&row.email);
     Ok(MeUser {
         id: user_id,
-        is_admin: state.config.is_admin(&row.email),
+        is_admin: listed && row.two_factor,
+        admin_pending_two_factor: listed && !row.two_factor,
         email: row.email,
         name: row.name,
         google: row.google,
@@ -589,6 +600,7 @@ impl FromRequestParts<AppState> for AuthUser {
         let hash = token_hash(bearer_token(parts)?);
         let row = sqlx::query!(
             r#"select s.user_id, s.last_seen_at, u.email as "email: String",
+                      u.totp_enabled_at is not null as "two_factor!",
                       exists(select 1 from memberships m join organizations o on o.id = m.organization_id
                              where m.user_id = u.id and o.suspended_at is not null) as "suspended!"
                from sessions s join users u on u.id = s.user_id
@@ -609,7 +621,9 @@ impl FromRequestParts<AppState> for AuthUser {
             .execute(&state.pool)
             .await?;
         }
-        let is_admin = state.config.is_admin(&row.email);
+        // Admin powers need the second step (ADR 0047): a phished e-mail code alone opens an
+        // ordinary account, never the money.
+        let is_admin = state.config.is_admin(&row.email) && row.two_factor;
         // The API is nested under `/api`, and nesting strips the prefix from `parts.uri`.
         let path = parts
             .extensions
@@ -627,6 +641,7 @@ impl FromRequestParts<AppState> for AuthUser {
         }
         Ok(Self {
             id: row.user_id,
+            admin_pending_two_factor: state.config.is_admin(&row.email) && !row.two_factor,
             email: row.email,
             is_admin,
             suspended: row.suspended,

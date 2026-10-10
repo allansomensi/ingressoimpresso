@@ -17,7 +17,7 @@ use ticket_render::{RenderJob, TicketQr, TicketToRender};
 use time::OffsetDateTime;
 use uuid::Uuid;
 
-use super::{EventRow, authorize_event, optional_text};
+use super::{EventRow, MAX_TICKET_NUMBER, authorize_event, one_line, optional_text};
 use crate::api::{
     CreateTicketLinkBody, CreateTicketLinksBody, OpenTicketBody, TicketLinkDto, TicketLinksDto,
     TicketPassDto, TicketPassEvent, TicketState, UpdateTicketLinkBody,
@@ -223,6 +223,9 @@ fn holder_name(value: Option<String>) -> ApiResult<Option<String>> {
             "holder name must have up to 80 characters",
         ));
     }
+    if let Some(name) = &name {
+        one_line(name, "invalid_holder_name")?;
+    }
     Ok(name)
 }
 
@@ -318,8 +321,11 @@ pub async fn create(
                 "every paid ticket is taken".to_owned(),
             ))?,
     };
-    if number < 1 {
-        return Err(bad_request("invalid_number", "ticket numbers start at 1"));
+    if !(1..=MAX_TICKET_NUMBER).contains(&number) {
+        return Err(bad_request(
+            "invalid_number",
+            format!("ticket numbers go from 1 to {MAX_TICKET_NUMBER}"),
+        ));
     }
     let numbers = issuable(&state, event_id, number, number).await?;
     if numbers.is_empty() {
@@ -363,7 +369,11 @@ pub async fn create_bulk(
 ) -> ApiResult<(StatusCode, Json<Vec<TicketLinkDto>>)> {
     let event = authorize_event(&state.pool, &user, event_id).await?;
     ensure_open(&event)?;
-    if body.first < 1 || body.last < body.first || body.last - body.first >= MAX_BULK {
+    if body.first < 1
+        || body.last < body.first
+        || body.last > MAX_TICKET_NUMBER
+        || body.last - body.first >= MAX_BULK
+    {
         return Err(bad_request(
             "invalid_range",
             format!("range must have 1-{MAX_BULK} numbers"),
@@ -480,8 +490,10 @@ async fn open_link(state: &AppState, token: &str, count: bool) -> ApiResult<Open
 /// of access logs): what the holder's phone shows.
 pub async fn open(
     State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
     Json(body): Json<OpenTicketBody>,
 ) -> ApiResult<Response> {
+    crate::ratelimit::by_ip(&state, &headers, crate::ratelimit::TICKET_OPEN).await?;
     let link = open_link(&state, &body.token, true).await?;
     let event = sqlx::query!(
         r#"select e.name, e.venue, e.starts_at, e.ends_at, e.utc_offset_minutes, o.name as organizer,
@@ -531,8 +543,10 @@ pub async fn open(
 /// `POST /api/ticket/image`: the ticket as printed (design, art and the real QR), as a JPEG.
 pub async fn image(
     State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
     Json(body): Json<OpenTicketBody>,
 ) -> ApiResult<Response> {
+    crate::ratelimit::by_ip(&state, &headers, crate::ratelimit::TICKET_IMAGE).await?;
     let link = open_link(&state, &body.token, false).await?;
     let voided = sqlx::query_scalar!(
         r#"select exists(select 1 from ticket_voids where event_id = $1 and undone_at is null

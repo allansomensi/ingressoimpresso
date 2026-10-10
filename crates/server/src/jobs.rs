@@ -510,6 +510,12 @@ async fn prune(pool: &PgPool) -> ApiResult<()> {
     sqlx::query!("delete from sessions where expires_at < now()")
         .execute(pool)
         .await?;
+    sqlx::query!("delete from download_links where expires_at < now() - interval '1 hour'")
+        .execute(pool)
+        .await?;
+    sqlx::query!("delete from second_factor_attempts where created_at < now() - interval '1 day'")
+        .execute(pool)
+        .await?;
     sqlx::query!("delete from notifications where created_at < now() - interval '180 days'")
         .execute(pool)
         .await?;

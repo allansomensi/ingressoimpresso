@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select totp_secret, totp_enabled_at from users where id = $1 for update",
+  "query": "select totp_secret, totp_enabled_at from users where id = $1 for no key update",
   "describe": {
     "columns": [
       {
@@ -36,5 +36,5 @@
       true
     ]
   },
-  "hash": "b8e19bc33233a9b53fcdff797e3ea6039250e0f2fe7499eb5768ee59fb429259"
+  "hash": "bc744c6ed6dbd9b672f5c9a1cc7efa3dfd1d2bb3609216b140f4249a919af803"
 }

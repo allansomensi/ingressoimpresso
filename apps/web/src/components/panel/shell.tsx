@@ -231,6 +231,17 @@ export function PanelShell({ children }: { children: ReactNode }) {
       {session.status === "signed-in" && maintenance !== undefined && (
         <MaintenanceBanner maintenance={maintenance} isAdmin={session.user.isAdmin} />
       )}
+      {session.status === "signed-in" && session.user.adminPendingTwoFactor && (
+        <div role="status" className="border-b border-warning/30 bg-warning-soft text-warning-fg">
+          <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-sm sm:px-6">
+            <ShieldCheck className="size-4 shrink-0" aria-hidden />
+            <span className="flex-1">{t.adminTwoFactor}</span>
+            <Link href="/painel/conta" className="font-semibold underline-offset-2 hover:underline">
+              {t.adminTwoFactorAction}
+            </Link>
+          </div>
+        </div>
+      )}
       {session.status === "signed-in" && session.user.suspended && (
         <div role="status" className="border-b border-danger/25 bg-danger-soft text-danger-fg">
           <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-sm sm:px-6">

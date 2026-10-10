@@ -22,10 +22,16 @@ use crate::state::AppState;
 const LIST_LIMIT: i64 = 200;
 const MAX_BONUS: i32 = 100_000;
 
-/// 403 unless the user is an admin.
+/// 403 unless the user is an admin with two-step verification on (ADR 0047); an admin without
+/// it is told what is missing.
 pub(crate) fn require_admin(user: &AuthUser) -> ApiResult<()> {
     if user.is_admin {
         Ok(())
+    } else if user.admin_pending_two_factor {
+        Err(ApiError::Refused(
+            "admin_two_factor_required",
+            "turn on two-step verification to use the admin tools".to_owned(),
+        ))
     } else {
         Err(ApiError::Forbidden)
     }

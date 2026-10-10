@@ -11,7 +11,7 @@ use sqlx::{Postgres, Transaction};
 use time::{Duration, OffsetDateTime};
 use uuid::Uuid;
 
-use super::{authorize_event, bounds};
+use super::{authorize_event, bounds, one_line};
 use crate::api::{
     CreateDoorAccessBody, CreatedDoorAccess, DoorAccessDto, DoorDeviceDto, DoorEntryDto,
     DoorEventInfo, DoorFirstEntryDto, DoorKeyDto, DoorManifest, DoorOverviewDto, DoorRegisterBody,
@@ -131,6 +131,7 @@ pub async fn create_access(
             format!("label must have 1–{MAX_LABEL_CHARS} characters"),
         ));
     }
+    one_line(label, "invalid_label")?;
     let (token, hash) = new_token()?;
     let row = sqlx::query_as!(
         AccessRow,
@@ -252,8 +253,10 @@ impl FromRequestParts<AppState> for DoorDevice {
 /// `POST /api/door/register`: trades the link token for this phone's own secret.
 pub async fn register(
     State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
     Json(body): Json<DoorRegisterBody>,
 ) -> ApiResult<(StatusCode, Json<DoorRegistration>)> {
+    crate::ratelimit::by_ip(&state, &headers, crate::ratelimit::DOOR_REGISTER).await?;
     let name = body.device_name.trim();
     if name.is_empty() || name.chars().count() > MAX_DEVICE_NAME_CHARS {
         return Err(bad_request(
@@ -261,6 +264,7 @@ pub async fn register(
             format!("device name must have 1–{MAX_DEVICE_NAME_CHARS} characters"),
         ));
     }
+    one_line(name, "invalid_device_name")?;
     let access = sqlx::query!(
         r#"select a.id, a.event_id,
                   (select count(*) from door_devices d where d.door_access_id = a.id) as "devices!"

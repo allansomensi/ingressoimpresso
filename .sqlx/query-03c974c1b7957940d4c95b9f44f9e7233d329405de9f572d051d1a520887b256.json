@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select u.email::text as \"email!\", u.name, u.google_sub is not null as \"google!\",\n                  exists(select 1 from memberships m join organizations o on o.id = m.organization_id\n                         where m.user_id = u.id and o.suspended_at is not null) as \"suspended!\"\n           from users u where u.id = $1",
+  "query": "select u.email::text as \"email!\", u.name, u.google_sub is not null as \"google!\",\n                  u.totp_enabled_at is not null as \"two_factor!\",\n                  exists(select 1 from memberships m join organizations o on o.id = m.organization_id\n                         where m.user_id = u.id and o.suspended_at is not null) as \"suspended!\"\n           from users u where u.id = $1",
   "describe": {
     "columns": [
       {
@@ -28,6 +28,12 @@
       },
       {
         "ordinal": 3,
+        "name": "two_factor!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
         "name": "suspended!",
         "type_info": "Bool",
         "origin": "Expression"
@@ -42,8 +48,9 @@
       null,
       true,
       null,
+      null,
       null
     ]
   },
-  "hash": "07955bd30a8c1556fb513fd8464c9d0ae025937a319991d4787d6cca159fd267"
+  "hash": "03c974c1b7957940d4c95b9f44f9e7233d329405de9f572d051d1a520887b256"
 }

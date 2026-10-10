@@ -12,7 +12,7 @@ use ingressoimpresso_server::moderation::Classifier;
 use ingressoimpresso_server::payments::Payments;
 use ingressoimpresso_server::state::AppState;
 use ingressoimpresso_server::{MIGRATOR, app, jobs};
-use sqlx::postgres::PgPoolOptions;
+use sqlx::postgres::{PgConnectOptions, PgPoolOptions, PgSslMode};
 use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
@@ -49,10 +49,19 @@ fn init_tracing(json: bool) {
 }
 
 async fn run(config: Config) -> Result<()> {
+    let mut options: PgConnectOptions = config
+        .database_url
+        .parse()
+        .context("parsing DATABASE_URL")?;
+    if config.production {
+        // The database lives on another network (ADR 0013): its certificate is always checked,
+        // whatever the URL says, so a stripped connection never silently goes in plain text.
+        options = options.ssl_mode(PgSslMode::VerifyFull);
+    }
     let pool = PgPoolOptions::new()
         .max_connections(10)
         .acquire_timeout(Duration::from_secs(10))
-        .connect(&config.database_url)
+        .connect_with(options)
         .await
         .context("connecting to the database")?;
     MIGRATOR.run(&pool).await.context("running migrations")?;

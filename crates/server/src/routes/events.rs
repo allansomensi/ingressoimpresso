@@ -15,7 +15,7 @@ use ticket_render::{Art, RenderJob, TicketDesign, TicketQr, TicketToRender};
 use time::OffsetDateTime;
 use uuid::Uuid;
 
-use super::{EventRow, authorize_event, door, event_access, optional_text};
+use super::{EventRow, authorize_event, door, event_access, one_line, optional_text};
 use crate::api::{
     ArtDto, DesignBody, DesignResponse, EventBody, EventDto, EventStatus, EventStatusBody,
 };
@@ -28,7 +28,13 @@ use crate::texts;
 /// Upload limit for art (also enforced by the router body limit).
 pub const MAX_ART_BYTES: usize = 20 * 1024 * 1024;
 const MAX_ART_SIDE_PX: u32 = 10_000;
-const MAX_ART_PIXELS: u64 = 40_000_000;
+/// 24 MP: a 300 × 200 mm ticket at 300 dpi is 8.4 MP, so this leaves room; a larger image would
+/// decode to hundreds of megabytes on the single API instance.
+const MAX_ART_PIXELS: u64 = 24_000_000;
+/// Most memory one image decode may take (previews, moderation); beyond it the decoder stops.
+const MAX_DECODE_BYTES: u64 = 256 * 1024 * 1024;
+/// Design previews one user may ask for per minute: each one renders a sheet of samples.
+const PREVIEWS_PER_MINUTE: usize = 30;
 /// Art an organization may keep (every event, every saved version): ten large files.
 const MAX_ART_BYTES_PER_ORGANIZATION: i64 = 200 * 1024 * 1024;
 const PREVIEW_DPI: u32 = 110;
@@ -63,6 +69,7 @@ fn validate_event(body: &EventBody) -> ApiResult<(String, Option<String>, i16)> 
             "name must have 1-100 characters",
         ));
     }
+    one_line(&name, "invalid_name")?;
     let venue = optional_text(body.venue.clone());
     if venue
         .as_ref()
@@ -72,6 +79,9 @@ fn validate_event(body: &EventBody) -> ApiResult<(String, Option<String>, i16)> 
             "invalid_venue",
             "venue must have up to 120 characters",
         ));
+    }
+    if let Some(venue) = &venue {
+        one_line(venue, "invalid_venue")?;
     }
     if body.ends_at <= body.starts_at {
         return Err(bad_request("invalid_dates", "end must be after start"));
@@ -248,9 +258,14 @@ pub async fn duplicate(
     )
     .fetch_optional(&mut *tx)
     .await?;
+    let mut copied_art = None;
     if let Some(design) = design {
         let art = match design.art_blob_id {
-            Some(blob_id) => Some(copy_art(&mut tx, organization_id, blob_id, copy.id).await?),
+            Some(blob_id) => {
+                let (id, unchecked) = copy_art(&mut tx, organization_id, blob_id, copy.id).await?;
+                copied_art = unchecked.then_some(id);
+                Some(id)
+            }
             None => None,
         };
         sqlx::query!(
@@ -273,16 +288,41 @@ pub async fn duplicate(
     .execute(&mut *tx)
     .await?;
     tx.commit().await?;
+    // A copy of art nobody has looked at yet is classified like a new upload (ADR 0042).
+    if let Some(art_id) = copied_art {
+        crate::moderation::spawn_check(&state, art_id);
+    }
     Ok((StatusCode::CREATED, Json(copy.into_dto()?)))
 }
 
-/// Copies an art blob to another event of the same organization, within its art quota.
+/// Copies an art blob to another event of the same organization, within its art quota. The
+/// moderation decision travels with it (invariant 12): refused art is not copied at all, art
+/// under review stays under review, and the copy says whether it still needs a first look.
 async fn copy_art(
     tx: &mut Transaction<'_, Postgres>,
     organization_id: Uuid,
     blob_id: Uuid,
     to_event: Uuid,
-) -> ApiResult<Uuid> {
+) -> ApiResult<(Uuid, bool)> {
+    let source = sqlx::query!(
+        "select byte_size, moderation_status, sha256 from blobs where id = $1",
+        blob_id
+    )
+    .fetch_one(&mut **tx)
+    .await?;
+    let refused = source.moderation_status == "rejected"
+        || sqlx::query_scalar!(
+            r#"select exists(select 1 from rejected_art where sha256 = $1) as "refused!""#,
+            source.sha256
+        )
+        .fetch_one(&mut **tx)
+        .await?;
+    if refused {
+        return Err(ApiError::Conflict(
+            "art_rejected",
+            "the art was refused by the team".to_owned(),
+        ));
+    }
     let stored = sqlx::query_scalar!(
         r#"select coalesce(sum(b.byte_size), 0)::bigint as "stored!" from blobs b
            join events e on e.id = b.event_id where e.organization_id = $1"#,
@@ -290,10 +330,7 @@ async fn copy_art(
     )
     .fetch_one(&mut **tx)
     .await?;
-    let size = sqlx::query_scalar!("select byte_size from blobs where id = $1", blob_id)
-        .fetch_one(&mut **tx)
-        .await?;
-    if stored + i64::from(size) > MAX_ART_BYTES_PER_ORGANIZATION {
+    if stored + i64::from(source.byte_size) > MAX_ART_BYTES_PER_ORGANIZATION {
         return Err(ApiError::Conflict(
             "art_quota",
             "the organization stores too much art".to_owned(),
@@ -301,8 +338,10 @@ async fn copy_art(
     }
     let id = Uuid::new_v4();
     sqlx::query!(
-        r#"insert into blobs (id, event_id, sha256, content_type, width_px, height_px, byte_size, data)
-           select $1, $2, sha256, content_type, width_px, height_px, byte_size, data
+        r#"insert into blobs (id, event_id, sha256, content_type, width_px, height_px, byte_size, data,
+                              moderation_status, uploaded_by)
+           select $1, $2, sha256, content_type, width_px, height_px, byte_size, data,
+                  moderation_status, uploaded_by
            from blobs where id = $3"#,
         id,
         to_event,
@@ -310,7 +349,21 @@ async fn copy_art(
     )
     .execute(&mut **tx)
     .await?;
-    Ok(id)
+    if source.moderation_status == "flagged" {
+        // The open flag follows the copy, so the review covers both.
+        sqlx::query!(
+            r#"insert into moderation_flags (id, blob_id, organization_id, event_id, reasons, details, score, source)
+               select gen_random_uuid(), $1, f.organization_id, $2, f.reasons, f.details, f.score, f.source
+               from moderation_flags f where f.blob_id = $3 and f.status = 'open'
+               on conflict (blob_id) where status = 'open' do nothing"#,
+            id,
+            to_event,
+            blob_id,
+        )
+        .execute(&mut **tx)
+        .await?;
+    }
+    Ok((id, source.moderation_status == "unchecked"))
 }
 
 /// `PUT /api/events/{id}/status`: archives (`closed`) or reopens (`active`) an event. A closed
@@ -585,6 +638,7 @@ pub async fn upload_art(
     sqlx::query!(
         r#"delete from blobs b where b.event_id = $1 and b.sha256 <> $2
            and b.created_at < now() - interval '2 hours'
+           and b.moderation_status not in ('flagged', 'rejected')
            and not exists (select 1 from ticket_designs d where d.art_blob_id = b.id)"#,
         event_id,
         digest,
@@ -640,17 +694,33 @@ pub async fn upload_art(
 /// Moderation of an image already seen (ADR 0042): one the team refused anywhere is refused
 /// again; one already found fine is not classified twice.
 async fn known_moderation(state: &AppState, digest: &[u8]) -> ApiResult<&'static str> {
+    let refused = sqlx::query_scalar!(
+        r#"select exists(select 1 from rejected_art where sha256 = $1) as "refused!""#,
+        digest
+    )
+    .fetch_one(&state.pool)
+    .await?;
     let known = sqlx::query_scalar!(
         r#"select moderation_status from blobs where sha256 = $1
-           order by (moderation_status = 'rejected') desc, created_at desc limit 1"#,
+           order by (moderation_status = 'rejected') desc, (moderation_status = 'flagged') desc,
+                    created_at desc limit 1"#,
         digest
     )
     .fetch_optional(&state.pool)
     .await?;
     match known.as_deref() {
+        _ if refused => Err(ApiError::Conflict(
+            "art_rejected",
+            "this image was refused by the team".to_owned(),
+        )),
         Some("rejected") => Err(ApiError::Conflict(
             "art_rejected",
             "this image was refused by the team".to_owned(),
+        )),
+        // The same bytes are being looked at elsewhere: no second copy skips the queue.
+        Some("flagged") => Err(ApiError::Conflict(
+            "art_under_review",
+            "this image is being reviewed by the team".to_owned(),
         )),
         Some("clean") => Ok("clean"),
         Some("approved") => Ok("approved"),
@@ -691,6 +761,16 @@ pub async fn preview(
 ) -> ApiResult<Response> {
     let event = authorize_event(&state.pool, &user, event_id).await?;
     validate_design(&body.design)?;
+    if !state
+        .attempt(
+            &format!("preview:{}", user.id),
+            PREVIEWS_PER_MINUTE,
+            std::time::Duration::from_mins(1),
+        )
+        .await
+    {
+        return Err(ApiError::TooManyRequests);
+    }
     if let Some(art_id) = body.art_id
         && art_of_event(&state, event_id, art_id)
             .await?
@@ -788,7 +868,13 @@ pub async fn art_preview(
 
 /// Decodes an image and encodes it as JPEG, scaled down to `max_width` if wider.
 pub(crate) fn shrink_to_jpeg(bytes: &[u8], max_width: u32) -> Result<Vec<u8>, image::ImageError> {
-    let image = image::load_from_memory(bytes)?;
+    let mut reader = image::ImageReader::new(Cursor::new(bytes)).with_guessed_format()?;
+    let mut limits = image::Limits::default();
+    limits.max_image_width = Some(MAX_ART_SIDE_PX);
+    limits.max_image_height = Some(MAX_ART_SIDE_PX);
+    limits.max_alloc = Some(MAX_DECODE_BYTES);
+    reader.limits(limits);
+    let image = reader.decode()?;
     let image = if image.width() > max_width {
         image.resize(max_width, u32::MAX, image::imageops::FilterType::Triangle)
     } else {

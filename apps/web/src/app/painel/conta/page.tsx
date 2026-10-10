@@ -1,6 +1,6 @@
 "use client";
 
-import type { AccountDto, PricingDto } from "@ingressoimpresso/api-types";
+import type { AccountDto, DeleteAccountBody, PricingDto, TwoFactorStatusDto } from "@ingressoimpresso/api-types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Building2,
@@ -122,13 +122,17 @@ function PricingTable({ pricing }: { pricing: PricingDto }) {
   );
 }
 
-function DeleteAccount({ email }: { email: string }) {
+function DeleteAccount({ email, twoFactor }: { email: string; twoFactor: boolean }) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [typed, setTyped] = useState("");
+  const [code, setCode] = useState("");
   const remove = useMutation({
-    mutationFn: () => api<undefined>("/api/account", { method: "DELETE", body: { email: typed.trim() } }),
+    mutationFn: () => {
+      const body: DeleteAccountBody = { email: typed.trim(), ...(twoFactor ? { twoFactorCode: code.trim() } : {}) };
+      return api<undefined>("/api/account", { method: "DELETE", body });
+    },
     onSuccess: () => {
       writeToken(null);
       queryClient.clear();
@@ -136,7 +140,7 @@ function DeleteAccount({ email }: { email: string }) {
       router.replace("/");
     },
   });
-  const matches = typed.trim().toLowerCase() === email.toLowerCase();
+  const matches = typed.trim().toLowerCase() === email.toLowerCase() && (!twoFactor || code.trim() !== "");
   return (
     <>
       <Button
@@ -144,6 +148,7 @@ function DeleteAccount({ email }: { email: string }) {
         icon={<Trash2 />}
         onClick={() => {
           setTyped("");
+          setCode("");
           remove.reset();
           setOpen(true);
         }}
@@ -195,6 +200,18 @@ function DeleteAccount({ email }: { email: string }) {
               }}
             />
           </Field>
+          {twoFactor && (
+            <Field label={t.deleteTwoFactorLabel}>
+              <Input
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                value={code}
+                onChange={(event) => {
+                  setCode(event.target.value);
+                }}
+              />
+            </Field>
+          )}
           <ErrorMessage error={remove.error} />
         </form>
       </Dialog>
@@ -203,6 +220,7 @@ function DeleteAccount({ email }: { email: string }) {
 }
 
 function PrivacyCard({ account, email }: { account: AccountDto; email: string }) {
+  const twoFactor = useQuery({ queryKey: ["two-factor"], queryFn: () => api<TwoFactorStatusDto>("/api/account/two-factor") });
   const [exporting, setExporting] = useState(false);
   const download = async () => {
     setExporting(true);
@@ -246,7 +264,7 @@ function PrivacyCard({ account, email }: { account: AccountDto; email: string })
           <span className="text-xs text-fg-muted">{t.exportHint}</span>
         </div>
         <div className="flex flex-col gap-1 border-t border-border pt-4">
-          <DeleteAccount email={email} />
+          <DeleteAccount email={email} twoFactor={twoFactor.data?.enabled ?? false} />
           <span className="text-xs text-fg-muted">{t.deleteHint}</span>
         </div>
       </div>
