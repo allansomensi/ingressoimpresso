@@ -12,7 +12,7 @@ mão.
 
 [![CI](https://github.com/allansomensi/ingressoimpresso/actions/workflows/ci.yml/badge.svg)](https://github.com/allansomensi/ingressoimpresso/actions/workflows/ci.yml)
 [![Licença: MIT](https://img.shields.io/badge/licen%C3%A7a-MIT-5b3df5.svg)](LICENSE)
-![Rust](https://img.shields.io/badge/Rust-1.97-orange?logo=rust)
+![Rust](https://img.shields.io/badge/Rust-1.99-orange?logo=rust)
 ![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)
 
 [Site](https://ingressoimpresso.com.br) · [Status](https://ingressoimpresso.com.br/status) ·
@@ -143,7 +143,7 @@ docs/             arquitetura, ADRs, implantação e ensaio geral
 ## Rodando localmente
 
 **Pré-requisitos:** [rustup](https://rustup.rs) (a versão vem de `rust-toolchain.toml`),
-Node.js ≥ 22.13 com pnpm 10, [just](https://just.systems), Docker (para o Postgres) e
+Node.js ≥ 22.13 com pnpm 12, [just](https://just.systems), Docker (para o Postgres) e
 `wasm-bindgen-cli` 0.2.129:
 
 ```sh

@@ -201,7 +201,7 @@ docs/deploy.md       domínio próprio: Neon, Resend, DNS (Registro.br), Render,
 Pré-requisitos:
 
 - `rustup`: a toolchain fixa vem de `rust-toolchain.toml`;
-- Node ≥ 22.13 e pnpm 10, via `packageManager`;
+- Node ≥ 22.13 e pnpm 12, via `packageManager`;
 - `just`;
 - `wasm-bindgen-cli` **0.2.129**, igual à crate `wasm-bindgen`
   (`cargo install wasm-bindgen-cli --version 0.2.129 --locked`).
@@ -295,7 +295,7 @@ just backup-restore-test <dump.age> <chave-age>   # restaura um backup num banco
   em `apps/web/src/content/legal.ts`. Mudou Termos ou Privacidade: mude a data e o
   `TERMS_VERSION` nos dois lados (`legal.ts` e `auth.rs`). Sem framework de i18n.
 - **Rust:**
-  - toolchain 1.97 (edition 2024);
+  - toolchain 1.99 (edition 2024);
   - lints do workspace: clippy `all` como erro e `pedantic` como aviso, com `-D warnings` no CI;
   - `unwrap`, `expect` e `panic` proibidos fora de testes (testes de integração liberam no topo do
     arquivo, com `reason`);
@@ -326,13 +326,15 @@ just backup-restore-test <dump.age> <chave-age>   # restaura um backup num banco
   - tipos de fronteira gerados do Rust (ts-rs), nunca escritos à mão;
   - valores vindos do WASM são validados (`parseDecision`).
 - **Versões JS:** as dependências compartilhadas ficam no `catalog:` do `pnpm-workspace.yaml`.
-  ESLint 9 (os plugins do `eslint-config-next` ainda não suportam o 10).
+  ESLint 9 (os plugins do `eslint-config-next` ainda não suportam o 10). O pnpm 12 recusa versões
+  publicadas há menos de um dia (`minimumReleaseAge`) e exige uma decisão em `allowBuilds` para
+  todo pacote com script de instalação.
 - **Testes:**
   - criptografia e formato: `proptest` + `testdata/vectors`, rodando em Rust e no WASM/Vitest;
   - servidor: `sqlx::test` com Postgres real;
   - render: ida e volta gerar → rasterizar → decodificar QR (`rqrr`) → verificar; PDFs checados
-    com `lopdf` (páginas, MediaBox/TrimBox, determinismo). Typst fixo em `=0.15.1`: atualizar é
-    tarefa planejada.
+    com `lopdf` (páginas, MediaBox/TrimBox, determinismo). Typst fixo em `=0.15.1` (a versão mais
+    recente publicada): atualizar, quando sair outra, é tarefa planejada.
 - **Commits:** pequenos, em **Conventional Commits + gitmoji**, no formato
   `tipo(escopo): <gitmoji> assunto`, por exemplo `feat(core): ✨ ...`, `fix(door): 🐛 ...`,
   `docs(adr): 📝 ...`, `test(wasm): ✅ ...`, `ci: 👷 ...`, `chore: 🔧 ...`,
