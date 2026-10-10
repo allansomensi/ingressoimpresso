@@ -55,6 +55,8 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   - Painel: barra de navegação no celular, menus e diálogos como folhas de baixo para cima,
     admin com seções agrupadas e auditoria com filtros.
   - Verificação anti-robô (Cloudflare Turnstile) antes de enviar o código por e-mail (ADR 0044).
+  - Verificação em duas etapas opcional com app autenticador e códigos de recuperação; o admin
+    desliga para quem perdeu o celular (ADR 0045).
   - Falta o que depende do mantenedor, tudo opcional: `RESEND_WEBHOOK_SECRET` (§5.4),
     `MODERATION_VISION_API_KEY` (§5.5) e `TURNSTILE_SITE_KEY`/`TURNSTILE_SECRET_KEY` (§5.6).
 
@@ -91,7 +93,8 @@ crates/server        API (pacote `ingressoimpresso-server`, binário `ingressoim
                      conta em routes/account.rs + routes/privacy.rs
                      (exportar/excluir), ingresso digital em routes/tickets.rs, novidades em
                      routes/changelog.rs, resultados em routes/analytics.rs; login com Google em
-                     google.rs, anti-robô do código em captcha.rs (Turnstile), e-mails (HTML +
+                     google.rs, anti-robô do código em captcha.rs (Turnstile), duas etapas em
+                     two_factor.rs (TOTP, recuperação) + routes/two_factor.rs, e-mails (HTML +
                      texto) em emails.rs, cota em state.rs (send_mail)
 packages/api-types   tipos TS da API gerados (src/generated + src/index.ts, NÃO editar)
 apps/web             landing em src/app/page.tsx (+ src/components/marketing), painel em
@@ -118,6 +121,8 @@ apps/web             landing em src/app/page.tsx (+ src/components/marketing), p
                      cupons em billing.tsx, pronunciamentos, e-mails, moderação, auditoria,
                      configurações, incidentes); conta em src/app/painel/conta (+ components/account);
                      sininho e avisos em components/panel/{inbox,platform-notices}.tsx + lib/platform.ts;
+                     duas etapas: cartão em components/account/two-factor.tsx e segundo passo do
+                     login em components/two-factor-step.tsx;
                      status público em app/status + components/status;
                      menus e popovers em components/ui/popover.tsx (portal; folha no celular)
 e2e/                 portaria.e2e.mjs: 5 "celulares" Chromium com câmera falsa (`just e2e`)
@@ -230,6 +235,9 @@ just backup-restore-test <dump.age> <chave-age>   # restaura um backup num banco
 12. **Arte sinalizada ou recusada não é impressa** (ADR 0042): exportações e a imagem do
     ingresso digital passam por `moderation::ensure_printable`; só um admin libera.
 13. **Código de acesso nunca é registrado**: o assunto em `mail_sends` tem os dígitos mascarados.
+14. **Segredos da verificação em duas etapas nunca ficam em claro** (ADR 0045): a chave TOTP é
+    selada com a chave mestra (`two_factor::seal`) e os códigos de recuperação ficam só como hash
+    com chave; o segundo passo vale para o código por e-mail e para o Google.
 
 ## Convenções
 
