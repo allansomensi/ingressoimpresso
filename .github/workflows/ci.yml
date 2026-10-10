@@ -124,6 +124,38 @@ jobs:
     uses: ./.github/workflows/deploy-web.yml
     secrets: inherit
 
+  # A version that reaches main becomes the tag vX.Y.Z and a GitHub Release with its notes from
+  # CHANGELOG.md (ADR 0049), once the site went out: the tag marks what is in production. A push
+  # that keeps the version (the tag exists) does nothing.
+  release:
+    name: Release
+    needs: [deploy-web]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+
+      - name: Tag and publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(node scripts/release.mjs version)
+          tag="v$version"
+          if git ls-remote --exit-code --tags origin "refs/tags/$tag" > /dev/null; then
+            echo "$tag already released; nothing to do."
+            exit 0
+          fi
+          node scripts/release.mjs notes "$version" > "$RUNNER_TEMP/notes.md"
+          gh release create "$tag" --target "$GITHUB_SHA" --title "$tag" --notes-file "$RUNNER_TEMP/notes.md" --latest
+          echo "Released [$tag]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/tag/$tag)" >> "$GITHUB_STEP_SUMMARY"
+
   # The image Render builds (deploy/api.Dockerfile), built and started here first: a broken
   # Dockerfile or a binary that does not start fails the PR instead of the production deploy.
   api-image:

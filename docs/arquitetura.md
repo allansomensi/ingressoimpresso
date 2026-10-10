@@ -394,6 +394,7 @@ create table audit_log (id uuid primary key, actor_id uuid, actor_email text not
   organization_id uuid, event_id uuid, target_id uuid, detail jsonb not null, created_at timestamptz not null);
 create table changelog_entries (id uuid primary key, kind text not null check (kind in
   ('new','improvement','fix','security')), title text not null, body text not null, published_at timestamptz, ...);
+-- changelog_entries.version: versão que trouxe a nota ('1.4.0', ADR 0049); /novidades agrupa por ela
 create table ticket_links (id uuid primary key, event_id uuid not null references events,
   ticket_number integer not null, holder_name text, token_hash bytea not null unique,
   sealed bytea not null,                              -- token + texto do QR, selados sob a chave mestra
@@ -502,7 +503,7 @@ Fase 9 (ADRs 0037–0043):
 
 ```
 GET  /api/platform                         (sem login) manutenção, cadastros, promoção, preços anunciados
-GET  /api/status                           (sem login) serviços e incidentes
+GET  /api/status                           (sem login) serviços, incidentes e a versão da API (ADR 0049)
 GET  /api/inbox                            POST /api/inbox/read   POST /api/announcements/{id}/dismiss
 POST /api/events/{id}/batches/quote        { quantity } → preço passo a passo (tabela, promoção/cupom, crédito)
 GET  /api/account/credits                  POST /api/account/redeem { code }

@@ -22,6 +22,10 @@ title: string,
  */
 body: string, 
 /**
+ * Release that brought the change (`1.4.0`, ADR 0049); `null` outside any release.
+ */
+version: string | null, 
+/**
  * Publication time; `null` for a draft.
  */
 publishedAt: string | null, 

@@ -223,6 +223,7 @@ async fn compute(state: &AppState) -> ApiResult<StatusDto> {
         .fold(ServiceStatus::Operational, worse);
     Ok(StatusDto {
         status,
+        version: crate::VERSION.to_owned(),
         checked_at: now,
         components,
         maintenance: settings.maintenance(),

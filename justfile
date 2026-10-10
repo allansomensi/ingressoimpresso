@@ -11,7 +11,7 @@ wasm_out := "packages/ticket-core-wasm/pkg"
 # Everything CI runs, in order.
 default: check
 
-check: fmt-check clippy test-rust generated-check wasm js-install js-check
+check: release-check fmt-check clippy test-rust generated-check wasm js-install js-check
 
 # --- Rust -------------------------------------------------------------------
 
@@ -77,6 +77,22 @@ js-check:
     pnpm -r run lint
     pnpm -r run test
     pnpm --filter @ingressoimpresso/web run build
+
+# --- Releases (ADR 0049, docs/versionamento.md) ------------------------------------
+
+# One version in every manifest, and CHANGELOG.md well formed and in step with it.
+release-check:
+    node scripts/release.mjs check
+    node --test scripts/release.test.mjs
+
+# Cuts a release on staging: `just release minor` (or major, patch, 1.2.3). Moves "Não lançado"
+# into the new version of CHANGELOG.md and bumps every manifest; review, `just`, then commit.
+release bump:
+    node scripts/release.mjs prepare {{bump}}
+
+# Notes of a version from CHANGELOG.md (default: the current one), as the GitHub Release gets them.
+release-notes version="":
+    node scripts/release.mjs notes {{version}}
 
 # --- Local development --------------------------------------------------------
 

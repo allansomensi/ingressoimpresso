@@ -17,6 +17,7 @@ import { initials } from "@/lib/format";
 import { usePlatform } from "@/lib/platform";
 import { useRequiredSession, useSession } from "@/lib/session";
 import { hasUnsavedChanges } from "@/lib/unsaved";
+import { RELEASE_NOTES_HREF, VERSION_LABEL } from "@/lib/version";
 import { texts } from "@/texts/pt-BR";
 
 const t = texts.panel;
@@ -71,6 +72,9 @@ function UserMenu({ email, isAdmin, onSignOut }: { email: string; isAdmin: boole
         <LogOut className="size-4" aria-hidden />
         {t.signOut}
       </button>
+      <Link href={RELEASE_NOTES_HREF} className="block px-3 pt-1 pb-1.5 text-xs text-fg-subtle tabular transition hover:text-fg-muted">
+        {t.version(VERSION_LABEL)}
+      </Link>
     </Popover>
   );
 }

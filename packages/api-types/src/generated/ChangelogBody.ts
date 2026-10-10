@@ -18,6 +18,10 @@ title: string,
  */
 body: string, 
 /**
+ * Release that brought the change (`1.4.0`, ADR 0049); empty or absent: none.
+ */
+version?: string, 
+/**
  * Published (`false`: draft).
  */
 published: boolean, };

@@ -67,6 +67,13 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   (`apps/web/src/proxy.ts`, ADR 0048: toda página é dinâmica). Do lado do mantenedor já estão
   feitos: duas etapas na conta admin, rulesets e Environments no GitHub (Production, Staging,
   Preview, Backup), backup com `verify-full` e chave da Resend separada no staging.
+- **Versionamento (ADR 0049): implementado, versão 1.0.0.** Uma versão SemVer para o produto
+  inteiro (todos os manifestos, conferidos por `scripts/release.mjs check`), `CHANGELOG.md` em
+  português (Keep a Changelog), `just release` no `staging` e tag `vX.Y.Z` + GitHub Release pelo
+  job **Release** do CI no `main`; versão no rodapé, no menu da conta, em `/status` (site e API) e
+  Novidades agrupadas por versão (`changelog_entries.version`). Só `main` e `staging` são
+  permanentes: o workflow **Branches** apaga o branch de um PR integrado. Guia em
+  `docs/versionamento.md`.
 
 Plano completo em `docs/arquitetura.md` §12.
 
@@ -74,6 +81,7 @@ Plano completo em `docs/arquitetura.md` §12.
 
 - `docs/arquitetura.md`: visão completa (formato do QR, offline/sync, arquivos, modelo de dados,
   API, fases).
+- `CHANGELOG.md`: histórico de versões; `docs/versionamento.md`: regras de versão e como lançar.
 - `docs/adr/`: decisões e alternativas. Uma decisão nova exige um ADR novo. Um ADR aceito não é
   reescrito: um ADR novo o substitui.
 - Comunidade: `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md` e `SUPPORT.md` na raiz;
@@ -124,7 +132,8 @@ apps/web             landing em src/app/page.tsx (+ src/components/marketing), p
                      lib/ticket-pass.ts, aba components/event/digital.tsx;
                      documentos legais em src/content/legal.ts (LEGAL_ENTITY, TERMS_VERSION) e
                      components/legal; rodapé em components/marketing/site-footer.tsx;
-                     novidades em app/novidades + components/changelog + lib/changelog.ts;
+                     novidades em app/novidades + components/changelog + lib/changelog.ts
+                     (agrupadas por versão, groupChangelog);
                      resultados em app/painel/resultados + components/event/event-results.tsx;
                      portaria em src/app/portaria + src/portaria (engine, storage, camera, logic) +
                      public/portaria-sw.js (ADR 0018); Vitest em test/;
@@ -147,6 +156,9 @@ packages/ticket-core-wasm  wrapper TS tipado (src/), tipos gerados (src/generate
 apps/web             Next.js 16 (Vercel): landing; painel e portaria nas fases 3–4
 testdata/vectors     ticket-v1.json: vetores compartilhados Rust ↔ WASM (gerados, NÃO editar)
 deploy/              compose.dev.yaml (Postgres local), api.Dockerfile, restore-test.sh
+scripts/release.mjs  versão do produto e CHANGELOG.md (check, prepare, notes, format), sem dependências;
+                     testes em scripts/release.test.mjs (node:test); versão no site via next.config.ts
+                     → lib/version.ts (APP_VERSION, VERSION_LABEL, âncora #vX.Y.Z de /novidades)
 docs/deploy.md       domínio próprio: Neon, Resend, DNS (Registro.br), Render, Vercel, backup;
                      docs/ensaio.md: ensaio geral
 ```
@@ -200,6 +212,10 @@ docs/deploy.md       domínio próprio: Neon, Resend, DNS (Registro.br), Render,
   handler definir) e HSTS, com 90 s de timeout por requisição. O **Deploy web** é o último job do
   CI (`uses: ./.github/workflows/deploy-web.yml`, só em `push`), no branch empurrado, para as
   proteções dos Environments valerem; o CI tem o job **Dependency audit**.
+- **Releases (ADR 0049):** no push do `main`, o job **Release** (depois do Deploy web) cria a tag
+  `vX.Y.Z` e a GitHub Release com as notas do `CHANGELOG.md`, se a tag ainda não existe. O
+  workflow **Branches** apaga o branch de um PR integrado (nunca `main`/`staging`) e, rodado à
+  mão, lista ou apaga os branches já contidos no `main`.
 
 ## Comandos
 
@@ -222,6 +238,9 @@ just js-check   # typecheck + lint + Vitest + build do web (exige `just wasm` an
 just db-up      # Postgres local (docker compose); copie .env.example para .env
 just db-migrate # aplica as migrações em DATABASE_URL
 just db-prepare # atualiza o cache offline .sqlx (obrigatório ao mudar queries; o CI e o Docker usam)
+just release-check    # versão igual em todos os manifestos e CHANGELOG.md bem formado (parte de `just check`)
+just release minor    # no staging: corta "Não lançado" na versão nova (major|minor|patch|X.Y.Z) e sobe os manifestos
+just release-notes    # notas de uma versão do CHANGELOG.md (as mesmas da GitHub Release)
 just api-types-index  # reexporta os tipos gerados em packages/api-types/src/index.ts
 
 # Testar a impressão sem a API (só para testes locais; a semente é uma chave privada):
@@ -340,12 +359,18 @@ just backup-restore-test <dump.age> <chave-age>   # restaura um backup num banco
   - render: ida e volta gerar → rasterizar → decodificar QR (`rqrr`) → verificar; PDFs checados
     com `lopdf` (páginas, MediaBox/TrimBox, determinismo). Typst fixo em `=0.15.1` (a versão mais
     recente publicada): atualizar, quando sair outra, é tarefa planejada.
+- **Versões (ADR 0049):** SemVer único do produto, independente da versão do formato do QR.
+  Mudança perceptível (organizador, público, portaria, admin) ganha uma linha em
+  `## [Não lançado]` do `CHANGELOG.md`, em português e do ponto de vista de quem usa, no mesmo PR.
+  Nunca mude a versão à mão: `just release` faz isso no `staging`, com o commit
+  `chore(release): 🔖 vX.Y.Z`; a tag e a release são do CI. Hotfix: `just release patch` num
+  branch do `main`, depois `main` → `staging`.
 - **Commits:** pequenos, em **Conventional Commits + gitmoji**, no formato
   `tipo(escopo): <gitmoji> assunto`, por exemplo `feat(core): ✨ ...`, `fix(door): 🐛 ...`,
   `docs(adr): 📝 ...`, `test(wasm): ✅ ...`, `ci: 👷 ...`, `chore: 🔧 ...`,
-  `refactor: ♻️ ...`. Regras:
+  `refactor: ♻️ ...`, `chore(release): 🔖 v1.1.0`. Regras:
   - assunto em inglês, curto e no imperativo;
   - corpo opcional, de uma ou duas linhas, direto ao ponto;
   - cada commit deve compilar e passar em `just check`.
-- **Antes de dar uma fase por concluída:** `just check` verde e este arquivo atualizado (status,
-  comandos, estrutura).
+- **Antes de dar uma fase por concluída:** `just check` verde, a linha no `CHANGELOG.md` e este
+  arquivo atualizado (status, comandos, estrutura).
