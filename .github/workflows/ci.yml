@@ -40,7 +40,7 @@ jobs:
           --health-timeout 3s
           --health-retries 20
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       # Installs the toolchain pinned in rust-toolchain.toml (rustfmt, clippy, wasm32 target).
       - name: Rust toolchain
@@ -54,9 +54,9 @@ jobs:
           # wasm-bindgen-cli must match the `wasm-bindgen` crate version pinned in Cargo.toml.
           tool: just,wasm-bindgen@0.2.129
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .node-version
           cache: pnpm
@@ -73,7 +73,7 @@ jobs:
 
       - name: Door e2e screenshots and logs
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: door-e2e
           path: target/e2e/
@@ -86,7 +86,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Rust toolchain
         run: rustup toolchain install
@@ -103,9 +103,9 @@ jobs:
       - name: cargo audit
         run: cargo audit
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .node-version
           cache: pnpm
@@ -143,12 +143,12 @@ jobs:
           --health-timeout 3s
           --health-retries 20
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v4
 
       - name: Build deploy/api.Dockerfile
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: deploy/api.Dockerfile

@@ -62,7 +62,7 @@ jobs:
             echo "ready=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         if: steps.secrets.outputs.ready == 'true'
 
       - name: Rust toolchain
@@ -78,10 +78,10 @@ jobs:
         with:
           tool: just,wasm-bindgen@0.2.129
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         if: steps.secrets.outputs.ready == 'true'
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         if: steps.secrets.outputs.ready == 'true'
         with:
           node-version-file: .node-version
