@@ -327,6 +327,25 @@ sexuais ou violentas esperam a sua decisão antes de serem impressas.
 Opcional: `MODERATION_DAILY_LIMIT` (padrão `30` imagens por dia, dentro da cota grátis). Passado o
 limite, as artes do dia ficam para revisão manual.
 
+## 5.6 Verificação anti-robô no login (recomendado, ADR 0044)
+
+Sem ela, um script pode pedir códigos para centenas de e-mails e gastar a cota do dia da Resend.
+Com ela, o código só sai depois do **Cloudflare Turnstile**, que é grátis e quase sempre passa sem
+pedir nada à pessoa.
+
+1. Crie uma conta grátis em `https://dash.cloudflare.com` (não precisa mudar o DNS do domínio).
+2. No menu, **Turnstile** (ou **Application security** → **Turnstile**) → **Add widget**:
+   - **Widget name:** `Ingresso Impresso`;
+   - **Hostnames:** `seudominio.com.br` (adicione `localhost` para testar em casa);
+   - **Widget mode:** **Managed**;
+   - **Pre-clearance:** **No** → **Create**.
+3. Copie a **Site Key** e a **Secret Key**.
+4. No Render → serviço → **Environment**: `TURNSTILE_SITE_KEY` e `TURNSTILE_SECRET_KEY` → **Save
+   and deploy**. As duas juntas: com só uma, a API não sobe e diz qual falta.
+
+Teste: em `/entrar`, peça um código. O botão mostra "Verificando…" por um instante e o código
+chega. No Cloudflare, **Turnstile** → widget → **Analytics** mostra as verificações.
+
 ## 6. Vercel (site, painel e portaria)
 
 O build da Vercel não tem Rust, e a portaria precisa do WebAssembly do núcleo. Por isso quem
@@ -541,6 +560,8 @@ Depois disso, siga o ensaio geral em [`docs/ensaio.md`](ensaio.md).
 | Ninguém consegue criar conta | Cadastros fechados ou domínio bloqueado | **Admin** → **Configurações**: ligue **Aceitar novas contas** e confira os domínios |
 | Uma arte não gera arquivos ("em análise") | A imagem foi sinalizada | **Admin** → **Moderação** → **Liberar** ou **Recusar** |
 | O botão do Google não aparece no login | `GOOGLE_CLIENT_ID` ausente, ou a origem do site não está nas **Origens JavaScript autorizadas** | Passo 5.2. No console do navegador, o Google avisa `origin is not allowed` |
+| Login diz "A verificação anti-robô não carregou" | Um bloqueador de anúncios ou a rede barra `challenges.cloudflare.com` | A pessoa desativa o bloqueador no site ou entra com o Google |
+| Login diz "A verificação anti-robô falhou" para todo mundo | `TURNSTILE_SITE_KEY` de outro widget, ou o domínio não está em **Hostnames** | Passo 5.6: confira a chave e os hostnames do widget no Cloudflare |
 | "Muitas tentativas" no login | Cinco pedidos de código em 15 minutos (as falhas também contam) | Espere 15 minutos depois de corrigir a causa |
 | Deploy do Render falha logo ao subir | Variável faltando ou inválida, ou `DATABASE_URL` errada | **Logs**: `configuration error: ...` mostra qual variável. `server stopped` com `connecting to the database` aponta a `DATABASE_URL`: copie de novo a string do Neon (sem `-pooler`, com `?sslmode=verify-full`) |
 | Um push no `main` não atualizou a API | Algum check do commit ficou vermelho, o **CI** ou o **Deploy web** (o Render espera todos), ou o commit não mexeu na API (`buildFilter`) | Corrija o check vermelho (no **Deploy web**, quase sempre é o token da Vercel vencido), ou use **Manual Deploy** → **Deploy latest commit** |
@@ -586,6 +607,7 @@ Depois disso, siga o ensaio geral em [`docs/ensaio.md`](ensaio.md).
 | Limite de e-mails por dia | `MAIL_DAILY_LIMIT` (opcional) | | | |
 | Segredo do webhook da Resend | `RESEND_WEBHOOK_SECRET` (opcional) | | | |
 | Chave do Google Cloud Vision | `MODERATION_VISION_API_KEY` (opcional) | | | |
+| Chaves do Cloudflare Turnstile | `TURNSTILE_SITE_KEY` e `TURNSTILE_SECRET_KEY` (recomendado) | | | |
 | Token e IDs da Vercel | | | `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` | token |
 | Papel de backup | | | `BACKUP_DATABASE_URL` | sim |
 | Chave pública do backup | | | `BACKUP_AGE_RECIPIENT` | |

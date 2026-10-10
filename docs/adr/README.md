@@ -53,3 +53,4 @@ feita e as consequências.
 | [0041](0041-registro-de-emails.md) | Registro de e-mails e painel de envios | Aceito |
 | [0042](0042-moderacao-de-imagens.md) | Moderação das artes enviadas | Aceito |
 | [0043](0043-pagina-de-status.md) | Página pública de status | Aceito |
+| [0044](0044-captcha-no-login.md) | Verificação anti-robô antes do código por e-mail | Aceito |

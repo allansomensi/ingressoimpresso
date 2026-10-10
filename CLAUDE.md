@@ -54,8 +54,9 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
     Vision e central de revisão (ADR 0042), página pública `/status` com incidentes (ADR 0043).
   - Painel: barra de navegação no celular, menus e diálogos como folhas de baixo para cima,
     admin com seções agrupadas e auditoria com filtros.
-  - Falta o que depende do mantenedor, tudo opcional: `RESEND_WEBHOOK_SECRET` (§5.4) e
-    `MODERATION_VISION_API_KEY` (§5.5).
+  - Verificação anti-robô (Cloudflare Turnstile) antes de enviar o código por e-mail (ADR 0044).
+  - Falta o que depende do mantenedor, tudo opcional: `RESEND_WEBHOOK_SECRET` (§5.4),
+    `MODERATION_VISION_API_KEY` (§5.5) e `TURNSTILE_SITE_KEY`/`TURNSTILE_SECRET_KEY` (§5.6).
 
 Plano completo em `docs/arquitetura.md` §12.
 
@@ -90,7 +91,8 @@ crates/server        API (pacote `ingressoimpresso-server`, binário `ingressoim
                      conta em routes/account.rs + routes/privacy.rs
                      (exportar/excluir), ingresso digital em routes/tickets.rs, novidades em
                      routes/changelog.rs, resultados em routes/analytics.rs; login com Google em
-                     google.rs, e-mails (HTML + texto) em emails.rs, cota em state.rs (send_mail)
+                     google.rs, anti-robô do código em captcha.rs (Turnstile), e-mails (HTML +
+                     texto) em emails.rs, cota em state.rs (send_mail)
 packages/api-types   tipos TS da API gerados (src/generated + src/index.ts, NÃO editar)
 apps/web             landing em src/app/page.tsx (+ src/components/marketing), painel em
                      src/app/{entrar,painel}, abas do evento em src/components/event (aba na URL,
@@ -149,8 +151,13 @@ docs/deploy.md       domínio próprio: Neon, Resend, DNS (Registro.br), Render,
 - **Opcionais da fase 9:** `RESEND_WEBHOOK_SECRET` (status de entrega no painel de e-mails,
   ADR 0041) e `MODERATION_VISION_API_KEY` + `MODERATION_DAILY_LIMIT` (análise automática das
   artes, ADR 0042). Sem eles tudo funciona, com revisão manual.
+- **Anti-robô do login:** `TURNSTILE_SITE_KEY` + `TURNSTILE_SECRET_KEY` (as duas ou nenhuma, ADR
+  0044) fazem `POST /api/auth/code` exigir um token do Cloudflare Turnstile, conferido em
+  `siteverify`. Se o Cloudflare não responder, o código sai assim mesmo (os limites seguem).
 - **Login com Google:** `GOOGLE_CLIENT_ID` liga o botão (Google Identity Services); a API confere
-  o ID token com as chaves do Google (ADR 0029). A CSP libera só `accounts.google.com/gsi/`.
+  o ID token com as chaves do Google (ADR 0029). A CSP libera só `accounts.google.com/gsi/` e,
+  para o Turnstile, `challenges.cloudflare.com`. O botão é o oficial, com o tema do site e o
+  script carregado com `?hl=pt-BR` (a opção `locale` do botão é ignorada).
 - **Pagamento:** Stripe Checkout por lote (ADR 0020), confirmado pelo webhook
   `POST /api/stripe/webhook` (assinatura `Stripe-Signature`) ou pela consulta da sessão quando o
   pagador volta. Sem `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET`, só o admin marca lotes como pagos.
