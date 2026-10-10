@@ -29,7 +29,7 @@ import {
   useConfirm,
   type Tone,
 } from "@/components/ui";
-import { api } from "@/lib/api";
+import { api, isUuid } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { money, shortDateTime, ticketNumber } from "@/lib/format";
 import { quote } from "@/lib/pricing";
@@ -388,7 +388,8 @@ function PaymentReturn({
   const pathname = usePathname();
   const queryClient = useQueryClient();
   const outcome = search.get("pagamento");
-  const batchId = search.get("lote");
+  // The id comes from the address bar: only a batch of this event is ever synced.
+  const batchId = batches.find((item) => item.id === search.get("lote"))?.id ?? null;
   const synced = useRef(false);
   const [waited, setWaited] = useState(false);
   const batch = batches.find((item) => item.id === batchId);
@@ -501,7 +502,8 @@ export function BatchesTab({ eventId, onSelect }: { eventId: string; onSelect: S
   const { session } = useSession();
   const search = useSearchParams();
   const isAdmin = session.status === "signed-in" && session.user.isAdmin;
-  const returnedBatch = search.get("pagamento") === "sucesso" ? search.get("lote") : null;
+  const returnedLote = search.get("lote");
+  const returnedBatch = search.get("pagamento") === "sucesso" && isUuid(returnedLote) ? returnedLote : null;
   const pollUntil = useRef<number | null>(null);
   const pricing = useQuery({ queryKey: ["pricing"], queryFn: () => api<PricingDto>("/api/pricing"), staleTime: 60 * 60_000 });
   const event = useQuery({ queryKey: ["event", eventId], queryFn: () => api<EventDto>(`/api/events/${eventId}`) });

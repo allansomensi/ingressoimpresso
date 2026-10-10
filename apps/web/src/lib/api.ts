@@ -79,7 +79,31 @@ function isErrorBody(value: unknown): value is { error: { code: string } } {
   return typeof error === "object" && error !== null && "code" in error && typeof error.code === "string";
 }
 
+/** A UUID as the API prints ids (lowercase, hyphenated). */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+/** Whether `value` (an id read from the page URL) is a UUID: anything else never reaches the API. */
+export function isUuid(value: string | null | undefined): value is string {
+  return typeof value === "string" && UUID.test(value);
+}
+
+/**
+ * Refuses a request path that could reach another endpoint than the one written in the code: ids
+ * interpolated into paths come from the page URL, and a crafted link must not turn
+ * `/api/batches/<id>/checkout/sync` into `/api/admin/batches/<id>/mark-paid` with `..` or `?`.
+ */
+export function safePath(path: string): string {
+  const [route, query] = path.split("?", 2) as [string, string | undefined];
+  const valid =
+    route.startsWith("/api/") && !route.includes("//") && route.split("/").every((segment) => segment !== "." && segment !== "..");
+  if (!valid || route.includes("#") || route.includes("\\") || (query !== undefined && query.includes("#"))) {
+    throw new ApiError(0, "generic");
+  }
+  return path;
+}
+
 async function send(path: string, init: RequestInit): Promise<Response> {
+  safePath(path);
   const headers = new Headers(init.headers);
   const token = readToken();
   if (token !== null) {

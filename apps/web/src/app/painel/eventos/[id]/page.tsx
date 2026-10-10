@@ -31,7 +31,7 @@ import { TABS, tabFromSlug, tabSlug, type Tab } from "@/components/event/tabs";
 import { EventActions } from "@/components/event/event-actions";
 import { EventFormDialog } from "@/components/panel/event-form";
 import { Badge, Button, ButtonLink, EmptyState, ErrorMessage, LoadingBlock, Skeleton, useConfirm } from "@/components/ui";
-import { ApiError, api } from "@/lib/api";
+import { ApiError, api, isUuid } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { eventDateTime, money } from "@/lib/format";
 import { hasUnsavedChanges } from "@/lib/unsaved";
@@ -82,14 +82,18 @@ function HeaderSkeleton() {
 
 function EventView() {
   const params = useParams<{ id: string }>();
-  const eventId = params.id;
+  // Anything but an id never reaches the API (a crafted address could aim at another endpoint).
+  const eventId = isUuid(params.id) ? params.id : "";
   const search = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
   const tab = tabFromSlug(search.get("aba"));
   const [editing, setEditing] = useState(false);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
-  const event = useQuery({ queryKey: ["event", eventId], queryFn: () => api<EventDto>(`/api/events/${eventId}`) });
+  const event = useQuery({
+    queryKey: ["event", eventId],
+    queryFn: () => (eventId === "" ? Promise.reject(new ApiError(404, "not_found")) : api<EventDto>(`/api/events/${eventId}`)),
+  });
 
   const confirm = useConfirm();
   const leaveAllowed = async () =>
