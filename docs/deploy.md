@@ -542,7 +542,9 @@ Depois disso, siga o ensaio geral em [`docs/ensaio.md`](ensaio.md).
   atividade e avisa por e-mail. Para religar: **Actions** → **Backup** → **Enable workflow**.
 - **Restauração:** uma vez por mês (passo 7).
 - **Token da Vercel:** renove antes de expirar. Vencido, o **Deploy web** falha. O deploy do site
-  só roda depois de o **CI** passar no commit (ADR 0047), como o Render faz com a API.
+  é o último job do **CI** e só roda depois dos outros passarem (ADR 0047), como o Render faz com a
+  API; ele aparece dentro da execução do CI, não como execução própria (só o manual aparece à
+  parte).
 - **Dependências:** o Dependabot abre pull requests semanais (actions, Cargo, npm, Docker) e o CI
   tem o job **Dependency audit** (`cargo audit` e `pnpm audit`). Um aviso novo deixa o CI vermelho
   até a versão corrigida entrar: faça o merge do PR do Dependabot ou atualize à mão.

@@ -188,8 +188,9 @@ docs/deploy.md       domínio próprio: Neon, Resend, DNS (Registro.br), Render,
 - **Produção recusa (ADR 0047):** a chave mestra do CI, `sk_test_` sem `STRIPE_ALLOW_TEST_MODE=true`
   (só o staging tem), `PUBLIC_WEB_URL` sem https; a conexão com o Neon é forçada a `verify-full`.
   A API responde `nosniff`, `X-Frame-Options: DENY`, `no-referrer`, `no-store` (salvo o que o
-  handler definir) e HSTS, com 90 s de timeout por requisição. O **Deploy web** roda por
-  `workflow_run` depois de um CI verde; o CI tem o job **Dependency audit**.
+  handler definir) e HSTS, com 90 s de timeout por requisição. O **Deploy web** é o último job do
+  CI (`uses: ./.github/workflows/deploy-web.yml`, só em `push`), no branch empurrado, para as
+  proteções dos Environments valerem; o CI tem o job **Dependency audit**.
 
 ## Comandos
 

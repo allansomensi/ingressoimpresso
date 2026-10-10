@@ -115,6 +115,15 @@ jobs:
           pnpm install --frozen-lockfile --ignore-scripts
           pnpm audit --prod --audit-level=high
 
+  # The site goes to Vercel only after every check above passed, on the branch that was pushed:
+  # main is production, staging the test environment (ADR 0047; deploy-web.yml).
+  deploy-web:
+    name: Deploy web
+    needs: [check, audit, api-image]
+    if: github.event_name == 'push'
+    uses: ./.github/workflows/deploy-web.yml
+    secrets: inherit
+
   # The image Render builds (deploy/api.Dockerfile), built and started here first: a broken
   # Dockerfile or a binary that does not start fails the PR instead of the production deploy.
   api-image:
