@@ -90,6 +90,7 @@ function SectionLinks({ current, onSelect, open }: { current: Section; onSelect:
                 key={section}
                 type="button"
                 aria-current={selected ? "page" : undefined}
+                data-dismiss
                 onClick={() => {
                   onSelect(section);
                 }}

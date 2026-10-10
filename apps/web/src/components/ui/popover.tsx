@@ -206,9 +206,10 @@ function FloatingPanel({
   if (!open) {
     return null;
   }
-  // Links close the panel even when they lead to the page already open.
+  // Links close the panel even when they lead to the page already open, and so does any control
+  // marked `data-dismiss` (one that changes the page in place, like a section picker).
   const closeOnLink = (event: { target: EventTarget }) => {
-    if (event.target instanceof Element && event.target.closest("a[href]") !== null) {
+    if (event.target instanceof Element && event.target.closest("a[href], [data-dismiss]") !== null) {
       onClose();
     }
   };
