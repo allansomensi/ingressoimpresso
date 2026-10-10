@@ -15,7 +15,8 @@ identity=${2:?usage: restore-test.sh <backup.dump.age> <age identity file>}
 if command -v pg_restore > /dev/null && [ "$(pg_restore --version | grep -oE '[0-9]+' | head -1)" -ge 18 ]; then
     run() { command "$@"; }
 else
-    run() { docker run --rm -i --network host -e RESTORE_DATABASE_URL postgres:18 "$@"; }
+    # The image has no root certificates: the host's are mounted for `sslmode=verify-full`.
+    run() { docker run --rm -i --network host -e RESTORE_DATABASE_URL -v /etc/ssl/certs:/etc/ssl/certs:ro postgres:18 "$@"; }
 fi
 psql() { run psql "$RESTORE_DATABASE_URL" -v ON_ERROR_STOP=1 "$@"; }
 

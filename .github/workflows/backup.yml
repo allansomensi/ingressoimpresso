@@ -51,7 +51,9 @@ jobs:
           sudo apt-get update -q && sudo apt-get install -y -q age
           name="ingressoimpresso-$(date -u +%Y%m%dT%H%MZ).dump.age"
           # The client matches the server (Postgres 18, like Neon); the plain dump never touches the disk.
-          docker run --rm -e DATABASE_URL postgres:18 \
+          # The image ships no root certificates: the runner's are mounted so `sslmode=verify-full`
+          # with `sslrootcert=system` can check Neon's certificate (ADR 0047).
+          docker run --rm -e DATABASE_URL -v /etc/ssl/certs:/etc/ssl/certs:ro postgres:18 \
             sh -c 'pg_dump --format=custom --no-owner --no-privileges "$DATABASE_URL"' \
             | age --recipient "$RECIPIENT" > "$name"
           size=$(stat -c %s "$name")
