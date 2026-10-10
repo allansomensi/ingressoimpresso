@@ -19,6 +19,7 @@ use crate::api::{
     AuthOptionsDto, GoogleSignInBody, MaintenanceMode, MeUser, RequestCodeBody, SessionResponse,
     VerifyCodeBody,
 };
+use crate::captcha::Verdict;
 use crate::error::{ApiError, ApiResult, bad_request};
 use crate::google::GoogleError;
 use crate::mail::MailKind;
@@ -44,7 +45,7 @@ const SESSION_TTL: Duration = Duration::days(30);
 const SESSION_REFRESH_EVERY: Duration = Duration::hours(1);
 /// Version of the Terms of Use and Privacy Policy accepted by signing in (ADR 0033). Same value
 /// as `TERMS_VERSION` in apps/web/src/content/legal.ts.
-pub const TERMS_VERSION: &str = "2026-10-09.2";
+pub const TERMS_VERSION: &str = "2026-10-10";
 
 /// The authenticated user of a request.
 #[derive(Debug, Clone)]
@@ -164,6 +165,10 @@ pub async fn options(State(state): State<AppState>) -> Json<AuthOptionsDto> {
             .google
             .as_ref()
             .map(|google| google.client_id().to_owned()),
+        captcha_site_key: state
+            .captcha
+            .as_ref()
+            .map(|captcha| captcha.site_key().to_owned()),
     })
 }
 
@@ -174,6 +179,19 @@ pub async fn request_code(
     Json(body): Json<RequestCodeBody>,
 ) -> ApiResult<StatusCode> {
     let email = normalize_email(&body.email)?;
+    if let Some(captcha) = &state.captcha {
+        let ip = client_ip(&headers);
+        if captcha
+            .verify(body.captcha_token.as_deref(), ip.as_deref())
+            .await
+            == Verdict::Fail
+        {
+            return Err(ApiError::Refused(
+                "captcha_failed",
+                "the anti-bot check failed or expired".to_owned(),
+            ));
+        }
+    }
     let known = sqlx::query_scalar!(
         r#"select exists(select 1 from users where email = $1) as "known!""#,
         email

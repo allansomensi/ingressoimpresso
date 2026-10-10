@@ -35,6 +35,10 @@ dto! {
     pub struct RequestCodeBody {
         /// E-mail that receives the code.
         pub email: String,
+        /// Token of the anti-bot widget (ADR 0044); required when `captchaSiteKey` is set.
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional))]
+        pub captcha_token: Option<String>,
     }
 
     /// `POST /api/auth/verify`.
@@ -74,6 +78,9 @@ dto! {
     pub struct AuthOptionsDto {
         /// OAuth client id of "Entrar com Google"; `null` when it is off.
         pub google_client_id: Option<String>,
+        /// Cloudflare Turnstile site key (ADR 0044): when set, asking for a code needs the
+        /// widget's token.
+        pub captcha_site_key: Option<String>,
     }
 
     /// `POST /api/auth/google`.

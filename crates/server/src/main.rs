@@ -4,6 +4,7 @@ use std::process::ExitCode;
 use std::time::Duration;
 
 use anyhow::{Context, Result};
+use ingressoimpresso_server::captcha::Captcha;
 use ingressoimpresso_server::config::Config;
 use ingressoimpresso_server::google::GoogleAuth;
 use ingressoimpresso_server::mail::Mailer;
@@ -93,6 +94,17 @@ async fn run(config: Config) -> Result<()> {
         tracing::info!("MODERATION_VISION_API_KEY not set: art is reviewed by hand only");
         None
     };
+    let captcha = if let Some(keys) = &config.turnstile {
+        Some(
+            Captcha::turnstile(keys.site_key.clone(), keys.secret_key.clone())
+                .map_err(|error| anyhow::anyhow!(error))?,
+        )
+    } else {
+        tracing::info!(
+            "TURNSTILE_SITE_KEY not set: login codes are sent without the anti-bot check"
+        );
+        None
+    };
     let port = config.port;
     let mut state = AppState::new(pool, config, mailer).with_payments(payments);
     if let Some(google) = google {
@@ -100,6 +112,9 @@ async fn run(config: Config) -> Result<()> {
     }
     if let Some(classifier) = classifier {
         state = state.with_classifier(classifier);
+    }
+    if let Some(captcha) = captcha {
+        state = state.with_captcha(captcha);
     }
     tokio::spawn(jobs::run_worker(state.clone()));
 

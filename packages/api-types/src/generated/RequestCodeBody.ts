@@ -7,4 +7,8 @@ export type RequestCodeBody = {
 /**
  * E-mail that receives the code.
  */
-email: string, };
+email: string, 
+/**
+ * Token of the anti-bot widget (ADR 0044); required when `captchaSiteKey` is set.
+ */
+captchaToken?: string, };

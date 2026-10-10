@@ -7,4 +7,9 @@ export type AuthOptionsDto = {
 /**
  * OAuth client id of "Entrar com Google"; `null` when it is off.
  */
-googleClientId: string | null, };
+googleClientId: string | null, 
+/**
+ * Cloudflare Turnstile site key (ADR 0044): when set, asking for a code needs the
+ * widget's token.
+ */
+captchaSiteKey: string | null, };

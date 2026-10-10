@@ -8,15 +8,17 @@ const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080").repl
 // "Entrar com Google" (ADR 0029) loads Google Identity Services on the sign-in page: its script,
 // its stylesheet and the button's iframe come from accounts.google.com/gsi/.
 const googleIdentity = "https://accounts.google.com/gsi/";
+// The anti-bot check of login codes (ADR 0044): Cloudflare Turnstile's script and its iframe.
+const turnstile = "https://challenges.cloudflare.com";
 const contentSecurityPolicy = [
   "default-src 'self'",
   // WebAssembly (ticket-core and zxing at the door) needs 'wasm-unsafe-eval'; plain eval stays blocked.
-  `script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' ${googleIdentity}client`,
+  `script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' ${googleIdentity}client ${turnstile}`,
   `style-src 'self' 'unsafe-inline' ${googleIdentity}style`,
   "img-src 'self' blob: data:",
   "font-src 'self'",
   `connect-src 'self' ${apiUrl} ${googleIdentity}`,
-  `frame-src ${googleIdentity}`,
+  `frame-src ${googleIdentity} ${turnstile}`,
   "worker-src 'self'",
   "object-src 'none'",
   "base-uri 'none'",

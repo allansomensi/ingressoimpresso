@@ -9,6 +9,7 @@ use sqlx::PgPool;
 use tokio::sync::{Mutex, MutexGuard, Notify, Semaphore};
 use uuid::Uuid;
 
+use crate::captcha::Captcha;
 use crate::config::Config;
 use crate::emails::Email;
 use crate::google::GoogleAuth;
@@ -30,6 +31,9 @@ pub struct AppState {
     pub payments: Payments,
     /// "Entrar com Google" (ADR 0029); off unless set with [`Self::with_google`].
     pub google: Option<Arc<GoogleAuth>>,
+    /// Anti-bot check before a login code is e-mailed (ADR 0044); off unless set with
+    /// [`Self::with_captcha`].
+    pub captcha: Option<Arc<Captcha>>,
     /// Wakes the export worker when a job is queued.
     pub jobs: Arc<Notify>,
     /// Bounds concurrent synchronous renders (design previews) to protect memory.
@@ -62,6 +66,7 @@ impl AppState {
             mailer,
             payments: Payments::Disabled,
             google: None,
+            captcha: None,
             jobs: Arc::new(Notify::new()),
             render_permits: Arc::new(Semaphore::new(2)),
             batch_locks: Arc::new(std::array::from_fn(|_| Mutex::new(()))),
@@ -120,6 +125,13 @@ impl AppState {
     #[must_use]
     pub fn with_payments(mut self, payments: Payments) -> Self {
         self.payments = payments;
+        self
+    }
+
+    /// Turns on the anti-bot check of login codes.
+    #[must_use]
+    pub fn with_captcha(mut self, captcha: Captcha) -> Self {
+        self.captcha = Some(Arc::new(captcha));
         self
     }
 

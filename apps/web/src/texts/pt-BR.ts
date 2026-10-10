@@ -441,6 +441,9 @@ export const texts = {
     emailPlaceholder: "voce@exemplo.com",
     sendCode: "Receber código por e-mail",
     sending: "Enviando…",
+    checking: "Verificando…",
+    captchaBlocked:
+      "A verificação anti-robô não carregou. Desative o bloqueador de anúncios desta página ou entre com o Google.",
     codeTitle: "Confira seu e-mail",
     codeSentTo: (email: string) => `Enviamos um código de 6 dígitos para ${email}.`,
     codeLabel: "Código de 6 dígitos",
@@ -1937,6 +1940,7 @@ export const texts = {
     event_closed: "Este evento está arquivado. Reabra o evento para criar lotes ou enviar ingressos.",
     mail_quota: "O envio de códigos por e-mail atingiu o limite de hoje. Entre com o Google ou tente de novo amanhã.",
     google_unavailable: "O login com Google está indisponível agora. Use o código por e-mail.",
+    captcha_failed: "A verificação anti-robô falhou ou expirou. Tente de novo.",
     invalid_google_token: "Não conseguimos confirmar o login com o Google. Tente de novo.",
     google_email_unverified: "Sua conta Google não tem o e-mail confirmado. Use o código por e-mail.",
     google_account_mismatch: "Este e-mail já está ligado a outra conta Google. Entre com o código por e-mail.",

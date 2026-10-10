@@ -211,6 +211,18 @@ impl TestApp {
         self
     }
 
+    /// Turns on the anti-bot check of login codes (ADR 0044): the token `"pass"` passes.
+    pub fn with_captcha(mut self, site_key: &str) -> Self {
+        self.state =
+            self.state
+                .clone()
+                .with_captcha(ingressoimpresso_server::captcha::Captcha::Fixed {
+                    site_key: site_key.to_owned(),
+                });
+        self.router = ingressoimpresso_server::app::router(self.state.clone());
+        self
+    }
+
     /// Classifies uploaded art with a fixed answer (ADR 0042).
     pub fn with_classifier(
         mut self,

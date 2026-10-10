@@ -45,6 +45,9 @@ pub struct Config {
     pub moderation_daily_limit: i32,
     /// `GOOGLE_CLIENT_ID` (ADR 0029): OAuth client id of "Entrar com Google"; off without it.
     pub google_client_id: Option<String>,
+    /// `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` (ADR 0044): both or neither. With them,
+    /// a login code is e-mailed only after Cloudflare Turnstile's anti-bot check.
+    pub turnstile: Option<TurnstileKeys>,
     /// `MAIL_DAILY_LIMIT` (ADR 0028): e-mails sent in any 24 hours, default
     /// [`DEFAULT_MAIL_DAILY_LIMIT`] (Resend's free plan sends 100 a day); 0 means no limit.
     pub mail_daily_limit: Option<i64>,
@@ -72,6 +75,7 @@ impl std::fmt::Debug for Config {
             .field("production", &self.production)
             .field("resend_webhook", &self.resend_webhook_secret.is_some())
             .field("vision", &self.vision_api_key.is_some())
+            .field("turnstile", &self.turnstile.is_some())
             .field("moderation_daily_limit", &self.moderation_daily_limit)
             .field("google_client_id", &self.google_client_id)
             .field("mail_daily_limit", &self.mail_daily_limit)
@@ -102,6 +106,24 @@ impl StripeKeys {
     /// Whether these are test-mode keys (no real money moves).
     pub fn test_mode(&self) -> bool {
         self.secret_key.starts_with("sk_test_") || self.secret_key.starts_with("rk_test_")
+    }
+}
+
+/// Cloudflare Turnstile keys (ADR 0044).
+#[derive(Clone)]
+pub struct TurnstileKeys {
+    /// Public site key (`0x...`), rendered by the sign-in page.
+    pub site_key: String,
+    /// Secret key of the siteverify call.
+    pub secret_key: String,
+}
+
+impl std::fmt::Debug for TurnstileKeys {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("TurnstileKeys")
+            .field("site_key", &self.site_key)
+            .finish_non_exhaustive()
     }
 }
 
@@ -195,6 +217,15 @@ impl Config {
             .or_else(|| allowed_origins.first().cloned())
             .unwrap_or_else(|| "http://localhost:3000".to_owned());
         let stripe = stripe_keys(get("STRIPE_SECRET_KEY"), get("STRIPE_WEBHOOK_SECRET"))?;
+        let turnstile = match (get("TURNSTILE_SITE_KEY"), get("TURNSTILE_SECRET_KEY")) {
+            (Some(site_key), Some(secret_key)) => Some(TurnstileKeys {
+                site_key,
+                secret_key,
+            }),
+            (None, None) => None,
+            (Some(_), None) => return Err(ConfigError::Missing("TURNSTILE_SECRET_KEY")),
+            (None, Some(_)) => return Err(ConfigError::Missing("TURNSTILE_SITE_KEY")),
+        };
         let resend_webhook_secret = get("RESEND_WEBHOOK_SECRET");
         if resend_webhook_secret
             .as_ref()
@@ -271,6 +302,7 @@ impl Config {
             vision_api_key: get("MODERATION_VISION_API_KEY"),
             moderation_daily_limit,
             google_client_id,
+            turnstile,
             mail_daily_limit,
         })
     }
@@ -458,6 +490,32 @@ mod tests {
             let error = Config::from_lookup(lookup(&partial)).unwrap_err();
             assert!(error.to_string().contains(name), "{error}");
         }
+    }
+
+    #[test]
+    fn turnstile_keys_come_in_pairs() {
+        let base = [
+            ("DATABASE_URL", "postgres://localhost/db"),
+            ("TICKET_KEY_ENCRYPTION_KEY", KEY),
+            ("ALLOWED_ORIGINS", "http://localhost:3000"),
+        ];
+        assert!(
+            Config::from_lookup(lookup(&base))
+                .unwrap()
+                .turnstile
+                .is_none()
+        );
+        let mut half = base.to_vec();
+        half.push(("TURNSTILE_SITE_KEY", "0x4AAA"));
+        assert!(matches!(
+            Config::from_lookup(lookup(&half)),
+            Err(ConfigError::Missing("TURNSTILE_SECRET_KEY"))
+        ));
+        half.push(("TURNSTILE_SECRET_KEY", "0x4BBB"));
+        let config = Config::from_lookup(lookup(&half)).unwrap();
+        let keys = config.turnstile.unwrap();
+        assert_eq!(keys.site_key, "0x4AAA");
+        assert!(!format!("{keys:?}").contains("0x4BBB"));
     }
 
     #[test]

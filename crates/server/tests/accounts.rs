@@ -1,5 +1,6 @@
-//! Signing in (ADRs 0028, 0029) and the holder's data rights (ADR 0033): Google sign-in, the
-//! e-mail quota and per-IP limit, HTML e-mails, exporting and deleting an account.
+//! Signing in (ADRs 0028, 0029, 0044) and the holder's data rights (ADR 0033): Google sign-in,
+//! the e-mail quota and per-IP limit, the anti-bot check, HTML e-mails, exporting and deleting an
+//! account.
 
 #![cfg(feature = "test-util")]
 #![allow(
@@ -151,6 +152,39 @@ async fn one_address_asks_for_few_codes(pool: PgPool) {
         request_code(&app, "p10@exemplo.com", "198.51.100.9").await,
         StatusCode::NO_CONTENT
     );
+}
+
+#[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
+async fn codes_need_the_anti_bot_token_when_it_is_on(pool: PgPool) {
+    let app = TestApp::new(pool).await.with_captcha("0x4AAA-site");
+    let options = app
+        .request(Method::GET, "/api/auth/options", None, None)
+        .await
+        .json();
+    assert_eq!(options["captchaSiteKey"], "0x4AAA-site");
+
+    let code = |body: Value| app.request(Method::POST, "/api/auth/code", None, Some(body));
+    let missing = code(json!({ "email": "p@exemplo.com" })).await;
+    assert_eq!(missing.status, StatusCode::FORBIDDEN);
+    assert_eq!(missing.error_code(), "captcha_failed");
+    let wrong = code(json!({ "email": "p@exemplo.com", "captchaToken": "bot" })).await;
+    assert_eq!(wrong.error_code(), "captcha_failed");
+    assert!(
+        app.sent.lock().unwrap().is_empty(),
+        "no e-mail without the check"
+    );
+
+    let ok = code(json!({ "email": "p@exemplo.com", "captchaToken": "pass" })).await;
+    assert_eq!(ok.status, StatusCode::NO_CONTENT);
+    assert_eq!(app.sent.lock().unwrap().len(), 1);
+
+    // Off by default: the token is not asked for.
+    let options = TestApp::new(app.state.pool.clone())
+        .await
+        .request(Method::GET, "/api/auth/options", None, None)
+        .await
+        .json();
+    assert_eq!(options["captchaSiteKey"], Value::Null);
 }
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]

@@ -16,7 +16,7 @@ export const LEGAL_ENTITY = {
 } as const;
 
 /** Version of the Terms + Privacy Policy accepted at sign-in (stored with the user). */
-export const TERMS_VERSION = "2026-10-09.2";
+export const TERMS_VERSION = "2026-10-10";
 
 export type LegalBlock =
   | { type: "p"; text: string }
@@ -410,7 +410,7 @@ const PRIVACY: LegalDocument = {
   title: "Política de Privacidade",
   description:
     "Como o Ingresso Impresso trata dados pessoais de organizadores, vendedores e participantes, com quem os compartilha e como exercer seus direitos pela LGPD.",
-  updatedAt: "2026-10-09",
+  updatedAt: "2026-10-10",
   summary: [
     "Tratamos o mínimo necessário: o e-mail de quem entra, o nome da organização, os dados dos eventos e a situação dos pagamentos. Não vendemos dados e não usamos cookies de publicidade.",
     "Os dados de vendedores, portadores de ingresso digital e leituras da portaria são cadastrados pelo organizador. Para esses dados, o organizador é o controlador e nós atuamos como operador.",
@@ -464,6 +464,7 @@ const PRIVACY: LegalDocument = {
           "os códigos de acesso enviados por e-mail, guardados apenas como hash (um resumo criptográfico que não permite recuperar o código), com a contagem de tentativas;",
           "as sessões abertas, guardadas apenas como hash do token de sessão;",
           "um hash do endereço IP usado para pedir códigos de acesso, mantido por até 24 horas para impedir abusos;",
+          "ao pedir um código de acesso, a verificação anti-robô do Cloudflare Turnstile analisa o endereço IP e sinais técnicos do navegador para confirmar que o pedido vem de uma pessoa; não guardamos esses sinais;",
           "o registro de auditoria das ações feitas pelo fornecedor na sua conta, e as mensagens de suporte trocadas com você.",
         ),
         p(
@@ -558,7 +559,7 @@ const PRIVACY: LegalDocument = {
           "execução do contrato (art. 7º, V): criar e manter sua conta, permitir o acesso, gerar arquivos e ingressos digitais, operar a portaria, processar pagamentos e reembolsos e responder pedidos de suporte;",
           "cumprimento de obrigação legal ou regulatória (art. 7º, II): guardar os registros de pagamentos e reembolsos exigidos pela legislação fiscal e atender ordens de autoridades;",
           "exercício regular de direitos (art. 7º, VI): guardar os registros necessários para nossa defesa em processos judiciais, administrativos ou arbitrais;",
-          "legítimo interesse (art. 7º, IX): proteger o serviço contra fraude e abuso, como o limite de pedidos de código por IP, manter a segurança, registrar as ações de suporte em log de auditoria, medir o uso do site de forma agregada para melhorá-lo e avisar sobre novidades do serviço;",
+          "legítimo interesse (art. 7º, IX): proteger o serviço contra fraude e abuso, como o limite de pedidos de código por IP e a verificação anti-robô, manter a segurança, registrar as ações de suporte em log de auditoria, medir o uso do site de forma agregada para melhorá-lo e avisar sobre novidades do serviço;",
           "consentimento (art. 7º, I): quando alguma função depender dele, pediremos de forma destacada, e você poderá revogá-lo a qualquer momento.",
         ),
         p(
@@ -581,6 +582,7 @@ const PRIVACY: LegalDocument = {
           "Render (Estados Unidos, Virgínia): hospedagem da API;",
           "Neon (Estados Unidos, AWS us-east-1): banco de dados PostgreSQL;",
           "Resend: envio dos e-mails do serviço, como os códigos de acesso;",
+          "Cloudflare: verificação anti-robô (Turnstile) ao pedir um código de acesso por e-mail;",
           "Stripe: processamento dos pagamentos por Pix e cartão;",
           "Google: login com a conta Google, quando você escolhe essa opção, e análise automática das artes enviadas (Google Cloud Vision), para impedir conteúdo ilegal;",
           "GitHub: guarda das cópias de segurança diárias do banco de dados, cifradas antes do envio, por 30 dias.",
@@ -598,7 +600,7 @@ const PRIVACY: LegalDocument = {
       title: "10. Transferência internacional",
       blocks: [
         p(
-          "Os fornecedores listados guardam e processam dados fora do Brasil, principalmente nos Estados Unidos. Resend, Stripe, Google e GitHub também podem tratar dados em outros países.",
+          "Os fornecedores listados guardam e processam dados fora do Brasil, principalmente nos Estados Unidos. Resend, Stripe, Google, Cloudflare e GitHub também podem tratar dados em outros países.",
         ),
         p(
           "Essas transferências se apoiam nas garantias contratuais de proteção de dados oferecidas pelos fornecedores (art. 33, II, da LGPD) e, quando aplicável, na necessidade da transferência para executar o contrato com você (art. 33, IX, da LGPD). Os dados são protegidos com as medidas de segurança descritas nesta Política.",
