@@ -200,6 +200,7 @@ cargo run -p ii-cli -- job init --name "Meu Show"            # cria job.json + e
 cargo run -p ii-cli -- render --job job.json --seed event.seed  # out/: casa-a4.pdf, grafica.pdf, controle.pdf, whatsapp.zip
 cargo run -p ii-cli -- render --job job.json                    # sem --seed: AMOSTRAS (QR inválido)
 cargo run -p ii-cli -- verify --job job.json --seed event.seed "<texto lido do QR>"
+just api        # a API em :8080 com o .env (as migrações rodam ao subir)
 just web-dev    # next dev
 just e2e        # portaria ponta a ponta: API + next start + Playwright (exige Postgres e `just wasm`)
 just backup-restore-test <dump.age> <chave-age>   # restaura um backup num banco VAZIO (RESTORE_DATABASE_URL)

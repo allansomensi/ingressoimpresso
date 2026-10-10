@@ -87,6 +87,10 @@ db-up:
 db-down:
     docker compose -f deploy/compose.dev.yaml down
 
+# The API on :8080 with the variables of .env (migrations run on start).
+api:
+    cargo run -p ingressoimpresso-server
+
 web-dev:
     pnpm --filter @ingressoimpresso/web run dev
 
