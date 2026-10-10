@@ -119,6 +119,15 @@ jobs:
             exit 1
           fi
           echo "API: $api_url"
+          if [ "$STAGING" = "true" ]; then
+            # Without the staging branch's own Preview variables the build would quietly use the
+            # project-wide ones (the production API, no badge, indexable): refuse instead.
+            environment=$(sed -n 's/^NEXT_PUBLIC_ENVIRONMENT=//p' "${env_file:-/dev/null}" | tr -d '"' | head -n 1)
+            if [ "$environment" != staging ]; then
+              echo "::error::Set NEXT_PUBLIC_ENVIRONMENT=staging and NEXT_PUBLIC_API_URL (the staging API) as Preview variables for the staging branch in Vercel (docs/deploy.md §11.5)."
+              exit 1
+            fi
+          fi
           vercel build "${prod[@]}"
           # The deployment URL is the last line printed.
           url=$(vercel deploy --prebuilt "${prod[@]}" | tail -n 1)
