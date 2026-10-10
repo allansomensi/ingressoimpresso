@@ -230,6 +230,12 @@ await register(c, doorLink, "Porta C");
 await until("app cached for offline use", async () =>
   (await c.page.locator("li", { hasText: "App salvo para abrir sem internet" }).getAttribute("data-ok")) === "true",
 );
+// Both WebAssembly files are in the cache before the first read: the QR reader's is not loaded
+// by the page until the camera starts.
+const cachedWasm = await c.page.evaluate(async () =>
+  (await (await caches.open("portaria-v1")).keys()).map((request) => new URL(request.url).pathname).filter((path) => path.endsWith(".wasm")),
+);
+assert.equal(cachedWasm.length, 2, `cached wasm: ${cachedWasm.join(", ")}`);
 await c.context.setOffline(true);
 await c.page.reload();
 await c.page.getByText(/Dados do evento atualizados/).waitFor({ timeout: TIMEOUT });

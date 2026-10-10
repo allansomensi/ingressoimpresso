@@ -2,12 +2,25 @@
  * Offline readiness (ADR 0006 §5.2): the service worker that keeps the door app in cache, and
  * the checks of the readiness list.
  */
+import { CORE_WASM_URL, ZXING_WASM_URL } from "./assets";
+
 const SW_URL = "/portaria-sw.js";
 const SW_SCOPE = "/portaria";
 
-/** Same-origin resources this page loaded (HTML, scripts, styles, fonts, WebAssembly). */
+/**
+ * Same-origin resources this page loaded (HTML, scripts, styles, fonts) plus the two WebAssembly
+ * files: the QR reader's is only fetched when the camera starts, and a door that goes offline
+ * before its first read still needs it (invariant 6).
+ */
 function pageResources(): string[] {
   const urls = new Set<string>([window.location.pathname]);
+  for (const asset of [CORE_WASM_URL, ZXING_WASM_URL]) {
+    // The bundler may emit the asset as a path rather than an absolute URL.
+    const url = new URL(asset, window.location.href);
+    if (url.origin === window.location.origin) {
+      urls.add(url.pathname + url.search);
+    }
+  }
   for (const entry of performance.getEntriesByType("resource")) {
     const url = new URL(entry.name);
     // Platform endpoints (/_vercel/: analytics, insights) are not part of the app.
