@@ -168,8 +168,9 @@ just web-dev      # site e painel em http://localhost:3000 (em outro terminal)
 ```
 
 Sem `RESEND_API_KEY`, nenhum e-mail sai: o código de login aparece no log da API. Use o e-mail de
-`ADMIN_EMAILS` para ver o painel de administração. Stripe, Google, Turnstile e Cloud Vision são
-opcionais; sem eles, o admin marca lotes como pagos e o login é só por código.
+`ADMIN_EMAILS` e ligue a verificação em duas etapas em **Minha conta** para ver o painel de
+administração (ADR 0047). Stripe, Google, Turnstile e Cloud Vision são opcionais; sem eles, o
+admin marca lotes como pagos e o login é só por código.
 
 **Testar a impressão sem a API:**
 
