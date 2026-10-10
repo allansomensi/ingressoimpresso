@@ -56,3 +56,4 @@ feita e as consequências.
 | [0044](0044-captcha-no-login.md) | Verificação anti-robô antes do código por e-mail | Aceito |
 | [0045](0045-verificacao-em-duas-etapas.md) | Verificação em duas etapas (opcional) | Aceito |
 | [0046](0046-ambiente-de-staging.md) | Ambiente de staging | Aceito |
+| [0047](0047-blindagem-da-plataforma.md) | Blindagem da plataforma: admin com duas etapas, limites por endereço e checagens de produção | Aceito |

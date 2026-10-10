@@ -11,6 +11,8 @@ services:
     dockerContext: .
     region: virginia
     plan: starter
+    # One instance only: payment locks and the export worker live in the process (ADR 0013).
+    numInstances: 1
     branch: main
     # Deploy only commits whose GitHub checks (CI with the door e2e) passed.
     autoDeployTrigger: checksPass
@@ -79,6 +81,7 @@ services:
     dockerContext: .
     region: virginia
     plan: free
+    numInstances: 1
     branch: staging
     autoDeployTrigger: checksPass
     buildFilter:
@@ -101,6 +104,9 @@ services:
       # Leaves room in the shared Resend quota for production's codes.
       - key: MAIL_DAILY_LIMIT
         value: "15"
+      # Stripe test keys are refused by a production build unless this says so (ADR 0047).
+      - key: STRIPE_ALLOW_TEST_MODE
+        value: "true"
       - key: DATABASE_URL
         sync: false
       - key: TICKET_KEY_ENCRYPTION_KEY

@@ -12,6 +12,11 @@ testdata
 out
 *.seed
 .env
+.env.*
+!.env.example
+backup-key.txt
+*.dump.age
+.vercel
 # The image's Rust (deploy/api.Dockerfile) is the pinned version; without this file rustup does
 # not fetch clippy, rustfmt and the wasm32 target during the build.
 rust-toolchain.toml

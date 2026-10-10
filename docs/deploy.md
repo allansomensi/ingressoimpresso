@@ -245,8 +245,11 @@ organizador pagar sozinho, com Pix ou cartão:
    **Preços**, **Promoções** e **Cupons** (ADRs 0039 e 0040). A variável `FREE_TICKETS` não existe
    mais: se ela estiver no Render, pode apagar.
 
-   As duas chaves vão juntas: com uma só, a API não sobe e o log diz qual falta. Em produção, uma
-   chave de teste só gera um aviso no log.
+   As duas chaves vão juntas: com uma só, a API não sobe e o log diz qual falta. Em produção
+   (`APP_ENV=production`) uma chave de **teste** (`sk_test_...`) faz a API recusar a subida
+   (ADR 0047): um cartão de teste compraria ingressos assinados de verdade. Para o ensaio do
+   item 3 em produção, ponha `STRIPE_ALLOW_TEST_MODE=true` junto e **apague** a variável ao
+   trocar para a `sk_live_...`. O staging já vem com ela no `render.yaml`.
 7. Teste: crie um lote, clique em **Pagar** e pague. Ao voltar ao painel, o lote aparece **Pago**.
    Em **Developers** → **Webhooks** → o endpoint, as entregas devem estar com `200`.
 
@@ -464,8 +467,12 @@ repositório é público, mas o arquivo só abre com a sua chave privada.
    senha e **mantendo** o final original:
 
    ```
-   postgresql://backup_reader:SENHA@ep-xxxx-xxxx-123456.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+   postgresql://backup_reader:SENHA@ep-xxxx-xxxx-123456.us-east-1.aws.neon.tech/neondb?sslmode=verify-full&sslrootcert=system
    ```
+
+   Com `verify-full` o `pg_dump` confere o certificado do Neon (ninguém no caminho consegue se
+   passar pelo banco e receber a senha); `sslrootcert=system` usa os certificados do sistema da
+   imagem do Postgres 18.
 
 3. No GitHub, crie mais dois secrets:
 
@@ -510,6 +517,9 @@ repositório é público, mas o arquivo só abre com a sua chave privada.
    segundos.
    - No Gmail, abra o e-mail → **Mostrar original**: SPF, DKIM e DMARC devem estar `PASS`.
    - Teste também um Hotmail/Outlook e confira a caixa de spam.
+   - **Ligue a verificação em duas etapas** em **Minha conta** (app autenticador). Sem ela a conta
+     é um organizador comum: o menu **Admin**, o modo suporte e **Marcar como pago** só aparecem
+     depois (ADR 0047). Guarde os códigos de recuperação no gerenciador de senhas.
 2. Crie um evento, envie a arte e salve o ingresso (aba **Ingresso**).
 3. Crie um lote (aba **Lotes**) e clique em **Pagar** (com a Stripe configurada, passo 5.1) ou em
    **Marcar como pago** (admin).
@@ -531,8 +541,18 @@ Depois disso, siga o ensaio geral em [`docs/ensaio.md`](ensaio.md).
   não está minúsculo. Em repositório público, o GitHub desliga agendamentos depois de 60 dias sem
   atividade e avisa por e-mail. Para religar: **Actions** → **Backup** → **Enable workflow**.
 - **Restauração:** uma vez por mês (passo 7).
-- **Token da Vercel:** renove antes de expirar. Vencido, o **Deploy web** falha, e com ele o Render
-  deixa de publicar a API: ele só publica commits com todos os checks verdes.
+- **Token da Vercel:** renove antes de expirar. Vencido, o **Deploy web** falha. O deploy do site
+  só roda depois de o **CI** passar no commit (ADR 0047), como o Render faz com a API.
+- **Dependências:** o Dependabot abre pull requests semanais (actions, Cargo, npm, Docker) e o CI
+  tem o job **Dependency audit** (`cargo audit` e `pnpm audit`). Um aviso novo deixa o CI vermelho
+  até a versão corrigida entrar: faça o merge do PR do Dependabot ou atualize à mão.
+- **Proteção dos branches (uma vez, no GitHub):** **Settings** → **Rules** → **Rulesets** → **New
+  branch ruleset** para `main` e `staging`: *Require a pull request*, *Require status checks*
+  (`just check`, `API image`, `Dependency audit`) e *Block force pushes*. Em **Settings** →
+  **Environments**, crie `production` (branch `main`) e `staging` e mova para lá os secrets
+  `VERCEL_*` e `BACKUP_*`, com *Deployment branches* restrito: assim um branch qualquer não
+  consegue publicar nem baixar o banco. **Settings** → **Code security**: ligue *Dependabot
+  alerts* e *security updates*.
 - **Neon:** o plano gratuito reinicia o banco para atualizações e avisa no painel com um dia de
   antecedência. Antes de um evento, confira se não há reinício marcado para a hora do show.
 - **Limites gratuitos e uso:**
@@ -629,13 +649,13 @@ openssl rand -base64 32
    |---|---|
    | `DATABASE_URL` | a do passo 11.2 |
    | `TICKET_KEY_ENCRYPTION_KEY` | a do passo 11.3 |
-   | `RESEND_API_KEY` | a mesma da produção (ou outra chave só de envio) |
+   | `RESEND_API_KEY` | **outra** chave da Resend, só de envio (**API Keys** → **Create**, permissão *Sending access*): se o staging vazar, revoga-se só ela |
    | `MAIL_FROM` | `Ingresso Impresso (testes) <login@mail.seudominio.com.br>` |
    | `ADMIN_EMAILS` | o seu e-mail |
    | `ALLOWED_ORIGINS` | `https://staging.seudominio.com.br` |
    | `PUBLIC_API_URL` | `https://ingressoimpresso-api-staging.onrender.com` (ou o domínio próprio, se usar) |
    | `PUBLIC_WEB_URL` | `https://staging.seudominio.com.br` |
-   | `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` | chaves de **teste** (`sk_test_...`) e um webhook de teste para `https://ingressoimpresso-api-staging.onrender.com/api/stripe/webhook` (passo 5.1, no modo de teste) |
+   | `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` | chaves de **teste** (`sk_test_...`) e um webhook de teste para `https://ingressoimpresso-api-staging.onrender.com/api/stripe/webhook` (passo 5.1, no modo de teste). O `render.yaml` já põe `STRIPE_ALLOW_TEST_MODE=true` no staging (ADR 0047) |
    | `GOOGLE_CLIENT_ID` | o mesmo; adicione `https://staging.seudominio.com.br` às **Origens JavaScript autorizadas** (passo 5.2) |
    | `TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY` | as mesmas; adicione `staging.seudominio.com.br` em **Hostnames** do widget (passo 5.6) |
 
@@ -708,7 +728,7 @@ O endereço pode ser outro: crie a variável `VERCEL_STAGING_ALIAS` em **GitHub*
 | Endereço da API | `PUBLIC_API_URL` | `NEXT_PUBLIC_API_URL` (Config) | | |
 | Origens do site | `ALLOWED_ORIGINS` | | | |
 | Endereço do site (retorno da Stripe) | `PUBLIC_WEB_URL` | | | |
-| Chave da Stripe | `STRIPE_SECRET_KEY` | | | sim |
+| Chave da Stripe | `STRIPE_SECRET_KEY` (`sk_live_`; teste só com `STRIPE_ALLOW_TEST_MODE=true`) | | | sim |
 | Segredo do webhook da Stripe | `STRIPE_WEBHOOK_SECRET` | | | |
 | ID do cliente Google (não é segredo) | `GOOGLE_CLIENT_ID` | | | |
 | Limite de e-mails por dia | `MAIL_DAILY_LIMIT` (opcional) | | | |

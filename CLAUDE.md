@@ -59,6 +59,13 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
     desliga para quem perdeu o celular (ADR 0045).
   - Falta o que depende do mantenedor, tudo opcional: `RESEND_WEBHOOK_SECRET` (§5.4),
     `MODERATION_VISION_API_KEY` (§5.5) e `TURNSTILE_SITE_KEY`/`TURNSTILE_SECRET_KEY` (§5.6).
+- **Blindagem (ADR 0047): implementada.** Admin só com verificação em duas etapas, limites por
+  endereço nos endpoints sem sessão (`ratelimit.rs`), caminhos da API validados no painel
+  (`safePath`/`isUuid`), moderação que acompanha cópias e sobrevive a exclusões (`rejected_art`),
+  cabeçalhos e timeout na API, produção que recusa chaves de teste, deploy do site só depois do CI
+  verde, `cargo audit`/`pnpm audit` e Dependabot. Falta o que depende do mantenedor: ligar a
+  verificação em duas etapas na conta admin, rulesets/Environments no GitHub, chave da Resend
+  separada para o staging e `sslmode=verify-full` na URL do backup (`docs/deploy.md` §7–§9, §11).
 
 Plano completo em `docs/arquitetura.md` §12.
 
@@ -94,8 +101,9 @@ crates/server        API (pacote `ingressoimpresso-server`, binário `ingressoim
                      (exportar/excluir), ingresso digital em routes/tickets.rs, novidades em
                      routes/changelog.rs, resultados em routes/analytics.rs; login com Google em
                      google.rs, anti-robô do código em captcha.rs (Turnstile), duas etapas em
-                     two_factor.rs (TOTP, recuperação) + routes/two_factor.rs, e-mails (HTML +
-                     texto) em emails.rs, cota em state.rs (send_mail)
+                     two_factor.rs (TOTP, recuperação; tentativas em second_factor_attempts) +
+                     routes/two_factor.rs, limites por endereço em ratelimit.rs (ADR 0047),
+                     e-mails (HTML + texto) em emails.rs, cota em state.rs (send_mail)
 packages/api-types   tipos TS da API gerados (src/generated + src/index.ts, NÃO editar)
 apps/web             landing em src/app/page.tsx (+ src/components/marketing), painel em
                      src/app/{entrar,painel}, abas do evento em src/components/event (aba na URL,
@@ -177,6 +185,11 @@ docs/deploy.md       domínio próprio: Neon, Resend, DNS (Registro.br), Render,
   Novidades passam por `staging` antes do `main`; variável nova da API vai para os dois serviços.
 - **Métricas:** Vercel Web Analytics (ADR 0022), ligado no painel da Vercel; nada a configurar no
   código além de `NEXT_PUBLIC_SITE_URL` (opcional, padrão `https://ingressoimpresso.com.br`).
+- **Produção recusa (ADR 0047):** a chave mestra do CI, `sk_test_` sem `STRIPE_ALLOW_TEST_MODE=true`
+  (só o staging tem), `PUBLIC_WEB_URL` sem https; a conexão com o Neon é forçada a `verify-full`.
+  A API responde `nosniff`, `X-Frame-Options: DENY`, `no-referrer`, `no-store` (salvo o que o
+  handler definir) e HSTS, com 90 s de timeout por requisição. O **Deploy web** roda por
+  `workflow_run` depois de um CI verde; o CI tem o job **Dependency audit**.
 
 ## Comandos
 
@@ -245,6 +258,15 @@ just backup-restore-test <dump.age> <chave-age>   # restaura um backup num banco
 14. **Segredos da verificação em duas etapas nunca ficam em claro** (ADR 0045): a chave TOTP é
     selada com a chave mestra (`two_factor::seal`) e os códigos de recuperação ficam só como hash
     com chave; o segundo passo vale para o código por e-mail e para o Google.
+15. **Admin só com duas etapas** (ADR 0047): `AuthUser.is_admin` exige `ADMIN_EMAILS` **e**
+    `totp_enabled_at`; sem o segundo passo a conta é um organizador comum (sem modo suporte, sem
+    `mark-paid`). Excluir a conta pede o segundo passo quando ele existe.
+16. **O painel nunca monta um caminho da API com valor não validado** (ADR 0047): ids vindos da
+    URL passam por `isUuid`, e `send()` recusa caminhos com `..`, `//` ou `#` (`safePath`). Um
+    link malicioso não pode fazer o navegador do admin chamar outra rota.
+17. **Arte recusada fica recusada** (ADR 0047): a recusa vai para `rejected_art` por hash e
+    sobrevive à exclusão do upload, do evento e da conta; duplicar um evento leva
+    `moderation_status` junto e nunca copia arte recusada.
 
 ## Convenções
 
@@ -284,7 +306,9 @@ just backup-restore-test <dump.age> <chave-age>   # restaura um backup num banco
   `routes::range`/`routes::bounds`. A limpeza horária do worker (`jobs::prune`) apaga o que só
   vale por um tempo (hash de IP, códigos antigos, sessões vencidas).
 - **API:** erros JSON `{"error": {"code", "message"}}`; o `code` é estável e o painel o traduz em
-  `texts.errors`. Recursos de outra organização respondem 404 (`authorize_event`/`event_access`);
+  `texts.errors`; a mensagem nunca repete o texto do banco (nomes de constraints). Nomes e rótulos
+  de uma linha passam por `routes::one_line` (sem caracteres de controle). Endpoints sem sessão
+  chamam `ratelimit::by_ip`; operações caras por conta usam `AppState::attempt`. Recursos de outra organização respondem 404 (`authorize_event`/`event_access`);
   admins entram em modo suporte e cada alteração vai para `audit_log` (ADR 0032); ações só de
   admin chamam `require_admin` e `audit`. Só `jobs.rs` dessela chaves e assina (arquivos e
   ingressos digitais), e só ingressos de lotes `paid` não cancelados. E-mails passam por

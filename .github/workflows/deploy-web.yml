@@ -1,14 +1,17 @@
 name: Deploy web
 
 # ADR 0009: the Vercel build has no Rust, so the door's WebAssembly is compiled here and the
-# site is uploaded prebuilt. Pushes to main deploy production; pushes to staging deploy the test
-# environment (ADR 0046): a preview built with the staging branch's Preview variables, aliased to
-# its own domain. A manual run deploys any branch as a preview (or production, from main). Needs
-# the VERCEL_TOKEN, VERCEL_ORG_ID and VERCEL_PROJECT_ID secrets (docs/deploy.md); without them the
-# job only warns.
+# site is uploaded prebuilt. A green CI run on main deploys production; a green CI run on staging
+# deploys the test environment (ADR 0046): a preview built with the staging branch's Preview
+# variables, aliased to its own domain. Like the API on Render, nothing reaches people before the
+# checks pass (ADR 0047). A manual run deploys any branch as a preview (or production, from main).
+# Needs the VERCEL_TOKEN, VERCEL_ORG_ID and VERCEL_PROJECT_ID secrets (docs/deploy.md); without
+# them the job only warns.
 
 on:
-  push:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main, staging]
   workflow_dispatch:
     inputs:
@@ -26,7 +29,7 @@ defaults:
     shell: bash
 
 concurrency:
-  group: deploy-web-${{ github.ref }}
+  group: deploy-web-${{ github.event.workflow_run.head_branch || github.ref_name }}
   cancel-in-progress: false
 
 env:
@@ -42,8 +45,14 @@ env:
 jobs:
   deploy:
     name: vercel deploy --prebuilt
+    # A CI run that failed (or was canceled) deploys nothing; a manual run always goes on.
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    env:
+      # The branch and commit CI just checked (a manual run uses the chosen branch).
+      BRANCH: ${{ github.event.workflow_run.head_branch || github.ref_name }}
+      COMMIT: ${{ github.event.workflow_run.head_sha || github.sha }}
     steps:
       - name: Vercel secrets
         id: secrets
@@ -59,6 +68,8 @@ jobs:
 
       - uses: actions/checkout@v5
         if: steps.secrets.outputs.ready == 'true'
+        with:
+          ref: ${{ env.COMMIT }}
 
       - name: Rust toolchain
         if: steps.secrets.outputs.ready == 'true'
@@ -90,8 +101,8 @@ jobs:
         if: steps.secrets.outputs.ready == 'true'
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          PRODUCTION: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.production) }}
-          STAGING: ${{ github.ref == 'refs/heads/staging' }}
+          PRODUCTION: ${{ env.BRANCH == 'main' && (github.event_name == 'workflow_run' || inputs.production) }}
+          STAGING: ${{ env.BRANCH == 'staging' }}
         run: |
           target=preview
           prod=()

@@ -1,0 +1,11 @@
+# cargo-audit (CI job "Dependency audit", ADR 0047). Advisories listed here are known and judged
+# unreachable; each one says why and what removes it. Review the list when Typst is updated.
+[advisories]
+ignore = [
+    # quick-xml 0.38, reached only through citationberg (CSL bibliography styles of Typst 0.15):
+    # quadratic time and unbounded allocation on hostile XML. The templates use no bibliography,
+    # and no XML from users reaches Typst (art is PNG/JPEG checked by magic number; the only SVGs
+    # are the QR codes this code generates). Goes away with Typst > 0.15.
+    "RUSTSEC-2026-0194",
+    "RUSTSEC-2026-0195",
+]

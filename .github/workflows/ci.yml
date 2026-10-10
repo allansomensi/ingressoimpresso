@@ -79,6 +79,42 @@ jobs:
           path: target/e2e/
           if-no-files-found: ignore
 
+  # Known vulnerabilities in the locked dependencies (ADR 0047): the Rust tree against the RustSec
+  # database, the JavaScript tree (what the site ships) against npm's advisories.
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Rust toolchain
+        run: rustup toolchain install
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install cargo-audit
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit
+
+      # Vulnerabilities fail the job; unmaintained-crate notices only print. Known, unreachable
+      # advisories are listed with their reasons in .cargo/audit.toml.
+      - name: cargo audit
+        run: cargo audit
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: pnpm audit
+        run: |
+          pnpm install --frozen-lockfile --ignore-scripts
+          pnpm audit --prod --audit-level=high
+
   # The image Render builds (deploy/api.Dockerfile), built and started here first: a broken
   # Dockerfile or a binary that does not start fails the PR instead of the production deploy.
   api-image:
