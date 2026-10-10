@@ -1,0 +1,89 @@
+name: 🐛 Problema
+description: Algo não funciona como deveria.
+title: "[Problema] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Obrigado por avisar! Esta issue é **pública**: não cole e-mails de clientes, tokens nem links
+        de portaria (`#acesso=`) ou de ingresso digital (`/ingresso#...`). Falha de segurança vai
+        pelo [SECURITY.md](https://github.com/allansomensi/ingressoimpresso/blob/main/SECURITY.md).
+  - type: dropdown
+    id: area
+    attributes:
+      label: Onde aconteceu?
+      options:
+        - Site (página inicial, preços, status)
+        - Login ou conta (código, Google, duas etapas)
+        - Painel do evento (lotes, vendedores, cancelamentos)
+        - Editor do ingresso ou prévia
+        - Arquivos (PDF A4, gráfica, ZIP do WhatsApp)
+        - Ingresso digital (link no celular)
+        - Portaria (leitura do QR, sincronização)
+        - Pagamento (Pix ou cartão)
+        - Painel de administração
+        - API
+        - Código ou ambiente local (build, testes, CI)
+        - Outro
+    validations:
+      required: true
+  - type: dropdown
+    id: environment
+    attributes:
+      label: Em qual ambiente?
+      options:
+        - Produção (ingressoimpresso.com.br)
+        - Ambiente de testes (staging)
+        - Local, rodando o código
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: O que aconteceu?
+      description: Descreva o problema e, se apareceu, a mensagem de erro exata.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Como reproduzir
+      placeholder: |
+        1. Abra o evento...
+        2. Clique em...
+        3. Veja que...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: O que você esperava?
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Aparelho e navegador
+      placeholder: "Ex.: iPhone 13 com Safari / Motorola G54 com Chrome / notebook Windows com Firefox"
+  - type: input
+    id: version
+    attributes:
+      label: Commit ou data (se for local ou de código)
+      placeholder: "Ex.: 05cf40e, ou 10/10/2026 às 21h"
+  - type: textarea
+    id: extra
+    attributes:
+      label: Capturas de tela, logs ou outras informações
+      description: Apague dados pessoais antes de anexar.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Confirmações
+      options:
+        - label: Procurei nas issues abertas e fechadas e não encontrei esta.
+          required: true
+        - label: Não incluí dados pessoais, tokens nem links de portaria ou de ingresso digital.
+          required: true
+        - label: Não é uma falha de segurança (essas vão pelo SECURITY.md).
+          required: true
