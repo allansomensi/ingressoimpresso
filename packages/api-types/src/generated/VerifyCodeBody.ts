@@ -11,4 +11,8 @@ email: string,
 /**
  * The 6-digit code.
  */
-code: string, };
+code: string, 
+/**
+ * Authenticator or recovery code, for accounts with two-step verification (ADR 0045).
+ */
+twoFactorCode?: string, };

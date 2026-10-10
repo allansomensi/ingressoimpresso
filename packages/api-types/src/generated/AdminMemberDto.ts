@@ -33,6 +33,10 @@ lastLoginAt: string | null,
  */
 google: boolean, 
 /**
+ * Has two-step verification on (ADR 0045).
+ */
+twoFactor: boolean, 
+/**
  * Open sessions.
  */
 sessions: number, };

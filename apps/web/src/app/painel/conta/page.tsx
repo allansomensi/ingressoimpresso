@@ -19,6 +19,7 @@ import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
 import { CreditsCard } from "@/components/account/credits";
+import { TwoFactorCard } from "@/components/account/two-factor";
 import {
   Alert,
   Button,
@@ -313,6 +314,7 @@ export default function AccountPage() {
             </Card>
           )}
           <CreditsCard />
+          {session.status === "signed-in" && <TwoFactorCard email={session.user.email} />}
           {session.status === "signed-in" && <PrivacyCard account={a} email={session.user.email} />}
         </div>
       </div>

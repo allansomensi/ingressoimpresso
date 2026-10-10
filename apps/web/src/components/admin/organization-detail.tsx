@@ -12,6 +12,7 @@ import {
   History,
   LogOut,
   Pencil,
+  ShieldOff,
   ShieldAlert,
   ShieldCheck,
   Ticket,
@@ -235,6 +236,17 @@ export function OrganizationDetail({ organizationId }: { organizationId: string 
     },
   });
 
+  const resetTwoFactor = useMutation({
+    mutationFn: (userId: string) => api<undefined>(`/api/admin/users/${userId}/two-factor/reset`, { method: "POST" }),
+    onSuccess: () => {
+      toast.success(t.twoFactorReset);
+      void refresh();
+    },
+    onError: (error) => {
+      toast.error(errorMessage(error));
+    },
+  });
+
   if (detail.isPending) {
     return <LoadingBlock rows={4} />;
   }
@@ -374,6 +386,12 @@ export function OrganizationDetail({ organizationId }: { organizationId: string 
                           {t.google}
                         </Badge>
                       )}
+                      {member.twoFactor && (
+                        <Badge tone="success">
+                          <ShieldCheck className="size-3" aria-hidden />
+                          {t.twoFactor}
+                        </Badge>
+                      )}
                     </span>
                     {member.name !== null && <span className="text-xs text-fg-muted">{member.name}</span>}
                     <span className="text-xs text-fg-subtle">
@@ -395,6 +413,27 @@ export function OrganizationDetail({ organizationId }: { organizationId: string 
                   >
                     {t.endSessions}
                   </Button>
+                  {member.twoFactor && (
+                    <Button
+                      variant="danger-ghost"
+                      size="sm"
+                      icon={<ShieldOff />}
+                      loading={resetTwoFactor.isPending && resetTwoFactor.variables === member.userId}
+                      onClick={async () => {
+                        if (
+                          await confirm({
+                            title: t.resetTwoFactorTitle(member.email),
+                            description: t.resetTwoFactorBody,
+                            confirmLabel: t.resetTwoFactor,
+                          })
+                        ) {
+                          resetTwoFactor.mutate(member.userId);
+                        }
+                      }}
+                    >
+                      {t.resetTwoFactor}
+                    </Button>
+                  )}
                 </li>
               ))}
             </ul>

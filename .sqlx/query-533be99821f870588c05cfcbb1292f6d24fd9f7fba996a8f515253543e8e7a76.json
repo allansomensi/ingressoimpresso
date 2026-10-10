@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select u.id as user_id, u.email::text as \"email!\", u.name, m.role, u.created_at, u.last_login_at,\n                  u.google_sub is not null as \"google!\",\n                  (select count(*) from sessions s where s.user_id = u.id and s.expires_at > now()) as \"sessions!\"\n           from memberships m join users u on u.id = m.user_id\n           where m.organization_id = $1\n           order by m.created_at",
+  "query": "select u.id as user_id, u.email::text as \"email!\", u.name, m.role, u.created_at, u.last_login_at,\n                  u.google_sub is not null as \"google!\",\n                  u.totp_enabled_at is not null as \"two_factor!\",\n                  (select count(*) from sessions s where s.user_id = u.id and s.expires_at > now()) as \"sessions!\"\n           from memberships m join users u on u.id = m.user_id\n           where m.organization_id = $1\n           order by m.created_at",
   "describe": {
     "columns": [
       {
@@ -72,6 +72,12 @@
       },
       {
         "ordinal": 7,
+        "name": "two_factor!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 8,
         "name": "sessions!",
         "type_info": "Int8",
         "origin": "Expression"
@@ -90,8 +96,9 @@
       false,
       true,
       null,
+      null,
       null
     ]
   },
-  "hash": "7d471e93af38a0fd657e4bb3a2e1468b3c20739657d36faad30b2c98d9b8809e"
+  "hash": "533be99821f870588c05cfcbb1292f6d24fd9f7fba996a8f515253543e8e7a76"
 }

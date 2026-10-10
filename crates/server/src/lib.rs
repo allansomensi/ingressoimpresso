@@ -24,6 +24,7 @@ pub mod pricing;
 pub mod routes;
 pub mod state;
 mod texts;
+pub mod two_factor;
 
 /// Embedded migrations (`crates/server/migrations`), applied at startup.
 pub static MIGRATOR: sqlx::migrate::Migrator = sqlx::migrate!("./migrations");

@@ -104,6 +104,15 @@ impl AppState {
         true
     }
 
+    /// Whether `key` already used up `limit` attempts in `window`, without counting one.
+    pub async fn exhausted(&self, key: &str, limit: usize, window: std::time::Duration) -> bool {
+        let mut attempts = self.attempts.lock().await;
+        attempts.get_mut(key).is_some_and(|times| {
+            times.retain(|at| at.elapsed() < window);
+            times.len() >= limit
+        })
+    }
+
     /// Turns on the image classifier.
     #[must_use]
     pub fn with_classifier(mut self, classifier: Classifier) -> Self {

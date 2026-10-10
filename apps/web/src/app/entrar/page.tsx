@@ -12,6 +12,7 @@ import { Logo, LogoMark } from "@/components/brand";
 import { GoogleSignIn } from "@/components/google-sign-in";
 import { OtpInput } from "@/components/otp-input";
 import { Turnstile, type TurnstileHandle } from "@/components/turnstile";
+import { TwoFactorStep } from "@/components/two-factor-step";
 import { Alert, Button, ErrorMessage, Field, Input, Spinner } from "@/components/ui";
 import { ApiError, api } from "@/lib/api";
 import { usePlatform } from "@/lib/platform";
@@ -20,6 +21,10 @@ import { texts } from "@/texts/pt-BR";
 
 const t = texts.login;
 const RESEND_AFTER_S = 30;
+
+function needsSecondStep(error: unknown): boolean {
+  return error instanceof ApiError && error.code === "two_factor_required";
+}
 
 function isQuotaError(error: unknown): boolean {
   return error instanceof ApiError && error.code === "mail_quota";
@@ -117,13 +122,35 @@ export default function SignInPage() {
       setNow(Date.now());
     },
   });
+  // Two-step verification (ADR 0045): the first step is sent again with the app's code.
+  const [secondStep, setSecondStep] = useState<{ via: "code"; code: string } | { via: "google"; credential: string } | null>(null);
   const verify = useMutation({
     mutationFn: (value: string) =>
       api<SessionResponse>("/api/auth/verify", { method: "POST", body: { email: email.trim(), code: value } }),
     onSuccess: finish,
+    onError: (error, value) => {
+      if (needsSecondStep(error)) {
+        setSecondStep({ via: "code", code: value });
+      }
+    },
   });
   const google = useMutation({
     mutationFn: (credential: string) => api<SessionResponse>("/api/auth/google", { method: "POST", body: { credential } }),
+    onSuccess: finish,
+    onError: (error, credential) => {
+      if (needsSecondStep(error)) {
+        setSecondStep({ via: "google", credential });
+      }
+    },
+  });
+  const second = useMutation({
+    mutationFn: (twoFactorCode: string) =>
+      secondStep?.via === "google"
+        ? api<SessionResponse>("/api/auth/google", { method: "POST", body: { credential: secondStep.credential, twoFactorCode } })
+        : api<SessionResponse>("/api/auth/verify", {
+            method: "POST",
+            body: { email: email.trim(), code: secondStep?.code ?? code, twoFactorCode },
+          }),
     onSuccess: finish,
   });
 
@@ -201,115 +228,137 @@ export default function SignInPage() {
       <main className="flex flex-col bg-glow px-4 py-6 sm:px-8">
         <Logo className="lg:invisible" />
         <div className="m-auto flex w-full max-w-sm flex-col gap-8 py-12 animate-rise">
-          {codeSent ? (
-            <div className="flex flex-col gap-3">
-              <span className="flex size-12 items-center justify-center rounded-2xl bg-brand-soft text-brand-soft-fg">
-                <Mail className="size-6" aria-hidden />
-              </span>
-              <h1 className="text-3xl font-semibold tracking-tight text-fg">{t.codeTitle}</h1>
-              <p className="text-[15px] leading-relaxed text-fg-muted">{t.codeSentTo(email.trim())}</p>
-            </div>
+          {secondStep !== null ? (
+            <TwoFactorStep
+              pending={second.isPending}
+              error={second.error}
+              onSubmit={(value) => {
+                second.mutate(value);
+              }}
+              onEdit={() => {
+                second.reset();
+              }}
+              onBack={() => {
+                setSecondStep(null);
+                second.reset();
+                verify.reset();
+                google.reset();
+                setCode("");
+              }}
+            />
           ) : (
-            <div className="flex flex-col gap-2">
-              <h1 className="text-3xl font-semibold tracking-tight text-fg">{t.title}</h1>
-              <p className="text-[15px] leading-relaxed text-fg-muted">{googleClientId === null ? t.subtitleEmail : t.subtitle}</p>
-            </div>
-          )}
-
-          {codeSent ? (
-            <form onSubmit={submit} className="flex flex-col gap-5">
-              <OtpInput
-                value={code}
-                onChange={(value) => {
-                  setCode(value);
-                  verify.reset();
-                }}
-                onComplete={(value) => {
-                  verify.mutate(value);
-                }}
-                invalid={verify.isError}
-                disabled={verify.isPending}
-              />
-              <ErrorMessage error={verify.error} />
-              <Button type="submit" size="lg" disabled={code.length !== 6} loading={verify.isPending}>
-                {verify.isPending ? t.verifying : t.verify}
-              </Button>
-              <div className="flex items-center justify-between gap-2 text-sm">
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-1.5 font-medium text-fg-muted hover:text-fg"
-                  onClick={() => {
-                    setCodeSent(false);
-                    setCode("");
-                    verify.reset();
-                  }}
-                >
-                  <ArrowLeft className="size-4" aria-hidden />
-                  {t.otherEmail}
-                </button>
-                <button
-                  type="button"
-                  className="font-medium text-brand disabled:text-fg-subtle"
-                  disabled={wait > 0 || requestCode.isPending}
-                  onClick={() => {
-                    requestCode.mutate();
-                  }}
-                >
-                  {wait > 0 ? t.resendIn(wait) : t.resend}
-                </button>
-              </div>
-              {captcha}
-              <ErrorMessage error={requestCode.error} />
-              <p className="text-xs text-fg-subtle">{t.spamHint}</p>
-            </form>
-          ) : (
-            <div className="flex flex-col gap-6">
-              {notice !== null && (
-                <Alert tone={mode === "off" ? "brand" : "warning"}>{notice}</Alert>
-              )}
-              {quota && googleButton !== null && (
-                <Alert tone="warning" title={t.quotaTitle}>
-                  {t.quotaBody}
-                </Alert>
-              )}
-              {googleButton}
-              {googleButton !== null && (
-                <div className="flex items-center gap-3 text-xs font-medium tracking-wide text-fg-subtle uppercase">
-                  <span className="h-px flex-1 bg-border" />
-                  {t.or}
-                  <span className="h-px flex-1 bg-border" />
+            <>
+              {codeSent ? (
+                <div className="flex flex-col gap-3">
+                  <span className="flex size-12 items-center justify-center rounded-2xl bg-brand-soft text-brand-soft-fg">
+                    <Mail className="size-6" aria-hidden />
+                  </span>
+                  <h1 className="text-3xl font-semibold tracking-tight text-fg">{t.codeTitle}</h1>
+                  <p className="text-[15px] leading-relaxed text-fg-muted">{t.codeSentTo(email.trim())}</p>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  <h1 className="text-3xl font-semibold tracking-tight text-fg">{t.title}</h1>
+                  <p className="text-[15px] leading-relaxed text-fg-muted">{googleClientId === null ? t.subtitleEmail : t.subtitle}</p>
                 </div>
               )}
-              <form onSubmit={submit} className="flex flex-col gap-4">
-                <Field label={t.emailLabel}>
-                  <Input
-                    type="email"
-                    value={email}
-                    onChange={(event) => {
-                      setEmail(event.target.value);
+
+              {codeSent ? (
+                <form onSubmit={submit} className="flex flex-col gap-5">
+                  <OtpInput
+                    value={code}
+                    onChange={(value) => {
+                      setCode(value);
+                      verify.reset();
                     }}
-                    placeholder={t.emailPlaceholder}
-                    autoComplete="email"
-                    autoFocus={googleButton === null}
-                    required
+                    onComplete={(value) => {
+                      verify.mutate(value);
+                    }}
+                    invalid={verify.isError}
+                    disabled={verify.isPending}
                   />
-                </Field>
-                {captcha}
-                {!(quota && googleButton !== null) && <ErrorMessage error={requestCode.error} />}
-                <Button
-                  type="submit"
-                  size="lg"
-                  variant={googleButton === null ? "primary" : "secondary"}
-                  loading={requestCode.isPending}
-                >
-                  {requestCode.isPending ? t.sending : t.sendCode}
-                </Button>
-              </form>
-              <div className="flex flex-col gap-2">
-                <p className="text-sm leading-relaxed text-fg-muted">{t.firstTime}</p>
-                <Terms />
-              </div>
-            </div>
+                  <ErrorMessage error={verify.error} />
+                  <Button type="submit" size="lg" disabled={code.length !== 6} loading={verify.isPending}>
+                    {verify.isPending ? t.verifying : t.verify}
+                  </Button>
+                  <div className="flex items-center justify-between gap-2 text-sm">
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1.5 font-medium text-fg-muted hover:text-fg"
+                      onClick={() => {
+                        setCodeSent(false);
+                        setCode("");
+                        verify.reset();
+                      }}
+                    >
+                      <ArrowLeft className="size-4" aria-hidden />
+                      {t.otherEmail}
+                    </button>
+                    <button
+                      type="button"
+                      className="font-medium text-brand disabled:text-fg-subtle"
+                      disabled={wait > 0 || requestCode.isPending}
+                      onClick={() => {
+                        requestCode.mutate();
+                      }}
+                    >
+                      {wait > 0 ? t.resendIn(wait) : t.resend}
+                    </button>
+                  </div>
+                  {captcha}
+                  <ErrorMessage error={requestCode.error} />
+                  <p className="text-xs text-fg-subtle">{t.spamHint}</p>
+                </form>
+              ) : (
+                <div className="flex flex-col gap-6">
+                  {notice !== null && (
+                    <Alert tone={mode === "off" ? "brand" : "warning"}>{notice}</Alert>
+                  )}
+                  {quota && googleButton !== null && (
+                    <Alert tone="warning" title={t.quotaTitle}>
+                      {t.quotaBody}
+                    </Alert>
+                  )}
+                  {googleButton}
+                  {googleButton !== null && (
+                    <div className="flex items-center gap-3 text-xs font-medium tracking-wide text-fg-subtle uppercase">
+                      <span className="h-px flex-1 bg-border" />
+                      {t.or}
+                      <span className="h-px flex-1 bg-border" />
+                    </div>
+                  )}
+                  <form onSubmit={submit} className="flex flex-col gap-4">
+                    <Field label={t.emailLabel}>
+                      <Input
+                        type="email"
+                        value={email}
+                        onChange={(event) => {
+                          setEmail(event.target.value);
+                        }}
+                        placeholder={t.emailPlaceholder}
+                        autoComplete="email"
+                        autoFocus={googleButton === null}
+                        required
+                      />
+                    </Field>
+                    {captcha}
+                    {!(quota && googleButton !== null) && <ErrorMessage error={requestCode.error} />}
+                    <Button
+                      type="submit"
+                      size="lg"
+                      variant={googleButton === null ? "primary" : "secondary"}
+                      loading={requestCode.isPending}
+                    >
+                      {requestCode.isPending ? t.sending : t.sendCode}
+                    </Button>
+                  </form>
+                  <div className="flex flex-col gap-2">
+                    <p className="text-sm leading-relaxed text-fg-muted">{t.firstTime}</p>
+                    <Terms />
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       </main>

@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update recovery_codes set used_at = now()\n             where user_id = $1 and code_hash = $2 and used_at is null returning id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "recovery_codes",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Bytea"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "e27b5831178c1e21e5c4e51c0a5aa6a8268cf818ace0a16fb21281b00cd2ad9b"
+}

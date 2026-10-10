@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select totp_enabled_at is not null as \"on!\" from users where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "on!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "ebcaac8ba289dca58862aa42127e3d650170f619771d38e702a6c6bd02c266e9"
+}

@@ -7,4 +7,8 @@ export type GoogleSignInBody = {
 /**
  * ID token (JWT) from Google Identity Services.
  */
-credential: string, };
+credential: string, 
+/**
+ * Authenticator or recovery code, for accounts with two-step verification (ADR 0045).
+ */
+twoFactorCode?: string, };

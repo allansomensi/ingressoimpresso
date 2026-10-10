@@ -47,6 +47,10 @@ dto! {
         pub email: String,
         /// The 6-digit code.
         pub code: String,
+        /// Authenticator or recovery code, for accounts with two-step verification (ADR 0045).
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional))]
+        pub two_factor_code: Option<String>,
     }
 
     /// A new session.
@@ -87,6 +91,43 @@ dto! {
     pub struct GoogleSignInBody {
         /// ID token (JWT) from Google Identity Services.
         pub credential: String,
+        /// Authenticator or recovery code, for accounts with two-step verification (ADR 0045).
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional))]
+        pub two_factor_code: Option<String>,
+    }
+
+    /// `GET /api/account/two-factor`: the account's two-step verification (ADR 0045).
+    pub struct TwoFactorStatusDto {
+        /// Whether sign-ins ask for a code of the authenticator app.
+        pub enabled: bool,
+        /// When it was turned on.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub enabled_at: Option<OffsetDateTime>,
+        /// Unused recovery codes.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub recovery_codes_left: i64,
+    }
+
+    /// `POST /api/account/two-factor/setup`: a new secret to add to the authenticator app.
+    pub struct TwoFactorSetupDto {
+        /// The secret in base32, to type by hand.
+        pub secret: String,
+        /// `otpauth://` link, shown as a QR code.
+        pub uri: String,
+    }
+
+    /// A code that confirms an action on two-step verification.
+    pub struct TwoFactorCodeBody {
+        /// Authenticator code (6 digits) or, to turn it off, a recovery code.
+        pub code: String,
+    }
+
+    /// Recovery codes, shown once.
+    pub struct RecoveryCodesDto {
+        /// `ABCD-EFGH` codes, each good for one sign-in.
+        pub codes: Vec<String>,
     }
 
     /// `DELETE /api/account`.
@@ -424,6 +465,8 @@ dto! {
         pub last_login_at: Option<OffsetDateTime>,
         /// Signs in with Google.
         pub google: bool,
+        /// Has two-step verification on (ADR 0045).
+        pub two_factor: bool,
         /// Open sessions.
         #[cfg_attr(feature = "ts", ts(type = "number"))]
         pub sessions: i64,

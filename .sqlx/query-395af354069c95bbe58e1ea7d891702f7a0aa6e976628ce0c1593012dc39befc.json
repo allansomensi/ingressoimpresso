@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select totp_secret, totp_enabled_at, totp_last_step from users where id = $1 for update",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "totp_secret",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "users",
+            "name": "totp_secret"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "totp_enabled_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "users",
+            "name": "totp_enabled_at"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "totp_last_step",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "users",
+            "name": "totp_last_step"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "395af354069c95bbe58e1ea7d891702f7a0aa6e976628ce0c1593012dc39befc"
+}

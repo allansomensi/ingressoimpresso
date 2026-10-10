@@ -19,6 +19,7 @@ pub mod sellers;
 pub mod status;
 pub mod support;
 pub mod tickets;
+pub mod two_factor;
 pub mod voids;
 
 use std::ops::Bound;

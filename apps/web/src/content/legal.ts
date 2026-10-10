@@ -16,7 +16,7 @@ export const LEGAL_ENTITY = {
 } as const;
 
 /** Version of the Terms + Privacy Policy accepted at sign-in (stored with the user). */
-export const TERMS_VERSION = "2026-10-10";
+export const TERMS_VERSION = "2026-10-10.2";
 
 export type LegalBlock =
   | { type: "p"; text: string }
@@ -463,6 +463,7 @@ const PRIVACY: LegalDocument = {
           "a data e a versão dos Termos de Uso e da Política de Privacidade que você aceitou;",
           "os códigos de acesso enviados por e-mail, guardados apenas como hash (um resumo criptográfico que não permite recuperar o código), com a contagem de tentativas;",
           "as sessões abertas, guardadas apenas como hash do token de sessão;",
+          "se você ligar a verificação em duas etapas, a chave do seu app autenticador, guardada cifrada, e os códigos de recuperação, guardados apenas como hash;",
           "um hash do endereço IP usado para pedir códigos de acesso, mantido por até 24 horas para impedir abusos;",
           "ao pedir um código de acesso, a verificação anti-robô do Cloudflare Turnstile analisa o endereço IP e sinais técnicos do navegador para confirmar que o pedido vem de uma pessoa; não guardamos esses sinais;",
           "o registro de auditoria das ações feitas pelo fornecedor na sua conta, e as mensagens de suporte trocadas com você.",
@@ -619,6 +620,7 @@ const PRIVACY: LegalDocument = {
           "códigos de acesso: deixam de valer em 10 minutos;",
           "sessões: expiram depois de 30 dias sem uso ou quando você sai;",
           "hash do IP usado para pedir códigos de acesso: até 24 horas;",
+          "chave da verificação em duas etapas e códigos de recuperação: até você desligar a verificação ou excluir a conta;",
           "registro dos e-mails enviados (destinatário, assunto sem o código e situação da entrega), para suporte e prevenção de abuso: 30 dias;",
           "avisos do painel para a sua conta: 180 dias;",
           "cópias de segurança cifradas do banco de dados: 30 dias;",

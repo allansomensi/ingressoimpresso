@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update users set totp_secret = null, totp_enabled_at = null, totp_last_step = null where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "fe40e1f9a01e732121fe254bd6ab3164492a048b2e40c6f429b702386fa46c9f"
+}

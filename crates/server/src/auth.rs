@@ -25,7 +25,7 @@ use crate::google::GoogleError;
 use crate::mail::MailKind;
 use crate::platform::PlatformSettings;
 use crate::state::AppState;
-use crate::{emails, keys};
+use crate::{emails, keys, two_factor};
 
 const CODE_TTL: Duration = Duration::minutes(10);
 const MAX_ATTEMPTS_PER_CODE: i16 = 5;
@@ -45,7 +45,7 @@ const SESSION_TTL: Duration = Duration::days(30);
 const SESSION_REFRESH_EVERY: Duration = Duration::hours(1);
 /// Version of the Terms of Use and Privacy Policy accepted by signing in (ADR 0033). Same value
 /// as `TERMS_VERSION` in apps/web/src/content/legal.ts.
-pub const TERMS_VERSION: &str = "2026-10-10";
+pub const TERMS_VERSION: &str = "2026-10-10.2";
 
 /// The authenticated user of a request.
 #[derive(Debug, Clone)]
@@ -316,6 +316,11 @@ pub async fn verify_code(
     let existing = sqlx::query_scalar!("select id from users where email = $1", email)
         .fetch_optional(&mut *tx)
         .await?;
+    // Two-step verification (ADR 0045): without its code nothing above is kept (the transaction
+    // rolls back), so the e-mail code still works with the authenticator code next.
+    if let Some(user_id) = existing {
+        two_factor::check(&state, &mut tx, user_id, body.two_factor_code.as_deref()).await?;
+    }
     let settings = state.settings.get(&state.pool).await?;
     check_sign_in(&state, &settings, &email, existing.is_some())?;
     let user_id = match existing {
@@ -417,6 +422,7 @@ pub async fn google(
         )
         .await?
     };
+    two_factor::check(&state, &mut tx, user_id, body.two_factor_code.as_deref()).await?;
     let session = start_session(&state, &mut tx, user_id).await?;
     tx.commit().await?;
     Ok(Json(session))

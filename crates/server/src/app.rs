@@ -18,7 +18,8 @@ use crate::error::ApiError;
 use crate::routes::events::MAX_ART_BYTES;
 use crate::routes::{
     account, admin, analytics, announcements, batches, billing, changelog, door, events, exports,
-    mail_admin, moderation, platform, privacy, report, sellers, status, support, tickets, voids,
+    mail_admin, moderation, platform, privacy, report, sellers, status, support, tickets,
+    two_factor, voids,
 };
 use crate::state::AppState;
 
@@ -56,6 +57,14 @@ pub fn router(state: AppState) -> Router {
         .route("/account/export", get(privacy::export))
         .route("/account/credits", get(billing::credits))
         .route("/account/redeem", post(billing::redeem))
+        .route("/account/two-factor", get(two_factor::status))
+        .route("/account/two-factor/setup", post(two_factor::setup))
+        .route("/account/two-factor/enable", post(two_factor::enable))
+        .route(
+            "/account/two-factor/recovery-codes",
+            post(two_factor::regenerate),
+        )
+        .route("/account/two-factor/disable", post(two_factor::disable))
         .route("/inbox", get(announcements::inbox))
         .route("/inbox/read", post(announcements::read))
         .route("/announcements/{id}/dismiss", post(announcements::dismiss))
@@ -111,6 +120,10 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/admin/organizations/{id}/suspension",
             put(support::set_suspension),
+        )
+        .route(
+            "/admin/users/{id}/two-factor/reset",
+            post(two_factor::admin_reset),
         )
         .route(
             "/admin/users/{id}/sessions/revoke",

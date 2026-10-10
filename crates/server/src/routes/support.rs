@@ -324,6 +324,7 @@ pub async fn organization(
         AdminMemberDto,
         r#"select u.id as user_id, u.email::text as "email!", u.name, m.role, u.created_at, u.last_login_at,
                   u.google_sub is not null as "google!",
+                  u.totp_enabled_at is not null as "two_factor!",
                   (select count(*) from sessions s where s.user_id = u.id and s.expires_at > now()) as "sessions!"
            from memberships m join users u on u.id = m.user_id
            where m.organization_id = $1
