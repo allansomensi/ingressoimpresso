@@ -4,7 +4,8 @@ import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 
 import { SiteAnalytics } from "@/components/site-analytics";
-import { SITE_URL } from "@/lib/site";
+import { EnvironmentBadge } from "@/components/environment-badge";
+import { IS_STAGING, SITE_URL } from "@/lib/site";
 import { THEME_COLORS, THEME_SCRIPT } from "@/lib/theme-script";
 import { texts } from "@/texts/pt-BR";
 
@@ -26,6 +27,8 @@ export const metadata: Metadata = {
     description: texts.meta.description,
   },
   twitter: { card: "summary_large_image", title: texts.landing.headline, description: texts.meta.description },
+  // The staging site (ADR 0046) never shows up in search results.
+  ...(IS_STAGING ? { robots: { index: false, follow: false } } : {}),
 };
 
 export const viewport: Viewport = {
@@ -48,6 +51,7 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
       <body className="min-h-dvh font-sans antialiased">
         <Providers>{children}</Providers>
         <SiteAnalytics />
+        <EnvironmentBadge />
       </body>
     </html>
   );

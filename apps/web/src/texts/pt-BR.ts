@@ -7,6 +7,7 @@
 export const texts = {
   meta: {
     title: "Ingresso Impresso",
+    staging: "Ambiente de testes",
     tagline: "Ingressos impressos à prova de cópia",
     description:
       "Ingressos impressos, numerados e com QR code à prova de cópia, com check-in na porta pelo celular, mesmo sem internet.",

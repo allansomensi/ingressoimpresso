@@ -6,5 +6,7 @@ declare namespace NodeJS {
     readonly NEXT_PUBLIC_API_URL?: string;
     /** Public address of the site (canonical URLs, sitemap); defaults to https://ingressoimpresso.com.br. */
     readonly NEXT_PUBLIC_SITE_URL?: string;
+    /** `staging` on the test environment (ADR 0046): a visible badge and no search indexing. */
+    readonly NEXT_PUBLIC_ENVIRONMENT?: string;
   }
 }
