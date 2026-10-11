@@ -238,7 +238,7 @@ async fn returns_are_checked_and_atomic(pool: PgPool) {
         (
             json!([{ "first": 1, "last": 1 }]),
             "revoked",
-            "invalid_reason",
+            "invalid_return_reason",
         ),
     ] {
         let reply = give_back(maria.clone(), ranges, reason).await;

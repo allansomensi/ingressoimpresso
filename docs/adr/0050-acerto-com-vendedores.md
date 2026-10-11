@@ -34,9 +34,11 @@ Opção 3.
   confirmação) e lançado de novo; excluir o vendedor exclui os lançamentos dele.
 - **Relatório**: cada linha ganha **recebido** e **saldo** (a acertar − recebido). Saldo positivo
   é o que falta receber, negativo é o que foi pago a mais. Os ingressos sem vendedor não têm
-  saldo (ninguém responde por eles), e o saldo do total soma só os vendedores. Sem preço no
-  evento, o recebido aparece e o saldo fica em branco. Enquanto o vendedor não devolve nada, ele
-  responde por todos os números que levou: o saldo cai com dinheiro ou com devolução.
+  saldo (ninguém responde por eles), e o saldo do total soma só os vendedores. No painel, o que
+  falta receber e o que foi pago a mais aparecem separados: o valor a mais de um vendedor não
+  quita a dívida de outro. Sem preço no evento, o recebido aparece e o saldo fica em branco.
+  Enquanto o vendedor não devolve nada, ele responde por todos os números que levou: o saldo cai
+  com dinheiro ou com devolução.
 - **Devoluções por vendedor** (`POST /api/sellers/{id}/returns`): vários números de uma vez
   (`12, 15, 40-50`), como devolvidos sem vender ou perdidos. Todos precisam ser do vendedor e
   ainda não estar cancelados; ou todos viram cancelamentos, ou nenhum. Cancelados, são barrados

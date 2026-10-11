@@ -179,7 +179,10 @@ pub async fn record_return(
 ) -> ApiResult<(StatusCode, Json<Vec<VoidDto>>)> {
     let event_id = seller_event(&state, &user, seller_id).await?;
     if !matches!(body.reason, VoidReason::Unsold | VoidReason::Lost) {
-        return Err(bad_request("invalid_reason", "a return is unsold or lost"));
+        return Err(bad_request(
+            "invalid_return_reason",
+            "a return is unsold or lost",
+        ));
     }
     if body.ranges.is_empty() || body.ranges.len() > MAX_RETURN_RANGES {
         return Err(bad_request(
