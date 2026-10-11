@@ -20,6 +20,7 @@ pub mod sellers;
 pub mod settlement;
 pub mod status;
 pub mod support;
+pub mod team;
 pub mod tickets;
 pub mod two_factor;
 pub mod voids;
@@ -34,6 +35,7 @@ use time::macros::offset;
 use time::{OffsetDateTime, PrimitiveDateTime, UtcOffset};
 use uuid::Uuid;
 
+use crate::api::TeamArea;
 use crate::auth::AuthUser;
 use crate::error::{ApiError, ApiResult, bad_request};
 
@@ -83,11 +85,30 @@ pub struct EventAccess {
     pub organization_id: Uuid,
     /// Opened by an admin who is not a member (support mode, ADR 0032).
     pub support: bool,
+    /// On the event's team, not in its organization (ADR 0055): what the user takes care of.
+    pub team: Option<Vec<TeamArea>>,
+    /// The organization's name (shown to team members).
+    pub organization_name: String,
 }
 
-/// Loads an event if the user is a member of its organization, or an admin (support mode); 404
-/// otherwise (never reveals that another organization's event exists). Every change an admin
-/// makes in support mode is written to the audit log.
+impl EventAccess {
+    /// Whether the user may do everything an organization member does on this event.
+    pub fn is_owner(&self) -> bool {
+        self.team.is_none()
+    }
+
+    /// Whether the user may change `area` (owners and `manage` may change everything).
+    pub fn can(&self, area: TeamArea) -> bool {
+        self.team
+            .as_ref()
+            .is_none_or(|areas| areas.contains(&TeamArea::Manage) || areas.contains(&area))
+    }
+}
+
+/// Loads an event if the user is a member of its organization, on its team (ADR 0055) or an
+/// admin (support mode); 404 otherwise (never reveals that another organization's event exists).
+/// A team member reads everything and changes only their areas ([`team::need`] maps the request
+/// to an area). Every change an admin makes in support mode is written to the audit log.
 pub async fn event_access(
     pool: &PgPool,
     user: &AuthUser,
@@ -95,21 +116,49 @@ pub async fn event_access(
 ) -> ApiResult<EventAccess> {
     let row = sqlx::query!(
         r#"select e.id, e.name, e.venue, e.starts_at, e.ends_at, e.ticket_price_cents, e.status, e.qr_tag,
-                  e.utc_offset_minutes, e.organization_id,
+                  e.utc_offset_minutes, e.organization_id, o.name as organization_name,
+                  o.suspended_at is not null as "organization_suspended!",
                   exists(select 1 from memberships m
-                         where m.organization_id = e.organization_id and m.user_id = $2) as "member!"
-           from events e where e.id = $1"#,
+                         where m.organization_id = e.organization_id and m.user_id = $2) as "member!",
+                  (select t.areas from event_team t where t.event_id = e.id and t.user_id = $2) as "areas?: Vec<String>"
+           from events e join organizations o on o.id = e.organization_id where e.id = $1"#,
         event_id,
         user.id,
     )
     .fetch_optional(pool)
     .await?
     .ok_or(ApiError::NotFound)?;
-    if !row.member && !user.is_admin {
-        return Err(ApiError::NotFound);
+    let team = match (row.member, row.areas) {
+        (true, _) => None,
+        (false, Some(areas)) => Some(
+            areas
+                .iter()
+                .filter_map(|area| TeamArea::from_db(area))
+                .collect::<Vec<_>>(),
+        ),
+        (false, None) if user.is_admin => None,
+        (false, None) => return Err(ApiError::NotFound),
+    };
+    let support = !row.member && team.is_none();
+    let writing = !matches!(user.method, Method::GET | Method::HEAD);
+    if let Some(areas) = &team {
+        let allowed = match team::need(&user.method, &user.path) {
+            team::Need::Read => true,
+            team::Need::Area(area) => areas.contains(&TeamArea::Manage) || areas.contains(&area),
+            team::Need::Owner => false,
+        };
+        if !allowed {
+            return Err(ApiError::Refused(
+                "not_your_area",
+                "another person of the team takes care of this".to_owned(),
+            ));
+        }
+        // A suspended organization's events only read, whoever opens them (ADR 0032).
+        if row.organization_suspended && writing && !team::leaving(&user.path) {
+            return Err(ApiError::Suspended);
+        }
     }
-    let support = !row.member;
-    if support && !matches!(user.method, Method::GET | Method::HEAD) {
+    if support && writing {
         admin::audit_with(
             pool,
             user,
@@ -135,6 +184,8 @@ pub async fn event_access(
         },
         organization_id: row.organization_id,
         support,
+        team,
+        organization_name: row.organization_name,
     })
 }
 

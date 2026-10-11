@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select exists(select 1 from memberships m join users u on u.id = m.user_id\n                         where m.organization_id = $1 and u.email = $2) as \"owner!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "owner!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        {
+          "Custom": {
+            "name": "citext",
+            "kind": "Simple"
+          }
+        }
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "2a147a7d3c1fe8faa96a4dc67e2903d02413a5a8dce5f4316474586d5f117bd0"
+}

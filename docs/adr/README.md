@@ -64,3 +64,4 @@ feita e as consequências.
 | [0052](0052-versao-fora-do-menu-da-conta.md) | A versão sai do menu da conta | Aceito |
 | [0053](0053-link-do-vendedor.md) | Link do vendedor: as vendas marcadas pelo próprio vendedor | Aceito |
 | [0054](0054-versao-so-onde-se-procura.md) | A versão só onde alguém a procura | Aceito |
+| [0055](0055-equipe-do-evento.md) | Equipe do evento: cada pessoa cuida da sua parte | Aceito |

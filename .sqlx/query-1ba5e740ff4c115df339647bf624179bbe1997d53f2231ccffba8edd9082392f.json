@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select coalesce(t.name, u.name) as \"name!\" from event_team t\n           left join users u on u.id = t.user_id\n           where t.event_id = $1 and 'money' = any(t.areas) and coalesce(t.name, u.name) is not null\n           order by t.created_at",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "name!",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "1ba5e740ff4c115df339647bf624179bbe1997d53f2231ccffba8edd9082392f"
+}

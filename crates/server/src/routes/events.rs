@@ -18,6 +18,7 @@ use uuid::Uuid;
 use super::{EventRow, authorize_event, door, event_access, one_line, optional_text};
 use crate::api::{
     ArtDto, DesignBody, DesignResponse, EventBody, EventDto, EventStatus, EventStatusBody,
+    EventTeamAccessDto, TeamArea,
 };
 use crate::auth::AuthUser;
 use crate::error::{ApiError, ApiResult, bad_request};
@@ -56,6 +57,7 @@ impl EventRow {
                 ApiError::Internal(anyhow::anyhow!("unknown event status {}", self.status))
             })?,
             support_access: false,
+            team: None,
         })
     }
 }
@@ -99,22 +101,50 @@ fn validate_event(body: &EventBody) -> ApiResult<(String, Option<String>, i16)> 
     Ok((name, venue, offset))
 }
 
-/// `GET /api/events`.
+/// `GET /api/events`: the organization's events and the ones whose team the user is on
+/// (ADR 0055).
 pub async fn list(State(state): State<AppState>, user: AuthUser) -> ApiResult<Json<Vec<EventDto>>> {
-    let rows = sqlx::query_as!(
-        EventRow,
+    let rows = sqlx::query!(
         r#"select e.id, e.name, e.venue, e.starts_at, e.ends_at, e.ticket_price_cents, e.status, e.qr_tag,
-                  e.utc_offset_minutes
-           from events e join memberships m on m.organization_id = e.organization_id
-           where m.user_id = $1 order by e.starts_at desc"#,
+                  e.utc_offset_minutes, o.name as organization, t.areas as "areas?"
+           from events e join organizations o on o.id = e.organization_id
+           left join event_team t on t.event_id = e.id and t.user_id = $1
+           where exists (select 1 from memberships m where m.organization_id = e.organization_id and m.user_id = $1)
+              or t.id is not null
+           order by e.starts_at desc"#,
         user.id,
     )
     .fetch_all(&state.pool)
     .await?;
     rows.into_iter()
-        .map(EventRow::into_dto)
+        .map(|row| {
+            let mut event = EventRow {
+                id: row.id,
+                name: row.name,
+                venue: row.venue,
+                starts_at: row.starts_at,
+                ends_at: row.ends_at,
+                ticket_price_cents: row.ticket_price_cents,
+                status: row.status,
+                qr_tag: row.qr_tag,
+                utc_offset_minutes: row.utc_offset_minutes,
+            }
+            .into_dto()?;
+            event.team = row.areas.map(|areas| team_access(&areas, row.organization));
+            Ok(event)
+        })
         .collect::<ApiResult<Vec<_>>>()
         .map(Json)
+}
+
+fn team_access(areas: &[String], organization: String) -> EventTeamAccessDto {
+    EventTeamAccessDto {
+        areas: areas
+            .iter()
+            .filter_map(|area| TeamArea::from_db(area))
+            .collect(),
+        organization,
+    }
 }
 
 /// A new event: its row and its first signing key.
@@ -223,7 +253,7 @@ fn copy_name(name: &str) -> String {
 }
 
 /// `POST /api/events/{id}/duplicate`: a new event with the same details, the latest ticket
-/// design (art included) and the same sellers, without batches, ranges or door links. It gets
+/// design (art included), the same sellers and team (ADR 0055), without batches, ranges or door links. It gets
 /// its own QR tag and signing key: tickets of one event never open the other's door.
 pub async fn duplicate(
     State(state): State<AppState>,
@@ -287,6 +317,7 @@ pub async fn duplicate(
     )
     .execute(&mut *tx)
     .await?;
+    super::team::copy(&mut tx, event_id, copy.id, user.id).await?;
     tx.commit().await?;
     // A copy of art nobody has looked at yet is classified like a new upload (ADR 0042).
     if let Some(art_id) = copied_art {
@@ -424,6 +455,10 @@ pub async fn get(
     let access = event_access(&state.pool, &user, event_id).await?;
     let mut event = access.event.into_dto()?;
     event.support_access = access.support;
+    event.team = access.team.map(|areas| EventTeamAccessDto {
+        areas,
+        organization: access.organization_name,
+    });
     Ok(Json(event))
 }
 

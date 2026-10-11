@@ -87,6 +87,7 @@ pub async fn export(State(state): State<AppState>, user: AuthUser) -> ApiResult<
             value
         })?);
     }
+    let teams = team_memberships(&state, user.id).await?;
     let document = json!({
         "format": "ingressoimpresso-account-export",
         "version": 1,
@@ -105,6 +106,7 @@ pub async fn export(State(state): State<AppState>, user: AuthUser) -> ApiResult<
             "createdAt": rfc3339(account.organization_created_at),
         },
         "events": exported,
+        "teams": teams,
     });
     let body = serde_json::to_vec_pretty(&document).map_err(anyhow::Error::from)?;
     Ok((
@@ -256,6 +258,24 @@ async fn export_event(state: &AppState, event_id: Uuid) -> ApiResult<Value> {
         })
     })
     .collect::<Vec<_>>();
+    let team = sqlx::query!(
+        r#"select email::text as "email!", name, areas, joined_at, created_at from event_team
+           where event_id = $1 order by created_at"#,
+        event_id
+    )
+    .fetch_all(&state.pool)
+    .await?
+    .into_iter()
+    .map(|member| {
+        json!({
+            "email": member.email,
+            "name": member.name,
+            "areas": member.areas,
+            "joinedAt": optional_rfc3339(member.joined_at),
+            "addedAt": rfc3339(member.created_at),
+        })
+    })
+    .collect::<Vec<_>>();
     let entries = sqlx::query_scalar!(
         r#"select count(*) as "count!" from entries where event_id = $1"#,
         event_id
@@ -269,8 +289,32 @@ async fn export_event(state: &AppState, event_id: Uuid) -> ApiResult<Value> {
         "voids": void_list,
         "digitalTickets": links,
         "doorPhones": devices,
+        "team": team,
         "entries": entries,
     }))
+}
+
+/// Events of other organizations whose team the user is on (ADR 0055).
+async fn team_memberships(state: &AppState, user_id: Uuid) -> ApiResult<Vec<Value>> {
+    Ok(sqlx::query!(
+        r#"select e.name as event, o.name as organization, t.areas, t.joined_at
+           from event_team t join events e on e.id = t.event_id
+           join organizations o on o.id = e.organization_id
+           where t.user_id = $1 order by t.created_at"#,
+        user_id
+    )
+    .fetch_all(&state.pool)
+    .await?
+    .into_iter()
+    .map(|row| {
+        json!({
+            "event": row.event,
+            "organization": row.organization,
+            "areas": row.areas,
+            "joinedAt": optional_rfc3339(row.joined_at),
+        })
+    })
+    .collect())
 }
 
 /// `DELETE /api/account` with `{ "email": "<the account's e-mail>" }` as confirmation.
@@ -324,6 +368,7 @@ pub async fn delete(
             r#"with events as (select id from events where organization_id = $1),
                designs as (delete from ticket_designs where event_id in (select id from events)),
                sellers as (delete from sellers where event_id in (select id from events)),
+               team as (delete from event_team where event_id in (select id from events)),
                links as (delete from ticket_links where event_id in (select id from events)),
                doors as (delete from door_accesses where event_id in (select id from events)),
                files as (delete from exports where event_id in (select id from events)),
@@ -366,6 +411,14 @@ pub async fn delete(
         .await?;
     // Nothing of the person stays on the row: no second-factor secret, no recovery codes, no
     // notifications, no memberships beyond the anonymized organizations' owner row.
+    // Off every event team, including invites still waiting for this e-mail (ADR 0055).
+    sqlx::query!(
+        "delete from event_team where user_id = $1 or email = $2",
+        user.id,
+        user.email
+    )
+    .execute(&mut *tx)
+    .await?;
     sqlx::query!("delete from recovery_codes where user_id = $1", user.id)
         .execute(&mut *tx)
         .await?;

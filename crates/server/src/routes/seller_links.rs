@@ -261,6 +261,23 @@ async fn seller_payments(
     .collect()
 }
 
+/// The paid numbers a seller holds: their ranges cut to the paid batches (only those can be sold).
+async fn held_ranges(state: &AppState, link: &LinkRow) -> ApiResult<Vec<NumberRangeDto>> {
+    let held = sqlx::query_scalar!(
+        r#"select a.numbers * b.numbers as "numbers!"
+           from seller_assignments a
+           join ticket_batches b on b.event_id = a.event_id and b.status = 'paid' and b.numbers && a.numbers
+           where a.seller_id = $1
+           order by lower(a.numbers * b.numbers)"#,
+        link.seller_id
+    )
+    .fetch_all(&state.pool)
+    .await?;
+    held.iter()
+        .map(|numbers| bounds(numbers).map(|(first, last)| NumberRangeDto { first, last }))
+        .collect()
+}
+
 /// Builds the page of a link.
 async fn view(state: &AppState, link: &LinkRow) -> ApiResult<SellerViewDto> {
     let event = sqlx::query!(
@@ -274,21 +291,7 @@ async fn view(state: &AppState, link: &LinkRow) -> ApiResult<SellerViewDto> {
     )
     .fetch_one(&state.pool)
     .await?;
-    // Only paid numbers can be sold: the seller's ranges cut to the paid batches.
-    let held = sqlx::query_scalar!(
-        r#"select a.numbers * b.numbers as "numbers!"
-           from seller_assignments a
-           join ticket_batches b on b.event_id = a.event_id and b.status = 'paid' and b.numbers && a.numbers
-           where a.seller_id = $1
-           order by lower(a.numbers * b.numbers)"#,
-        link.seller_id
-    )
-    .fetch_all(&state.pool)
-    .await?;
-    let ranges = held
-        .iter()
-        .map(|numbers| bounds(numbers).map(|(first, last)| NumberRangeDto { first, last }))
-        .collect::<ApiResult<Vec<_>>>()?;
+    let ranges = held_ranges(state, link).await?;
     let voids = seller_voids(state, link).await?;
     let sales = sqlx::query_as!(
         SellerSaleDto,
@@ -362,6 +365,7 @@ async fn view(state: &AppState, link: &LinkRow) -> ApiResult<SellerViewDto> {
             received_cents,
             balance_cents: amount_due_cents.map(|due| due - received_cents),
         },
+        receivers: super::team::receivers(state, link.event_id).await?,
     })
 }
 

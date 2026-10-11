@@ -45,4 +45,8 @@ payments: Array<SellerViewPaymentDto>,
 /**
  * The totals.
  */
-summary: SellerSummaryDto, };
+summary: SellerSummaryDto, 
+/**
+ * Names of who receives the sellers' money on the team (ADR 0055), if any.
+ */
+receivers: Array<string>, };

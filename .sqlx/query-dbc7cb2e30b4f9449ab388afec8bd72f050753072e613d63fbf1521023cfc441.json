@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select coalesce(name, email::text) as \"name!\" from users where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "name!",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "dbc7cb2e30b4f9449ab388afec8bd72f050753072e613d63fbf1521023cfc441"
+}

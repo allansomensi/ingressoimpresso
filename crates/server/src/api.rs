@@ -195,6 +195,86 @@ dto! {
         pub status: EventStatus,
         /// Opened by an admin outside their own organization (support mode, ADR 0032).
         pub support_access: bool,
+        /// How the user is on the event's team (ADR 0055); `null` for the organization's own
+        /// people, who may do everything.
+        pub team: Option<EventTeamAccessDto>,
+    }
+
+    /// The current user's place on the team of an event of another organization (ADR 0055).
+    pub struct EventTeamAccessDto {
+        /// What they take care of; `manage` means everything.
+        pub areas: Vec<TeamArea>,
+        /// The organization that owns the event.
+        pub organization: String,
+    }
+
+    /// `GET /api/events/{id}/team`: who works on the event.
+    pub struct EventTeamDto {
+        /// The organization's own people (they may do everything, including deleting the event).
+        pub owners: Vec<TeamOwnerDto>,
+        /// People added to this event.
+        pub members: Vec<TeamMemberDto>,
+        /// Whether the current user may add, change and remove people.
+        pub can_manage: bool,
+    }
+
+    /// A person of the organization that owns the event.
+    pub struct TeamOwnerDto {
+        /// E-mail.
+        pub email: String,
+        /// Name (from Google), if known.
+        pub name: Option<String>,
+        /// Whether it is the current user.
+        pub you: bool,
+    }
+
+    /// A person added to an event's team.
+    pub struct TeamMemberDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// E-mail.
+        pub email: String,
+        /// Name given by the team, or the account's name.
+        pub name: Option<String>,
+        /// What they take care of.
+        pub areas: Vec<TeamArea>,
+        /// Whether they have signed in since being added (`false`: the invite is waiting).
+        pub joined: bool,
+        /// Whether it is the current user.
+        pub you: bool,
+        /// When they were added.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub created_at: OffsetDateTime,
+    }
+
+    /// `POST /api/events/{id}/team`: adds a person by e-mail.
+    pub struct TeamMemberBody {
+        /// E-mail.
+        pub email: String,
+        /// How the team calls them (optional).
+        pub name: Option<String>,
+        /// What they take care of (at least one).
+        pub areas: Vec<TeamArea>,
+    }
+
+    /// `PUT /api/team-members/{id}`: changes the name or the areas.
+    pub struct TeamMemberUpdateBody {
+        /// How the team calls them (optional).
+        pub name: Option<String>,
+        /// What they take care of (at least one).
+        pub areas: Vec<TeamArea>,
+    }
+
+    /// `POST /api/events/{id}/team`: the person added and whether the e-mail went out.
+    pub struct TeamMemberAdded {
+        /// The person.
+        pub member: TeamMemberDto,
+        /// Whether the invite e-mail was sent (the daily quota may be spent).
+        pub emailed: bool,
+        /// Where to sign in, for sending the invite another way (WhatsApp).
+        pub sign_in_url: String,
     }
 
     /// Uploaded art.
@@ -1200,6 +1280,8 @@ dto! {
         pub payments: Vec<SellerViewPaymentDto>,
         /// The totals.
         pub summary: SellerSummaryDto,
+        /// Names of who receives the sellers' money on the team (ADR 0055), if any.
+        pub receivers: Vec<String>,
     }
 
     /// An inclusive range of ticket numbers.
@@ -2772,6 +2854,20 @@ dto_enum! {
     }
 
     /// What a notification is about.
+    /// What a team member takes care of on an event (ADR 0055).
+    pub enum TeamArea {
+        /// Everything but deleting, archiving or duplicating the event.
+        Manage,
+        /// What sellers hand over and give back.
+        Money,
+        /// Sellers, ranges, seller links, files, digital tickets and voids.
+        Delivery,
+        /// The ticket design.
+        Art,
+        /// Door links and phones.
+        Door,
+    }
+
     pub enum NotificationKind {
         /// An image of the user was refused by an admin.
         ArtRejected,
@@ -2785,6 +2881,8 @@ dto_enum! {
         DiscountGranted,
         /// Prices will change.
         PriceChange,
+        /// The user was added to an event's team (ADR 0055).
+        TeamAdded,
     }
 
     /// What a promo code gives.
@@ -2906,7 +3004,9 @@ db_enum!(NotificationKind {
     FreeTicketsGranted => "free_tickets_granted",
     DiscountGranted => "discount_granted",
     PriceChange => "price_change",
+    TeamAdded => "team_added",
 });
+db_enum!(TeamArea { Manage => "manage", Money => "money", Delivery => "delivery", Art => "art", Door => "door" });
 db_enum!(PromoCodeKind { Credit => "credit", FreeTickets => "free_tickets", Discount => "discount" });
 db_enum!(CreditReason {
     PromoCode => "promo_code",

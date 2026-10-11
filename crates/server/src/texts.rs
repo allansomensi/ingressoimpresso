@@ -14,3 +14,25 @@ pub(crate) fn checkout_description(event: &str, first: i32, last: i32) -> String
     };
     format!("{event}: lote de {quantity} {tickets} (nº {first} a {last})")
 }
+
+/// What a team member takes care of (ADR 0055), as the panel names it.
+pub(crate) const fn team_area(area: crate::api::TeamArea) -> &'static str {
+    use crate::api::TeamArea;
+    match area {
+        TeamArea::Manage => "Coordenação (tudo)",
+        TeamArea::Money => "Recebimentos",
+        TeamArea::Delivery => "Ingressos e vendedores",
+        TeamArea::Art => "Arte do ingresso",
+        TeamArea::Door => "Portaria",
+    }
+}
+
+/// `Recebimentos, Arte do ingresso e Portaria`.
+pub(crate) fn team_areas(areas: &[crate::api::TeamArea]) -> String {
+    let names: Vec<&str> = areas.iter().map(|area| team_area(*area)).collect();
+    match names.split_last() {
+        None => String::new(),
+        Some((last, [])) => (*last).to_owned(),
+        Some((last, rest)) => format!("{} e {last}", rest.join(", ")),
+    }
+}

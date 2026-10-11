@@ -1,0 +1,39 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into event_team (id, event_id, email, name, user_id, areas, invited_by, joined_at)\n           values ($1, $2, $3, $4, $5, $6, $7, case when $5::uuid is null then null else now() end)\n           on conflict (event_id, email) do nothing\n           returning created_at",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "event_team",
+            "name": "created_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        {
+          "Custom": {
+            "name": "citext",
+            "kind": "Simple"
+          }
+        },
+        "Text",
+        "Uuid",
+        "TextArray",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "c147cf0a08efe5fc606478e89391a08e93d520e464da214f57cc8fbace481ab6"
+}
