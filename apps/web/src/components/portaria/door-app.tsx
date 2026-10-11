@@ -113,6 +113,8 @@ function Register({ engine, accessToken }: { engine: DoorEngine; accessToken: st
           onChange={(event) => {
             setName(event.target.value);
           }}
+          autoComplete="off"
+          enterKeyHint="go"
           autoFocus
         />
       </label>
@@ -411,7 +413,7 @@ function Readiness(props: { app: boolean; dataAt: number | null; camera: boolean
 }
 
 const TONE_CLASS = {
-  ok: "bg-[#16a34a] text-white",
+  ok: "bg-[#15803d] text-white",
   bad: "bg-[#c81e1e] text-white",
   warn: "bg-[#f5b70b] text-black",
 } as const;
