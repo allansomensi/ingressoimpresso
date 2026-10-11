@@ -27,6 +27,7 @@ export function InstallButton({ className }: { className?: string | undefined })
         size="sm"
         icon={<Download />}
         className={className}
+        title={t.install}
         onClick={() => {
           if (state === "ios") {
             setIosHelp(true);
@@ -39,7 +40,8 @@ export function InstallButton({ className }: { className?: string | undefined })
           }
         }}
       >
-        {t.install}
+        {/* Icon only on phones: the header also holds the inbox and the account. */}
+        <span className="max-sm:sr-only">{t.install}</span>
       </Button>
       <Dialog
         open={iosHelp}

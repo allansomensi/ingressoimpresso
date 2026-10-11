@@ -193,7 +193,7 @@ function EntryRow({ entry, editable, onEdit, onChange }: { entry: LedgerEntryDto
         {income ? "+" : "−"} {money(entry.amountCents)}
       </span>
       {editable && (
-        <Menu label={t.menu(entry.description)} trigger={<MoreHorizontal />} triggerClassName={buttonClass({ variant: "ghost", size: "icon", className: "size-8" })}>
+        <Menu label={t.menu(entry.description)} trigger={<MoreHorizontal />} triggerClassName={buttonClass({ variant: "ghost", size: "icon-sm" })}>
           <MenuItem icon={<Pencil />} onSelect={onEdit}>
             {t.edit}
           </MenuItem>

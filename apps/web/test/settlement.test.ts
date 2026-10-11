@@ -53,6 +53,18 @@ describe("number lists", () => {
     });
   });
 
+  it("takes a dot between numbers as a separator, but keeps 1.500 as one thousand five hundred", () => {
+    expect(parseNumberList("12.15.16")).toEqual({
+      ok: true,
+      ranges: [
+        { first: 12, last: 12 },
+        { first: 15, last: 16 },
+      ],
+      count: 3,
+    });
+    expect(parseNumberList("1.500")).toEqual({ ok: true, ranges: [{ first: 1500, last: 1500 }], count: 1 });
+  });
+
   it("merges repeats, overlaps and neighbours instead of failing", () => {
     expect(parseNumberList("12 12 13, 10-14")).toEqual({ ok: true, ranges: [{ first: 10, last: 14 }], count: 5 });
   });

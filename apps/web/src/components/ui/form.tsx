@@ -148,7 +148,7 @@ export function Switch({
           onChange(!checked);
         }}
         className={cn(
-          "relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors",
+          "relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors touch-target",
           checked ? "bg-brand" : "bg-surface-3",
         )}
       >

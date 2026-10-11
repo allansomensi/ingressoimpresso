@@ -149,7 +149,7 @@ export function TeamTab({ eventId, event }: { eventId: string; event: EventDto }
                       onClick={() => {
                         setDialog({ mode: "add", area });
                       }}
-                      className="mt-1 w-fit text-sm font-medium text-brand underline-offset-2 hover:underline"
+                      className="relative mt-1 w-fit text-sm font-medium text-brand underline-offset-2 touch-target hover:underline"
                     >
                       {t.addFor}
                     </button>
@@ -300,7 +300,7 @@ function MemberRow({
           label={t.menu(name)}
           disabled={remove.isPending || leave.isPending}
           trigger={<MoreHorizontal />}
-          triggerClassName={buttonClass({ variant: "ghost", size: "icon", className: "size-8" })}
+          triggerClassName={buttonClass({ variant: "ghost", size: "icon-sm" })}
         >
           <MenuItem icon={<Pencil />} onSelect={onEdit}>
             {t.edit}
@@ -466,7 +466,7 @@ function MemberDialog({
                   key={area}
                   className={cn(
                     "flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand",
-                    checked ? "border-brand bg-brand-soft/60" : "border-border hover:border-border-strong hover:bg-surface-2",
+                    checked ? "border-brand bg-brand-soft/60" : "border-border hover:border-border-strong hover:bg-surface-2 active:bg-surface-2",
                     covered && "cursor-default opacity-60",
                     area === "manage" && "mb-1",
                   )}

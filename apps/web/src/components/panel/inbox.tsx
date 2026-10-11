@@ -123,7 +123,7 @@ function NotificationItem({ item }: { item: NotificationDto }) {
   return href === null ? (
     <div className="flex gap-3 px-3 py-3">{content}</div>
   ) : (
-    <Link href={href} className="flex gap-3 rounded-xl px-3 py-3 transition hover:bg-surface-2">
+    <Link href={href} className="flex gap-3 rounded-xl px-3 py-3 transition hover:bg-surface-2 active:bg-surface-2">
       {content}
     </Link>
   );
@@ -160,7 +160,7 @@ export function Inbox() {
       <Popover
         label={unread > 0 ? `${t.open}: ${t.unread(unread)}` : t.open}
         title={t.open}
-        triggerClassName="relative flex size-10 items-center justify-center rounded-full text-fg-muted transition hover:bg-surface-2 hover:text-fg"
+        triggerClassName="relative flex size-10 items-center justify-center rounded-full text-fg-muted transition hover:bg-surface-2 hover:text-fg active:bg-surface-2 pointer-coarse:size-11"
         trigger={
           <>
             <Bell className="size-[19px]" aria-hidden />
@@ -214,7 +214,7 @@ export function Inbox() {
                 ))}
                 {news.length === 0 && <p className="px-3 py-8 text-center text-sm text-fg-muted">{texts.changelog.empty}</p>}
               </div>
-              <Link href="/novidades" className="mt-1 rounded-xl px-3 py-2.5 text-center text-sm font-medium text-brand transition hover:bg-surface-2">
+              <Link href="/novidades" className="mt-1 rounded-xl px-3 py-2.5 text-center text-sm font-medium text-brand transition hover:bg-surface-2 active:bg-surface-2">
                 {texts.changelog.seeAll}
               </Link>
             </>

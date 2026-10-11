@@ -68,7 +68,14 @@ export function Providers({ children }: { children: ReactNode }) {
     <QueryClientProvider client={client}>
       <ConfirmProvider>{children}</ConfirmProvider>
       <AppWorker />
-      <Toaster theme={theme} position="top-center" style={TOASTER_STYLE} toastOptions={{ classNames: TOAST_CLASSES }} />
+      <Toaster
+        theme={theme}
+        position="top-center"
+        // Below the status bar of an installed iPhone app (the safe area), like the header.
+        mobileOffset={{ top: "calc(env(safe-area-inset-top) + 12px)" }}
+        style={TOASTER_STYLE}
+        toastOptions={{ classNames: TOAST_CLASSES }}
+      />
     </QueryClientProvider>
   );
 }

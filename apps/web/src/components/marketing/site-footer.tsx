@@ -59,10 +59,11 @@ export function SiteFooter() {
         {COLUMNS.map((column) => (
           <nav key={column.title} aria-label={column.title} className="flex flex-col gap-3">
             <h2 className="text-xs font-semibold tracking-wide text-fg-subtle uppercase">{column.title}</h2>
-            <ul className="flex flex-col gap-2">
+            {/* Taller rows on touch screens: each link is easy to hit with a thumb. */}
+            <ul className="flex flex-col gap-2 pointer-coarse:gap-0">
               {column.links.map((link) => (
                 <li key={link.href}>
-                  <Link href={link.href} className="text-sm text-fg-muted transition hover:text-fg">
+                  <Link href={link.href} className="inline-flex text-sm text-fg-muted transition hover:text-fg pointer-coarse:min-h-10 pointer-coarse:items-center">
                     {link.label}
                   </Link>
                 </li>
@@ -75,7 +76,7 @@ export function SiteFooter() {
           <p className="text-sm leading-relaxed text-fg-muted">{t.contactBody}</p>
           <a
             href={`mailto:${LEGAL_ENTITY.email}`}
-            className="inline-flex w-fit items-center gap-2 text-sm font-medium text-brand transition hover:text-brand-hover"
+            className="inline-flex w-fit items-center gap-2 text-sm font-medium text-brand transition hover:text-brand-hover pointer-coarse:min-h-10"
           >
             <Mail className="size-4" aria-hidden />
             {LEGAL_ENTITY.email}
@@ -88,7 +89,7 @@ export function SiteFooter() {
             <span>{t.rights(new Date().getFullYear())}</span>
             <span>{t.provider(LEGAL_ENTITY.name, LEGAL_ENTITY.document)}</span>
           </p>
-          <div className="flex items-center gap-2 opacity-70 transition hover:opacity-100 focus-within:opacity-100">
+          <div className="flex items-center gap-2">
             <span>{t.theme}</span>
             <ThemeSwitcher />
           </div>

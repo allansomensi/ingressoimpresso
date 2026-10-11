@@ -119,7 +119,7 @@ function NewBatch({ eventId, pricing, nextNumber }: { eventId: string; pricing: 
                   setQuantity(preset);
                 }}
                 className={cn(
-                  "rounded-full border px-3 py-1 text-sm font-medium tabular transition",
+                  "rounded-full border px-3 py-1 text-sm font-medium tabular transition pointer-coarse:px-3.5 pointer-coarse:py-2",
                   quantity === preset
                     ? "border-brand bg-brand-soft text-brand-soft-fg"
                     : "border-border text-fg-muted hover:border-border-strong hover:text-fg",
@@ -187,7 +187,7 @@ function NewBatch({ eventId, pricing, nextNumber }: { eventId: string; pricing: 
         <div className="mt-4 border-t border-border pt-4">
           <button
             type="button"
-            className="text-sm font-medium text-brand hover:underline"
+            className="relative text-sm font-medium text-brand touch-target hover:underline"
             aria-expanded={showTable}
             onClick={() => {
               setShowTable(!showTable);
@@ -429,15 +429,9 @@ function PaymentReturn({
     query.delete("lote");
     router.replace(`${pathname}?${query.toString()}`, { scroll: false });
   };
-  const close = (
-    <button type="button" aria-label={texts.common.close} onClick={dismiss} className="rounded-md opacity-70 hover:opacity-100">
-      <X className="size-4" />
-    </button>
-  );
-
   if (outcome === "cancelado") {
     return (
-      <Alert tone="warning" action={close}>
+      <Alert tone="warning" onDismiss={dismiss}>
         {t.paymentCanceled}
       </Alert>
     );
@@ -450,19 +444,17 @@ function PaymentReturn({
       <Alert
         tone="success"
         title={t.paymentSuccess}
+        onDismiss={dismiss}
         action={
-          <div className="flex items-center gap-3">
-            <Button
-              size="sm"
-              icon={<FileDown />}
-              onClick={() => {
-                onSelect("files");
-              }}
-            >
-              {t.goToFiles}
-            </Button>
-            {close}
-          </div>
+          <Button
+            size="sm"
+            icon={<FileDown />}
+            onClick={() => {
+              onSelect("files");
+            }}
+          >
+            {t.goToFiles}
+          </Button>
         }
       />
     );
@@ -472,25 +464,23 @@ function PaymentReturn({
     <Alert
       tone={sync.isError ? "warning" : "brand"}
       title={stillWaiting ? t.paymentNotConfirmed : undefined}
+      onDismiss={dismiss}
       action={
-        <div className="flex items-center gap-3">
-          {stillWaiting ? (
-            <Button
-              size="sm"
-              variant="secondary"
-              icon={<RefreshCw />}
-              loading={sync.isPending}
-              onClick={() => {
-                sync.mutate(batch.id);
-              }}
-            >
-              {t.checkPayment}
-            </Button>
-          ) : (
-            <Spinner className="mt-0.5" />
-          )}
-          {close}
-        </div>
+        stillWaiting ? (
+          <Button
+            size="sm"
+            variant="secondary"
+            icon={<RefreshCw />}
+            loading={sync.isPending}
+            onClick={() => {
+              sync.mutate(batch.id);
+            }}
+          >
+            {t.checkPayment}
+          </Button>
+        ) : (
+          <Spinner className="mt-0.5" />
+        )
       }
     >
       {sync.isError ? errorMessage(sync.error) : batch.pendingPayment === "processing" ? t.pixProcessing : t.paymentProcessing}

@@ -111,6 +111,8 @@ function EventForm({
           placeholder={t.eventNamePlaceholder}
           required
           maxLength={100}
+          autoComplete="off"
+          enterKeyHint="next"
           autoFocus
         />
       </Field>
@@ -122,6 +124,8 @@ function EventForm({
           }}
           placeholder={t.venuePlaceholder}
           maxLength={120}
+          autoComplete="off"
+          enterKeyHint="next"
         />
       </Field>
       <div className="grid gap-4 sm:grid-cols-2">
@@ -164,6 +168,7 @@ function EventForm({
               setPrice(e.target.value);
             }}
             placeholder={t.pricePlaceholder}
+            enterKeyHint="done"
             aria-invalid={!parsedPrice.ok || undefined}
             className="pl-10"
           />

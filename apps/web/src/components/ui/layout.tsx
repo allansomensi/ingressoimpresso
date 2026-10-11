@@ -125,3 +125,20 @@ export function List({ children, className }: { children: ReactNode; className?:
 export function ListItem({ children, className }: { children: ReactNode; className?: string | undefined }) {
   return <li className={cn("flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3.5 sm:px-5", className)}>{children}</li>;
 }
+
+/**
+ * A wide table that scrolls sideways on small screens: a labelled region the keyboard can scroll
+ * (it takes focus), with shadows on the edges where there is more to see.
+ */
+export function TableScroll({ label, children, className }: { label: string; children: ReactNode; className?: string | undefined }) {
+  return (
+    <div
+      role="region"
+      aria-label={label}
+      tabIndex={0}
+      className={cn("overflow-x-auto overscroll-x-contain scroll-shadows-x focus-visible:outline-offset-[-2px]", className)}
+    >
+      {children}
+    </div>
+  );
+}

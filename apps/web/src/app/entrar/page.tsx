@@ -347,6 +347,9 @@ function SignIn() {
                         }}
                         placeholder={t.emailPlaceholder}
                         autoComplete="email"
+                        autoCapitalize="none"
+                        spellCheck={false}
+                        enterKeyHint="send"
                         autoFocus={googleButton === null}
                         required
                       />

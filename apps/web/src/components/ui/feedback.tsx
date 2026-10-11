@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, Info, XCircle, type LucideIcon } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Info, X, XCircle, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { ApiError } from "@/lib/api";
@@ -67,26 +67,42 @@ export function Alert({
   title,
   children,
   action,
+  onDismiss,
   className,
 }: {
   tone?: Exclude<Tone, "neutral">;
   title?: ReactNode;
   children?: ReactNode;
   action?: ReactNode;
+  /** Shows a close button in the corner. */
+  onDismiss?: () => void;
   className?: string | undefined;
 }) {
   const { box, icon: Icon } = ALERT[tone];
   return (
     <div
       role={tone === "danger" ? "alert" : "status"}
-      className={cn("flex items-start gap-3 rounded-xl border px-4 py-3 text-sm animate-fade-in", box, className)}
+      className={cn("relative flex flex-wrap items-start gap-x-3 gap-y-2.5 rounded-xl border px-4 py-3 text-sm animate-fade-in", box, className)}
     >
       <Icon aria-hidden className="mt-0.5 size-4 shrink-0" />
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+      <div className={cn("flex min-w-0 flex-1 flex-col gap-0.5", onDismiss !== undefined && "pr-6")}>
         {title !== undefined && <p className="font-semibold">{title}</p>}
         {children !== undefined && <div className="leading-relaxed opacity-90">{children}</div>}
       </div>
-      {action}
+      {/* On phones the action goes under the text, which keeps the whole width to read. */}
+      {action !== undefined && (
+        <div className={cn("flex shrink-0 items-center gap-2 max-sm:basis-full max-sm:pl-7", onDismiss !== undefined && "sm:mr-6")}>{action}</div>
+      )}
+      {onDismiss !== undefined && (
+        <button
+          type="button"
+          aria-label={texts.common.close}
+          onClick={onDismiss}
+          className="absolute top-2.5 right-2.5 flex size-6 items-center justify-center rounded-md opacity-75 transition touch-target hover:opacity-100 active:opacity-100"
+        >
+          <X aria-hidden className="size-4" />
+        </button>
+      )}
     </div>
   );
 }

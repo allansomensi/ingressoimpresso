@@ -354,7 +354,7 @@ export function OrganizationDetail({ organizationId }: { organizationId: string 
                   <Link
                     href={`/painel/eventos/${event.id}`}
                     title={t.openEvent}
-                    className="group flex items-center gap-3 px-5 py-3 transition hover:bg-surface-2 sm:px-6"
+                    className="group flex items-center gap-3 px-5 py-3 transition hover:bg-surface-2 active:bg-surface-2 sm:px-6"
                   >
                     <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                       <span className="flex items-center gap-2">

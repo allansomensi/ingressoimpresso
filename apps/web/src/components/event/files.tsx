@@ -163,7 +163,7 @@ export function FilesTab({ eventId, onSelect }: { eventId: string; onSelect: Sel
                       key={item}
                       className={cn(
                         "flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand",
-                        selected ? "border-brand bg-brand-soft/60 ring-2 ring-brand/20" : "border-border hover:border-border-strong hover:bg-surface-2",
+                        selected ? "border-brand bg-brand-soft/60 ring-2 ring-brand/20" : "border-border hover:border-border-strong hover:bg-surface-2 active:bg-surface-2",
                       )}
                     >
                       <input

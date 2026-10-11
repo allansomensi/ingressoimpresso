@@ -38,7 +38,7 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { ReadOnlyNotice } from "@/components/event/access";
@@ -265,6 +265,59 @@ function typingIn(target: EventTarget | null): boolean {
   return target instanceof HTMLElement && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
 }
 
+/** Wide screens (xl) show the inspector beside the ticket; narrower ones stack them. */
+const SIDE_BY_SIDE = "(min-width: 1280px)";
+
+/**
+ * When the columns are stacked (phones, tablets), brings the inspector of the element just picked
+ * into view. A press on the ticket waits for the finger to lift, and a drag (the design changed
+ * meanwhile) is left alone: the person is moving the element, not about to edit it.
+ */
+function useRevealInspector(selectedKey: string | null, design: TicketDesign) {
+  const inspectorRef = useRef<HTMLDivElement>(null);
+  const latest = useRef(design);
+  const pressing = useRef(false);
+  useEffect(() => {
+    latest.current = design;
+  });
+  useEffect(() => {
+    const down = () => {
+      pressing.current = true;
+    };
+    const up = () => {
+      pressing.current = false;
+    };
+    window.addEventListener("pointerdown", down, true);
+    window.addEventListener("pointerup", up, true);
+    window.addEventListener("pointercancel", up, true);
+    return () => {
+      window.removeEventListener("pointerdown", down, true);
+      window.removeEventListener("pointerup", up, true);
+      window.removeEventListener("pointercancel", up, true);
+    };
+  }, []);
+  useEffect(() => {
+    if (selectedKey === null || window.matchMedia(SIDE_BY_SIDE).matches) {
+      return;
+    }
+    const before = latest.current;
+    const reveal = () => {
+      if (latest.current === before) {
+        inspectorRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+    };
+    if (!pressing.current) {
+      reveal();
+      return;
+    }
+    window.addEventListener("pointerup", reveal, { once: true });
+    return () => {
+      window.removeEventListener("pointerup", reveal);
+    };
+  }, [selectedKey]);
+  return inspectorRef;
+}
+
 function DesignEditor({ eventId, event, initial }: { eventId: string; event: EventDto; initial: DesignResponse }) {
   const queryClient = useQueryClient();
   const confirm = useConfirm();
@@ -282,6 +335,7 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
     .filter((url): url is string => url !== undefined);
   const [saved, setSaved] = useState<{ version: number; draft: Draft }>({ version: initial.version, draft: initialDraft });
   const [selected, setSelected] = useState<TicketElement | null>(null);
+  const inspectorRef = useRevealInspector(selected === null ? null : elementKey(selected), design);
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
@@ -538,8 +592,10 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_400px]">
         <div className="flex min-w-0 flex-col gap-4 xl:sticky xl:top-36">
           <Card padded={false} className="overflow-hidden">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-2.5 sm:px-4">
-              <div className="flex flex-wrap items-center gap-1.5">
+            {/* Phones: tools on the first row (undo and redo on the right), state and saving on
+                the second. Larger screens: one row that wraps only if it must. */}
+            <div className="flex flex-col gap-2 border-b border-border px-3 py-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:px-4">
+              <div className="flex items-center gap-1.5">
                 <Button variant="secondary" size="sm" icon={<LayoutTemplate />} onClick={openGallery}>
                   {t.toolbar.templates}
                 </Button>
@@ -547,31 +603,41 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
                   {t.toolbar.addText}
                 </Button>
                 <span className="mx-1 hidden h-5 w-px bg-border sm:block" aria-hidden />
-                <Button variant="ghost" size="icon" aria-label={t.toolbar.undo} title={`${t.toolbar.undo} (Ctrl+Z)`} disabled={!canUndo} onClick={undo}>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="max-sm:ml-auto"
+                  aria-label={t.toolbar.undo}
+                  title={`${t.toolbar.undo} (Ctrl+Z)`}
+                  disabled={!canUndo}
+                  onClick={undo}
+                >
                   <Undo2 />
                 </Button>
-                <Button variant="ghost" size="icon" aria-label={t.toolbar.redo} title={`${t.toolbar.redo} (Ctrl+Shift+Z)`} disabled={!canRedo} onClick={redo}>
+                <Button variant="ghost" size="icon-sm" aria-label={t.toolbar.redo} title={`${t.toolbar.redo} (Ctrl+Shift+Z)`} disabled={!canRedo} onClick={redo}>
                   <Redo2 />
                 </Button>
               </div>
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2 max-sm:justify-between">
                 {status}
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  icon={<Eye />}
-                  disabled={issues.length > 0}
-                  onClick={() => {
-                    setPreviewOpen(true);
-                    renderPreview.mutate(body());
-                  }}
-                >
-                  <span className="hidden sm:inline">{t.toolbar.printPreview}</span>
-                  <span className="sm:hidden">{t.preview}</span>
-                </Button>
-                <Button size="sm" icon={<Save />} loading={save.isPending} disabled={!canSave} onClick={doSave}>
-                  {save.isPending ? texts.common.saving : texts.common.save}
-                </Button>
+                <div className="flex items-center gap-2 max-sm:ml-auto">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    icon={<Eye />}
+                    disabled={issues.length > 0}
+                    onClick={() => {
+                      setPreviewOpen(true);
+                      renderPreview.mutate(body());
+                    }}
+                  >
+                    <span className="hidden sm:inline">{t.toolbar.printPreview}</span>
+                    <span className="sm:hidden">{t.toolbar.previewShort}</span>
+                  </Button>
+                  <Button size="sm" icon={<Save />} loading={save.isPending} disabled={!canSave} onClick={doSave}>
+                    {save.isPending ? texts.common.saving : texts.common.save}
+                  </Button>
+                </div>
               </div>
             </div>
             <div className="flex items-center justify-center bg-surface-2 bg-dots px-4 py-8 sm:px-8 sm:py-12">
@@ -603,7 +669,8 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
             </div>
             <p className="flex items-center gap-2 border-t border-border px-4 py-2.5 text-xs text-fg-muted">
               <MousePointerClick className="size-3.5 shrink-0" aria-hidden />
-              {t.canvas.hint}
+              <span className="pointer-coarse:hidden">{t.canvas.hint}</span>
+              <span className="hidden pointer-coarse:inline">{t.canvas.hintTouch}</span>
             </p>
           </Card>
           {saved.version === 0 && art === null && design.texts.length === 0 && (
@@ -656,8 +723,8 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
                         setSelected(isSelected ? null : element);
                       }}
                       className={cn(
-                        "flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm transition",
-                        isSelected ? "bg-brand-soft text-brand-soft-fg ring-1 ring-brand/30" : "text-fg hover:bg-surface-2",
+                        "flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm transition pointer-coarse:py-3",
+                        isSelected ? "bg-brand-soft text-brand-soft-fg ring-1 ring-brand/30" : "text-fg hover:bg-surface-2 active:bg-surface-2",
                       )}
                     >
                       <Icon className="size-4 shrink-0 opacity-70" aria-hidden />
@@ -671,6 +738,9 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
           </Section>
 
           {selected !== null && elementBox(design, selected) !== null && (
+            // Below xl the columns stack: the inspector comes right after the ticket, so what was
+            // just tapped is edited without hunting for it further down.
+            <div ref={inspectorRef} className="scroll-mt-36 scroll-mb-28 max-xl:order-first">
             <Card className="animate-fade-in ring-1 ring-brand/30">
               <CardHeader
                 icon={selected.kind === "text" ? Type : selected.kind === "number" ? Hash : selected.kind === "sponsors" ? Handshake : QrCode}
@@ -737,6 +807,7 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
                 />
               )}
             </Card>
+            </div>
           )}
 
           <Section icon={ImageUp} title={t.art}>
@@ -754,14 +825,14 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
           </Section>
 
           <Section icon={Ruler} title={t.size} description={t.sizeHint}>
-            <div className="grid gap-4 sm:grid-cols-3 xl:grid-cols-2">
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-2">
               <Field label={t.width}>
                 <NumberInput value={design.widthMm} onChange={(widthMm) => { update((d) => ({ ...d, widthMm }), "width"); }} suffix={texts.common.mm} />
               </Field>
               <Field label={t.height}>
                 <NumberInput value={design.heightMm} onChange={(heightMm) => { update((d) => ({ ...d, heightMm }), "height"); }} suffix={texts.common.mm} />
               </Field>
-              <Field label={t.background} className="xl:col-span-2">
+              <Field label={t.background} className="max-sm:col-span-2 xl:col-span-2">
                 <Input type="color" value={design.backgroundColor} onChange={(e) => { update((d) => ({ ...d, backgroundColor: e.target.value }), "background"); }} />
               </Field>
             </div>
@@ -848,8 +919,7 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
                         <div className="absolute inset-x-1 bottom-1 flex justify-between opacity-100 sm:opacity-0 sm:transition sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
                           <Button
                             variant="secondary"
-                            size="icon"
-                            className="size-7"
+                            size="icon-sm"
                             aria-label={t.sponsors.moveLeft}
                             disabled={index === 0}
                             onClick={() => {
@@ -860,8 +930,8 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
                           </Button>
                           <Button
                             variant="secondary"
-                            size="icon"
-                            className="size-7 text-danger-fg"
+                            size="icon-sm"
+                            className="text-danger-fg"
                             aria-label={t.sponsors.remove(index + 1)}
                             onClick={() => {
                               change((current) => ({ ...current, sponsors: current.sponsors.filter((_, item) => item !== index) }));
