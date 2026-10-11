@@ -14,6 +14,10 @@ e não acompanha estes números.
 
 ### Adicionado
 
+- Páginas para cada tipo de evento (festa junina, formatura, show de banda, festa de escola,
+  evento de igreja, jantar beneficente, teatro e dança, baile) em `/ingresso-para/…`, com as dores,
+  os benefícios e as dúvidas de cada um, ligadas no rodapé do site e no mapa do site. O site passa
+  a descrever o produto e as perguntas frequentes para os buscadores (dados estruturados).
 - O vendedor manda o ingresso no celular de quem comprou, pelo WhatsApp, direto da página dele: o
   mesmo QR do papel, para o comprador que está longe. O organizador pode desligar na aba
   Vendedores, e a aba Digitais mostra quem enviou cada ingresso (ADR 0061).
@@ -56,6 +60,8 @@ e não acompanha estes números.
 - No celular, o botão "Instalar app" virou só um ícone, para não apertar o cabeçalho do painel.
 - Na página inicial, no tema claro, o quadro do que está incluso no preço deixou de ser um bloco
   preto e acompanha o tema.
+- O `robots.txt` bloqueava, sem querer, qualquer endereço que começasse com `/ingresso`; agora só
+  o ingresso digital fica fora dos buscadores.
 
 ## [1.2.0] - 2026-10-11
 
