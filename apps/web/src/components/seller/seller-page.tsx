@@ -1,10 +1,11 @@
 "use client";
 
-import type { SellerMarkBody, SellerUnmarkBody, SellerViewDto } from "@ingressoimpresso/api-types";
+import type { SellerMarkBody, SellerTicketBody, SellerUnmarkBody, SellerViewDto } from "@ingressoimpresso/api-types";
 import {
   CalendarDays,
   Check,
   CheckCircle2,
+  Copy,
   HandCoins,
   MapPin,
   MessageCircle,
@@ -13,6 +14,7 @@ import {
   RefreshCw,
   RotateCcw,
   ShieldCheck,
+  Smartphone,
   Ticket,
   UserRound,
   WifiOff,
@@ -21,13 +23,14 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNo
 import { toast } from "sonner";
 
 import { LogoMark } from "@/components/brand";
-import { Button, Dialog, ErrorMessage, Field, Input, Spinner, useConfirm } from "@/components/ui";
+import { Button, Dialog, ErrorMessage, Field, Input, Spinner, buttonClass, useConfirm } from "@/components/ui";
 import { ApiError, api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { eventDateTime, money, shortDateTime } from "@/lib/format";
 import { firstOutside, firstShared, formatRanges, intersect, parseNumberList } from "@/lib/number-list";
 import { nextAvailable, numberCells, padNumber, type NumberCell, type NumberState } from "@/lib/seller-page";
 import { whatsappLink } from "@/lib/settlement";
+import { copyText } from "@/lib/share";
 import { categoryOf } from "@/lib/categories";
 import { listNames } from "@/lib/team";
 import { texts } from "@/texts/pt-BR";
@@ -228,12 +231,96 @@ function MarkSheet({
 }
 
 /** A sold number: its buyer, and the way back. */
+/** The sold number's digital ticket (ADR 0061): created on demand, then sent by WhatsApp. */
+function SaleTicket({
+  cell,
+  token,
+  label,
+  eventName,
+  onSaved,
+}: {
+  cell: NumberCell;
+  token: string;
+  label: string;
+  eventName: string;
+  onSaved: (view: SellerViewDto) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const sale = cell.sale;
+  if (sale === null) {
+    return null;
+  }
+  const url = sale.ticketUrl;
+
+  const create = async () => {
+    setBusy(true);
+    try {
+      const body: SellerTicketBody = { token, number: cell.number };
+      onSaved(await api<SellerViewDto>("/api/seller/tickets", { method: "POST", body }));
+      toast.success(t.sale.ticketReady);
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.userMessage : texts.errors.generic);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section aria-labelledby="sale-ticket" className="mt-4 flex flex-col gap-3 rounded-2xl border border-border p-4">
+      <div className="flex items-start gap-3">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-brand-soft-fg">
+          <Smartphone aria-hidden className="size-[18px]" />
+        </span>
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <h3 id="sale-ticket" className="text-sm font-semibold text-fg">
+            {t.sale.ticketTitle}
+          </h3>
+          <p className="text-xs leading-relaxed text-fg-muted">{url === null ? t.sale.ticketHint : t.sale.ticketSent}</p>
+        </div>
+      </div>
+      {url === null ? (
+        <Button variant="secondary" icon={<Smartphone />} loading={busy} onClick={() => void create()} className="w-full">
+          {t.sale.ticketCreate}
+        </Button>
+      ) : (
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <a
+            href={whatsappLink(sale.buyerPhone, t.sale.ticketMessage(sale.buyerName, eventName, label, url))}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={buttonClass({ className: "sm:flex-1 bg-success-solid shadow-success/25 hover:bg-success-solid/90 active:bg-success-solid/80" })}
+          >
+            <MessageCircle />
+            {t.sale.ticketSend}
+          </a>
+          <Button
+            variant="secondary"
+            icon={<Copy />}
+            onClick={async () => {
+              if (await copyText(url)) {
+                toast.success(t.sale.ticketCopied);
+              } else {
+                toast.error(t.sale.ticketCopyFailed);
+              }
+            }}
+          >
+            {t.sale.ticketCopy}
+          </Button>
+        </div>
+      )}
+      <p className="text-xs text-fg-subtle">{t.sale.ticketPaper}</p>
+    </section>
+  );
+}
+
 function SaleSheet({
   cell,
   onClose,
   onEdit,
   token,
   digits,
+  eventName,
+  canSendTickets,
   onSaved,
 }: {
   cell: NumberCell | null;
@@ -241,6 +328,8 @@ function SaleSheet({
   onEdit: (cell: NumberCell) => void;
   token: string;
   digits: number;
+  eventName: string;
+  canSendTickets: boolean;
   onSaved: (view: SellerViewDto) => void;
 }) {
   const confirm = useConfirm();
@@ -310,6 +399,9 @@ function SaleSheet({
           </a>
         )}
       </div>
+      {cell !== null && (canSendTickets || (cell.sale?.ticketUrl ?? null) !== null) && (
+        <SaleTicket cell={cell} token={token} label={label} eventName={eventName} onSaved={onSaved} />
+      )}
     </Dialog>
   );
 }
@@ -668,7 +760,7 @@ export function SellerPage() {
         />
       )}
       <SaleSheet
-        cell={selected}
+        cell={selected === null ? null : (cells.find((cell) => cell.number === selected.number && cell.state === "sold") ?? null)}
         onClose={() => {
           setSelected(null);
         }}
@@ -677,6 +769,8 @@ export function SellerPage() {
         }}
         token={token}
         digits={digits}
+        eventName={view.event.name}
+        canSendTickets={view.canSendTickets}
         onSaved={(fresh) => {
           setState({ status: "ready", view: fresh });
         }}

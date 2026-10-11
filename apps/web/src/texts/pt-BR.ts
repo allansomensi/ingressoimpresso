@@ -413,6 +413,18 @@ export const texts = {
       undoTitle: (number: string) => `Desfazer a venda do ${number}?`,
       undoBody: "O número volta a ficar com você, como não vendido.",
       undoneToast: "Venda desfeita.",
+      ticketTitle: "Ingresso no celular",
+      ticketHint: "Mande o ingresso para o celular de quem comprou. É o mesmo QR do papel: vale uma entrada só.",
+      ticketCreate: "Criar ingresso no celular",
+      ticketReady: "Ingresso pronto. Agora é só enviar.",
+      ticketSend: "Enviar pelo WhatsApp",
+      ticketCopy: "Copiar link",
+      ticketCopied: "Link copiado!",
+      ticketCopyFailed: "Não foi possível copiar. Use o WhatsApp.",
+      ticketSent: "O link abre o ingresso no celular de quem comprou, até sem internet depois de aberto uma vez.",
+      ticketPaper: "Se a pessoa também levou o papel, só um dos dois entra.",
+      ticketMessage: (name: string | null, event: string, number: string, url: string) =>
+        `${name === null ? "Olá!" : `Olá, ${name}!`} Seu ingresso nº ${number} para ${event} está aqui:\n${url}\n\nNa entrada, mostre o QR code na tela. Dica: abra o link uma vez antes, para ele funcionar sem internet.`,
     },
   },
   about: {
@@ -1508,6 +1520,11 @@ export const texts = {
         message: (name: string, event: string, url: string) =>
           `Oi, ${name}! Este é o seu link para marcar as vendas do *${event}*:\n\n${url}\n\nToque em cada número que vender (dá para anotar o nome de quem comprou). É só seu: não repasse.`,
       },
+      sendTickets: "Vendedores mandam o ingresso no celular",
+      sendTicketsOn:
+        "Na página do vendedor, ele envia pelo WhatsApp o ingresso de quem comprou: o mesmo QR do papel, que vale uma entrada só.",
+      sendTicketsOff: "Desligado: só a equipe envia ingressos no celular, pela aba Digitais.",
+      sendTicketsSaved: (on: boolean) => (on ? "Os vendedores podem enviar o ingresso no celular." : "Envio pelos vendedores desligado."),
       marked: (count: number, due: number) =>
         count === 1 ? `1 de ${due.toLocaleString("pt-BR")} marcado como vendido pelo vendedor` : `${count.toLocaleString("pt-BR")} de ${due.toLocaleString("pt-BR")} marcados como vendidos pelo vendedor`,
       share: "Mandar acerto no WhatsApp",
@@ -1640,6 +1657,31 @@ export const texts = {
       revokeBody:
         "O link para de abrir. O QR que a pessoa já viu continua valendo na porta: para bloquear o ingresso, cancele o número na aba Cancelamentos.",
       revoked: "Link revogado.",
+      bySeller: (name: string) => `Enviado por ${name}`,
+      replace: {
+        title: "Segunda via",
+        hint: "Alguém perdeu o ingresso? Cancele o número perdido e mande outro para a mesma pessoa, num passo só.",
+        open: "Fazer segunda via",
+        dialogTitle: "Segunda via de um ingresso perdido",
+        dialogBody:
+          "Um número livre, da mesma categoria, vai para a mesma pessoa como ingresso no celular, e o lugar na mesa vai junto.",
+        lost: "Número perdido",
+        lostHolder: (name: string) => `Com ${name}`,
+        holder: "Nome de quem recebe",
+        newNumber: "Número novo",
+        newNumberHint: "Deixe vazio para usar o próximo livre da mesma categoria.",
+        newNumberPlaceholder: "Automático",
+        reason: "Motivo",
+        reasonPlaceholder: "Perdeu o papel na rua",
+        reasonHint: "Fica no cancelamento e no relatório.",
+        submit: "Cancelar e enviar a segunda via",
+        warning: "O número perdido para de valer na porta. Quem vendeu continua respondendo por ele no acerto, porque a pessoa pagou.",
+        warningNumber: (number: string) =>
+          `O nº ${number} para de valer na porta. Quem vendeu continua respondendo por ele no acerto, porque a pessoa pagou.`,
+        done: (old: string, fresh: string) => `Nº ${old} cancelado. Segunda via: nº ${fresh}.`,
+        defaultNote: "Segunda via",
+      },
+      replacedTitle: (old: string, fresh: string) => `Segunda via do nº ${old}: nº ${fresh}`,
     },
     voids: {
       intro:
@@ -1660,6 +1702,10 @@ export const texts = {
       locked: "Estornado",
       lockedHint: "O lote foi estornado: esses números ficam cancelados para sempre.",
       undoneToast: "Cancelamento desfeito.",
+      replacedBy: (number: string) => `Segunda via: nº ${number}`,
+      replaceTip: "Alguém perdeu um ingresso só?",
+      replaceTipLink: "Faça a segunda via em Digitais.",
+      replacedHint: "O ingresso digital da segunda via fica na aba Digitais.",
     },
     files: {
       intro:
@@ -2777,6 +2823,10 @@ export const texts = {
     ticket_not_issued: "Esse número não está em um lote pago.",
     ticket_voided: "Esse ingresso está cancelado. Desfaça o cancelamento ou escolha outro número.",
     ticket_link_exists: "Esse ingresso já tem um link ativo. Copie o link da lista abaixo.",
+    ticket_entered: "Esse ingresso já entrou no evento: não dá para fazer a segunda via.",
+    number_not_free: "Esse número não está livre: precisa estar pago, sem vendedor, sem link e sem cancelamento.",
+    ticket_not_sold: "Marque o número como vendido antes de enviar o ingresso.",
+    seller_tickets_off: "O organizador desligou o envio do ingresso no celular pelos vendedores.",
     no_free_tickets: "Todos os ingressos pagos já estão com vendedores ou links. Crie um novo lote.",
     invalid_number: "Número inválido.",
     batch_not_refundable: "Só lotes pagos podem ser estornados.",

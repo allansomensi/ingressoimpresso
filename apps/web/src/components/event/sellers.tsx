@@ -10,6 +10,7 @@ import type {
   SellerDto,
   SellerLinkDto,
   SellerPaymentDto,
+  SellerSettingsDto,
   TicketSaleDto,
   VoidDto,
 } from "@ingressoimpresso/api-types";
@@ -64,6 +65,7 @@ import {
   NumberInput,
   Skeleton,
   Stat,
+  Switch,
   buttonClass,
   errorMessage,
   useConfirm,
@@ -817,6 +819,41 @@ function SettlementSummary({ rows }: { rows: readonly ReportRowDto[] }) {
 const HOW_ICONS: readonly LucideIcon[] = [UserPlus, Ticket, HandCoins, CheckCircle2];
 
 /** Four steps, for an event without sellers yet. */
+/** Whether sellers send digital tickets from their page (ADR 0061). */
+function SellerSettings({ eventId }: { eventId: string }) {
+  const queryClient = useQueryClient();
+  const key = ["seller-settings", eventId];
+  const settings = useQuery({ queryKey: key, queryFn: () => api<SellerSettingsDto>(`/api/events/${eventId}/seller-settings`) });
+  const save = useMutation({
+    mutationFn: (body: SellerSettingsDto) => api<SellerSettingsDto>(`/api/events/${eventId}/seller-settings`, { method: "PUT", body }),
+    onSuccess: (saved) => {
+      queryClient.setQueryData(key, saved);
+      toast.success(t.sendTicketsSaved(saved.sendTickets));
+    },
+    onError: (error) => {
+      toast.error(errorMessage(error));
+    },
+  });
+  if (settings.data === undefined) {
+    return null;
+  }
+  const on = save.isPending ? save.variables.sendTickets : settings.data.sendTickets;
+  return (
+    <Card>
+      <Switch
+        checked={on}
+        onChange={(checked) => {
+          if (!save.isPending) {
+            save.mutate({ sendTickets: checked });
+          }
+        }}
+        label={t.sendTickets}
+        description={on ? t.sendTicketsOn : t.sendTicketsOff}
+      />
+    </Card>
+  );
+}
+
 function HowItWorks() {
   return (
     <Card>
@@ -1002,6 +1039,14 @@ export function SellersTab({ eventId, event, onEditEvent }: { eventId: string; e
         ))}
         {delivery && <NewSeller eventId={eventId} onCreated={refresh} tile />}
       </div>
+    );
+  }
+  if (list.length > 0 && delivery && event.status !== "closed") {
+    content = (
+      <>
+        {content}
+        <SellerSettings eventId={eventId} />
+      </>
     );
   }
 
