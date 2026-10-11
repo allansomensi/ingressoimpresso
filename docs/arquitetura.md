@@ -368,6 +368,12 @@ create table seller_links (id uuid primary key, event_id uuid not null reference
 create table ticket_sales (event_id uuid not null references events, ticket_number integer not null,
   seller_id uuid not null references sellers, buyer_name text, buyer_phone text,
   sold_at timestamptz not null default now(), primary key (event_id, ticket_number));
+-- Equipe do evento (ADR 0055): quem ajuda e o que cada um cuida; a organização continua dona
+create table event_team (id uuid primary key, event_id uuid not null references events,
+  email citext not null, name text, user_id uuid references users,   -- null até o primeiro login
+  areas text[] not null,   -- manage | money | delivery | art | door
+  invited_by uuid references users, created_at timestamptz not null default now(),
+  joined_at timestamptz, unique (event_id, email));
 
 -- Portaria
 create table door_accesses (id uuid primary key, event_id uuid not null references events, label text not null,
@@ -479,6 +485,8 @@ GET /api/events/{id}/seller-payments           POST /api/sellers/{id}/payments  
 POST /api/sellers/{id}/returns                 (vários números do vendedor de uma vez, ADR 0050)
 POST|DELETE /api/sellers/{id}/link             GET /api/events/{id}/ticket-sales   (ADR 0053)
 POST /api/seller   POST /api/seller/sales   POST /api/seller/sales/undo   (sem login: token no corpo)
+GET|POST /api/events/{id}/team   PUT|DELETE /api/team-members/{id}   POST /api/events/{id}/team/leave
+                                               (ADR 0055: equipe; team::need diz a parte de cada rota)
 GET|POST /api/events/{id}/exports              GET /api/exports/{id}
 POST /api/exports/{id}/link    → link de 10 min  GET /api/downloads/{token} (sem login)
 GET /healthz (sem banco)                       GET /readyz (consulta o banco)

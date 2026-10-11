@@ -41,9 +41,10 @@ Opção 3.
   quem é da equipe, `team::need` traduz método e caminho da requisição na parte exigida: leitura
   vale para todos; rota não mapeada é só da organização (uma rota nova nasce fechada para a
   equipe). Fora da sua parte, a API responde 403 `not_your_area`. Excluir, arquivar e duplicar o
-  evento continuam só da organização; quem pagou os lotes, também (a cobrança é da
-  organização). Evento de organização suspensa é só leitura para a equipe também.
-- **Painel:** o evento ganha a aba Equipe (quem cuida do quê, adicionar, mudar partes, remover,
+  evento continuam só da organização. Lotes comprados pela Coordenação usam os ingressos grátis,
+  o crédito e os cupons da organização dona do evento. Evento de organização suspensa é só
+  leitura para a equipe também.
+- **Painel:** o evento ganha a aba Equipe (responsabilidades de cada parte, adicionar, mudar partes, remover,
   sair); na lista de eventos, os da equipe mostram de quem são; nas outras abas, o que a pessoa não
   cuida aparece só para leitura, com um aviso de quem cuida.
 - **Vendedor:** a página do vendedor (ADR 0053) mostra o nome de quem recebe o dinheiro (parte

@@ -83,6 +83,10 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   (`/vendedor#token`, sem conta) onde marca o que vendeu e para quem e vê o próprio acerto
   (`seller_links`, `ticket_sales`, `routes/seller_links.rs`); o relatório separa emitidos de
   vendidos; toasts com o tema do site, fechados com um toque.
+- **Equipe do evento (ADR 0055): implementada.** Pessoas chamadas por e-mail (`event_team`,
+  `routes/team.rs`) veem o evento e mexem só nas suas partes (`manage`, `money`, `delivery`,
+  `art`, `door`); `routes::event_access` aplica `team::need` (método + caminho → parte) a toda
+  rota de evento. Aba Equipe no painel, abas em modo leitura para quem não cuida da parte.
 
 Plano completo em `docs/arquitetura.md` §12.
 
@@ -122,6 +126,8 @@ crates/server        API (pacote `ingressoimpresso-server`, binário `ingressoim
                      moderação em moderation.rs + routes/moderation.rs, status em routes/status.rs,
                      acerto com vendedores (pagamentos e devoluções) em routes/settlement.rs,
                      link do vendedor (página sem conta, marcar vendas) em routes/seller_links.rs,
+                     equipe do evento em routes/team.rs (toda rota nova de evento que altera algo
+                     entra em team::need, senão fica só para a organização),
                      conta em routes/account.rs + routes/privacy.rs
                      (exportar/excluir), ingresso digital em routes/tickets.rs, novidades em
                      routes/changelog.rs, resultados em routes/analytics.rs; login com Google em
@@ -152,6 +158,9 @@ apps/web             landing em src/app/page.tsx (+ src/components/marketing: si
                      regras em lib/settlement.ts e lib/number-list.ts ("12, 15, 40-50");
                      página do vendedor (link privado) em app/vendedor + components/seller +
                      lib/seller-page.ts;
+                     equipe: aba em components/event/team.tsx, acesso por parte em
+                     components/event/access.tsx (useEventAccess, AreaGate, ReadOnlyNotice) e
+                     regras em lib/team.ts;
                      portaria em src/app/portaria + src/portaria (engine, storage, camera, logic) +
                      public/portaria-sw.js (ADR 0018); Vitest em test/;
                      editor do ingresso em src/components/event/design*.tsx + prévia ao vivo em

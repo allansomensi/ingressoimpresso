@@ -19,6 +19,12 @@ e não acompanha estes números.
   quanto falta acertar (ADR 0053).
 - No cartão do vendedor, quantos ingressos ele já marcou como vendidos e, na devolução, o atalho
   para devolver de uma vez os que não foram vendidos.
+- Equipe do evento: chame pessoas pelo e-mail e escolha o que cada uma cuida (Coordenação,
+  Recebimentos, Ingressos e vendedores, Arte do ingresso ou Portaria). Cada pessoa vê o evento
+  inteiro na própria conta e mexe só na sua parte, sem compartilhar senha; quem ainda não tem conta
+  entra com o mesmo e-mail (ADR 0055).
+- A página do vendedor mostra para quem passar o dinheiro, quando alguém da equipe cuida dos
+  recebimentos.
 
 ### Alterado
 
