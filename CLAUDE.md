@@ -94,6 +94,13 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   (`event_ledger`) com resumo, PDF (`report_pdf`, Typst) e planilha (`xlsx`, escrita sobre o
   `zip`); faixa de logos de patrocinadores (`TicketDesign.sponsors`, até 6 logos moderados como a
   arte).
+- **Interface pensada para o celular (ADR 0060): implementada.** Alvos de toque maiores em telas
+  de toque (`pointer-coarse:` em `Button`, `icon-sm`, utilidade `touch-target`), `active:` ao lado
+  de `hover:`, folhas que fecham ao arrastar (`useSheetDrag`, `useScrollLock` em
+  `components/ui/sheet.ts`), `Alert` com `onDismiss`, `TableScroll` para tabelas largas; lista de
+  eventos por ordem de atenção (`lib/event-list.ts`), cabeçalho compacto e folha **Seções** na
+  página do evento (`components/event/sections-sheet.tsx`, `TAB_GROUPS`), editor com o inspetor
+  logo abaixo do ingresso no celular e barra de ação no pé da landing (`marketing/mobile-cta.tsx`).
 
 Plano completo em `docs/arquitetura.md` §12.
 
@@ -186,6 +193,9 @@ apps/web             landing em src/app/page.tsx (+ src/components/marketing: si
                      cupons em billing.tsx, pronunciamentos, e-mails, moderação, auditoria,
                      configurações, incidentes); conta em src/app/painel/conta (+ components/account);
                      sininho e avisos em components/panel/{inbox,platform-notices}.tsx + lib/platform.ts;
+                     lista de eventos em app/painel/page.tsx (ordem em lib/event-list.ts); folha
+                     Seções do evento em components/event/sections-sheet.tsx (grupos em tabs.ts);
+                     folhas arrastáveis e trava de rolagem em components/ui/sheet.ts;
                      duas etapas: cartão em components/account/two-factor.tsx e segundo passo do
                      login em components/two-factor-step.tsx;
                      status público em app/status + components/status;
@@ -348,8 +358,16 @@ just backup-restore-test <dump.age> <chave-age>   # restaura um backup num banco
   dois temas). Ações destrutivas pedem `useConfirm()`; resultados de ações viram `toast`; menus
   usam `Menu`/`MenuItem` e painéis `Popover`. Um editor com alterações pendentes chama
   `useUnsavedChanges(dirty)`. No celular, `Menu`, `Popover` e `Dialog` viram folhas de baixo para
-  cima sozinhos (renderizados em portal, nunca cortados por um card) e os campos têm 16px, para o
-  iPhone não dar zoom. Grades de `Stat` usam duas colunas no celular.
+  cima sozinhos (renderizados em portal, nunca cortados por um card, fecham ao arrastar a alça) e
+  os campos têm 16px, para o iPhone não dar zoom. Grades de `Stat` usam duas colunas no celular.
+- **Celular primeiro (ADR 0060):** toque precisa de 44 px: use os tamanhos de `Button` (crescem
+  sozinhos em `pointer-coarse`), `icon-sm` para menus em cartões e `touch-target` (num elemento
+  `relative`/`absolute`) em controles pequenos de propósito. Todo `hover:` de fundo tem um
+  `active:` (o `hover:` do Tailwind 4 não vale no toque). Ação de `Alert` vai em `action`, fechar
+  em `onDismiss`. Tabela larga vai em `TableScroll`. Campo de lista de números usa
+  `NUMBER_LIST_INPUT` (o teclado numérico do iPhone não tem hífen nem vírgula). Algo `fixed` ou
+  `sticky` no topo ou no pé soma `env(safe-area-inset-*)`, e nunca fica dentro de um elemento com
+  `backdrop-blur`/`transform` (ele vira o bloco de contenção do `fixed`).
 - **Design do ingresso em dois lados:** regras de `design.rs` e campos de `fields.rs` têm espelho
   no painel (`lib/design-rules.ts`, `lib/ticket-fields.ts`) para a prévia ao vivo; mudou um, mude
   o outro (os testes usam os mesmos exemplos). Modelo novo é só TypeScript em `lib/templates`, e

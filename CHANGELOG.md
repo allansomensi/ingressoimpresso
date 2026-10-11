@@ -12,6 +12,42 @@ e não acompanha estes números.
 
 ## [Não lançado]
 
+### Adicionado
+
+- No celular, o botão **Seções** da página do evento mostra todas as abas de uma vez, agrupadas
+  (preparar, vender e entregar, no dia, pessoas) e com o que cada uma faz.
+- Na página inicial, no celular, uma barra com "Criar meu evento grátis" acompanha a leitura
+  depois do topo e some perto do fim da página.
+- Termos, Privacidade e Reembolso ganham um sumário recolhível no celular.
+
+### Alterado
+
+- Interface pensada para o celular (ADR 0060): em telas de toque, botões e áreas de toque maiores,
+  retorno visual ao tocar e janelas que sobem de baixo, com alça, e fecham ao arrastar para baixo
+  sem rolar a página de trás.
+- A lista de eventos mostra primeiro o que está acontecendo e o que é hoje, depois os próximos (o
+  mais perto primeiro) e por fim os encerrados; no celular, cada evento ocupa uma linha compacta.
+- Na página do evento, no celular, o cabeçalho ficou mais baixo (as ações viraram ícones ao lado de
+  "Eventos") e o conteúdo de cada aba começa mais acima.
+- No editor do ingresso, no celular, as ferramentas ficam em uma linha e salvar na outra, e as
+  opções do elemento tocado aparecem logo abaixo do ingresso.
+- Página inicial mais curta no celular, com os passos e os recursos em formato compacto.
+- Tabelas largas (relatório e resultados) rolam de lado com uma sombra que mostra que há mais
+  colunas, e o teclado também consegue rolá-las.
+- Avisos com um botão de ação colocam o botão embaixo do texto no celular.
+
+### Corrigido
+
+- No iPhone, os campos de faixas de números (categorias, mesas e devoluções) abriam um teclado sem
+  hífen e sem vírgula. O número da venda, na página do vendedor, aceita vírgula ou ponto entre os
+  números.
+- O evento de hoje podia aparecer por último na lista de eventos.
+- Textos com pouco contraste no rodapé do site, na página do vendedor, no ingresso digital, no botão
+  do WhatsApp e no verde de "PODE ENTRAR" da portaria.
+- No app instalado no iPhone, a barra de abas do evento, o cabeçalho do site e os avisos respeitam
+  a barra de status, e o conteúdo fica longe do entalhe com o celular deitado.
+- No celular, o botão "Instalar app" virou só um ícone, para não apertar o cabeçalho do painel.
+
 ## [1.2.0] - 2026-10-11
 
 ### Adicionado
