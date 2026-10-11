@@ -25,9 +25,10 @@ import { Button, Dialog, ErrorMessage, Field, Input, Spinner, useConfirm } from 
 import { ApiError, api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { eventDateTime, money, shortDateTime } from "@/lib/format";
-import { firstOutside, firstShared, formatRanges, parseNumberList } from "@/lib/number-list";
+import { firstOutside, firstShared, formatRanges, intersect, parseNumberList } from "@/lib/number-list";
 import { nextAvailable, numberCells, padNumber, type NumberCell, type NumberState } from "@/lib/seller-page";
 import { whatsappLink } from "@/lib/settlement";
+import { categoryOf } from "@/lib/categories";
 import { listNames } from "@/lib/team";
 import { texts } from "@/texts/pt-BR";
 
@@ -392,6 +393,8 @@ export function SellerPage() {
   const digits = view.numberDigits;
   const pad = (number: number) => padNumber(number, digits);
   const percent = s.tickets === 0 ? 0 : Math.round((s.sold / s.tickets) * 100);
+  // Only the categories of the seller's own numbers.
+  const legend = view.categories.filter((category) => intersect(category.ranges, view.ranges).length > 0);
   const shown = cells.filter((cell) => filter === "all" || cell.state === filter);
   const firstName = view.seller.trim().split(/\s+/)[0] ?? view.seller;
   const openMark = (numbers = "", name = "", phone = "") => {
@@ -445,7 +448,7 @@ export function SellerPage() {
         </div>
       </section>
 
-      {s.amountDueCents !== null && s.balanceCents !== null && view.event.ticketPriceCents !== null && (
+      {s.amountDueCents !== null && s.balanceCents !== null && (
         <section className="flex flex-col gap-3 rounded-3xl border border-border bg-surface p-5 shadow-xs">
           <h2 className="flex items-center gap-2 text-base font-semibold text-fg">
             <HandCoins aria-hidden className="size-[18px] text-brand" />
@@ -458,7 +461,11 @@ export function SellerPage() {
             <div className="flex flex-col gap-0.5 rounded-2xl bg-surface-2 p-3">
               <dt className="text-[11px] font-medium text-fg-muted">{t.money.due}</dt>
               <dd className="text-base font-semibold text-fg tabular">{money(s.amountDueCents)}</dd>
-              <dd className="text-[10px] text-fg-subtle tabular">{t.money.dueHint(s.dueTickets, money(view.event.ticketPriceCents))}</dd>
+              <dd className="text-[10px] text-fg-subtle tabular">
+                {s.dueLines.length === 1 && s.dueLines[0]?.priceCents != null
+                  ? t.money.dueHint(s.dueTickets, money(s.dueLines[0].priceCents))
+                  : t.money.byCategory}
+              </dd>
             </div>
             <div className="flex flex-col gap-0.5 rounded-2xl bg-surface-2 p-3">
               <dt className="text-[11px] font-medium text-fg-muted">{t.money.received}</dt>
@@ -471,6 +478,23 @@ export function SellerPage() {
               </dd>
             </div>
           </dl>
+          {s.dueLines.length > 1 && (
+            <ul className="flex flex-col gap-1.5 rounded-2xl bg-surface-2 px-3 py-2.5 text-xs">
+              {s.dueLines.map((line) => (
+                <li key={line.category ?? ""} className="flex items-center justify-between gap-2 tabular">
+                  <span className="flex min-w-0 items-center gap-1.5 text-fg">
+                    <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: line.color ?? "var(--border-strong)" }} aria-hidden />
+                    <span className="truncate">
+                      {line.tickets.toLocaleString("pt-BR")} {line.category ?? t.money.noCategory}
+                    </span>
+                  </span>
+                  <span className="shrink-0 text-fg-muted">
+                    {line.priceCents === null ? "—" : line.priceCents === 0 ? t.money.free : `× ${money(line.priceCents)}`}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
           <p className="flex items-start gap-1.5 text-xs leading-relaxed text-fg-muted">
             {s.balanceCents <= 0 && s.dueTickets > 0 && <CheckCircle2 aria-hidden className="mt-px size-3.5 shrink-0 text-success-fg" />}
             {s.balanceCents < 0 ? t.money.overpaid(money(-s.balanceCents)) : s.balanceCents === 0 && s.dueTickets > 0 ? t.money.settled : t.money.explain}
@@ -531,16 +555,28 @@ export function SellerPage() {
         ) : (
           <>
             <p className="text-xs text-fg-muted">{t.gridHint}</p>
+            {legend.length > 0 && (
+              <ul aria-label={t.categoriesLegend} className="flex flex-wrap gap-1.5">
+                {legend.map((category) => (
+                  <li key={category.name} className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1 text-xs font-medium text-fg-muted">
+                    <span className="size-2.5 rounded-full" style={{ backgroundColor: category.color }} aria-hidden />
+                    {category.name}
+                    {category.priceCents !== null && <span className="text-fg-subtle">{category.priceCents === 0 ? t.money.free : money(category.priceCents)}</span>}
+                  </li>
+                ))}
+              </ul>
+            )}
             <ul className="grid grid-cols-5 gap-2 sm:grid-cols-8">
               {shown.map((cell) => {
                 const tappable = cell.state === "available" || cell.state === "sold";
+                const category = categoryOf(view.categories, cell.number);
                 return (
                   <li key={cell.number}>
                     <button
                       type="button"
                       disabled={!tappable}
-                      title={t.states[cell.state]}
-                      aria-label={`${pad(cell.number)} · ${t.states[cell.state]}`}
+                      title={category === null ? t.states[cell.state] : `${category.name} · ${t.states[cell.state]}`}
+                      aria-label={`${pad(cell.number)} · ${category === null ? "" : `${category.name} · `}${t.states[cell.state]}`}
                       onClick={() => {
                         if (cell.state === "sold") {
                           setSelected(cell);
@@ -555,6 +591,9 @@ export function SellerPage() {
                     >
                       {pad(cell.number)}
                       {cell.state === "sold" && <Check aria-hidden className="absolute top-1 right-1 size-3" strokeWidth={3} />}
+                      {category !== null && (
+                        <span aria-hidden className="absolute inset-x-2 bottom-1 h-[3px] rounded-full" style={{ backgroundColor: category.color }} />
+                      )}
                     </button>
                   </li>
                 );

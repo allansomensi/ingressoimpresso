@@ -1,7 +1,7 @@
 "use client";
 
 import type { TicketPassDto } from "@ingressoimpresso/api-types";
-import { CalendarDays, CheckCircle2, Download, ImageIcon, MapPin, RefreshCw, Sun, Ticket, WifiOff, XCircle } from "lucide-react";
+import { Armchair, CalendarDays, CheckCircle2, Download, ImageIcon, MapPin, RefreshCw, Sun, Ticket, WifiOff, XCircle } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
@@ -11,6 +11,7 @@ import { QrCode } from "@/components/qr";
 import { Button, Dialog, Spinner, buttonClass } from "@/components/ui";
 import { ApiError, api, fetchBlobUrl } from "@/lib/api";
 import { cn } from "@/lib/cn";
+import { inkFor } from "@/lib/design-rules";
 import { shortDateTime } from "@/lib/format";
 import { SITE_URL } from "@/lib/site";
 import { forgetPass, passBand, passDate, passImage, saveImage, storePass, storedPass, textOn } from "@/lib/ticket-pass";
@@ -153,6 +154,9 @@ export function TicketPass() {
   const ink = textOn(band);
   const prefix = pass.numberPrefix.trim() === "" ? "Nº" : pass.numberPrefix.trim();
   const fileName = `ingresso-${pass.numberLabel}.png`;
+  // Passes saved on the phone before categories and seats existed have neither (ADR 0056).
+  const category = pass.category ?? null;
+  const seat = pass.seat ?? null;
 
   const save = async () => {
     setSaving(true);
@@ -234,6 +238,25 @@ export function TicketPass() {
             </span>
             {pass.holderName !== null && <span className="text-sm text-fg-muted">{pass.holderName}</span>}
           </div>
+
+          {(category !== null || seat !== null) && (
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              {category !== null && (
+                <span
+                  className="rounded-full px-3 py-1 text-sm font-bold tracking-wide uppercase"
+                  style={{ backgroundColor: category.color, color: inkFor(category.color) }}
+                >
+                  {category.name}
+                </span>
+              )}
+              {seat !== null && (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-sm font-semibold text-fg">
+                  <Armchair className="size-4 text-fg-muted" aria-hidden />
+                  {seat}
+                </span>
+              )}
+            </div>
+          )}
 
           {pass.state === "valid" && (
             <span className="inline-flex items-center gap-1.5 rounded-full bg-success-soft px-3 py-1 text-sm font-semibold text-success-fg">

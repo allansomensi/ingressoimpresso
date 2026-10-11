@@ -3,6 +3,8 @@
  * log and every known entry. Everything the door needs to decide offline survives a reload.
  */
 import type {
+  DoorCategoryRangeDto,
+  DoorSeatDto,
   DoorEventInfo,
   DoorScanUpload,
   DoorSellerRangeDto,
@@ -26,6 +28,9 @@ export interface StoredManifest {
   verifier: DoorVerifierDto;
   voids: DoorVoidDto[];
   sellers: DoorSellerRangeDto[];
+  /** Missing in manifests stored before categories and tables (ADR 0056, 0057). */
+  categories?: DoorCategoryRangeDto[];
+  seats?: DoorSeatDto[];
   cursor: string;
   /** Local time of the last successful sync. */
   syncedAt: number;

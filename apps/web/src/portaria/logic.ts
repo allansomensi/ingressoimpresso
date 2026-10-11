@@ -2,7 +2,7 @@
  * Pure rules of the door app: what a decision means, what the screen shows and when an online
  * confirmation is worth waiting for (ADR 0006). No browser APIs here, so it is unit tested.
  */
-import type { DoorSellerRangeDto, ScanOutcome, VoidReason } from "@ingressoimpresso/api-types";
+import type { DoorCategoryRangeDto, DoorSeatDto, DoorSellerRangeDto, ScanOutcome, VoidReason } from "@ingressoimpresso/api-types";
 import type { DecisionDto } from "@ingressoimpresso/ticket-core-wasm";
 
 import { texts } from "@/texts/pt-BR";
@@ -36,6 +36,10 @@ export interface ResultView {
   detail: string | null;
   /** Who sold it, when the number is in a seller's range. */
   seller: string | null;
+  /** Category (ADR 0056), shown in its colour. */
+  category: { name: string; color: string } | null;
+  /** Table and seat (ADR 0057), to point the guest to their table. */
+  seat: string | null;
   /** The same code seen again while still in front of the camera: shown without a sound. */
   repeat?: boolean;
 }
@@ -68,6 +72,25 @@ export function sellerOf(sellers: readonly DoorSellerRangeDto[], number: number)
   return sellers.find((range) => range.first <= number && number <= range.last)?.seller ?? null;
 }
 
+/** What the door knows about the numbers besides the QR (sent whole by the manifest). */
+export interface DoorContext {
+  digits: number;
+  sellers: readonly DoorSellerRangeDto[];
+  categories: readonly DoorCategoryRangeDto[];
+  seats: readonly DoorSeatDto[];
+}
+
+/** Category whose range holds `number`. */
+export function categoryOf(categories: readonly DoorCategoryRangeDto[], number: number): { name: string; color: string } | null {
+  const range = categories.find((item) => item.first <= number && number <= item.last);
+  return range === undefined ? null : { name: range.name, color: range.color };
+}
+
+/** Table and seat of `number`. */
+export function seatOf(seats: readonly DoorSeatDto[], number: number): string | null {
+  return seats.find((item) => item.number === number)?.label ?? null;
+}
+
 /** Printed form of a number: zero padded to the design's digits. */
 export function padNumber(number: number, digits: number): string {
   return String(number).padStart(digits, "0");
@@ -81,15 +104,20 @@ export function clockTime(unixMs: number): string {
 /** What the screen shows for a decision. */
 export function viewOf(
   decision: DecisionDto,
-  context: { digits: number; sellers: readonly DoorSellerRangeDto[] },
+  context: DoorContext,
 ): ResultView {
   const number = numberOf(decision);
   const label = number === null ? null : t.number(padNumber(number, context.digits));
   const seller = number === null ? null : sellerOf(context.sellers, number);
   const sellerLine = seller === null ? null : t.seller(seller);
+  const tags = {
+    category: number === null ? null : categoryOf(context.categories, number),
+    seat: number === null ? null : seatOf(context.seats, number),
+  };
+  const none = { category: null, seat: null };
   switch (decision.kind) {
     case "admit":
-      return { tone: "ok", title: t.admit, number: label, detail: null, seller: sellerLine };
+      return { tone: "ok", title: t.admit, number: label, detail: null, seller: sellerLine, ...tags };
     case "already_entered":
       return {
         tone: "bad",
@@ -97,13 +125,14 @@ export function viewOf(
         number: label,
         detail: t.alreadyEnteredAt(clockTime(decision.firstEntry.atUnixMs), decision.firstEntry.deviceName),
         seller: sellerLine,
+        ...tags,
       };
     case "voided":
-      return { tone: "bad", title: t.voided, number: label, detail: t.voidReasons[decision.reason], seller: sellerLine };
+      return { tone: "bad", title: t.voided, number: label, detail: t.voidReasons[decision.reason], seller: sellerLine, ...tags };
     case "other_event":
-      return { tone: "warn", title: t.otherEvent, number: null, detail: null, seller: null };
+      return { tone: "warn", title: t.otherEvent, number: null, detail: null, seller: null, ...none };
     case "invalid":
-      return { tone: "bad", title: t.invalid, number: null, detail: t.invalidReasons[decision.reason], seller: null };
+      return { tone: "bad", title: t.invalid, number: null, detail: t.invalidReasons[decision.reason], seller: null, ...none };
   }
 }
 
@@ -111,7 +140,7 @@ export function viewOf(
 export function alreadyEnteredView(
   number: number,
   firstEntry: { atUnixMs: number; deviceName: string },
-  context: { digits: number; sellers: readonly DoorSellerRangeDto[] },
+  context: DoorContext,
 ): ResultView {
   return viewOf({ kind: "already_entered", number, firstEntry }, context);
 }
@@ -120,14 +149,14 @@ export function alreadyEnteredView(
 export function voidedView(
   number: number,
   reason: VoidReason,
-  context: { digits: number; sellers: readonly DoorSellerRangeDto[] },
+  context: DoorContext,
 ): ResultView {
   return viewOf({ kind: "voided", number, reason }, context);
 }
 
 /** Screen for an unexpected failure while handling a scan. */
 export function errorView(): ResultView {
-  return { tone: "bad", title: t.error, number: null, detail: texts.errors.generic, seller: null };
+  return { tone: "bad", title: t.error, number: null, detail: texts.errors.generic, seller: null, category: null, seat: null };
 }
 
 /**

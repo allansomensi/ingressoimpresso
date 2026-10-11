@@ -355,6 +355,9 @@ export const texts = {
     money: {
       title: "Seu acerto",
       receiver: (names: string) => `Passe o dinheiro para ${names}.`,
+      byCategory: "por categoria",
+      noCategory: "sem categoria",
+      free: "grátis",
       due: "Para acertar",
       dueHint: (count: number, price: string) => `${count.toLocaleString("pt-BR")} × ${price}`,
       received: "Já passou",
@@ -366,6 +369,7 @@ export const texts = {
     mark: "Marcar venda",
     filters: { available: "Com você", sold: "Vendidos", all: "Todos" },
     gridHint: "Toque num número para marcar a venda.",
+    categoriesLegend: "Categorias",
     emptyAvailable: "Nenhum número com você agora.",
     emptySold: "Nenhuma venda marcada ainda. Toque em “Marcar venda” quando vender.",
     states: { available: "Com você", sold: "Vendido", unsold: "Devolvido", lost: "Perdido", revoked: "Cancelado" },
@@ -1611,6 +1615,18 @@ export const texts = {
       digitalTipAction: "Abrir Digitais",
     },
     report: {
+      categories: {
+        title: "Por categoria",
+        category: "Categoria",
+        price: "Preço",
+        tickets: "Emitidos",
+        sold: "Vendidos",
+        entries: "Entraram",
+        amount: "Valor",
+        total: "Total",
+        none: "Sem categoria",
+        free: "Cortesia",
+      },
       intro:
         "O acerto de cada vendedor (o que levou, devolveu, vendeu, pagou e quanto falta) e o que aconteceu na portaria. Pagamentos e devoluções são registrados na aba Vendedores.",
       csv: "Baixar CSV",

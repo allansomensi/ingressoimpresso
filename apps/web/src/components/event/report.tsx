@@ -1,6 +1,6 @@
 "use client";
 
-import type { EventReportDto, ReportRowDto } from "@ingressoimpresso/api-types";
+import type { EventReportDto, ReportCategoryDto, ReportRowDto } from "@ingressoimpresso/api-types";
 import { useQuery } from "@tanstack/react-query";
 import { CheckCircle2, Download, HandCoins, Info, RefreshCw, Smartphone, Ticket, Users, Wallet } from "lucide-react";
 
@@ -164,6 +164,8 @@ export function ReportTab({ eventId, onSelect }: { eventId: string; onSelect: Se
       ? []
       : [...data.sellers.map((row): [ReportRowDto, "seller"] => [row, "seller"]), [sellersTotal(data.sellers), "totals"]];
   const generated = new Date(data.generatedAt).toLocaleTimeString("pt-BR", { timeStyle: "short" });
+  // Amounts exist with an event price or category prices (ADR 0056).
+  const priced = data.ticketPriceCents !== null || data.sellers.some((row) => row.amountDueCents !== null);
 
   return (
     <div className="flex flex-col gap-6">
@@ -198,15 +200,15 @@ export function ReportTab({ eventId, onSelect }: { eventId: string; onSelect: Se
           value={formatMoney(totals.receivedCents)}
           icon={HandCoins}
           tone="success"
-          hint={data.ticketPriceCents === null ? t.noPrice : t.stats.receivedHint(formatMoney(totals.dueCents))}
+          hint={priced ? t.stats.receivedHint(formatMoney(totals.dueCents)) : t.noPrice}
         />
         <Stat
           label={t.stats.outstanding}
-          value={data.ticketPriceCents === null ? "—" : formatMoney(totals.outstandingCents)}
+          value={priced ? formatMoney(totals.outstandingCents) : "—"}
           icon={Wallet}
           tone={totals.outstandingCents === 0 ? "success" : "warning"}
           hint={
-            data.ticketPriceCents === null
+            !priced
               ? undefined
               : totals.overpaidCents > 0
                 ? t.stats.overpaidHint(formatMoney(totals.overpaidCents))
@@ -216,6 +218,8 @@ export function ReportTab({ eventId, onSelect }: { eventId: string; onSelect: Se
           }
         />
       </div>
+
+      {data.categories.length > 0 && <CategoryTable rows={data.categories} />}
 
       <Card padded={false} className="overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-2 px-5 pt-5 pb-4">
@@ -362,5 +366,65 @@ export function ReportTab({ eventId, onSelect }: { eventId: string; onSelect: Se
         )}
       </Card>
     </div>
+  );
+}
+
+/** Paid tickets by category (ADR 0056): how many, sold, entered and the amount. */
+function CategoryTable({ rows }: { rows: readonly ReportCategoryDto[] }) {
+  const c = t.categories;
+  const total = rows.reduce(
+    (sum, row) => ({
+      tickets: sum.tickets + row.tickets,
+      sold: sum.sold + row.sold,
+      entries: sum.entries + row.entries,
+      amount: sum.amount === null || row.amountCents === null ? null : sum.amount + row.amountCents,
+    }),
+    { tickets: 0, sold: 0, entries: 0, amount: 0 as number | null },
+  );
+  return (
+    <Card padded={false} className="overflow-hidden">
+      <h2 className="px-5 pt-5 pb-4 text-base font-semibold tracking-tight text-fg">{c.title}</h2>
+      <div className="overflow-x-auto">
+        <table aria-label={c.title} className="w-full min-w-[38rem] text-sm">
+          <thead className="border-y border-border bg-surface-2 text-left text-xs font-medium text-fg-muted">
+            <tr>
+              <th className="py-2.5 pr-2 pl-5 font-medium">{c.category}</th>
+              <th className="px-2 py-2.5 text-right font-medium">{c.price}</th>
+              <th className="px-2 py-2.5 text-right font-medium">{c.tickets}</th>
+              <th className="px-2 py-2.5 text-right font-medium">{c.sold}</th>
+              <th className="px-2 py-2.5 text-right font-medium">{c.entries}</th>
+              <th className="py-2.5 pr-5 pl-2 text-right font-medium">{c.amount}</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {rows.map((row) => (
+              <tr key={row.categoryId ?? "none"}>
+                <td className="py-2.5 pr-2 pl-5">
+                  <span className="flex items-center gap-2 font-medium text-fg">
+                    <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: row.color ?? "var(--border-strong)" }} aria-hidden />
+                    {row.name ?? c.none}
+                  </span>
+                </td>
+                <td className="px-2 py-2.5 text-right text-fg-muted tabular">
+                  {row.priceCents === null ? "—" : row.priceCents === 0 ? c.free : formatMoney(row.priceCents)}
+                </td>
+                <td className="px-2 py-2.5 text-right tabular">{row.tickets.toLocaleString("pt-BR")}</td>
+                <td className="px-2 py-2.5 text-right tabular">{row.sold.toLocaleString("pt-BR")}</td>
+                <td className="px-2 py-2.5 text-right tabular">{row.entries.toLocaleString("pt-BR")}</td>
+                <td className="py-2.5 pr-5 pl-2 text-right font-medium tabular">{money(row.amountCents)}</td>
+              </tr>
+            ))}
+            <tr className="bg-surface-2 font-semibold">
+              <td className="py-2.5 pr-2 pl-5">{c.total}</td>
+              <td />
+              <td className="px-2 py-2.5 text-right tabular">{total.tickets.toLocaleString("pt-BR")}</td>
+              <td className="px-2 py-2.5 text-right tabular">{total.sold.toLocaleString("pt-BR")}</td>
+              <td className="px-2 py-2.5 text-right tabular">{total.entries.toLocaleString("pt-BR")}</td>
+              <td className="py-2.5 pr-5 pl-2 text-right tabular">{money(total.amount)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </Card>
   );
 }
