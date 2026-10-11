@@ -36,7 +36,8 @@ entrou ou quem vendeu. O Ingresso Impresso resolve isso sem exigir internet nem 
    assinado digitalmente, que não dá para falsificar nem copiar sem ser pego.
 3. **Imprima** em casa (A4), na gráfica (PDF com sangria) ou **mande pelo WhatsApp** como imagem ou
    link de ingresso digital.
-4. **Entregue faixas de números aos vendedores** e acompanhe quem vendeu o quê.
+4. **Entregue faixas de números aos vendedores** e registre o que cada um devolve e paga: o painel
+   mostra quem está quitado e quanto falta, e manda o acerto pelo WhatsApp.
 5. **Na porta, qualquer celular vira leitor**: abre um link, lê o QR pela câmera e decide na hora
    (pode entrar, já entrou, cancelado, falso), **mesmo em modo avião**. Quando a rede volta, os
    celulares sincronizam e uma cópia usada em duas portas aparece.
@@ -59,7 +60,8 @@ entrou ou quem vendeu. O Ingresso Impresso resolve isso sem exigir internet nem 
 - Editor visual com arrastar, desfazer, oito fontes e campos automáticos (`{evento}`, `{data}`…).
 - Arquivos para imprimir em casa, na gráfica (TrimBox/BleedBox) e ZIP para o WhatsApp.
 - Ingresso digital por link, que abre no celular do público mesmo offline.
-- Vendedores com faixas de números, cancelamentos, relatório por vendedor e resultados do evento.
+- Vendedores com faixas de números, acerto (pagamentos, devoluções e saldo), cancelamentos,
+  relatório por vendedor e resultados do evento.
 - Rifas sem sorteio (só a impressão dos números).
 - Login sem senha (código por e-mail ou Google) e **verificação em duas etapas** opcional.
 - PWA instalável, tema claro/escuro e interface pensada primeiro para o celular.

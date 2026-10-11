@@ -1,0 +1,107 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into seller_payments\n               (id, event_id, seller_id, amount_cents, method, received_on, note, created_by)\n           values ($1, $2, $3, $4, $5, $6, $7, $8)\n           returning id, seller_id, amount_cents, method, received_on, note, created_at",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "seller_payments",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "seller_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "seller_payments",
+            "name": "seller_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "amount_cents",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "seller_payments",
+            "name": "amount_cents"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "method",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "seller_payments",
+            "name": "method"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "received_on",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "seller_payments",
+            "name": "received_on"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "note",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "seller_payments",
+            "name": "note"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "seller_payments",
+            "name": "created_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Int4",
+        "Text",
+        "Date",
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "dbbce5807c5a88188b7faa30e3f05ae3d15174ebbe38663adaeaa5ffed143e73"
+}

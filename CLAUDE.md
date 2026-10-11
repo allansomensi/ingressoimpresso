@@ -67,13 +67,19 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   (`apps/web/src/proxy.ts`, ADR 0048: toda página é dinâmica). Do lado do mantenedor já estão
   feitos: duas etapas na conta admin, rulesets e Environments no GitHub (Production, Staging,
   Preview, Backup), backup com `verify-full` e chave da Resend separada no staging.
-- **Versionamento (ADR 0049): implementado, versão 1.0.0.** Uma versão SemVer para o produto
+- **Versionamento (ADR 0049): implementado, versão atual 1.1.0.** Uma versão SemVer para o produto
   inteiro (todos os manifestos, conferidos por `scripts/release.mjs check`), `CHANGELOG.md` em
   português (Keep a Changelog), `just release` no `staging` e tag `vX.Y.Z` + GitHub Release pelo
-  job **Release** do CI no `main`; versão no rodapé, no menu da conta, em `/status` (site e API) e
+  job **Release** do CI no `main`; versão no rodapé, no fim das páginas do painel, em `/status` (site e API) e
   Novidades agrupadas por versão (`changelog_entries.version`). Só `main` e `staging` são
   permanentes: o workflow **Branches** apaga o branch de um PR integrado. Guia em
   `docs/versionamento.md`.
+
+- **Acerto e vitrine (ADRs 0050, 0051): implementado.** Recebimentos e devoluções por vendedor
+  (`seller_payments`, `routes/settlement.rs`) com saldo no relatório, resumo geral e WhatsApp na
+  aba Vendedores; simulador de preços e exemplos de uso (banda, rifa, formatura) na landing;
+  página `/sobre`, para onde leva a versão, agora discreta no rodapé e fora do menu da conta
+  (ADR 0052).
 
 Plano completo em `docs/arquitetura.md` §12.
 
@@ -111,6 +117,7 @@ crates/server        API (pacote `ingressoimpresso-server`, binário `ingressoim
                      notificações em routes/announcements.rs, preços/promoções/cupons/crédito em
                      pricing.rs + routes/billing.rs, e-mails em routes/mail_admin.rs (+ webhook),
                      moderação em moderation.rs + routes/moderation.rs, status em routes/status.rs,
+                     acerto com vendedores (pagamentos e devoluções) em routes/settlement.rs,
                      conta em routes/account.rs + routes/privacy.rs
                      (exportar/excluir), ingresso digital em routes/tickets.rs, novidades em
                      routes/changelog.rs, resultados em routes/analytics.rs; login com Google em
@@ -119,7 +126,9 @@ crates/server        API (pacote `ingressoimpresso-server`, binário `ingressoim
                      routes/two_factor.rs, limites por endereço em ratelimit.rs (ADR 0047),
                      e-mails (HTML + texto) em emails.rs, cota em state.rs (send_mail)
 packages/api-types   tipos TS da API gerados (src/generated + src/index.ts, NÃO editar)
-apps/web             landing em src/app/page.tsx (+ src/components/marketing), painel em
+apps/web             landing em src/app/page.tsx (+ src/components/marketing: simulador de preços em
+                     pricing.tsx, exemplos de uso em use-cases.tsx), página Sobre em app/sobre +
+                     components/about, painel em
                      src/app/{entrar,painel}, abas do evento em src/components/event (aba na URL,
                      ?aba=); sistema de design em src/components/ui + tokens em globals.css (ADR 0021);
                      logo em src/components/brand.tsx e public/brand, ícones em public/icons;
@@ -135,6 +144,8 @@ apps/web             landing em src/app/page.tsx (+ src/components/marketing), p
                      novidades em app/novidades + components/changelog + lib/changelog.ts
                      (agrupadas por versão, groupChangelog);
                      resultados em app/painel/resultados + components/event/event-results.tsx;
+                     acerto com vendedores em components/event/sellers.tsx + settlement-dialogs.tsx,
+                     regras em lib/settlement.ts e lib/number-list.ts ("12, 15, 40-50");
                      portaria em src/app/portaria + src/portaria (engine, storage, camera, logic) +
                      public/portaria-sw.js (ADR 0018); Vitest em test/;
                      editor do ingresso em src/components/event/design*.tsx + prévia ao vivo em

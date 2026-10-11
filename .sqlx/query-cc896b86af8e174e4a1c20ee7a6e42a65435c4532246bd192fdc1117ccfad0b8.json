@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select coalesce(sum(upper(numbers * $3) - lower(numbers * $3)), 0)::bigint as \"held!\"\n               from seller_assignments\n               where event_id = $1 and seller_id = $2 and numbers && $3",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "held!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Int4Range"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "cc896b86af8e174e4a1c20ee7a6e42a65435c4532246bd192fdc1117ccfad0b8"
+}

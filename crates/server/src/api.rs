@@ -1057,6 +1057,52 @@ dto! {
         pub last: i32,
     }
 
+    /// `POST /api/sellers/{id}/payments`: money a seller handed over (ADR 0050).
+    pub struct SellerPaymentBody {
+        /// Amount in cents (1 to 100,000,000).
+        pub amount_cents: i32,
+        /// How it was paid.
+        pub method: SellerPaymentMethod,
+        /// Day it was received, `YYYY-MM-DD`.
+        pub received_on: String,
+        /// Free note (up to 200 characters, one line).
+        pub note: Option<String>,
+    }
+
+    /// Money a seller handed over.
+    pub struct SellerPaymentDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// Seller.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub seller_id: Uuid,
+        /// Amount in cents.
+        pub amount_cents: i32,
+        /// How it was paid.
+        pub method: SellerPaymentMethod,
+        /// Day it was received, `YYYY-MM-DD`.
+        pub received_on: String,
+        /// Note.
+        pub note: Option<String>,
+        /// When it was recorded.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub created_at: OffsetDateTime,
+    }
+
+    /// `POST /api/sellers/{id}/returns`: tickets a seller gave back unsold, or lost (ADR 0050).
+    /// Every range must lie inside the seller's ranges and not be voided yet; all are voided
+    /// together or none is.
+    pub struct SellerReturnBody {
+        /// The returned numbers, as inclusive ranges (1 to 100 of them, not overlapping).
+        pub ranges: Vec<RangeBody>,
+        /// `unsold` or `lost`.
+        pub reason: VoidReason,
+        /// Free note (up to 200 characters).
+        pub note: Option<String>,
+    }
+
     /// `POST /api/events/{id}/voids`.
     pub struct CreateVoidBody {
         /// First number.
@@ -1422,6 +1468,13 @@ dto! {
         /// Declared sold × ticket price, when the event has a price.
         #[cfg_attr(feature = "ts", ts(type = "number | null"))]
         pub amount_due_cents: Option<i64>,
+        /// Money the seller handed over (ADR 0050); 0 for unassigned tickets.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub received_cents: i64,
+        /// Amount due − received: positive is still owed, negative was overpaid. `null` without
+        /// a ticket price and on the unassigned line (nobody owes those tickets).
+        #[cfg_attr(feature = "ts", ts(type = "number | null"))]
+        pub balance_cents: Option<i64>,
     }
 
     /// What one door phone did.
@@ -1509,6 +1562,16 @@ dto_enum! {
         Open,
         /// Paid by Pix, waiting for Stripe to confirm the transfer.
         Processing,
+    }
+
+    /// How a seller handed money over.
+    pub enum SellerPaymentMethod {
+        /// Pix transfer.
+        Pix,
+        /// Cash.
+        Cash,
+        /// Anything else (card, bank transfer...).
+        Other,
     }
 
     /// Why a range was voided.
@@ -1653,6 +1716,7 @@ db_enum!(ChangelogKind { New => "new", Improvement => "improvement", Fix => "fix
 db_enum!(PaymentMethod { Stripe => "stripe", Admin => "admin", Free => "free", Credit => "credit" });
 db_enum!(PaymentState { Open => "open", Processing => "processing" });
 db_enum!(VoidReason { Unsold => "unsold", Lost => "lost", Revoked => "revoked" });
+db_enum!(SellerPaymentMethod { Pix => "pix", Cash => "cash", Other => "other" });
 db_enum!(ExportKind { Home => "home", Print => "print", Control => "control", Whatsapp => "whatsapp" });
 db_enum!(ExportStatus { Queued => "queued", Running => "running", Done => "done", Failed => "failed" });
 db_enum!(KeyStatus { Active => "active", Retired => "retired", Revoked => "revoked" });

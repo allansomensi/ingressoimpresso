@@ -17,7 +17,7 @@ import { initials } from "@/lib/format";
 import { usePlatform } from "@/lib/platform";
 import { useRequiredSession, useSession } from "@/lib/session";
 import { hasUnsavedChanges } from "@/lib/unsaved";
-import { RELEASE_NOTES_HREF, VERSION_LABEL } from "@/lib/version";
+import { ABOUT_HREF, VERSION_LABEL } from "@/lib/version";
 import { texts } from "@/texts/pt-BR";
 
 const t = texts.panel;
@@ -72,9 +72,6 @@ function UserMenu({ email, isAdmin, onSignOut }: { email: string; isAdmin: boole
         <LogOut className="size-4" aria-hidden />
         {t.signOut}
       </button>
-      <Link href={RELEASE_NOTES_HREF} className="block px-3 pt-1 pb-1.5 text-xs text-fg-subtle tabular transition hover:text-fg-muted">
-        {t.version(VERSION_LABEL)}
-      </Link>
     </Popover>
   );
 }
@@ -268,6 +265,16 @@ export function PanelShell({ children }: { children: ReactNode }) {
             <>
               {children}
               <AnnouncementHost />
+              {/* The version, small and out of the way, like on the site footer (ADR 0052). */}
+              <p className="mt-16 flex justify-end">
+                <Link
+                  href={ABOUT_HREF}
+                  title={t.version(VERSION_LABEL)}
+                  className="rounded font-mono text-[11px] text-fg-subtle tabular opacity-60 transition hover:text-fg-muted hover:opacity-100"
+                >
+                  {VERSION_LABEL}
+                </Link>
+              </p>
             </>
           )
         ) : session.status === "error" ? (

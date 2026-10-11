@@ -16,6 +16,7 @@ pub mod platform;
 pub mod privacy;
 pub mod report;
 pub mod sellers;
+pub mod settlement;
 pub mod status;
 pub mod support;
 pub mod tickets;
