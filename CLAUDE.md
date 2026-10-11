@@ -79,6 +79,10 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   (`seller_payments`, `routes/settlement.rs`) com saldo no relatório, resumo geral e WhatsApp na
   aba Vendedores; simulador de preços e exemplos de uso (banda, rifa, formatura) na landing;
   página `/sobre`; a versão fica só em Minha conta, `/sobre` e `/status` (ADR 0054).
+- **Link do vendedor (ADR 0053): implementado.** Cada vendedor ganha um link privado
+  (`/vendedor#token`, sem conta) onde marca o que vendeu e para quem e vê o próprio acerto
+  (`seller_links`, `ticket_sales`, `routes/seller_links.rs`); o relatório separa emitidos de
+  vendidos; toasts com o tema do site, fechados com um toque.
 
 Plano completo em `docs/arquitetura.md` §12.
 
@@ -117,6 +121,7 @@ crates/server        API (pacote `ingressoimpresso-server`, binário `ingressoim
                      pricing.rs + routes/billing.rs, e-mails em routes/mail_admin.rs (+ webhook),
                      moderação em moderation.rs + routes/moderation.rs, status em routes/status.rs,
                      acerto com vendedores (pagamentos e devoluções) em routes/settlement.rs,
+                     link do vendedor (página sem conta, marcar vendas) em routes/seller_links.rs,
                      conta em routes/account.rs + routes/privacy.rs
                      (exportar/excluir), ingresso digital em routes/tickets.rs, novidades em
                      routes/changelog.rs, resultados em routes/analytics.rs; login com Google em
@@ -145,6 +150,8 @@ apps/web             landing em src/app/page.tsx (+ src/components/marketing: si
                      resultados em app/painel/resultados + components/event/event-results.tsx;
                      acerto com vendedores em components/event/sellers.tsx + settlement-dialogs.tsx,
                      regras em lib/settlement.ts e lib/number-list.ts ("12, 15, 40-50");
+                     página do vendedor (link privado) em app/vendedor + components/seller +
+                     lib/seller-page.ts;
                      portaria em src/app/portaria + src/portaria (engine, storage, camera, logic) +
                      public/portaria-sw.js (ADR 0018); Vitest em test/;
                      editor do ingresso em src/components/event/design*.tsx + prévia ao vivo em

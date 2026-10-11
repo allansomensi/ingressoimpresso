@@ -13,6 +13,7 @@ const PAGES = [
   "/painel/resultados",
   "/portaria",
   "/ingresso#token",
+  "/vendedor#token",
   "/status",
   "/novidades",
   "/sobre",

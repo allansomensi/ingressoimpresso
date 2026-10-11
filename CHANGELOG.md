@@ -12,6 +12,23 @@ e não acompanha estes números.
 
 ## [Não lançado]
 
+### Adicionado
+
+- Link do vendedor: cada vendedor recebe pelo WhatsApp um link pessoal, sem criar conta, onde marca
+  os números que vendeu (com o nome e o telefone de quem comprou, se quiser), vê o que ainda tem e
+  quanto falta acertar (ADR 0053).
+- No cartão do vendedor, quantos ingressos ele já marcou como vendidos e, na devolução, o atalho
+  para devolver de uma vez os que não foram vendidos.
+
+### Alterado
+
+- O relatório separa "Emitidos" de "Vendidos" (as vendas marcadas pelos vendedores), e o acerto
+  mostra só os vendedores, com uma nota sobre os ingressos que estão sem vendedor.
+- Os avisos (toasts) seguem as cores do site no tema escuro e fecham com um toque, sem o botão de
+  fechar.
+- A versão do site saiu do rodapé e das páginas do painel: fica só em Minha conta, na página Sobre
+  e na página de status (ADR 0054).
+
 ## [1.1.0] - 2026-10-11
 
 ### Adicionado

@@ -360,6 +360,14 @@ create table seller_payments (
   id uuid primary key, event_id uuid not null references events, seller_id uuid not null references sellers,
   amount_cents integer not null, method text not null check (method in ('pix','cash','other')),
   received_on date not null, note text, created_by uuid references users, created_at timestamptz not null default now());
+-- Link do vendedor (ADR 0053): página sem conta onde o vendedor marca o que vendeu
+create table seller_links (id uuid primary key, event_id uuid not null references events,
+  seller_id uuid not null references sellers, token_hash bytea not null unique, sealed bytea not null,
+  created_by uuid references users, created_at timestamptz not null default now(),
+  revoked_at timestamptz, last_opened_at timestamptz);   -- no máximo um ativo por vendedor
+create table ticket_sales (event_id uuid not null references events, ticket_number integer not null,
+  seller_id uuid not null references sellers, buyer_name text, buyer_phone text,
+  sold_at timestamptz not null default now(), primary key (event_id, ticket_number));
 
 -- Portaria
 create table door_accesses (id uuid primary key, event_id uuid not null references events, label text not null,
@@ -445,7 +453,9 @@ Todas as consultas usam índice GiST.
 - cópias bloqueadas na porta;
 - **valor a acertar** = vendidos declarados × preço, se o preço estiver configurado;
 - **recebido** = soma dos pagamentos do vendedor (ADR 0050);
-- **saldo** = a acertar − recebido (positivo: falta receber; negativo: pagou a mais).
+- **saldo** = a acertar − recebido (positivo: falta receber; negativo: pagou a mais);
+- **marcou vendidos** = números que o próprio vendedor marcou no link (ADR 0053). É
+  informativo: o acerto continua pelos vendidos declarados.
 
 O relatório tem ainda uma linha para os números não atribuídos (sem saldo: ninguém responde por
 eles) e totais gerais.
@@ -467,6 +477,8 @@ POST /api/sellers/{id}/ranges  DELETE /api/ranges/{id}
 GET|POST /api/events/{id}/voids                POST /api/voids/{id}/undo
 GET /api/events/{id}/seller-payments           POST /api/sellers/{id}/payments   DELETE /api/seller-payments/{id}
 POST /api/sellers/{id}/returns                 (vários números do vendedor de uma vez, ADR 0050)
+POST|DELETE /api/sellers/{id}/link             GET /api/events/{id}/ticket-sales   (ADR 0053)
+POST /api/seller   POST /api/seller/sales   POST /api/seller/sales/undo   (sem login: token no corpo)
 GET|POST /api/events/{id}/exports              GET /api/exports/{id}
 POST /api/exports/{id}/link    → link de 10 min  GET /api/downloads/{token} (sem login)
 GET /healthz (sem banco)                       GET /readyz (consulta o banco)
