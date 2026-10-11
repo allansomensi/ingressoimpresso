@@ -184,7 +184,7 @@ export function ReportTab({ eventId }: { eventId: string }) {
           <span className="text-xs text-fg-subtle">{t.generatedAt(generated)}</span>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[46rem] text-sm">
+          <table aria-label={t.sellersTitle} className="w-full min-w-[46rem] text-sm">
             <thead className="border-y border-border bg-surface-2 text-left text-xs font-medium text-fg-muted">
               <tr>
                 <th className="py-2.5 pr-2 pl-5 font-medium">{t.seller}</th>
@@ -230,7 +230,7 @@ export function ReportTab({ eventId }: { eventId: string }) {
           <h2 className="text-base font-semibold tracking-tight text-fg">{t.doorBySellerTitle}</h2>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[34rem] text-sm">
+          <table aria-label={t.doorBySellerTitle} className="w-full min-w-[34rem] text-sm">
             <thead className="border-y border-border bg-surface-2 text-left text-xs font-medium text-fg-muted">
               <tr>
                 <th className="py-2.5 pr-2 pl-5 font-medium">{t.seller}</th>

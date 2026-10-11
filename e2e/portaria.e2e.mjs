@@ -282,12 +282,18 @@ await announcement
   .then(() => announcement.click())
   .catch(() => undefined);
 await organizer.getByRole("tab", { name: "Relatório" }).click();
-const total = organizer.locator("tr", { hasText: "Total" });
-await total.waitFor({ timeout: TIMEOUT });
+// The report has a settlement table and a door table (ADR 0050), each with its own total.
+const totalOf = (table) => organizer.getByRole("table", { name: table }).locator("tr", { hasText: "Total" });
+const settlement = totalOf("Acerto por vendedor");
+const door = totalOf("Portaria por vendedor");
+await settlement.waitFor({ timeout: TIMEOUT });
 await organizer.screenshot({ path: join(OUT, "report.png"), fullPage: true });
-// Tickets, unsold, lost, other voids, sold, entries, offline copies, blocked copies, voided entries.
-const cells = (await total.locator("td").allInnerTexts()).slice(1, 10).map(Number);
-assert.deepEqual(cells, [5, 0, 0, 0, 5, 2, 1, 2, 0]);
+// Tickets, unsold, lost, other voids, sold.
+const sold = (await settlement.locator("td").allInnerTexts()).slice(1, 6).map(Number);
+assert.deepEqual(sold, [5, 0, 0, 0, 5]);
+// Entries, offline copies, blocked copies, voided entries.
+const entered = (await door.locator("td").allInnerTexts()).slice(1, 5).map(Number);
+assert.deepEqual(entered, [2, 1, 2, 0]);
 await painel.close();
 console.log("ok: report counts the door");
 
