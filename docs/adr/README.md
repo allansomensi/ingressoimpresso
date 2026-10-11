@@ -60,3 +60,4 @@ feita e as consequências.
 | [0048](0048-csp-com-nonce.md) | CSP com nonce por requisição no site | Aceito |
 | [0049](0049-versionamento-e-releases.md) | Versionamento semântico, releases e branches | Aceito |
 | [0050](0050-acerto-com-vendedores.md) | Acerto com vendedores: recebimentos e devoluções | Aceito |
+| [0051](0051-pagina-sobre-e-versao-discreta.md) | Página Sobre e versão discreta no rodapé | Aceito |

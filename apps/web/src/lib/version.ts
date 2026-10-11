@@ -21,6 +21,9 @@ export function versionAnchor(version: string): string {
 /** Where this build's release notes are. */
 export const RELEASE_NOTES_HREF = `/novidades#${versionAnchor(APP_VERSION)}`;
 
+/** Where the version shown in the footer and the account menu leads (ADR 0051). */
+export const ABOUT_HREF = "/sobre";
+
 /**
  * A release number as tagged (`1.4.0`: no `v`, no leading zeros, up to six digits a part), the
  * rule of the API (`routes/changelog.rs`) and of `scripts/release.mjs`.

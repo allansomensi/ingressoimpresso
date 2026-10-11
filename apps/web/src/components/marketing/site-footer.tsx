@@ -5,7 +5,7 @@ import { Logo } from "@/components/brand";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { ButtonLink } from "@/components/ui";
 import { LEGAL_ENTITY } from "@/content/legal";
-import { APP_COMMIT, APP_VERSION, RELEASE_NOTES_HREF, VERSION_LABEL } from "@/lib/version";
+import { ABOUT_HREF, APP_COMMIT, APP_VERSION, VERSION_LABEL } from "@/lib/version";
 import { texts } from "@/texts/pt-BR";
 
 const t = texts.footer;
@@ -15,9 +15,16 @@ const COLUMNS = [
     title: t.product,
     links: [
       { href: "/#como-funciona", label: t.howItWorks },
+      { href: "/#exemplos", label: t.examples },
       { href: "/#modelos", label: t.templates },
       { href: "/#precos", label: t.pricing },
       { href: "/#duvidas", label: t.faq },
+    ],
+  },
+  {
+    title: t.company,
+    links: [
+      { href: ABOUT_HREF, label: t.about },
       { href: "/novidades", label: t.news },
       { href: "/status", label: t.status },
     ],
@@ -34,14 +41,15 @@ const COLUMNS = [
 
 /**
  * Footer of the public pages: navigation, legal documents, the provider's identification
- * (Decreto 7.962/2013) and, tucked away at the bottom, the version of the site (ADR 0049, linking
- * to its release notes) and the theme switcher (the site follows the system theme by default).
+ * (Decreto 7.962/2013) and, tucked away at the bottom, the theme switcher (the site follows the
+ * system theme by default) and the version of the site, small and leading to the About page
+ * (ADR 0051).
  */
 export function SiteFooter() {
   return (
     <footer className="border-t border-border bg-surface">
-      <div className="mx-auto grid max-w-6xl gap-10 px-4 py-14 sm:px-6 md:grid-cols-[1.4fr_1fr_1fr_1.2fr]">
-        <div className="flex flex-col items-start gap-4">
+      <div className="mx-auto grid max-w-6xl gap-10 px-4 py-14 sm:px-6 grid-cols-2 sm:grid-cols-3 lg:grid-cols-[1.4fr_1fr_1fr_1fr_1.3fr]">
+        <div className="col-span-2 flex flex-col items-start gap-4 sm:col-span-3 lg:col-span-1">
           <Logo />
           <p className="max-w-xs text-sm leading-relaxed text-fg-muted">{t.tagline}</p>
           <ButtonLink href="/entrar" size="sm" icon={<ArrowRight />} className="flex-row-reverse">
@@ -62,7 +70,7 @@ export function SiteFooter() {
             </ul>
           </nav>
         ))}
-        <div className="flex flex-col gap-3">
+        <div className="col-span-2 flex flex-col gap-3 sm:col-span-3 lg:col-span-1">
           <h2 className="text-xs font-semibold tracking-wide text-fg-subtle uppercase">{t.contact}</h2>
           <p className="text-sm leading-relaxed text-fg-muted">{t.contactBody}</p>
           <a
@@ -79,13 +87,19 @@ export function SiteFooter() {
           <p className="flex flex-wrap gap-x-3 gap-y-1">
             <span>{t.rights(new Date().getFullYear())}</span>
             <span>{t.provider(LEGAL_ENTITY.name, LEGAL_ENTITY.document)}</span>
-            <Link href={RELEASE_NOTES_HREF} title={t.version(APP_VERSION, APP_COMMIT)} className="tabular transition hover:text-fg-muted">
+          </p>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 opacity-70 transition hover:opacity-100 focus-within:opacity-100">
+              <span>{t.theme}</span>
+              <ThemeSwitcher />
+            </div>
+            <Link
+              href={ABOUT_HREF}
+              title={t.version(APP_VERSION, APP_COMMIT)}
+              className="rounded font-mono text-[11px] tabular opacity-60 transition hover:text-fg-muted hover:opacity-100"
+            >
               {VERSION_LABEL}
             </Link>
-          </p>
-          <div className="flex items-center gap-2 opacity-70 transition hover:opacity-100 focus-within:opacity-100">
-            <span>{t.theme}</span>
-            <ThemeSwitcher />
           </div>
         </div>
       </div>
