@@ -8,7 +8,9 @@ import type {
   ReportRowDto,
   SellerBody,
   SellerDto,
+  SellerLinkDto,
   SellerPaymentDto,
+  TicketSaleDto,
   VoidDto,
 } from "@ingressoimpresso/api-types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -19,13 +21,17 @@ import {
   CircleDollarSign,
   CircleHelp,
   Copy,
+  ExternalLink,
   HandCoins,
+  Link2,
+  Link2Off,
   MessageCircle,
   MoreHorizontal,
   PackageX,
   Phone,
   Plus,
   QrCode,
+  RefreshCw,
   RotateCcw,
   Tag,
   Ticket,
@@ -64,7 +70,7 @@ import {
 } from "@/components/ui";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
-import { initials, money, ticketNumber } from "@/lib/format";
+import { initials, money, shortDateTime, ticketNumber } from "@/lib/format";
 import { countNumbers, formatRanges, intersect, type NumberRange } from "@/lib/number-list";
 import { receivedPercent, settlementMessage, settlementState, settlementTotals, shortDay, whatsappLink, type SettlementState } from "@/lib/settlement";
 import { texts } from "@/texts/pt-BR";
@@ -372,11 +378,131 @@ function History({
   );
 }
 
+/** The seller's private link (ADR 0053): create it, send it, copy it. */
+function SellerLink({ seller, event, onChange }: { seller: SellerDto; event: EventDto; onChange: () => void }) {
+  const l = t.link;
+  const confirm = useConfirm();
+  const create = useMutation({
+    mutationFn: () => api<SellerLinkDto>(`/api/sellers/${seller.id}/link`, { method: "POST" }),
+    onSuccess: (_, regenerate: boolean) => {
+      toast.success(regenerate ? l.regeneratedToast : l.createdToast);
+      onChange();
+    },
+    onError: (error) => {
+      toast.error(errorMessage(error));
+    },
+  });
+  const revoke = useMutation({
+    mutationFn: () => api<undefined>(`/api/sellers/${seller.id}/link`, { method: "DELETE" }),
+    onSuccess: () => {
+      toast.success(l.revokedToast);
+      onChange();
+    },
+    onError: (error) => {
+      toast.error(errorMessage(error));
+    },
+  });
+  const link = seller.link;
+  const firstName = seller.name.trim().split(/\s+/)[0] ?? seller.name;
+
+  return (
+    <div className="flex flex-col gap-3 rounded-xl bg-surface-2 p-3 sm:flex-row sm:items-center">
+      <div className="flex min-w-0 flex-1 items-start gap-2.5">
+        <span
+          className={cn(
+            "flex size-8 shrink-0 items-center justify-center rounded-lg",
+            link === null ? "bg-surface-3 text-fg-subtle" : "bg-brand-soft text-brand-soft-fg",
+          )}
+        >
+          <Link2 aria-hidden className="size-4" />
+        </span>
+        <span className="flex min-w-0 flex-col">
+          <span className="text-sm font-medium text-fg">{l.title}</span>
+          <span className="text-xs leading-relaxed text-fg-muted">
+            {link === null ? l.none : link.lastOpenedAt === null ? l.neverOpened : l.openedAt(shortDateTime(link.lastOpenedAt))}
+          </span>
+        </span>
+      </div>
+      {link === null ? (
+        <Button variant="secondary" size="sm" icon={<Link2 />} loading={create.isPending} onClick={() => { create.mutate(false); }}>
+          {l.create}
+        </Button>
+      ) : (
+        <div className="flex items-center gap-1.5">
+          <a
+            href={whatsappLink(seller.phone, l.message(firstName, event.name, link.url))}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={l.sendLabel(seller.name)}
+            className={buttonClass({ size: "sm", className: "bg-success-solid shadow-none hover:bg-success-solid/90" })}
+          >
+            <MessageCircle aria-hidden />
+            {l.send}
+          </a>
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={<Copy />}
+            onClick={() => {
+              void navigator.clipboard.writeText(link.url).then(
+                () => toast.success(l.copied),
+                () => toast.error(texts.errors.generic),
+              );
+            }}
+          >
+            {l.copy}
+          </Button>
+          <Menu
+            label={l.title}
+            trigger={<MoreHorizontal />}
+            triggerClassName={buttonClass({ variant: "ghost", size: "icon", className: "size-8" })}
+          >
+            <MenuItem
+              icon={<ExternalLink />}
+              onSelect={() => {
+                window.open(link.url, "_blank", "noopener,noreferrer");
+              }}
+            >
+              {l.open}
+            </MenuItem>
+            <MenuItem
+              icon={<RefreshCw />}
+              onSelect={() => {
+                void confirm({ title: l.regenerateTitle, description: l.regenerateBody, confirmLabel: l.regenerate, danger: false }).then((ok) => {
+                  if (ok) {
+                    create.mutate(true);
+                  }
+                });
+              }}
+            >
+              {l.regenerate}
+            </MenuItem>
+            <MenuItem
+              icon={<Link2Off />}
+              tone="danger"
+              onSelect={() => {
+                void confirm({ title: l.revokeTitle, description: l.revokeBody, confirmLabel: l.revoke }).then((ok) => {
+                  if (ok) {
+                    revoke.mutate();
+                  }
+                });
+              }}
+            >
+              {l.revoke}
+            </MenuItem>
+          </Menu>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SellerCard({
   seller,
   row,
   payments,
   voids,
+  sales,
   event,
   onChange,
 }: {
@@ -384,6 +510,7 @@ function SellerCard({
   row: ReportRowDto | undefined;
   payments: readonly SellerPaymentDto[];
   voids: readonly VoidDto[];
+  sales: readonly TicketSaleDto[];
   event: EventDto;
   onChange: () => void;
 }) {
@@ -553,6 +680,12 @@ function SellerCard({
         ) : (
           <div className="flex flex-col gap-4 border-t border-border pt-4">
             <Equation row={row} />
+            {(seller.link !== null || row.markedSold > 0) && (
+              <p className="flex items-center gap-2 text-sm text-fg-muted">
+                <CheckCircle2 aria-hidden className="size-4 shrink-0 text-brand" />
+                {t.marked(row.markedSold, row.declaredSold)}
+              </p>
+            )}
             <MoneyBar row={row} />
             <div className="flex flex-wrap items-center gap-2">
               <Button
@@ -593,6 +726,8 @@ function SellerCard({
           </div>
         ))}
 
+      {total > 0 && <SellerLink seller={seller} event={event} onChange={onChange} />}
+
       <PaymentDialog
         open={dialog === "payment"}
         onClose={() => {
@@ -610,6 +745,7 @@ function SellerCard({
         }}
         seller={seller}
         voids={voids}
+        sales={sales}
         onSaved={onChange}
       />
     </Card>
@@ -805,8 +941,12 @@ export function SellersTab({ eventId, event, onEditEvent }: { eventId: string; e
     queryFn: () => api<SellerPaymentDto[]>(`/api/events/${eventId}/seller-payments`),
   });
   const voids = useQuery({ queryKey: ["voids", eventId], queryFn: () => api<VoidDto[]>(`/api/events/${eventId}/voids`) });
+  const sales = useQuery({
+    queryKey: ["ticket-sales", eventId],
+    queryFn: () => api<TicketSaleDto[]>(`/api/events/${eventId}/ticket-sales`),
+  });
   const refresh = () => {
-    for (const key of ["sellers", "report", "seller-payments", "voids", "analytics"]) {
+    for (const key of ["sellers", "report", "seller-payments", "voids", "ticket-sales", "analytics"]) {
       void queryClient.invalidateQueries({ queryKey: [key, eventId] });
     }
   };
@@ -835,6 +975,7 @@ export function SellersTab({ eventId, event, onEditEvent }: { eventId: string; e
             seller={seller}
             row={rows.get(seller.id)}
             payments={(payments.data ?? []).filter((payment) => payment.sellerId === seller.id)}
+            sales={(sales.data ?? []).filter((sale) => sale.sellerId === seller.id)}
             voids={voids.data ?? []}
             event={event}
             onChange={refresh}

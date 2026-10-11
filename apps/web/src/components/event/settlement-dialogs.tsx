@@ -8,6 +8,7 @@ import type {
   SellerPaymentDto,
   SellerPaymentMethod,
   SellerReturnBody,
+  TicketSaleDto,
   VoidDto,
 } from "@ingressoimpresso/api-types";
 import { useMutation } from "@tanstack/react-query";
@@ -19,7 +20,7 @@ import { Button, Dialog, ErrorMessage, Field, Input } from "@/components/ui";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { money, parseMoney, ticketNumber } from "@/lib/format";
-import { firstOutside, firstShared, formatRanges, parseNumberList, subtract, type NumberRange } from "@/lib/number-list";
+import { countNumbers, firstOutside, firstShared, formatRanges, intersect, mergeRanges, parseNumberList, subtract, type NumberRange } from "@/lib/number-list";
 import { todayIso } from "@/lib/settlement";
 import { texts } from "@/texts/pt-BR";
 
@@ -254,12 +255,15 @@ export function ReturnDialog({
   onClose,
   seller,
   voids,
+  sales,
   onSaved,
 }: {
   open: boolean;
   onClose: () => void;
   seller: SellerDto;
   voids: readonly VoidDto[];
+  /** This seller's numbers marked as sold on their link (ADR 0053). */
+  sales: readonly TicketSaleDto[];
   onSaved: () => void;
 }) {
   const g = t.giveBackDialog;
@@ -271,6 +275,10 @@ export function ReturnDialog({
   const active = voids.filter((item) => item.undoneAt === null).map(({ first, last }) => ({ first, last }));
   // What the seller still has: their numbers minus everything returned, lost or voided.
   const remaining = subtract(holding, active);
+  const sold = mergeRanges(sales.map((sale) => ({ first: sale.number, last: sale.number })));
+  // With marks on the link, what was not marked is what should come back.
+  const unsold = sold.length === 0 ? [] : subtract(remaining, sold);
+  const clearing = parsed.ok ? countNumbers(intersect(parsed.ranges, sold)) : 0;
 
   let problem: string | null = null;
   if (!parsed.ok) {
@@ -330,7 +338,10 @@ export function ReturnDialog({
             problem !== null ? (
               <span className="text-danger-fg">{problem}</span>
             ) : parsed.ok ? (
-              <span className="font-medium text-fg">{g.preview(parsed.count, formatRanges(parsed.ranges))}</span>
+              <span className="font-medium text-fg">
+                {g.preview(parsed.count, formatRanges(parsed.ranges))}
+                {clearing > 0 && <span className="block font-normal text-warning-fg">{g.clearsMarks(clearing)}</span>}
+              </span>
             ) : (
               g.numbersHint
             )
@@ -349,6 +360,19 @@ export function ReturnDialog({
             required
           />
         </Field>
+        {unsold.length > 0 && (
+          <button
+            type="button"
+            onClick={() => {
+              setNumbers(unsold.map((range) => (range.first === range.last ? String(range.first) : `${String(range.first)}-${String(range.last)}`)).join(", "));
+              setReason("unsold");
+            }}
+            className="flex w-fit items-center gap-2 rounded-full border border-brand/25 bg-brand-soft px-3 py-1.5 text-[13px] font-medium text-brand-soft-fg transition hover:border-brand/50"
+          >
+            <Undo2 aria-hidden className="size-3.5" />
+            {g.unsoldShortcut(countNumbers(unsold))}
+          </button>
+        )}
         {remaining.length > 0 && (
           <div className="flex flex-col gap-2">
             <span className="text-xs font-medium text-fg-muted">
