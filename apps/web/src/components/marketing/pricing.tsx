@@ -267,18 +267,19 @@ export function PricingSection() {
           </div>
         )}
       </div>
-      <div className="flex flex-col justify-between gap-6 rounded-3xl bg-[#0e0d14] p-6 text-white shadow-lg sm:p-8 lg:sticky lg:top-24 lg:self-start dark:bg-surface-2">
+      {/* Follows the theme: a soft brand panel next to the simulator, never a dark block on a light page. */}
+      <div className="flex flex-col justify-between gap-6 rounded-3xl border border-brand/20 bg-gradient-to-br from-brand-soft via-brand-soft/50 to-surface p-6 text-fg shadow-sm sm:p-8 lg:sticky lg:top-24 lg:self-start">
         <ul className="flex flex-col gap-3.5">
           {t.pricingIncluded.map((item) => (
-            <li key={item} className="flex items-start gap-3 text-[15px]">
-              <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-[#7c66ff]">
+            <li key={item} className="flex items-start gap-3 text-[15px] leading-snug">
+              <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-brand-solid text-brand-fg">
                 <Check className="size-3.5" strokeWidth={3} aria-hidden />
               </span>
               {item}
             </li>
           ))}
         </ul>
-        <ButtonLink href="/entrar" variant="inverse" size="lg">
+        <ButtonLink href="/entrar" size="lg">
           {t.primaryCta}
         </ButtonLink>
       </div>
