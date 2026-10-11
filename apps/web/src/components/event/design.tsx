@@ -1,10 +1,25 @@
 "use client";
 
-import type { ArtDto, BandEdge, CategoryDto, DesignBody, DesignResponse, EventDto, StubSide, TableDto, TextBlock, TicketDesign } from "@ingressoimpresso/api-types";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type {
+  ArtDto,
+  BandEdge,
+  CategoryDto,
+  DesignBody,
+  DesignResponse,
+  EventDto,
+  SponsorStrip,
+  StubSide,
+  TableDto,
+  TextBlock,
+  TicketDesign,
+} from "@ingressoimpresso/api-types";
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  ChevronLeft,
   Eye,
+  Handshake,
   Hash,
+  ImagePlus,
   ImageUp,
   LayoutTemplate,
   Layers,
@@ -17,6 +32,7 @@ import {
   Save,
   Scissors,
   Tags,
+  Trash2,
   Type,
   Undo2,
   X,
@@ -47,12 +63,22 @@ import {
   Spinner,
   Switch,
   Textarea,
+  errorMessage,
   useConfirm,
 } from "@/components/ui";
 import { api, fetchBlobUrl, upload } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { bandText, seatLabel } from "@/lib/categories";
-import { AUTO_BAND_MM, MAX_TEXT_BLOCKS, SEAT_BAND_COLOR, designIssues, effectiveBand, type IssueTarget } from "@/lib/design-rules";
+import {
+  AUTO_BAND_MM,
+  MAX_SPONSORS,
+  MAX_TEXT_BLOCKS,
+  SEAT_BAND_COLOR,
+  defaultSponsorStrip,
+  designIssues,
+  effectiveBand,
+  type IssueTarget,
+} from "@/lib/design-rules";
 import { rasterizeBackground } from "@/lib/rasterize";
 import type { Palette, TicketTemplate } from "@/lib/templates/catalog";
 import { canDo } from "@/lib/team";
@@ -106,6 +132,15 @@ function DesignReadOnly({ eventId, event, current }: { eventId: string; event: E
   });
   const ratio = (design.widthMm + (design.stub?.widthMm ?? 0)) / Math.max(design.heightMm, 1);
   const tag = useSampleTag(eventId);
+  const sponsorUrls = useQueries({
+    queries: current.sponsors.map((logo) => ({
+      queryKey: ["art", eventId, logo.id],
+      queryFn: () => fetchBlobUrl(`/api/events/${eventId}/art/${logo.id}`),
+      staleTime: Number.POSITIVE_INFINITY,
+    })),
+  })
+    .map((query) => query.data)
+    .filter((url): url is string => url !== undefined);
   return (
     <div className="flex flex-col gap-6">
       <ReadOnlyNotice eventId={eventId} area="art" />
@@ -117,7 +152,7 @@ function DesignReadOnly({ eventId, event, current }: { eventId: string; event: E
             className="shadow-xl ring-1 ring-black/10"
             style={{ width: `min(100%, calc(60vh * ${String(ratio)}))` }}
           >
-            <TicketView design={design} event={event} artUrl={artUrl.data ?? null} tag={tag} />
+            <TicketView design={design} event={event} artUrl={artUrl.data ?? null} tag={tag} sponsorUrls={sponsorUrls} />
           </div>
         </div>
       </Card>
@@ -150,6 +185,8 @@ function Section({
 interface Draft {
   design: TicketDesign;
   art: ArtDto | null;
+  /** Sponsors' logos, in order (ADR 0059). */
+  sponsors: ArtDto[];
 }
 
 interface History {
@@ -203,6 +240,10 @@ function withBox(design: TicketDesign, element: TicketElement, box: Box): Ticket
   if (element.kind === "qr") {
     return { ...design, qr: { xMm: box.x, yMm: box.y, sizeMm: box.width } };
   }
+  if (element.kind === "sponsors") {
+    const strip = design.sponsors ?? null;
+    return strip === null ? design : { ...design, sponsors: { ...strip, xMm: box.x, yMm: box.y, widthMm: box.width, heightMm: box.height } };
+  }
   return {
     ...design,
     texts: design.texts.map((block, index) =>
@@ -216,7 +257,7 @@ function elementKey(element: TicketElement): string {
 }
 
 function issueElement(target: IssueTarget): TicketElement | null {
-  return target.kind === "number" || target.kind === "qr" || target.kind === "text" ? target : null;
+  return target.kind === "number" || target.kind === "qr" || target.kind === "sponsors" || target.kind === "text" ? target : null;
 }
 
 /** Whether a keyboard shortcut should leave the event to a form field (its own undo, typing). */
@@ -227,9 +268,18 @@ function typingIn(target: EventTarget | null): boolean {
 function DesignEditor({ eventId, event, initial }: { eventId: string; event: EventDto; initial: DesignResponse }) {
   const queryClient = useQueryClient();
   const confirm = useConfirm();
-  const initialDraft = useMemo<Draft>(() => ({ design: initial.design, art: initial.art }), [initial]);
+  const initialDraft = useMemo<Draft>(() => ({ design: initial.design, art: initial.art, sponsors: initial.sponsors }), [initial]);
   const { draft, change, undo, redo, canUndo, canRedo } = useDraftHistory(initialDraft);
-  const { design, art } = draft;
+  const { design, art, sponsors } = draft;
+  const sponsorUrls = useQueries({
+    queries: sponsors.map((logo) => ({
+      queryKey: ["art", eventId, logo.id],
+      queryFn: () => fetchBlobUrl(`/api/events/${eventId}/art/${logo.id}`),
+      staleTime: Number.POSITIVE_INFINITY,
+    })),
+  })
+    .map((query) => query.data)
+    .filter((url): url is string => url !== undefined);
   const [saved, setSaved] = useState<{ version: number; draft: Draft }>({ version: initial.version, draft: initialDraft });
   const [selected, setSelected] = useState<TicketElement | null>(null);
   const [galleryOpen, setGalleryOpen] = useState(false);
@@ -265,7 +315,7 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
     [preview],
   );
 
-  const body = (): DesignBody => ({ design, artId });
+  const body = (): DesignBody => ({ design, artId, sponsorIds: sponsors.map((logo) => logo.id) });
   const update = (next: (design: TicketDesign) => TicketDesign, key: string | null = null) => {
     change((current) => ({ ...current, design: next(current.design) }), key);
   };
@@ -282,6 +332,26 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
       change((current) => ({ ...current, art: uploaded }));
     },
   });
+  const uploadSponsors = useMutation({
+    mutationFn: async (files: File[]) => {
+      const uploaded: { file: File; logo: ArtDto }[] = [];
+      for (const file of files) {
+        uploaded.push({ file, logo: await upload<ArtDto>(`/api/events/${eventId}/art`, file) });
+      }
+      return uploaded;
+    },
+    onSuccess: (uploaded) => {
+      for (const { file, logo } of uploaded) {
+        rememberArt(logo, file);
+      }
+      change((current) => ({
+        ...current,
+        sponsors: [...current.sponsors, ...uploaded.map(({ logo }) => logo)].slice(0, MAX_SPONSORS),
+        design: current.design.sponsors ?? null ? current.design : { ...current.design, sponsors: defaultSponsorStrip(current.design, t.sponsors.defaultLabel) },
+      }));
+    },
+    onError: (error) => toast.error(errorMessage(error)),
+  });
   const applyTemplate = useMutation({
     mutationFn: async ({ template, palette }: { template: TicketTemplate; palette: Palette }) => {
       const built = template.build(palette);
@@ -291,7 +361,12 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
     },
     onSuccess: ({ template, design: next, file, uploaded }) => {
       rememberArt(uploaded, file);
-      change(() => ({ design: next, art: uploaded }));
+      // Sponsors stay: their strip moves to a free spot of the new layout.
+      change((current) => ({
+        design: current.design.sponsors == null ? next : { ...next, sponsors: defaultSponsorStrip(next, current.design.sponsors.label) },
+        art: uploaded,
+        sponsors: current.sponsors,
+      }));
       setStubText(next.stub?.fields.join("\n") ?? "");
       setSelected(null);
       setGalleryOpen(false);
@@ -454,6 +529,7 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
     }),
     { element: { kind: "number" }, icon: Hash, label: t.number },
     { element: { kind: "qr" }, icon: QrCode, label: t.qr },
+    ...(design.sponsors == null ? [] : [{ element: { kind: "sponsors" } as TicketElement, icon: Handshake, label: t.sponsors.title }]),
   ];
 
   return (
@@ -510,6 +586,7 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
                   event={event}
                   artUrl={artUrl.data ?? null}
                   tag={tag}
+                  sponsorUrls={sponsorUrls}
                   selected={selected}
                   problems={problems}
                   onSelect={setSelected}
@@ -596,8 +673,8 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
           {selected !== null && elementBox(design, selected) !== null && (
             <Card className="animate-fade-in ring-1 ring-brand/30">
               <CardHeader
-                icon={selected.kind === "text" ? Type : selected.kind === "number" ? Hash : QrCode}
-                title={selected.kind === "text" ? t.text : selected.kind === "number" ? t.number : t.qr}
+                icon={selected.kind === "text" ? Type : selected.kind === "number" ? Hash : selected.kind === "sponsors" ? Handshake : QrCode}
+                title={selected.kind === "text" ? t.text : selected.kind === "number" ? t.number : selected.kind === "sponsors" ? t.sponsors.title : t.qr}
                 actions={
                   <Button
                     variant="ghost"
@@ -640,6 +717,14 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
                   number={design.number}
                   onChange={(changes, key) => {
                     update((d) => ({ ...d, number: { ...d.number, ...changes } }), key);
+                  }}
+                />
+              )}
+              {selected.kind === "sponsors" && design.sponsors != null && (
+                <SponsorStyle
+                  strip={design.sponsors}
+                  onChange={(changes, key) => {
+                    update((d) => (d.sponsors == null ? d : { ...d, sponsors: { ...d.sponsors, ...changes } }), key);
                   }}
                 />
               )}
@@ -737,6 +822,94 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
             </div>
           </Section>
 
+          <Section icon={Handshake} title={t.sponsors.title} description={t.sponsors.hint}>
+            <div className="flex flex-col gap-4">
+              <Switch
+                label={t.sponsors.show}
+                checked={design.sponsors != null}
+                onChange={(checked) => {
+                  update((d) => ({ ...d, sponsors: checked ? defaultSponsorStrip(d, t.sponsors.defaultLabel) : null }));
+                  if (checked) {
+                    setSelected({ kind: "sponsors" });
+                  } else if (selected?.kind === "sponsors") {
+                    setSelected(null);
+                  }
+                }}
+              />
+              {design.sponsors != null && (
+                <div className="flex flex-col gap-4 animate-fade-in">
+                  <ul className="grid grid-cols-3 gap-2">
+                    {sponsors.map((logo, index) => (
+                      <li key={logo.id} className="group relative flex aspect-[3/2] items-center justify-center rounded-xl border border-border bg-white p-2">
+                        {sponsorUrls[index] !== undefined && (
+                          // eslint-disable-next-line @next/next/no-img-element -- object URL of an uploaded logo
+                          <img src={sponsorUrls[index]} alt={t.sponsors.logo(index + 1)} className="max-h-full max-w-full object-contain" />
+                        )}
+                        <div className="absolute inset-x-1 bottom-1 flex justify-between opacity-100 sm:opacity-0 sm:transition sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
+                          <Button
+                            variant="secondary"
+                            size="icon"
+                            className="size-7"
+                            aria-label={t.sponsors.moveLeft}
+                            disabled={index === 0}
+                            onClick={() => {
+                              change((current) => ({ ...current, sponsors: swap(current.sponsors, index, index - 1) }));
+                            }}
+                          >
+                            <ChevronLeft />
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            size="icon"
+                            className="size-7 text-danger-fg"
+                            aria-label={t.sponsors.remove(index + 1)}
+                            onClick={() => {
+                              change((current) => ({ ...current, sponsors: current.sponsors.filter((_, item) => item !== index) }));
+                            }}
+                          >
+                            <Trash2 />
+                          </Button>
+                        </div>
+                        {logo.moderation === "flagged" && (
+                          <span className="absolute top-1 left-1 rounded-full bg-warning-soft px-1.5 text-[10px] font-medium text-warning-fg">{t.sponsors.review}</span>
+                        )}
+                      </li>
+                    ))}
+                    {sponsors.length < MAX_SPONSORS && (
+                      <li>
+                        <label className="flex aspect-[3/2] cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-border-strong text-xs font-medium text-fg-muted transition hover:border-brand hover:text-brand has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand">
+                          {uploadSponsors.isPending ? <Spinner /> : <ImagePlus className="size-5" aria-hidden />}
+                          {t.sponsors.add}
+                          <input
+                            type="file"
+                            accept="image/png,image/jpeg"
+                            multiple
+                            className="sr-only"
+                            disabled={uploadSponsors.isPending}
+                            onChange={(e) => {
+                              const files = [...(e.target.files ?? [])].slice(0, MAX_SPONSORS - sponsors.length);
+                              e.target.value = "";
+                              if (files.length > 0) {
+                                uploadSponsors.mutate(files);
+                              }
+                            }}
+                          />
+                        </label>
+                      </li>
+                    )}
+                  </ul>
+                  <p className="text-xs leading-relaxed text-fg-muted">{t.sponsors.logosHint(MAX_SPONSORS)}</p>
+                  <SponsorStyle
+                    strip={design.sponsors}
+                    onChange={(changes, key) => {
+                      update((d) => (d.sponsors == null ? d : { ...d, sponsors: { ...d.sponsors, ...changes } }), key);
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+          </Section>
+
           <Section icon={Tags} title={t.band.title} description={t.band.hint}>
             <div className="flex flex-col gap-4">
               <div className="grid gap-4 sm:grid-cols-2">
@@ -825,6 +998,57 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
         </div>
         <ErrorMessage error={renderPreview.error} className="mt-4" />
       </Dialog>
+    </div>
+  );
+}
+
+/** `items` with positions `a` and `b` swapped (a new array). */
+function swap<T>(items: readonly T[], a: number, b: number): T[] {
+  const next = [...items];
+  const first = next[a];
+  const second = next[b];
+  if (first === undefined || second === undefined) {
+    return next;
+  }
+  next[a] = second;
+  next[b] = first;
+  return next;
+}
+
+/** Label, its colour and the white panel of the sponsor strip. */
+function SponsorStyle({ strip, onChange }: { strip: SponsorStrip; onChange: (changes: Partial<SponsorStrip>, key: string | null) => void }) {
+  const s = texts.event.design.sponsors;
+  return (
+    <div className="grid gap-4 sm:grid-cols-2">
+      <Field label={s.label} optional>
+        <Input
+          value={strip.label}
+          maxLength={24}
+          placeholder={s.defaultLabel}
+          onChange={(e) => {
+            onChange({ label: e.target.value }, "sponsors-label");
+          }}
+        />
+      </Field>
+      <Field label={s.labelColor}>
+        <Input
+          type="color"
+          value={strip.labelColor}
+          onChange={(e) => {
+            onChange({ labelColor: e.target.value }, "sponsors-color");
+          }}
+        />
+      </Field>
+      <div className="rounded-xl border border-border px-4 py-3 sm:col-span-2">
+        <Switch
+          label={s.panel}
+          description={s.panelHint}
+          checked={strip.panel}
+          onChange={(panel) => {
+            onChange({ panel }, null);
+          }}
+        />
+      </div>
     </div>
   );
 }

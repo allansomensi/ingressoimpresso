@@ -80,6 +80,7 @@ function design(
     stub: parts.stub,
     texts: parts.texts,
     band: null,
+    sponsors: null,
   };
 }
 

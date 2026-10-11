@@ -1,7 +1,7 @@
 import type { TicketDesign } from "@ingressoimpresso/api-types";
 import { describe, expect, it } from "vitest";
 
-import { AUTO_BAND_MM, designIssues, effectiveBand, fitsA4, inkFor, stubMinHeight } from "@/lib/design-rules";
+import { AUTO_BAND_MM, defaultSponsorStrip, designIssues, effectiveBand, fitsA4, inkFor, stubMinHeight } from "@/lib/design-rules";
 
 // The default design of crates/render/src/design.rs (`default_v1`).
 const base: TicketDesign = {
@@ -14,6 +14,7 @@ const base: TicketDesign = {
   stub: { side: "left", widthMm: 40, fields: ["Nome", "Telefone"] },
   texts: [],
   band: null,
+  sponsors: null,
 };
 
 describe("design rules (mirror of design.rs)", () => {
@@ -24,6 +25,20 @@ describe("design rules (mirror of design.rs)", () => {
     expect(designIssues({ ...low, band: { edge: "right", sizeMm: 8 } }).map((issue) => issue.target.kind)).toEqual(["qr"]);
     expect(designIssues({ ...low, band: { edge: "left", sizeMm: 30 } })).toHaveLength(1);
     expect(designIssues({ ...low, band: { edge: "left", sizeMm: 6 } })).toEqual([]);
+  });
+
+  it("keeps the sponsors clear of the QR (sponsors_keep_the_qr_clear)", () => {
+    const strip = { xMm: 6, yMm: 40, widthMm: 100, heightMm: 10, label: "Patrocínio", labelColor: "#555555", panel: false };
+    const withStrip = { ...base, sponsors: strip };
+    expect(designIssues(withStrip)).toEqual([]);
+    expect(effectiveBand(withStrip)?.edge).toBe("top");
+    expect(designIssues({ ...base, sponsors: { ...strip, widthMm: 130 } }).map((issue) => issue.target.kind)).toEqual(["sponsors"]);
+    expect(designIssues({ ...base, sponsors: { ...strip, heightMm: 4, labelColor: "cinza" } })).toHaveLength(2);
+  });
+
+  it("places a default sponsor strip clear of the QR", () => {
+    const strip = defaultSponsorStrip(base, "Patrocínio");
+    expect(designIssues({ ...base, sponsors: strip })).toEqual([]);
   });
 
   it("writes on the band in black or white", () => {
