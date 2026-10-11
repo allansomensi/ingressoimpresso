@@ -187,7 +187,7 @@ async fn coordinators_manage_the_team(pool: PgPool) {
     assert_eq!(added["member"]["areas"], json!(["manage"]));
     let inbox = app.get("/api/inbox", &bia).await.json();
     assert_eq!(inbox["notifications"][0]["kind"], "team_added");
-    assert_eq!(inbox["notifications"][0]["data"]["event"], "Show");
+    assert_eq!(inbox["notifications"][0]["data"]["eventName"], "Show");
 
     // Coordination changes the event and the team, but does not delete the event.
     let reply = app

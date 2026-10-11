@@ -145,6 +145,9 @@ pub async fn event_access(
         let allowed = match team::need(&user.method, &user.path) {
             team::Need::Read => true,
             team::Need::Area(area) => areas.contains(&TeamArea::Manage) || areas.contains(&area),
+            team::Need::Either(one, other) => {
+                areas.contains(&TeamArea::Manage) || areas.contains(&one) || areas.contains(&other)
+            }
             team::Need::Owner => false,
         };
         if !allowed {

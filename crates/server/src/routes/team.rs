@@ -33,6 +33,9 @@ pub enum Need {
     Read,
     /// One area (or `manage`).
     Area(TeamArea),
+    /// Either of two areas (or `manage`): undoing a void serves a cancellation (delivery) and a
+    /// seller's return (money).
+    Either(TeamArea, TeamArea),
     /// Only the organization's own people: deleting, archiving, duplicating, and anything not
     /// listed here (a new endpoint is closed to the team until it is mapped).
     Owner,
@@ -74,13 +77,13 @@ pub fn need(method: &Method, path: &str) -> Need {
             | "events/{id}/tickets/bulk"
             | "ticket-links/{id}/revoke"
             | "events/{id}/voids"
-            | "voids/{id}/undo"
             | "events/{id}/exports",
         )
         | ("PUT", "sellers/{id}" | "ticket-links/{id}")
         | ("DELETE", "sellers/{id}" | "sellers/{id}/link" | "ranges/{id}") => {
             Need::Area(TeamArea::Delivery)
         }
+        ("POST", "voids/{id}/undo") => Need::Either(TeamArea::Delivery, TeamArea::Money),
         ("POST", "sellers/{id}/payments" | "sellers/{id}/returns")
         | ("DELETE", "seller-payments/{id}") => Need::Area(TeamArea::Money),
         (
@@ -359,7 +362,7 @@ pub async fn add(
             NotificationKind::TeamAdded.db(),
             serde_json::json!({
                 "eventId": event_id,
-                "event": access.event.name,
+                "eventName": access.event.name,
                 "by": inviter,
                 "areas": db_areas(&areas),
             }),
@@ -569,6 +572,11 @@ mod tests {
                 Method::DELETE,
                 "seller-payments/{id}",
                 Need::Area(TeamArea::Money),
+            ),
+            (
+                Method::POST,
+                "voids/{id}/undo",
+                Need::Either(TeamArea::Delivery, TeamArea::Money),
             ),
             (
                 Method::POST,
