@@ -304,7 +304,7 @@ function EventView() {
         {tab === "voids" && <VoidsTab eventId={eventId} />}
         {tab === "files" && <FilesTab eventId={eventId} onSelect={select} />}
         {tab === "door" && <DoorTab eventId={eventId} />}
-        {tab === "report" && <ReportTab eventId={eventId} />}
+        {tab === "report" && <ReportTab eventId={eventId} onSelect={select} />}
       </section>
 
       <EventFormDialog
