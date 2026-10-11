@@ -14,6 +14,7 @@ const t = texts.nav;
 // Absolute anchors: the header also sits on the legal pages and the changelog.
 const LINKS = [
   { href: "/#como-funciona", label: t.howItWorks },
+  { href: "/#exemplos", label: t.examples },
   { href: "/#modelos", label: t.templates },
   { href: "/#recursos", label: t.features },
   { href: "/#precos", label: t.pricing },
