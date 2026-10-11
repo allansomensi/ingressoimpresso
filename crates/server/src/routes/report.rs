@@ -11,7 +11,7 @@ use axum::extract::{Path, State};
 use time::OffsetDateTime;
 use uuid::Uuid;
 
-use super::authorize_event;
+use super::{EventRow, authorize_event};
 use crate::api::{EventReportDto, ReportCategoryDto, ReportDeviceDto, ReportRowDto};
 use crate::auth::AuthUser;
 use crate::error::ApiResult;
@@ -87,6 +87,12 @@ pub async fn report(
     Path(event_id): Path<Uuid>,
 ) -> ApiResult<Json<EventReportDto>> {
     let event = authorize_event(&state.pool, &user, event_id).await?;
+    Ok(Json(build(&state, &event).await?))
+}
+
+/// The report of an event the caller may see (also the base of the accountability, ADR 0058).
+pub(crate) async fn build(state: &AppState, event: &EventRow) -> ApiResult<EventReportDto> {
+    let event_id = event.id;
     let price = event.ticket_price_cents;
     // Amounts exist when the event or one of its categories has a price.
     let priced = price.is_some()
@@ -97,7 +103,7 @@ pub async fn report(
         .fetch_one(&state.pool)
         .await?;
 
-    let mut by_seller = counts_by_seller(&state, event_id, price).await?;
+    let mut by_seller = counts_by_seller(state, event_id, price).await?;
 
     let sellers = sqlx::query!(
         "select id, name from sellers where event_id = $1 order by name",
@@ -157,17 +163,17 @@ pub async fn report(
     .fetch_one(&state.pool)
     .await?;
 
-    Ok(Json(EventReportDto {
+    Ok(EventReportDto {
         ticket_price_cents: price,
         sellers: rows,
         unassigned: unassigned.row(None, priced, false),
-        categories: by_category(&state, event_id, price).await?,
+        categories: by_category(state, event_id, price).await?,
         totals: totals_row,
         devices,
         invalid_scans: rejected.invalid,
         other_event_scans: rejected.other_event,
         generated_at: OffsetDateTime::now_utc(),
-    }))
+    })
 }
 
 /// Counts per seller id (`None`: paid tickets without a seller).

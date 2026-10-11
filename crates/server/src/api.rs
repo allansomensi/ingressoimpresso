@@ -1332,6 +1332,76 @@ dto! {
         pub last: i32,
     }
 
+    /// An expense or other income of the event (ADR 0058).
+    pub struct LedgerEntryDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// Expense or income.
+        pub kind: LedgerKind,
+        /// What it was ("Buffet", "Doação da APM").
+        pub description: String,
+        /// Free grouping.
+        pub category: Option<String>,
+        /// Amount in centavos (positive).
+        pub amount_cents: i32,
+        /// Day, `YYYY-MM-DD`.
+        pub occurred_on: String,
+    }
+
+    /// `POST /api/events/{id}/ledger`, `PUT /api/ledger/{id}`.
+    pub struct LedgerBody {
+        /// Expense or income.
+        pub kind: LedgerKind,
+        /// What it was (1–120 characters).
+        pub description: String,
+        /// Free grouping (up to 40 characters).
+        pub category: Option<String>,
+        /// Amount in centavos (1 to 100,000,000).
+        pub amount_cents: i32,
+        /// Day, `YYYY-MM-DD`.
+        pub occurred_on: String,
+    }
+
+    /// `GET /api/events/{id}/accountability`: the whole picture for the group (ADR 0058).
+    pub struct AccountabilityDto {
+        /// Paid tickets.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub issued: i64,
+        /// Declared sold (not returned unsold nor lost), courtesies included.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub sold: i64,
+        /// Tickets of categories priced zero.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub courtesies: i64,
+        /// Tickets that entered.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub entries: i64,
+        /// What the sellers' tickets are worth (`null` without prices).
+        #[cfg_attr(feature = "ts", ts(type = "number | null"))]
+        pub ticket_sales_cents: Option<i64>,
+        /// Money the sellers handed over.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub received_cents: i64,
+        /// Still with the sellers (`null` without prices).
+        #[cfg_attr(feature = "ts", ts(type = "number | null"))]
+        pub outstanding_cents: Option<i64>,
+        /// Other income written by the team.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub other_income_cents: i64,
+        /// Expenses written by the team.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub expenses_cents: i64,
+        /// Paid to Ingresso Impresso for the batches.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub platform_cents: i64,
+        /// Received + other income − expenses − platform: the money in hand.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub balance_cents: i64,
+        /// Expenses and other income, by day.
+        pub entries_list: Vec<LedgerEntryDto>,
+    }
+
     /// Paid tickets of one category in the report.
     pub struct ReportCategoryDto {
         /// Category; `null` for numbers without one.
@@ -3058,6 +3128,14 @@ dto_enum! {
     }
 
     /// What a notification is about.
+    /// An expense or other income.
+    pub enum LedgerKind {
+        /// Money spent.
+        Expense,
+        /// Money received outside ticket sales.
+        Income,
+    }
+
     /// How a table is drawn on the map.
     pub enum TableShape {
         /// Round table, seats around it.
@@ -3218,6 +3296,7 @@ db_enum!(NotificationKind {
     PriceChange => "price_change",
     TeamAdded => "team_added",
 });
+db_enum!(LedgerKind { Expense => "expense", Income => "income" });
 db_enum!(TableShape { Round => "round", Rect => "rect" });
 db_enum!(TeamArea { Manage => "manage", Money => "money", Delivery => "delivery", Art => "art", Door => "door" });
 db_enum!(PromoCodeKind { Credit => "credit", FreeTickets => "free_tickets", Discount => "discount" });

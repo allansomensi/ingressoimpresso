@@ -91,8 +91,9 @@ pub fn need(method: &Method, path: &str) -> Need {
             Need::Area(TeamArea::Delivery)
         }
         ("POST", "voids/{id}/undo") => Need::Either(TeamArea::Delivery, TeamArea::Money),
-        ("POST", "sellers/{id}/payments" | "sellers/{id}/returns")
-        | ("DELETE", "seller-payments/{id}") => Need::Area(TeamArea::Money),
+        ("POST", "sellers/{id}/payments" | "sellers/{id}/returns" | "events/{id}/ledger")
+        | ("PUT", "ledger/{id}")
+        | ("DELETE", "seller-payments/{id}" | "ledger/{id}") => Need::Area(TeamArea::Money),
         (
             "POST",
             "events/{id}/door/accesses" | "door-accesses/{id}/revoke" | "door-devices/{id}/revoke",

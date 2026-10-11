@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select o.name from events e join organizations o on o.id = e.organization_id where e.id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "organizations",
+            "name": "name"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "49726a170c1f675b3c37fe84af16f2efa73e884c9341b698f1c6949eb538ca33"
+}

@@ -22,8 +22,8 @@ use crate::error::ApiError;
 use crate::routes::events::MAX_ART_BYTES;
 use crate::routes::{
     account, admin, analytics, announcements, batches, billing, categories, changelog, door,
-    events, exports, mail_admin, moderation, platform, privacy, report, seller_links, sellers,
-    settlement, status, support, tables, team, tickets, two_factor, voids,
+    events, exports, ledger, mail_admin, moderation, platform, privacy, report, seller_links,
+    sellers, settlement, status, support, tables, team, tickets, two_factor, voids,
 };
 use crate::state::AppState;
 
@@ -234,6 +234,14 @@ pub fn router(state: AppState) -> Router {
         .route("/tables/{id}", put(tables::update).delete(tables::delete))
         .route("/tables/{id}/tickets", post(tables::seat))
         .route("/tables/{id}/tickets/remove", post(tables::unseat))
+        .route(
+            "/events/{id}/ledger",
+            get(ledger::list).post(ledger::create),
+        )
+        .route("/ledger/{id}", put(ledger::update).delete(ledger::delete))
+        .route("/events/{id}/accountability", get(ledger::summary))
+        .route("/events/{id}/accountability/pdf", get(ledger::pdf))
+        .route("/events/{id}/accountability/xlsx", get(ledger::spreadsheet))
         .route("/events/{id}/team", get(team::list).post(team::add))
         .route("/events/{id}/team/leave", post(team::leave))
         .route("/team-members/{id}", put(team::update).delete(team::remove))

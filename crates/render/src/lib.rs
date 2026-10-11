@@ -11,6 +11,8 @@ mod layout;
 mod merge;
 mod qr;
 mod render;
+mod report_doc;
+mod sheet;
 mod texts;
 mod world;
 
@@ -26,3 +28,5 @@ pub use render::{
     TicketImage, TicketQr, TicketToRender, WHATSAPP_WIDTH_PX, control_sheet_pdf, home_pdf,
     home_sheet_pngs, print_pdf, sample_qr_text, ticket_images, whatsapp_zip, write_whatsapp_zip,
 };
+pub use report_doc::{ReportDocument, ReportFact, ReportSection, ReportTable, report_pdf};
+pub use sheet::{Cell, Sheet, Workbook, xlsx};

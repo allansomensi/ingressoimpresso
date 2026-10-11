@@ -481,7 +481,7 @@ fn file_name(event_name: &str, kind: ExportKind, seller: Option<&str>) -> String
 }
 
 /// ASCII slug: accents folded, everything else non-alphanumeric becomes a dash.
-fn slug(text: &str) -> String {
+pub(crate) fn slug(text: &str) -> String {
     let folded: String = text
         .chars()
         .map(|c| match c {

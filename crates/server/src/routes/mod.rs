@@ -11,6 +11,7 @@ pub mod changelog;
 pub mod door;
 pub mod events;
 pub mod exports;
+pub mod ledger;
 pub mod mail_admin;
 pub mod moderation;
 pub mod platform;

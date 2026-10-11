@@ -729,7 +729,7 @@ fn compile(
     document
 }
 
-fn pdf(document: &PagedDocument) -> Result<Vec<u8>, RenderError> {
+pub(crate) fn pdf(document: &PagedDocument) -> Result<Vec<u8>, RenderError> {
     let options = PdfOptions {
         // A stable identifier and no timestamp make the output byte-for-byte reproducible.
         ident: Smart::Custom("ingressoimpresso".to_owned()),
@@ -742,7 +742,7 @@ fn pdf(document: &PagedDocument) -> Result<Vec<u8>, RenderError> {
         .map_err(|diagnostics| RenderError::Typst(describe(&diagnostics)))
 }
 
-fn describe(diagnostics: &EcoVec<SourceDiagnostic>) -> String {
+pub(crate) fn describe(diagnostics: &EcoVec<SourceDiagnostic>) -> String {
     diagnostics
         .iter()
         .map(|diagnostic| diagnostic.message.to_string())
