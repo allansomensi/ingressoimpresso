@@ -4,6 +4,7 @@
 // Um bloco de dados (application/ld+json) não é executado: a CSP não pede nonce (ADR 0048).
 
 import type { EventSeoPage } from "@/content/seo-event-pages";
+import { templateImagePath, type TemplateSeoPage } from "@/content/seo-templates";
 import { SITE_URL as SITE } from "@/lib/site";
 
 export function JsonLd({ data }: { data: object }) {
@@ -97,6 +98,80 @@ export function eventPageJsonLd(page: EventSeoPage) {
           name: f.pergunta,
           acceptedAnswer: { "@type": "Answer", text: f.resposta },
         })),
+      },
+    ],
+  };
+}
+
+/** The template gallery (/modelos): the list of templates, each with its page and picture. */
+export function templateGalleryJsonLd(pages: readonly TemplateSeoPage[], name: string, description: string) {
+  const url = `${SITE}/modelos`;
+  return {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "CollectionPage",
+        "@id": url,
+        url,
+        name,
+        description,
+        inLanguage: "pt-BR",
+        isPartOf: { "@id": `${SITE}/#website` },
+        mainEntity: {
+          "@type": "ItemList",
+          itemListElement: pages.map((page, index) => ({
+            "@type": "ListItem",
+            position: index + 1,
+            url: `${SITE}/modelos/${page.slug}`,
+            name: page.h1,
+            image: `${SITE}${templateImagePath(page)}`,
+          })),
+        },
+      },
+      {
+        "@type": "BreadcrumbList",
+        itemListElement: [
+          { "@type": "ListItem", position: 1, name: "Início", item: SITE },
+          { "@type": "ListItem", position: 2, name: "Modelos", item: url },
+        ],
+      },
+    ],
+  };
+}
+
+/** A template's page: the page, its picture and where it sits in the site. */
+export function templatePageJsonLd(page: TemplateSeoPage) {
+  const url = `${SITE}/modelos/${page.slug}`;
+  const image = `${SITE}${templateImagePath(page)}`;
+  return {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebPage",
+        "@id": url,
+        url,
+        name: page.title,
+        description: page.description,
+        inLanguage: "pt-BR",
+        isPartOf: { "@id": `${SITE}/#website` },
+        about: { "@id": `${SITE}/#app` },
+        primaryImageOfPage: { "@id": `${url}#image` },
+      },
+      {
+        "@type": "ImageObject",
+        "@id": `${url}#image`,
+        contentUrl: image,
+        url: image,
+        caption: page.h1,
+        inLanguage: "pt-BR",
+      },
+      {
+        "@type": "BreadcrumbList",
+        itemListElement: [
+          { "@type": "ListItem", position: 1, name: "Início", item: SITE },
+          { "@type": "ListItem", position: 2, name: "Modelos", item: `${SITE}/modelos` },
+          { "@type": "ListItem", position: 3, name: page.h1, item: url },
+        ],
       },
     ],
   };
