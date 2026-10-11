@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select exists(\n               select 1 from ticket_batches b\n               where b.event_id = $1 and b.status = 'paid' and b.numbers @> $2::int4\n                 and not exists (select 1 from seller_assignments a where a.event_id = $1 and a.numbers @> $2::int4)\n                 and not exists (select 1 from ticket_voids v where v.event_id = $1 and v.undone_at is null\n                                 and v.numbers @> $2::int4)\n                 and not exists (select 1 from ticket_links l where l.event_id = $1 and l.revoked_at is null\n                                 and l.ticket_number = $2)\n                 and not exists (select 1 from entries e where e.event_id = $1 and e.ticket_number = $2)\n           ) as \"free!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "free!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "abd50fa49f132e23b2eace57f603deaef27730de5939975488d99546c81fcaa6"
+}

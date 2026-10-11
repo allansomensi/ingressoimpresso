@@ -12,6 +12,7 @@ use axum::extract::{Path, State};
 use axum::http::header::{CACHE_CONTROL, CONTENT_TYPE};
 use axum::http::{HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
+use sqlx::{Postgres, Transaction};
 use ticket_core::SignedTicket;
 use ticket_render::{RenderJob, TicketQr, TicketToRender};
 use time::OffsetDateTime;
@@ -19,8 +20,9 @@ use uuid::Uuid;
 
 use super::{EventRow, MAX_TICKET_NUMBER, authorize_event, one_line, optional_text};
 use crate::api::{
-    CreateTicketLinkBody, CreateTicketLinksBody, DoorCategoryTagDto, OpenTicketBody, TicketLinkDto,
-    TicketLinksDto, TicketPassDto, TicketPassEvent, TicketState, UpdateTicketLinkBody,
+    CreateTicketLinkBody, CreateTicketLinksBody, DoorCategoryTagDto, OpenTicketBody,
+    ReplaceTicketBody, TicketLinkDto, TicketLinksDto, TicketPassDto, TicketPassEvent,
+    TicketReplacementDto, TicketState, UpdateTicketLinkBody,
 };
 use crate::auth::{AuthUser, new_token, token_hash};
 use crate::error::{ApiError, ApiResult, bad_request};
@@ -50,6 +52,7 @@ struct LinkRow {
     open_count: i32,
     voided: bool,
     entered_at: Option<OffsetDateTime>,
+    seller: Option<String>,
 }
 
 /// Token and QR text sealed in a link row.
@@ -138,6 +141,7 @@ impl LinkRow {
             open_count: self.open_count,
             state: state_of(self.voided, self.entered_at),
             entered_at: self.entered_at,
+            seller: self.seller,
         })
     }
 }
@@ -154,7 +158,8 @@ async fn load_links(
                   exists(select 1 from ticket_voids v where v.event_id = l.event_id and v.undone_at is null
                          and v.numbers @> l.ticket_number) as "voided!",
                   (select s.scanned_at from entries en join scans s on s.id = en.first_scan_id
-                   where en.event_id = l.event_id and en.ticket_number = l.ticket_number) as "entered_at?"
+                   where en.event_id = l.event_id and en.ticket_number = l.ticket_number) as "entered_at?",
+                  (select se.name from sellers se where se.id = l.seller_id) as "seller?"
            from ticket_links l
            where l.event_id = $1 and ($2::uuid[] is null or l.id = any($2))
            order by l.revoked_at is not null, l.created_at desc"#,
@@ -256,43 +261,93 @@ async fn issuable(
         .collect())
 }
 
+/// Who sends a link: a person on the panel or a seller from their own page (ADR 0061).
+#[derive(Clone, Copy)]
+pub(crate) enum Sender {
+    User(Uuid),
+    Seller(Uuid),
+}
+
+/// A link ready to be stored: the number's signed QR, sealed with a fresh token.
+struct NewLink {
+    id: Uuid,
+    number: i32,
+    hash: Vec<u8>,
+    sealed: Vec<u8>,
+}
+
+/// Signs `numbers` (`jobs::sign_numbers`, the only signer) and seals each QR with a new token.
+async fn prepare_links(
+    state: &AppState,
+    event: &EventRow,
+    numbers: &[(i32, i16)],
+) -> ApiResult<Vec<NewLink>> {
+    jobs::sign_numbers(state, event.id, event.qr_tag, numbers)
+        .await?
+        .into_iter()
+        .map(|(number, qr_text)| {
+            let id = Uuid::new_v4();
+            let (token, hash) = new_token()?;
+            let sealed = seal(state, id, &token, &qr_text)?;
+            Ok(NewLink {
+                id,
+                number,
+                hash,
+                sealed,
+            })
+        })
+        .collect()
+}
+
+/// Stores a prepared link, unless the number already has an active one (then `None`).
+async fn insert_link(
+    tx: &mut Transaction<'_, Postgres>,
+    event_id: Uuid,
+    link: &NewLink,
+    holder: Option<&str>,
+    sender: Sender,
+) -> ApiResult<Option<Uuid>> {
+    let (user, seller) = match sender {
+        Sender::User(id) => (Some(id), None),
+        Sender::Seller(id) => (None, Some(id)),
+    };
+    Ok(sqlx::query_scalar!(
+        r#"insert into ticket_links (id, event_id, ticket_number, holder_name, token_hash, sealed, created_by, seller_id)
+           values ($1, $2, $3, $4, $5, $6, $7, $8)
+           on conflict (event_id, ticket_number) where revoked_at is null do nothing
+           returning id"#,
+        link.id,
+        event_id,
+        link.number,
+        holder,
+        link.hash,
+        link.sealed,
+        user,
+        seller,
+    )
+    .fetch_optional(&mut **tx)
+    .await?)
+}
+
 /// Signs and stores links for `numbers` (skipping numbers that already have an active link).
 async fn create_links(
     state: &AppState,
-    user: &AuthUser,
     event: &EventRow,
     numbers: &[(i32, i16)],
     holder: Option<&str>,
+    sender: Sender,
 ) -> ApiResult<Vec<Uuid>> {
-    let signed = jobs::sign_numbers(state, event.id, event.qr_tag, numbers).await?;
-    let mut created = Vec::with_capacity(signed.len());
+    let prepared = prepare_links(state, event, numbers).await?;
+    let mut created = Vec::with_capacity(prepared.len());
     let mut tx = state.pool.begin().await?;
-    for (number, qr_text) in signed {
-        let id = Uuid::new_v4();
-        let (token, hash) = new_token()?;
-        let sealed = seal(state, id, &token, &qr_text)?;
-        let inserted = sqlx::query_scalar!(
-            r#"insert into ticket_links (id, event_id, ticket_number, holder_name, token_hash, sealed, created_by)
-               values ($1, $2, $3, $4, $5, $6, $7)
-               on conflict (event_id, ticket_number) where revoked_at is null do nothing
-               returning id"#,
-            id,
-            event.id,
-            number,
-            holder,
-            hash,
-            sealed,
-            user.id,
-        )
-        .fetch_optional(&mut *tx)
-        .await?;
-        created.extend(inserted);
+    for link in &prepared {
+        created.extend(insert_link(&mut tx, event.id, link, holder, sender).await?);
     }
     tx.commit().await?;
     Ok(created)
 }
 
-fn ensure_open(event: &EventRow) -> ApiResult<()> {
+pub(crate) fn ensure_open(event: &EventRow) -> ApiResult<()> {
     if event.status == "closed" {
         return Err(ApiError::Conflict(
             "event_closed",
@@ -343,7 +398,14 @@ pub async fn create(
             bad_request("ticket_not_issued", "this number is not in a paid batch")
         });
     }
-    let created = create_links(&state, &user, &event, &numbers, holder.as_deref()).await?;
+    let created = create_links(
+        &state,
+        &event,
+        &numbers,
+        holder.as_deref(),
+        Sender::User(user.id),
+    )
+    .await?;
     let Some(id) = created.first().copied() else {
         return Err(ApiError::Conflict(
             "ticket_link_exists",
@@ -380,7 +442,7 @@ pub async fn create_bulk(
         ));
     }
     let numbers = issuable(&state, event_id, body.first, body.last).await?;
-    let created = create_links(&state, &user, &event, &numbers, None).await?;
+    let created = create_links(&state, &event, &numbers, None, Sender::User(user.id)).await?;
     let (_, digits) = number_style(&state, event_id).await?;
     let mut rows = load_links(&state, event_id, Some(&created)).await?;
     rows.sort_by_key(|row| row.ticket_number);
@@ -389,6 +451,328 @@ pub async fn create_bulk(
         .map(|row| row.into_dto(&state, digits))
         .collect::<ApiResult<Vec<_>>>()?;
     Ok((StatusCode::CREATED, Json(links)))
+}
+
+// Sent by a seller (ADR 0061) -----------------------------------------------------------------
+
+/// Sends the digital ticket of `number` for a seller: a new link for the buyer, or nothing when
+/// the number already has an active one. The caller checks that the seller sold the number.
+pub(crate) async fn send_for_seller(
+    state: &AppState,
+    event: &EventRow,
+    seller_id: Uuid,
+    number: i32,
+    holder: Option<&str>,
+) -> ApiResult<()> {
+    ensure_open(event)?;
+    let numbers = issuable(state, event.id, number, number).await?;
+    if numbers.is_empty() {
+        return Err(ApiError::Conflict(
+            "ticket_voided",
+            "this ticket number is voided".to_owned(),
+        ));
+    }
+    let active = sqlx::query_scalar!(
+        r#"select exists(select 1 from ticket_links where event_id = $1 and ticket_number = $2
+                         and revoked_at is null) as "active!""#,
+        event.id,
+        number,
+    )
+    .fetch_one(&state.pool)
+    .await?;
+    if !active {
+        create_links(state, event, &numbers, holder, Sender::Seller(seller_id)).await?;
+    }
+    Ok(())
+}
+
+/// The active digital tickets of an event's numbers, as links to send (for the seller's page).
+pub(crate) async fn active_urls(
+    state: &AppState,
+    event_id: Uuid,
+    numbers: &[i32],
+) -> ApiResult<std::collections::HashMap<i32, String>> {
+    let rows = sqlx::query!(
+        r#"select id, ticket_number, sealed from ticket_links
+           where event_id = $1 and revoked_at is null and ticket_number = any($2)"#,
+        event_id,
+        numbers,
+    )
+    .fetch_all(&state.pool)
+    .await?;
+    rows.into_iter()
+        .map(|row| {
+            let secret = unseal(state, row.id, &row.sealed)?;
+            Ok((row.ticket_number, link_url(state, &secret.token)))
+        })
+        .collect()
+}
+
+/// Revokes the links a seller sent for a number (the sale was undone).
+pub(crate) async fn revoke_seller_links(
+    state: &AppState,
+    event_id: Uuid,
+    seller_id: Uuid,
+    number: i32,
+) -> ApiResult<()> {
+    sqlx::query!(
+        r#"update ticket_links set revoked_at = now()
+           where event_id = $1 and seller_id = $2 and ticket_number = $3 and revoked_at is null"#,
+        event_id,
+        seller_id,
+        number,
+    )
+    .execute(&state.pool)
+    .await?;
+    Ok(())
+}
+
+// Replacement of a lost ticket (ADR 0061) ---------------------------------------------------
+
+const MAX_NOTE: usize = 200;
+
+/// Whether `number` is free to be sent instead of a lost one: paid, not voided, with no active
+/// link, no entry and no seller (a seller would be charged for it).
+async fn is_free(state: &AppState, event_id: Uuid, number: i32) -> ApiResult<bool> {
+    Ok(sqlx::query_scalar!(
+        r#"select exists(
+               select 1 from ticket_batches b
+               where b.event_id = $1 and b.status = 'paid' and b.numbers @> $2::int4
+                 and not exists (select 1 from seller_assignments a where a.event_id = $1 and a.numbers @> $2::int4)
+                 and not exists (select 1 from ticket_voids v where v.event_id = $1 and v.undone_at is null
+                                 and v.numbers @> $2::int4)
+                 and not exists (select 1 from ticket_links l where l.event_id = $1 and l.revoked_at is null
+                                 and l.ticket_number = $2)
+                 and not exists (select 1 from entries e where e.event_id = $1 and e.ticket_number = $2)
+           ) as "free!""#,
+        event_id,
+        number,
+    )
+    .fetch_one(&state.pool)
+    .await?)
+}
+
+/// The smallest free number in the same category as `lost` (ADR 0056), or with no category when
+/// `lost` has none: the door must show the replacement as it would have shown the lost ticket.
+async fn free_number_like(state: &AppState, event_id: Uuid, lost: i32) -> ApiResult<Option<i32>> {
+    Ok(sqlx::query_scalar!(
+        r#"with lost as (
+               select category_id from category_ranges where event_id = $1 and numbers @> $2::int4
+           )
+           select min(n) as "n" from ticket_batches b
+           cross join lateral generate_series(lower(b.numbers), upper(b.numbers) - 1) as n
+           where b.event_id = $1 and b.status = 'paid' and n <> $2
+             and not exists (select 1 from seller_assignments a where a.event_id = $1 and a.numbers @> n)
+             and not exists (select 1 from ticket_voids v where v.event_id = $1 and v.undone_at is null
+                             and v.numbers @> n)
+             and not exists (select 1 from ticket_links l where l.event_id = $1 and l.revoked_at is null
+                             and l.ticket_number = n)
+             and not exists (select 1 from entries e where e.event_id = $1 and e.ticket_number = n)
+             and (select category_id from category_ranges cr where cr.event_id = $1 and cr.numbers @> n)
+                 is not distinct from (select category_id from lost)"#,
+        event_id,
+        lost,
+    )
+    .fetch_one(&state.pool)
+    .await?)
+}
+
+/// Who holds `number`: the name on its active digital ticket, or the buyer the seller marked.
+async fn holder_of(state: &AppState, event_id: Uuid, number: i32) -> ApiResult<Option<String>> {
+    Ok(sqlx::query_scalar!(
+        r#"select coalesce(
+               (select holder_name from ticket_links where event_id = $1 and ticket_number = $2
+                and revoked_at is null),
+               (select buyer_name from ticket_sales where event_id = $1 and ticket_number = $2)
+           ) as "holder?""#,
+        event_id,
+        number,
+    )
+    .fetch_one(&state.pool)
+    .await?)
+}
+
+fn ticket_number_in_range(number: i32) -> ApiResult<i32> {
+    if (1..=MAX_TICKET_NUMBER).contains(&number) {
+        Ok(number)
+    } else {
+        Err(bad_request(
+            "invalid_number",
+            format!("ticket numbers go from 1 to {MAX_TICKET_NUMBER}"),
+        ))
+    }
+}
+
+/// The lost number must be paid, not voided and not used at the door yet.
+async fn ensure_replaceable(state: &AppState, event_id: Uuid, old: i32) -> ApiResult<()> {
+    if issuable(state, event_id, old, old).await?.is_empty() {
+        let voided = sqlx::query_scalar!(
+            r#"select exists(select 1 from ticket_voids where event_id = $1 and undone_at is null
+                             and numbers @> $2::int4) as "voided!""#,
+            event_id,
+            old
+        )
+        .fetch_one(&state.pool)
+        .await?;
+        return Err(if voided {
+            ApiError::Conflict("ticket_voided", "this ticket number is voided".to_owned())
+        } else {
+            bad_request("ticket_not_issued", "this number is not in a paid batch")
+        });
+    }
+    let entered = sqlx::query_scalar!(
+        r#"select exists(select 1 from entries where event_id = $1 and ticket_number = $2) as "entered!""#,
+        event_id,
+        old
+    )
+    .fetch_one(&state.pool)
+    .await?;
+    if entered {
+        return Err(ApiError::Conflict(
+            "ticket_entered",
+            "this ticket already entered".to_owned(),
+        ));
+    }
+    Ok(())
+}
+
+/// The number sent instead: the one asked for, if free, or the next free one like the lost one.
+async fn replacement_number(
+    state: &AppState,
+    event_id: Uuid,
+    old: i32,
+    asked: Option<i32>,
+) -> ApiResult<i32> {
+    match asked {
+        Some(number) => {
+            let number = ticket_number_in_range(number)?;
+            if number == old || !is_free(state, event_id, number).await? {
+                return Err(ApiError::Conflict(
+                    "number_not_free",
+                    "the new number must be paid, free and with no seller".to_owned(),
+                ));
+            }
+            Ok(number)
+        }
+        None => free_number_like(state, event_id, old)
+            .await?
+            .ok_or(ApiError::Conflict(
+                "no_free_tickets",
+                "no free paid number of this category".to_owned(),
+            )),
+    }
+}
+
+/// `POST /api/events/{id}/tickets/replace`: the replacement of a lost ticket, in one step. The
+/// lost number is voided as `revoked` (whoever sold it still answers for it: the buyer paid) and
+/// its digital ticket stops opening; a free number, of the same category, goes to the same person
+/// as a digital ticket and takes over the lost number's seat.
+pub async fn replace(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(event_id): Path<Uuid>,
+    Json(body): Json<ReplaceTicketBody>,
+) -> ApiResult<(StatusCode, Json<TicketReplacementDto>)> {
+    let event = authorize_event(&state.pool, &user, event_id).await?;
+    ensure_open(&event)?;
+    let holder = holder_name(body.holder_name)?;
+    let note = optional_text(body.note);
+    if note
+        .as_ref()
+        .is_some_and(|note| note.chars().count() > MAX_NOTE)
+    {
+        return Err(bad_request(
+            "invalid_note",
+            "note must have up to 200 characters",
+        ));
+    }
+    let old = ticket_number_in_range(body.number)?;
+    ensure_replaceable(&state, event_id, old).await?;
+    let holder = match holder {
+        Some(holder) => Some(holder),
+        None => holder_of(&state, event_id, old).await?,
+    };
+    let new_number = replacement_number(&state, event_id, old, body.new_number).await?;
+    let numbers = issuable(&state, event_id, new_number, new_number).await?;
+    let prepared = prepare_links(&state, &event, &numbers).await?;
+    let link = prepared
+        .first()
+        .ok_or_else(|| ApiError::Internal(anyhow::anyhow!("nothing signed")))?;
+
+    let mut tx = state.pool.begin().await?;
+    let void_id = sqlx::query_scalar!(
+        r#"insert into ticket_voids (id, event_id, numbers, reason, note, created_by)
+           select $1, $2, int4range($3, $3, '[]'), 'revoked', $4, $5
+           where not exists (select 1 from ticket_voids where event_id = $2 and undone_at is null
+                             and numbers @> $3::int4)
+           returning id"#,
+        Uuid::new_v4(),
+        event_id,
+        old,
+        note,
+        user.id,
+    )
+    .fetch_optional(&mut *tx)
+    .await?
+    .ok_or(ApiError::Conflict(
+        "ticket_voided",
+        "this ticket number is voided".to_owned(),
+    ))?;
+    sqlx::query!(
+        r#"update ticket_links set revoked_at = now()
+           where event_id = $1 and ticket_number = $2 and revoked_at is null"#,
+        event_id,
+        old
+    )
+    .execute(&mut *tx)
+    .await?;
+    let link_id = insert_link(
+        &mut tx,
+        event_id,
+        link,
+        holder.as_deref(),
+        Sender::User(user.id),
+    )
+    .await?
+    .ok_or(ApiError::Conflict(
+        "number_not_free",
+        "the new number must be paid, free and with no seller".to_owned(),
+    ))?;
+    // The seat goes with the person (ADR 0057), unless the new number has one already.
+    sqlx::query!(
+        r#"update ticket_seats set ticket_number = $3
+           where event_id = $1 and ticket_number = $2
+             and not exists (select 1 from ticket_seats where event_id = $1 and ticket_number = $3)"#,
+        event_id,
+        old,
+        new_number,
+    )
+    .execute(&mut *tx)
+    .await?;
+    sqlx::query!(
+        r#"insert into ticket_replacements (id, event_id, old_number, new_number, void_id, link_id, created_by)
+           values ($1, $2, $3, $4, $5, $6, $7)"#,
+        Uuid::new_v4(),
+        event_id,
+        old,
+        new_number,
+        void_id,
+        link_id,
+        user.id,
+    )
+    .execute(&mut *tx)
+    .await?;
+    tx.commit().await?;
+
+    let (_, digits) = number_style(&state, event_id).await?;
+    Ok((
+        StatusCode::CREATED,
+        Json(TicketReplacementDto {
+            old_number: old,
+            old_label: label(old, digits),
+            link: reload(&state, event_id, link_id).await?,
+        }),
+    ))
 }
 
 async fn link_event(state: &AppState, link_id: Uuid) -> ApiResult<Uuid> {

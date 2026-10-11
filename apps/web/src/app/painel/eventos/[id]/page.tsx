@@ -367,7 +367,7 @@ function EventView() {
         )}
         {tab === "voids" && (
           <AreaGate eventId={eventId} area="delivery">
-            <VoidsTab eventId={eventId} />
+            <VoidsTab eventId={eventId} onSelect={select} />
           </AreaGate>
         )}
         {tab === "files" && <FilesTab eventId={eventId} onSelect={select} />}

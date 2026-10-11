@@ -1,0 +1,32 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into ticket_voids (id, event_id, numbers, reason, note, created_by)\n           select $1, $2, int4range($3, $3, '[]'), 'revoked', $4, $5\n           where not exists (select 1 from ticket_voids where event_id = $2 and undone_at is null\n                             and numbers @> $3::int4)\n           returning id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "ticket_voids",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Int4",
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "5f6da0f0075b70a5d48b88188cbef8fea9d0e9132953e44b45f1aaef2d48e3f1"
+}

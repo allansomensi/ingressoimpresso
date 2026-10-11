@@ -2,7 +2,7 @@
 
 import type { CreateVoidBody, VoidDto, VoidReason } from "@ingressoimpresso/api-types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Ban, RotateCcw, ShieldX } from "lucide-react";
+import { Ban, RotateCcw, ShieldX, Smartphone } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
@@ -28,10 +28,12 @@ import { cn } from "@/lib/cn";
 import { shortDateTime, ticketNumber } from "@/lib/format";
 import { texts } from "@/texts/pt-BR";
 
+import type { SelectTab } from "./tabs";
+
 const t = texts.event.voids;
 const REASON_TONE: Record<VoidReason, Tone> = { unsold: "neutral", lost: "danger", revoked: "warning" };
 
-export function VoidsTab({ eventId }: { eventId: string }) {
+export function VoidsTab({ eventId, onSelect }: { eventId: string; onSelect: SelectTab }) {
   const queryClient = useQueryClient();
   const confirm = useConfirm();
   const key = ["voids", eventId];
@@ -83,6 +85,18 @@ export function VoidsTab({ eventId }: { eventId: string }) {
   return (
     <div className="flex flex-col gap-6">
       <Lead>{t.intro}</Lead>
+      <p className="-mt-3 text-sm text-fg-muted">
+        {t.replaceTip}{" "}
+        <button
+          type="button"
+          onClick={() => {
+            onSelect("digital");
+          }}
+          className="relative font-medium text-brand-soft-fg underline underline-offset-2 touch-target hover:text-fg"
+        >
+          {t.replaceTipLink}
+        </button>
+      </p>
       <Card>
         <CardHeader title={t.newVoid} icon={Ban} />
         {/* First and last number side by side even on phones: two short numbers, one range. */}
@@ -128,6 +142,19 @@ export function VoidsTab({ eventId }: { eventId: string }) {
                   {ticketNumber(item.first)} – {ticketNumber(item.last)}
                 </span>
                 <Badge tone={undone ? "neutral" : REASON_TONE[item.reason]}>{t.reasons[item.reason]}</Badge>
+                {item.replacedBy !== null && (
+                  <button
+                    type="button"
+                    title={t.replacedHint}
+                    onClick={() => {
+                      onSelect("digital");
+                    }}
+                    className="relative inline-flex items-center gap-1 rounded-full bg-brand-soft px-2.5 py-0.5 text-xs font-medium text-brand-soft-fg touch-target hover:bg-brand-soft/70 active:bg-brand-soft/60"
+                  >
+                    <Smartphone aria-hidden className="size-3.5" />
+                    {t.replacedBy(ticketNumber(item.replacedBy))}
+                  </button>
+                )}
                 <span className="min-w-0 flex-1 truncate text-sm text-fg-muted">
                   {item.note ?? ""}
                   {item.note !== null && " · "}

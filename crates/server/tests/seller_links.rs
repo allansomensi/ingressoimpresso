@@ -337,3 +337,102 @@ async fn maintenance_pauses_marking_but_not_the_page(pool: PgPool) {
     assert_eq!(reply.status, StatusCode::SERVICE_UNAVAILABLE);
     assert_eq!(reply.error_code(), "maintenance");
 }
+
+async fn send_ticket(app: &TestApp, secret: &str, number: i32) -> Reply {
+    app.request(
+        Method::POST,
+        "/api/seller/tickets",
+        None,
+        Some(json!({ "token": secret, "number": number })),
+    )
+    .await
+}
+
+#[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
+async fn sellers_send_the_digital_ticket_of_a_sale(pool: PgPool) {
+    let app = TestApp::new(pool).await;
+    let token = app.login("banda@exemplo.com").await;
+    let (event, maria, _) = setup(&app, &token).await;
+    let secret = link(&app, &token, &maria).await;
+    let view = open(&app, &secret).await.json();
+    assert_eq!(view["canSendTickets"], true, "on by default");
+
+    // Only a number the seller marked as sold.
+    let early = send_ticket(&app, &secret, 3).await;
+    assert_eq!(early.error_code(), "ticket_not_sold");
+    mark(
+        &app,
+        &secret,
+        json!([{ "first": 3, "last": 3 }]),
+        Some("Ana"),
+    )
+    .await;
+    let reply = send_ticket(&app, &secret, 3).await;
+    assert_eq!(reply.status, StatusCode::OK, "{:?}", reply.json());
+    let view = reply.json();
+    let url = view["sales"][0]["ticketUrl"].as_str().unwrap().to_owned();
+    assert!(url.starts_with("http://localhost:3000/ingresso#"), "{url}");
+    let pass = app
+        .request(
+            Method::POST,
+            "/api/ticket",
+            None,
+            Some(json!({ "token": url.split_once('#').unwrap().1 })),
+        )
+        .await
+        .json();
+    assert_eq!(pass["holderName"], "Ana");
+
+    // Sending again keeps the same link; the panel shows who sent it.
+    let again = send_ticket(&app, &secret, 3).await.json();
+    assert_eq!(again["sales"][0]["ticketUrl"], url.as_str());
+    let links = app
+        .get(&format!("/api/events/{event}/tickets"), &token)
+        .await
+        .json();
+    assert_eq!(links["links"].as_array().unwrap().len(), 1);
+    assert_eq!(links["links"][0]["seller"], "Maria");
+
+    // Undoing the sale stops the link from opening.
+    app.request(
+        Method::POST,
+        "/api/seller/sales/undo",
+        None,
+        Some(json!({ "token": secret, "number": 3 })),
+    )
+    .await;
+    let links = app
+        .get(&format!("/api/events/{event}/tickets"), &token)
+        .await
+        .json();
+    assert!(links["links"][0]["revokedAt"].is_string());
+
+    // The organizer can turn it off; the team member who cares for tickets too.
+    let settings = app
+        .get(&format!("/api/events/{event}/seller-settings"), &token)
+        .await
+        .json();
+    assert_eq!(settings["sendTickets"], true);
+    let off = app
+        .put(
+            &format!("/api/events/{event}/seller-settings"),
+            &token,
+            json!({ "sendTickets": false }),
+        )
+        .await;
+    assert_eq!(off.status, StatusCode::OK);
+    mark(&app, &secret, json!([{ "first": 4, "last": 4 }]), None).await;
+    let refused = send_ticket(&app, &secret, 4).await;
+    assert_eq!(refused.error_code(), "seller_tickets_off");
+    assert_eq!(open(&app, &secret).await.json()["canSendTickets"], false);
+
+    let stranger = app.login("outra@exemplo.com").await;
+    let hidden = app
+        .put(
+            &format!("/api/events/{event}/seller-settings"),
+            &stranger,
+            json!({ "sendTickets": true }),
+        )
+        .await;
+    assert_eq!(hidden.status, StatusCode::NOT_FOUND);
+}

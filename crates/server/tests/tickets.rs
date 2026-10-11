@@ -279,3 +279,150 @@ async fn the_ticket_image_is_the_printed_design(pool: PgPool) {
         .any(|entry| entry.file_name().to_string_lossy().starts_with("ticket-"));
     assert!(cached);
 }
+
+#[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
+async fn a_lost_ticket_is_replaced_in_one_step(pool: PgPool) {
+    let app = TestApp::with_free_tickets(pool, 30).await;
+    let (token, event) = setup(&app).await;
+    app.create_batch(&token, &event, 20).await;
+    // João holds 1–5; 15–20 are VIP; 8 went to Ana as a digital ticket and sits at Mesa 1.
+    let seller = app
+        .post(
+            &format!("/api/events/{event}/sellers"),
+            &token,
+            json!({ "name": "João" }),
+        )
+        .await
+        .json();
+    app.post(
+        &format!("/api/sellers/{}/ranges", seller["id"].as_str().unwrap()),
+        &token,
+        json!({ "first": 1, "last": 5 }),
+    )
+    .await;
+    let vip = app
+        .post(
+            &format!("/api/events/{event}/categories"),
+            &token,
+            json!({ "name": "VIP", "color": "#b8860b", "priceCents": null }),
+        )
+        .await
+        .json();
+    app.post(
+        &format!("/api/categories/{}/ranges", vip["id"].as_str().unwrap()),
+        &token,
+        json!({ "first": 15, "last": 20 }),
+    )
+    .await;
+    let old = app
+        .post(
+            &format!("/api/events/{event}/tickets"),
+            &token,
+            json!({ "number": 8, "holderName": "Ana" }),
+        )
+        .await
+        .json();
+    app.post(
+        &format!("/api/events/{event}/tables/bulk"),
+        &token,
+        json!({ "count": 1, "seats": 4, "shape": "round", "prefix": "Mesa" }),
+    )
+    .await;
+    let table = app
+        .get(&format!("/api/events/{event}/tables"), &token)
+        .await
+        .json()[0]["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    app.post(
+        &format!("/api/tables/{table}/tickets"),
+        &token,
+        json!({ "ranges": [{ "first": 8, "last": 8 }], "moveSeated": false }),
+    )
+    .await;
+
+    let replace = |body: Value| {
+        let app = &app;
+        let uri = format!("/api/events/{event}/tickets/replace");
+        let token = token.clone();
+        async move { app.post(&uri, &token, body).await }
+    };
+    let reply = replace(json!({ "number": 8, "note": "Perdeu na rua" })).await;
+    assert_eq!(reply.status, StatusCode::CREATED, "{:?}", reply.json());
+    let made = reply.json();
+    assert_eq!(made["oldLabel"], "0008");
+    assert_eq!(
+        made["link"]["number"], 6,
+        "the first free number, no seller"
+    );
+    assert_eq!(made["link"]["holderName"], "Ana", "the same person");
+    assert_eq!(made["link"]["state"], "valid");
+
+    // The lost number is voided (the seller still answers for it), its link stops opening and
+    // the seat goes with the person.
+    let voids = app
+        .get(&format!("/api/events/{event}/voids"), &token)
+        .await
+        .json();
+    assert_eq!(voids[0]["first"], 8);
+    assert_eq!(voids[0]["reason"], "revoked");
+    assert_eq!(voids[0]["note"], "Perdeu na rua");
+    assert_eq!(voids[0]["replacedBy"], 6);
+    let gone = open(&app, old["url"].as_str().unwrap()).await;
+    assert_ne!(gone.status, StatusCode::OK);
+    let tables = app
+        .get(&format!("/api/events/{event}/tables"), &token)
+        .await
+        .json();
+    assert_eq!(tables[0]["guests"][0], json!({ "number": 6, "seat": 1 }));
+
+    // A VIP ticket is replaced by a VIP one.
+    let made = replace(json!({ "number": 16, "holderName": "Bia" }))
+        .await
+        .json();
+    assert_eq!(made["link"]["number"], 15);
+
+    // Refusals: twice, a number held by a seller, one not paid, a bad note.
+    assert_eq!(
+        replace(json!({ "number": 8 })).await.error_code(),
+        "ticket_voided"
+    );
+    assert_eq!(
+        replace(json!({ "number": 9, "newNumber": 2 }))
+            .await
+            .error_code(),
+        "number_not_free"
+    );
+    assert_eq!(
+        replace(json!({ "number": 9, "newNumber": 9 }))
+            .await
+            .error_code(),
+        "number_not_free"
+    );
+    assert_eq!(
+        replace(json!({ "number": 25 })).await.error_code(),
+        "ticket_not_issued"
+    );
+    assert_eq!(
+        replace(json!({ "number": 9, "note": "x".repeat(201) }))
+            .await
+            .error_code(),
+        "invalid_note"
+    );
+    let asked = replace(json!({ "number": 9, "newNumber": 12 }))
+        .await
+        .json();
+    assert_eq!(asked["link"]["number"], 12);
+    assert!(asked["link"]["holderName"].is_null());
+
+    let stranger = app.login("outra@exemplo.com").await;
+    let hidden = app
+        .post(
+            &format!("/api/events/{event}/tickets/replace"),
+            &stranger,
+            json!({ "number": 10 }),
+        )
+        .await;
+    assert_eq!(hidden.status, StatusCode::NOT_FOUND);
+}

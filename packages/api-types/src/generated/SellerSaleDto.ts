@@ -19,4 +19,8 @@ buyerPhone: string | null,
 /**
  * When it was marked.
  */
-soldAt: string, };
+soldAt: string, 
+/**
+ * The number's active digital ticket, if one was sent (ADR 0061).
+ */
+ticketUrl: string | null, };

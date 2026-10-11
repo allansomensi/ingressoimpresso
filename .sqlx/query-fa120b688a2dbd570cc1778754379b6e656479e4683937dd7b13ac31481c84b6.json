@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select l.id, l.ticket_number, l.holder_name, l.sealed, l.created_at, l.revoked_at,\n                  l.first_opened_at, l.last_opened_at, l.open_count,\n                  exists(select 1 from ticket_voids v where v.event_id = l.event_id and v.undone_at is null\n                         and v.numbers @> l.ticket_number) as \"voided!\",\n                  (select s.scanned_at from entries en join scans s on s.id = en.first_scan_id\n                   where en.event_id = l.event_id and en.ticket_number = l.ticket_number) as \"entered_at?\"\n           from ticket_links l\n           where l.event_id = $1 and ($2::uuid[] is null or l.id = any($2))\n           order by l.revoked_at is not null, l.created_at desc",
+  "query": "select l.id, l.ticket_number, l.holder_name, l.sealed, l.created_at, l.revoked_at,\n                  l.first_opened_at, l.last_opened_at, l.open_count,\n                  exists(select 1 from ticket_voids v where v.event_id = l.event_id and v.undone_at is null\n                         and v.numbers @> l.ticket_number) as \"voided!\",\n                  (select s.scanned_at from entries en join scans s on s.id = en.first_scan_id\n                   where en.event_id = l.event_id and en.ticket_number = l.ticket_number) as \"entered_at?\",\n                  (select se.name from sellers se where se.id = l.seller_id) as \"seller?\"\n           from ticket_links l\n           where l.event_id = $1 and ($2::uuid[] is null or l.id = any($2))\n           order by l.revoked_at is not null, l.created_at desc",
   "describe": {
     "columns": [
       {
@@ -113,6 +113,12 @@
         "name": "entered_at?",
         "type_info": "Timestamptz",
         "origin": "Expression"
+      },
+      {
+        "ordinal": 11,
+        "name": "seller?",
+        "type_info": "Text",
+        "origin": "Expression"
       }
     ],
     "parameters": {
@@ -132,8 +138,9 @@
       true,
       false,
       null,
+      null,
       null
     ]
   },
-  "hash": "359d7c92539fced92099d54c693d14c39a75e26e04a2e565499165e8996fa836"
+  "hash": "fa120b688a2dbd570cc1778754379b6e656479e4683937dd7b13ac31481c84b6"
 }

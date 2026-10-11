@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with lost as (\n               select category_id from category_ranges where event_id = $1 and numbers @> $2::int4\n           )\n           select min(n) as \"n\" from ticket_batches b\n           cross join lateral generate_series(lower(b.numbers), upper(b.numbers) - 1) as n\n           where b.event_id = $1 and b.status = 'paid' and n <> $2\n             and not exists (select 1 from seller_assignments a where a.event_id = $1 and a.numbers @> n)\n             and not exists (select 1 from ticket_voids v where v.event_id = $1 and v.undone_at is null\n                             and v.numbers @> n)\n             and not exists (select 1 from ticket_links l where l.event_id = $1 and l.revoked_at is null\n                             and l.ticket_number = n)\n             and not exists (select 1 from entries e where e.event_id = $1 and e.ticket_number = n)\n             and (select category_id from category_ranges cr where cr.event_id = $1 and cr.numbers @> n)\n                 is not distinct from (select category_id from lost)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "n",
+        "type_info": "Int4",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "423e6d73493738ed8e89eae4be93eea54b487527f27492c8536e909b51d477a5"
+}

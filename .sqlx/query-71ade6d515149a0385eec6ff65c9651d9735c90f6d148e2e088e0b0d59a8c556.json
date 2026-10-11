@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "update ticket_voids set undone_at = now(), undone_by = $2\n           where id = $1 and undone_at is null\n             and not exists(select 1 from ticket_batches b where b.event_id = ticket_voids.event_id\n                            and b.status = 'refunded' and b.numbers && ticket_voids.numbers)\n           returning id, numbers, reason, note, created_at, undone_at, false as \"locked!\"",
+  "query": "update ticket_voids set undone_at = now(), undone_by = $2\n           where id = $1 and undone_at is null\n             and not exists(select 1 from ticket_batches b where b.event_id = ticket_voids.event_id\n                            and b.status = 'refunded' and b.numbers && ticket_voids.numbers)\n           returning id, numbers, reason, note, created_at, undone_at, false as \"locked!\",\n                     (select r.new_number from ticket_replacements r where r.void_id = ticket_voids.id) as \"replaced_by?\"",
   "describe": {
     "columns": [
       {
@@ -74,6 +74,12 @@
         "name": "locked!",
         "type_info": "Bool",
         "origin": "Expression"
+      },
+      {
+        "ordinal": 7,
+        "name": "replaced_by?",
+        "type_info": "Int4",
+        "origin": "Expression"
       }
     ],
     "parameters": {
@@ -89,8 +95,9 @@
       true,
       false,
       true,
+      null,
       null
     ]
   },
-  "hash": "b1cb888c986bf104f9642902b0a37a0d09b1b0ac2195336000767732da0a7d89"
+  "hash": "71ade6d515149a0385eec6ff65c9651d9735c90f6d148e2e088e0b0d59a8c556"
 }

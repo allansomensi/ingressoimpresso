@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update events set sellers_send_tickets = $2 where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e348aac1b9ca755033b3c563ba191bd231c179107ade1d5dab1271e925a0601b"
+}

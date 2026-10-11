@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "insert into ticket_links (id, event_id, ticket_number, holder_name, token_hash, sealed, created_by)\n               values ($1, $2, $3, $4, $5, $6, $7)\n               on conflict (event_id, ticket_number) where revoked_at is null do nothing\n               returning id",
+  "query": "insert into ticket_links (id, event_id, ticket_number, holder_name, token_hash, sealed, created_by, seller_id)\n           values ($1, $2, $3, $4, $5, $6, $7, $8)\n           on conflict (event_id, ticket_number) where revoked_at is null do nothing\n           returning id",
   "describe": {
     "columns": [
       {
@@ -23,6 +23,7 @@
         "Text",
         "Bytea",
         "Bytea",
+        "Uuid",
         "Uuid"
       ]
     },
@@ -30,5 +31,5 @@
       false
     ]
   },
-  "hash": "dce4be7ac196a8cc93fcfaf5d9c0a9eb77171d50c306e6eac143ca4c23ede80a"
+  "hash": "a4bf2609d11c1d5be0ecd74d1a511724c3b7cdb1e5952cf1bef8316ea8e63b61"
 }

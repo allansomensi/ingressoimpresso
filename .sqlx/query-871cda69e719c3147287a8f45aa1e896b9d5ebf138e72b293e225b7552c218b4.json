@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update ticket_seats set ticket_number = $3\n           where event_id = $1 and ticket_number = $2\n             and not exists (select 1 from ticket_seats where event_id = $1 and ticket_number = $3)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "871cda69e719c3147287a8f45aa1e896b9d5ebf138e72b293e225b7552c218b4"
+}

@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select coalesce(\n               (select holder_name from ticket_links where event_id = $1 and ticket_number = $2\n                and revoked_at is null),\n               (select buyer_name from ticket_sales where event_id = $1 and ticket_number = $2)\n           ) as \"holder?\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "holder?",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "97cee9dc0e85fd1d32c4cc995f25f3499c3321ce3e7028c0cb9bbd053ca93f25"
+}

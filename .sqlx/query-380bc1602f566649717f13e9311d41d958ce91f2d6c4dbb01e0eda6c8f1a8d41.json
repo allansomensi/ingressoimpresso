@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update ticket_links set revoked_at = now()\n           where event_id = $1 and seller_id = $2 and ticket_number = $3 and revoked_at is null",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "380bc1602f566649717f13e9311d41d958ce91f2d6c4dbb01e0eda6c8f1a8d41"
+}
