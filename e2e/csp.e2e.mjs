@@ -17,6 +17,7 @@ const PAGES = [
   "/status",
   "/novidades",
   "/sobre",
+  "/ingresso-para/festa-junina",
   "/termos",
   "/privacidade",
   "/reembolso",
