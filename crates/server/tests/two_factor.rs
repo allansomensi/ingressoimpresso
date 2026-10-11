@@ -43,8 +43,9 @@ fn step_now() -> i64 {
     time::OffsetDateTime::now_utc().unix_timestamp() / STEP_SECONDS
 }
 
-/// Turns two-step verification on for a signed-in user; returns the secret and recovery codes.
-async fn turn_on(app: &TestApp, token: &str) -> (Vec<u8>, Vec<String>) {
+/// Turns two-step verification on for a signed-in user; returns the secret, the recovery codes
+/// and the step whose code turned it on (spent: the server only takes later steps).
+async fn turn_on(app: &TestApp, token: &str) -> (Vec<u8>, Vec<String>, i64) {
     let setup = app
         .post("/api/account/two-factor/setup", token, json!({}))
         .await;
@@ -66,11 +67,12 @@ async fn turn_on(app: &TestApp, token: &str) -> (Vec<u8>, Vec<String>) {
         )
         .await;
     assert_eq!(wrong.error_code(), "invalid_two_factor_code");
+    let step = step_now();
     let on = app
         .post(
             "/api/account/two-factor/enable",
             token,
-            json!({ "code": code_at(&secret, step_now()) }),
+            json!({ "code": code_at(&secret, step) }),
         )
         .await;
     assert_eq!(on.status, StatusCode::OK, "{:?}", on.json());
@@ -81,7 +83,7 @@ async fn turn_on(app: &TestApp, token: &str) -> (Vec<u8>, Vec<String>) {
         .map(|code| code.as_str().unwrap().to_owned())
         .collect();
     assert_eq!(codes.len(), 10);
-    (secret, codes)
+    (secret, codes, step)
 }
 
 async fn verify(app: &TestApp, code: &str, second: Option<&str>) -> common::Reply {
@@ -112,7 +114,7 @@ async fn sign_ins_ask_for_the_second_step(pool: PgPool) {
     let token = app.login(EMAIL).await;
     let status = app.get("/api/account/two-factor", &token).await.json();
     assert_eq!(status["enabled"], false);
-    let (secret, recovery) = turn_on(&app, &token).await;
+    let (secret, recovery, enabled_step) = turn_on(&app, &token).await;
     let status = app.get("/api/account/two-factor", &token).await.json();
     assert_eq!(status["enabled"], true);
     assert_eq!(status["recoveryCodesLeft"], 10);
@@ -129,10 +131,11 @@ async fn sign_ins_ask_for_the_second_step(pool: PgPool) {
     assert_eq!(first.error_code(), "two_factor_required");
     let wrong = verify(&app, &code, Some("123456")).await;
     assert_eq!(wrong.error_code(), "invalid_two_factor_code");
-    // The step used to turn it on cannot be used again; the next one can.
-    let replay = verify(&app, &code, Some(&code_at(&secret, step_now()))).await;
+    // The step used to turn it on cannot be used again; the next one can. Both come from that
+    // step, not from the clock: a 30-second boundary between the calls must not change them.
+    let replay = verify(&app, &code, Some(&code_at(&secret, enabled_step))).await;
     assert_eq!(replay.error_code(), "invalid_two_factor_code");
-    let ok = verify(&app, &code, Some(&code_at(&secret, step_now() + 1))).await;
+    let ok = verify(&app, &code, Some(&code_at(&secret, enabled_step + 1))).await;
     assert_eq!(ok.status, StatusCode::OK, "{:?}", ok.json());
 
     // A recovery code works once, typed in any case and without the dash.
@@ -201,7 +204,7 @@ async fn sign_ins_ask_for_the_second_step(pool: PgPool) {
 async fn google_sign_ins_ask_too_and_it_turns_off(pool: PgPool) {
     let app = TestApp::new(pool).await.with_google(CLIENT);
     let token = app.login(EMAIL).await;
-    let (_, recovery) = turn_on(&app, &token).await;
+    let (_, recovery, _) = turn_on(&app, &token).await;
     let now = time::OffsetDateTime::now_utc().unix_timestamp();
     let credential = TestSigner::new().token(&json!({
         "iss": "https://accounts.google.com",

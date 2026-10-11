@@ -760,7 +760,8 @@ function NewSeller({ eventId, onCreated, tile }: { eventId: string; onCreated: (
             autoFocus={tile}
           />
         </Field>
-        <Field label={t.phone} optional hint={t.phoneHint}>
+        {/* In the wide row the hint goes under the whole form, so the fields stay aligned. */}
+        <Field label={t.phone} optional hint={tile ? t.phoneHint : undefined}>
           <Input
             value={phone}
             onChange={(e) => {
@@ -772,7 +773,7 @@ function NewSeller({ eventId, onCreated, tile }: { eventId: string; onCreated: (
             maxLength={30}
           />
         </Field>
-        <div className={cn("flex gap-2", tile ? "justify-end" : "sm:mb-6")}>
+        <div className={cn("flex gap-2", tile && "justify-end")}>
           {tile && (
             <Button
               variant="ghost"
@@ -789,6 +790,7 @@ function NewSeller({ eventId, onCreated, tile }: { eventId: string; onCreated: (
           </Button>
         </div>
       </form>
+      {!tile && <p className="mt-3 text-xs text-fg-muted">{t.phoneHint}</p>}
       <ErrorMessage error={create.error} className="mt-4" />
     </Card>
   );
