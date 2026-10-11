@@ -9,6 +9,7 @@ import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { money as formatMoney } from "@/lib/format";
 import { settlementTotals } from "@/lib/settlement";
+import { Accountability } from "@/components/event/accountability";
 import type { SelectTab } from "@/components/event/tabs";
 import { texts } from "@/texts/pt-BR";
 
@@ -218,6 +219,8 @@ export function ReportTab({ eventId, onSelect }: { eventId: string; onSelect: Se
           }
         />
       </div>
+
+      <Accountability eventId={eventId} />
 
       {data.categories.length > 0 && <CategoryTable rows={data.categories} />}
 
