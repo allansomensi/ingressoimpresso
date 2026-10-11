@@ -6,7 +6,7 @@ import { BarChart3, CalendarPlus, CircleDollarSign, Download, Info, LogIn, Recei
 import Link from "next/link";
 
 import { BarChart } from "@/components/admin/bar-chart";
-import { Badge, Button, ButtonLink, Card, CardHeader, EmptyState, ErrorMessage, LoadingBlock, PageHeader, Stat } from "@/components/ui";
+import { Badge, Button, ButtonLink, Card, CardHeader, EmptyState, ErrorMessage, LoadingBlock, PageHeader, Stat, TableScroll } from "@/components/ui";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { eventDateTime, money } from "@/lib/format";
@@ -109,8 +109,8 @@ export default function ResultsPage() {
 
           <section className="flex flex-col gap-3">
             <h2 className="text-base font-semibold tracking-tight text-fg">{t.events}</h2>
-            <div className="overflow-x-auto rounded-2xl border border-border bg-surface shadow-xs">
-              <table className="w-full min-w-[44rem] text-sm">
+            <TableScroll label={t.events} className="rounded-2xl border border-border bg-surface shadow-xs">
+              <table aria-label={t.events} className="w-full min-w-[44rem] text-sm">
                 <thead>
                   <tr className="border-b border-border text-left text-xs font-medium text-fg-muted">
                     <th className="px-4 py-3 font-medium">{t.columns.event}</th>
@@ -125,7 +125,7 @@ export default function ResultsPage() {
                   {events.map((event) => {
                     const net = event.grossCents - event.costCents;
                     return (
-                      <tr key={event.id} className="transition hover:bg-surface-2">
+                      <tr key={event.id} className="transition hover:bg-surface-2 active:bg-surface-2">
                         <td className="px-4 py-3">
                           <Link href={`/painel/eventos/${event.id}`} className="flex flex-col gap-0.5">
                             <span className="flex items-center gap-2 font-medium text-fg">
@@ -147,7 +147,7 @@ export default function ResultsPage() {
                   })}
                 </tbody>
               </table>
-            </div>
+            </TableScroll>
           </section>
           <p className="flex items-start gap-2 text-xs leading-relaxed text-fg-muted">
             <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />

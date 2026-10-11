@@ -20,6 +20,8 @@ import { createPortal } from "react-dom";
 import { cn } from "@/lib/cn";
 import { texts } from "@/texts/pt-BR";
 
+import { useScrollLock, useSheetDrag } from "./sheet";
+
 /** Phones get bottom sheets instead of floating panels (Tailwind's `sm` breakpoint). */
 const PHONE_QUERY = "(max-width: 639.98px)";
 
@@ -157,20 +159,6 @@ function useAnchoredPosition(
   }, [open, phone, triggerRef, panelRef, align]);
 }
 
-/** While a bottom sheet is open, the page under it does not scroll. */
-function useScrollLock(active: boolean) {
-  useEffect(() => {
-    if (!active) {
-      return;
-    }
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previous;
-    };
-  }, [active]);
-}
-
 /**
  * The panel itself, rendered in `<body>` so no `overflow: hidden` card or blurred header can clip
  * it: anchored to the trigger on larger screens, a bottom sheet with a backdrop on phones.
@@ -203,6 +191,7 @@ function FloatingPanel({
 }) {
   useAnchoredPosition(open, phone, triggerRef, panelRef, align);
   useScrollLock(open && phone);
+  useSheetDrag(panelRef, open && phone, onClose);
   if (!open) {
     return null;
   }
@@ -224,13 +213,16 @@ function FloatingPanel({
           "fixed inset-x-0 bottom-0 z-[61] flex max-h-[85dvh] flex-col overflow-y-auto overscroll-contain rounded-t-3xl border-t border-border bg-surface px-2 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-lg animate-sheet",
         )}
       >
-        <div className="flex items-center justify-between px-3 pt-1 pb-2">
+        {/* The grip (handle and title row) pulls the sheet down (ADR 0060). */}
+        <div data-sheet-grip className="sticky -top-2 z-10 -mt-2 flex touch-none items-center justify-between bg-surface px-3 pt-3 pb-2">
           <span aria-hidden className="absolute top-2 left-1/2 h-1 w-10 -translate-x-1/2 rounded-full bg-border-strong" />
           <span className="pt-3 text-sm font-semibold text-fg">{title}</span>
           <button
             type="button"
-            onClick={onClose}
-            className="mt-2 rounded-full px-3 py-1.5 text-sm font-medium text-fg-muted transition hover:bg-surface-2 hover:text-fg"
+            onClick={() => {
+              onClose();
+            }}
+            className="mt-2 rounded-full px-3 py-2 text-sm font-medium text-fg-muted transition hover:bg-surface-2 hover:text-fg active:bg-surface-2"
           >
             {texts.common.close}
           </button>
@@ -423,8 +415,8 @@ export function MenuItem({
       className={cn(
         "flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm font-medium transition outline-none max-sm:py-3 max-sm:text-[15px] [&_svg]:size-4",
         tone === "danger"
-          ? "text-danger-fg hover:bg-danger-soft focus-visible:bg-danger-soft"
-          : "text-fg hover:bg-surface-2 focus-visible:bg-surface-2",
+          ? "text-danger-fg hover:bg-danger-soft active:bg-danger-soft focus-visible:bg-danger-soft"
+          : "text-fg hover:bg-surface-2 active:bg-surface-2 focus-visible:bg-surface-2",
       )}
     >
       {icon}

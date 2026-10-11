@@ -637,7 +637,7 @@ export function AdminPromotions() {
                 <Menu
                   label={texts.event.batches.moreActions}
                   trigger={<MoreHorizontal className="size-4" aria-hidden />}
-                  triggerClassName="flex size-9 items-center justify-center rounded-lg text-fg-muted transition hover:bg-surface-2 hover:text-fg"
+                  triggerClassName="flex size-9 items-center justify-center rounded-lg text-fg-muted transition hover:bg-surface-2 active:bg-surface-2 hover:text-fg"
                 >
                   <MenuItem
                     icon={<Pencil />}
@@ -975,7 +975,7 @@ export function AdminCodes() {
                 <Menu
                   label={texts.event.batches.moreActions}
                   trigger={<MoreHorizontal className="size-4" aria-hidden />}
-                  triggerClassName="flex size-9 items-center justify-center rounded-lg text-fg-muted transition hover:bg-surface-2 hover:text-fg"
+                  triggerClassName="flex size-9 items-center justify-center rounded-lg text-fg-muted transition hover:bg-surface-2 active:bg-surface-2 hover:text-fg"
                 >
                   <MenuItem
                     icon={<Users />}

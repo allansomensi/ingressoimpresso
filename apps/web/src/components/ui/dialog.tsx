@@ -7,10 +7,15 @@ import { cn } from "@/lib/cn";
 import { texts } from "@/texts/pt-BR";
 
 import { Button } from "./button";
+import { useIsPhone } from "./popover";
+import { useScrollLock, useSheetDrag } from "./sheet";
 
 const SIZES = { sm: "max-w-md", md: "max-w-lg", lg: "max-w-3xl", xl: "max-w-6xl" } as const;
 
-/** A modal on the native `<dialog>`: focus trap, Escape and the top layer come from the browser. */
+/**
+ * A modal on the native `<dialog>`: focus trap, Escape and the top layer come from the browser.
+ * On phones it is a bottom sheet that can be pulled down to close (ADR 0060).
+ */
 export function Dialog({
   open,
   onClose,
@@ -32,6 +37,9 @@ export function Dialog({
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const pressedBackdrop = useRef(false);
+  const phone = useIsPhone();
+  useSheetDrag(ref, open && phone, onClose);
+  useScrollLock(open && phone);
 
   useEffect(() => {
     const dialog = ref.current;
@@ -74,18 +82,22 @@ export function Dialog({
     >
       {open && (
         <div data-dialog-start tabIndex={-1} className="flex max-h-[calc(100dvh-2rem)] flex-col outline-none max-sm:max-h-[92dvh]">
-          <header className="flex items-start justify-between gap-4 px-5 pt-6 pb-2 sm:px-6">
-            <div className="flex flex-col gap-1">
-              <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
-              {description !== undefined && <p className="text-sm leading-relaxed text-fg-muted">{description}</p>}
-            </div>
-            <Button variant="ghost" size="icon" aria-label={texts.common.close} onClick={onClose} className="-mt-1 -mr-2">
-              <X />
-            </Button>
-          </header>
+          {/* The grip (handle and header) pulls the sheet down on phones. */}
+          <div data-sheet-grip className="max-sm:touch-none">
+            <span aria-hidden className="mx-auto mt-2.5 block h-1 w-10 rounded-full bg-border-strong sm:hidden" />
+            <header className="flex items-start justify-between gap-4 px-5 pt-4 pb-2 sm:px-6 sm:pt-6">
+              <div className="flex min-w-0 flex-col gap-1">
+                <h2 className="text-lg font-semibold tracking-tight text-balance">{title}</h2>
+                {description !== undefined && <p className="text-sm leading-relaxed text-fg-muted">{description}</p>}
+              </div>
+              <Button variant="ghost" size="icon" aria-label={texts.common.close} onClick={onClose} className="-mt-1 -mr-2">
+                <X />
+              </Button>
+            </header>
+          </div>
           {children !== undefined && <div className="overflow-y-auto overscroll-contain px-5 py-4 sm:px-6">{children}</div>}
           {footer !== undefined && (
-            <footer className="flex flex-col-reverse gap-2 border-t border-border px-6 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex-row sm:justify-end sm:pb-4">
+            <footer className="flex flex-col-reverse gap-2 border-t border-border px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex-row sm:justify-end sm:px-6 sm:pb-4">
               {footer}
             </footer>
           )}

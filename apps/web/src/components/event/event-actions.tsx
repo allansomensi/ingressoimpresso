@@ -56,7 +56,7 @@ export function EventActions({ event }: { event: EventDto }) {
       label={t.menu}
       disabled={duplicate.isPending || setStatus.isPending || remove.isPending}
       trigger={<MoreHorizontal />}
-      triggerClassName={buttonClass({ variant: "secondary", size: "icon", className: "size-8" })}
+      triggerClassName={buttonClass({ variant: "secondary", size: "icon-sm" })}
     >
       <MenuItem
         icon={<Copy />}

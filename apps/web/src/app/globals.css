@@ -225,6 +225,9 @@
     background: var(--bg);
     color: var(--fg);
     font-feature-settings: "ss01", "cv11";
+    /* The viewport covers the whole screen (viewport-fit=cover): an iPhone on its side keeps the
+       content clear of the notch. Fixed bars and sheets handle their own safe areas. */
+    padding-inline: env(safe-area-inset-left) env(safe-area-inset-right);
   }
 
   /* A grid cell may shrink below its content (min-width: auto would let one long name or a
@@ -265,6 +268,50 @@
 
 @utility tabular {
   font-variant-numeric: tabular-nums;
+}
+
+/*
+ * At least 44×44 px to tap on touch screens, without changing the layout (WCAG 2.5.5, ADR 0060):
+ * an invisible ::after grows the hit area around a small control. The element must be positioned
+ * (`relative` or `absolute`).
+ */
+@utility touch-target {
+  @media (pointer: coarse) {
+    &::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: max(100%, 44px);
+      height: max(100%, 44px);
+      transform: translate(-50%, -50%);
+    }
+  }
+}
+
+/*
+ * Edge shadows on a box that scrolls sideways (wide tables on phones): they show only where there
+ * is more to see, and move with the content (`local` covers over `scroll` shadows).
+ */
+@utility scroll-shadows-x {
+  /* Longhands only: the box keeps its own background color (bg-surface). */
+  background-image:
+    linear-gradient(to right, var(--surface) 40%, transparent),
+    linear-gradient(to left, var(--surface) 40%, transparent),
+    radial-gradient(farthest-side at 0 50%, hsl(var(--shadow-color) / 0.16), transparent),
+    radial-gradient(farthest-side at 100% 50%, hsl(var(--shadow-color) / 0.16), transparent);
+  background-position: left center, right center, left center, right center;
+  background-size: 2.5rem 100%, 2.5rem 100%, 0.875rem 100%, 0.875rem 100%;
+  background-repeat: no-repeat;
+  background-attachment: local, local, scroll, scroll;
+}
+
+/* A strip that scrolls sideways with a finger, without a scrollbar. */
+@utility scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 /* Soft brand glow behind hero sections. */

@@ -96,7 +96,7 @@ function SectionLinks({ current, onSelect, open }: { current: Section; onSelect:
                 }}
                 className={cn(
                   "flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm font-medium transition max-sm:py-3 max-sm:text-[15px]",
-                  selected ? "bg-brand-soft text-brand-soft-fg" : "text-fg-muted hover:bg-surface-2 hover:text-fg",
+                  selected ? "bg-brand-soft text-brand-soft-fg" : "text-fg-muted hover:bg-surface-2 active:bg-surface-2 hover:text-fg",
                 )}
               >
                 <Icon aria-hidden className="size-4 shrink-0" />

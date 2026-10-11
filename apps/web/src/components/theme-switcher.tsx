@@ -36,8 +36,8 @@ export function ThemeSwitcher({ className, labels = false }: { className?: strin
               setTheme(value);
             }}
             className={cn(
-              "inline-flex h-7 items-center justify-center gap-1.5 rounded-full text-xs font-medium transition",
-              labels ? "flex-1 px-2.5" : "w-7",
+              "inline-flex h-7 items-center justify-center gap-1.5 rounded-full text-xs font-medium transition pointer-coarse:h-9",
+              labels ? "flex-1 px-2.5" : "w-7 pointer-coarse:w-9",
               selected ? "bg-surface text-fg shadow-sm ring-1 ring-border" : "text-fg-subtle hover:text-fg",
             )}
           >
