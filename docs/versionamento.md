@@ -10,7 +10,7 @@ está no [ADR 0049](adr/0049-versionamento-e-releases.md).
 - **[`CHANGELOG.md`](../CHANGELOG.md)** registra tudo o que mudou, versão por versão.
 - **Tags `vX.Y.Z`** e **GitHub Releases** são criadas pelo CI quando a versão chega ao `main`.
 - **Branches:** só `main` (produção) e `staging` (testes) são permanentes.
-- A versão em uso aparece no **rodapé do site**, no **menu da conta** do painel e na
+- A versão em uso aparece no **rodapé do site**, no **fim das páginas do painel** e na
   **[página de status](https://ingressoimpresso.com.br/status)** (site e API).
 
 ## Qual número subir
@@ -100,7 +100,7 @@ Quando um problema em produção não pode esperar o que já está no `staging`:
 |---|---|---|
 | Rodapé do site | `v1.5.0` (no staging, `v1.5.0 · <commit>`), discreto no canto, com link para a página Sobre (ADR 0051) | `package.json` do site, no build (`next.config.ts`) |
 | `/sobre` | a versão em uso, com link para as notas dela em `/novidades` | o mesmo |
-| Menu da conta, no painel | `Ingresso Impresso v1.5.0`, com link para a página Sobre | o mesmo |
+| Fim das páginas do painel | `v1.5.0`, pequeno no canto direito, com link para a página Sobre (ADR 0052) | o mesmo |
 | `/status` | versão do site e da API | `GET /api/status` → `version` |
 | `/novidades` | notas agrupadas por versão, âncora `#v1.5.0`, selo "Versão atual" | `changelog_entries.version` |
 | Log da API | `listening ... version=1.5.0` | `CARGO_PKG_VERSION` |

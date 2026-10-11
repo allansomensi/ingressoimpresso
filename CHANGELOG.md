@@ -32,8 +32,8 @@ e não acompanha estes números.
 
 - O relatório separa o acerto (com recebido e falta) da portaria, e a planilha traz as colunas de
   dinheiro recebido e saldo.
-- A versão do site ficou discreta no canto do rodapé e leva à página Sobre, em vez das Novidades
-  (ADR 0051).
+- A versão do site ficou discreta, no canto do rodapé do site e no fim das páginas do painel (fora
+  do menu da conta), e leva à página Sobre em vez das Novidades (ADRs 0051 e 0052).
 - Textos mais claros: "emitidos" no lugar de "pagos" quando se fala dos ingressos gerados.
 
 ## [1.0.0] - 2026-10-10

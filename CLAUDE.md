@@ -70,7 +70,7 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
 - **Versionamento (ADR 0049): implementado, versão atual 1.1.0.** Uma versão SemVer para o produto
   inteiro (todos os manifestos, conferidos por `scripts/release.mjs check`), `CHANGELOG.md` em
   português (Keep a Changelog), `just release` no `staging` e tag `vX.Y.Z` + GitHub Release pelo
-  job **Release** do CI no `main`; versão no rodapé, no menu da conta, em `/status` (site e API) e
+  job **Release** do CI no `main`; versão no rodapé, no fim das páginas do painel, em `/status` (site e API) e
   Novidades agrupadas por versão (`changelog_entries.version`). Só `main` e `staging` são
   permanentes: o workflow **Branches** apaga o branch de um PR integrado. Guia em
   `docs/versionamento.md`.
@@ -78,7 +78,8 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
 - **Acerto e vitrine (ADRs 0050, 0051): implementado.** Recebimentos e devoluções por vendedor
   (`seller_payments`, `routes/settlement.rs`) com saldo no relatório, resumo geral e WhatsApp na
   aba Vendedores; simulador de preços e exemplos de uso (banda, rifa, formatura) na landing;
-  página `/sobre`, para onde leva a versão, agora discreta no rodapé.
+  página `/sobre`, para onde leva a versão, agora discreta no rodapé e fora do menu da conta
+  (ADR 0052).
 
 Plano completo em `docs/arquitetura.md` §12.
 

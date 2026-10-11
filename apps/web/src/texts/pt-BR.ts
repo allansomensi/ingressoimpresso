@@ -685,7 +685,7 @@ export const texts = {
     title: "Meus eventos",
     subtitle: "Crie um evento para montar o ingresso, gerar os lotes e preparar a portaria.",
     signOut: "Sair",
-    version: (label: string) => `Ingresso Impresso ${label}`,
+    version: (label: string) => `Sobre o Ingresso Impresso · versão ${label}`,
     account: "Conta",
     accountPage: "Minha conta",
     admin: "Administrador",
