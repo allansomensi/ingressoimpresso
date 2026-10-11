@@ -1,0 +1,56 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with held as (\n               select n as number\n               from seller_assignments a\n               join ticket_batches b on b.event_id = a.event_id and b.status = 'paid' and b.numbers && a.numbers,\n                    generate_series(lower(a.numbers * b.numbers), upper(a.numbers * b.numbers) - 1) as n\n               where a.seller_id = $2\n           )\n           select tc.name as \"category?\", tc.color as \"color?\",\n                  coalesce(tc.price_cents, $3::int4) as \"price_cents?\", count(*)::int as \"tickets!\"\n           from held h\n           left join category_ranges cr on cr.event_id = $1 and cr.numbers @> h.number\n           left join ticket_categories tc on tc.id = cr.category_id\n           where not exists (select 1 from ticket_voids v\n                             where v.event_id = $1 and v.undone_at is null and v.numbers @> h.number\n                               and v.reason in ('unsold', 'lost'))\n           group by tc.name, tc.color, tc.price_cents, tc.position\n           order by tc.position nulls last, tc.name",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "category?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ticket_categories",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "color?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ticket_categories",
+            "name": "color"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "price_cents?",
+        "type_info": "Int4",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "tickets!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null,
+      null
+    ]
+  },
+  "hash": "971782144bb62b315dab2edb7238821c8a18ca544bcce00067b95552c502cf9a"
+}

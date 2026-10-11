@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into category_ranges (id, event_id, category_id, numbers)\n               select gen_random_uuid(), $2, $3, numbers from category_ranges where category_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "5fb13b58f572a83d2aa23c3b6261cbc5783956c3756de277ede9c5595163d82d"
+}

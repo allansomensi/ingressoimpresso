@@ -38,6 +38,7 @@ import { api, fetchBlobUrl, writeToken } from "@/lib/api";
 import { dateTime, money } from "@/lib/format";
 import { discounted, quote } from "@/lib/pricing";
 import { useSession } from "@/lib/session";
+import { VERSION_LABEL } from "@/lib/version";
 import { useUnsavedChanges } from "@/lib/unsaved";
 import { texts } from "@/texts/pt-BR";
 
@@ -336,6 +337,8 @@ export default function AccountPage() {
           {session.status === "signed-in" && <PrivacyCard account={a} email={session.user.email} />}
         </div>
       </div>
+      {/* The version, for support: plain text, at the very end of the account page (ADR 0054). */}
+      <p className="text-center text-[11px] text-fg-subtle/70 tabular">{texts.panel.version(VERSION_LABEL)}</p>
     </main>
   );
 }

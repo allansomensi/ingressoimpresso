@@ -5,7 +5,7 @@ import { Logo } from "@/components/brand";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { ButtonLink } from "@/components/ui";
 import { LEGAL_ENTITY } from "@/content/legal";
-import { ABOUT_HREF, APP_COMMIT, APP_VERSION, VERSION_LABEL } from "@/lib/version";
+import { ABOUT_HREF } from "@/lib/version";
 import { texts } from "@/texts/pt-BR";
 
 const t = texts.footer;
@@ -42,8 +42,8 @@ const COLUMNS = [
 /**
  * Footer of the public pages: navigation, legal documents, the provider's identification
  * (Decreto 7.962/2013) and, tucked away at the bottom, the theme switcher (the site follows the
- * system theme by default) and the version of the site, small and leading to the About page
- * (ADR 0051).
+ * system theme by default). The version is not here: it is on /status, /sobre and the account
+ * page (ADR 0054).
  */
 export function SiteFooter() {
   return (
@@ -88,18 +88,9 @@ export function SiteFooter() {
             <span>{t.rights(new Date().getFullYear())}</span>
             <span>{t.provider(LEGAL_ENTITY.name, LEGAL_ENTITY.document)}</span>
           </p>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 opacity-70 transition hover:opacity-100 focus-within:opacity-100">
-              <span>{t.theme}</span>
-              <ThemeSwitcher />
-            </div>
-            <Link
-              href={ABOUT_HREF}
-              title={t.version(APP_VERSION, APP_COMMIT)}
-              className="rounded font-mono text-[11px] tabular opacity-60 transition hover:text-fg-muted hover:opacity-100"
-            >
-              {VERSION_LABEL}
-            </Link>
+          <div className="flex items-center gap-2 opacity-70 transition hover:opacity-100 focus-within:opacity-100">
+            <span>{t.theme}</span>
+            <ThemeSwitcher />
           </div>
         </div>
       </div>

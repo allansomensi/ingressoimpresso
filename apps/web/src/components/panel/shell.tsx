@@ -17,7 +17,6 @@ import { initials } from "@/lib/format";
 import { usePlatform } from "@/lib/platform";
 import { useRequiredSession, useSession } from "@/lib/session";
 import { hasUnsavedChanges } from "@/lib/unsaved";
-import { ABOUT_HREF, VERSION_LABEL } from "@/lib/version";
 import { texts } from "@/texts/pt-BR";
 
 const t = texts.panel;
@@ -265,16 +264,6 @@ export function PanelShell({ children }: { children: ReactNode }) {
             <>
               {children}
               <AnnouncementHost />
-              {/* The version, small and out of the way, like on the site footer (ADR 0052). */}
-              <p className="mt-16 flex justify-end">
-                <Link
-                  href={ABOUT_HREF}
-                  title={t.version(VERSION_LABEL)}
-                  className="rounded font-mono text-[11px] text-fg-subtle tabular opacity-60 transition hover:text-fg-muted hover:opacity-100"
-                >
-                  {VERSION_LABEL}
-                </Link>
-              </p>
             </>
           )
         ) : session.status === "error" ? (

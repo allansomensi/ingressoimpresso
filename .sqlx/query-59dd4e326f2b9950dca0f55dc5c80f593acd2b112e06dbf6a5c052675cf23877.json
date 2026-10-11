@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update event_ledger set kind = $2, description = $3, category = $4, amount_cents = $5, occurred_on = $6\n           where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Text",
+        "Int4",
+        "Date"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "59dd4e326f2b9950dca0f55dc5c80f593acd2b112e06dbf6a5c052675cf23877"
+}

@@ -21,6 +21,7 @@ import {
   outcomeOf,
   viewOf,
   voidedView,
+  type DoorContext,
   type ResultView,
 } from "./logic";
 import * as storage from "./storage";
@@ -216,11 +217,13 @@ export class DoorEngine {
     this.#set({ result: null });
   }
 
-  #context(): { digits: number; sellers: storage.StoredManifest["sellers"] } {
+  #context(): DoorContext {
     const manifest = this.#state.manifest;
     return {
       digits: manifest?.event.numberDigits ?? this.#state.device?.event.numberDigits ?? 4,
       sellers: manifest?.sellers ?? [],
+      categories: manifest?.categories ?? [],
+      seats: manifest?.seats ?? [],
     };
   }
 
@@ -334,6 +337,8 @@ export class DoorEngine {
       verifier: manifest.verifier,
       voids: manifest.voids,
       sellers: manifest.sellers,
+      categories: manifest.categories,
+      seats: manifest.seats,
       cursor: manifest.cursor,
       syncedAt,
       offsetMs,

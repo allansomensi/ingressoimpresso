@@ -4,8 +4,8 @@ import type { AuthOptionsDto, RequestCodeBody, SessionResponse } from "@ingresso
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Check, Mail } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useRef, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
 import { Logo, LogoMark } from "@/components/brand";
@@ -48,9 +48,19 @@ function Terms() {
 }
 
 export default function SignInPage() {
+  return (
+    <Suspense>
+      <SignIn />
+    </Suspense>
+  );
+}
+
+function SignIn() {
   const router = useRouter();
   const { session, signIn } = useSession();
-  const [email, setEmail] = useState("");
+  // A team invite (ADR 0055) links here with the e-mail filled in.
+  const search = useSearchParams();
+  const [email, setEmail] = useState(() => search.get("email")?.slice(0, 254) ?? "");
   const [code, setCode] = useState("");
   const [codeSent, setCodeSent] = useState(false);
   const [sentAt, setSentAt] = useState(0);

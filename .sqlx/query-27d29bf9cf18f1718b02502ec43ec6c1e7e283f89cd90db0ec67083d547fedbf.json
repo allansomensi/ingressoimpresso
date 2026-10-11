@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select max(seat) from ticket_seats where table_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "max",
+        "type_info": "Int2",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "27d29bf9cf18f1718b02502ec43ec6c1e7e283f89cd90db0ec67083d547fedbf"
+}

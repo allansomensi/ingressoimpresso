@@ -19,8 +19,8 @@ use uuid::Uuid;
 
 use super::{EventRow, MAX_TICKET_NUMBER, authorize_event, one_line, optional_text};
 use crate::api::{
-    CreateTicketLinkBody, CreateTicketLinksBody, OpenTicketBody, TicketLinkDto, TicketLinksDto,
-    TicketPassDto, TicketPassEvent, TicketState, UpdateTicketLinkBody,
+    CreateTicketLinkBody, CreateTicketLinksBody, DoorCategoryTagDto, OpenTicketBody, TicketLinkDto,
+    TicketLinksDto, TicketPassDto, TicketPassEvent, TicketState, UpdateTicketLinkBody,
 };
 use crate::auth::{AuthUser, new_token, token_hash};
 use crate::error::{ApiError, ApiResult, bad_request};
@@ -515,7 +515,15 @@ pub async fn open(
     let offset = time::UtcOffset::from_whole_seconds(i32::from(event.utc_offset_minutes) * 60)
         .unwrap_or(time::UtcOffset::UTC);
     let ticket_state = state_of(event.voided, event.entered_at);
+    let tags = super::categories::NumberTags::load(&state.pool, link.event_id).await?;
     let pass = TicketPassDto {
+        category: tags
+            .category(link.ticket_number)
+            .map(|category| DoorCategoryTagDto {
+                name: category.name,
+                color: category.color,
+            }),
+        seat: tags.seat(link.ticket_number),
         event: TicketPassEvent {
             name: event.name,
             venue: event.venue,
@@ -622,15 +630,20 @@ async fn render_image(state: &AppState, link: &OpenRow) -> ApiResult<Vec<u8>> {
     )
     .fetch_one(&state.pool)
     .await?;
-    let (design, art) = jobs::current_design(state, link.event_id).await?;
+    let (design, art, sponsors) = jobs::current_design(state, link.event_id).await?;
+    let tags = super::categories::NumberTags::load(&state.pool, link.event_id).await?;
+    let number = i32::try_from(ticket.header().number.get()).unwrap_or(i32::MAX);
     let job = RenderJob {
         details: event.details(),
         design,
         art,
+        sponsors,
         event_name: event.name,
         tickets: vec![TicketToRender {
             qr: TicketQr::Signed(ticket),
             seller: None,
+            category: tags.category(number),
+            seat: tags.seat(number),
         }],
     };
     let images =

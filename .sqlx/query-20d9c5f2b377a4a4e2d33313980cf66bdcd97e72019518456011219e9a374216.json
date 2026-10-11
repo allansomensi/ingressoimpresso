@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update event_tables set x = $3, y = $4 where id = $1 and event_id = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Float4",
+        "Float4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "20d9c5f2b377a4a4e2d33313980cf66bdcd97e72019518456011219e9a374216"
+}

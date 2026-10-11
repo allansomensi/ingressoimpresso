@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select o.suspended_at is not null as \"suspended!\"\n           from events e join organizations o on o.id = e.organization_id where e.id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "suspended!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "d64809681bab5bd7ff44179bd693da35cc584fc913184da8798e412b09c3b245"
+}

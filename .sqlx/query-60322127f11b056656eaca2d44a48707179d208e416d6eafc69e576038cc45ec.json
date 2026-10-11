@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select s.ticket_number, s.seat, t.name from ticket_seats s\n           join event_tables t on t.id = s.table_id where s.event_id = $1 order by s.ticket_number",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "ticket_number",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "ticket_seats",
+            "name": "ticket_number"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "seat",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "ticket_seats",
+            "name": "seat"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "event_tables",
+            "name": "name"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "60322127f11b056656eaca2d44a48707179d208e416d6eafc69e576038cc45ec"
+}

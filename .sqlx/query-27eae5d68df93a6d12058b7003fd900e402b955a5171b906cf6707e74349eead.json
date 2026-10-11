@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update event_tables set name = $2, seats = $3, shape = $4,\n                  x = coalesce($5, x), y = coalesce($6, y) where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Int2",
+        "Text",
+        "Float4",
+        "Float4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "27eae5d68df93a6d12058b7003fd900e402b955a5171b906cf6707e74349eead"
+}

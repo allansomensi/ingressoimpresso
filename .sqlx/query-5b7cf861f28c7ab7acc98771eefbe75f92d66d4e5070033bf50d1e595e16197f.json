@@ -1,0 +1,64 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select ticket_number, buyer_name, buyer_phone, sold_at from ticket_sales\n               where seller_id = $1 order by ticket_number",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "ticket_number",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "ticket_sales",
+            "name": "ticket_number"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "buyer_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ticket_sales",
+            "name": "buyer_name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "buyer_phone",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ticket_sales",
+            "name": "buyer_phone"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "sold_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "ticket_sales",
+            "name": "sold_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      false
+    ]
+  },
+  "hash": "5b7cf861f28c7ab7acc98771eefbe75f92d66d4e5070033bf50d1e595e16197f"
+}

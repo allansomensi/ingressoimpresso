@@ -18,6 +18,7 @@ use uuid::Uuid;
 use super::{EventRow, authorize_event, door, event_access, one_line, optional_text};
 use crate::api::{
     ArtDto, DesignBody, DesignResponse, EventBody, EventDto, EventStatus, EventStatusBody,
+    EventTeamAccessDto, TeamArea,
 };
 use crate::auth::AuthUser;
 use crate::error::{ApiError, ApiResult, bad_request};
@@ -56,6 +57,7 @@ impl EventRow {
                 ApiError::Internal(anyhow::anyhow!("unknown event status {}", self.status))
             })?,
             support_access: false,
+            team: None,
         })
     }
 }
@@ -99,22 +101,50 @@ fn validate_event(body: &EventBody) -> ApiResult<(String, Option<String>, i16)> 
     Ok((name, venue, offset))
 }
 
-/// `GET /api/events`.
+/// `GET /api/events`: the organization's events and the ones whose team the user is on
+/// (ADR 0055).
 pub async fn list(State(state): State<AppState>, user: AuthUser) -> ApiResult<Json<Vec<EventDto>>> {
-    let rows = sqlx::query_as!(
-        EventRow,
+    let rows = sqlx::query!(
         r#"select e.id, e.name, e.venue, e.starts_at, e.ends_at, e.ticket_price_cents, e.status, e.qr_tag,
-                  e.utc_offset_minutes
-           from events e join memberships m on m.organization_id = e.organization_id
-           where m.user_id = $1 order by e.starts_at desc"#,
+                  e.utc_offset_minutes, o.name as organization, t.areas as "areas?"
+           from events e join organizations o on o.id = e.organization_id
+           left join event_team t on t.event_id = e.id and t.user_id = $1
+           where exists (select 1 from memberships m where m.organization_id = e.organization_id and m.user_id = $1)
+              or t.id is not null
+           order by e.starts_at desc"#,
         user.id,
     )
     .fetch_all(&state.pool)
     .await?;
     rows.into_iter()
-        .map(EventRow::into_dto)
+        .map(|row| {
+            let mut event = EventRow {
+                id: row.id,
+                name: row.name,
+                venue: row.venue,
+                starts_at: row.starts_at,
+                ends_at: row.ends_at,
+                ticket_price_cents: row.ticket_price_cents,
+                status: row.status,
+                qr_tag: row.qr_tag,
+                utc_offset_minutes: row.utc_offset_minutes,
+            }
+            .into_dto()?;
+            event.team = row.areas.map(|areas| team_access(&areas, row.organization));
+            Ok(event)
+        })
         .collect::<ApiResult<Vec<_>>>()
         .map(Json)
+}
+
+fn team_access(areas: &[String], organization: String) -> EventTeamAccessDto {
+    EventTeamAccessDto {
+        areas: areas
+            .iter()
+            .filter_map(|area| TeamArea::from_db(area))
+            .collect(),
+        organization,
+    }
 }
 
 /// A new event: its row and its first signing key.
@@ -223,7 +253,7 @@ fn copy_name(name: &str) -> String {
 }
 
 /// `POST /api/events/{id}/duplicate`: a new event with the same details, the latest ticket
-/// design (art included) and the same sellers, without batches, ranges or door links. It gets
+/// design (art included), the same sellers, team, categories and tables, without batches, ranges or door links. It gets
 /// its own QR tag and signing key: tickets of one event never open the other's door.
 pub async fn duplicate(
     State(state): State<AppState>,
@@ -253,12 +283,13 @@ pub async fn duplicate(
     .await?;
 
     let design = sqlx::query!(
-        "select spec, art_blob_id from ticket_designs where event_id = $1 order by version desc limit 1",
+        "select spec, art_blob_id, sponsor_blob_ids from ticket_designs where event_id = $1 order by version desc limit 1",
         event_id
     )
     .fetch_optional(&mut *tx)
     .await?;
     let mut copied_art = None;
+    let mut unchecked_logos = Vec::new();
     if let Some(design) = design {
         let art = match design.art_blob_id {
             Some(blob_id) => {
@@ -268,13 +299,28 @@ pub async fn duplicate(
             }
             None => None,
         };
+        // Refused logos stay behind (CLAUDE.md invariant 17); the others are copied in order.
+        let mut sponsors = Vec::with_capacity(design.sponsor_blob_ids.len());
+        for blob_id in design.sponsor_blob_ids {
+            match copy_art(&mut tx, organization_id, blob_id, copy.id).await {
+                Ok((id, unchecked)) => {
+                    if unchecked {
+                        unchecked_logos.push(id);
+                    }
+                    sponsors.push(id);
+                }
+                Err(ApiError::Conflict("art_rejected", _)) => {}
+                Err(other) => return Err(other),
+            }
+        }
         sqlx::query!(
-            r#"insert into ticket_designs (id, event_id, version, spec, art_blob_id)
-               values ($1, $2, 1, $3, $4)"#,
+            r#"insert into ticket_designs (id, event_id, version, spec, art_blob_id, sponsor_blob_ids)
+               values ($1, $2, 1, $3, $4, $5)"#,
             Uuid::new_v4(),
             copy.id,
             design.spec,
             art,
+            &sponsors,
         )
         .execute(&mut *tx)
         .await?;
@@ -287,12 +333,55 @@ pub async fn duplicate(
     )
     .execute(&mut *tx)
     .await?;
+    super::team::copy(&mut tx, event_id, copy.id, user.id).await?;
+    copy_categories_and_tables(&mut tx, event_id, copy.id).await?;
     tx.commit().await?;
     // A copy of art nobody has looked at yet is classified like a new upload (ADR 0042).
-    if let Some(art_id) = copied_art {
+    for art_id in copied_art.into_iter().chain(unchecked_logos) {
         crate::moderation::spawn_check(&state, art_id);
     }
     Ok((StatusCode::CREATED, Json(copy.into_dto()?)))
+}
+
+/// Categories (with their numbers) and tables (without guests) go to the copy (ADR 0056, 0057).
+async fn copy_categories_and_tables(
+    tx: &mut Transaction<'_, Postgres>,
+    from: Uuid,
+    to: Uuid,
+) -> ApiResult<()> {
+    let categories = sqlx::query!("select id from ticket_categories where event_id = $1", from)
+        .fetch_all(&mut **tx)
+        .await?;
+    for category in categories {
+        let new_id = Uuid::new_v4();
+        sqlx::query!(
+            r#"insert into ticket_categories (id, event_id, name, color, price_cents, position)
+               select $3, $2, name, color, price_cents, position from ticket_categories where id = $1"#,
+            category.id,
+            to,
+            new_id,
+        )
+        .execute(&mut **tx)
+        .await?;
+        sqlx::query!(
+            r#"insert into category_ranges (id, event_id, category_id, numbers)
+               select gen_random_uuid(), $2, $3, numbers from category_ranges where category_id = $1"#,
+            category.id,
+            to,
+            new_id,
+        )
+        .execute(&mut **tx)
+        .await?;
+    }
+    sqlx::query!(
+        r#"insert into event_tables (id, event_id, name, seats, shape, x, y)
+           select gen_random_uuid(), $2, name, seats, shape, x, y from event_tables where event_id = $1"#,
+        from,
+        to,
+    )
+    .execute(&mut **tx)
+    .await?;
+    Ok(())
 }
 
 /// Copies an art blob to another event of the same organization, within its art quota. The
@@ -424,6 +513,10 @@ pub async fn get(
     let access = event_access(&state.pool, &user, event_id).await?;
     let mut event = access.event.into_dto()?;
     event.support_access = access.support;
+    event.team = access.team.map(|areas| EventTeamAccessDto {
+        areas,
+        organization: access.organization_name,
+    });
     Ok(Json(event))
 }
 
@@ -507,7 +600,7 @@ pub async fn get_design(
 ) -> ApiResult<Json<DesignResponse>> {
     authorize_event(&state.pool, &user, event_id).await?;
     let latest = sqlx::query!(
-        "select version, spec, art_blob_id from ticket_designs where event_id = $1 order by version desc limit 1",
+        "select version, spec, art_blob_id, sponsor_blob_ids from ticket_designs where event_id = $1 order by version desc limit 1",
         event_id
     )
     .fetch_optional(&state.pool)
@@ -517,6 +610,7 @@ pub async fn get_design(
             version: 0,
             design: TicketDesign::default_v1(),
             art: None,
+            sponsors: Vec::new(),
         }));
     };
     let design: TicketDesign = serde_json::from_value(latest.spec).map_err(anyhow::Error::from)?;
@@ -524,10 +618,15 @@ pub async fn get_design(
         Some(art_id) => Some(art_of_event(&state, event_id, art_id).await?.into()),
         None => None,
     };
+    let mut sponsors = Vec::with_capacity(latest.sponsor_blob_ids.len());
+    for id in latest.sponsor_blob_ids {
+        sponsors.push(art_of_event(&state, event_id, id).await?.into());
+    }
     Ok(Json(DesignResponse {
         version: latest.version,
         design,
         art,
+        sponsors,
     }))
 }
 
@@ -566,15 +665,17 @@ pub async fn save_design(
             "the art was refused by the team".to_owned(),
         ));
     }
+    let sponsors = sponsors_of(&state, event_id, &body.sponsor_ids).await?;
     let spec = serde_json::to_value(&body.design).map_err(anyhow::Error::from)?;
     let version = sqlx::query_scalar!(
-        r#"insert into ticket_designs (id, event_id, version, spec, art_blob_id)
-           values ($1, $2, (select coalesce(max(version), 0) + 1 from ticket_designs where event_id = $2), $3, $4)
+        r#"insert into ticket_designs (id, event_id, version, spec, art_blob_id, sponsor_blob_ids)
+           values ($1, $2, (select coalesce(max(version), 0) + 1 from ticket_designs where event_id = $2), $3, $4, $5)
            returning version"#,
         Uuid::new_v4(),
         event_id,
         spec,
         body.art_id,
+        &body.sponsor_ids,
     )
     .fetch_one(&state.pool)
     .await?;
@@ -582,7 +683,30 @@ pub async fn save_design(
         version,
         design: body.design,
         art: art.map(Into::into),
+        sponsors: sponsors.into_iter().map(Into::into).collect(),
     }))
+}
+
+/// The sponsors' logos of a design: at most six, uploaded to this event, none refused.
+async fn sponsors_of(state: &AppState, event_id: Uuid, ids: &[Uuid]) -> ApiResult<Vec<ArtRow>> {
+    if ids.len() > ticket_render::MAX_SPONSORS {
+        return Err(bad_request(
+            "too_many_sponsors",
+            format!("up to {} logos", ticket_render::MAX_SPONSORS),
+        ));
+    }
+    let mut logos = Vec::with_capacity(ids.len());
+    for id in ids {
+        let logo = art_of_event(state, event_id, *id).await?;
+        if logo.moderation_status == "rejected" {
+            return Err(ApiError::Conflict(
+                "art_rejected",
+                "the art was refused by the team".to_owned(),
+            ));
+        }
+        logos.push(logo);
+    }
+    Ok(logos)
 }
 
 /// `POST /api/events/{id}/art`: raw PNG or JPEG body (max 20 MB).
@@ -639,7 +763,8 @@ pub async fn upload_art(
         r#"delete from blobs b where b.event_id = $1 and b.sha256 <> $2
            and b.created_at < now() - interval '2 hours'
            and b.moderation_status not in ('flagged', 'rejected')
-           and not exists (select 1 from ticket_designs d where d.art_blob_id = b.id)"#,
+           and not exists (select 1 from ticket_designs d
+                           where d.art_blob_id = b.id or b.id = any(d.sponsor_blob_ids))"#,
         event_id,
         digest,
     )
@@ -786,15 +911,25 @@ pub async fn preview(
         Some(art_id) => Some(load_art(&state, event_id, art_id).await?),
         None => None,
     };
+    sponsors_of(&state, event_id, &body.sponsor_ids).await?;
+    let mut sponsors = Vec::with_capacity(body.sponsor_ids.len());
+    for id in &body.sponsor_ids {
+        sponsors.push(load_art(&state, event_id, *id).await?);
+    }
+    // Samples show the band of the event's categories and seats, as printed (ADR 0056).
+    let tags = super::categories::NumberTags::load(&state.pool, event_id).await?;
     let job = RenderJob {
         details: event.details(),
         design: body.design,
         art,
+        sponsors,
         event_name: event.name,
         tickets: (1..=200)
             .map(|number| TicketToRender {
                 qr: TicketQr::Sample { number },
                 seller: None,
+                category: tags.category(i32::try_from(number).unwrap_or(i32::MAX)),
+                seat: tags.seat(i32::try_from(number).unwrap_or(i32::MAX)),
             })
             .collect(),
     };

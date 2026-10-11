@@ -1,0 +1,78 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select t.id, t.email::text as \"email!\", coalesce(t.name, u.name) as name, t.areas,\n                  t.user_id, t.created_at\n           from event_team t left join users u on u.id = t.user_id\n           where t.event_id = $1 order by t.created_at",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "event_team",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "email!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "name",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "areas",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "event_team",
+            "name": "areas"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "user_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "event_team",
+            "name": "user_id"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "event_team",
+            "name": "created_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      null,
+      null,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "48bf0c1980e89927436c22381d08fc1574f9a0adcf47c66848e02ff1d915de26"
+}

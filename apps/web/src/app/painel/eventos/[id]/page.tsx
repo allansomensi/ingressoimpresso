@@ -18,7 +18,9 @@ import {
   Tag,
   Ticket,
   Users,
+  UsersRound,
   Layers,
+  Tags,
   LifeBuoy,
   type LucideIcon,
 } from "lucide-react";
@@ -27,13 +29,15 @@ import { useParams, usePathname, useRouter, useSearchParams } from "next/navigat
 import dynamic from "next/dynamic";
 import { Suspense, useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
 
-import { TABS, tabFromSlug, tabSlug, type Tab } from "@/components/event/tabs";
+import { AreaGate, EventAccessProvider } from "@/components/event/access";
+import { STRIP_TABS, tabFromSlug, tabSlug, type Tab } from "@/components/event/tabs";
 import { EventActions } from "@/components/event/event-actions";
 import { EventFormDialog } from "@/components/panel/event-form";
 import { Badge, Button, ButtonLink, EmptyState, ErrorMessage, LoadingBlock, Skeleton, useConfirm } from "@/components/ui";
 import { ApiError, api, isUuid } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { eventDateTime, money } from "@/lib/format";
+import { areaList, canDo, isOwner } from "@/lib/team";
 import { hasUnsavedChanges } from "@/lib/unsaved";
 import { texts } from "@/texts/pt-BR";
 
@@ -48,6 +52,8 @@ const VoidsTab = dynamic(() => import("@/components/event/voids").then((m) => m.
 const FilesTab = dynamic(() => import("@/components/event/files").then((m) => m.FilesTab), { loading: tabLoading });
 const DoorTab = dynamic(() => import("@/components/event/door").then((m) => m.DoorTab), { loading: tabLoading });
 const ReportTab = dynamic(() => import("@/components/event/report").then((m) => m.ReportTab), { loading: tabLoading });
+const CategoriesTab = dynamic(() => import("@/components/event/categories").then((m) => m.CategoriesTab), { loading: tabLoading });
+const TeamTab = dynamic(() => import("@/components/event/team").then((m) => m.TeamTab), { loading: tabLoading });
 
 const ICONS: Record<Tab, LucideIcon> = {
   overview: LayoutDashboard,
@@ -59,6 +65,8 @@ const ICONS: Record<Tab, LucideIcon> = {
   files: FileDown,
   door: Smartphone,
   report: BarChart3,
+  categories: Tags,
+  team: UsersRound,
 };
 
 export default function EventPage() {
@@ -120,13 +128,13 @@ function EventView() {
 
   const keyDown = (keyEvent: KeyboardEvent, index: number) => {
     const targets: Partial<Record<string, number>> = {
-      ArrowRight: (index + 1) % TABS.length,
-      ArrowLeft: (index - 1 + TABS.length) % TABS.length,
+      ArrowRight: (index + 1) % STRIP_TABS.length,
+      ArrowLeft: (index - 1 + STRIP_TABS.length) % STRIP_TABS.length,
       Home: 0,
-      End: TABS.length - 1,
+      End: STRIP_TABS.length - 1,
     };
     const next = targets[keyEvent.key];
-    const target = next === undefined ? undefined : TABS[next];
+    const target = next === undefined ? undefined : STRIP_TABS[next];
     if (next === undefined || target === undefined) {
       return;
     }
@@ -137,7 +145,7 @@ function EventView() {
 
   // The selected tab stays visible in the scrollable strip (phones, deep links like ?aba=relatorio).
   useEffect(() => {
-    tabRefs.current[TABS.indexOf(tab)]?.scrollIntoView({ block: "nearest", inline: "nearest" });
+    tabRefs.current[STRIP_TABS.indexOf(tab)]?.scrollIntoView({ block: "nearest", inline: "nearest" });
   }, [tab, event.isSuccess]);
 
   // The browser tab shows the event name.
@@ -182,6 +190,7 @@ function EventView() {
   const data = event.data;
 
   return (
+    <EventAccessProvider event={data}>
     <main className="flex flex-col gap-6 animate-fade-in">
       {data.supportAccess && (
         <div role="status" className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-warning/30 bg-warning-soft px-4 py-3 text-sm text-warning-fg">
@@ -227,19 +236,46 @@ function EventView() {
                 </span>
               )}
             </div>
+            {data.team !== null && (
+              <button
+                type="button"
+                onClick={() => {
+                  void select("team");
+                }}
+                className="flex w-fit flex-wrap items-center gap-x-2 gap-y-1 rounded-full border border-border bg-surface px-3 py-1 text-xs text-fg-muted transition hover:border-border-strong hover:text-fg"
+              >
+                <UsersRound className="size-3.5 text-brand" aria-hidden />
+                <span className="font-medium text-fg">{texts.event.team.teamOf(data.team.organization)}</span>
+                <span aria-hidden>·</span>
+                <span>{texts.event.team.yourParts(areaList(data.team.areas))}</span>
+              </button>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <Button
-              variant="secondary"
+              variant={tab === "team" ? "primary" : "secondary"}
               size="sm"
-              icon={<Pencil />}
+              icon={<UsersRound />}
+              aria-pressed={tab === "team"}
               onClick={() => {
-                setEditing(true);
+                void select("team");
               }}
             >
-              {texts.panel.editEvent}
+              {texts.event.tabs.team}
             </Button>
-            <EventActions event={data} />
+            {canDo(data, "manage") && (
+              <Button
+                variant="secondary"
+                size="sm"
+                icon={<Pencil />}
+                onClick={() => {
+                  setEditing(true);
+                }}
+              >
+                {texts.panel.editEvent}
+              </Button>
+            )}
+            {isOwner(data) && <EventActions event={data} />}
           </div>
         </div>
       </div>
@@ -249,9 +285,9 @@ function EventView() {
           role="tablist"
           aria-label={data.name}
           // On small screens the strip fades at the edge: there are more tabs to scroll to.
-          className="-mb-px flex gap-1 overflow-x-auto [mask-image:linear-gradient(to_right,black_85%,transparent)] [scrollbar-width:none] sm:[mask-image:none] [&::-webkit-scrollbar]:hidden"
+          className="-mb-px flex gap-0.5 overflow-x-auto [mask-image:linear-gradient(to_right,black_85%,transparent)] [scrollbar-width:none] sm:[mask-image:none] [&::-webkit-scrollbar]:hidden"
         >
-          {TABS.map((item, index) => {
+          {STRIP_TABS.map((item, index) => {
             const Icon = ICONS[item];
             const selected = tab === item;
             return (
@@ -273,7 +309,7 @@ function EventView() {
                   keyDown(keyEvent, index);
                 }}
                 className={cn(
-                  "flex items-center gap-2 border-b-2 px-3 py-3 text-sm font-medium whitespace-nowrap transition",
+                  "flex items-center gap-2 border-b-2 px-2.5 py-3 text-sm font-medium whitespace-nowrap transition",
                   selected
                     ? "border-brand text-fg"
                     : "border-transparent text-fg-muted hover:border-border-strong hover:text-fg",
@@ -287,10 +323,21 @@ function EventView() {
         </nav>
       </div>
 
-      <section role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`} key={tab} className="animate-fade-in">
+      <section
+        key={tab}
+        role="tabpanel"
+        id={`panel-${tab}`}
+        aria-label={tab === "team" ? texts.event.tabs.team : undefined}
+        aria-labelledby={tab === "team" ? undefined : `tab-${tab}`}
+        className="animate-fade-in"
+      >
         {tab === "overview" && <OverviewTab eventId={eventId} onSelect={select} />}
         {tab === "design" && <DesignTab eventId={eventId} />}
-        {tab === "batches" && <BatchesTab eventId={eventId} onSelect={select} />}
+        {tab === "batches" && (
+          <AreaGate eventId={eventId} area="manage">
+            <BatchesTab eventId={eventId} onSelect={select} />
+          </AreaGate>
+        )}
         {tab === "sellers" && (
           <SellersTab
             eventId={eventId}
@@ -300,11 +347,25 @@ function EventView() {
             }}
           />
         )}
-        {tab === "digital" && <DigitalTab eventId={eventId} onSelect={select} />}
-        {tab === "voids" && <VoidsTab eventId={eventId} />}
+        {tab === "digital" && (
+          <AreaGate eventId={eventId} area="delivery">
+            <DigitalTab eventId={eventId} onSelect={select} />
+          </AreaGate>
+        )}
+        {tab === "voids" && (
+          <AreaGate eventId={eventId} area="delivery">
+            <VoidsTab eventId={eventId} />
+          </AreaGate>
+        )}
         {tab === "files" && <FilesTab eventId={eventId} onSelect={select} />}
-        {tab === "door" && <DoorTab eventId={eventId} />}
-        {tab === "report" && <ReportTab eventId={eventId} />}
+        {tab === "door" && (
+          <AreaGate eventId={eventId} area="door">
+            <DoorTab eventId={eventId} />
+          </AreaGate>
+        )}
+        {tab === "report" && <ReportTab eventId={eventId} onSelect={select} />}
+        {tab === "categories" && <CategoriesTab eventId={eventId} event={data} onSelect={select} />}
+        {tab === "team" && <TeamTab eventId={eventId} event={data} />}
       </section>
 
       <EventFormDialog
@@ -315,5 +376,6 @@ function EventView() {
         event={data}
       />
     </main>
+    </EventAccessProvider>
   );
 }

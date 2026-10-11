@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select event_id from event_tables where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "event_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "event_tables",
+            "name": "event_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "8a4fab227116ac103cb5054b8066f4d45d43e36ffee8740e694573601e18be44"
+}

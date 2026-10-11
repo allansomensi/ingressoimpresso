@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select ticket_number as number, seat from ticket_seats where table_id = $1 order by seat",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "number",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "ticket_seats",
+            "name": "ticket_number"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "seat",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "ticket_seats",
+            "name": "seat"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "912e379808e2b41e29237529420d22ec9b8f983dd5697b81be64dd67eaee7211"
+}

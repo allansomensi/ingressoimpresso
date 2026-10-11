@@ -1,0 +1,36 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select v.numbers * a.numbers as \"numbers!\", v.reason\n           from ticket_voids v\n           join seller_assignments a on a.event_id = v.event_id and a.seller_id = $2 and a.numbers && v.numbers\n           where v.event_id = $1 and v.undone_at is null\n           order by lower(v.numbers * a.numbers)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "numbers!",
+        "type_info": "Int4Range",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "reason",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ticket_voids",
+            "name": "reason"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null,
+      false
+    ]
+  },
+  "hash": "658b062c6736fb7e961e2483499bf5ce392a7b468b26b31cfa3f9ef7590f7f5d"
+}

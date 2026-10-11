@@ -2,7 +2,7 @@
 
 import type { AnnouncementDto, AnnouncementLevel, NotificationDto } from "@ingressoimpresso/api-types";
 import { useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Bell, CheckCircle2, Coins, Gift, ImageOff, Info, Megaphone, ShieldCheck, Sparkles, type LucideIcon } from "lucide-react";
+import { AlertTriangle, Bell, CheckCircle2, Coins, Gift, ImageOff, Info, Megaphone, ShieldCheck, Sparkles, UsersRound, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -11,7 +11,9 @@ import { Popover } from "@/components/ui";
 import { markSeen, unreadCount, useChangelog, useSeenAt } from "@/lib/changelog";
 import { cn } from "@/lib/cn";
 import { money, shortDateTime } from "@/lib/format";
+import { isUuid } from "@/lib/api";
 import { markInboxRead, safeLink, useInbox } from "@/lib/platform";
+import { areaList, parseAreas } from "@/lib/team";
 import { texts } from "@/texts/pt-BR";
 
 const t = texts.inbox;
@@ -64,6 +66,13 @@ export function describeNotification(item: NotificationDto): { title: string; bo
       return { title: t.kinds.discount, body: t.kinds.discountBody(number(item.data, "percent")), icon: Gift, href: "/painel/conta" };
     case "price_change":
       return { title: t.kinds.prices, body: t.kinds.pricesBody, icon: Coins, href: "/painel/conta" };
+    case "team_added":
+      return {
+        title: t.kinds.teamAdded,
+        body: t.kinds.teamAddedBody(text(item.data, "by"), event, areaList(parseAreas(item.data["areas"]))),
+        icon: UsersRound,
+        href: isUuid(eventId) ? `/painel/eventos/${eventId}` : null,
+      };
   }
 }
 

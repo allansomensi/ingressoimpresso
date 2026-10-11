@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update event_team set name = $2, areas = $3 where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6b5b8f06f294f30eeb7500befbf719ef640cfe804a22dd19b58333462f19ac6e"
+}
