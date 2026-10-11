@@ -24,6 +24,7 @@ import { PricingSection } from "@/components/marketing/pricing";
 import { SiteFooter } from "@/components/marketing/site-footer";
 import { SiteHeader } from "@/components/marketing/site-header";
 import { TemplateShowcase } from "@/components/marketing/template-showcase";
+import { UseCases } from "@/components/marketing/use-cases";
 import { ButtonLink } from "@/components/ui";
 import { texts } from "@/texts/pt-BR";
 
@@ -138,6 +139,14 @@ export default function LandingPage() {
                 );
               })}
             </ol>
+          </div>
+        </section>
+
+        {/* Use cases */}
+        <section id="exemplos" className="scroll-mt-16 border-t border-border bg-surface">
+          <div className="mx-auto flex max-w-6xl flex-col gap-12 px-4 py-20 sm:px-6 lg:py-28">
+            <SectionHeading eyebrow={t.cases.eyebrow} title={t.cases.title} lead={t.cases.lead} />
+            <UseCases />
           </div>
         </section>
 

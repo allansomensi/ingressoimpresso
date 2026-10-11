@@ -22,8 +22,8 @@ use crate::error::ApiError;
 use crate::routes::events::MAX_ART_BYTES;
 use crate::routes::{
     account, admin, analytics, announcements, batches, billing, changelog, door, events, exports,
-    mail_admin, moderation, platform, privacy, report, sellers, status, support, tickets,
-    two_factor, voids,
+    mail_admin, moderation, platform, privacy, report, sellers, settlement, status, support,
+    tickets, two_factor, voids,
 };
 use crate::state::AppState;
 
@@ -210,6 +210,10 @@ pub fn router(state: AppState) -> Router {
             put(sellers::update).delete(sellers::delete),
         )
         .route("/sellers/{id}/ranges", post(sellers::assign))
+        .route("/sellers/{id}/payments", post(settlement::create))
+        .route("/sellers/{id}/returns", post(settlement::record_return))
+        .route("/events/{id}/seller-payments", get(settlement::list))
+        .route("/seller-payments/{id}", delete(settlement::delete))
         .route("/ranges/{id}", delete(sellers::unassign))
         .route("/events/{id}/voids", get(voids::list).post(voids::create))
         .route("/voids/{id}/undo", post(voids::undo))

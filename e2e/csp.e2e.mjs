@@ -15,6 +15,7 @@ const PAGES = [
   "/ingresso#token",
   "/status",
   "/novidades",
+  "/sobre",
   "/termos",
   "/privacidade",
   "/reembolso",

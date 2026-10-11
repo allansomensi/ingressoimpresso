@@ -291,7 +291,15 @@ function EventView() {
         {tab === "overview" && <OverviewTab eventId={eventId} onSelect={select} />}
         {tab === "design" && <DesignTab eventId={eventId} />}
         {tab === "batches" && <BatchesTab eventId={eventId} onSelect={select} />}
-        {tab === "sellers" && <SellersTab eventId={eventId} />}
+        {tab === "sellers" && (
+          <SellersTab
+            eventId={eventId}
+            event={data}
+            onEditEvent={() => {
+              setEditing(true);
+            }}
+          />
+        )}
         {tab === "digital" && <DigitalTab eventId={eventId} onSelect={select} />}
         {tab === "voids" && <VoidsTab eventId={eventId} />}
         {tab === "files" && <FilesTab eventId={eventId} onSelect={select} />}

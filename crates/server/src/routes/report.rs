@@ -28,6 +28,7 @@ struct Counts {
     offline_duplicates: i64,
     blocked_copies: i64,
     void_entries: i64,
+    received_cents: i64,
 }
 
 impl Counts {
@@ -40,10 +41,19 @@ impl Counts {
         self.offline_duplicates += other.offline_duplicates;
         self.blocked_copies += other.blocked_copies;
         self.void_entries += other.void_entries;
+        self.received_cents += other.received_cents;
     }
 
-    fn row(self, seller: Option<(Uuid, String)>, price_cents: Option<i32>) -> ReportRowDto {
+    /// A report line. `owed`: a seller answers for these tickets; unassigned ones have no
+    /// balance.
+    fn row(
+        self,
+        seller: Option<(Uuid, String)>,
+        price_cents: Option<i32>,
+        owed: bool,
+    ) -> ReportRowDto {
         let declared_sold = self.tickets - self.unsold - self.lost;
+        let amount_due_cents = price_cents.map(|price| declared_sold * i64::from(price));
         let (seller_id, seller) = seller.unzip();
         ReportRowDto {
             seller_id,
@@ -57,7 +67,11 @@ impl Counts {
             offline_duplicates: self.offline_duplicates,
             blocked_copies: self.blocked_copies,
             void_entries: self.void_entries,
-            amount_due_cents: price_cents.map(|price| declared_sold * i64::from(price)),
+            amount_due_cents,
+            received_cents: self.received_cents,
+            balance_cents: amount_due_cents
+                .filter(|_| owed)
+                .map(|due| due - self.received_cents),
         }
     }
 }
@@ -79,15 +93,31 @@ pub async fn report(
     )
     .fetch_all(&state.pool)
     .await?;
+    let received: HashMap<Uuid, i64> = sqlx::query!(
+        r#"select seller_id, sum(amount_cents)::bigint as "received!"
+           from seller_payments where event_id = $1 group by seller_id"#,
+        event_id
+    )
+    .fetch_all(&state.pool)
+    .await?
+    .into_iter()
+    .map(|row| (row.seller_id, row.received))
+    .collect();
     let mut totals = Counts::default();
+    let mut owed = Counts::default();
     let mut rows = Vec::with_capacity(sellers.len());
     for seller in sellers {
-        let counts = by_seller.remove(&Some(seller.id)).unwrap_or_default();
+        let mut counts = by_seller.remove(&Some(seller.id)).unwrap_or_default();
+        counts.received_cents = received.get(&seller.id).copied().unwrap_or_default();
         totals.add(counts);
-        rows.push(counts.row(Some((seller.id, seller.name)), price));
+        owed.add(counts);
+        rows.push(counts.row(Some((seller.id, seller.name)), price, true));
     }
     let unassigned = by_seller.remove(&None).unwrap_or_default();
     totals.add(unassigned);
+    // The total balance is what sellers still owe (net): unassigned tickets are nobody's debt.
+    let mut totals_row = totals.row(None, price, false);
+    totals_row.balance_cents = owed.row(None, price, true).balance_cents;
 
     let devices = sqlx::query_as!(
         ReportDeviceDto,
@@ -118,8 +148,8 @@ pub async fn report(
     Ok(Json(EventReportDto {
         ticket_price_cents: price,
         sellers: rows,
-        unassigned: unassigned.row(None, price),
-        totals: totals.row(None, price),
+        unassigned: unassigned.row(None, price, false),
+        totals: totals_row,
         devices,
         invalid_scans: rejected.invalid,
         other_event_scans: rejected.other_event,
@@ -186,6 +216,7 @@ async fn counts_by_seller(
                     offline_duplicates: line.offline_duplicates,
                     blocked_copies: line.blocked_copies,
                     void_entries: line.void_entries,
+                    received_cents: 0,
                 },
             )
         })

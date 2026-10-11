@@ -355,6 +355,11 @@ create table ticket_voids (
   reason text not null check (reason in ('unsold','lost','revoked')), note text,
   created_by uuid references users, created_at timestamptz not null default now(),
   undone_at timestamptz, undone_by uuid references users);
+-- Acerto com vendedores (ADR 0050): o dinheiro que cada um passou, anotado pelo organizador
+create table seller_payments (
+  id uuid primary key, event_id uuid not null references events, seller_id uuid not null references sellers,
+  amount_cents integer not null, method text not null check (method in ('pix','cash','other')),
+  received_on date not null, note text, created_by uuid references users, created_at timestamptz not null default now());
 
 -- Portaria
 create table door_accesses (id uuid primary key, event_id uuid not null references events, label text not null,
@@ -438,9 +443,12 @@ Todas as consultas usam índice GiST.
 - entradas;
 - entradas duplicadas offline;
 - cópias bloqueadas na porta;
-- **valor a acertar** = vendidos declarados × preço, se o preço estiver configurado.
+- **valor a acertar** = vendidos declarados × preço, se o preço estiver configurado;
+- **recebido** = soma dos pagamentos do vendedor (ADR 0050);
+- **saldo** = a acertar − recebido (positivo: falta receber; negativo: pagou a mais).
 
-O relatório tem ainda uma linha para os números não atribuídos e totais gerais.
+O relatório tem ainda uma linha para os números não atribuídos (sem saldo: ninguém responde por
+eles) e totais gerais.
 
 ## 8. API (esboço)
 
@@ -457,6 +465,8 @@ POST /api/admin/batches/{id}/mark-paid         (pagamento por fora, ADMIN_EMAILS
 GET|POST /api/events/{id}/sellers              PUT|DELETE /api/sellers/{id}
 POST /api/sellers/{id}/ranges  DELETE /api/ranges/{id}
 GET|POST /api/events/{id}/voids                POST /api/voids/{id}/undo
+GET /api/events/{id}/seller-payments           POST /api/sellers/{id}/payments   DELETE /api/seller-payments/{id}
+POST /api/sellers/{id}/returns                 (vários números do vendedor de uma vez, ADR 0050)
 GET|POST /api/events/{id}/exports              GET /api/exports/{id}
 POST /api/exports/{id}/link    → link de 10 min  GET /api/downloads/{token} (sem login)
 GET /healthz (sem banco)                       GET /readyz (consulta o banco)
