@@ -114,7 +114,7 @@ export function ChangelogPage() {
               setFilter(option);
             }}
             className={cn(
-              "rounded-full border px-3.5 py-1.5 text-sm font-medium transition",
+              "rounded-full border px-3.5 py-1.5 text-sm font-medium transition pointer-coarse:py-2",
               filter === option
                 ? "border-brand bg-brand-soft text-brand-soft-fg"
                 : "border-border bg-surface text-fg-muted hover:border-border-strong hover:text-fg",

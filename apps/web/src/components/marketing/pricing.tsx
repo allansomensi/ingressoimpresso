@@ -89,6 +89,8 @@ function Simulator({ pricing }: { pricing: PricingDto }) {
           style={{ background: `linear-gradient(to right, var(--brand) ${String(position / 10)}%, var(--surface-3) ${String(position / 10)}%)` }}
           className={cn(
             "h-2 w-full cursor-pointer appearance-none rounded-full",
+            // Touch: a taller box to hit (the track stays thin) and a bigger thumb.
+            "pointer-coarse:h-8 pointer-coarse:bg-clip-content pointer-coarse:py-3 pointer-coarse:[&::-webkit-slider-thumb]:size-7",
             "[&::-webkit-slider-thumb]:size-6 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-4 [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:bg-brand-solid [&::-webkit-slider-thumb]:shadow-md",
             "[&::-moz-range-thumb]:size-5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-4 [&::-moz-range-thumb]:border-white [&::-moz-range-thumb]:bg-brand-solid [&::-moz-range-thumb]:shadow-md",
             "focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand",
@@ -135,7 +137,7 @@ function Simulator({ pricing }: { pricing: PricingDto }) {
         </div>
         {quantity > 0 && (
           <details className="group">
-            <summary className="flex w-fit cursor-pointer list-none items-center gap-1 text-[13px] font-medium text-fg-muted transition hover:text-fg [&::-webkit-details-marker]:hidden">
+            <summary className="flex w-fit cursor-pointer list-none items-center gap-1 text-[13px] font-medium text-fg-muted transition hover:text-fg pointer-coarse:min-h-10 [&::-webkit-details-marker]:hidden">
               {s.breakdown}
               <ChevronDown aria-hidden className="size-4 transition-transform group-open:rotate-180" />
             </summary>

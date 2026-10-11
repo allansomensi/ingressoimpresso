@@ -199,7 +199,7 @@ export function TicketPass() {
 
       <article className="overflow-hidden rounded-[1.75rem] border border-border bg-surface shadow-lg">
         <header className="flex flex-col gap-2 px-6 pt-6 pb-7" style={{ backgroundColor: band, color: ink }}>
-          <span className="text-xs font-semibold tracking-[0.18em] uppercase opacity-75">{t.by(pass.event.organizer)}</span>
+          <span className="text-xs font-semibold tracking-[0.18em] uppercase opacity-90">{t.by(pass.event.organizer)}</span>
           <h1 className="text-2xl leading-tight font-bold tracking-tight text-balance">{pass.event.name}</h1>
           <p className="flex items-start gap-2 text-sm opacity-90">
             <CalendarDays className="mt-0.5 size-4 shrink-0" aria-hidden />
@@ -304,7 +304,7 @@ export function TicketPass() {
         </ul>
       </section>
 
-      <Link href="/" className="mx-auto flex items-center gap-2 text-xs text-fg-subtle transition hover:text-fg">
+      <Link href="/" className="mx-auto flex items-center gap-2 text-xs text-fg-subtle transition hover:text-fg pointer-coarse:min-h-11">
         {t.poweredBy}
         <LogoMark className="size-4" />
         <span className="font-semibold">{texts.brand.name}</span>

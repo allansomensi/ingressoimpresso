@@ -338,7 +338,7 @@ export default function AccountPage() {
         </div>
       </div>
       {/* The version, for support: plain text, at the very end of the account page (ADR 0054). */}
-      <p className="text-center text-[11px] text-fg-subtle/70 tabular">{texts.panel.version(VERSION_LABEL)}</p>
+      <p className="text-center text-xs text-fg-subtle tabular">{texts.panel.version(VERSION_LABEL)}</p>
     </main>
   );
 }

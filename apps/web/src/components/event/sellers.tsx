@@ -155,10 +155,10 @@ function Equation({ row }: { row: ReportRowDto }) {
       className={cn(
         "flex min-w-0 flex-col items-center rounded-lg px-2 py-1.5 leading-tight",
         strong ? "bg-brand-soft text-brand-soft-fg" : "bg-surface-2",
-        !strong && value === 0 && "opacity-60",
       )}
     >
-      <span className="text-base font-semibold tabular">{value.toLocaleString("pt-BR")}</span>
+      {/* A zero is quieter than a number that counts, but still readable. */}
+      <span className={cn("text-base font-semibold tabular", !strong && value === 0 && "text-fg-subtle")}>{value.toLocaleString("pt-BR")}</span>
       <span className="text-[11px] font-medium text-fg-muted">{label}</span>
     </span>
   );
@@ -314,8 +314,7 @@ function History({
               {editable && (
               <Button
                 variant="ghost"
-                size="icon"
-                className="size-8"
+                size="icon-sm"
                 aria-label={t.deletePayment(amount)}
                 loading={removePayment.isPending && removePayment.variables === payment.id}
                 onClick={() => {
@@ -360,8 +359,7 @@ function History({
             {editable && whole && !item.locked && (
               <Button
                 variant="ghost"
-                size="icon"
-                className="size-8"
+                size="icon-sm"
                 aria-label={t.undoReturn}
                 loading={undo.isPending && undo.variables === item.id}
                 onClick={() => {
@@ -461,7 +459,7 @@ function SellerLink({ seller, event, onChange }: { seller: SellerDto; event: Eve
           <Menu
             label={l.title}
             trigger={<MoreHorizontal />}
-            triggerClassName={buttonClass({ variant: "ghost", size: "icon", className: "size-8" })}
+            triggerClassName={buttonClass({ variant: "ghost", size: "icon-sm" })}
           >
             <MenuItem
               icon={<ExternalLink />}
@@ -577,7 +575,7 @@ function SellerCard({
           <Menu
             label={t.menu(seller.name)}
             trigger={<MoreHorizontal />}
-            triggerClassName={buttonClass({ variant: "ghost", size: "icon", className: "size-8" })}
+            triggerClassName={buttonClass({ variant: "ghost", size: "icon-sm" })}
           >
             {row !== undefined && total > 0 && (
               <>
@@ -642,7 +640,7 @@ function SellerCard({
               <button
                 type="button"
                 aria-label={t.removeRange(label)}
-                className="flex size-5 items-center justify-center rounded-md text-fg-subtle transition hover:bg-danger-soft hover:text-danger-fg"
+                className="relative flex size-5 items-center justify-center rounded-md text-fg-subtle transition touch-target hover:bg-danger-soft hover:text-danger-fg active:bg-danger-soft active:text-danger-fg"
                 onClick={() => {
                   void confirm({ title: t.removeRangeConfirmTitle(label), description: t.removeRangeConfirmBody, confirmLabel: texts.common.remove }).then(
                     (ok) => {

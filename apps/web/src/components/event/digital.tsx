@@ -128,7 +128,7 @@ function ShareLink({
               href={whatsappUrl(message, phone)}
               target="_blank"
               rel="noopener noreferrer"
-              className={buttonClass({ className: "bg-[#1f9d55] shadow-[#1f9d55]/25 hover:bg-[#1f9d55]/90" })}
+              className={buttonClass({ className: "bg-success-solid shadow-success/25 hover:bg-success-solid/90" })}
             >
               <MessageCircle />
               {t.whatsapp}

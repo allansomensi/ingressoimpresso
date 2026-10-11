@@ -107,7 +107,7 @@ export function AdminOverview() {
                     setMetric(option);
                   }}
                   className={cn(
-                    "rounded-full px-3 py-1 text-xs font-medium transition",
+                    "rounded-full px-3 py-1 text-xs font-medium transition pointer-coarse:px-3.5 pointer-coarse:py-2",
                     metric === option ? "bg-surface text-fg shadow-sm ring-1 ring-border" : "text-fg-muted hover:text-fg",
                   )}
                 >
@@ -520,7 +520,7 @@ export function AdminBatches() {
                     href={`/painel/eventos/${eventId}?aba=lotes`}
                     aria-label={t.batches.openEvent}
                     title={t.batches.openEvent}
-                    className="flex size-9 items-center justify-center rounded-lg text-fg-muted transition hover:bg-surface-2 hover:text-fg"
+                    className="flex size-9 items-center justify-center rounded-lg text-fg-muted transition hover:bg-surface-2 active:bg-surface-2 hover:text-fg"
                   >
                     <ExternalLink className="size-4" aria-hidden />
                   </Link>
@@ -528,7 +528,7 @@ export function AdminBatches() {
                     <Menu
                       label={t.batches.actions}
                       trigger={<MoreHorizontal className="size-4" aria-hidden />}
-                      triggerClassName="flex size-9 items-center justify-center rounded-lg text-fg-muted transition hover:bg-surface-2 hover:text-fg"
+                      triggerClassName="flex size-9 items-center justify-center rounded-lg text-fg-muted transition hover:bg-surface-2 active:bg-surface-2 hover:text-fg"
                     >
                       {payable && (
                         <MenuItem

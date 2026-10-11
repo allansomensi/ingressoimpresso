@@ -1,0 +1,45 @@
+/** Where an event stands, and the order of the event list (what needs attention first). */
+
+import type { EventDto } from "@ingressoimpresso/api-types";
+
+export type EventPhase = "happening" | "today" | "upcoming" | "past" | "archived";
+
+type Timed = Pick<EventDto, "status" | "startsAt" | "endsAt">;
+
+export function eventPhase(event: Timed, now: number): EventPhase {
+  if (event.status === "closed") {
+    return "archived";
+  }
+  const start = Date.parse(event.startsAt);
+  const end = Date.parse(event.endsAt);
+  if (now > end) {
+    return "past";
+  }
+  if (now >= start) {
+    return "happening";
+  }
+  if (new Date(start).toDateString() === new Date(now).toDateString()) {
+    return "today";
+  }
+  return "upcoming";
+}
+
+const RANK: Record<EventPhase, number> = { happening: 0, today: 1, upcoming: 2, past: 3, archived: 4 };
+
+/**
+ * The event list as an organizer reads it: what is happening now, then today's, then the next
+ * ones (soonest first), then the ones that already ended (latest first).
+ */
+export function sortEvents<T extends Timed>(events: readonly T[], now: number): T[] {
+  return events
+    .map((event) => ({ event, phase: eventPhase(event, now), start: Date.parse(event.startsAt) }))
+    .sort((a, b) => {
+      const byPhase = RANK[a.phase] - RANK[b.phase];
+      if (byPhase !== 0) {
+        return byPhase;
+      }
+      const latestFirst = a.phase === "past" || a.phase === "archived";
+      return latestFirst ? b.start - a.start : a.start - b.start;
+    })
+    .map(({ event }) => event);
+}

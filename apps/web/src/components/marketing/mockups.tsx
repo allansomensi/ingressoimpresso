@@ -52,9 +52,9 @@ export function PhoneMock({ className }: { className?: string | undefined }) {
         className,
       )}
     >
-      <div className="relative flex h-[400px] flex-col overflow-hidden rounded-[30px] bg-[#16a34a] text-white">
+      <div className="relative flex h-[400px] flex-col overflow-hidden rounded-[30px] bg-[#15803d] text-white">
         <div aria-hidden className="absolute top-2 left-1/2 h-5 w-20 -translate-x-1/2 rounded-full bg-black" />
-        <div className="flex items-center justify-between px-5 pt-10 text-[10px] font-medium opacity-90">
+        <div className="flex items-center justify-between px-5 pt-10 text-[10px] font-medium">
           <span className="flex items-center gap-1">
             <WifiOff className="size-3" aria-hidden />
             {m.synced}
@@ -64,7 +64,7 @@ export function PhoneMock({ className }: { className?: string | undefined }) {
           <CheckCircle2 className="size-16 animate-pop" strokeWidth={2.5} aria-hidden />
           <span className="text-2xl leading-tight font-black">{m.admit}</span>
           <span className="font-mono text-xl font-bold">{m.number}</span>
-          <span className="text-xs opacity-90">{m.seller}</span>
+          <span className="text-xs">{m.seller}</span>
         </div>
       </div>
     </div>

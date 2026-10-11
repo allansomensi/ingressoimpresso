@@ -4,7 +4,7 @@ import type { EventReportDto, ReportCategoryDto, ReportRowDto } from "@ingressoi
 import { useQuery } from "@tanstack/react-query";
 import { CheckCircle2, Download, HandCoins, Info, RefreshCw, Smartphone, Ticket, Users, Wallet } from "lucide-react";
 
-import { Button, Card, CardHeader, ErrorMessage, Lead, LoadingBlock, Stat } from "@/components/ui";
+import { Button, Card, CardHeader, ErrorMessage, Lead, LoadingBlock, Stat, TableScroll } from "@/components/ui";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { money as formatMoney } from "@/lib/format";
@@ -130,7 +130,7 @@ function TotalBalance({ outstanding, overpaid }: { outstanding: number | null; o
 
 function rowClass(kind: LineKind): string {
   return cn(
-    "transition-colors hover:bg-surface-2/60",
+    "transition-colors hover:bg-surface-2/60 active:bg-surface-2/60",
     kind === "totals" && "bg-surface-2 font-semibold",
     kind === "unassigned" && "text-fg-muted",
   );
@@ -229,7 +229,7 @@ export function ReportTab({ eventId, onSelect }: { eventId: string; onSelect: Se
           <h2 className="text-base font-semibold tracking-tight text-fg">{t.sellersTitle}</h2>
           <span className="text-xs text-fg-subtle">{t.generatedAt(generated)}</span>
         </div>
-        <div className="overflow-x-auto">
+        <TableScroll label={t.sellersTitle}>
           <table aria-label={t.sellersTitle} className="w-full min-w-[46rem] text-sm">
             <thead className="border-y border-border bg-surface-2 text-left text-xs font-medium text-fg-muted">
               <tr>
@@ -273,7 +273,7 @@ export function ReportTab({ eventId, onSelect }: { eventId: string; onSelect: Se
               ))}
             </tbody>
           </table>
-        </div>
+        </TableScroll>
         {data.unassigned.tickets > 0 && (
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-surface-2/60 px-5 py-3.5">
             <p className="flex items-center gap-2 text-sm text-fg-muted">
@@ -299,7 +299,7 @@ export function ReportTab({ eventId, onSelect }: { eventId: string; onSelect: Se
           <h2 className="text-base font-semibold tracking-tight text-fg">{t.doorBySellerTitle}</h2>
           <span className="text-sm text-fg-muted tabular">{t.doorSummary(data.totals.entries, data.totals.blockedCopies)}</span>
         </div>
-        <div className="overflow-x-auto">
+        <TableScroll label={t.doorBySellerTitle}>
           <table aria-label={t.doorBySellerTitle} className="w-full min-w-[34rem] text-sm">
             <thead className="border-y border-border bg-surface-2 text-left text-xs font-medium text-fg-muted">
               <tr>
@@ -329,7 +329,7 @@ export function ReportTab({ eventId, onSelect }: { eventId: string; onSelect: Se
               ))}
             </tbody>
           </table>
-        </div>
+        </TableScroll>
       </Card>
 
       <Card padded={false} className="overflow-hidden">
@@ -339,8 +339,8 @@ export function ReportTab({ eventId, onSelect }: { eventId: string; onSelect: Se
         {data.devices.length === 0 ? (
           <p className="px-5 pb-5 text-sm text-fg-subtle">{t.noDevices}</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[36rem] text-sm">
+          <TableScroll label={t.door}>
+            <table aria-label={t.door} className="w-full min-w-[36rem] text-sm">
               <thead className="border-y border-border bg-surface-2 text-left text-xs text-fg-muted">
                 <tr>
                   <th className="py-2.5 pr-2 pl-5 font-medium">{t.device}</th>
@@ -354,7 +354,7 @@ export function ReportTab({ eventId, onSelect }: { eventId: string; onSelect: Se
               <tbody className="divide-y divide-border">
                 {data.devices.map((device, index) => (
                   // Phone names are not unique: the position keeps rows apart.
-                  <tr key={`${String(index)}-${device.name}`} className="hover:bg-surface-2/60">
+                  <tr key={`${String(index)}-${device.name}`} className="hover:bg-surface-2/60 active:bg-surface-2/60">
                     <td className="py-3 pr-2 pl-5 text-fg">{device.name}</td>
                     <td className="px-2 py-3 text-right font-mono tabular">{device.scans}</td>
                     <td className="px-2 py-3 text-right font-mono tabular">{device.firstEntries}</td>
@@ -365,7 +365,7 @@ export function ReportTab({ eventId, onSelect }: { eventId: string; onSelect: Se
                 ))}
               </tbody>
             </table>
-          </div>
+          </TableScroll>
         )}
       </Card>
     </div>
@@ -387,7 +387,7 @@ function CategoryTable({ rows }: { rows: readonly ReportCategoryDto[] }) {
   return (
     <Card padded={false} className="overflow-hidden">
       <h2 className="px-5 pt-5 pb-4 text-base font-semibold tracking-tight text-fg">{c.title}</h2>
-      <div className="overflow-x-auto">
+      <TableScroll label={c.title}>
         <table aria-label={c.title} className="w-full min-w-[38rem] text-sm">
           <thead className="border-y border-border bg-surface-2 text-left text-xs font-medium text-fg-muted">
             <tr>
@@ -427,7 +427,7 @@ function CategoryTable({ rows }: { rows: readonly ReportCategoryDto[] }) {
             </tr>
           </tbody>
         </table>
-      </div>
+      </TableScroll>
     </Card>
   );
 }

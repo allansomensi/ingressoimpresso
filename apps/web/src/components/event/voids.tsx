@@ -85,24 +85,25 @@ export function VoidsTab({ eventId }: { eventId: string }) {
       <Lead>{t.intro}</Lead>
       <Card>
         <CardHeader title={t.newVoid} icon={Ban} />
-        <form onSubmit={(event) => void submit(event)} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {/* First and last number side by side even on phones: two short numbers, one range. */}
+        <form onSubmit={(event) => void submit(event)} className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <Field label={texts.common.first}>
             <NumberInput value={first} step={1} min={1} onChange={setFirst} required />
           </Field>
           <Field label={texts.common.last}>
             <NumberInput value={last} step={1} min={1} onChange={setLast} required />
           </Field>
-          <Field label={t.reason}>
+          <Field label={t.reason} className="max-sm:col-span-2">
             <Select value={reason} onChange={(e) => { setReason(e.target.value as VoidReason); }}>
               {(Object.keys(t.reasons) as VoidReason[]).map((item) => (
                 <option key={item} value={item}>{t.reasons[item]}</option>
               ))}
             </Select>
           </Field>
-          <Field label={t.note} optional>
+          <Field label={t.note} optional className="max-sm:col-span-2">
             <Input value={note} onChange={(e) => { setNote(e.target.value); }} placeholder={t.notePlaceholder} maxLength={200} />
           </Field>
-          <div className="sm:col-span-2 lg:col-span-4">
+          <div className="col-span-2 lg:col-span-4">
             {!valid && <p className="mb-3 text-xs text-danger-fg">{texts.errors.invalid_range}</p>}
             <Button type="submit" variant="danger" icon={<Ban />} loading={create.isPending} disabled={!valid}>
               {t.create}

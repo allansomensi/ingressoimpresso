@@ -85,7 +85,7 @@ export function OverviewTab({ eventId, onSelect }: { eventId: string; onSelect: 
                       "group flex w-full items-center gap-4 rounded-xl border px-4 py-3.5 text-left transition",
                       isNext
                         ? "border-brand/40 bg-brand-soft/60 hover:bg-brand-soft"
-                        : "border-transparent hover:border-border hover:bg-surface-2",
+                        : "border-transparent hover:border-border hover:bg-surface-2 active:bg-surface-2",
                     )}
                   >
                     <span

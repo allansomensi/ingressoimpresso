@@ -6,24 +6,29 @@ import { cn } from "@/lib/cn";
 import { Spinner } from "./spinner";
 
 export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger" | "danger-ghost" | "inverse";
-export type ButtonSize = "sm" | "md" | "lg" | "icon";
+export type ButtonSize = "sm" | "md" | "lg" | "icon" | "icon-sm";
 
+// `active:` gives touch screens the feedback that `hover:` (mouse only in Tailwind 4) cannot.
 const VARIANTS: Record<ButtonVariant, string> = {
   primary:
-    "bg-brand-solid text-brand-fg shadow-sm shadow-brand/25 hover:bg-brand-solid/90 active:translate-y-px",
+    "bg-brand-solid text-brand-fg shadow-sm shadow-brand/25 hover:bg-brand-solid/90 active:translate-y-px active:bg-brand-solid/85",
   secondary:
-    "border border-border-strong bg-surface text-fg shadow-xs hover:bg-surface-2 active:translate-y-px",
-  ghost: "text-fg-muted hover:bg-surface-2 hover:text-fg",
-  danger: "bg-danger-solid text-white shadow-sm hover:opacity-90 active:translate-y-px",
-  "danger-ghost": "text-danger-fg hover:bg-danger-soft",
-  inverse: "bg-white text-[#0e0d14] shadow-sm hover:bg-white/90 active:translate-y-px",
+    "border border-border-strong bg-surface text-fg shadow-xs hover:bg-surface-2 active:translate-y-px active:bg-surface-3",
+  ghost: "text-fg-muted hover:bg-surface-2 hover:text-fg active:bg-surface-3 active:text-fg",
+  danger: "bg-danger-solid text-white shadow-sm hover:opacity-90 active:translate-y-px active:opacity-85",
+  "danger-ghost": "text-danger-fg hover:bg-danger-soft active:bg-danger-soft",
+  inverse: "bg-white text-[#0e0d14] shadow-sm hover:bg-white/90 active:translate-y-px active:bg-white/85",
 };
 
+// Touch screens (`pointer-coarse`) get bigger buttons: 40–44 px, the size of a fingertip
+// (ADR 0060). A mouse keeps the compact desktop sizes.
 const SIZES: Record<ButtonSize, string> = {
-  sm: "h-8 gap-1.5 rounded-lg px-3 text-[13px]",
-  md: "h-10 gap-2 rounded-xl px-4 text-sm",
+  sm: "h-8 gap-1.5 rounded-lg px-3 text-[13px] pointer-coarse:h-10 pointer-coarse:px-3.5 pointer-coarse:text-sm",
+  md: "h-10 gap-2 rounded-xl px-4 text-sm pointer-coarse:h-11",
   lg: "h-12 gap-2 rounded-xl px-6 text-base",
-  icon: "size-9 rounded-lg",
+  icon: "size-9 rounded-lg pointer-coarse:size-11",
+  // A square as tall as `sm` (menus in cards and toolbars), with a 44 px area to tap.
+  "icon-sm": "relative size-8 rounded-lg touch-target pointer-coarse:size-10",
 };
 
 /** Shared look of buttons and button-like links. */

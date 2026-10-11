@@ -115,7 +115,7 @@ export function StatusPage() {
           <Icon className="size-7 shrink-0" aria-hidden />
           <div className="flex min-w-0 flex-1 flex-col">
             <p className="text-lg font-semibold">{unreachable ? t.unreachable : t.overall[overall]}</p>
-            <p className="text-sm opacity-80">
+            <p className="text-sm">
               {data !== undefined && !unreachable ? t.checkedAt(shortDateTime(data.checkedAt)) : t.unreachableHint}
             </p>
           </div>
@@ -235,7 +235,7 @@ export function StatusPage() {
       <p className="flex flex-wrap gap-x-3 gap-y-1 border-t border-border pt-5 text-xs text-fg-subtle tabular">
         <span title={APP_COMMIT === "" ? undefined : APP_COMMIT}>{t.siteVersion(VERSION_LABEL)}</span>
         {data !== undefined && !unreachable && <span>{t.apiVersion(`v${data.version}`)}</span>}
-        <Link href={RELEASE_NOTES_HREF} className="font-medium text-fg-muted transition hover:text-fg">
+        <Link href={RELEASE_NOTES_HREF} className="relative font-medium text-fg-muted transition touch-target hover:text-fg">
           {t.releaseNotes}
         </Link>
       </p>

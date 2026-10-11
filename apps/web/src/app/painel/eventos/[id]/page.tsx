@@ -30,6 +30,7 @@ import dynamic from "next/dynamic";
 import { Suspense, useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
 
 import { AreaGate, EventAccessProvider } from "@/components/event/access";
+import { SectionsSheet } from "@/components/event/sections-sheet";
 import { STRIP_TABS, tabFromSlug, tabSlug, type Tab } from "@/components/event/tabs";
 import { EventActions } from "@/components/event/event-actions";
 import { EventFormDialog } from "@/components/panel/event-form";
@@ -201,91 +202,93 @@ function EventView() {
           </Link>
         </div>
       )}
-      <div className="flex flex-col gap-3">
+      {/* Phones: back link and actions share the first row, and the actions are icons, so the
+          tab content starts higher (ADR 0060). Larger screens keep the actions beside the title. */}
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 sm:gap-y-3">
         <Link
           href="/painel"
           onClick={back}
-          className="inline-flex w-fit items-center gap-1 rounded-md text-sm font-medium text-fg-muted transition hover:text-fg"
+          className="col-start-1 row-start-1 -ml-1.5 inline-flex min-h-9 w-fit items-center gap-1 rounded-lg px-1.5 text-sm font-medium text-fg-muted transition hover:text-fg active:bg-surface-2 pointer-coarse:min-h-10"
         >
           <ChevronLeft className="size-4" aria-hidden />
           {texts.event.backToEvents}
         </Link>
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="flex min-w-0 flex-col gap-2">
-            <h1 className="text-2xl font-semibold tracking-tight text-balance text-fg sm:text-3xl">
-              {data.name}
-              {data.status === "closed" && (
-                <Badge tone="neutral" className="ml-3 align-middle">
-                  {texts.event.actions.archivedBadge}
-                </Badge>
-              )}
-            </h1>
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-fg-muted">
+        <div className="col-start-2 row-start-1 flex items-center gap-2 sm:row-start-2 sm:self-start">
+          <Button
+            variant={tab === "team" ? "primary" : "secondary"}
+            size="sm"
+            icon={<UsersRound />}
+            aria-pressed={tab === "team"}
+            onClick={() => {
+              void select("team");
+            }}
+          >
+            <span className="max-sm:sr-only">{texts.event.tabs.team}</span>
+          </Button>
+          {canDo(data, "manage") && (
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={<Pencil />}
+              onClick={() => {
+                setEditing(true);
+              }}
+            >
+              <span className="max-sm:sr-only">{texts.panel.editEvent}</span>
+            </Button>
+          )}
+          {isOwner(data) && <EventActions event={data} />}
+        </div>
+        <div className="col-span-2 col-start-1 row-start-2 flex min-w-0 flex-col gap-2 sm:col-span-1">
+          <h1 className="text-[1.375rem] leading-tight font-semibold tracking-tight text-balance text-fg sm:text-3xl">
+            {data.name}
+            {data.status === "closed" && (
+              <Badge tone="neutral" className="ml-3 align-middle">
+                {texts.event.actions.archivedBadge}
+              </Badge>
+            )}
+          </h1>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px] text-fg-muted sm:text-sm">
+            <span className="flex items-center gap-1.5">
+              <CalendarDays className="size-4 shrink-0 text-fg-subtle" aria-hidden />
+              {eventDateTime(data.startsAt)}
+            </span>
+            {/* On phones the place takes a line of its own (and is cut if too long). */}
+            <span className="flex min-w-0 items-center gap-1.5 max-sm:order-last max-sm:w-full">
+              <MapPin className="size-4 shrink-0 text-fg-subtle" aria-hidden />
+              <span className="truncate">{data.venue ?? texts.panel.noVenue}</span>
+            </span>
+            {data.ticketPriceCents !== null && (
               <span className="flex items-center gap-1.5">
-                <CalendarDays className="size-4 text-fg-subtle" aria-hidden />
-                {eventDateTime(data.startsAt)}
+                <Tag className="size-4 shrink-0 text-fg-subtle" aria-hidden />
+                {texts.event.priceLabel(money(data.ticketPriceCents))}
               </span>
-              <span className="flex items-center gap-1.5">
-                <MapPin className="size-4 text-fg-subtle" aria-hidden />
-                {data.venue ?? texts.panel.noVenue}
-              </span>
-              {data.ticketPriceCents !== null && (
-                <span className="flex items-center gap-1.5">
-                  <Tag className="size-4 text-fg-subtle" aria-hidden />
-                  {texts.event.priceLabel(money(data.ticketPriceCents))}
-                </span>
-              )}
-            </div>
-            {data.team !== null && (
-              <button
-                type="button"
-                onClick={() => {
-                  void select("team");
-                }}
-                className="flex w-fit flex-wrap items-center gap-x-2 gap-y-1 rounded-full border border-border bg-surface px-3 py-1 text-xs text-fg-muted transition hover:border-border-strong hover:text-fg"
-              >
-                <UsersRound className="size-3.5 text-brand" aria-hidden />
-                <span className="font-medium text-fg">{texts.event.team.teamOf(data.team.organization)}</span>
-                <span aria-hidden>·</span>
-                <span>{texts.event.team.yourParts(areaList(data.team.areas))}</span>
-              </button>
             )}
           </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant={tab === "team" ? "primary" : "secondary"}
-              size="sm"
-              icon={<UsersRound />}
-              aria-pressed={tab === "team"}
+          {data.team !== null && (
+            <button
+              type="button"
               onClick={() => {
                 void select("team");
               }}
+              className="flex w-fit max-w-full flex-wrap items-center gap-x-2 gap-y-1 rounded-full border border-border bg-surface px-3 py-1 text-xs text-fg-muted transition hover:border-border-strong hover:text-fg active:bg-surface-2"
             >
-              {texts.event.tabs.team}
-            </Button>
-            {canDo(data, "manage") && (
-              <Button
-                variant="secondary"
-                size="sm"
-                icon={<Pencil />}
-                onClick={() => {
-                  setEditing(true);
-                }}
-              >
-                {texts.panel.editEvent}
-              </Button>
-            )}
-            {isOwner(data) && <EventActions event={data} />}
-          </div>
+              <UsersRound className="size-3.5 text-brand" aria-hidden />
+              <span className="font-medium text-fg">{texts.event.team.teamOf(data.team.organization)}</span>
+              <span aria-hidden>·</span>
+              <span>{texts.event.team.yourParts(areaList(data.team.areas))}</span>
+            </button>
+          )}
         </div>
       </div>
 
-      <div className="sticky top-16 z-30 -mx-4 border-b border-border bg-bg/85 px-4 backdrop-blur-xl sm:-mx-6 sm:px-6">
+      {/* Under the panel header, which is taller by the safe area in an installed iPhone app. */}
+      <div className="sticky top-[calc(4rem+env(safe-area-inset-top))] z-30 -mx-4 border-b border-border bg-bg/85 backdrop-blur-xl sm:-mx-6 sm:px-6">
         <nav
           role="tablist"
           aria-label={data.name}
-          // On small screens the strip fades at the edge: there are more tabs to scroll to.
-          className="-mb-px flex gap-0.5 overflow-x-auto [mask-image:linear-gradient(to_right,black_85%,transparent)] [scrollbar-width:none] sm:[mask-image:none] [&::-webkit-scrollbar]:hidden"
+          // Until the strip fits (xl), it fades under the sections button: there are more tabs.
+          className="-mb-px flex scroll-pl-4 gap-0.5 overflow-x-auto pl-4 scrollbar-none max-xl:scroll-pr-20 max-xl:pr-20 max-xl:[mask-image:linear-gradient(to_right,black_calc(100%-5rem),transparent_calc(100%-2.75rem))] sm:scroll-pl-0 sm:pl-0"
         >
           {STRIP_TABS.map((item, index) => {
             const Icon = ICONS[item];
@@ -301,7 +304,8 @@ function EventView() {
                 id={`tab-${item}`}
                 aria-selected={selected}
                 aria-controls={selected ? `panel-${item}` : undefined}
-                tabIndex={selected ? 0 : -1}
+                // The team opens from the header: the strip still needs one tab to Tab into.
+                tabIndex={selected || (tab === "team" && index === 0) ? 0 : -1}
                 onClick={() => {
                   void select(item);
                 }}
@@ -309,10 +313,10 @@ function EventView() {
                   keyDown(keyEvent, index);
                 }}
                 className={cn(
-                  "flex items-center gap-2 border-b-2 px-2.5 py-3 text-sm font-medium whitespace-nowrap transition",
+                  "flex shrink-0 items-center gap-2 border-b-2 px-2.5 py-3 text-sm font-medium whitespace-nowrap transition pointer-coarse:py-3.5",
                   selected
                     ? "border-brand text-fg"
-                    : "border-transparent text-fg-muted hover:border-border-strong hover:text-fg",
+                    : "border-transparent text-fg-muted hover:border-border-strong hover:text-fg active:text-fg",
                 )}
               >
                 <Icon aria-hidden className={cn("size-4", selected ? "text-brand" : "text-fg-subtle")} />
@@ -321,6 +325,15 @@ function EventView() {
             );
           })}
         </nav>
+        <div className="absolute inset-y-0 right-2 flex items-center sm:right-4 xl:hidden">
+          <SectionsSheet
+            current={tab}
+            icons={ICONS}
+            onSelect={(next) => {
+              void select(next);
+            }}
+          />
+        </div>
       </div>
 
       <section

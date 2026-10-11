@@ -69,3 +69,4 @@ feita e as consequências.
 | [0057](0057-mesas-e-lugares.md) | Mesas e lugares | Aceito |
 | [0058](0058-prestacao-de-contas.md) | Prestação de contas em PDF e planilha | Aceito |
 | [0059](0059-patrocinadores-no-ingresso.md) | Patrocinadores no ingresso | Aceito |
+| [0060](0060-interface-pensada-para-o-celular.md) | Interface pensada para o celular | Aceito |

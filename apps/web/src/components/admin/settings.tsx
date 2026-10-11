@@ -92,7 +92,7 @@ function Editor({ settings }: { settings: PlatformSettingsDto }) {
                   ? option === "off"
                     ? "border-success/40 bg-success-soft"
                     : "border-warning/50 bg-warning-soft"
-                  : "border-border hover:border-border-strong hover:bg-surface-2",
+                  : "border-border hover:border-border-strong hover:bg-surface-2 active:bg-surface-2",
               )}
             >
               <span className="text-sm font-semibold text-fg">{t.modes[option].title}</span>

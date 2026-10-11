@@ -29,3 +29,11 @@ export function tabFromSlug(slug: string | null): Tab {
 
 /** Switches the event page to another tab. */
 export type SelectTab = (tab: Tab) => void;
+
+/** Every tab grouped as the work goes, for the sections sheet on phones (ADR 0060). */
+export const TAB_GROUPS = [
+  { key: "prepare", tabs: ["overview", "design", "batches", "categories"] },
+  { key: "sell", tabs: ["sellers", "digital", "voids", "files"] },
+  { key: "day", tabs: ["door", "report"] },
+  { key: "people", tabs: ["team"] },
+] as const satisfies readonly { key: string; tabs: readonly Tab[] }[];

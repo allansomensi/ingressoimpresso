@@ -12,7 +12,7 @@ import { ApiError, api } from "@/lib/api";
 import { clampPosition, compareTables, findSeat } from "@/lib/categories";
 import { cn } from "@/lib/cn";
 import { ticketNumber } from "@/lib/format";
-import { formatRanges, parseNumberList } from "@/lib/number-list";
+import { NUMBER_LIST_INPUT, formatRanges, parseNumberList } from "@/lib/number-list";
 import { texts } from "@/texts/pt-BR";
 
 const t = texts.event.tables;
@@ -140,7 +140,7 @@ export function TablesSection({ eventId, editable }: { eventId: string; editable
                         setOpen(table.id);
                       }}
                       className={cn(
-                        "flex w-full items-center justify-between gap-2 rounded-xl border px-3 py-2.5 text-left text-sm transition hover:border-border-strong hover:bg-surface-2",
+                        "flex w-full items-center justify-between gap-2 rounded-xl border px-3 py-2.5 text-left text-sm transition hover:border-border-strong hover:bg-surface-2 active:bg-surface-2",
                         found?.table.id === table.id ? "border-brand ring-2 ring-brand/30" : "border-border",
                       )}
                     >
@@ -473,7 +473,7 @@ function TableDialog({
               <div className="flex gap-2">
                 <Input
                   value={text}
-                  inputMode="numeric"
+                  {...NUMBER_LIST_INPUT}
                   placeholder={t.seatPlaceholder}
                   onChange={(changeEvent) => {
                     setText(changeEvent.target.value);

@@ -181,11 +181,11 @@ function SceneDoor({ admit, number, tag, tone }: { admit: string; number: string
   return (
     <Scene>
       <div className="w-[96px] -translate-x-14 rotate-2 rounded-[20px] bg-[#0e0d14] p-1.5 shadow-lg">
-        <div className="flex h-[132px] flex-col items-center justify-center gap-1 rounded-[15px] bg-[#16a34a] text-white">
+        <div className="flex h-[132px] flex-col items-center justify-center gap-1 rounded-[15px] bg-[#15803d] text-white">
           <CheckCircle2 className="size-8" strokeWidth={2.5} />
           <span className="text-[10px] font-black">{admit}</span>
           <span className="font-mono text-[10px] font-bold">{number}</span>
-          <span className="mt-1 flex items-center gap-0.5 text-[7px] opacity-90">
+          <span className="mt-1 flex items-center gap-0.5 text-[7px]">
             <WifiOff className="size-2.5" />
             offline
           </span>
@@ -344,7 +344,7 @@ export function UseCases() {
               }}
               className={cn(
                 "flex flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-[13px] leading-tight font-semibold transition sm:flex-1 sm:flex-row sm:gap-2 sm:px-4 sm:py-2.5 sm:text-sm sm:whitespace-nowrap",
-                active ? "bg-brand-solid text-brand-fg shadow-sm shadow-brand/25" : "text-fg-muted hover:bg-surface-2 hover:text-fg",
+                active ? "bg-brand-solid text-brand-fg shadow-sm shadow-brand/25" : "text-fg-muted hover:bg-surface-2 active:bg-surface-2 hover:text-fg",
               )}
             >
               <Icon aria-hidden className="size-4" />
@@ -378,7 +378,12 @@ export function UseCases() {
         </div>
 
         {/* Phones swipe through the steps; wider screens see them side by side. */}
-        <ol className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 [scrollbar-width:none] sm:mx-0 sm:grid sm:grid-cols-2 sm:gap-4 sm:overflow-visible sm:px-0 sm:pb-0 lg:grid-cols-4 [&::-webkit-scrollbar]:hidden">
+        {/* Focusable, so the keyboard can scroll it too. */}
+        <ol
+          tabIndex={0}
+          aria-label={current.title}
+          className="-mx-4 flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 pb-2 scrollbar-none focus-visible:outline-offset-[-2px] sm:mx-0 sm:grid sm:grid-cols-2 sm:gap-4 sm:overflow-visible sm:px-0 sm:pb-0 lg:grid-cols-4"
+        >
           {current.steps.map((step, index) => (
             <li
               key={step.title}

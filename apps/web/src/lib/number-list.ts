@@ -5,6 +5,12 @@
 
 import { ticketNumber } from "@/lib/format";
 
+/**
+ * Props of a text field that takes a number list: ranges need "-" and ",", which the iPhone's
+ * number pad lacks, so it opens the full keyboard (its number row has both).
+ */
+export const NUMBER_LIST_INPUT = { inputMode: "text", autoComplete: "off", autoCorrect: "off", spellCheck: false } as const;
+
 /** An inclusive range of ticket numbers. */
 export type NumberRange = { first: number; last: number };
 
@@ -30,6 +36,8 @@ export function parseNumberList(text: string): NumberListResult {
     .replace(/\s*-\s*/g, "-")
     // "1.500" is one thousand five hundred, as Brazilians write it.
     .replace(/(\d)\.(?=\d{3}(?!\d))/g, "$1")
+    // Any other dot separates numbers: a phone's number pad may only have "." ("12.15").
+    .replace(/\./g, ",")
     .trim();
   if (normalized === "") {
     return { ok: false, error: "empty" };

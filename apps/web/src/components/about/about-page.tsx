@@ -10,7 +10,7 @@ import { texts } from "@/texts/pt-BR";
 const t = texts.about;
 const PRINCIPLE_ICONS: readonly LucideIcon[] = [ShieldCheck, WifiOff, Scale, HeartHandshake];
 
-const linkClass = "inline-flex items-center gap-1.5 text-sm font-medium text-brand transition hover:text-brand-hover";
+const linkClass = "inline-flex items-center gap-1.5 text-sm font-medium text-brand transition hover:text-brand-hover pointer-coarse:min-h-10";
 
 /** What the product is for, what it stands for, who makes it, and the version of the site (ADR 0051). */
 export function AboutPage() {

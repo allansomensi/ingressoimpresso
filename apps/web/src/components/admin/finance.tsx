@@ -194,7 +194,7 @@ export function AdminFinance() {
               <li key={organization.id}>
                 <Link
                   href={`/painel/admin/organizacoes/${organization.id}`}
-                  className="flex items-center gap-4 px-5 py-3 transition hover:bg-surface-2 sm:px-6"
+                  className="flex items-center gap-4 px-5 py-3 transition hover:bg-surface-2 active:bg-surface-2 sm:px-6"
                 >
                   <span className="w-5 text-sm font-semibold text-fg-subtle tabular">{index + 1}</span>
                   <span className="flex min-w-0 flex-1 flex-col">

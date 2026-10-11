@@ -22,18 +22,18 @@ import { texts } from "@/texts/pt-BR";
 const t = texts.panel;
 
 const menuLink =
-  "flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-fg-muted transition hover:bg-surface-2 hover:text-fg max-sm:py-3 max-sm:text-[15px]";
+  "flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-fg-muted transition hover:bg-surface-2 active:bg-surface-2 hover:text-fg max-sm:py-3 max-sm:text-[15px]";
 
 function UserMenu({ email, isAdmin, onSignOut }: { email: string; isAdmin: boolean; onSignOut: () => void }) {
   return (
     <Popover
       label={t.account}
-      triggerClassName="flex size-9 items-center justify-center rounded-full bg-gradient-to-br from-brand to-brand-soft-fg text-[13px] font-semibold text-brand-fg shadow-sm ring-2 ring-surface transition hover:opacity-90 dark:to-brand-hover"
+      triggerClassName="relative flex size-9 items-center justify-center rounded-full bg-gradient-to-br from-brand to-brand-soft-fg text-[13px] font-semibold text-brand-fg shadow-sm ring-2 ring-surface transition touch-target hover:opacity-90 active:opacity-80 dark:to-brand-hover"
       trigger={initials(email.split("@")[0] ?? email) || "?"}
       panelClassName="w-72"
     >
       <div className="flex flex-col gap-1 px-3 py-2.5">
-        <span className="text-xs text-fg-muted">{t.account}</span>
+        <span className="text-xs text-fg-muted">{t.signedInAs}</span>
         <span className="truncate text-sm font-medium text-fg">{email}</span>
         {isAdmin && (
           <Badge tone="brand" className="mt-1 w-fit">

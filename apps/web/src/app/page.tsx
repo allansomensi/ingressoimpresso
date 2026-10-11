@@ -20,6 +20,7 @@ import {
 import type { Metadata } from "next";
 
 import { DigitalTicketMock, PhoneMock, TicketMock } from "@/components/marketing/mockups";
+import { MobileCta } from "@/components/marketing/mobile-cta";
 import { PricingSection } from "@/components/marketing/pricing";
 import { SiteFooter } from "@/components/marketing/site-footer";
 import { SiteHeader } from "@/components/marketing/site-header";
@@ -74,7 +75,7 @@ export default function LandingPage() {
                 {t.headline}
               </h1>
               <p className="max-w-xl text-lg leading-relaxed text-pretty text-fg-muted sm:text-xl">{t.lead}</p>
-              <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
+              <div id="comecar" className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
                 <ButtonLink href="/entrar" size="lg" icon={<ArrowRight />} className="flex-row-reverse">
                   {t.primaryCta}
                 </ButtonLink>
@@ -82,16 +83,17 @@ export default function LandingPage() {
                   {t.secondaryCta}
                 </ButtonLink>
               </div>
-              <ul className="flex flex-wrap gap-x-5 gap-y-2 pt-2">
+              <ul className="grid grid-cols-2 gap-x-4 gap-y-2 pt-2 sm:flex sm:flex-wrap sm:gap-x-5">
                 {t.trust.map((item) => (
-                  <li key={item} className="flex items-center gap-1.5 text-sm text-fg-muted">
-                    <Check className="size-4 text-success" aria-hidden />
+                  <li key={item} className="flex items-start gap-1.5 text-sm leading-snug text-fg-muted">
+                    <Check className="mt-0.5 size-4 shrink-0 text-success" aria-hidden />
                     {item}
                   </li>
                 ))}
               </ul>
             </div>
-            <div className="relative mx-auto h-[360px] w-full max-w-[460px] sm:h-[440px]">
+            {/* Illustrations of what the text says: decorative for screen readers. */}
+            <div aria-hidden className="relative mx-auto h-[340px] w-full max-w-[460px] sm:h-[440px]">
               <div className="absolute inset-0 origin-top scale-[0.78] sm:scale-100">
                 <div className="absolute top-6 left-0 -rotate-6 animate-rise sm:left-2">
                   <TicketMock />
@@ -122,19 +124,25 @@ export default function LandingPage() {
         <section id="como-funciona" className="scroll-mt-16">
           <div className="mx-auto flex max-w-6xl flex-col gap-14 px-4 py-20 sm:px-6 lg:py-28">
             <SectionHeading eyebrow={t.stepsTitle} title={t.stepsLead} />
-            <ol className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {/* Phones: icon beside the text, so the four steps fit in about a screen. */}
+            <ol className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
               {t.steps.map((step, index) => {
                 const Icon = STEP_ICONS[index] ?? FileText;
                 return (
-                  <li key={step.title} className="relative flex flex-col gap-4 rounded-3xl border border-border bg-surface p-6 shadow-xs">
-                    <div className="flex items-center justify-between">
+                  <li
+                    key={step.title}
+                    className="relative flex gap-4 rounded-3xl border border-border bg-surface p-5 shadow-xs sm:flex-col sm:p-6"
+                  >
+                    <div className="flex shrink-0 flex-col items-center gap-2 sm:flex-row sm:justify-between">
                       <span className="flex size-11 items-center justify-center rounded-2xl bg-brand-solid text-brand-fg shadow-sm shadow-brand/30">
                         <Icon className="size-5" aria-hidden />
                       </span>
                       <span className="font-mono text-sm font-semibold text-fg-subtle">0{index + 1}</span>
                     </div>
-                    <h3 className="text-lg font-semibold tracking-tight text-fg">{step.title}</h3>
-                    <p className="text-[15px] leading-relaxed text-fg-muted">{step.body}</p>
+                    <div className="flex min-w-0 flex-col gap-1.5 sm:gap-4">
+                      <h3 className="text-lg font-semibold tracking-tight text-fg">{step.title}</h3>
+                      <p className="text-[15px] leading-relaxed text-fg-muted">{step.body}</p>
+                    </div>
                   </li>
                 );
               })}
@@ -173,12 +181,14 @@ export default function LandingPage() {
               {t.features.map((feature, index) => {
                 const Icon = FEATURE_ICONS[index] ?? ShieldCheck;
                 return (
-                  <li key={feature.title} className="flex flex-col gap-3 bg-surface p-7 transition hover:bg-bg">
-                    <span className="flex size-10 items-center justify-center rounded-xl bg-brand-soft text-brand-soft-fg">
+                  <li key={feature.title} className="flex gap-4 bg-surface p-5 transition hover:bg-bg sm:flex-col sm:gap-3 sm:p-7">
+                    <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-brand-soft-fg">
                       <Icon className="size-5" aria-hidden />
                     </span>
-                    <h3 className="text-base font-semibold text-fg">{feature.title}</h3>
-                    <p className="text-[15px] leading-relaxed text-fg-muted">{feature.body}</p>
+                    <div className="flex min-w-0 flex-col gap-1 sm:gap-3">
+                      <h3 className="text-base font-semibold text-fg">{feature.title}</h3>
+                      <p className="text-[15px] leading-relaxed text-fg-muted">{feature.body}</p>
+                    </div>
                   </li>
                 );
               })}
@@ -189,11 +199,11 @@ export default function LandingPage() {
         {/* Digital tickets */}
         <section id="no-celular" className="scroll-mt-16 border-t border-border bg-bg">
           <div className="mx-auto grid max-w-6xl items-center gap-12 px-4 py-20 sm:px-6 lg:grid-cols-2 lg:py-28">
-            <div className="order-2 flex justify-center lg:order-1">
+            <div aria-hidden className="order-2 flex justify-center lg:order-1">
               <div className="relative">
                 <div aria-hidden className="absolute -inset-10 rounded-full bg-brand/15 blur-3xl" />
                 <DigitalTicketMock className="relative -rotate-2" />
-                <span className="absolute top-28 -right-12 flex items-center gap-2 rounded-2xl bg-[#1f9d55] px-3.5 py-2 text-sm font-semibold text-white shadow-lg animate-pop [animation-delay:300ms]">
+                <span className="absolute top-28 -right-12 flex items-center gap-2 rounded-2xl bg-[#15803d] px-3.5 py-2 text-sm font-semibold text-white shadow-lg animate-pop [animation-delay:300ms]">
                   <MessageCircle className="size-4" aria-hidden />
                   WhatsApp
                 </span>
@@ -237,7 +247,7 @@ export default function LandingPage() {
                 ))}
               </ul>
             </div>
-            <div className="flex justify-center lg:justify-end">
+            <div aria-hidden className="flex justify-center max-lg:hidden lg:justify-end">
               <PhoneMock className="rotate-2" />
             </div>
           </div>
@@ -270,7 +280,7 @@ export default function LandingPage() {
         </section>
 
         {/* Final CTA */}
-        <section className="px-4 py-20 sm:px-6">
+        <section id="criar" className="px-4 py-20 sm:px-6">
           <div className="relative mx-auto flex max-w-5xl flex-col items-center gap-6 overflow-hidden rounded-[2rem] bg-brand-solid px-6 py-16 text-center text-white shadow-lg shadow-brand/30">
             <div aria-hidden className="absolute inset-0 bg-[radial-gradient(60%_80%_at_50%_0%,rgba(255,255,255,0.25),transparent)]" />
             <h2 className="relative max-w-2xl text-3xl font-semibold tracking-tight text-balance sm:text-4xl">{t.finalTitle}</h2>
@@ -283,6 +293,7 @@ export default function LandingPage() {
       </main>
 
       <SiteFooter />
+      <MobileCta />
     </div>
   );
 }
