@@ -1,4 +1,4 @@
-import { FileText, Mail, Scale, ShieldCheck, Undo2, type LucideIcon } from "lucide-react";
+import { ChevronDown, FileText, Mail, Scale, ShieldCheck, Undo2, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
@@ -101,7 +101,28 @@ export function LegalPage({ document }: { document: LegalDocument }) {
           </nav>
 
           <article className="flex min-w-0 flex-col gap-10">
-            <aside className="rounded-2xl border border-brand/20 bg-brand-soft/60 p-5 sm:p-6">
+            {/* Phones and tablets have no side index: the same list, folded, above the text. */}
+            <details className="group rounded-2xl border border-border bg-surface lg:hidden print:hidden">
+              <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-5 text-sm font-semibold text-fg [&::-webkit-details-marker]:hidden">
+                {t.contents}
+                <ChevronDown className="size-4 shrink-0 text-fg-subtle transition-transform group-open:rotate-180" aria-hidden />
+              </summary>
+              <nav aria-label={t.contents} className="border-t border-border px-2 py-2">
+                <ol className="flex flex-col">
+                  {document.sections.map((section) => (
+                    <li key={section.id}>
+                      <a
+                        href={`#${section.id}`}
+                        className="flex min-h-10 items-center rounded-lg px-3 text-sm leading-snug text-fg-muted transition hover:bg-surface-2 hover:text-fg active:bg-surface-2"
+                      >
+                        {section.title}
+                      </a>
+                    </li>
+                  ))}
+                </ol>
+              </nav>
+            </details>
+            <section aria-label={t.summaryTitle} className="rounded-2xl border border-brand/20 bg-brand-soft/60 p-5 sm:p-6">
               <p className="flex items-center gap-2 text-sm font-semibold text-brand-soft-fg">
                 <FileText className="size-4" aria-hidden />
                 {t.summaryTitle}
@@ -112,7 +133,7 @@ export function LegalPage({ document }: { document: LegalDocument }) {
                 ))}
               </ul>
               <p className="mt-3 text-xs text-fg-muted">{t.summaryHint}</p>
-            </aside>
+            </section>
 
             {document.sections.map((section) => (
               <section key={section.id} id={section.id} className="flex scroll-mt-24 flex-col gap-4">
