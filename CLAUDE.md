@@ -87,6 +87,13 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   `routes/team.rs`) veem o evento e mexem só nas suas partes (`manage`, `money`, `delivery`,
   `art`, `door`); `routes::event_access` aplica `team::need` (método + caminho → parte) a toda
   rota de evento. Aba Equipe no painel, abas em modo leitura para quem não cuida da parte.
+- **Categorias, mesas, prestação de contas e patrocinadores (ADRs 0056–0059): implementados.**
+  Categorias por faixas de números com cor e preço (acerto pelo preço de cada uma) e a faixa
+  colorida impressa (`TicketDesign.band`, `effective_band`); mesas com mapa e lugares
+  (`event_tables`, `ticket_seats`), "Mesa 5 · Lugar 3" na faixa; despesas e receitas
+  (`event_ledger`) com resumo, PDF (`report_pdf`, Typst) e planilha (`xlsx`, escrita sobre o
+  `zip`); faixa de logos de patrocinadores (`TicketDesign.sponsors`, até 6 logos moderados como a
+  arte).
 
 Plano completo em `docs/arquitetura.md` §12.
 
@@ -112,7 +119,9 @@ crates/render        Typst embutido (pacote `ticket-render`): design versionado,
                      gráfica (TrimBox/BleedBox), controle, ZIP WhatsApp; templates em templates/*.typ,
                      fontes OFL em fonts/ (8 famílias, world.rs); blocos de texto com campos
                      resolvidos em fields.rs (espelho em apps/web/src/lib/ticket-fields.ts);
-                     gera em blocos e junta com merge.rs (ADRs 0015, 0017, 0025)
+                     gera em blocos e junta com merge.rs (ADRs 0015, 0017, 0025); faixa da categoria
+                     e patrocinadores no design (ADRs 0056, 0059); relatórios em PDF em
+                     report_doc.rs (templates/report.typ) e planilhas em sheet.rs (ADR 0058)
 crates/cli           binário `ii`: vectors generate|check, job init, render, verify
 crates/server        API (pacote `ingressoimpresso-server`, binário `ingressoimpresso`): Axum 0.8 + sqlx 0.9,
                      migrações em migrations/ (aplicadas no start), worker de exportação no mesmo
@@ -128,6 +137,9 @@ crates/server        API (pacote `ingressoimpresso-server`, binário `ingressoim
                      link do vendedor (página sem conta, marcar vendas) em routes/seller_links.rs,
                      equipe do evento em routes/team.rs (toda rota nova de evento que altera algo
                      entra em team::need, senão fica só para a organização),
+                     categorias em routes/categories.rs (NumberTags: categoria e lugar de cada
+                     número para os arquivos), mesas em routes/tables.rs, prestação de contas em
+                     routes/ledger.rs (resumo, PDF e planilha; report::build é a base),
                      conta em routes/account.rs + routes/privacy.rs
                      (exportar/excluir), ingresso digital em routes/tickets.rs, novidades em
                      routes/changelog.rs, resultados em routes/analytics.rs; login com Google em
@@ -161,6 +173,9 @@ apps/web             landing em src/app/page.tsx (+ src/components/marketing: si
                      equipe: aba em components/event/team.tsx, acesso por parte em
                      components/event/access.tsx (useEventAccess, AreaGate, ReadOnlyNotice) e
                      regras em lib/team.ts;
+                     categorias e mesas na aba components/event/categories.tsx + tables.tsx (mapa)
+                     e regras em lib/categories.ts; prestação de contas em
+                     components/event/accountability.tsx (no Relatório);
                      portaria em src/app/portaria + src/portaria (engine, storage, camera, logic) +
                      public/portaria-sw.js (ADR 0018); Vitest em test/;
                      editor do ingresso em src/components/event/design*.tsx + prévia ao vivo em

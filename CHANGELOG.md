@@ -25,6 +25,15 @@ e não acompanha estes números.
   entra com o mesmo e-mail (ADR 0055).
 - A página do vendedor mostra para quem passar o dinheiro, quando alguém da equipe cuida dos
   recebimentos.
+- Categorias de ingresso (inteira, meia, VIP, cortesia…) por faixas de números, cada uma com a
+  sua cor e, se quiser, o seu preço: saem impressas numa faixa colorida para a portaria reconhecer
+  de longe, aparecem na portaria, no ingresso digital e na página do vendedor, e o acerto usa o
+  preço de cada categoria (ADR 0056).
+- Mesas e lugares para bailes, jantares e formaturas: mapa do salão com as mesas arrastáveis,
+  ingressos colocados em cada mesa e "Mesa 5 · Lugar 3" impresso no ingresso (ADR 0057).
+- Prestação de contas: lance despesas e outras receitas e baixe o resumo do evento em PDF (com
+  espaço para assinaturas) ou em planilha (ADR 0058).
+- Patrocinadores no ingresso: uma faixa com até 6 logos, arrastável no editor (ADR 0059).
 
 ### Alterado
 
@@ -34,6 +43,7 @@ e não acompanha estes números.
   fechar.
 - A versão do site saiu do rodapé e das páginas do painel: fica só em Minha conta, na página Sobre
   e na página de status (ADR 0054).
+- A equipe abre pelo botão "Equipe" no topo do evento, e o relatório mostra o quadro por categoria.
 
 ## [1.1.0] - 2026-10-11
 

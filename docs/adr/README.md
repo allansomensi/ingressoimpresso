@@ -65,3 +65,7 @@ feita e as consequências.
 | [0053](0053-link-do-vendedor.md) | Link do vendedor: as vendas marcadas pelo próprio vendedor | Aceito |
 | [0054](0054-versao-so-onde-se-procura.md) | A versão só onde alguém a procura | Aceito |
 | [0055](0055-equipe-do-evento.md) | Equipe do evento: cada pessoa cuida da sua parte | Aceito |
+| [0056](0056-categorias-de-ingresso.md) | Categorias de ingresso e a faixa colorida | Aceito |
+| [0057](0057-mesas-e-lugares.md) | Mesas e lugares | Aceito |
+| [0058](0058-prestacao-de-contas.md) | Prestação de contas em PDF e planilha | Aceito |
+| [0059](0059-patrocinadores-no-ingresso.md) | Patrocinadores no ingresso | Aceito |
