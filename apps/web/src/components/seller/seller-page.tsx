@@ -28,6 +28,7 @@ import { eventDateTime, money, shortDateTime } from "@/lib/format";
 import { firstOutside, firstShared, formatRanges, parseNumberList } from "@/lib/number-list";
 import { nextAvailable, numberCells, padNumber, type NumberCell, type NumberState } from "@/lib/seller-page";
 import { whatsappLink } from "@/lib/settlement";
+import { listNames } from "@/lib/team";
 import { texts } from "@/texts/pt-BR";
 
 const t = texts.sellerPage;
@@ -450,6 +451,9 @@ export function SellerPage() {
             <HandCoins aria-hidden className="size-[18px] text-brand" />
             {t.money.title}
           </h2>
+          {view.receivers.length > 0 && (
+            <p className="-mt-1 text-sm text-fg-muted">{t.money.receiver(listNames(view.receivers))}</p>
+          )}
           <dl className="grid grid-cols-3 gap-2 text-center">
             <div className="flex flex-col gap-0.5 rounded-2xl bg-surface-2 p-3">
               <dt className="text-[11px] font-medium text-fg-muted">{t.money.due}</dt>

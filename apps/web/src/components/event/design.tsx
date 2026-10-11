@@ -24,6 +24,7 @@ import {
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
+import { ReadOnlyNotice } from "@/components/event/access";
 import { ArtPicker } from "@/components/event/art-picker";
 import { NumberInspector, QrInspector, TextInspector } from "@/components/event/design-inspectors";
 import { TemplateGallery } from "@/components/event/template-gallery";
@@ -52,6 +53,7 @@ import { cn } from "@/lib/cn";
 import { MAX_TEXT_BLOCKS, designIssues, type IssueTarget } from "@/lib/design-rules";
 import { rasterizeBackground } from "@/lib/rasterize";
 import type { Palette, TicketTemplate } from "@/lib/templates/catalog";
+import { canDo } from "@/lib/team";
 import { blockValue } from "@/lib/ticket-fields";
 import { useUnsavedChanges } from "@/lib/unsaved";
 import { texts } from "@/texts/pt-BR";
@@ -73,8 +75,41 @@ export function DesignTab({ eventId }: { eventId: string }) {
   if (current.isError || event.isError) {
     return <ErrorMessage error={current.error ?? event.error} />;
   }
+  if (!canDo(event.data, "art")) {
+    return <DesignReadOnly eventId={eventId} event={event.data} current={current.data} />;
+  }
   // Remount the editor when another version is loaded, so its state starts from the server data.
   return <DesignEditor key={current.data.version} eventId={eventId} event={event.data} initial={current.data} />;
+}
+
+/** The ticket as saved, for team members who do not take care of the art (ADR 0055). */
+function DesignReadOnly({ eventId, event, current }: { eventId: string; event: EventDto; current: DesignResponse }) {
+  const { design, art } = current;
+  const artId = art?.id ?? null;
+  const artUrl = useQuery({
+    queryKey: ["art", eventId, artId],
+    queryFn: () => (artId === null ? Promise.resolve(null) : fetchBlobUrl(`/api/events/${eventId}/art/${artId}`)),
+    enabled: artId !== null,
+    staleTime: Number.POSITIVE_INFINITY,
+  });
+  const ratio = (design.widthMm + (design.stub?.widthMm ?? 0)) / Math.max(design.heightMm, 1);
+  return (
+    <div className="flex flex-col gap-6">
+      <ReadOnlyNotice eventId={eventId} area="art" />
+      <Card padded={false} className="overflow-hidden">
+        <div className="flex items-center justify-center bg-surface-2 bg-dots px-4 py-8 sm:px-8 sm:py-12">
+          <div
+            aria-label={t.canvas.label}
+            role="img"
+            className="shadow-xl ring-1 ring-black/10"
+            style={{ width: `min(100%, calc(60vh * ${String(ratio)}))` }}
+          >
+            <TicketView design={design} event={event} artUrl={artUrl.data ?? null} />
+          </div>
+        </div>
+      </Card>
+    </div>
+  );
 }
 
 function Section({

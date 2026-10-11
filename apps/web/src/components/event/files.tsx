@@ -14,6 +14,7 @@ import { ClipboardList, Download, FileDown, FolderArchive, Home, Layers, Message
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
+import { ReadOnlyNotice, useEventAccess } from "@/components/event/access";
 import {
   Alert,
   Badge,
@@ -80,6 +81,7 @@ function decodeScope(value: string): ExportScope {
 
 export function FilesTab({ eventId, onSelect }: { eventId: string; onSelect: SelectTab }) {
   const queryClient = useQueryClient();
+  const { can } = useEventAccess();
   const key = ["exports", eventId];
   const exports = useQuery({
     queryKey: key,
@@ -129,7 +131,9 @@ export function FilesTab({ eventId, onSelect }: { eventId: string; onSelect: Sel
   return (
     <div className="flex flex-col gap-6">
       <Lead>{t.intro}</Lead>
-      {noPaid ? (
+      {!can("delivery") ? (
+        <ReadOnlyNotice eventId={eventId} area="delivery" />
+      ) : noPaid ? (
         <EmptyState
           icon={Layers}
           title={t.noPaidTitle}

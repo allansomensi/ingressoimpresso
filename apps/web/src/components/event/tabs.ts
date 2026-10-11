@@ -1,5 +1,5 @@
 /** Tabs of the event page and their `?aba=` slugs (the Stripe return URL uses `aba=lotes`). */
-export const TABS = ["overview", "design", "batches", "sellers", "digital", "voids", "files", "door", "report"] as const;
+export const TABS = ["overview", "design", "batches", "sellers", "digital", "voids", "files", "door", "report", "team"] as const;
 export type Tab = (typeof TABS)[number];
 
 const SLUGS: Record<Tab, string> = {
@@ -12,6 +12,7 @@ const SLUGS: Record<Tab, string> = {
   files: "arquivos",
   door: "portaria",
   report: "relatorio",
+  team: "equipe",
 };
 
 export function tabSlug(tab: Tab): string {

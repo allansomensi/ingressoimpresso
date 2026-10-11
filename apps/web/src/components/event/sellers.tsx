@@ -46,6 +46,7 @@ import {
 import { useState, type FormEvent, type ReactNode } from "react";
 import { toast } from "sonner";
 
+import { ReadOnlyNotice, useEventAccess } from "@/components/event/access";
 import { PaymentDialog, ReturnDialog } from "@/components/event/settlement-dialogs";
 import {
   Alert,
@@ -240,11 +241,14 @@ function History({
   seller,
   payments,
   voids,
+  editable,
   onChange,
 }: {
   seller: SellerDto;
   payments: readonly SellerPaymentDto[];
   voids: readonly VoidDto[];
+  /** Whether the user takes care of the money (ADR 0055): only then can entries be undone. */
+  editable: boolean;
   onChange: () => void;
 }) {
   const confirm = useConfirm();
@@ -307,6 +311,7 @@ function History({
                   {payment.note !== null && ` · ${payment.note}`}
                 </span>
               </span>
+              {editable && (
               <Button
                 variant="ghost"
                 size="icon"
@@ -325,6 +330,7 @@ function History({
               >
                 <Trash2 />
               </Button>
+              )}
             </li>
           );
         }
@@ -351,7 +357,7 @@ function History({
                 {!whole && ` · ${t.returnPartial}`}
               </span>
             </span>
-            {whole && !item.locked && (
+            {editable && whole && !item.locked && (
               <Button
                 variant="ghost"
                 size="icon"
@@ -515,6 +521,9 @@ function SellerCard({
   onChange: () => void;
 }) {
   const confirm = useConfirm();
+  const { can } = useEventAccess();
+  const delivery = can("delivery");
+  const cash = can("money");
   const [assigning, setAssigning] = useState(false);
   const [dialog, setDialog] = useState<"payment" | "return" | null>(null);
   const [showHistory, setShowHistory] = useState(false);
@@ -563,6 +572,7 @@ function SellerCard({
             </span>
           </div>
         </div>
+        {(delivery || (row !== undefined && total > 0)) && (
         <div className="flex shrink-0 items-center">
           <Menu
             label={t.menu(seller.name)}
@@ -592,6 +602,7 @@ function SellerCard({
                 </MenuItem>
               </>
             )}
+            {delivery && (
             <MenuItem
               icon={<Trash2 />}
               tone="danger"
@@ -611,8 +622,10 @@ function SellerCard({
             >
               {t.remove}
             </MenuItem>
+            )}
           </Menu>
         </div>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -625,6 +638,7 @@ function SellerCard({
               className="inline-flex items-center gap-1 rounded-lg border border-border bg-surface-2 py-1 pr-1 pl-2.5 font-mono text-sm text-fg tabular"
             >
               {ticketNumber(range.first)}–{ticketNumber(range.last)}
+              {delivery && (
               <button
                 type="button"
                 aria-label={t.removeRange(label)}
@@ -645,10 +659,11 @@ function SellerCard({
               >
                 <X className="size-3.5" />
               </button>
+              )}
             </span>
           );
         })}
-        {!assigning && (
+        {delivery && !assigning && (
           <Button
             variant={seller.ranges.length === 0 ? "secondary" : "ghost"}
             size="sm"
@@ -688,6 +703,8 @@ function SellerCard({
             )}
             <MoneyBar row={row} />
             <div className="flex flex-wrap items-center gap-2">
+              {cash && (
+              <>
               <Button
                 size="sm"
                 icon={<HandCoins />}
@@ -709,6 +726,8 @@ function SellerCard({
               >
                 {t.giveBack}
               </Button>
+              </>
+              )}
               <Button
                 variant="ghost"
                 size="sm"
@@ -722,11 +741,11 @@ function SellerCard({
                 <ChevronDown aria-hidden className={cn("transition-transform", showHistory && "rotate-180")} />
               </Button>
             </div>
-            {showHistory && <History seller={seller} payments={payments} voids={voids} onChange={onChange} />}
+            {showHistory && <History seller={seller} payments={payments} voids={voids} editable={cash} onChange={onChange} />}
           </div>
         ))}
 
-      {total > 0 && <SellerLink seller={seller} event={event} onChange={onChange} />}
+      {delivery && total > 0 && <SellerLink seller={seller} event={event} onChange={onChange} />}
 
       <PaymentDialog
         open={dialog === "payment"}
@@ -934,6 +953,8 @@ function NewSeller({ eventId, onCreated, tile }: { eventId: string; onCreated: (
 
 export function SellersTab({ eventId, event, onEditEvent }: { eventId: string; event: EventDto; onEditEvent: () => void }) {
   const queryClient = useQueryClient();
+  const { can } = useEventAccess();
+  const delivery = can("delivery");
   const sellers = useQuery({ queryKey: ["sellers", eventId], queryFn: () => api<SellerDto[]>(`/api/events/${eventId}/sellers`) });
   const report = useQuery({ queryKey: ["report", eventId], queryFn: () => api<EventReportDto>(`/api/events/${eventId}/report`) });
   const payments = useQuery({
@@ -962,7 +983,7 @@ export function SellersTab({ eventId, event, onEditEvent }: { eventId: string; e
   } else if (list.length === 0) {
     content = (
       <>
-        <NewSeller eventId={eventId} onCreated={refresh} tile={false} />
+        {delivery && <NewSeller eventId={eventId} onCreated={refresh} tile={false} />}
         <HowItWorks />
       </>
     );
@@ -981,7 +1002,7 @@ export function SellersTab({ eventId, event, onEditEvent }: { eventId: string; e
             onChange={refresh}
           />
         ))}
-        <NewSeller eventId={eventId} onCreated={refresh} tile />
+        {delivery && <NewSeller eventId={eventId} onCreated={refresh} tile />}
       </div>
     );
   }
@@ -989,7 +1010,8 @@ export function SellersTab({ eventId, event, onEditEvent }: { eventId: string; e
   return (
     <div className="flex flex-col gap-6">
       <Lead>{t.intro}</Lead>
-      {holding && event.ticketPriceCents === null && <NoPriceNotice onEditEvent={onEditEvent} />}
+      {!delivery && !can("money") && <ReadOnlyNotice eventId={eventId} area="delivery" />}
+      {holding && event.ticketPriceCents === null && can("manage") && <NoPriceNotice onEditEvent={onEditEvent} />}
       {holding && report.data !== undefined && event.ticketPriceCents !== null && <SettlementSummary rows={report.data.sellers} />}
       {content}
     </div>

@@ -2,7 +2,7 @@
 
 import type { EventDto } from "@ingressoimpresso/api-types";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarPlus, ChevronRight, Clock, MapPin, Plus } from "lucide-react";
+import { CalendarPlus, ChevronRight, Clock, MapPin, Plus, UsersRound } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -12,6 +12,7 @@ import { Badge, Button, EmptyState, ErrorMessage, PageHeader, Skeleton, type Ton
 import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { dateParts, money } from "@/lib/format";
+import { areaList } from "@/lib/team";
 import { texts } from "@/texts/pt-BR";
 
 const t = texts.panel;
@@ -50,9 +51,17 @@ function EventCard({ event, now }: { event: EventDto; now: number }) {
           <span className="py-1 text-xl leading-none font-semibold text-fg tabular">{date.day}</span>
           <span className="pb-1 text-[10px] text-fg-subtle uppercase">{date.weekday}</span>
         </div>
-        <Badge tone={status.tone} dot pulse={status.tone === "success"}>
-          {status.label}
-        </Badge>
+        <div className="flex flex-col items-end gap-1.5">
+          <Badge tone={status.tone} dot pulse={status.tone === "success"}>
+            {status.label}
+          </Badge>
+          {event.team !== null && (
+            <span className="inline-flex items-center gap-1 text-xs font-medium text-fg-muted">
+              <UsersRound className="size-3.5 text-brand" aria-hidden />
+              {texts.event.team.listBadge}
+            </span>
+          )}
+        </div>
       </div>
       <div className="flex min-w-0 flex-col gap-2">
         <h2 className="truncate text-lg font-semibold tracking-tight text-fg">{event.name}</h2>
@@ -66,6 +75,11 @@ function EventCard({ event, now }: { event: EventDto; now: number }) {
             <MapPin className="size-4 shrink-0 text-fg-subtle" aria-hidden />
             <span className="truncate">{event.venue ?? t.noVenue}</span>
           </span>
+          {event.team !== null && (
+            <span className="truncate text-xs text-fg-subtle">
+              {texts.event.team.listLine(event.team.organization, areaList(event.team.areas))}
+            </span>
+          )}
         </div>
       </div>
       <span className="mt-auto flex items-center gap-1 text-sm font-medium text-brand">
