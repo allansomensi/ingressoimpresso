@@ -20,7 +20,7 @@ import { Button, Dialog, ErrorMessage, Field, Input } from "@/components/ui";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { money, parseMoney, ticketNumber } from "@/lib/format";
-import { countNumbers, firstOutside, firstShared, formatRanges, intersect, mergeRanges, parseNumberList, subtract, type NumberRange } from "@/lib/number-list";
+import { NUMBER_LIST_INPUT, countNumbers, firstOutside, firstShared, formatRanges, intersect, mergeRanges, parseNumberList, subtract, type NumberRange } from "@/lib/number-list";
 import { todayIso } from "@/lib/settlement";
 import { texts } from "@/texts/pt-BR";
 
@@ -58,7 +58,7 @@ function Choice<T extends string>({
                 "flex h-11 items-center justify-center gap-2 rounded-xl border px-3 text-sm font-medium transition [&_svg]:size-4",
                 selected
                   ? "border-brand bg-brand-soft text-brand-soft-fg ring-2 ring-brand/20"
-                  : "border-border-strong bg-surface text-fg-muted hover:bg-surface-2 hover:text-fg",
+                  : "border-border-strong bg-surface text-fg-muted hover:bg-surface-2 active:bg-surface-2 hover:text-fg",
               )}
             >
               {option.icon}
@@ -353,8 +353,7 @@ export function ReturnDialog({
               setNumbers(event.target.value);
             }}
             placeholder={g.numbersPlaceholder}
-            inputMode="text"
-            autoComplete="off"
+            {...NUMBER_LIST_INPUT}
             aria-invalid={problem !== null}
             className="font-mono tabular"
             required

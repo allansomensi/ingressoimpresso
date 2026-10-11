@@ -14,7 +14,7 @@ import { api } from "@/lib/api";
 import { CATEGORY_COLORS, nextColor, uncategorized } from "@/lib/categories";
 import { cn } from "@/lib/cn";
 import { money, parseMoney, ticketNumber } from "@/lib/format";
-import { formatRanges, parseNumberList } from "@/lib/number-list";
+import { NUMBER_LIST_INPUT, formatRanges, parseNumberList } from "@/lib/number-list";
 import { texts } from "@/texts/pt-BR";
 
 const t = texts.event.categories;
@@ -235,7 +235,7 @@ function CategoryCard({
             </span>
           </div>
           {editable && (
-            <Menu label={t.menu(category.name)} trigger={<MoreHorizontal />} triggerClassName={buttonClass({ variant: "ghost", size: "icon", className: "size-8" })}>
+            <Menu label={t.menu(category.name)} trigger={<MoreHorizontal />} triggerClassName={buttonClass({ variant: "ghost", size: "icon-sm" })}>
               <MenuItem icon={<Pencil />} onSelect={onEdit}>
                 {t.edit}
               </MenuItem>
@@ -266,7 +266,7 @@ function CategoryCard({
                   <button
                     type="button"
                     aria-label={t.removeRange(label)}
-                    className="flex size-5 items-center justify-center rounded-md text-fg-subtle transition hover:bg-danger-soft hover:text-danger-fg"
+                    className="relative flex size-5 items-center justify-center rounded-md text-fg-subtle transition touch-target hover:bg-danger-soft hover:text-danger-fg active:bg-danger-soft active:text-danger-fg"
                     onClick={() => {
                       remove.mutate(`/api/category-ranges/${range.id}`, { onSuccess: () => toast.success(t.rangeRemoved) });
                     }}
@@ -285,7 +285,8 @@ function CategoryCard({
                 aria-label={t.numbers}
                 value={text}
                 placeholder={t.numbersPlaceholder}
-                inputMode="numeric"
+                // Ranges need "-" and ",": the iPhone number pad has neither (NUMBER_LIST_INPUT).
+                {...NUMBER_LIST_INPUT}
                 onChange={(changeEvent) => {
                   setText(changeEvent.target.value);
                 }}

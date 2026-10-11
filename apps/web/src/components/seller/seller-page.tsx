@@ -167,8 +167,11 @@ function MarkSheet({
               onChange={(event) => {
                 setNumbers(event.target.value);
               }}
-              inputMode="numeric"
+              // The seller usually types one number: a number pad that still has the comma for a
+              // list ("12,15"); a range can also be written "20 a 25" on a full keyboard.
+              inputMode="decimal"
               autoComplete="off"
+              enterKeyHint="done"
               aria-invalid={problem !== null}
               className="font-mono text-lg tabular sm:text-lg"
               required
@@ -417,9 +420,9 @@ export function SellerPage() {
       <section className="relative overflow-hidden rounded-3xl bg-brand-solid p-5 text-white shadow-lg shadow-brand/25">
         <div aria-hidden className="absolute -top-16 -right-16 size-48 rounded-full bg-white/10 blur-2xl" />
         <div className="relative flex flex-col gap-1">
-          <span className="text-sm text-white/80">{t.hello(firstName)}</span>
+          <span className="text-sm text-white/90">{t.hello(firstName)}</span>
           <h1 className="text-2xl leading-tight font-semibold tracking-tight text-balance">{view.event.name}</h1>
-          <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-white/80">
+          <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-white/90">
             <span className="flex items-center gap-1">
               <CalendarDays aria-hidden className="size-3.5" />
               {eventDateTime(view.event.startsAt)}
@@ -435,7 +438,7 @@ export function SellerPage() {
         <div className="relative mt-5 flex flex-col gap-2">
           <div className="flex items-baseline justify-between gap-3">
             <span className="text-3xl font-semibold tracking-tight tabular">{s.available === 0 && s.sold > 0 ? t.allSold : t.soldOf(s.sold, s.tickets)}</span>
-            <span className="text-sm font-medium text-white/80 tabular">{percent}%</span>
+            <span className="text-sm font-medium text-white/90 tabular">{percent}%</span>
           </div>
           <div role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent} aria-label={t.soldOf(s.sold, s.tickets)} className="h-2.5 overflow-hidden rounded-full bg-white/20">
             <div className="h-full rounded-full bg-white transition-[width] duration-500" style={{ width: `${String(percent)}%` }} />
@@ -516,7 +519,7 @@ export function SellerPage() {
                   setFilter(option);
                 }}
                 className={cn(
-                  "rounded-xl px-2 py-2 text-sm font-medium transition",
+                  "rounded-xl px-2 py-2 text-sm font-medium transition pointer-coarse:py-2.5",
                   filter === option ? "bg-surface-2 text-fg shadow-xs ring-1 ring-border" : "text-fg-muted hover:text-fg",
                 )}
               >
@@ -538,7 +541,7 @@ export function SellerPage() {
                     onClick={() => {
                       setSelected(cell);
                     }}
-                    className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-surface-2"
+                    className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-surface-2 active:bg-surface-2"
                   >
                     <span className="rounded-lg bg-brand-soft px-2 py-1 font-mono text-sm font-semibold text-brand-soft-fg tabular">{pad(cell.number)}</span>
                     <span className="min-w-0 flex-1 truncate text-sm text-fg">{cell.sale?.buyerName ?? <span className="text-fg-subtle">{t.noBuyer}</span>}</span>
