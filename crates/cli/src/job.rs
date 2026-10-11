@@ -248,6 +248,7 @@ impl JobFile {
         Ok(RenderJob {
             design: self.design.clone(),
             art,
+            sponsors: Vec::new(),
             event_name: self.event.name.clone(),
             details: self.details()?,
             tickets,

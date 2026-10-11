@@ -630,13 +630,14 @@ async fn render_image(state: &AppState, link: &OpenRow) -> ApiResult<Vec<u8>> {
     )
     .fetch_one(&state.pool)
     .await?;
-    let (design, art) = jobs::current_design(state, link.event_id).await?;
+    let (design, art, sponsors) = jobs::current_design(state, link.event_id).await?;
     let tags = super::categories::NumberTags::load(&state.pool, link.event_id).await?;
     let number = i32::try_from(ticket.header().number.get()).unwrap_or(i32::MAX);
     let job = RenderJob {
         details: event.details(),
         design,
         art,
+        sponsors,
         event_name: event.name,
         tickets: vec![TicketToRender {
             qr: TicketQr::Signed(ticket),

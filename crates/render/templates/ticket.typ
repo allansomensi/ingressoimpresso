@@ -73,6 +73,30 @@
       align(center + horizon, if vertical { rotate(-90deg, reflow: true, label) } else { label })))
 }
 
+// The sponsors' strip (ADR 0059): an optional label, then the logos side by side, each fitted
+// to the height left and centred in its share of the width.
+#let sponsors(data) = {
+  let sp = data.design.sponsors
+  let (w, h) = (mm(sp.widthMm), mm(sp.heightMm))
+  let n = data.sponsors.len()
+  let label-h = if sp.label == "" { 0mm } else { calc.min(h * 0.3, 3.2mm) }
+  let gap = calc.min(2mm, w / (4 * n))
+  let pad = if sp.panel { calc.min(1mm, h * 0.1) } else { 0mm }
+  let logo-h = h - label-h - 2 * pad - (if label-h > 0mm { 0.6mm } else { 0mm })
+  let cell-w = (w - 2 * pad - gap * (n - 1)) / n
+  box(width: w, height: h, radius: if sp.panel { 1mm } else { 0mm }, clip: true,
+    fill: if sp.panel { white } else { none }, inset: pad,
+    stack(dir: ttb, spacing: if label-h > 0mm { 0.6mm } else { 0mm },
+      if label-h > 0mm {
+        box(width: 100%, height: label-h, align(center + horizon,
+          fit(w - 2 * pad, label-h, text(font: "Lato", weight: "bold", size: label-h, fill: rgb(sp.labelColor),
+            tracking: 0.06em, upper(sp.label)))))
+      },
+      grid(columns: (cell-w,) * n, column-gutter: gap,
+        ..data.sponsors.map(path => box(width: cell-w, height: logo-h,
+          align(center + horizon, image(path, width: cell-w, height: logo-h, fit: "contain")))))))
+}
+
 // The ticket body (art, texts, number, QR). The art always covers body + bleed on every side.
 // `clip`: cut everything at the trim (home sheets, images); `false` lets the art run into the
 // bleed (print-shop output).
@@ -92,6 +116,9 @@
       if value != none {
         place(top + left, dx: mm(block.xMm), dy: mm(block.yMm), text-block(block, value))
       }
+    }
+    if d.sponsors != none and data.sponsors.len() > 0 {
+      place(top + left, dx: mm(d.sponsors.xMm), dy: mm(d.sponsors.yMm), sponsors(data))
     }
     let n = d.number
     let (nw, nh) = (mm(n.widthMm), mm(n.heightMm))

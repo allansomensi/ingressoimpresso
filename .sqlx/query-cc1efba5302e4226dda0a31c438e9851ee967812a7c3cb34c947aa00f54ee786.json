@@ -1,21 +1,10 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select version, spec, art_blob_id from ticket_designs where event_id = $1 order by version desc limit 1",
+  "query": "select spec, art_blob_id, sponsor_blob_ids from ticket_designs where event_id = $1 order by version desc limit 1",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "version",
-        "type_info": "Int4",
-        "origin": {
-          "Table": {
-            "table": "ticket_designs",
-            "name": "version"
-          }
-        }
-      },
-      {
-        "ordinal": 1,
         "name": "spec",
         "type_info": "Jsonb",
         "origin": {
@@ -26,13 +15,24 @@
         }
       },
       {
-        "ordinal": 2,
+        "ordinal": 1,
         "name": "art_blob_id",
         "type_info": "Uuid",
         "origin": {
           "Table": {
             "table": "ticket_designs",
             "name": "art_blob_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "sponsor_blob_ids",
+        "type_info": "UuidArray",
+        "origin": {
+          "Table": {
+            "table": "ticket_designs",
+            "name": "sponsor_blob_ids"
           }
         }
       }
@@ -44,9 +44,9 @@
     },
     "nullable": [
       false,
-      false,
-      true
+      true,
+      false
     ]
   },
-  "hash": "63e947395b310db7b5f455e70ad3797ad3bc876d318b1a1cd507d3e6c589962a"
+  "hash": "cc1efba5302e4226dda0a31c438e9851ee967812a7c3cb34c947aa00f54ee786"
 }

@@ -283,12 +283,13 @@ pub async fn duplicate(
     .await?;
 
     let design = sqlx::query!(
-        "select spec, art_blob_id from ticket_designs where event_id = $1 order by version desc limit 1",
+        "select spec, art_blob_id, sponsor_blob_ids from ticket_designs where event_id = $1 order by version desc limit 1",
         event_id
     )
     .fetch_optional(&mut *tx)
     .await?;
     let mut copied_art = None;
+    let mut unchecked_logos = Vec::new();
     if let Some(design) = design {
         let art = match design.art_blob_id {
             Some(blob_id) => {
@@ -298,13 +299,28 @@ pub async fn duplicate(
             }
             None => None,
         };
+        // Refused logos stay behind (CLAUDE.md invariant 17); the others are copied in order.
+        let mut sponsors = Vec::with_capacity(design.sponsor_blob_ids.len());
+        for blob_id in design.sponsor_blob_ids {
+            match copy_art(&mut tx, organization_id, blob_id, copy.id).await {
+                Ok((id, unchecked)) => {
+                    if unchecked {
+                        unchecked_logos.push(id);
+                    }
+                    sponsors.push(id);
+                }
+                Err(ApiError::Conflict("art_rejected", _)) => {}
+                Err(other) => return Err(other),
+            }
+        }
         sqlx::query!(
-            r#"insert into ticket_designs (id, event_id, version, spec, art_blob_id)
-               values ($1, $2, 1, $3, $4)"#,
+            r#"insert into ticket_designs (id, event_id, version, spec, art_blob_id, sponsor_blob_ids)
+               values ($1, $2, 1, $3, $4, $5)"#,
             Uuid::new_v4(),
             copy.id,
             design.spec,
             art,
+            &sponsors,
         )
         .execute(&mut *tx)
         .await?;
@@ -321,7 +337,7 @@ pub async fn duplicate(
     copy_categories_and_tables(&mut tx, event_id, copy.id).await?;
     tx.commit().await?;
     // A copy of art nobody has looked at yet is classified like a new upload (ADR 0042).
-    if let Some(art_id) = copied_art {
+    for art_id in copied_art.into_iter().chain(unchecked_logos) {
         crate::moderation::spawn_check(&state, art_id);
     }
     Ok((StatusCode::CREATED, Json(copy.into_dto()?)))
@@ -584,7 +600,7 @@ pub async fn get_design(
 ) -> ApiResult<Json<DesignResponse>> {
     authorize_event(&state.pool, &user, event_id).await?;
     let latest = sqlx::query!(
-        "select version, spec, art_blob_id from ticket_designs where event_id = $1 order by version desc limit 1",
+        "select version, spec, art_blob_id, sponsor_blob_ids from ticket_designs where event_id = $1 order by version desc limit 1",
         event_id
     )
     .fetch_optional(&state.pool)
@@ -594,6 +610,7 @@ pub async fn get_design(
             version: 0,
             design: TicketDesign::default_v1(),
             art: None,
+            sponsors: Vec::new(),
         }));
     };
     let design: TicketDesign = serde_json::from_value(latest.spec).map_err(anyhow::Error::from)?;
@@ -601,10 +618,15 @@ pub async fn get_design(
         Some(art_id) => Some(art_of_event(&state, event_id, art_id).await?.into()),
         None => None,
     };
+    let mut sponsors = Vec::with_capacity(latest.sponsor_blob_ids.len());
+    for id in latest.sponsor_blob_ids {
+        sponsors.push(art_of_event(&state, event_id, id).await?.into());
+    }
     Ok(Json(DesignResponse {
         version: latest.version,
         design,
         art,
+        sponsors,
     }))
 }
 
@@ -643,15 +665,17 @@ pub async fn save_design(
             "the art was refused by the team".to_owned(),
         ));
     }
+    let sponsors = sponsors_of(&state, event_id, &body.sponsor_ids).await?;
     let spec = serde_json::to_value(&body.design).map_err(anyhow::Error::from)?;
     let version = sqlx::query_scalar!(
-        r#"insert into ticket_designs (id, event_id, version, spec, art_blob_id)
-           values ($1, $2, (select coalesce(max(version), 0) + 1 from ticket_designs where event_id = $2), $3, $4)
+        r#"insert into ticket_designs (id, event_id, version, spec, art_blob_id, sponsor_blob_ids)
+           values ($1, $2, (select coalesce(max(version), 0) + 1 from ticket_designs where event_id = $2), $3, $4, $5)
            returning version"#,
         Uuid::new_v4(),
         event_id,
         spec,
         body.art_id,
+        &body.sponsor_ids,
     )
     .fetch_one(&state.pool)
     .await?;
@@ -659,7 +683,30 @@ pub async fn save_design(
         version,
         design: body.design,
         art: art.map(Into::into),
+        sponsors: sponsors.into_iter().map(Into::into).collect(),
     }))
+}
+
+/// The sponsors' logos of a design: at most six, uploaded to this event, none refused.
+async fn sponsors_of(state: &AppState, event_id: Uuid, ids: &[Uuid]) -> ApiResult<Vec<ArtRow>> {
+    if ids.len() > ticket_render::MAX_SPONSORS {
+        return Err(bad_request(
+            "too_many_sponsors",
+            format!("up to {} logos", ticket_render::MAX_SPONSORS),
+        ));
+    }
+    let mut logos = Vec::with_capacity(ids.len());
+    for id in ids {
+        let logo = art_of_event(state, event_id, *id).await?;
+        if logo.moderation_status == "rejected" {
+            return Err(ApiError::Conflict(
+                "art_rejected",
+                "the art was refused by the team".to_owned(),
+            ));
+        }
+        logos.push(logo);
+    }
+    Ok(logos)
 }
 
 /// `POST /api/events/{id}/art`: raw PNG or JPEG body (max 20 MB).
@@ -716,7 +763,8 @@ pub async fn upload_art(
         r#"delete from blobs b where b.event_id = $1 and b.sha256 <> $2
            and b.created_at < now() - interval '2 hours'
            and b.moderation_status not in ('flagged', 'rejected')
-           and not exists (select 1 from ticket_designs d where d.art_blob_id = b.id)"#,
+           and not exists (select 1 from ticket_designs d
+                           where d.art_blob_id = b.id or b.id = any(d.sponsor_blob_ids))"#,
         event_id,
         digest,
     )
@@ -863,12 +911,18 @@ pub async fn preview(
         Some(art_id) => Some(load_art(&state, event_id, art_id).await?),
         None => None,
     };
+    sponsors_of(&state, event_id, &body.sponsor_ids).await?;
+    let mut sponsors = Vec::with_capacity(body.sponsor_ids.len());
+    for id in &body.sponsor_ids {
+        sponsors.push(load_art(&state, event_id, *id).await?);
+    }
     // Samples show the band of the event's categories and seats, as printed (ADR 0056).
     let tags = super::categories::NumberTags::load(&state.pool, event_id).await?;
     let job = RenderJob {
         details: event.details(),
         design: body.design,
         art,
+        sponsors,
         event_name: event.name,
         tickets: (1..=200)
             .map(|number| TicketToRender {

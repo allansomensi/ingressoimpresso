@@ -32,6 +32,11 @@ const TEXT_SIZE_PT: (f64, f64) = (3.0, 200.0);
 const MAX_TEXT_LINES: u8 = 4;
 const LETTER_SPACING_EM: (f64, f64) = (-0.1, 1.0);
 const BAND_SIZE_MM: (f64, f64) = (4.0, 20.0);
+/// Smallest sponsor strip: room for one readable logo.
+const SPONSORS_MIN_MM: (f64, f64) = (15.0, 6.0);
+const MAX_SPONSOR_LABEL_CHARS: usize = 24;
+/// Most sponsor logos on a ticket.
+pub const MAX_SPONSORS: usize = 6;
 /// Size of the band placed by [`TicketDesign::effective_band`] when the design has none.
 pub const AUTO_BAND_MM: f64 = 6.0;
 
@@ -66,6 +71,35 @@ pub struct TicketDesign {
     /// that have one. `None` lets the printer pick an edge clear of the QR.
     #[serde(default)]
     pub band: Option<BandStyle>,
+    /// Strip with the sponsors' logos (ADR 0059); the logos themselves travel with the design's
+    /// art, by id.
+    #[serde(default)]
+    pub sponsors: Option<SponsorStrip>,
+}
+
+/// Where the sponsors' logos go: side by side, centred, each fitted to the strip's height.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[cfg_attr(
+    feature = "ts",
+    derive(ts_rs::TS),
+    ts(export, export_to = "api-types/src/generated/")
+)]
+pub struct SponsorStrip {
+    /// Left edge.
+    pub x_mm: f64,
+    /// Top edge.
+    pub y_mm: f64,
+    /// Width.
+    pub width_mm: f64,
+    /// Height.
+    pub height_mm: f64,
+    /// Small text above the logos ("Patrocínio"); empty for none.
+    pub label: String,
+    /// Colour of the text (`#rrggbb`).
+    pub label_color: String,
+    /// A white panel behind the logos, for logos over a busy art.
+    pub panel: bool,
 }
 
 /// Where the category band runs along the body.
@@ -377,6 +411,18 @@ pub enum DesignIssue {
     /// The category band covers part of the QR code (it would not scan).
     #[error("the category band must not cover the QR code")]
     BandOverQr,
+    /// The sponsor strip is too small, its text too long, or it covers the QR code.
+    #[error(
+        "the sponsor strip must be at least {min_w} × {min_h} mm, with up to {max_chars} characters, and keep the QR clear"
+    )]
+    Sponsors {
+        /// Minimum width.
+        min_w: f64,
+        /// Minimum height.
+        min_h: f64,
+        /// Maximum text length.
+        max_chars: usize,
+    },
 }
 
 impl TicketDesign {
@@ -411,6 +457,7 @@ impl TicketDesign {
             }),
             texts: Vec::new(),
             band: None,
+            sponsors: None,
         }
     }
 
@@ -426,12 +473,21 @@ impl TicketDesign {
 
     /// Whether a band of `size_mm` along `edge` would touch the QR code.
     pub fn band_covers_qr(&self, edge: BandEdge, size_mm: f64) -> bool {
-        let (left, top, width, height) = self.band_rect(edge, size_mm);
         let qr = &self.qr;
-        left < qr.x_mm + qr.size_mm
-            && qr.x_mm < left + width
-            && top < qr.y_mm + qr.size_mm
-            && qr.y_mm < top + height
+        overlaps(
+            self.band_rect(edge, size_mm),
+            (qr.x_mm, qr.y_mm, qr.size_mm, qr.size_mm),
+        )
+    }
+
+    /// Whether a band would hide part of the sponsor strip.
+    fn band_covers_sponsors(&self, edge: BandEdge, size_mm: f64) -> bool {
+        self.sponsors.as_ref().is_some_and(|strip| {
+            overlaps(
+                self.band_rect(edge, size_mm),
+                (strip.x_mm, strip.y_mm, strip.width_mm, strip.height_mm),
+            )
+        })
     }
 
     /// The band printed on tickets with a category or a seat: the design's, or else the first
@@ -440,18 +496,28 @@ impl TicketDesign {
         if let Some(band) = &self.band {
             return Some(band.clone());
         }
-        [
+        let edges = [
             BandEdge::Bottom,
             BandEdge::Top,
             BandEdge::Right,
             BandEdge::Left,
-        ]
-        .into_iter()
-        .find(|edge| !self.band_covers_qr(*edge, AUTO_BAND_MM))
-        .map(|edge| BandStyle {
-            edge,
-            size_mm: AUTO_BAND_MM,
-        })
+        ];
+        // Clear of the QR, and of the sponsors when an edge allows.
+        edges
+            .into_iter()
+            .find(|edge| {
+                !self.band_covers_qr(*edge, AUTO_BAND_MM)
+                    && !self.band_covers_sponsors(*edge, AUTO_BAND_MM)
+            })
+            .or_else(|| {
+                edges
+                    .into_iter()
+                    .find(|edge| !self.band_covers_qr(*edge, AUTO_BAND_MM))
+            })
+            .map(|edge| BandStyle {
+                edge,
+                size_mm: AUTO_BAND_MM,
+            })
     }
 
     /// Stub width, or zero without a stub.
@@ -516,6 +582,9 @@ impl TicketDesign {
             } else if self.band_covers_qr(band.edge, band.size_mm) {
                 issues.push(DesignIssue::BandOverQr);
             }
+        }
+        if let Some(strip) = &self.sponsors {
+            self.validate_sponsors(strip, &mut issues);
         }
         if let Some(stub) = &self.stub {
             if !within(stub.width_mm, STUB_WIDTH_MM) {
@@ -625,6 +694,34 @@ impl TicketDesign {
         }
     }
 
+    fn validate_sponsors(&self, strip: &SponsorStrip, issues: &mut Vec<DesignIssue>) {
+        if !self.contains(strip.x_mm, strip.y_mm, strip.width_mm, strip.height_mm) {
+            issues.push(DesignIssue::OutOfBounds {
+                element: "sponsors",
+            });
+        }
+        let qr = &self.qr;
+        if strip.width_mm < SPONSORS_MIN_MM.0
+            || strip.height_mm < SPONSORS_MIN_MM.1
+            || strip.label.chars().count() > MAX_SPONSOR_LABEL_CHARS
+            || overlaps(
+                (strip.x_mm, strip.y_mm, strip.width_mm, strip.height_mm),
+                (qr.x_mm, qr.y_mm, qr.size_mm, qr.size_mm),
+            )
+        {
+            issues.push(DesignIssue::Sponsors {
+                min_w: SPONSORS_MIN_MM.0,
+                min_h: SPONSORS_MIN_MM.1,
+                max_chars: MAX_SPONSOR_LABEL_CHARS,
+            });
+        }
+        if !is_hex_color(&strip.label_color) {
+            issues.push(DesignIssue::InvalidColor {
+                field: "sponsors.labelColor",
+            });
+        }
+    }
+
     /// Whether the box lies inside the body. Rejects NaN and infinities.
     fn contains(&self, x: f64, y: f64, width: f64, height: f64) -> bool {
         [x, y, width, height].iter().all(|value| value.is_finite())
@@ -635,6 +732,11 @@ impl TicketDesign {
             && x + width <= self.width_mm + 1e-9
             && y + height <= self.height_mm + 1e-9
     }
+}
+
+/// Whether two rectangles (x, y, width, height) share any area.
+fn overlaps(a: (f64, f64, f64, f64), b: (f64, f64, f64, f64)) -> bool {
+    a.0 < b.0 + b.2 && b.0 < a.0 + a.2 && a.1 < b.1 + b.3 && b.1 < a.1 + a.3
 }
 
 fn within(value: f64, (min, max): (f64, f64)) -> bool {
@@ -818,11 +920,48 @@ mod tests {
         assert_eq!(design.validate(), Ok(()));
     }
 
+    fn strip() -> SponsorStrip {
+        SponsorStrip {
+            x_mm: 6.0,
+            y_mm: 40.0,
+            width_mm: 100.0,
+            height_mm: 10.0,
+            label: "Patrocínio".to_owned(),
+            label_color: "#555555".to_owned(),
+            panel: false,
+        }
+    }
+
+    #[test]
+    fn sponsors_keep_the_qr_clear() {
+        let mut design = TicketDesign::default_v1();
+        design.sponsors = Some(strip());
+        assert_eq!(design.validate(), Ok(()));
+        // The automatic band leaves the bottom (taken by the logos) for the top.
+        assert_eq!(
+            design.effective_band().map(|band| band.edge),
+            Some(BandEdge::Top)
+        );
+        let mut over_qr = strip();
+        over_qr.width_mm = 130.0;
+        design.sponsors = Some(over_qr);
+        assert!(matches!(
+            design.validate().unwrap_err().as_slice(),
+            [DesignIssue::Sponsors { .. }]
+        ));
+        let mut tiny = strip();
+        tiny.height_mm = 4.0;
+        tiny.label_color = "cinza".to_owned();
+        design.sponsors = Some(tiny);
+        assert_eq!(design.validate().unwrap_err().len(), 2);
+    }
+
     #[test]
     fn designs_without_texts_still_load() {
         let mut json = serde_json::to_value(TicketDesign::default_v1()).unwrap();
         json.as_object_mut().unwrap().remove("texts");
         json.as_object_mut().unwrap().remove("band");
+        json.as_object_mut().unwrap().remove("sponsors");
         let design: TicketDesign = serde_json::from_value(json).unwrap();
         assert_eq!(design, TicketDesign::default_v1());
     }

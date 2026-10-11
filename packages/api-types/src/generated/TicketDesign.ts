@@ -2,6 +2,7 @@
 import type { BandStyle } from "./BandStyle";
 import type { NumberStyle } from "./NumberStyle";
 import type { QrPlacement } from "./QrPlacement";
+import type { SponsorStrip } from "./SponsorStrip";
 import type { StubStyle } from "./StubStyle";
 import type { TextBlock } from "./TextBlock";
 
@@ -46,4 +47,9 @@ texts: Array<TextBlock>,
  * Coloured band with the ticket's category and seat (ADR 0056), printed only on tickets
  * that have one. `None` lets the printer pick an edge clear of the QR.
  */
-band: BandStyle | null, };
+band: BandStyle | null, 
+/**
+ * Strip with the sponsors' logos (ADR 0059); the logos themselves travel with the design's
+ * art, by id.
+ */
+sponsors: SponsorStrip | null, };

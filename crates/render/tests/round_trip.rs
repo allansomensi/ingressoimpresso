@@ -17,8 +17,8 @@ use ticket_core::{
     TicketIssuer, TicketNumber,
 };
 use ticket_render::{
-    Art, EventDetails, FontChoice, PrintOptions, RenderJob, StubSide, TextAlign, TextBlock,
-    TicketCategory, TicketDesign, TicketQr, TicketToRender, control_sheet_pdf, home_pdf,
+    Art, EventDetails, FontChoice, PrintOptions, RenderJob, SponsorStrip, StubSide, TextAlign,
+    TextBlock, TicketCategory, TicketDesign, TicketQr, TicketToRender, control_sheet_pdf, home_pdf,
     home_sheet_pngs, print_pdf, ticket_images, whatsapp_zip,
 };
 
@@ -70,6 +70,7 @@ fn job(numbers: &[u32], design: TicketDesign) -> RenderJob {
     RenderJob {
         design,
         art: Some(art()),
+        sponsors: vec![art()],
         event_name: "Show de Lançamento — Banda Teste".to_owned(),
         details: EventDetails::default(),
         tickets: numbers
@@ -121,6 +122,28 @@ fn whatsapp_images_round_trip() {
         assert_eq!(decoded.width(), 1080);
         let texts = decode_all(&decoded.to_luma8());
         assert_eq!(texts.len(), 1, "exactly one QR per ticket image");
+        assert_eq!(verified_numbers(&texts), BTreeSet::from([image.number]));
+    }
+}
+
+#[test]
+fn sponsors_print_without_hiding_the_qr() {
+    let mut design = TicketDesign::default_v1();
+    design.sponsors = Some(SponsorStrip {
+        x_mm: 6.0,
+        y_mm: 38.0,
+        width_mm: 100.0,
+        height_mm: 14.0,
+        label: "Patrocínio".to_owned(),
+        label_color: "#333333".to_owned(),
+        panel: true,
+    });
+    let mut job = job(&[3, 4], design);
+    job.sponsors = vec![art(), art(), art()];
+    let images = ticket_images(&job, 1080).unwrap();
+    for image in &images {
+        let decoded = image::load_from_memory(&image.jpeg).unwrap();
+        let texts = decode_all(&decoded.to_luma8());
         assert_eq!(verified_numbers(&texts), BTreeSet::from([image.number]));
     }
 }

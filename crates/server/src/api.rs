@@ -301,6 +301,8 @@ dto! {
         pub design: TicketDesign,
         /// Art, if any.
         pub art: Option<ArtDto>,
+        /// Sponsors' logos, in order (ADR 0059).
+        pub sponsors: Vec<ArtDto>,
     }
 
     /// `PUT /api/events/{id}/design` and `POST /api/events/{id}/design/preview`.
@@ -310,6 +312,10 @@ dto! {
         /// Art uploaded to this event, if any.
         #[cfg_attr(feature = "ts", ts(type = "string | null"))]
         pub art_id: Option<Uuid>,
+        /// Sponsors' logos uploaded to this event, in order (up to 6, ADR 0059).
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(type = "Array<string>", optional))]
+        pub sponsor_ids: Vec<Uuid>,
     }
 
     /// `POST /api/events/{id}/batches`.

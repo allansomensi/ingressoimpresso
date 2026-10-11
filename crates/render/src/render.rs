@@ -125,6 +125,22 @@ impl Art {
     }
 }
 
+impl Art {
+    /// `.png` or `.jpg`.
+    fn extension(&self) -> &'static str {
+        // `path` is one of the two constants set by `from_bytes`.
+        if self.path == "/art.png" {
+            ".png"
+        } else {
+            ".jpg"
+        }
+    }
+}
+
+fn sponsor_path(index: usize, logo: &Art) -> String {
+    format!("/sponsor-{index}{}", logo.extension())
+}
+
 impl std::fmt::Debug for Art {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Art")
@@ -193,6 +209,8 @@ pub struct RenderJob {
     pub design: TicketDesign,
     /// Background art (covers body + bleed).
     pub art: Option<Art>,
+    /// Sponsors' logos, in order, drawn in the design's sponsor strip (ADR 0059).
+    pub sponsors: Vec<Art>,
     /// Event name, printed on stubs and control sheets.
     pub event_name: String,
     /// Venue, date and price, for the design's text blocks.
@@ -583,6 +601,8 @@ struct TemplateData<'a> {
     text_values: Vec<Option<String>>,
     /// The band of tickets with a category or a seat ([`TicketDesign::effective_band`]).
     band: Option<BandStyle>,
+    /// Paths of the sponsors' logos (empty without a strip).
+    sponsors: Vec<String>,
     tickets: Vec<TemplateTicket>,
     grid: Option<Grid>,
     print: Option<PrintData>,
@@ -624,6 +644,16 @@ impl<'a> TemplateData<'a> {
                 })
                 .collect(),
             band: job.design.effective_band(),
+            sponsors: if job.design.sponsors.is_some() {
+                job.sponsors
+                    .iter()
+                    .take(crate::design::MAX_SPONSORS)
+                    .enumerate()
+                    .map(|(index, logo)| sponsor_path(index, logo))
+                    .collect()
+            } else {
+                Vec::new()
+            },
             grid: None,
             print: None,
             groups: Vec::new(),
@@ -713,6 +743,16 @@ fn compile(
     if let Some(art) = &job.art {
         world
             .add_file(art.path, art.bytes.clone())
+            .map_err(file_error)?;
+    }
+    for (index, logo) in job
+        .sponsors
+        .iter()
+        .take(crate::design::MAX_SPONSORS)
+        .enumerate()
+    {
+        world
+            .add_file(&sponsor_path(index, logo), logo.bytes.clone())
             .map_err(file_error)?;
     }
     for (index, ticket) in tickets.iter().enumerate() {
@@ -833,6 +873,7 @@ mod tests {
         RenderJob {
             design: TicketDesign::default_v1(),
             art: None,
+            sponsors: Vec::new(),
             event_name: "Evento".to_owned(),
             details: EventDetails::default(),
             tickets: (1..=count)

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "insert into ticket_designs (id, event_id, version, spec, art_blob_id)\n           values ($1, $2, (select coalesce(max(version), 0) + 1 from ticket_designs where event_id = $2), $3, $4)\n           returning version",
+  "query": "insert into ticket_designs (id, event_id, version, spec, art_blob_id, sponsor_blob_ids)\n           values ($1, $2, (select coalesce(max(version), 0) + 1 from ticket_designs where event_id = $2), $3, $4, $5)\n           returning version",
   "describe": {
     "columns": [
       {
@@ -20,12 +20,13 @@
         "Uuid",
         "Uuid",
         "Jsonb",
-        "Uuid"
+        "Uuid",
+        "UuidArray"
       ]
     },
     "nullable": [
       false
     ]
   },
-  "hash": "ca81109992c83ba4e51741691ce320734d00a8b022c9de91c45f882909126801"
+  "hash": "1ac2d876cbd77309a8059620ff1e6ffd91095fd519d771d4456276bb54794c4a"
 }

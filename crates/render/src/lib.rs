@@ -18,8 +18,8 @@ mod world;
 
 pub use design::{
     AUTO_BAND_MM, BLEED_MM, BandEdge, BandStyle, DESIGN_VERSION, DesignIssue, FontChoice,
-    MIN_QR_SIZE_MM, NumberStyle, QrPlacement, StubSide, StubStyle, TextAlign, TextBlock,
-    TicketDesign,
+    MAX_SPONSORS, MIN_QR_SIZE_MM, NumberStyle, QrPlacement, SponsorStrip, StubSide, StubStyle,
+    TextAlign, TextBlock, TicketDesign,
 };
 pub use fields::{EventDetails, FIELDS};
 pub use qr::QrError;

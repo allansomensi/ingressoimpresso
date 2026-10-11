@@ -181,6 +181,7 @@ export type * from "./generated/SellerViewPaymentDto";
 export type * from "./generated/SellerVoidDto";
 export type * from "./generated/ServiceStatus";
 export type * from "./generated/SessionResponse";
+export type * from "./generated/SponsorStrip";
 export type * from "./generated/StatusComponentDto";
 export type * from "./generated/StatusDto";
 export type * from "./generated/StubSide";

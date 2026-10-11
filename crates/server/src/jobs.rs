@@ -263,7 +263,7 @@ async fn generate(state: &AppState, export: &ExportRow) -> Result<(i32, String, 
         return Err(JobError::Final("too_many_tickets"));
     }
 
-    let (design, art) = current_design(state, export.event_id).await?;
+    let (design, art, sponsors) = current_design(state, export.event_id).await?;
 
     let issuers = issuers(state, export.event_id, event.qr_tag, &tickets).await?;
     let tags = ticket_tags(state, export.event_id).await?;
@@ -291,6 +291,7 @@ async fn generate(state: &AppState, export: &ExportRow) -> Result<(i32, String, 
         details: event.details(),
         design,
         art,
+        sponsors,
         event_name: event.name.clone(),
         tickets: rendered,
     };
@@ -316,19 +317,23 @@ async fn generate(state: &AppState, export: &ExportRow) -> Result<(i32, String, 
     ))
 }
 
-/// The latest saved design and its art, or the default design.
+/// The latest saved design, its art and its sponsors' logos, or the default design.
 pub(crate) async fn current_design(
     state: &AppState,
     event_id: Uuid,
-) -> ApiResult<(TicketDesign, Option<ticket_render::Art>)> {
+) -> ApiResult<(
+    TicketDesign,
+    Option<ticket_render::Art>,
+    Vec<ticket_render::Art>,
+)> {
     let row = sqlx::query!(
-        "select spec, art_blob_id from ticket_designs where event_id = $1 order by version desc limit 1",
+        "select spec, art_blob_id, sponsor_blob_ids from ticket_designs where event_id = $1 order by version desc limit 1",
         event_id
     )
     .fetch_optional(&state.pool)
     .await?;
     let Some(row) = row else {
-        return Ok((TicketDesign::default_v1(), None));
+        return Ok((TicketDesign::default_v1(), None, Vec::new()));
     };
     let design: TicketDesign =
         serde_json::from_value(row.spec).map_err(|error| ApiError::Internal(error.into()))?;
@@ -336,7 +341,11 @@ pub(crate) async fn current_design(
         Some(art_id) => Some(load_art(state, event_id, art_id).await?),
         None => None,
     };
-    Ok((design, art))
+    let mut sponsors = Vec::with_capacity(row.sponsor_blob_ids.len());
+    for id in row.sponsor_blob_ids {
+        sponsors.push(load_art(state, event_id, id).await?);
+    }
+    Ok((design, art, sponsors))
 }
 
 /// Signs the QR texts of `numbers` (number, key id) for a digital ticket (ADR 0030): the same
