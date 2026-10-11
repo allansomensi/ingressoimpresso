@@ -11,6 +11,7 @@ export const texts = {
     tagline: "Ingressos impressos à prova de cópia",
     description:
       "Ingressos impressos, numerados e com QR code à prova de cópia, com check-in na porta pelo celular, mesmo sem internet.",
+    shareImageAlt: "Ingresso Impresso: ingressos impressos com QR code que não dá para copiar",
   },
   brand: {
     name: "Ingresso Impresso",
@@ -311,6 +312,16 @@ export const texts = {
     finalTitle: "Seu próximo evento merece uma entrada tranquila",
     finalBody: "Crie a conta em um minuto e teste com 30 ingressos grátis. Depois, centavos por ingresso, só quando precisar.",
   },
+  eventPages: {
+    breadcrumb: "Trilha de navegação",
+    home: "Início",
+    eyebrow: (label: string) => `Ingresso para ${label.toLowerCase()}`,
+    secondaryCta: "Ver preços",
+    painsTitle: "Isso acontece no seu evento?",
+    painsLead: "Quem vende ingresso na mão conhece bem estes problemas.",
+    benefitsTitle: "Como o Ingresso Impresso resolve",
+    benefitsLead: "Ingresso numerado, QR à prova de cópia e portaria no celular, do jeito que o seu evento já funciona.",
+  },
   footer: {
     tagline: "Ingressos numerados com QR à prova de cópia, impressos ou no celular, e portaria que funciona sem internet.",
     cta: "Criar meu evento",
@@ -333,6 +344,7 @@ export const texts = {
     company: "Ingresso Impresso",
     examples: "Exemplos de uso",
     theme: "Tema",
+    eventTypes: "Ingresso para",
   },
   sellerPage: {
     metaTitle: "Minhas vendas",

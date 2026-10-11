@@ -2,7 +2,6 @@ import {
   ArrowRight,
   BarChart3,
   Check,
-  ChevronDown,
   FileText,
   LayoutTemplate,
   MousePointerClick,
@@ -19,9 +18,12 @@ import {
 } from "lucide-react";
 import type { Metadata } from "next";
 
+import { JsonLd, homeJsonLd } from "@/components/json-ld";
+import { FaqList } from "@/components/marketing/faq-list";
 import { DigitalTicketMock, PhoneMock, TicketMock } from "@/components/marketing/mockups";
 import { MobileCta } from "@/components/marketing/mobile-cta";
 import { PricingSection } from "@/components/marketing/pricing";
+import { SectionHeading } from "@/components/marketing/section-heading";
 import { SiteFooter } from "@/components/marketing/site-footer";
 import { SiteHeader } from "@/components/marketing/site-header";
 import { TemplateShowcase } from "@/components/marketing/template-showcase";
@@ -45,21 +47,10 @@ const FEATURE_ICONS: readonly LucideIcon[] = [
 ];
 const STEP_ICONS: readonly LucideIcon[] = [FileText, Ticket, Printer, Smartphone];
 
-function SectionHeading({ eyebrow, title, lead }: { eyebrow?: string; title: string; lead?: string }) {
-  return (
-    <div className="mx-auto flex max-w-2xl flex-col items-center gap-3 text-center">
-      {eyebrow !== undefined && (
-        <span className="text-sm font-semibold tracking-wide text-brand uppercase">{eyebrow}</span>
-      )}
-      <h2 className="text-3xl font-semibold tracking-tight text-balance text-fg sm:text-4xl">{title}</h2>
-      {lead !== undefined && <p className="text-lg leading-relaxed text-pretty text-fg-muted">{lead}</p>}
-    </div>
-  );
-}
-
 export default function LandingPage() {
   return (
     <div className="flex min-h-dvh flex-col">
+      <JsonLd data={homeJsonLd} />
       <SiteHeader />
       <main className="flex-1">
         {/* Hero */}
@@ -265,17 +256,7 @@ export default function LandingPage() {
         <section id="duvidas" className="scroll-mt-16 border-t border-border bg-surface">
           <div className="mx-auto flex max-w-3xl flex-col gap-10 px-4 py-20 sm:px-6 lg:py-28">
             <SectionHeading title={t.faqTitle} />
-            <div className="flex flex-col gap-3">
-              {t.faq.map((item) => (
-                <details key={item.q} className="group rounded-2xl border border-border bg-bg px-5 open:bg-surface open:shadow-sm">
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-4 text-base font-medium text-fg [&::-webkit-details-marker]:hidden">
-                    {item.q}
-                    <ChevronDown className="size-5 shrink-0 text-fg-subtle transition-transform group-open:rotate-180" aria-hidden />
-                  </summary>
-                  <p className="pb-5 text-[15px] leading-relaxed text-fg-muted">{item.a}</p>
-                </details>
-              ))}
-            </div>
+            <FaqList items={t.faq.map((item) => ({ question: item.q, answer: item.a }))} />
           </div>
         </section>
 

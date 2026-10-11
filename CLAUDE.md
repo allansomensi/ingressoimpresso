@@ -163,7 +163,11 @@ crates/server        API (pacote `ingressoimpresso-server`, binário `ingressoim
                      e-mails (HTML + texto) em emails.rs, cota em state.rs (send_mail)
 packages/api-types   tipos TS da API gerados (src/generated + src/index.ts, NÃO editar)
 apps/web             landing em src/app/page.tsx (+ src/components/marketing: simulador de preços em
-                     pricing.tsx, exemplos de uso em use-cases.tsx), página Sobre em app/sobre +
+                     pricing.tsx, exemplos de uso em use-cases.tsx, SectionHeading e FaqList
+                     compartilhados); páginas por tipo de evento em app/ingresso-para/[slug]
+                     (conteúdo em src/content/seo-event-pages.ts, que também alimenta o sitemap e o
+                     rodapé; JSON-LD em components/json-ld.tsx, na home e em cada página; robots
+                     bloqueia só "/ingresso$"), página Sobre em app/sobre +
                      components/about, painel em
                      src/app/{entrar,painel}, abas do evento em src/components/event (aba na URL,
                      ?aba=); sistema de design em src/components/ui + tokens em globals.css (ADR 0021);

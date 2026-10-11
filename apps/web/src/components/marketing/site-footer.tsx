@@ -5,6 +5,7 @@ import { Logo } from "@/components/brand";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { ButtonLink } from "@/components/ui";
 import { LEGAL_ENTITY } from "@/content/legal";
+import { eventSeoPages } from "@/content/seo-event-pages";
 import { ABOUT_HREF } from "@/lib/version";
 import { texts } from "@/texts/pt-BR";
 
@@ -83,6 +84,24 @@ export function SiteFooter() {
           </a>
         </div>
       </div>
+      {/* One page per kind of event (src/content/seo-event-pages.ts). */}
+      <nav aria-label={t.eventTypes} className="border-t border-border">
+        <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-6 sm:flex-row sm:items-baseline sm:gap-5 sm:px-6">
+          <h2 className="shrink-0 text-xs font-semibold tracking-wide text-fg-subtle uppercase">{t.eventTypes}</h2>
+          <ul className="flex flex-wrap gap-x-5 gap-y-2 pointer-coarse:gap-y-0">
+            {eventSeoPages.map((page) => (
+              <li key={page.slug}>
+                <Link
+                  href={`/ingresso-para/${page.slug}`}
+                  className="inline-flex text-sm text-fg-muted transition hover:text-fg pointer-coarse:min-h-10 pointer-coarse:items-center"
+                >
+                  {page.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </nav>
       <div className="border-t border-border">
         <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-5 text-xs text-fg-subtle sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <p className="flex flex-wrap gap-x-3 gap-y-1">
