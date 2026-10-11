@@ -225,7 +225,12 @@ impl JobFile {
                     .iter()
                     .find(|seller| seller.first <= number && number <= seller.last)
                     .map(|seller| seller.name.clone());
-                Ok(TicketToRender { qr, seller })
+                Ok(TicketToRender {
+                    qr,
+                    seller,
+                    category: None,
+                    seat: None,
+                })
             })
             .collect::<Result<Vec<_>>>()?;
         let art = match &self.art {

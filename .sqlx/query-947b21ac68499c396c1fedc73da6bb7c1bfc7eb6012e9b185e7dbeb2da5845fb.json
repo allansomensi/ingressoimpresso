@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into category_ranges (id, event_id, category_id, numbers) values ($1, $2, $3, $4)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Int4Range"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "947b21ac68499c396c1fedc73da6bb7c1bfc7eb6012e9b185e7dbeb2da5845fb"
+}

@@ -36,3 +36,12 @@ pub(crate) fn team_areas(areas: &[crate::api::TeamArea]) -> String {
         Some((last, rest)) => format!("{} e {last}", rest.join(", ")),
     }
 }
+
+/// Table and seat printed on a ticket's band (ADR 0057): `Mesa 5 · Lugar 3`, cut to 40
+/// characters.
+pub(crate) fn seat_label(table: &str, seat: i16) -> String {
+    let suffix = format!(" · Lugar {seat}");
+    let room = 40usize.saturating_sub(suffix.chars().count());
+    let table: String = table.trim().chars().take(room).collect();
+    format!("{}{suffix}", table.trim_end())
+}

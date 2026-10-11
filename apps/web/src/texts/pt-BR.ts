@@ -1039,6 +1039,8 @@ export const texts = {
         stubTooShort: (height: number) =>
           `Com esses campos no canhoto, o ingresso precisa ter pelo menos ${height.toLocaleString("pt-BR")} mm de altura.`,
         tooManyTexts: (max: number) => `O ingresso aceita até ${String(max)} textos.`,
+        bandSize: (range: readonly [number, number]) => `A faixa da categoria vai de ${String(range[0])} a ${String(range[1])} mm.`,
+        bandOverQr: "A faixa da categoria não pode cobrir o QR code: mude a borda da faixa ou mova o QR.",
         textTooLong: (index: number, max: number) => `O texto ${String(index)} passa de ${String(max)} caracteres.`,
         textOutside: (index: number) => `O texto ${String(index)} precisa ficar inteiro dentro do ingresso.`,
         textStyle: (index: number) => `O texto ${String(index)} tem tamanho, linhas ou espaçamento fora do permitido.`,

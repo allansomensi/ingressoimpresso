@@ -14,7 +14,7 @@ use typst_pdf::PdfOptions;
 use typst_render::RenderOptions;
 use zip::write::SimpleFileOptions;
 
-use crate::design::{BLEED_MM, DesignIssue, TicketDesign};
+use crate::design::{BLEED_MM, BandStyle, DesignIssue, TicketDesign};
 use crate::fields::{self, EventDetails};
 use crate::layout::{Grid, a4_grid};
 use crate::merge::PdfMerger;
@@ -43,6 +43,10 @@ pub const SLUG_MM: f64 = 5.0;
 pub const WHATSAPP_WIDTH_PX: u32 = 1080;
 const MAX_EVENT_NAME_CHARS: usize = 100;
 const MAX_SELLER_CHARS: usize = 60;
+const MAX_CATEGORY_CHARS: usize = 30;
+const MAX_SEAT_CHARS: usize = 40;
+/// Band colour of a ticket with a seat and no category.
+const SEAT_BAND_COLOR: &str = "#1f1d2b";
 const JPEG_QUALITY: u8 = 92;
 const MAX_IMAGE_WIDTH_PX: u32 = 4_000;
 
@@ -58,6 +62,12 @@ pub enum RenderError {
     /// A seller name longer than 60 characters.
     #[error("seller names must have at most {MAX_SELLER_CHARS} characters")]
     SellerName,
+    /// A category without a name, longer than 30 characters or with a bad colour, or a seat
+    /// longer than 40 characters.
+    #[error(
+        "categories need 1–{MAX_CATEGORY_CHARS} characters and a #rrggbb colour; seats up to {MAX_SEAT_CHARS}"
+    )]
+    Tag,
     /// No tickets, or more than [`MAX_TICKETS_PER_JOB`].
     #[error("a job must have 1–{MAX_TICKETS_PER_JOB} tickets")]
     TicketCount,
@@ -137,6 +147,15 @@ pub enum TicketQr {
     },
 }
 
+/// The category of a ticket (ADR 0056), printed on its band.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TicketCategory {
+    /// Name, e.g. `"Meia"` (1–30 characters).
+    pub name: String,
+    /// Band colour (`#rrggbb`).
+    pub color: String,
+}
+
 /// One ticket to render.
 #[derive(Debug, Clone)]
 pub struct TicketToRender {
@@ -144,6 +163,10 @@ pub struct TicketToRender {
     pub qr: TicketQr,
     /// Seller holding this ticket, if assigned.
     pub seller: Option<String>,
+    /// Category (inteira, meia, VIP…), if the event uses categories.
+    pub category: Option<TicketCategory>,
+    /// Table and seat, e.g. `"Mesa 5 · Lugar 3"` (up to 40 characters), if seated.
+    pub seat: Option<String>,
 }
 
 impl TicketToRender {
@@ -480,7 +503,72 @@ fn validate(job: &RenderJob) -> Result<(), RenderError> {
     {
         return Err(RenderError::SellerName);
     }
+    let bad_category = |category: &TicketCategory| {
+        let chars = category.name.trim().chars().count();
+        chars == 0 || chars > MAX_CATEGORY_CHARS || !is_hex_color(&category.color)
+    };
+    if job.tickets.iter().any(|ticket| {
+        ticket.category.as_ref().is_some_and(bad_category)
+            || ticket
+                .seat
+                .as_ref()
+                .is_some_and(|seat| seat.chars().count() > MAX_SEAT_CHARS)
+    }) {
+        return Err(RenderError::Tag);
+    }
     Ok(())
+}
+
+fn is_hex_color(value: &str) -> bool {
+    value.len() == 7
+        && value.starts_with('#')
+        && value.chars().skip(1).all(|c| c.is_ascii_hexdigit())
+}
+
+/// Black or white, whichever reads better on `color` (`#rrggbb`).
+fn ink_for(color: &str) -> &'static str {
+    let channel = |range: std::ops::Range<usize>| {
+        color
+            .get(range)
+            .and_then(|hex| u8::from_str_radix(hex, 16).ok())
+            .map_or(0.0, |value| f64::from(value) / 255.0)
+    };
+    // Relative luminance (sRGB approximated by a 2.2 gamma).
+    let luminance = 0.2126 * channel(1..3).powf(2.2)
+        + 0.7152 * channel(3..5).powf(2.2)
+        + 0.0722 * channel(5..7).powf(2.2);
+    if luminance > 0.35 {
+        "#111111"
+    } else {
+        "#ffffff"
+    }
+}
+
+/// The band of a ticket: category and seat on one line, in the category's colour.
+fn band_tag(ticket: &TicketToRender) -> Option<TemplateTag> {
+    let parts: Vec<&str> = [
+        ticket
+            .category
+            .as_ref()
+            .map(|category| category.name.trim()),
+        ticket.seat.as_deref().map(str::trim),
+    ]
+    .into_iter()
+    .flatten()
+    .filter(|part| !part.is_empty())
+    .collect();
+    if parts.is_empty() {
+        return None;
+    }
+    let fill = ticket
+        .category
+        .as_ref()
+        .map_or(SEAT_BAND_COLOR, |category| category.color.as_str());
+    Some(TemplateTag {
+        text: parts.join(" · "),
+        fill: fill.to_owned(),
+        ink: ink_for(fill),
+    })
 }
 
 #[derive(Serialize)]
@@ -493,6 +581,8 @@ struct TemplateData<'a> {
     art: Option<&'static str>,
     /// Each text block of the design with its fields replaced; `None` hides it.
     text_values: Vec<Option<String>>,
+    /// The band of tickets with a category or a seat ([`TicketDesign::effective_band`]).
+    band: Option<BandStyle>,
     tickets: Vec<TemplateTicket>,
     grid: Option<Grid>,
     print: Option<PrintData>,
@@ -530,8 +620,10 @@ impl<'a> TemplateData<'a> {
                     label: job.design.number_label(ticket.number()),
                     qr: qr_path(index),
                     sample: matches!(ticket.qr, TicketQr::Sample { .. }),
+                    tag: band_tag(ticket),
                 })
                 .collect(),
+            band: job.design.effective_band(),
             grid: None,
             print: None,
             groups: Vec::new(),
@@ -545,6 +637,14 @@ struct TemplateTicket {
     label: String,
     qr: String,
     sample: bool,
+    tag: Option<TemplateTag>,
+}
+
+#[derive(Serialize)]
+struct TemplateTag {
+    text: String,
+    fill: String,
+    ink: &'static str,
 }
 
 #[derive(Serialize)]
@@ -698,6 +798,14 @@ mod tests {
     use lopdf::{Document, Object};
 
     #[test]
+    fn band_ink_reads_on_any_colour() {
+        // Same examples as apps/web/test/design-rules.test.ts.
+        assert_eq!(ink_for("#e11d48"), "#ffffff");
+        assert_eq!(ink_for("#facc15"), "#111111");
+        assert_eq!(ink_for("#1f1d2b"), "#ffffff");
+    }
+
+    #[test]
     fn sample_qr_is_rejected_as_malformed() {
         let text = sample_qr_text();
         assert_eq!(text.len(), ticket_core::QR_TEXT_LEN);
@@ -733,6 +841,8 @@ mod tests {
                         issuer.issue(ticket_core::TicketNumber::new(number).unwrap()),
                     ),
                     seller: None,
+                    category: None,
+                    seat: None,
                 })
                 .collect(),
         }

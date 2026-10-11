@@ -1,7 +1,7 @@
 import type { TicketDesign } from "@ingressoimpresso/api-types";
 import { describe, expect, it } from "vitest";
 
-import { designIssues, fitsA4, stubMinHeight } from "@/lib/design-rules";
+import { AUTO_BAND_MM, designIssues, effectiveBand, fitsA4, inkFor, stubMinHeight } from "@/lib/design-rules";
 
 // The default design of crates/render/src/design.rs (`default_v1`).
 const base: TicketDesign = {
@@ -13,9 +13,25 @@ const base: TicketDesign = {
   qr: { xMm: 117, yMm: 14.5, sizeMm: 28 },
   stub: { side: "left", widthMm: 40, fields: ["Nome", "Telefone"] },
   texts: [],
+  band: null,
 };
 
 describe("design rules (mirror of design.rs)", () => {
+  it("keeps the band clear of the QR (the_band_keeps_the_qr_clear)", () => {
+    expect(effectiveBand(base)).toEqual({ edge: "bottom", sizeMm: AUTO_BAND_MM });
+    const low = { ...base, qr: { ...base.qr, yMm: 27 } };
+    expect(effectiveBand(low)?.edge).toBe("top");
+    expect(designIssues({ ...low, band: { edge: "right", sizeMm: 8 } }).map((issue) => issue.target.kind)).toEqual(["qr"]);
+    expect(designIssues({ ...low, band: { edge: "left", sizeMm: 30 } })).toHaveLength(1);
+    expect(designIssues({ ...low, band: { edge: "left", sizeMm: 6 } })).toEqual([]);
+  });
+
+  it("writes on the band in black or white", () => {
+    expect(inkFor("#e11d48")).toBe("#ffffff");
+    expect(inkFor("#facc15")).toBe("#111111");
+    expect(inkFor("#1f1d2b")).toBe("#ffffff");
+  });
+
   it("accepts the default design", () => {
     expect(designIssues(base)).toEqual([]);
   });

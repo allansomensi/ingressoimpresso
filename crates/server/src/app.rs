@@ -21,9 +21,9 @@ use crate::auth;
 use crate::error::ApiError;
 use crate::routes::events::MAX_ART_BYTES;
 use crate::routes::{
-    account, admin, analytics, announcements, batches, billing, changelog, door, events, exports,
-    mail_admin, moderation, platform, privacy, report, seller_links, sellers, settlement, status,
-    support, team, tickets, two_factor, voids,
+    account, admin, analytics, announcements, batches, billing, categories, changelog, door,
+    events, exports, mail_admin, moderation, platform, privacy, report, seller_links, sellers,
+    settlement, status, support, tables, team, tickets, two_factor, voids,
 };
 use crate::state::AppState;
 
@@ -215,6 +215,25 @@ pub fn router(state: AppState) -> Router {
             post(seller_links::create).delete(seller_links::revoke),
         )
         .route("/events/{id}/ticket-sales", get(seller_links::list_sales))
+        .route(
+            "/events/{id}/categories",
+            get(categories::list).post(categories::create),
+        )
+        .route(
+            "/categories/{id}",
+            put(categories::update).delete(categories::delete),
+        )
+        .route("/categories/{id}/ranges", post(categories::assign))
+        .route("/category-ranges/{id}", delete(categories::unassign))
+        .route(
+            "/events/{id}/tables",
+            get(tables::list).post(tables::create),
+        )
+        .route("/events/{id}/tables/bulk", post(tables::create_bulk))
+        .route("/events/{id}/tables/layout", put(tables::layout))
+        .route("/tables/{id}", put(tables::update).delete(tables::delete))
+        .route("/tables/{id}/tickets", post(tables::seat))
+        .route("/tables/{id}/tickets/remove", post(tables::unseat))
         .route("/events/{id}/team", get(team::list).post(team::add))
         .route("/events/{id}/team/leave", post(team::leave))
         .route("/team-members/{id}", put(team::update).delete(team::remove))

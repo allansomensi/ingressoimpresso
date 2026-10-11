@@ -3,7 +3,7 @@
  * (the server checks them again on save). Messages come from `texts.event.design.issues`.
  */
 
-import type { FontChoice, TextBlock, TicketDesign } from "@ingressoimpresso/api-types";
+import type { BandEdge, BandStyle, FontChoice, TextBlock, TicketDesign } from "@ingressoimpresso/api-types";
 
 import { texts } from "@/texts/pt-BR";
 
@@ -22,6 +22,9 @@ export const MAX_DIGITS = 10;
 export const MAX_PREFIX_CHARS = 12;
 export const MAX_STUB_FIELDS = 4;
 export const MAX_STUB_FIELD_CHARS = 24;
+export const BAND_SIZE_MM = [4, 20] as const;
+/** Thickness of the band placed automatically when the design has none (ADR 0056). */
+export const AUTO_BAND_MM = 6;
 const STUB_BASE_HEIGHT_MM = 15.1;
 const STUB_FIELD_HEIGHT_MM = 7.6;
 /** Usable A4 area for home printing (crates/render/src/layout.rs). */
@@ -158,6 +161,14 @@ export function designIssues(design: TicketDesign): DesignIssue[] {
       issues.push({ message: m.stubTooShort(minHeight), target });
     }
   }
+  const band = design.band ?? null;
+  if (band !== null) {
+    if (!within(band.sizeMm, BAND_SIZE_MM)) {
+      issues.push({ message: m.bandSize(BAND_SIZE_MM), target: body });
+    } else if (bandCoversQr(design, band.edge, band.sizeMm)) {
+      issues.push({ message: m.bandOverQr, target: { kind: "qr" } });
+    }
+  }
   if (design.texts.length > MAX_TEXT_BLOCKS) {
     issues.push({ message: m.tooManyTexts(MAX_TEXT_BLOCKS), target: body });
   }
@@ -165,4 +176,42 @@ export function designIssues(design: TicketDesign): DesignIssue[] {
     issues.push(...textIssues(design, block, index));
   });
   return issues;
+}
+
+/** The rectangle of a band of `sizeMm` along `edge` (design.rs `band_rect`). */
+export function bandRect(design: TicketDesign, edge: BandEdge, sizeMm: number): { x: number; y: number; width: number; height: number } {
+  switch (edge) {
+    case "top":
+      return { x: 0, y: 0, width: design.widthMm, height: sizeMm };
+    case "bottom":
+      return { x: 0, y: design.heightMm - sizeMm, width: design.widthMm, height: sizeMm };
+    case "left":
+      return { x: 0, y: 0, width: sizeMm, height: design.heightMm };
+    case "right":
+      return { x: design.widthMm - sizeMm, y: 0, width: sizeMm, height: design.heightMm };
+  }
+}
+
+/** Whether a band would touch the QR (design.rs `band_covers_qr`). */
+export function bandCoversQr(design: TicketDesign, edge: BandEdge, sizeMm: number): boolean {
+  const band = bandRect(design, edge, sizeMm);
+  const q = design.qr;
+  return band.x < q.xMm + q.sizeMm && q.xMm < band.x + band.width && band.y < q.yMm + q.sizeMm && q.yMm < band.y + band.height;
+}
+
+/** The band printed on tickets with a category or a seat (design.rs `effective_band`). */
+export function effectiveBand(design: TicketDesign): BandStyle | null {
+  const band = design.band ?? null;
+  if (band !== null) {
+    return band;
+  }
+  const edge = (["bottom", "top", "right", "left"] as const).find((item) => !bandCoversQr(design, item, AUTO_BAND_MM));
+  return edge === undefined ? null : { edge, sizeMm: AUTO_BAND_MM };
+}
+
+/** Black or white, whichever reads better on `color` (render.rs `ink_for`). */
+export function inkFor(color: string): string {
+  const channel = (start: number) => (Number.parseInt(color.slice(start, start + 2), 16) || 0) / 255;
+  const luminance = 0.2126 * channel(1) ** 2.2 + 0.7152 * channel(3) ** 2.2 + 0.0722 * channel(5) ** 2.2;
+  return luminance > 0.35 ? "#111111" : "#ffffff";
 }

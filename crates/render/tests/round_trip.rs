@@ -18,8 +18,8 @@ use ticket_core::{
 };
 use ticket_render::{
     Art, EventDetails, FontChoice, PrintOptions, RenderJob, StubSide, TextAlign, TextBlock,
-    TicketDesign, TicketQr, TicketToRender, control_sheet_pdf, home_pdf, home_sheet_pngs,
-    print_pdf, ticket_images, whatsapp_zip,
+    TicketCategory, TicketDesign, TicketQr, TicketToRender, control_sheet_pdf, home_pdf,
+    home_sheet_pngs, print_pdf, ticket_images, whatsapp_zip,
 };
 
 const SEED: [u8; 32] = [7; 32];
@@ -77,6 +77,12 @@ fn job(numbers: &[u32], design: TicketDesign) -> RenderJob {
             .map(|&number| TicketToRender {
                 qr: TicketQr::Signed(issuer.issue(TicketNumber::new(number).unwrap())),
                 seller: Some(if number <= 3 { "João" } else { "Maria" }.to_owned()),
+                // The band (category, seat) never covers the QR: every code still decodes.
+                category: (number % 2 == 0).then(|| TicketCategory {
+                    name: "Meia".to_owned(),
+                    color: "#e11d48".to_owned(),
+                }),
+                seat: (number % 3 == 0).then(|| format!("Mesa {number} · Lugar 1")),
             })
             .collect(),
     }

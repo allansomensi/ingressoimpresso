@@ -16,9 +16,9 @@ use uuid::Uuid;
 
 use super::{authorize_event, bounds, one_line, optional_text, range};
 use crate::api::{
-    NumberRangeDto, SellerLinkDto, SellerMarkBody, SellerPaymentMethod, SellerSaleDto,
-    SellerSummaryDto, SellerTokenBody, SellerUnmarkBody, SellerViewDto, SellerViewEvent,
-    SellerViewPaymentDto, SellerVoidDto, TicketSaleDto, VoidReason,
+    NumberRangeDto, SellerCategoryDto, SellerDueLineDto, SellerLinkDto, SellerMarkBody,
+    SellerPaymentMethod, SellerSaleDto, SellerSummaryDto, SellerTokenBody, SellerUnmarkBody,
+    SellerViewDto, SellerViewEvent, SellerViewPaymentDto, SellerVoidDto, TicketSaleDto, VoidReason,
 };
 use crate::auth::{AuthUser, new_token, token_hash};
 use crate::error::{ApiError, ApiResult, bad_request};
@@ -278,6 +278,71 @@ async fn held_ranges(state: &AppState, link: &LinkRow) -> ApiResult<Vec<NumberRa
         .collect()
 }
 
+/// What the seller answers for (held, not returned unsold nor lost), by price.
+async fn due_lines(
+    state: &AppState,
+    link: &LinkRow,
+    price: Option<i32>,
+) -> ApiResult<Vec<SellerDueLineDto>> {
+    Ok(sqlx::query!(
+        r#"with held as (
+               select n as number
+               from seller_assignments a
+               join ticket_batches b on b.event_id = a.event_id and b.status = 'paid' and b.numbers && a.numbers,
+                    generate_series(lower(a.numbers * b.numbers), upper(a.numbers * b.numbers) - 1) as n
+               where a.seller_id = $2
+           )
+           select tc.name as "category?", tc.color as "color?",
+                  coalesce(tc.price_cents, $3::int4) as "price_cents?", count(*)::int as "tickets!"
+           from held h
+           left join category_ranges cr on cr.event_id = $1 and cr.numbers @> h.number
+           left join ticket_categories tc on tc.id = cr.category_id
+           where not exists (select 1 from ticket_voids v
+                             where v.event_id = $1 and v.undone_at is null and v.numbers @> h.number
+                               and v.reason in ('unsold', 'lost'))
+           group by tc.name, tc.color, tc.price_cents, tc.position
+           order by tc.position nulls last, tc.name"#,
+        link.event_id,
+        link.seller_id,
+        price,
+    )
+    .fetch_all(&state.pool)
+    .await?
+    .into_iter()
+    .map(|row| SellerDueLineDto {
+        category: row.category,
+        color: row.color,
+        tickets: row.tickets,
+        price_cents: row.price_cents,
+    })
+    .collect())
+}
+
+/// The event's categories with their numbers (ADR 0056).
+async fn categories(
+    state: &AppState,
+    event_id: Uuid,
+    price: Option<i32>,
+) -> ApiResult<Vec<SellerCategoryDto>> {
+    Ok(super::categories::load(&state.pool, event_id)
+        .await?
+        .into_iter()
+        .map(|category| SellerCategoryDto {
+            name: category.name,
+            color: category.color,
+            price_cents: category.price_cents.or(price),
+            ranges: category
+                .ranges
+                .into_iter()
+                .map(|range| NumberRangeDto {
+                    first: range.first,
+                    last: range.last,
+                })
+                .collect(),
+        })
+        .collect())
+}
+
 /// Builds the page of a link.
 async fn view(state: &AppState, link: &LinkRow) -> ApiResult<SellerViewDto> {
     let event = sqlx::query!(
@@ -333,9 +398,18 @@ async fn view(state: &AppState, link: &LinkRow) -> ApiResult<SellerViewDto> {
     .await?;
     let received_cents: i64 = payments.iter().map(|p| i64::from(p.amount_cents)).sum();
     let due_tickets = counts.tickets - counts.unsold - counts.lost;
-    let amount_due_cents = event
-        .ticket_price_cents
-        .map(|price| i64::from(due_tickets) * i64::from(price));
+    let due_lines = due_lines(state, link, event.ticket_price_cents).await?;
+    let amount_due_cents = due_lines
+        .iter()
+        .map(|line| {
+            line.price_cents
+                .map(|price| i64::from(line.tickets) * i64::from(price))
+        })
+        .sum::<Option<i64>>()
+        .filter(|_| {
+            event.ticket_price_cents.is_some()
+                || due_lines.iter().any(|line| line.price_cents.is_some())
+        });
     let offset = time::UtcOffset::from_whole_seconds(i32::from(event.utc_offset_minutes) * 60)
         .unwrap_or(time::UtcOffset::UTC);
     let (number_prefix, number_digits) = super::tickets::number_style(state, link.event_id).await?;
@@ -364,7 +438,9 @@ async fn view(state: &AppState, link: &LinkRow) -> ApiResult<SellerViewDto> {
             amount_due_cents,
             received_cents,
             balance_cents: amount_due_cents.map(|due| due - received_cents),
+            due_lines,
         },
+        categories: categories(state, link.event_id, event.ticket_price_cents).await?,
         receivers: super::team::receivers(state, link.event_id).await?,
     })
 }

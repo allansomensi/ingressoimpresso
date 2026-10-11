@@ -31,6 +31,9 @@ const MAX_TEXT_CHARS: usize = 200;
 const TEXT_SIZE_PT: (f64, f64) = (3.0, 200.0);
 const MAX_TEXT_LINES: u8 = 4;
 const LETTER_SPACING_EM: (f64, f64) = (-0.1, 1.0);
+const BAND_SIZE_MM: (f64, f64) = (4.0, 20.0);
+/// Size of the band placed by [`TicketDesign::effective_band`] when the design has none.
+pub const AUTO_BAND_MM: f64 = 6.0;
 
 /// A ticket design.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -59,6 +62,44 @@ pub struct TicketDesign {
     /// blocks existed have none.
     #[serde(default)]
     pub texts: Vec<TextBlock>,
+    /// Coloured band with the ticket's category and seat (ADR 0056), printed only on tickets
+    /// that have one. `None` lets the printer pick an edge clear of the QR.
+    #[serde(default)]
+    pub band: Option<BandStyle>,
+}
+
+/// Where the category band runs along the body.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[cfg_attr(
+    feature = "ts",
+    derive(ts_rs::TS),
+    ts(export, export_to = "api-types/src/generated/")
+)]
+pub struct BandStyle {
+    /// Edge of the body.
+    pub edge: BandEdge,
+    /// Thickness of the band.
+    pub size_mm: f64,
+}
+
+/// An edge of the ticket body.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(
+    feature = "ts",
+    derive(ts_rs::TS),
+    ts(export, export_to = "api-types/src/generated/")
+)]
+pub enum BandEdge {
+    /// Along the top.
+    Top,
+    /// Along the bottom.
+    Bottom,
+    /// Along the left side.
+    Left,
+    /// Along the right side.
+    Right,
 }
 
 /// A box of text on the body. `{evento}`, `{data}` and the other fields of
@@ -325,6 +366,17 @@ pub enum DesignIssue {
         /// Minimum ticket height for the current number of fields.
         min_height_mm: f64,
     },
+    /// Band thickness outside the supported range.
+    #[error("the category band must be {min}–{max} mm thick")]
+    BandSize {
+        /// Minimum.
+        min: f64,
+        /// Maximum.
+        max: f64,
+    },
+    /// The category band covers part of the QR code (it would not scan).
+    #[error("the category band must not cover the QR code")]
+    BandOverQr,
 }
 
 impl TicketDesign {
@@ -358,7 +410,48 @@ impl TicketDesign {
                 fields: vec!["Nome".to_owned(), "Telefone".to_owned()],
             }),
             texts: Vec::new(),
+            band: None,
         }
+    }
+
+    /// The rectangle (x, y, width, height) of a band of `size_mm` along `edge`.
+    pub fn band_rect(&self, edge: BandEdge, size_mm: f64) -> (f64, f64, f64, f64) {
+        match edge {
+            BandEdge::Top => (0.0, 0.0, self.width_mm, size_mm),
+            BandEdge::Bottom => (0.0, self.height_mm - size_mm, self.width_mm, size_mm),
+            BandEdge::Left => (0.0, 0.0, size_mm, self.height_mm),
+            BandEdge::Right => (self.width_mm - size_mm, 0.0, size_mm, self.height_mm),
+        }
+    }
+
+    /// Whether a band of `size_mm` along `edge` would touch the QR code.
+    pub fn band_covers_qr(&self, edge: BandEdge, size_mm: f64) -> bool {
+        let (left, top, width, height) = self.band_rect(edge, size_mm);
+        let qr = &self.qr;
+        left < qr.x_mm + qr.size_mm
+            && qr.x_mm < left + width
+            && top < qr.y_mm + qr.size_mm
+            && qr.y_mm < top + height
+    }
+
+    /// The band printed on tickets with a category or a seat: the design's, or else the first
+    /// edge (bottom, top, right, left) where an [`AUTO_BAND_MM`] band leaves the QR clear.
+    pub fn effective_band(&self) -> Option<BandStyle> {
+        if let Some(band) = &self.band {
+            return Some(band.clone());
+        }
+        [
+            BandEdge::Bottom,
+            BandEdge::Top,
+            BandEdge::Right,
+            BandEdge::Left,
+        ]
+        .into_iter()
+        .find(|edge| !self.band_covers_qr(*edge, AUTO_BAND_MM))
+        .map(|edge| BandStyle {
+            edge,
+            size_mm: AUTO_BAND_MM,
+        })
     }
 
     /// Stub width, or zero without a stub.
@@ -414,6 +507,16 @@ impl TicketDesign {
         self.validate_number(&mut issues);
         self.validate_qr(&mut issues);
         self.validate_texts(&mut issues);
+        if let Some(band) = &self.band {
+            if !within(band.size_mm, BAND_SIZE_MM) {
+                issues.push(DesignIssue::BandSize {
+                    min: BAND_SIZE_MM.0,
+                    max: BAND_SIZE_MM.1,
+                });
+            } else if self.band_covers_qr(band.edge, band.size_mm) {
+                issues.push(DesignIssue::BandOverQr);
+            }
+        }
         if let Some(stub) = &self.stub {
             if !within(stub.width_mm, STUB_WIDTH_MM) {
                 issues.push(DesignIssue::StubWidth {
@@ -677,9 +780,49 @@ mod tests {
     }
 
     #[test]
+    fn the_band_keeps_the_qr_clear() {
+        let mut design = TicketDesign::default_v1();
+        // The default QR (y 14.5–42.5 of 55) leaves the bottom free.
+        assert_eq!(
+            design.effective_band(),
+            Some(BandStyle {
+                edge: BandEdge::Bottom,
+                size_mm: AUTO_BAND_MM
+            })
+        );
+        design.qr.y_mm = 27.0;
+        assert_eq!(
+            design.effective_band().map(|band| band.edge),
+            Some(BandEdge::Top)
+        );
+        design.band = Some(BandStyle {
+            edge: BandEdge::Right,
+            size_mm: 8.0,
+        });
+        assert_eq!(design.validate(), Err(vec![DesignIssue::BandOverQr]));
+        design.band = Some(BandStyle {
+            edge: BandEdge::Left,
+            size_mm: 30.0,
+        });
+        assert_eq!(
+            design.validate(),
+            Err(vec![DesignIssue::BandSize {
+                min: BAND_SIZE_MM.0,
+                max: BAND_SIZE_MM.1
+            }])
+        );
+        design.band = Some(BandStyle {
+            edge: BandEdge::Left,
+            size_mm: 6.0,
+        });
+        assert_eq!(design.validate(), Ok(()));
+    }
+
+    #[test]
     fn designs_without_texts_still_load() {
         let mut json = serde_json::to_value(TicketDesign::default_v1()).unwrap();
         json.as_object_mut().unwrap().remove("texts");
+        json.as_object_mut().unwrap().remove("band");
         let design: TicketDesign = serde_json::from_value(json).unwrap();
         assert_eq!(design, TicketDesign::default_v1());
     }

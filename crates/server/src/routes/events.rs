@@ -253,7 +253,7 @@ fn copy_name(name: &str) -> String {
 }
 
 /// `POST /api/events/{id}/duplicate`: a new event with the same details, the latest ticket
-/// design (art included), the same sellers and team (ADR 0055), without batches, ranges or door links. It gets
+/// design (art included), the same sellers, team, categories and tables, without batches, ranges or door links. It gets
 /// its own QR tag and signing key: tickets of one event never open the other's door.
 pub async fn duplicate(
     State(state): State<AppState>,
@@ -318,12 +318,54 @@ pub async fn duplicate(
     .execute(&mut *tx)
     .await?;
     super::team::copy(&mut tx, event_id, copy.id, user.id).await?;
+    copy_categories_and_tables(&mut tx, event_id, copy.id).await?;
     tx.commit().await?;
     // A copy of art nobody has looked at yet is classified like a new upload (ADR 0042).
     if let Some(art_id) = copied_art {
         crate::moderation::spawn_check(&state, art_id);
     }
     Ok((StatusCode::CREATED, Json(copy.into_dto()?)))
+}
+
+/// Categories (with their numbers) and tables (without guests) go to the copy (ADR 0056, 0057).
+async fn copy_categories_and_tables(
+    tx: &mut Transaction<'_, Postgres>,
+    from: Uuid,
+    to: Uuid,
+) -> ApiResult<()> {
+    let categories = sqlx::query!("select id from ticket_categories where event_id = $1", from)
+        .fetch_all(&mut **tx)
+        .await?;
+    for category in categories {
+        let new_id = Uuid::new_v4();
+        sqlx::query!(
+            r#"insert into ticket_categories (id, event_id, name, color, price_cents, position)
+               select $3, $2, name, color, price_cents, position from ticket_categories where id = $1"#,
+            category.id,
+            to,
+            new_id,
+        )
+        .execute(&mut **tx)
+        .await?;
+        sqlx::query!(
+            r#"insert into category_ranges (id, event_id, category_id, numbers)
+               select gen_random_uuid(), $2, $3, numbers from category_ranges where category_id = $1"#,
+            category.id,
+            to,
+            new_id,
+        )
+        .execute(&mut **tx)
+        .await?;
+    }
+    sqlx::query!(
+        r#"insert into event_tables (id, event_id, name, seats, shape, x, y)
+           select gen_random_uuid(), $2, name, seats, shape, x, y from event_tables where event_id = $1"#,
+        from,
+        to,
+    )
+    .execute(&mut **tx)
+    .await?;
+    Ok(())
 }
 
 /// Copies an art blob to another event of the same organization, within its art quota. The
@@ -821,6 +863,8 @@ pub async fn preview(
         Some(art_id) => Some(load_art(&state, event_id, art_id).await?),
         None => None,
     };
+    // Samples show the band of the event's categories and seats, as printed (ADR 0056).
+    let tags = super::categories::NumberTags::load(&state.pool, event_id).await?;
     let job = RenderJob {
         details: event.details(),
         design: body.design,
@@ -830,6 +874,8 @@ pub async fn preview(
             .map(|number| TicketToRender {
                 qr: TicketQr::Sample { number },
                 seller: None,
+                category: tags.category(i32::try_from(number).unwrap_or(i32::MAX)),
+                seat: tags.seat(i32::try_from(number).unwrap_or(i32::MAX)),
             })
             .collect(),
     };

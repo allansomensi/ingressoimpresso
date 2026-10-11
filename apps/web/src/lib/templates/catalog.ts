@@ -79,6 +79,7 @@ function design(
     qr: { xMm: x, yMm: y, sizeMm: size },
     stub: parts.stub,
     texts: parts.texts,
+    band: null,
   };
 }
 

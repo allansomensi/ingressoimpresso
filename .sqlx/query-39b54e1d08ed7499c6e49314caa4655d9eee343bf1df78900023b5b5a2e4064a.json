@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into ticket_categories (id, event_id, name, color, price_cents, position)\n               select $3, $2, name, color, price_cents, position from ticket_categories where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "39b54e1d08ed7499c6e49314caa4655d9eee343bf1df78900023b5b5a2e4064a"
+}

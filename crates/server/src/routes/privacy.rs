@@ -276,6 +276,30 @@ async fn export_event(state: &AppState, event_id: Uuid) -> ApiResult<Value> {
         })
     })
     .collect::<Vec<_>>();
+    let categories = super::categories::load(&state.pool, event_id)
+        .await?
+        .into_iter()
+        .map(|category| {
+            json!({
+                "name": category.name,
+                "color": category.color,
+                "priceCents": category.price_cents,
+                "ranges": category.ranges.iter().map(|range| json!({ "first": range.first, "last": range.last })).collect::<Vec<_>>(),
+            })
+        })
+        .collect::<Vec<_>>();
+    let tables = sqlx::query!(
+        r#"select t.name, t.seats,
+                  coalesce(array_agg(s.ticket_number order by s.seat) filter (where s.ticket_number is not null), '{}') as "guests!"
+           from event_tables t left join ticket_seats s on s.table_id = t.id
+           where t.event_id = $1 group by t.id order by t.name"#,
+        event_id
+    )
+    .fetch_all(&state.pool)
+    .await?
+    .into_iter()
+    .map(|table| json!({ "name": table.name, "seats": table.seats, "tickets": table.guests }))
+    .collect::<Vec<_>>();
     let entries = sqlx::query_scalar!(
         r#"select count(*) as "count!" from entries where event_id = $1"#,
         event_id
@@ -290,6 +314,8 @@ async fn export_event(state: &AppState, event_id: Uuid) -> ApiResult<Value> {
         "digitalTickets": links,
         "doorPhones": devices,
         "team": team,
+        "categories": categories,
+        "tables": tables,
         "entries": entries,
     }))
 }

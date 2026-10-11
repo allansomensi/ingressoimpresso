@@ -1,0 +1,81 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with issued as (\n               select n as number\n               from ticket_batches b, generate_series(lower(b.numbers), upper(b.numbers) - 1) as n\n               where b.event_id = $1 and b.status = 'paid'\n           ),\n           voided as (\n               select distinct on (i.number) i.number, v.reason\n               from issued i join ticket_voids v\n                 on v.event_id = $1 and v.undone_at is null and v.numbers @> i.number\n               order by i.number, v.created_at\n           )\n           select tc.id as \"id?\", tc.name as \"name?\", tc.color as \"color?\",\n                  coalesce(tc.price_cents, $2::int4) as \"price_cents?\",\n                  count(*) as \"tickets!\",\n                  count(*) filter (where v.reason is distinct from 'unsold' and v.reason is distinct from 'lost') as \"sold!\",\n                  count(e.ticket_number) as \"entries!\"\n           from issued i\n           left join voided v on v.number = i.number\n           left join entries e on e.event_id = $1 and e.ticket_number = i.number\n           left join category_ranges cr on cr.event_id = $1 and cr.numbers @> i.number\n           left join ticket_categories tc on tc.id = cr.category_id\n           group by tc.id, tc.name, tc.color, tc.price_cents, tc.position\n           order by tc.position nulls last, tc.name",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id?",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "ticket_categories",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "name?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ticket_categories",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "color?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ticket_categories",
+            "name": "color"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "price_cents?",
+        "type_info": "Int4",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "tickets!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "sold!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "entries!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "c9e22ccbe8e6e7785cddaf014ba8cc1a3a94f50d31e747a4ec32b0f1d99fab6f"
+}

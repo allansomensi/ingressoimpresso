@@ -50,6 +50,29 @@
     }))
 }
 
+// The category band (ADR 0056): category and seat on one line, along one edge of the body,
+// on top of the art and the texts. Validation keeps the QR clear of it (design.rs).
+#let band(data, t) = {
+  let d = data.design
+  let bs = data.band
+  let size = mm(bs.sizeMm)
+  let (w, h) = (mm(d.widthMm), mm(d.heightMm))
+  let vertical = bs.edge == "left" or bs.edge == "right"
+  let (bw, bh) = if vertical { (size, h) } else { (w, size) }
+  let (dx, dy) = (
+    if bs.edge == "right" { w - size } else { 0mm },
+    if bs.edge == "bottom" { h - size } else { 0mm },
+  )
+  let pad = size * 0.25
+  let along = (if vertical { h } else { w }) - 2 * pad
+  let label = fit(along, size * 0.62,
+    text(font: "Lato", weight: "bold", size: size * 0.5, fill: rgb(t.tag.ink),
+      tracking: 0.04em, upper(t.tag.text)))
+  place(top + left, dx: dx, dy: dy,
+    box(width: bw, height: bh, fill: rgb(t.tag.fill),
+      align(center + horizon, if vertical { rotate(-90deg, reflow: true, label) } else { label })))
+}
+
 // The ticket body (art, texts, number, QR). The art always covers body + bleed on every side.
 // `clip`: cut everything at the trim (home sheets, images); `false` lets the art run into the
 // bleed (print-shop output).
@@ -78,6 +101,9 @@
           // Glyph bounds: the visible ink is centred and kept inside the box.
           text(font: fonts.at(n.font), size: n.sizePt * 1pt, fill: rgb(n.color),
             top-edge: "bounds", bottom-edge: "bounds", t.label)))))
+    if t.tag != none and data.band != none {
+      band(data, t)
+    }
     let q = d.qr
     place(top + left, dx: mm(q.xMm), dy: mm(q.yMm), image(t.qr, width: mm(q.sizeMm)))
     if t.sample {
@@ -103,7 +129,8 @@
       columns: (inner,),
       rows: (auto, auto, ..s.fields.map(_ => 1fr)),
       row-gutter: 1.6mm,
-      fit(inner, 4mm, text(font: "Space Mono", weight: "bold", size: 10pt, t.label)),
+      fit(inner, 4mm, text(font: "Space Mono", weight: "bold", size: 10pt,
+        if t.tag == none { t.label } else { t.label + " · " + t.tag.text })),
       clamp(data.eventName, inner, 2, value => text(weight: "bold", value)),
       ..s.fields.map(field => stack(dir: ttb,
         fit(inner, 2mm, text(size: 5.5pt, field)),

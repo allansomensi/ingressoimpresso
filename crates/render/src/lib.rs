@@ -15,13 +15,14 @@ mod texts;
 mod world;
 
 pub use design::{
-    BLEED_MM, DESIGN_VERSION, DesignIssue, FontChoice, MIN_QR_SIZE_MM, NumberStyle, QrPlacement,
-    StubSide, StubStyle, TextAlign, TextBlock, TicketDesign,
+    AUTO_BAND_MM, BLEED_MM, BandEdge, BandStyle, DESIGN_VERSION, DesignIssue, FontChoice,
+    MIN_QR_SIZE_MM, NumberStyle, QrPlacement, StubSide, StubStyle, TextAlign, TextBlock,
+    TicketDesign,
 };
 pub use fields::{EventDetails, FIELDS};
 pub use qr::QrError;
 pub use render::{
-    Art, MAX_TICKETS_PER_JOB, PrintOptions, RenderError, RenderJob, SLUG_MM, TicketImage, TicketQr,
-    TicketToRender, WHATSAPP_WIDTH_PX, control_sheet_pdf, home_pdf, home_sheet_pngs, print_pdf,
-    sample_qr_text, ticket_images, whatsapp_zip, write_whatsapp_zip,
+    Art, MAX_TICKETS_PER_JOB, PrintOptions, RenderError, RenderJob, SLUG_MM, TicketCategory,
+    TicketImage, TicketQr, TicketToRender, WHATSAPP_WIDTH_PX, control_sheet_pdf, home_pdf,
+    home_sheet_pngs, print_pdf, sample_qr_text, ticket_images, whatsapp_zip, write_whatsapp_zip,
 };

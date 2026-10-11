@@ -49,7 +49,8 @@ blockedCopies: number,
  */
 voidEntries: number, 
 /**
- * Declared sold × ticket price, when the event has a price.
+ * Declared sold × price (each number's category price, else the event's), when every
+ * such number has a price.
  */
 amountDueCents: number | null, 
 /**

@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select seats from event_tables where id = $1 for update",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "seats",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "event_tables",
+            "name": "seats"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "668d2ef459897c51e5980f61140c0032ea31bc4ce168aa3c32156ba685aa4928"
+}

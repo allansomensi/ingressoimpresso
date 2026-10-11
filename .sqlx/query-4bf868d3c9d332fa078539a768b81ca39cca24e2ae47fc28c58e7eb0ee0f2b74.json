@@ -1,0 +1,41 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select ticket_number, table_id from ticket_seats where event_id = $1 and ticket_number = any($2)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "ticket_number",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "ticket_seats",
+            "name": "ticket_number"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "table_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "ticket_seats",
+            "name": "table_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4Array"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "4bf868d3c9d332fa078539a768b81ca39cca24e2ae47fc28c58e7eb0ee0f2b74"
+}

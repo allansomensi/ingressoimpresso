@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select event_id from category_ranges where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "event_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "category_ranges",
+            "name": "event_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "eb7dd39ed2e2d305e274f1f7d82945b78a933da0b8dbefa4eb3d6fb873e25fc5"
+}

@@ -202,6 +202,16 @@ struct TicketRow {
     seller: Option<String>,
 }
 
+/// Category and seat of every number (ADR 0056, 0057).
+async fn ticket_tags(
+    state: &AppState,
+    event_id: Uuid,
+) -> Result<crate::routes::categories::NumberTags, JobError> {
+    crate::routes::categories::NumberTags::load(&state.pool, event_id)
+        .await
+        .map_err(|error| JobError::Retry(anyhow::anyhow!("{error:?}")))
+}
+
 async fn generate(state: &AppState, export: &ExportRow) -> Result<(i32, String, i64), JobError> {
     let kind = export.kind()?;
     let scope = export.scope()?;
@@ -256,6 +266,7 @@ async fn generate(state: &AppState, export: &ExportRow) -> Result<(i32, String, 
     let (design, art) = current_design(state, export.event_id).await?;
 
     let issuers = issuers(state, export.event_id, event.qr_tag, &tickets).await?;
+    let tags = ticket_tags(state, export.event_id).await?;
     let rendered: Vec<TicketToRender> = tickets
         .iter()
         .map(|ticket| {
@@ -269,6 +280,8 @@ async fn generate(state: &AppState, export: &ExportRow) -> Result<(i32, String, 
             Ok(TicketToRender {
                 qr: TicketQr::Signed(issuer.issue(number)),
                 seller: ticket.seller.clone(),
+                category: tags.category(ticket.number),
+                seat: tags.seat(ticket.number),
             })
         })
         .collect::<Result<_, JobError>>()?;

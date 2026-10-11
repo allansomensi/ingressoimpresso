@@ -77,10 +77,17 @@ pub fn need(method: &Method, path: &str) -> Need {
             | "events/{id}/tickets/bulk"
             | "ticket-links/{id}/revoke"
             | "events/{id}/voids"
-            | "events/{id}/exports",
+            | "events/{id}/exports"
+            | "events/{id}/tables"
+            | "events/{id}/tables/bulk"
+            | "tables/{id}/tickets"
+            | "tables/{id}/tickets/remove",
         )
-        | ("PUT", "sellers/{id}" | "ticket-links/{id}")
-        | ("DELETE", "sellers/{id}" | "sellers/{id}/link" | "ranges/{id}") => {
+        | (
+            "PUT",
+            "sellers/{id}" | "ticket-links/{id}" | "tables/{id}" | "events/{id}/tables/layout",
+        )
+        | ("DELETE", "sellers/{id}" | "sellers/{id}/link" | "ranges/{id}" | "tables/{id}") => {
             Need::Area(TeamArea::Delivery)
         }
         ("POST", "voids/{id}/undo") => Need::Either(TeamArea::Delivery, TeamArea::Money),
@@ -90,15 +97,20 @@ pub fn need(method: &Method, path: &str) -> Need {
             "POST",
             "events/{id}/door/accesses" | "door-accesses/{id}/revoke" | "door-devices/{id}/revoke",
         ) => Need::Area(TeamArea::Door),
-        ("PUT", "events/{id}" | "team-members/{id}")
+        // Categories set prices, so they belong to coordination.
+        ("PUT", "events/{id}" | "team-members/{id}" | "categories/{id}")
         | (
             "POST",
             "events/{id}/batches"
             | "batches/{id}/cancel"
             | "batches/{id}/checkout"
-            | "events/{id}/team",
+            | "events/{id}/team"
+            | "events/{id}/categories"
+            | "categories/{id}/ranges",
         )
-        | ("DELETE", "team-members/{id}") => Need::Area(TeamArea::Manage),
+        | ("DELETE", "team-members/{id}" | "categories/{id}" | "category-ranges/{id}") => {
+            Need::Area(TeamArea::Manage)
+        }
         _ => Need::Owner,
     }
 }
@@ -597,6 +609,26 @@ mod tests {
             (
                 Method::DELETE,
                 "team-members/{id}",
+                Need::Area(TeamArea::Manage),
+            ),
+            (
+                Method::POST,
+                "tables/{id}/tickets",
+                Need::Area(TeamArea::Delivery),
+            ),
+            (
+                Method::PUT,
+                "events/{id}/tables/layout",
+                Need::Area(TeamArea::Delivery),
+            ),
+            (
+                Method::POST,
+                "categories/{id}/ranges",
+                Need::Area(TeamArea::Manage),
+            ),
+            (
+                Method::DELETE,
+                "category-ranges/{id}",
                 Need::Area(TeamArea::Manage),
             ),
             (Method::DELETE, "events/{id}", Need::Owner),

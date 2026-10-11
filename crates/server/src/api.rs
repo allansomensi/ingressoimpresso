@@ -915,6 +915,18 @@ dto! {
         pub entered_at: Option<OffsetDateTime>,
         /// Background colour of the ticket design (`#rrggbb`).
         pub background_color: String,
+        /// Category (ADR 0056): name and colour.
+        pub category: Option<DoorCategoryTagDto>,
+        /// Table and seat (ADR 0057), e.g. `Mesa 5 · Lugar 3`.
+        pub seat: Option<String>,
+    }
+
+    /// A category's name and colour.
+    pub struct DoorCategoryTagDto {
+        /// Name.
+        pub name: String,
+        /// Band colour (`#rrggbb`).
+        pub color: String,
     }
 
     /// The event on a digital ticket.
@@ -1233,15 +1245,41 @@ dto! {
         pub lost: i32,
         /// What the seller answers for: tickets − unsold − lost.
         pub due_tickets: i32,
-        /// `due_tickets` × price, when the event has a price.
+        /// `due_tickets` × price (each category's price, else the event's), when all have one.
         #[cfg_attr(feature = "ts", ts(type = "number | null"))]
         pub amount_due_cents: Option<i64>,
+        /// The tickets due by category (one line without categories).
+        pub due_lines: Vec<SellerDueLineDto>,
         /// Money the organizer recorded.
         #[cfg_attr(feature = "ts", ts(type = "number"))]
         pub received_cents: i64,
         /// Amount due − received, when the event has a price.
         #[cfg_attr(feature = "ts", ts(type = "number | null"))]
         pub balance_cents: Option<i64>,
+    }
+
+    /// Tickets a seller answers for at one price.
+    pub struct SellerDueLineDto {
+        /// Category name; `null` without a category.
+        pub category: Option<String>,
+        /// Band colour.
+        pub color: Option<String>,
+        /// Tickets.
+        pub tickets: i32,
+        /// Price of each.
+        pub price_cents: Option<i32>,
+    }
+
+    /// A category on the seller's page: which numbers it covers.
+    pub struct SellerCategoryDto {
+        /// Name.
+        pub name: String,
+        /// Band colour.
+        pub color: String,
+        /// Price (the category's, else the event's).
+        pub price_cents: Option<i32>,
+        /// Numbers of the category.
+        pub ranges: Vec<NumberRangeDto>,
     }
 
     /// The event, on the seller's page.
@@ -1282,6 +1320,8 @@ dto! {
         pub summary: SellerSummaryDto,
         /// Names of who receives the sellers' money on the team (ADR 0055), if any.
         pub receivers: Vec<String>,
+        /// The event's categories (ADR 0056), to tell which numbers are meia, VIP…
+        pub categories: Vec<SellerCategoryDto>,
     }
 
     /// An inclusive range of ticket numbers.
@@ -1290,6 +1330,140 @@ dto! {
         pub first: i32,
         /// Last number (inclusive).
         pub last: i32,
+    }
+
+    /// Paid tickets of one category in the report.
+    pub struct ReportCategoryDto {
+        /// Category; `null` for numbers without one.
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub category_id: Option<Uuid>,
+        /// Name; `null` without a category.
+        pub name: Option<String>,
+        /// Band colour.
+        pub color: Option<String>,
+        /// Price used (the category's, else the event's).
+        pub price_cents: Option<i32>,
+        /// Paid tickets.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub tickets: i64,
+        /// Declared sold (not returned unsold nor lost).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub sold: i64,
+        /// Tickets that entered.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub entries: i64,
+        /// Sold × price, when there is a price.
+        #[cfg_attr(feature = "ts", ts(type = "number | null"))]
+        pub amount_cents: Option<i64>,
+    }
+
+    /// A ticket category (ADR 0056).
+    pub struct CategoryDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// Name ("Meia").
+        pub name: String,
+        /// Band colour (`#rrggbb`).
+        pub color: String,
+        /// Price; `null` uses the event's price, 0 is a courtesy.
+        pub price_cents: Option<i32>,
+        /// Numbers in the category, ordered.
+        pub ranges: Vec<RangeDto>,
+    }
+
+    /// `POST /api/events/{id}/categories`, `PUT /api/categories/{id}`.
+    pub struct CategoryBody {
+        /// Name (1–30 characters).
+        pub name: String,
+        /// Band colour (`#rrggbb`).
+        pub color: String,
+        /// Price; `null` uses the event's price.
+        pub price_cents: Option<i32>,
+    }
+
+    /// A table on the event's map (ADR 0057).
+    pub struct TableDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// Name ("Mesa 5").
+        pub name: String,
+        /// Seats.
+        pub seats: i16,
+        /// Drawing on the map.
+        pub shape: TableShape,
+        /// Centre on the map, as a fraction of its width (0–1).
+        pub x: f32,
+        /// Centre on the map, as a fraction of its height (0–1).
+        pub y: f32,
+        /// Tickets seated here, by seat.
+        pub guests: Vec<SeatDto>,
+    }
+
+    /// A ticket in a seat.
+    pub struct SeatDto {
+        /// Ticket number.
+        pub number: i32,
+        /// Seat (1 to the table's seats).
+        pub seat: i16,
+    }
+
+    /// `POST /api/events/{id}/tables`, `PUT /api/tables/{id}`.
+    pub struct TableBody {
+        /// Name (1–30 characters).
+        pub name: String,
+        /// Seats (1–50).
+        pub seats: i16,
+        /// Drawing on the map.
+        pub shape: TableShape,
+        /// Centre on the map (0–1); `null` places it after the others.
+        pub x: Option<f32>,
+        /// Centre on the map (0–1).
+        pub y: Option<f32>,
+    }
+
+    /// `POST /api/events/{id}/tables/bulk`: several tables at once ("Mesa 1" to "Mesa 20").
+    pub struct TablesBulkBody {
+        /// How many (1–200).
+        pub count: i16,
+        /// Seats of each.
+        pub seats: i16,
+        /// Drawing on the map.
+        pub shape: TableShape,
+        /// Name before the number ("Mesa").
+        pub prefix: String,
+    }
+
+    /// `PUT /api/events/{id}/tables/layout`: positions after dragging.
+    pub struct TablesLayoutBody {
+        /// New positions.
+        pub positions: Vec<TablePositionDto>,
+    }
+
+    /// Where a table sits on the map.
+    pub struct TablePositionDto {
+        /// Table id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// Centre (0–1).
+        pub x: f32,
+        /// Centre (0–1).
+        pub y: f32,
+    }
+
+    /// `POST /api/tables/{id}/tickets`: seats tickets in the free seats, in order.
+    pub struct SeatTicketsBody {
+        /// Ticket numbers (inclusive ranges).
+        pub ranges: Vec<NumberRangeDto>,
+        /// Move tickets already seated at another table.
+        pub move_seated: bool,
+    }
+
+    /// `POST /api/tables/{id}/tickets/remove`.
+    pub struct UnseatBody {
+        /// Ticket number.
+        pub number: i32,
     }
 
     /// An assigned range.
@@ -1586,6 +1760,26 @@ dto! {
         pub last: u32,
     }
 
+    /// Numbers of one category, for the door.
+    pub struct DoorCategoryRangeDto {
+        /// Category name.
+        pub name: String,
+        /// Band colour (`#rrggbb`).
+        pub color: String,
+        /// First number.
+        pub first: u32,
+        /// Last number (inclusive).
+        pub last: u32,
+    }
+
+    /// The table and seat of a ticket, for the door.
+    pub struct DoorSeatDto {
+        /// Ticket number.
+        pub number: u32,
+        /// `Mesa 5 · Lugar 3`.
+        pub label: String,
+    }
+
     /// An admitted scan of any phone; same fields as ticket-core's `EntryDto` plus its id.
     pub struct DoorEntryDto {
         /// Scan id.
@@ -1615,6 +1809,12 @@ dto! {
         pub voids: Vec<DoorVoidDto>,
         /// Every seller range (sent whole: small).
         pub sellers: Vec<DoorSellerRangeDto>,
+        /// Every category range (ADR 0056), to show the category on the result screen.
+        #[serde(default)]
+        pub categories: Vec<DoorCategoryRangeDto>,
+        /// Every seated ticket (ADR 0057), to tell the guest their table.
+        #[serde(default)]
+        pub seats: Vec<DoorSeatDto>,
         /// Admitted scans since `since`, from every phone.
         pub entries: Vec<DoorEntryDto>,
         /// Opaque cursor for the next call.
@@ -1711,7 +1911,8 @@ dto! {
         /// Voided tickets that entered (the phone did not know about the void yet).
         #[cfg_attr(feature = "ts", ts(type = "number"))]
         pub void_entries: i64,
-        /// Declared sold × ticket price, when the event has a price.
+        /// Declared sold × price (each number's category price, else the event's), when every
+        /// such number has a price.
         #[cfg_attr(feature = "ts", ts(type = "number | null"))]
         pub amount_due_cents: Option<i64>,
         /// Money the seller handed over (ADR 0050); 0 for unassigned tickets.
@@ -1757,6 +1958,9 @@ dto! {
         pub unassigned: ReportRowDto,
         /// Sum of every line.
         pub totals: ReportRowDto,
+        /// Paid tickets by category (ADR 0056); empty without categories. The line without a
+        /// category has `categoryId: null`.
+        pub categories: Vec<ReportCategoryDto>,
         /// Door phones, in name order.
         pub devices: Vec<ReportDeviceDto>,
         /// Scans of forged, damaged or unknown QR codes.
@@ -2854,6 +3058,14 @@ dto_enum! {
     }
 
     /// What a notification is about.
+    /// How a table is drawn on the map.
+    pub enum TableShape {
+        /// Round table, seats around it.
+        Round,
+        /// Long table, seats on both sides.
+        Rect,
+    }
+
     /// What a team member takes care of on an event (ADR 0055).
     pub enum TeamArea {
         /// Everything but deleting, archiving or duplicating the event.
@@ -3006,6 +3218,7 @@ db_enum!(NotificationKind {
     PriceChange => "price_change",
     TeamAdded => "team_added",
 });
+db_enum!(TableShape { Round => "round", Rect => "rect" });
 db_enum!(TeamArea { Manage => "manage", Money => "money", Delivery => "delivery", Art => "art", Door => "door" });
 db_enum!(PromoCodeKind { Credit => "credit", FreeTickets => "free_tickets", Discount => "discount" });
 db_enum!(CreditReason {

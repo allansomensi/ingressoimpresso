@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into ticket_seats (event_id, ticket_number, table_id, seat) values ($1, $2, $3, $4)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4",
+        "Uuid",
+        "Int2"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "0950d6ebb0b846776327762d2cc4af4ea48457f3f5011aa7937660b94e4d71ff"
+}

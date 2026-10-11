@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update ticket_categories set name = $2, color = $3, price_cents = $4 where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4d739eafa3fbaf16c5f38bf9e6ac77314e0934846ff6525a44e5631a9fd112e2"
+}
