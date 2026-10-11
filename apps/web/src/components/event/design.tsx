@@ -1,6 +1,6 @@
 "use client";
 
-import type { ArtDto, DesignBody, DesignResponse, EventDto, StubSide, TextBlock, TicketDesign } from "@ingressoimpresso/api-types";
+import type { ArtDto, BandEdge, CategoryDto, DesignBody, DesignResponse, EventDto, StubSide, TableDto, TextBlock, TicketDesign } from "@ingressoimpresso/api-types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Eye,
@@ -16,6 +16,7 @@ import {
   Ruler,
   Save,
   Scissors,
+  Tags,
   Type,
   Undo2,
   X,
@@ -50,7 +51,8 @@ import {
 } from "@/components/ui";
 import { api, fetchBlobUrl, upload } from "@/lib/api";
 import { cn } from "@/lib/cn";
-import { MAX_TEXT_BLOCKS, designIssues, type IssueTarget } from "@/lib/design-rules";
+import { bandText, seatLabel } from "@/lib/categories";
+import { AUTO_BAND_MM, MAX_TEXT_BLOCKS, SEAT_BAND_COLOR, designIssues, effectiveBand, type IssueTarget } from "@/lib/design-rules";
 import { rasterizeBackground } from "@/lib/rasterize";
 import type { Palette, TicketTemplate } from "@/lib/templates/catalog";
 import { canDo } from "@/lib/team";
@@ -82,6 +84,16 @@ export function DesignTab({ eventId }: { eventId: string }) {
   return <DesignEditor key={current.data.version} eventId={eventId} event={event.data} initial={current.data} />;
 }
 
+/** A band to preview: the event's first category and table (ADR 0056, 0057), if it has any. */
+function useSampleTag(eventId: string): { text: string; color: string } | null {
+  const categories = useQuery({ queryKey: ["categories", eventId], queryFn: () => api<CategoryDto[]>(`/api/events/${eventId}/categories`) });
+  const tables = useQuery({ queryKey: ["tables", eventId], queryFn: () => api<TableDto[]>(`/api/events/${eventId}/tables`) });
+  const category = categories.data?.[0] ?? null;
+  const table = tables.data?.[0] ?? null;
+  const text = bandText(category?.name ?? null, table === null ? null : seatLabel(table.name, 1));
+  return text === null ? null : { text, color: category?.color ?? SEAT_BAND_COLOR };
+}
+
 /** The ticket as saved, for team members who do not take care of the art (ADR 0055). */
 function DesignReadOnly({ eventId, event, current }: { eventId: string; event: EventDto; current: DesignResponse }) {
   const { design, art } = current;
@@ -93,6 +105,7 @@ function DesignReadOnly({ eventId, event, current }: { eventId: string; event: E
     staleTime: Number.POSITIVE_INFINITY,
   });
   const ratio = (design.widthMm + (design.stub?.widthMm ?? 0)) / Math.max(design.heightMm, 1);
+  const tag = useSampleTag(eventId);
   return (
     <div className="flex flex-col gap-6">
       <ReadOnlyNotice eventId={eventId} area="art" />
@@ -104,7 +117,7 @@ function DesignReadOnly({ eventId, event, current }: { eventId: string; event: E
             className="shadow-xl ring-1 ring-black/10"
             style={{ width: `min(100%, calc(60vh * ${String(ratio)}))` }}
           >
-            <TicketView design={design} event={event} artUrl={artUrl.data ?? null} />
+            <TicketView design={design} event={event} artUrl={artUrl.data ?? null} tag={tag} />
           </div>
         </div>
       </Card>
@@ -227,6 +240,7 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
   const dirty = draft !== saved.draft && JSON.stringify(draft) !== JSON.stringify(saved.draft);
   useUnsavedChanges(dirty);
 
+  const tag = useSampleTag(eventId);
   const issues = useMemo(() => designIssues(design), [design]);
   const problems = useMemo(
     () => issues.map((issue) => issueElement(issue.target)).filter((element): element is TicketElement => element !== null),
@@ -495,6 +509,7 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
                   design={design}
                   event={event}
                   artUrl={artUrl.data ?? null}
+                  tag={tag}
                   selected={selected}
                   problems={problems}
                   onSelect={setSelected}
@@ -719,6 +734,45 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
                   </Field>
                 </div>
               )}
+            </div>
+          </Section>
+
+          <Section icon={Tags} title={t.band.title} description={t.band.hint}>
+            <div className="flex flex-col gap-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label={t.band.edge}>
+                  <Select
+                    value={design.band?.edge ?? "auto"}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      update((d) => ({
+                        ...d,
+                        band: value === "auto" ? null : { edge: value as BandEdge, sizeMm: d.band?.sizeMm ?? AUTO_BAND_MM },
+                      }));
+                    }}
+                  >
+                    <option value="auto">{t.band.auto(t.band.edges[effectiveBand({ ...design, band: null })?.edge ?? "bottom"])}</option>
+                    {(Object.keys(t.band.edges) as BandEdge[]).map((edge) => (
+                      <option key={edge} value={edge}>
+                        {t.band.edges[edge]}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+                {design.band !== null && (
+                  <Field label={t.band.size}>
+                    <NumberInput
+                      value={design.band.sizeMm}
+                      step={0.5}
+                      onChange={(sizeMm) => {
+                        update((d) => (d.band === null ? d : { ...d, band: { ...d.band, sizeMm } }), "band-size");
+                      }}
+                      suffix={texts.common.mm}
+                    />
+                  </Field>
+                )}
+              </div>
+              <p className="text-xs leading-relaxed text-fg-muted">{tag === null ? t.band.noTags : t.band.preview}</p>
             </div>
           </Section>
         </div>

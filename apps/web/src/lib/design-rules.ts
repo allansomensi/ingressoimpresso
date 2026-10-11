@@ -25,6 +25,8 @@ export const MAX_STUB_FIELD_CHARS = 24;
 export const BAND_SIZE_MM = [4, 20] as const;
 /** Thickness of the band placed automatically when the design has none (ADR 0056). */
 export const AUTO_BAND_MM = 6;
+/** Band colour of a ticket with a seat and no category (render.rs `SEAT_BAND_COLOR`). */
+export const SEAT_BAND_COLOR = "#1f1d2b";
 const STUB_BASE_HEIGHT_MM = 15.1;
 const STUB_FIELD_HEIGHT_MM = 7.6;
 /** Usable A4 area for home printing (crates/render/src/layout.rs). */

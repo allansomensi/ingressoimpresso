@@ -1,6 +1,6 @@
 "use client";
 
-import type { NumberStyle, TextAlign, TextBlock, TicketDesign } from "@ingressoimpresso/api-types";
+import type { BandStyle, NumberStyle, TextAlign, TextBlock, TicketDesign } from "@ingressoimpresso/api-types";
 import {
   useEffect,
   useLayoutEffect,
@@ -14,7 +14,7 @@ import {
 } from "react";
 
 import { cn } from "@/lib/cn";
-import { BLEED_MM, FONT_FAMILIES, FONTS_WITH_BOLD, MIN_QR_SIZE_MM, MM_PER_PT } from "@/lib/design-rules";
+import { BLEED_MM, FONT_FAMILIES, FONTS_WITH_BOLD, MIN_QR_SIZE_MM, MM_PER_PT, bandRect, effectiveBand, inkFor } from "@/lib/design-rules";
 import { ticketNumber } from "@/lib/format";
 import { random } from "@/lib/templates/svg";
 import { blockValue, type EventFields } from "@/lib/ticket-fields";
@@ -196,6 +196,7 @@ export function TicketView({
   onSelect,
   onChange,
   onRemove,
+  tag = null,
 }: {
   design: TicketDesign;
   event: EventFields;
@@ -209,6 +210,8 @@ export function TicketView({
   onSelect?: (element: TicketElement | null) => void;
   onChange?: (element: TicketElement, box: Box) => void;
   onRemove?: (element: TicketElement) => void;
+  /** Category and seat of the ticket, drawn on its band (ADR 0056): `{ text: "Meia · Mesa 5…", color }`. */
+  tag?: { text: string; color: string } | null;
 }) {
   const root = useRef<HTMLDivElement>(null);
   const drag = useRef<Drag | null>(null);
@@ -219,6 +222,7 @@ export function TicketView({
   const u = (mm: number) => `${String((mm / total) * 100)}cqw`;
   const pt = (size: number) => u(size * MM_PER_PT);
   const label = numberLabel(design.number, number);
+  const band = tag === null ? null : effectiveBand(design);
 
   const startDrag = (pointer: PointerEvent, element: TicketElement, mode: Drag["mode"]) => {
     const box = elementBox(design, element);
@@ -411,6 +415,7 @@ export function TicketView({
           <FitText value={label} lines={1} align={n.align} style={textStyle({ ...n, bold: false, letterSpacing: 0 })} />,
           t.numberElement,
         )}
+        {band !== null && tag !== null && <Band design={design} band={band} tag={tag} u={u} />}
         {frame({ kind: "qr" }, { x: q.xMm, y: q.yMm, width: q.sizeMm, height: q.sizeMm }, <FakeQr />, t.qrElement)}
       </div>
       {stub !== null && (
@@ -420,7 +425,12 @@ export function TicketView({
             style={{ left: u(stubX), width: u(stub.widthMm), padding: u(2.5), gap: u(1.6), fontFamily: FONT_FAMILIES.sans, fontSize: pt(6.5) }}
           >
             <div style={{ height: u(4) }}>
-              <FitText value={label} lines={1} align="left" style={{ fontFamily: FONT_FAMILIES.mono, fontWeight: 700, fontSize: pt(10) }} />
+              <FitText
+                value={tag === null ? label : `${label} · ${tag.text}`}
+                lines={1}
+                align="left"
+                style={{ fontFamily: FONT_FAMILIES.mono, fontWeight: 700, fontSize: pt(10) }}
+              />
             </div>
             <div className="line-clamp-2 font-bold" style={{ lineHeight: 1.15 }}>
               {event.name}
@@ -440,6 +450,32 @@ export function TicketView({
           />
         </>
       )}
+    </div>
+  );
+}
+
+/** The category band (ticket.typ `band`): category and seat on one line along one edge. */
+function Band({ design, band, tag, u }: { design: TicketDesign; band: BandStyle; tag: { text: string; color: string }; u: (mm: number) => string }) {
+  const rect = bandRect(design, band.edge, band.sizeMm);
+  const vertical = band.edge === "left" || band.edge === "right";
+  const along = (vertical ? rect.height : rect.width) - band.sizeMm * 0.5;
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none absolute flex items-center justify-center overflow-hidden"
+      style={{ left: u(rect.x), top: u(rect.y), width: u(rect.width), height: u(rect.height), background: tag.color }}
+    >
+      <div
+        className="flex items-center justify-center"
+        style={{ width: u(along), height: u(band.sizeMm * 0.62), transform: vertical ? "rotate(-90deg)" : undefined, flexShrink: 0 }}
+      >
+        <FitText
+          value={tag.text.toUpperCase()}
+          lines={1}
+          align="center"
+          style={{ fontFamily: FONT_FAMILIES.sans, fontWeight: 700, fontSize: u(band.sizeMm * 0.5), color: inkFor(tag.color), letterSpacing: "0.04em" }}
+        />
+      </div>
     </div>
   );
 }

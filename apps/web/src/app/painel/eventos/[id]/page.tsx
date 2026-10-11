@@ -20,6 +20,7 @@ import {
   Users,
   UsersRound,
   Layers,
+  Tags,
   LifeBuoy,
   type LucideIcon,
 } from "lucide-react";
@@ -29,7 +30,7 @@ import dynamic from "next/dynamic";
 import { Suspense, useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
 
 import { AreaGate, EventAccessProvider } from "@/components/event/access";
-import { TABS, tabFromSlug, tabSlug, type Tab } from "@/components/event/tabs";
+import { STRIP_TABS, tabFromSlug, tabSlug, type Tab } from "@/components/event/tabs";
 import { EventActions } from "@/components/event/event-actions";
 import { EventFormDialog } from "@/components/panel/event-form";
 import { Badge, Button, ButtonLink, EmptyState, ErrorMessage, LoadingBlock, Skeleton, useConfirm } from "@/components/ui";
@@ -51,6 +52,7 @@ const VoidsTab = dynamic(() => import("@/components/event/voids").then((m) => m.
 const FilesTab = dynamic(() => import("@/components/event/files").then((m) => m.FilesTab), { loading: tabLoading });
 const DoorTab = dynamic(() => import("@/components/event/door").then((m) => m.DoorTab), { loading: tabLoading });
 const ReportTab = dynamic(() => import("@/components/event/report").then((m) => m.ReportTab), { loading: tabLoading });
+const CategoriesTab = dynamic(() => import("@/components/event/categories").then((m) => m.CategoriesTab), { loading: tabLoading });
 const TeamTab = dynamic(() => import("@/components/event/team").then((m) => m.TeamTab), { loading: tabLoading });
 
 const ICONS: Record<Tab, LucideIcon> = {
@@ -63,6 +65,7 @@ const ICONS: Record<Tab, LucideIcon> = {
   files: FileDown,
   door: Smartphone,
   report: BarChart3,
+  categories: Tags,
   team: UsersRound,
 };
 
@@ -125,13 +128,13 @@ function EventView() {
 
   const keyDown = (keyEvent: KeyboardEvent, index: number) => {
     const targets: Partial<Record<string, number>> = {
-      ArrowRight: (index + 1) % TABS.length,
-      ArrowLeft: (index - 1 + TABS.length) % TABS.length,
+      ArrowRight: (index + 1) % STRIP_TABS.length,
+      ArrowLeft: (index - 1 + STRIP_TABS.length) % STRIP_TABS.length,
       Home: 0,
-      End: TABS.length - 1,
+      End: STRIP_TABS.length - 1,
     };
     const next = targets[keyEvent.key];
-    const target = next === undefined ? undefined : TABS[next];
+    const target = next === undefined ? undefined : STRIP_TABS[next];
     if (next === undefined || target === undefined) {
       return;
     }
@@ -142,7 +145,7 @@ function EventView() {
 
   // The selected tab stays visible in the scrollable strip (phones, deep links like ?aba=relatorio).
   useEffect(() => {
-    tabRefs.current[TABS.indexOf(tab)]?.scrollIntoView({ block: "nearest", inline: "nearest" });
+    tabRefs.current[STRIP_TABS.indexOf(tab)]?.scrollIntoView({ block: "nearest", inline: "nearest" });
   }, [tab, event.isSuccess]);
 
   // The browser tab shows the event name.
@@ -249,6 +252,17 @@ function EventView() {
             )}
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              variant={tab === "team" ? "primary" : "secondary"}
+              size="sm"
+              icon={<UsersRound />}
+              aria-pressed={tab === "team"}
+              onClick={() => {
+                void select("team");
+              }}
+            >
+              {texts.event.tabs.team}
+            </Button>
             {canDo(data, "manage") && (
               <Button
                 variant="secondary"
@@ -273,7 +287,7 @@ function EventView() {
           // On small screens the strip fades at the edge: there are more tabs to scroll to.
           className="-mb-px flex gap-0.5 overflow-x-auto [mask-image:linear-gradient(to_right,black_85%,transparent)] [scrollbar-width:none] sm:[mask-image:none] [&::-webkit-scrollbar]:hidden"
         >
-          {TABS.map((item, index) => {
+          {STRIP_TABS.map((item, index) => {
             const Icon = ICONS[item];
             const selected = tab === item;
             return (
@@ -309,7 +323,14 @@ function EventView() {
         </nav>
       </div>
 
-      <section role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`} key={tab} className="animate-fade-in">
+      <section
+        key={tab}
+        role="tabpanel"
+        id={`panel-${tab}`}
+        aria-label={tab === "team" ? texts.event.tabs.team : undefined}
+        aria-labelledby={tab === "team" ? undefined : `tab-${tab}`}
+        className="animate-fade-in"
+      >
         {tab === "overview" && <OverviewTab eventId={eventId} onSelect={select} />}
         {tab === "design" && <DesignTab eventId={eventId} />}
         {tab === "batches" && (
@@ -343,6 +364,7 @@ function EventView() {
           </AreaGate>
         )}
         {tab === "report" && <ReportTab eventId={eventId} onSelect={select} />}
+        {tab === "categories" && <CategoriesTab eventId={eventId} event={data} onSelect={select} />}
         {tab === "team" && <TeamTab eventId={eventId} event={data} />}
       </section>
 
