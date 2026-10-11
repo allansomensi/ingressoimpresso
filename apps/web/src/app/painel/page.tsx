@@ -11,50 +11,45 @@ import { EventFormDialog } from "@/components/panel/event-form";
 import { Badge, Button, EmptyState, ErrorMessage, PageHeader, Skeleton, type Tone } from "@/components/ui";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
+import { eventPhase, sortEvents, type EventPhase } from "@/lib/event-list";
 import { dateParts, money } from "@/lib/format";
 import { areaList } from "@/lib/team";
 import { texts } from "@/texts/pt-BR";
 
 const t = texts.panel;
 
-function phase(event: EventDto, now: number): { label: string; tone: Tone } {
-  if (event.status === "closed") {
-    return { label: texts.event.actions.archivedBadge, tone: "neutral" };
-  }
-  const start = Date.parse(event.startsAt);
-  const end = Date.parse(event.endsAt);
-  if (now > end) {
-    return { label: t.past, tone: "neutral" };
-  }
-  if (now >= start) {
-    return { label: t.happening, tone: "success" };
-  }
-  if (new Date(start).toDateString() === new Date(now).toDateString()) {
-    return { label: t.today, tone: "warning" };
-  }
-  return { label: t.upcoming, tone: "brand" };
-}
+const PHASE: Record<EventPhase, { label: string; tone: Tone }> = {
+  happening: { label: t.happening, tone: "success" },
+  today: { label: t.today, tone: "warning" },
+  upcoming: { label: t.upcoming, tone: "brand" },
+  past: { label: t.past, tone: "neutral" },
+  archived: { label: texts.event.actions.archivedBadge, tone: "neutral" },
+};
 
+/** A card in the grid; on phones, a compact row (date, name, time and place) to scan many at once. */
 function EventCard({ event, now }: { event: EventDto; now: number }) {
   const date = dateParts(event.startsAt);
-  const status = phase(event, now);
+  const status = PHASE[eventPhase(event, now)];
+  const badge = (
+    <Badge tone={status.tone} dot pulse={status.tone === "success"}>
+      {status.label}
+    </Badge>
+  );
   return (
     <Link
       href={`/painel/eventos/${event.id}`}
-      className="group flex flex-col gap-5 rounded-2xl border border-border bg-surface p-5 shadow-xs transition hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-md"
+      className="group flex items-center gap-4 rounded-2xl border border-border bg-surface p-4 shadow-xs transition active:scale-[0.99] active:bg-surface-2 sm:flex-col sm:items-stretch sm:gap-5 sm:p-5 sm:hover:-translate-y-0.5 sm:hover:border-brand/40 sm:hover:shadow-md"
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex w-14 flex-col items-center overflow-hidden rounded-xl border border-border bg-bg text-center">
+      <div className="flex items-start justify-between gap-3 max-sm:contents">
+        <div className="flex w-14 shrink-0 flex-col items-center self-start overflow-hidden rounded-xl border border-border bg-bg text-center">
           <span className="w-full bg-brand-solid py-0.5 text-[11px] font-semibold tracking-wide text-brand-fg uppercase">
             {date.month}
           </span>
           <span className="py-1 text-xl leading-none font-semibold text-fg tabular">{date.day}</span>
-          <span className="pb-1 text-[10px] text-fg-subtle uppercase">{date.weekday}</span>
+          <span className="pb-1 text-[11px] text-fg-muted uppercase">{date.weekday}</span>
         </div>
-        <div className="flex flex-col items-end gap-1.5">
-          <Badge tone={status.tone} dot pulse={status.tone === "success"}>
-            {status.label}
-          </Badge>
+        <div className="flex flex-col items-end gap-1.5 max-sm:hidden">
+          {badge}
           {event.team !== null && (
             <span className="inline-flex items-center gap-1 text-xs font-medium text-fg-muted">
               <UsersRound className="size-3.5 text-brand" aria-hidden />
@@ -63,8 +58,17 @@ function EventCard({ event, now }: { event: EventDto; now: number }) {
           )}
         </div>
       </div>
-      <div className="flex min-w-0 flex-col gap-2">
-        <h2 className="truncate text-lg font-semibold tracking-tight text-fg">{event.name}</h2>
+      <div className="flex min-w-0 flex-1 flex-col gap-1 sm:gap-2">
+        <div className="flex flex-wrap items-center gap-2 sm:hidden">
+          {badge}
+          {event.team !== null && (
+            <span className="inline-flex items-center gap-1 text-xs font-medium text-fg-muted">
+              <UsersRound className="size-3.5 text-brand" aria-hidden />
+              {texts.event.team.listBadge}
+            </span>
+          )}
+        </div>
+        <h2 className="line-clamp-2 text-base leading-snug font-semibold tracking-tight text-fg sm:truncate sm:text-lg">{event.name}</h2>
         <div className="flex flex-col gap-1 text-sm text-fg-muted">
           <span className="flex items-center gap-2">
             <Clock className="size-4 shrink-0 text-fg-subtle" aria-hidden />
@@ -76,13 +80,14 @@ function EventCard({ event, now }: { event: EventDto; now: number }) {
             <span className="truncate">{event.venue ?? t.noVenue}</span>
           </span>
           {event.team !== null && (
-            <span className="truncate text-xs text-fg-subtle">
+            <span className="truncate text-xs text-fg-subtle max-sm:hidden">
               {texts.event.team.listLine(event.team.organization, areaList(event.team.areas))}
             </span>
           )}
         </div>
       </div>
-      <span className="mt-auto flex items-center gap-1 text-sm font-medium text-brand">
+      <ChevronRight className="size-5 shrink-0 text-fg-subtle sm:hidden" aria-hidden />
+      <span className="mt-auto flex items-center gap-1 text-sm font-medium text-brand max-sm:hidden">
         {texts.event.overview.go}
         <ChevronRight className="size-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
       </span>
@@ -97,7 +102,8 @@ export default function EventsPage() {
   const [showArchived, setShowArchived] = useState(false);
   const now = events.dataUpdatedAt;
   const archived = events.data?.filter((event) => event.status === "closed") ?? [];
-  const shown = events.data?.filter((event) => (event.status === "closed") === showArchived) ?? [];
+  // What happens now and next comes first (ADR 0060), not the order the events were created in.
+  const shown = sortEvents(events.data?.filter((event) => (event.status === "closed") === showArchived) ?? [], now);
 
   const newButton = (
     <Button
@@ -116,7 +122,7 @@ export default function EventsPage() {
       {events.isPending ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {[0, 1, 2].map((item) => (
-            <Skeleton key={item} className="h-56 rounded-2xl" />
+            <Skeleton key={item} className="h-28 rounded-2xl sm:h-56" />
           ))}
         </div>
       ) : events.isError ? (
@@ -126,7 +132,7 @@ export default function EventsPage() {
       ) : (
         <div className="flex flex-col gap-4">
           {archived.length > 0 && (
-            <div role="radiogroup" aria-label={t.title} className="flex w-fit max-w-full overflow-x-auto rounded-full border border-border bg-surface-2 p-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div role="radiogroup" aria-label={t.title} className="flex w-fit max-w-full overflow-x-auto rounded-full border border-border bg-surface-2 p-0.5 scrollbar-none">
               {[false, true].map((option) => (
                 <button
                   key={String(option)}
@@ -137,7 +143,7 @@ export default function EventsPage() {
                     setShowArchived(option);
                   }}
                   className={cn(
-                    "shrink-0 rounded-full px-3 py-1.5 text-sm font-medium whitespace-nowrap transition",
+                    "shrink-0 rounded-full px-3 py-1.5 text-sm font-medium whitespace-nowrap transition pointer-coarse:px-4 pointer-coarse:py-2",
                     showArchived === option ? "bg-surface text-fg shadow-sm ring-1 ring-border" : "text-fg-muted hover:text-fg",
                   )}
                 >
@@ -149,7 +155,7 @@ export default function EventsPage() {
           {shown.length === 0 ? (
             <EmptyState icon={CalendarPlus} title={t.noActiveTitle} description={t.empty} action={newButton} />
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
               {shown.map((event) => (
                 <EventCard key={event.id} event={event} now={now} />
               ))}
