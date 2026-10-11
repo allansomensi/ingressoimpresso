@@ -101,6 +101,12 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   eventos por ordem de atenção (`lib/event-list.ts`), cabeçalho compacto e folha **Seções** na
   página do evento (`components/event/sections-sheet.tsx`, `TAB_GROUPS`), editor com o inspetor
   logo abaixo do ingresso no celular e barra de ação no pé da landing (`marketing/mobile-cta.tsx`).
+- **Ingresso pelo vendedor e segunda via (ADR 0061): implementados.** O vendedor cria e manda pelo
+  WhatsApp o ingresso no celular de um número que vendeu (`POST /api/seller/tickets`,
+  `ticket_links.seller_id`, desligável por evento em `events.sellers_send_tickets`); a segunda via
+  (`POST /api/events/{id}/tickets/replace`, `tickets::replace`) cancela o número perdido, manda um
+  número livre da mesma categoria para a mesma pessoa, leva o lugar na mesa e grava
+  `ticket_replacements`.
 
 Plano completo em `docs/arquitetura.md` §12.
 
@@ -148,7 +154,8 @@ crates/server        API (pacote `ingressoimpresso-server`, binário `ingressoim
                      número para os arquivos), mesas em routes/tables.rs, prestação de contas em
                      routes/ledger.rs (resumo, PDF e planilha; report::build é a base),
                      conta em routes/account.rs + routes/privacy.rs
-                     (exportar/excluir), ingresso digital em routes/tickets.rs, novidades em
+                     (exportar/excluir), ingresso digital em routes/tickets.rs (também o enviado
+                     pelo vendedor e a segunda via, ADR 0061), novidades em
                      routes/changelog.rs, resultados em routes/analytics.rs; login com Google em
                      google.rs, anti-robô do código em captcha.rs (Turnstile), duas etapas em
                      two_factor.rs (TOTP, recuperação; tentativas em second_factor_attempts) +
@@ -167,7 +174,8 @@ apps/web             landing em src/app/page.tsx (+ src/components/marketing: si
                      guarda /ingresso para abrir offline); CSP com nonce em src/proxy.ts (ADR 0048:
                      o layout raiz lê x-nonce; script inline novo precisa de nonce={nonce});
                      ingresso digital: app/ingresso + components/ticket/ticket-pass.tsx +
-                     lib/ticket-pass.ts, aba components/event/digital.tsx;
+                     lib/ticket-pass.ts, aba components/event/digital.tsx (segunda via em
+                     ReplaceDialog);
                      documentos legais em src/content/legal.ts (LEGAL_ENTITY, TERMS_VERSION) e
                      components/legal; rodapé em components/marketing/site-footer.tsx;
                      novidades em app/novidades + components/changelog + lib/changelog.ts
