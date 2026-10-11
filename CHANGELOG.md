@@ -14,10 +14,16 @@ e não acompanha estes números.
 
 ### Adicionado
 
+- Galeria pública de modelos em `/modelos`, com uma página para cada um dos 16 modelos: o modelo
+  preenchido com um evento de exemplo, as combinações de cores, o que vem nele e o tipo de evento
+  em que ele se encaixa (ADR 0062).
+- Cada página de tipo de evento e de modelo ganha a sua imagem de compartilhamento, com o título
+  e os modelos dela: o link mandado no WhatsApp ou nas redes mostra o que a pessoa vai encontrar.
 - Páginas para cada tipo de evento (festa junina, formatura, show de banda, festa de escola,
   evento de igreja, jantar beneficente, teatro e dança, baile) em `/ingresso-para/…`, com as dores,
-  os benefícios e as dúvidas de cada um, ligadas no rodapé do site e no mapa do site. O site passa
-  a descrever o produto e as perguntas frequentes para os buscadores (dados estruturados).
+  os benefícios, as dúvidas e os modelos de cada um, ligadas no rodapé do site e no mapa do site.
+  O site passa a descrever o produto e as perguntas frequentes para os buscadores (dados
+  estruturados).
 - O vendedor manda o ingresso no celular de quem comprou, pelo WhatsApp, direto da página dele: o
   mesmo QR do papel, para o comprador que está longe. O organizador pode desligar na aba
   Vendedores, e a aba Digitais mostra quem enviou cada ingresso (ADR 0061).
@@ -33,6 +39,10 @@ e não acompanha estes números.
 
 ### Alterado
 
+- "Modelos", no menu e no rodapé do site, leva à galeria de modelos. Na página inicial, cada
+  exemplo de uso aponta para a página do tipo de evento ou do modelo dele.
+- O título da página inicial nos buscadores começa por "Ingresso numerado com QR code para
+  imprimir".
 - Interface pensada para o celular (ADR 0060): em telas de toque, botões e áreas de toque maiores,
   retorno visual ao tocar e janelas que sobem de baixo, com alça, e fecham ao arrastar para baixo
   sem rolar a página de trás.
