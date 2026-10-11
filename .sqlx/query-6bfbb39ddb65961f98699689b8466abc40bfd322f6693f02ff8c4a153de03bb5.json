@@ -1,0 +1,57 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into ticket_voids (id, event_id, numbers, reason, note, created_by)\n               values ($1, $2, $3, $4, $5, $6)\n               returning id, numbers, created_at",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "ticket_voids",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "numbers",
+        "type_info": "Int4Range",
+        "origin": {
+          "Table": {
+            "table": "ticket_voids",
+            "name": "numbers"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "ticket_voids",
+            "name": "created_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Int4Range",
+        "Text",
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "6bfbb39ddb65961f98699689b8466abc40bfd322f6693f02ff8c4a153de03bb5"
+}

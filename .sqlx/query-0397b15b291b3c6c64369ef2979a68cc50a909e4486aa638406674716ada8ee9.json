@@ -1,0 +1,76 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select amount_cents, method, received_on, note, created_at from seller_payments\n               where seller_id = $1 order by received_on, created_at",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "amount_cents",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "seller_payments",
+            "name": "amount_cents"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "method",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "seller_payments",
+            "name": "method"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "received_on",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "seller_payments",
+            "name": "received_on"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "note",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "seller_payments",
+            "name": "note"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "seller_payments",
+            "name": "created_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "0397b15b291b3c6c64369ef2979a68cc50a909e4486aa638406674716ada8ee9"
+}

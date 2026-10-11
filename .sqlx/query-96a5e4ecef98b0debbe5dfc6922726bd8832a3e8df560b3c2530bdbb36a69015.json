@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select exists(select 1 from ticket_voids\n                             where event_id = $1 and undone_at is null and numbers && $2) as \"voided!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "voided!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4Range"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "96a5e4ecef98b0debbe5dfc6922726bd8832a3e8df560b3c2530bdbb36a69015"
+}

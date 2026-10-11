@@ -51,4 +51,13 @@ voidEntries: number,
 /**
  * Declared sold × ticket price, when the event has a price.
  */
-amountDueCents: number | null, };
+amountDueCents: number | null, 
+/**
+ * Money the seller handed over (ADR 0050); 0 for unassigned tickets.
+ */
+receivedCents: number, 
+/**
+ * Amount due − received: positive is still owed, negative was overpaid. `null` without
+ * a ticket price and on the unassigned line (nobody owes those tickets).
+ */
+balanceCents: number | null, };
