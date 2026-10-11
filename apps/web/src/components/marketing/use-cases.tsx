@@ -3,6 +3,7 @@
 import type { PricingDto } from "@ingressoimpresso/api-types";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, Ban, CheckCheck, CheckCircle2, GraduationCap, Guitar, Printer, Ticket, Users, WifiOff, type LucideIcon } from "lucide-react";
+import Link from "next/link";
 import { useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 
 import { QrCode } from "@/components/qr";
@@ -258,12 +259,15 @@ type Case = {
   outcome: string;
   steps: readonly { title: string; body: string }[];
   scenes: readonly ReactNode[];
+  /** The public page that tells more about this kind of event. */
+  more: { href: string; label: string };
 };
 
 const CASES: readonly Case[] = [
   {
     ...band,
     icon: Guitar,
+    more: { href: "/ingresso-para/show-de-banda", label: texts.eventPages.eyebrow("Show de banda") },
     scenes: [
       <SceneTicket key="1" title={band.scene.event} subtitle={band.scene.venue} number={band.scene.number} palette="violet" />,
       <ScenePrint key="2" title={band.scene.event} subtitle={band.scene.venue} label={band.scene.print} palette="violet" />,
@@ -274,6 +278,7 @@ const CASES: readonly Case[] = [
   {
     ...raffle,
     icon: Ticket,
+    more: { href: "/modelos/rifa", label: texts.templateGallery.raffleLink },
     scenes: [
       <SceneTicket key="1" title={raffle.scene.event} subtitle={raffle.scene.venue} number={raffle.scene.number} palette="sunset" />,
       <SceneSheet key="2" label={raffle.scene.print} />,
@@ -284,6 +289,7 @@ const CASES: readonly Case[] = [
   {
     ...graduation,
     icon: GraduationCap,
+    more: { href: "/ingresso-para/formatura", label: texts.eventPages.eyebrow("Formatura") },
     scenes: [
       <SceneTicket key="1" title={graduation.scene.event} subtitle={graduation.scene.venue} number={graduation.scene.number} palette="gold" />,
       <SceneChat key="2" name={graduation.scene.chatName} message={graduation.scene.chat} title={graduation.scene.event} subtitle={graduation.scene.venue} />,
@@ -418,6 +424,13 @@ export function UseCases() {
             {c.cta}
           </ButtonLink>
         </div>
+        <Link
+          href={current.more.href}
+          className="relative inline-flex w-fit items-center gap-1.5 self-center text-sm font-medium text-brand-soft-fg touch-target hover:underline"
+        >
+          {current.more.label}
+          <ArrowRight aria-hidden className="size-3.5" />
+        </Link>
       </div>
     </div>
   );

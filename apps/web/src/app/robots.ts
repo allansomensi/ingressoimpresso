@@ -8,7 +8,7 @@ export default function robots(): MetadataRoute.Robots {
   }
   return {
     // Rules are prefixes: "/ingresso$" keeps the digital ticket out without hiding /ingresso-para/.
-    rules: { userAgent: "*", allow: "/", disallow: ["/painel", "/portaria", "/offline", "/ingresso$"] },
+    rules: { userAgent: "*", allow: "/", disallow: ["/painel", "/portaria", "/offline", "/vendedor", "/ingresso$"] },
     sitemap: `${SITE_URL}/sitemap.xml`,
   };
 }

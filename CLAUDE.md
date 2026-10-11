@@ -107,6 +107,12 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   (`POST /api/events/{id}/tickets/replace`, `tickets::replace`) cancela o número perdido, manda um
   número livre da mesma categoria para a mesma pessoa, leva o lugar na mesa e grava
   `ticket_replacements`.
+- **Páginas públicas para busca (ADR 0062): implementadas.** Oito tipos de evento em
+  `/ingresso-para/[slug]` e a galeria de modelos em `/modelos` (uma página por modelo, com o
+  modelo ao vivo e as cores); imagens dos modelos em `public/modelos` (`just template-images`),
+  imagem de compartilhamento por página (`opengraph-image.tsx`, `lib/share-image.tsx`, gerada no
+  build), JSON-LD em `components/json-ld.tsx`, sitemap com imagens e `robots` bloqueando só as
+  áreas privadas.
 
 Plano completo em `docs/arquitetura.md` §12.
 
@@ -167,7 +173,13 @@ apps/web             landing em src/app/page.tsx (+ src/components/marketing: si
                      compartilhados); páginas por tipo de evento em app/ingresso-para/[slug]
                      (conteúdo em src/content/seo-event-pages.ts, que também alimenta o sitemap e o
                      rodapé; JSON-LD em components/json-ld.tsx, na home e em cada página; robots
-                     bloqueia só "/ingresso$"), página Sobre em app/sobre +
+                     bloqueia só "/ingresso$"); galeria de modelos em app/modelos (+ [slug];
+                     conteúdo em src/content/seo-templates.ts, modelos de cada tipo de evento em
+                     EVENT_TEMPLATES, cartão em marketing/template-card.tsx, modelo ao vivo em
+                     marketing/template-sample.tsx); imagens em public/modelos (just
+                     template-images, scripts/template-images.mjs) e de compartilhamento em
+                     opengraph-image.tsx + lib/share-image.tsx (next/og, estáticas, ADR 0062);
+                     conteúdo conferido por test/seo-content.test.ts, página Sobre em app/sobre +
                      components/about, painel em
                      src/app/{entrar,painel}, abas do evento em src/components/event (aba na URL,
                      ?aba=); sistema de design em src/components/ui + tokens em globals.css (ADR 0021);
@@ -305,6 +317,7 @@ just release-check    # versão igual em todos os manifestos e CHANGELOG.md bem 
 just release minor    # no staging: corta "Não lançado" na versão nova (major|minor|patch|X.Y.Z) e sobe os manifestos
 just release-notes    # notas de uma versão do CHANGELOG.md (as mesmas da GitHub Release)
 just api-types-index  # reexporta os tipos gerados em packages/api-types/src/index.ts
+just template-images  # imagens dos modelos em apps/web/public/modelos (com o site rodando em WEB)
 
 # Testar a impressão sem a API (só para testes locais; a semente é uma chave privada):
 cargo run -p ii-cli -- job init --name "Meu Show"            # cria job.json + event.seed (0600)
@@ -382,8 +395,10 @@ just backup-restore-test <dump.age> <chave-age>   # restaura um backup num banco
   `backdrop-blur`/`transform` (ele vira o bloco de contenção do `fixed`).
 - **Design do ingresso em dois lados:** regras de `design.rs` e campos de `fields.rs` têm espelho
   no painel (`lib/design-rules.ts`, `lib/ticket-fields.ts`) para a prévia ao vivo; mudou um, mude
-  o outro (os testes usam os mesmos exemplos). Modelo novo é só TypeScript em `lib/templates`, e
-  `test/templates.test.ts` valida todo modelo em toda paleta. Fonte nova entra nos dois lados
+  o outro (os testes usam os mesmos exemplos). Modelo novo é TypeScript em `lib/templates`, e
+  `test/templates.test.ts` valida todo modelo em toda paleta; ele também ganha uma entrada em
+  `content/seo-templates.ts` e a imagem por `just template-images` (`test/seo-content.test.ts`
+  cobra as duas). Fonte nova entra nos dois lados
   (`crates/render/fonts` + `world.rs` + `ticket.typ` e `public/fonts/ticket` em WOFF2).
 - **Textos de interface centralizados:** `apps/web/src/texts/pt-BR.ts` no web e módulos `texts.rs`
   no Rust; e-mails em `emails.rs` (todo texto do usuário passa por `escape`); documentos legais

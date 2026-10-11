@@ -110,6 +110,10 @@ api:
 web-dev:
     pnpm --filter @ingressoimpresso/web run dev
 
+# Pictures of the ticket templates (public/modelos/*.jpg, ADR 0062), from the running site (WEB).
+template-images:
+    node scripts/template-images.mjs
+
 # Restore test of an encrypted backup into an EMPTY database (RESTORE_DATABASE_URL); monthly.
 backup-restore-test dump identity:
     ./deploy/restore-test.sh {{dump}} {{identity}}
