@@ -62,3 +62,4 @@ feita e as consequências.
 | [0050](0050-acerto-com-vendedores.md) | Acerto com vendedores: recebimentos e devoluções | Aceito |
 | [0051](0051-pagina-sobre-e-versao-discreta.md) | Página Sobre e versão discreta no rodapé | Aceito |
 | [0052](0052-versao-fora-do-menu-da-conta.md) | A versão sai do menu da conta | Aceito |
+| [0054](0054-versao-so-onde-se-procura.md) | A versão só onde alguém a procura | Aceito |
