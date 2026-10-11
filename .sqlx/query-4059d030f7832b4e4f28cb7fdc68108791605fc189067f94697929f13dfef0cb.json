@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update seller_links set revoked_at = now() where seller_id = $1 and revoked_at is null",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4059d030f7832b4e4f28cb7fdc68108791605fc189067f94697929f13dfef0cb"
+}

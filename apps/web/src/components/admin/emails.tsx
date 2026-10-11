@@ -49,7 +49,7 @@ const STATUS_TONE: Record<MailStatus, Tone> = {
   failed: "danger",
   quota: "warning",
 };
-const KINDS = ["login_code", "signup_code", "batch_paid", "test"] as const;
+const KINDS = ["login_code", "signup_code", "batch_paid", "test", "team_invite"] as const;
 
 function kindLabel(kind: string): string {
   const labels: Readonly<Record<string, string>> = t.kinds;

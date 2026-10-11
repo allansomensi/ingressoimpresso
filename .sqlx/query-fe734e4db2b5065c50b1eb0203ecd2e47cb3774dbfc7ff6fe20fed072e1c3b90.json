@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select r.numbers, c.name, c.color from category_ranges r\n               join ticket_categories c on c.id = r.category_id where r.event_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "numbers",
+        "type_info": "Int4Range",
+        "origin": {
+          "Table": {
+            "table": "category_ranges",
+            "name": "numbers"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ticket_categories",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "color",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ticket_categories",
+            "name": "color"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "fe734e4db2b5065c50b1eb0203ecd2e47cb3774dbfc7ff6fe20fed072e1c3b90"
+}

@@ -17,4 +17,8 @@ design: TicketDesign,
 /**
  * Art, if any.
  */
-art: ArtDto | null, };
+art: ArtDto | null, 
+/**
+ * Sponsors' logos, in order (ADR 0059).
+ */
+sponsors: Array<ArtDto>, };

@@ -49,7 +49,8 @@ blockedCopies: number,
  */
 voidEntries: number, 
 /**
- * Declared sold × ticket price, when the event has a price.
+ * Declared sold × price (each number's category price, else the event's), when every
+ * such number has a price.
  */
 amountDueCents: number | null, 
 /**
@@ -60,4 +61,8 @@ receivedCents: number,
  * Amount due − received: positive is still owed, negative was overpaid. `null` without
  * a ticket price and on the unassigned line (nobody owes those tickets).
  */
-balanceCents: number | null, };
+balanceCents: number | null, 
+/**
+ * Marked as sold by the seller on their link (ADR 0053), not voided.
+ */
+markedSold: number, };

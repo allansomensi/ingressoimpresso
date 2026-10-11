@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select exists(select 1 from ticket_categories where event_id = $1 and price_cents is not null) as \"priced!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "priced!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "0a6de23fa662b41fad0aa8d4059c034198e033819377b6f396c8fae469bce4ef"
+}

@@ -308,14 +308,24 @@ pub fn spawn_check(state: &AppState, blob_id: Uuid) {
 ///
 /// As [`ensure_printable`].
 pub async fn ensure_event_printable(pool: &sqlx::PgPool, event_id: Uuid) -> ApiResult<()> {
-    let art = sqlx::query_scalar!(
-        "select art_blob_id from ticket_designs where event_id = $1 order by version desc limit 1",
+    let Some(design) = sqlx::query!(
+        "select art_blob_id, sponsor_blob_ids from ticket_designs where event_id = $1 order by version desc limit 1",
         event_id
     )
     .fetch_optional(pool)
     .await?
-    .flatten();
-    ensure_printable(pool, art).await
+    else {
+        return Ok(());
+    };
+    // The sponsors' logos are printed too (ADR 0059): the same rule as the art.
+    for blob in design
+        .art_blob_id
+        .into_iter()
+        .chain(design.sponsor_blob_ids)
+    {
+        ensure_printable(pool, Some(blob)).await?;
+    }
+    Ok(())
 }
 
 /// Refuses to print art under review (`art_under_review`) or refused (`art_rejected`).

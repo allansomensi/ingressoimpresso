@@ -13,11 +13,11 @@ use uuid::Uuid;
 
 use super::{authorize_event, bounds, one_line};
 use crate::api::{
-    CreateDoorAccessBody, CreatedDoorAccess, DoorAccessDto, DoorDeviceDto, DoorEntryDto,
-    DoorEventInfo, DoorFirstEntryDto, DoorKeyDto, DoorManifest, DoorOverviewDto, DoorRegisterBody,
-    DoorRegistration, DoorScanResult, DoorScanUpload, DoorScansBody, DoorScansResponse,
-    DoorSellerRangeDto, DoorVerifierDto, DoorVoidDto, KeyStatus, ScanClass, ScanOutcome,
-    VoidReason,
+    CreateDoorAccessBody, CreatedDoorAccess, DoorAccessDto, DoorCategoryRangeDto, DoorDeviceDto,
+    DoorEntryDto, DoorEventInfo, DoorFirstEntryDto, DoorKeyDto, DoorManifest, DoorOverviewDto,
+    DoorRegisterBody, DoorRegistration, DoorScanResult, DoorScanUpload, DoorScansBody,
+    DoorScansResponse, DoorSeatDto, DoorSellerRangeDto, DoorVerifierDto, DoorVoidDto, KeyStatus,
+    ScanClass, ScanOutcome, VoidReason,
 };
 use crate::auth::{AuthUser, bearer_token, new_token, token_hash};
 use crate::error::{ApiError, ApiResult, bad_request};
@@ -356,6 +356,7 @@ pub async fn manifest(
     let verifier = verifier(&state, event_id).await?;
     let voids = active_voids(&state, event_id).await?;
     let sellers = seller_ranges(&state, event_id).await?;
+    let (categories, seats) = tags(&state, event_id).await?;
     // Every transaction below xmin has finished: its rows are visible to the next statement.
     let xmin = sqlx::query_scalar!(
         r#"select pg_snapshot_xmin(pg_current_snapshot())::text::bigint as "xmin!""#
@@ -370,6 +371,8 @@ pub async fn manifest(
         verifier,
         voids,
         sellers,
+        categories,
+        seats,
         entries,
         cursor: since.max(xmin).to_string(),
         server_time_ms: unix_ms(OffsetDateTime::now_utc()),
@@ -423,6 +426,48 @@ async fn active_voids(state: &AppState, event_id: Uuid) -> ApiResult<Vec<DoorVoi
         })
     })
     .collect()
+}
+
+/// Category ranges and seats (ADR 0056, 0057), sent whole: small.
+async fn tags(
+    state: &AppState,
+    event_id: Uuid,
+) -> ApiResult<(Vec<DoorCategoryRangeDto>, Vec<DoorSeatDto>)> {
+    let categories = sqlx::query!(
+        r#"select c.name, c.color, r.numbers from category_ranges r
+           join ticket_categories c on c.id = r.category_id
+           where r.event_id = $1 order by lower(r.numbers)"#,
+        event_id
+    )
+    .fetch_all(&state.pool)
+    .await?
+    .into_iter()
+    .map(|row| {
+        let (first, last) = unsigned_bounds(&row.numbers)?;
+        Ok(DoorCategoryRangeDto {
+            name: row.name,
+            color: row.color,
+            first,
+            last,
+        })
+    })
+    .collect::<ApiResult<Vec<_>>>()?;
+    let seats = sqlx::query!(
+        r#"select s.ticket_number, s.seat, t.name from ticket_seats s
+           join event_tables t on t.id = s.table_id where s.event_id = $1 order by s.ticket_number"#,
+        event_id
+    )
+    .fetch_all(&state.pool)
+    .await?
+    .into_iter()
+    .filter_map(|row| {
+        u32::try_from(row.ticket_number).ok().map(|number| DoorSeatDto {
+            number,
+            label: crate::texts::seat_label(&row.name, row.seat),
+        })
+    })
+    .collect();
+    Ok((categories, seats))
 }
 
 async fn seller_ranges(state: &AppState, event_id: Uuid) -> ApiResult<Vec<DoorSellerRangeDto>> {

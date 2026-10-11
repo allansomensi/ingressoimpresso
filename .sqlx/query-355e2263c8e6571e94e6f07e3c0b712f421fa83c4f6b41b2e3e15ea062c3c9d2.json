@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "delete from event_ledger where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "355e2263c8e6571e94e6f07e3c0b712f421fa83c4f6b41b2e3e15ea062c3c9d2"
+}

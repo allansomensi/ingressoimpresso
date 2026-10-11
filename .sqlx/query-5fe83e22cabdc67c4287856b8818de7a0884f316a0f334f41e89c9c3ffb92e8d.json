@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select coalesce(sum(price_cents), 0)::bigint as \"cents!\" from ticket_batches\n           where event_id = $1 and status = 'paid'",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "cents!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "5fe83e22cabdc67c4287856b8818de7a0884f316a0f334f41e89c9c3ffb92e8d"
+}

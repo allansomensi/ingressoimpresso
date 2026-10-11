@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select seat from ticket_seats where table_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "seat",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "ticket_seats",
+            "name": "seat"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "638318819941de86e4e47a009385635ccc3c357694e991985a8f5773e86a5add"
+}

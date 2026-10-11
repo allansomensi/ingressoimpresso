@@ -1,6 +1,6 @@
 "use client";
 
-import type { NumberStyle, TextAlign, TextBlock, TicketDesign } from "@ingressoimpresso/api-types";
+import type { BandStyle, NumberStyle, SponsorStrip, TextAlign, TextBlock, TicketDesign } from "@ingressoimpresso/api-types";
 import {
   useEffect,
   useLayoutEffect,
@@ -14,7 +14,7 @@ import {
 } from "react";
 
 import { cn } from "@/lib/cn";
-import { BLEED_MM, FONT_FAMILIES, FONTS_WITH_BOLD, MIN_QR_SIZE_MM, MM_PER_PT } from "@/lib/design-rules";
+import { BLEED_MM, FONT_FAMILIES, FONTS_WITH_BOLD, MIN_QR_SIZE_MM, MM_PER_PT, bandRect, effectiveBand, inkFor } from "@/lib/design-rules";
 import { ticketNumber } from "@/lib/format";
 import { random } from "@/lib/templates/svg";
 import { blockValue, type EventFields } from "@/lib/ticket-fields";
@@ -23,7 +23,7 @@ import { texts } from "@/texts/pt-BR";
 const t = texts.event.design.canvas;
 
 /** An element of the body the editor can select, move and resize. */
-export type TicketElement = { kind: "number" } | { kind: "qr" } | { kind: "text"; index: number };
+export type TicketElement = { kind: "number" } | { kind: "qr" } | { kind: "sponsors" } | { kind: "text"; index: number };
 
 /** A box in millimetres, relative to the body. */
 export interface Box {
@@ -48,6 +48,10 @@ export function elementBox(design: TicketDesign, element: TicketElement): Box | 
   if (element.kind === "qr") {
     const q = design.qr;
     return { x: q.xMm, y: q.yMm, width: q.sizeMm, height: q.sizeMm };
+  }
+  if (element.kind === "sponsors") {
+    const strip = design.sponsors ?? null;
+    return strip === null ? null : { x: strip.xMm, y: strip.yMm, width: strip.widthMm, height: strip.heightMm };
   }
   const block = design.texts[element.index];
   return block === undefined ? null : { x: block.xMm, y: block.yMm, width: block.widthMm, height: block.heightMm };
@@ -196,6 +200,8 @@ export function TicketView({
   onSelect,
   onChange,
   onRemove,
+  tag = null,
+  sponsorUrls = [],
 }: {
   design: TicketDesign;
   event: EventFields;
@@ -209,6 +215,10 @@ export function TicketView({
   onSelect?: (element: TicketElement | null) => void;
   onChange?: (element: TicketElement, box: Box) => void;
   onRemove?: (element: TicketElement) => void;
+  /** Category and seat of the ticket, drawn on its band (ADR 0056): `{ text: "Meia · Mesa 5…", color }`. */
+  tag?: { text: string; color: string } | null;
+  /** Object URLs of the sponsors' logos, in order (ADR 0059). */
+  sponsorUrls?: readonly string[];
 }) {
   const root = useRef<HTMLDivElement>(null);
   const drag = useRef<Drag | null>(null);
@@ -219,6 +229,7 @@ export function TicketView({
   const u = (mm: number) => `${String((mm / total) * 100)}cqw`;
   const pt = (size: number) => u(size * MM_PER_PT);
   const label = numberLabel(design.number, number);
+  const band = tag === null ? null : effectiveBand(design);
 
   const startDrag = (pointer: PointerEvent, element: TicketElement, mode: Drag["mode"]) => {
     const box = elementBox(design, element);
@@ -411,6 +422,15 @@ export function TicketView({
           <FitText value={label} lines={1} align={n.align} style={textStyle({ ...n, bold: false, letterSpacing: 0 })} />,
           t.numberElement,
         )}
+        {design.sponsors != null &&
+          (sponsorUrls.length > 0 || editable) &&
+          frame(
+            { kind: "sponsors" },
+            { x: design.sponsors.xMm, y: design.sponsors.yMm, width: design.sponsors.widthMm, height: design.sponsors.heightMm },
+            <Sponsors strip={design.sponsors} urls={sponsorUrls} u={u} />,
+            t.sponsorsElement,
+          )}
+        {band !== null && tag !== null && <Band design={design} band={band} tag={tag} u={u} />}
         {frame({ kind: "qr" }, { x: q.xMm, y: q.yMm, width: q.sizeMm, height: q.sizeMm }, <FakeQr />, t.qrElement)}
       </div>
       {stub !== null && (
@@ -420,7 +440,12 @@ export function TicketView({
             style={{ left: u(stubX), width: u(stub.widthMm), padding: u(2.5), gap: u(1.6), fontFamily: FONT_FAMILIES.sans, fontSize: pt(6.5) }}
           >
             <div style={{ height: u(4) }}>
-              <FitText value={label} lines={1} align="left" style={{ fontFamily: FONT_FAMILIES.mono, fontWeight: 700, fontSize: pt(10) }} />
+              <FitText
+                value={tag === null ? label : `${label} · ${tag.text}`}
+                lines={1}
+                align="left"
+                style={{ fontFamily: FONT_FAMILIES.mono, fontWeight: 700, fontSize: pt(10) }}
+              />
             </div>
             <div className="line-clamp-2 font-bold" style={{ lineHeight: 1.15 }}>
               {event.name}
@@ -440,6 +465,68 @@ export function TicketView({
           />
         </>
       )}
+    </div>
+  );
+}
+
+/** The category band (ticket.typ `band`): category and seat on one line along one edge. */
+function Band({ design, band, tag, u }: { design: TicketDesign; band: BandStyle; tag: { text: string; color: string }; u: (mm: number) => string }) {
+  const rect = bandRect(design, band.edge, band.sizeMm);
+  const vertical = band.edge === "left" || band.edge === "right";
+  const along = (vertical ? rect.height : rect.width) - band.sizeMm * 0.5;
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none absolute flex items-center justify-center overflow-hidden"
+      style={{ left: u(rect.x), top: u(rect.y), width: u(rect.width), height: u(rect.height), background: tag.color }}
+    >
+      <div
+        className="flex items-center justify-center"
+        style={{ width: u(along), height: u(band.sizeMm * 0.62), transform: vertical ? "rotate(-90deg)" : undefined, flexShrink: 0 }}
+      >
+        <FitText
+          value={tag.text.toUpperCase()}
+          lines={1}
+          align="center"
+          style={{ fontFamily: FONT_FAMILIES.sans, fontWeight: 700, fontSize: u(band.sizeMm * 0.5), color: inkFor(tag.color), letterSpacing: "0.04em" }}
+        />
+      </div>
+    </div>
+  );
+}
+
+/** The sponsors' strip (ticket.typ `sponsors`): label, then logos side by side, fitted. */
+function Sponsors({ strip, urls, u }: { strip: SponsorStrip; urls: readonly string[]; u: (mm: number) => string }) {
+  const labelHeight = strip.label === "" ? 0 : Math.min(strip.heightMm * 0.3, 3.2);
+  const pad = strip.panel ? Math.min(1, strip.heightMm * 0.1) : 0;
+  const gap = urls.length === 0 ? 0 : Math.min(2, strip.widthMm / (4 * urls.length));
+  return (
+    <div
+      className="flex size-full flex-col overflow-hidden"
+      style={{ padding: u(pad), gap: labelHeight > 0 ? u(0.6) : 0, background: strip.panel ? "#ffffff" : undefined, borderRadius: strip.panel ? u(1) : 0 }}
+    >
+      {labelHeight > 0 && (
+        <div className="shrink-0" style={{ height: u(labelHeight) }}>
+          <FitText
+            value={strip.label.toUpperCase()}
+            lines={1}
+            align="center"
+            style={{ fontFamily: FONT_FAMILIES.sans, fontWeight: 700, fontSize: u(labelHeight), color: strip.labelColor, letterSpacing: "0.06em" }}
+          />
+        </div>
+      )}
+      <div className="flex min-h-0 flex-1 items-stretch" style={{ gap: u(gap) }}>
+        {urls.length === 0 ? (
+          <span className="flex flex-1 items-center justify-center border border-dashed border-black/30 bg-white/60 text-[10px] font-medium text-black/60 italic">
+            {texts.event.design.sponsors.empty}
+          </span>
+        ) : (
+          urls.map((url, index) => (
+            // eslint-disable-next-line @next/next/no-img-element -- object URL of an uploaded logo
+            <img key={`${url}-${String(index)}`} src={url} alt="" draggable={false} className="pointer-events-none min-w-0 flex-1 object-contain" />
+          ))
+        )}
+      </div>
     </div>
   );
 }

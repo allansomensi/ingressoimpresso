@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update seller_links set last_opened_at = now() where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "838f936e5367aea49d5eee3392b58307bd352e33a57ec5e868c93259bfad74f6"
+}

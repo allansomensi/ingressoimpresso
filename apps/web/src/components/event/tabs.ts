@@ -1,6 +1,9 @@
 /** Tabs of the event page and their `?aba=` slugs (the Stripe return URL uses `aba=lotes`). */
-export const TABS = ["overview", "design", "batches", "sellers", "digital", "voids", "files", "door", "report"] as const;
+export const TABS = ["overview", "design", "batches", "categories", "sellers", "digital", "voids", "files", "door", "report", "team"] as const;
 export type Tab = (typeof TABS)[number];
+
+/** Tabs shown in the strip; the team opens from the event header (ADR 0055). */
+export const STRIP_TABS: readonly Tab[] = TABS.filter((tab) => tab !== "team");
 
 const SLUGS: Record<Tab, string> = {
   overview: "visao-geral",
@@ -12,6 +15,8 @@ const SLUGS: Record<Tab, string> = {
   files: "arquivos",
   door: "portaria",
   report: "relatorio",
+  categories: "categorias",
+  team: "equipe",
 };
 
 export function tabSlug(tab: Tab): string {

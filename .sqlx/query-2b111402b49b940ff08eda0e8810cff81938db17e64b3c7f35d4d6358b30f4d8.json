@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into event_tables (id, event_id, name, seats, shape, x, y)\n           select gen_random_uuid(), $2, name, seats, shape, x, y from event_tables where event_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "2b111402b49b940ff08eda0e8810cff81938db17e64b3c7f35d4d6358b30f4d8"
+}

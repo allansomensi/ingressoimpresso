@@ -46,6 +46,8 @@ pub enum MailKind {
     BatchPaid,
     /// A test sent by an admin (ADR 0041).
     Test,
+    /// Someone was added to an event's team (ADR 0055).
+    TeamInvite,
 }
 
 impl MailKind {
@@ -56,6 +58,7 @@ impl MailKind {
             Self::SignupCode => "signup_code",
             Self::BatchPaid => "batch_paid",
             Self::Test => "test",
+            Self::TeamInvite => "team_invite",
         }
     }
 }

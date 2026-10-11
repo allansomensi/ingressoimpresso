@@ -360,6 +360,36 @@ create table seller_payments (
   id uuid primary key, event_id uuid not null references events, seller_id uuid not null references sellers,
   amount_cents integer not null, method text not null check (method in ('pix','cash','other')),
   received_on date not null, note text, created_by uuid references users, created_at timestamptz not null default now());
+-- Link do vendedor (ADR 0053): página sem conta onde o vendedor marca o que vendeu
+create table seller_links (id uuid primary key, event_id uuid not null references events,
+  seller_id uuid not null references sellers, token_hash bytea not null unique, sealed bytea not null,
+  created_by uuid references users, created_at timestamptz not null default now(),
+  revoked_at timestamptz, last_opened_at timestamptz);   -- no máximo um ativo por vendedor
+create table ticket_sales (event_id uuid not null references events, ticket_number integer not null,
+  seller_id uuid not null references sellers, buyer_name text, buyer_phone text,
+  sold_at timestamptz not null default now(), primary key (event_id, ticket_number));
+-- Equipe do evento (ADR 0055): quem ajuda e o que cada um cuida; a organização continua dona
+create table event_team (id uuid primary key, event_id uuid not null references events,
+  email citext not null, name text, user_id uuid references users,   -- null até o primeiro login
+  areas text[] not null,   -- manage | money | delivery | art | door
+  invited_by uuid references users, created_at timestamptz not null default now(),
+  joined_at timestamptz, unique (event_id, email));
+-- Categorias (ADR 0056): faixas de números com cor e preço; a cor sai na faixa do ingresso
+create table ticket_categories (id uuid primary key, event_id uuid not null references events,
+  name text not null, color text not null, price_cents integer, position smallint not null);
+create table category_ranges (id uuid primary key, event_id uuid not null references events,
+  category_id uuid not null references ticket_categories, numbers int4range not null);  -- sem sobreposição
+-- Mesas e lugares (ADR 0057)
+create table event_tables (id uuid primary key, event_id uuid not null references events,
+  name text not null, seats smallint not null, shape text not null, x real not null, y real not null);
+create table ticket_seats (event_id uuid not null references events, ticket_number integer not null,
+  table_id uuid not null references event_tables, seat smallint not null,
+  primary key (event_id, ticket_number), unique (table_id, seat));
+-- Prestação de contas (ADR 0058): despesas e outras receitas do evento
+create table event_ledger (id uuid primary key, event_id uuid not null references events,
+  kind text not null,   -- expense | income
+  description text not null, category text, amount_cents integer not null, occurred_on date not null);
+-- Patrocinadores (ADR 0059): ticket_designs.sponsor_blob_ids uuid[] (até 6 logos, em ordem)
 
 -- Portaria
 create table door_accesses (id uuid primary key, event_id uuid not null references events, label text not null,
@@ -445,7 +475,9 @@ Todas as consultas usam índice GiST.
 - cópias bloqueadas na porta;
 - **valor a acertar** = vendidos declarados × preço, se o preço estiver configurado;
 - **recebido** = soma dos pagamentos do vendedor (ADR 0050);
-- **saldo** = a acertar − recebido (positivo: falta receber; negativo: pagou a mais).
+- **saldo** = a acertar − recebido (positivo: falta receber; negativo: pagou a mais);
+- **marcou vendidos** = números que o próprio vendedor marcou no link (ADR 0053). É
+  informativo: o acerto continua pelos vendidos declarados.
 
 O relatório tem ainda uma linha para os números não atribuídos (sem saldo: ninguém responde por
 eles) e totais gerais.
@@ -467,6 +499,16 @@ POST /api/sellers/{id}/ranges  DELETE /api/ranges/{id}
 GET|POST /api/events/{id}/voids                POST /api/voids/{id}/undo
 GET /api/events/{id}/seller-payments           POST /api/sellers/{id}/payments   DELETE /api/seller-payments/{id}
 POST /api/sellers/{id}/returns                 (vários números do vendedor de uma vez, ADR 0050)
+POST|DELETE /api/sellers/{id}/link             GET /api/events/{id}/ticket-sales   (ADR 0053)
+POST /api/seller   POST /api/seller/sales   POST /api/seller/sales/undo   (sem login: token no corpo)
+GET|POST /api/events/{id}/categories   PUT|DELETE /api/categories/{id}   (ADR 0056)
+POST /api/categories/{id}/ranges   DELETE /api/category-ranges/{id}
+GET|POST /api/events/{id}/tables   POST /api/events/{id}/tables/bulk   PUT /api/events/{id}/tables/layout
+PUT|DELETE /api/tables/{id}   POST /api/tables/{id}/tickets   POST /api/tables/{id}/tickets/remove   (ADR 0057)
+GET|POST /api/events/{id}/ledger   PUT|DELETE /api/ledger/{id}   (ADR 0058)
+GET /api/events/{id}/accountability   GET /api/events/{id}/accountability/pdf|xlsx
+GET|POST /api/events/{id}/team   PUT|DELETE /api/team-members/{id}   POST /api/events/{id}/team/leave
+                                               (ADR 0055: equipe; team::need diz a parte de cada rota)
 GET|POST /api/events/{id}/exports              GET /api/exports/{id}
 POST /api/exports/{id}/link    → link de 10 min  GET /api/downloads/{token} (sem login)
 GET /healthz (sem banco)                       GET /readyz (consulta o banco)

@@ -77,7 +77,7 @@ fn sha256(parts: &[&[u8]]) -> Vec<u8> {
 }
 
 /// Normalizes and minimally validates an e-mail address.
-fn normalize_email(raw: &str) -> ApiResult<String> {
+pub(crate) fn normalize_email(raw: &str) -> ApiResult<String> {
     let email = raw.trim().to_lowercase();
     let valid = email.len() <= 254
         && email.split_once('@').is_some_and(|(local, domain)| {
@@ -202,8 +202,9 @@ pub async fn request_code(
     )
     .fetch_one(&state.pool)
     .await?;
+    let invited = !known && crate::routes::team::invited(&state.pool, &email).await?;
     let settings = state.settings.get(&state.pool).await?;
-    check_sign_in(&state, &settings, &email, known)?;
+    check_sign_in(&state, &settings, &email, known || invited)?;
     let recent = sqlx::query_scalar!(
         "select count(*) from login_codes where email = $1 and created_at > $2",
         email,
@@ -328,7 +329,8 @@ pub async fn verify_code(
         two_factor::check(&state, &mut tx, user_id, body.two_factor_code.as_deref()).await?;
     }
     let settings = state.settings.get(&state.pool).await?;
-    check_sign_in(&state, &settings, &email, existing.is_some())?;
+    let invited = existing.is_none() && crate::routes::team::invited(&mut *tx, &email).await?;
+    check_sign_in(&state, &settings, &email, existing.is_some() || invited)?;
     let user_id = match existing {
         Some(id) => id,
         None => create_user(&mut tx, &email, None, None).await?,
@@ -384,7 +386,8 @@ pub async fn google(
         )
         .fetch_one(&mut *tx)
         .await?;
-    check_sign_in(&state, &settings, &email, known)?;
+    let invited = !known && crate::routes::team::invited(&mut *tx, &email).await?;
+    check_sign_in(&state, &settings, &email, known || invited)?;
     let user_id = if let Some(user) = by_subject {
         // The Google account's e-mail changed: follow it unless another account owns it.
         if user.email != email {
@@ -526,6 +529,8 @@ async fn start_session(
     )
     .execute(&mut **tx)
     .await?;
+    // Events whose team this e-mail was added to show up now (ADR 0055).
+    crate::routes::team::link_invites(&mut **tx, user_id).await?;
     let (token, hash) = new_token()?;
     sqlx::query!(
         "insert into sessions (token_hash, user_id, expires_at) values ($1, $2, $3)",

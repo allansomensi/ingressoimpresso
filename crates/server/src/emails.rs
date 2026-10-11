@@ -239,6 +239,63 @@ pub fn batch_paid(paid: &BatchPaid<'_>, site: &str) -> Email {
     }
 }
 
+/// An invite to an event's team (ADR 0055).
+#[derive(Debug, Clone)]
+pub struct TeamInvite<'a> {
+    /// Who added the person (name or e-mail).
+    pub inviter: &'a str,
+    /// The event.
+    pub event_name: &'a str,
+    /// What the person takes care of, in words (`Recebimentos e Arte`).
+    pub areas: &'a str,
+    /// Where to sign in.
+    pub url: &'a str,
+}
+
+/// Someone was added to an event's team: what they take care of and where to sign in.
+pub fn team_invite(invite: &TeamInvite<'_>, site: &str) -> Email {
+    let subject = format!("Você está na equipe de {}", invite.event_name);
+    let text = format!(
+        "{inviter} chamou você para a equipe de {event} no Ingresso Impresso.\n\n\
+         Você vai cuidar de: {areas}.\n\n\
+         Entre com este e-mail, sem senha (enviamos um código na hora):\n{url}\n\n\
+         Ingresso Impresso\n{site}\n",
+        inviter = invite.inviter,
+        event = invite.event_name,
+        areas = invite.areas,
+        url = invite.url,
+    );
+    let mut content = heading("Você está na equipe");
+    content.push_str(&paragraph(&format!(
+        "<strong class=\"ink\" style=\"color:{INK};\">{}</strong> chamou você para a equipe de <strong class=\"ink\" style=\"color:{INK};\">{}</strong>.",
+        escape(invite.inviter),
+        escape(invite.event_name)
+    )));
+    content.push_str(&paragraph(&format!(
+        "Você vai cuidar de: <strong class=\"ink\" style=\"color:{INK};\">{}</strong>. O resto do evento você acompanha sem mexer.",
+        escape(invite.areas)
+    )));
+    content.push_str(&button(invite.url, "Abrir o evento"));
+    let _ = write!(
+        content,
+        r#"<p class="muted" style="margin:0;font-size:14px;color:{MUTED};">Não tem senha: entre com este e-mail e digite o código que chega na hora, ou use o Google.</p>"#
+    );
+    let html = layout(
+        site,
+        &format!(
+            "{} chamou você para a equipe de {}.",
+            invite.inviter, invite.event_name
+        ),
+        &content,
+        "Você recebeu este e-mail porque alguém adicionou este endereço à equipe de um evento no Ingresso Impresso.",
+    );
+    Email {
+        subject,
+        text,
+        html,
+    }
+}
+
 /// `1.234` (Brazilian thousands separator).
 /// A test sent by an admin from the e-mail panel (ADR 0041).
 pub fn test_message(admin: &str, site: &str) -> Email {

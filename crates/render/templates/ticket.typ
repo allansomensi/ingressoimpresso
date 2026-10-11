@@ -50,6 +50,53 @@
     }))
 }
 
+// The category band (ADR 0056): category and seat on one line, along one edge of the body,
+// on top of the art and the texts. Validation keeps the QR clear of it (design.rs).
+#let band(data, t) = {
+  let d = data.design
+  let bs = data.band
+  let size = mm(bs.sizeMm)
+  let (w, h) = (mm(d.widthMm), mm(d.heightMm))
+  let vertical = bs.edge == "left" or bs.edge == "right"
+  let (bw, bh) = if vertical { (size, h) } else { (w, size) }
+  let (dx, dy) = (
+    if bs.edge == "right" { w - size } else { 0mm },
+    if bs.edge == "bottom" { h - size } else { 0mm },
+  )
+  let pad = size * 0.25
+  let along = (if vertical { h } else { w }) - 2 * pad
+  let label = fit(along, size * 0.62,
+    text(font: "Lato", weight: "bold", size: size * 0.5, fill: rgb(t.tag.ink),
+      tracking: 0.04em, upper(t.tag.text)))
+  place(top + left, dx: dx, dy: dy,
+    box(width: bw, height: bh, fill: rgb(t.tag.fill),
+      align(center + horizon, if vertical { rotate(-90deg, reflow: true, label) } else { label })))
+}
+
+// The sponsors' strip (ADR 0059): an optional label, then the logos side by side, each fitted
+// to the height left and centred in its share of the width.
+#let sponsors(data) = {
+  let sp = data.design.sponsors
+  let (w, h) = (mm(sp.widthMm), mm(sp.heightMm))
+  let n = data.sponsors.len()
+  let label-h = if sp.label == "" { 0mm } else { calc.min(h * 0.3, 3.2mm) }
+  let gap = calc.min(2mm, w / (4 * n))
+  let pad = if sp.panel { calc.min(1mm, h * 0.1) } else { 0mm }
+  let logo-h = h - label-h - 2 * pad - (if label-h > 0mm { 0.6mm } else { 0mm })
+  let cell-w = (w - 2 * pad - gap * (n - 1)) / n
+  box(width: w, height: h, radius: if sp.panel { 1mm } else { 0mm }, clip: true,
+    fill: if sp.panel { white } else { none }, inset: pad,
+    stack(dir: ttb, spacing: if label-h > 0mm { 0.6mm } else { 0mm },
+      if label-h > 0mm {
+        box(width: 100%, height: label-h, align(center + horizon,
+          fit(w - 2 * pad, label-h, text(font: "Lato", weight: "bold", size: label-h, fill: rgb(sp.labelColor),
+            tracking: 0.06em, upper(sp.label)))))
+      },
+      grid(columns: (cell-w,) * n, column-gutter: gap,
+        ..data.sponsors.map(path => box(width: cell-w, height: logo-h,
+          align(center + horizon, image(path, width: cell-w, height: logo-h, fit: "contain")))))))
+}
+
 // The ticket body (art, texts, number, QR). The art always covers body + bleed on every side.
 // `clip`: cut everything at the trim (home sheets, images); `false` lets the art run into the
 // bleed (print-shop output).
@@ -70,6 +117,9 @@
         place(top + left, dx: mm(block.xMm), dy: mm(block.yMm), text-block(block, value))
       }
     }
+    if d.sponsors != none and data.sponsors.len() > 0 {
+      place(top + left, dx: mm(d.sponsors.xMm), dy: mm(d.sponsors.yMm), sponsors(data))
+    }
     let n = d.number
     let (nw, nh) = (mm(n.widthMm), mm(n.heightMm))
     place(top + left, dx: mm(n.xMm), dy: mm(n.yMm),
@@ -78,6 +128,9 @@
           // Glyph bounds: the visible ink is centred and kept inside the box.
           text(font: fonts.at(n.font), size: n.sizePt * 1pt, fill: rgb(n.color),
             top-edge: "bounds", bottom-edge: "bounds", t.label)))))
+    if t.tag != none and data.band != none {
+      band(data, t)
+    }
     let q = d.qr
     place(top + left, dx: mm(q.xMm), dy: mm(q.yMm), image(t.qr, width: mm(q.sizeMm)))
     if t.sample {
@@ -103,7 +156,8 @@
       columns: (inner,),
       rows: (auto, auto, ..s.fields.map(_ => 1fr)),
       row-gutter: 1.6mm,
-      fit(inner, 4mm, text(font: "Space Mono", weight: "bold", size: 10pt, t.label)),
+      fit(inner, 4mm, text(font: "Space Mono", weight: "bold", size: 10pt,
+        if t.tag == none { t.label } else { t.label + " · " + t.tag.text })),
       clamp(data.eventName, inner, 2, value => text(weight: "bold", value)),
       ..s.fields.map(field => stack(dir: ttb,
         fit(inner, 2mm, text(size: 5.5pt, field)),

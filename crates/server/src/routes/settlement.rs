@@ -241,6 +241,8 @@ pub async fn record_return(
     }
     let mut voids = Vec::with_capacity(ranges.len());
     for (_, _, numbers) in ranges {
+        // A returned or lost number is not sold: its mark (ADR 0053) goes.
+        super::seller_links::clear_marks(&mut tx, event_id, &numbers).await?;
         let row = sqlx::query!(
             r#"insert into ticket_voids (id, event_id, numbers, reason, note, created_by)
                values ($1, $2, $3, $4, $5, $6)

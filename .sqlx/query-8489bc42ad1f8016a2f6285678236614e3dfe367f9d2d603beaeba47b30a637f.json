@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into event_team (id, event_id, email, name, user_id, areas, invited_by, joined_at)\n           select gen_random_uuid(), $2, email, name, user_id, areas, $3, joined_at\n           from event_team where event_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "8489bc42ad1f8016a2f6285678236614e3dfe367f9d2d603beaeba47b30a637f"
+}

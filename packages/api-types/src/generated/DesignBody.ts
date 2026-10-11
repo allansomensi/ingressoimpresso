@@ -12,4 +12,8 @@ design: TicketDesign,
 /**
  * Art uploaded to this event, if any.
  */
-artId: string | null, };
+artId: string | null, 
+/**
+ * Sponsors' logos uploaded to this event, in order (up to 6, ADR 0059).
+ */
+sponsorIds?: Array<string>, };

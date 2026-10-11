@@ -11,6 +11,7 @@ import { DoorApiError } from "@/portaria/client";
 import { DoorEngine, type DoorState } from "@/portaria/engine";
 import { announce, unlockAudio } from "@/portaria/feedback";
 import { accessTokenFromHash, clearHash, noAccessToken, subscribeHash } from "@/portaria/hash";
+import { inkFor } from "@/lib/design-rules";
 import { OFFLINE_WARNING_MS, clockTime, type ResultView } from "@/portaria/logic";
 import { cameraGranted, keepOffline, keepScreenOn, persistStorage } from "@/portaria/offline";
 import { texts } from "@/texts/pt-BR";
@@ -431,6 +432,19 @@ function Result({ view, onDismiss }: { view: ResultView; onDismiss: () => void }
       <span className="text-5xl leading-tight font-black tracking-tight">{view.title}</span>
       {view.number !== null && <span className="font-mono text-4xl font-bold">{view.number}</span>}
       {view.detail !== null && <span className="text-2xl">{view.detail}</span>}
+      {(view.category !== null || view.seat !== null) && (
+        <span className="flex flex-wrap items-center justify-center gap-3">
+          {view.category !== null && (
+            <span
+              className="rounded-2xl px-5 py-2 text-3xl font-black tracking-wide uppercase shadow-lg ring-4 ring-white/70"
+              style={{ backgroundColor: view.category.color, color: inkFor(view.category.color) }}
+            >
+              {view.category.name}
+            </span>
+          )}
+          {view.seat !== null && <span className="rounded-2xl bg-black/15 px-4 py-2 text-2xl font-bold">{view.seat}</span>}
+        </span>
+      )}
       {view.seller !== null && <span className="text-xl opacity-90">{view.seller}</span>}
       <span className="mt-8 rounded-full bg-black/15 px-4 py-1.5 text-sm font-medium opacity-90">{t.tapToContinue}</span>
     </button>

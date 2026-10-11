@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "delete from ticket_seats where table_id = $1 and ticket_number = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f9122041a3dc41c4a835adddcd74a9ffcff3591d7aec912503f3e27fdb7a19c3"
+}

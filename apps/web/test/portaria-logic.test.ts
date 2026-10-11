@@ -16,7 +16,12 @@ const sellers = [
   { seller: "João", first: 1, last: 50 },
   { seller: "Maria", first: 51, last: 100 },
 ];
-const context = { digits: 4, sellers };
+const context = {
+  digits: 4,
+  sellers,
+  categories: [{ name: "Meia", color: "#e11d48", first: 40, last: 60 }],
+  seats: [{ number: 42, label: "Mesa 5 · Lugar 3" }],
+};
 
 describe("decisions", () => {
   const cases: [DecisionDto, string][] = [
@@ -38,7 +43,15 @@ describe("decisions", () => {
       number: "Nº 0051",
       detail: null,
       seller: "Vendedor: Maria",
+      category: { name: "Meia", color: "#e11d48" },
+      seat: null,
     });
+  });
+
+  it("tells the category and the table of a ticket", () => {
+    expect(viewOf({ kind: "admit", number: 42 }, context)).toMatchObject({ category: { name: "Meia" }, seat: "Mesa 5 · Lugar 3" });
+    expect(viewOf({ kind: "admit", number: 7 }, context)).toMatchObject({ category: null, seat: null });
+    expect(viewOf({ kind: "invalid", reason: "malformed" }, context)).toMatchObject({ category: null, seat: null });
   });
 
   it("says where a copy entered first", () => {

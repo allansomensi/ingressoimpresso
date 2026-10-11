@@ -1,0 +1,71 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select email::text as \"email!\", name, areas, joined_at, created_at from event_team\n           where event_id = $1 order by created_at",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "email!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "event_team",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "areas",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "event_team",
+            "name": "areas"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "joined_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "event_team",
+            "name": "joined_at"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "event_team",
+            "name": "created_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null,
+      true,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "cb285307a0a0bdfa52bd2a4c0a31c7a3bfdc3d637936bdd712b76d21494ca481"
+}

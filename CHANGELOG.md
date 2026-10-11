@@ -12,6 +12,41 @@ e não acompanha estes números.
 
 ## [Não lançado]
 
+## [1.2.0] - 2026-10-11
+
+### Adicionado
+
+- Link do vendedor: cada vendedor recebe pelo WhatsApp um link pessoal, sem criar conta, onde marca
+  os números que vendeu (com o nome e o telefone de quem comprou, se quiser), vê o que ainda tem e
+  quanto falta acertar (ADR 0053).
+- No cartão do vendedor, quantos ingressos ele já marcou como vendidos e, na devolução, o atalho
+  para devolver de uma vez os que não foram vendidos.
+- Equipe do evento: chame pessoas pelo e-mail e escolha o que cada uma cuida (Coordenação,
+  Recebimentos, Ingressos e vendedores, Arte do ingresso ou Portaria). Cada pessoa vê o evento
+  inteiro na própria conta e mexe só na sua parte, sem compartilhar senha; quem ainda não tem conta
+  entra com o mesmo e-mail (ADR 0055).
+- A página do vendedor mostra para quem passar o dinheiro, quando alguém da equipe cuida dos
+  recebimentos.
+- Categorias de ingresso (inteira, meia, VIP, cortesia…) por faixas de números, cada uma com a
+  sua cor e, se quiser, o seu preço: saem impressas numa faixa colorida para a portaria reconhecer
+  de longe, aparecem na portaria, no ingresso digital e na página do vendedor, e o acerto usa o
+  preço de cada categoria (ADR 0056).
+- Mesas e lugares para bailes, jantares e formaturas: mapa do salão com as mesas arrastáveis,
+  ingressos colocados em cada mesa e "Mesa 5 · Lugar 3" impresso no ingresso (ADR 0057).
+- Prestação de contas: lance despesas e outras receitas e baixe o resumo do evento em PDF (com
+  espaço para assinaturas) ou em planilha (ADR 0058).
+- Patrocinadores no ingresso: uma faixa com até 6 logos, arrastável no editor (ADR 0059).
+
+### Alterado
+
+- O relatório separa "Emitidos" de "Vendidos" (as vendas marcadas pelos vendedores), e o acerto
+  mostra só os vendedores, com uma nota sobre os ingressos que estão sem vendedor.
+- Os avisos (toasts) seguem as cores do site no tema escuro e fecham com um toque, sem o botão de
+  fechar.
+- A versão do site saiu do rodapé e das páginas do painel: fica só em Minha conta, na página Sobre
+  e na página de status (ADR 0054).
+- A equipe abre pelo botão "Equipe" no topo do evento, e o relatório mostra o quadro por categoria.
+
 ## [1.1.0] - 2026-10-11
 
 ### Adicionado
@@ -75,6 +110,7 @@ Primeira versão numerada: o produto que já estava em produção, das fases 0 a
 - Política de segurança de conteúdo (CSP) com nonce por requisição em todo o site (ADR 0048).
 - Verificação anti-robô antes do envio do código de login (ADR 0044).
 
-[Não lançado]: https://github.com/allansomensi/ingressoimpresso/compare/v1.1.0...HEAD
+[Não lançado]: https://github.com/allansomensi/ingressoimpresso/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/allansomensi/ingressoimpresso/releases/tag/v1.0.0
