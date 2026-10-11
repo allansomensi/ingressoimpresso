@@ -54,4 +54,8 @@ receivers: Array<string>,
 /**
  * The event's categories (ADR 0056), to tell which numbers are meia, VIP…
  */
-categories: Array<SellerCategoryDto>, };
+categories: Array<SellerCategoryDto>, 
+/**
+ * The seller may send digital tickets of what they sold (ADR 0061).
+ */
+canSendTickets: boolean, };

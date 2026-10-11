@@ -75,6 +75,7 @@ pub fn need(method: &Method, path: &str) -> Need {
             | "sellers/{id}/link"
             | "events/{id}/tickets"
             | "events/{id}/tickets/bulk"
+            | "events/{id}/tickets/replace"
             | "ticket-links/{id}/revoke"
             | "events/{id}/voids"
             | "events/{id}/exports"
@@ -85,7 +86,11 @@ pub fn need(method: &Method, path: &str) -> Need {
         )
         | (
             "PUT",
-            "sellers/{id}" | "ticket-links/{id}" | "tables/{id}" | "events/{id}/tables/layout",
+            "sellers/{id}"
+            | "ticket-links/{id}"
+            | "tables/{id}"
+            | "events/{id}/tables/layout"
+            | "events/{id}/seller-settings",
         )
         | ("DELETE", "sellers/{id}" | "sellers/{id}/link" | "ranges/{id}" | "tables/{id}") => {
             Need::Area(TeamArea::Delivery)

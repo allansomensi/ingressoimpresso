@@ -266,6 +266,7 @@ pub async fn record_return(
             created_at: row.created_at,
             undone_at: None,
             locked: false,
+            replaced_by: None,
         });
     }
     tx.commit().await?;

@@ -1,11 +1,11 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select ticket_number as number, buyer_name, buyer_phone, sold_at\n           from ticket_sales where event_id = $1 and seller_id = $2 order by ticket_number",
+  "query": "select ticket_number, buyer_name, buyer_phone, sold_at\n           from ticket_sales where event_id = $1 and seller_id = $2 order by ticket_number",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "number",
+        "name": "ticket_number",
         "type_info": "Int4",
         "origin": {
           "Table": {
@@ -61,5 +61,5 @@
       false
     ]
   },
-  "hash": "15a22188816cae399f8f0855b17c7cc09c5191335c98472de20c13063df88082"
+  "hash": "607dbeaa18a0b6f041befb357d1cee7d911f12576fb548ef9e73066dc52cecc4"
 }

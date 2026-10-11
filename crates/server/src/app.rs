@@ -95,6 +95,7 @@ pub fn router(state: AppState) -> Router {
             get(tickets::list).post(tickets::create),
         )
         .route("/events/{id}/tickets/bulk", post(tickets::create_bulk))
+        .route("/events/{id}/tickets/replace", post(tickets::replace))
         .route("/ticket-links/{id}", put(tickets::update))
         .route("/ticket-links/{id}/revoke", post(tickets::revoke))
         .route("/ticket", post(tickets::open))
@@ -248,6 +249,11 @@ pub fn router(state: AppState) -> Router {
         .route("/seller", post(seller_links::open))
         .route("/seller/sales", post(seller_links::mark))
         .route("/seller/sales/undo", post(seller_links::unmark))
+        .route("/seller/tickets", post(seller_links::send_ticket))
+        .route(
+            "/events/{id}/seller-settings",
+            get(seller_links::settings).put(seller_links::update_settings),
+        )
         .route("/sellers/{id}/payments", post(settlement::create))
         .route("/sellers/{id}/returns", post(settlement::record_return))
         .route("/events/{id}/seller-payments", get(settlement::list))

@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select exists(select 1 from entries where event_id = $1 and ticket_number = $2) as \"entered!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "entered!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "0a435a27f24a41f98b4222bd88bc2392b06898ce982ffb592ba36f7b723ae3a7"
+}

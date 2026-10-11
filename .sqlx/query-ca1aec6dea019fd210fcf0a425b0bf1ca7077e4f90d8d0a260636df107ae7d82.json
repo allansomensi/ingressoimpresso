@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select buyer_name from ticket_sales\n           where event_id = $1 and ticket_number = $2 and seller_id = $3",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "buyer_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ticket_sales",
+            "name": "buyer_name"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "ca1aec6dea019fd210fcf0a425b0bf1ca7077e4f90d8d0a260636df107ae7d82"
+}

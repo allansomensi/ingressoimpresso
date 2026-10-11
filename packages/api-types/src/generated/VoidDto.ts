@@ -36,4 +36,8 @@ undoneAt: string | null,
 /**
  * Covers a refunded batch: permanent, cannot be undone (ADR 0032).
  */
-locked: boolean, };
+locked: boolean, 
+/**
+ * The number sent instead, when this void is a replacement of a lost ticket (ADR 0061).
+ */
+replacedBy: number | null, };

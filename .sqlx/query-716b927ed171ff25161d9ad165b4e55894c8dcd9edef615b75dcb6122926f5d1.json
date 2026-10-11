@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select id, numbers, reason, note, created_at, undone_at,\n                  exists(select 1 from ticket_batches b where b.event_id = ticket_voids.event_id\n                         and b.status = 'refunded' and b.numbers && ticket_voids.numbers) as \"locked!\"\n           from ticket_voids where event_id = $1 order by created_at desc",
+  "query": "select id, numbers, reason, note, created_at, undone_at,\n                  exists(select 1 from ticket_batches b where b.event_id = ticket_voids.event_id\n                         and b.status = 'refunded' and b.numbers && ticket_voids.numbers) as \"locked!\",\n                  (select r.new_number from ticket_replacements r where r.void_id = ticket_voids.id) as \"replaced_by?\"\n           from ticket_voids where event_id = $1 order by created_at desc",
   "describe": {
     "columns": [
       {
@@ -74,6 +74,12 @@
         "name": "locked!",
         "type_info": "Bool",
         "origin": "Expression"
+      },
+      {
+        "ordinal": 7,
+        "name": "replaced_by?",
+        "type_info": "Int4",
+        "origin": "Expression"
       }
     ],
     "parameters": {
@@ -88,8 +94,9 @@
       true,
       false,
       true,
+      null,
       null
     ]
   },
-  "hash": "1d427aa30e1b689de459349eb10966dac215ee1b0c7cc0915ca05df7b8f1e565"
+  "hash": "716b927ed171ff25161d9ad165b4e55894c8dcd9edef615b75dcb6122926f5d1"
 }
