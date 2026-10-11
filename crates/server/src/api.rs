@@ -1036,6 +1036,170 @@ dto! {
         pub phone: Option<String>,
         /// Assigned ranges, ordered.
         pub ranges: Vec<RangeDto>,
+        /// The seller's active private link (ADR 0053), if any.
+        pub link: Option<SellerLinkDto>,
+    }
+
+    /// A seller's private link, where they mark what they sold (ADR 0053).
+    pub struct SellerLinkDto {
+        /// The address to send the seller (the token is in the fragment).
+        pub url: String,
+        /// When it was created.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub created_at: OffsetDateTime,
+        /// When the seller last opened it.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub last_opened_at: Option<OffsetDateTime>,
+    }
+
+    /// A ticket its seller marked as sold.
+    pub struct TicketSaleDto {
+        /// Ticket number.
+        pub number: i32,
+        /// Seller.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub seller_id: Uuid,
+        /// Buyer's name, if written down.
+        pub buyer_name: Option<String>,
+        /// Buyer's phone, if written down.
+        pub buyer_phone: Option<String>,
+        /// When it was marked.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub sold_at: OffsetDateTime,
+    }
+
+    /// `POST /api/seller`: the token of a seller's link, in the body so it stays out of logs.
+    pub struct SellerTokenBody {
+        /// The token from the link's fragment.
+        pub token: String,
+    }
+
+    /// `POST /api/seller/sales`: numbers the seller sold, all to one buyer (optional).
+    pub struct SellerMarkBody {
+        /// The token from the link's fragment.
+        pub token: String,
+        /// The numbers, as inclusive ranges (1 to 100 ranges, up to 1,000 numbers).
+        pub ranges: Vec<RangeBody>,
+        /// Buyer's name (up to 80 characters, one line).
+        pub buyer_name: Option<String>,
+        /// Buyer's phone (up to 30 characters, one line).
+        pub buyer_phone: Option<String>,
+    }
+
+    /// `POST /api/seller/sales/undo`: a number marked by mistake.
+    pub struct SellerUnmarkBody {
+        /// The token from the link's fragment.
+        pub token: String,
+        /// The number.
+        pub number: i32,
+    }
+
+    /// An inclusive range of ticket numbers, as the API shows it.
+    pub struct NumberRangeDto {
+        /// First number.
+        pub first: i32,
+        /// Last number (inclusive).
+        pub last: i32,
+    }
+
+    /// Numbers of the seller that no longer count (returned, lost or voided).
+    pub struct SellerVoidDto {
+        /// First number.
+        pub first: i32,
+        /// Last number (inclusive).
+        pub last: i32,
+        /// Why.
+        pub reason: VoidReason,
+    }
+
+    /// A ticket the seller marked as sold, on their page.
+    pub struct SellerSaleDto {
+        /// Ticket number.
+        pub number: i32,
+        /// Buyer's name.
+        pub buyer_name: Option<String>,
+        /// Buyer's phone.
+        pub buyer_phone: Option<String>,
+        /// When it was marked.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub sold_at: OffsetDateTime,
+    }
+
+    /// Money the organizer recorded from this seller, on their page.
+    pub struct SellerViewPaymentDto {
+        /// Amount in cents.
+        pub amount_cents: i32,
+        /// How it was paid.
+        pub method: SellerPaymentMethod,
+        /// Day it was received, `YYYY-MM-DD`.
+        pub received_on: String,
+    }
+
+    /// Where the seller stands, as on the organizer's settlement.
+    pub struct SellerSummaryDto {
+        /// Paid tickets the seller holds.
+        pub tickets: i32,
+        /// Marked as sold (and not voided).
+        pub sold: i32,
+        /// Still with the seller: not sold and not voided.
+        pub available: i32,
+        /// Returned unsold.
+        pub unsold: i32,
+        /// Lost.
+        pub lost: i32,
+        /// What the seller answers for: tickets − unsold − lost.
+        pub due_tickets: i32,
+        /// `due_tickets` × price, when the event has a price.
+        #[cfg_attr(feature = "ts", ts(type = "number | null"))]
+        pub amount_due_cents: Option<i64>,
+        /// Money the organizer recorded.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub received_cents: i64,
+        /// Amount due − received, when the event has a price.
+        #[cfg_attr(feature = "ts", ts(type = "number | null"))]
+        pub balance_cents: Option<i64>,
+    }
+
+    /// The event, on the seller's page.
+    pub struct SellerViewEvent {
+        /// Name.
+        pub name: String,
+        /// Venue.
+        pub venue: Option<String>,
+        /// Start, in the event's own offset.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub starts_at: OffsetDateTime,
+        /// Organization name.
+        pub organizer: String,
+        /// Ticket price in cents.
+        pub ticket_price_cents: Option<i32>,
+    }
+
+    /// `POST /api/seller`: everything the seller's page shows (ADR 0053).
+    pub struct SellerViewDto {
+        /// The event.
+        pub event: SellerViewEvent,
+        /// The seller's name.
+        pub seller: String,
+        /// Printed prefix of the number (`Nº`).
+        pub number_prefix: String,
+        /// Printed digits of the number (zero padding).
+        pub number_digits: u8,
+        /// Paid numbers the seller holds, ordered.
+        pub ranges: Vec<NumberRangeDto>,
+        /// Parts of them that no longer count.
+        pub voids: Vec<SellerVoidDto>,
+        /// Numbers marked as sold, by number.
+        pub sales: Vec<SellerSaleDto>,
+        /// Money recorded by the organizer, newest first.
+        pub payments: Vec<SellerViewPaymentDto>,
+        /// The totals.
+        pub summary: SellerSummaryDto,
     }
 
     /// An inclusive range of ticket numbers.
@@ -1475,6 +1639,9 @@ dto! {
         /// a ticket price and on the unassigned line (nobody owes those tickets).
         #[cfg_attr(feature = "ts", ts(type = "number | null"))]
         pub balance_cents: Option<i64>,
+        /// Marked as sold by the seller on their link (ADR 0053), not voided.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub marked_sold: i64,
     }
 
     /// What one door phone did.

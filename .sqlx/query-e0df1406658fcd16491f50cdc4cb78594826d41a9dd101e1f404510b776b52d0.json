@@ -1,0 +1,76 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select id, seller_id, sealed, created_at, last_opened_at from seller_links\n           where event_id = $1 and revoked_at is null",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "seller_links",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "seller_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "seller_links",
+            "name": "seller_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "sealed",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "seller_links",
+            "name": "sealed"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "seller_links",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "last_opened_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "seller_links",
+            "name": "last_opened_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "e0df1406658fcd16491f50cdc4cb78594826d41a9dd101e1f404510b776b52d0"
+}

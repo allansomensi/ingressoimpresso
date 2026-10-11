@@ -20,6 +20,7 @@ function row(overrides: Partial<ReportRowDto>): ReportRowDto {
     amountDueCents: 68000,
     receivedCents: 50000,
     balanceCents: 18000,
+    markedSold: 0,
     ...overrides,
   };
 }

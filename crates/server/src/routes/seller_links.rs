@@ -1,0 +1,534 @@
+//! Sellers' private links (ADR 0053): the organizer creates one per seller and sends it by
+//! WhatsApp; the seller opens it on the phone, without an account, sees the numbers they hold and
+//! marks the ones they sold. The token is the credential: it travels in the URL fragment and in
+//! request bodies, and the database keeps only its hash (plus a sealed copy, so the organizer can
+//! send the same link again).
+
+use std::collections::HashMap;
+
+use axum::Json;
+use axum::extract::{Path, State};
+use axum::http::header::CACHE_CONTROL;
+use axum::http::{HeaderMap, HeaderValue, Method, StatusCode};
+use axum::response::{IntoResponse, Response};
+use sqlx::postgres::types::PgRange;
+use uuid::Uuid;
+
+use super::{authorize_event, bounds, one_line, optional_text, range};
+use crate::api::{
+    NumberRangeDto, SellerLinkDto, SellerMarkBody, SellerPaymentMethod, SellerSaleDto,
+    SellerSummaryDto, SellerTokenBody, SellerUnmarkBody, SellerViewDto, SellerViewEvent,
+    SellerViewPaymentDto, SellerVoidDto, TicketSaleDto, VoidReason,
+};
+use crate::auth::{AuthUser, new_token, token_hash};
+use crate::error::{ApiError, ApiResult, bad_request};
+use crate::keys;
+use crate::ratelimit;
+use crate::state::AppState;
+
+const SEAL_PURPOSE: &str = "seller-link";
+/// Most ranges and numbers marked in one request.
+const MAX_MARK_RANGES: usize = 100;
+const MAX_MARK_NUMBERS: i64 = 1_000;
+
+/// The address the seller opens: the token is in the fragment, so it never reaches a server log,
+/// the site's analytics or a `Referer` (like the door and digital ticket links).
+fn link_url(state: &AppState, token: &str) -> String {
+    format!("{}/vendedor#{token}", state.config.public_web_url)
+}
+
+fn seal(state: &AppState, link_id: Uuid, token: &str) -> ApiResult<Vec<u8>> {
+    keys::seal_data(
+        &state.config.master_key,
+        SEAL_PURPOSE,
+        link_id,
+        token.as_bytes(),
+    )
+    .map_err(|error| ApiError::Internal(error.into()))
+}
+
+fn unseal(state: &AppState, link_id: Uuid, sealed: &[u8]) -> ApiResult<String> {
+    let plain = keys::unseal_data(&state.config.master_key, SEAL_PURPOSE, link_id, sealed)
+        .map_err(|error| ApiError::Internal(error.into()))?;
+    String::from_utf8(plain.to_vec()).map_err(|error| ApiError::Internal(error.into()))
+}
+
+/// The active links of an event's sellers, by seller (for the sellers list).
+pub(crate) async fn active_links(
+    state: &AppState,
+    event_id: Uuid,
+) -> ApiResult<HashMap<Uuid, SellerLinkDto>> {
+    let rows = sqlx::query!(
+        r#"select id, seller_id, sealed, created_at, last_opened_at from seller_links
+           where event_id = $1 and revoked_at is null"#,
+        event_id
+    )
+    .fetch_all(&state.pool)
+    .await?;
+    rows.into_iter()
+        .map(|row| {
+            let token = unseal(state, row.id, &row.sealed)?;
+            Ok((
+                row.seller_id,
+                SellerLinkDto {
+                    url: link_url(state, &token),
+                    created_at: row.created_at,
+                    last_opened_at: row.last_opened_at,
+                },
+            ))
+        })
+        .collect()
+}
+
+/// The event of a seller, if the user may access it (404 otherwise).
+async fn seller_event(state: &AppState, user: &AuthUser, seller_id: Uuid) -> ApiResult<Uuid> {
+    let event_id = sqlx::query_scalar!("select event_id from sellers where id = $1", seller_id)
+        .fetch_optional(&state.pool)
+        .await?
+        .ok_or(ApiError::NotFound)?;
+    authorize_event(&state.pool, user, event_id).await?;
+    Ok(event_id)
+}
+
+/// `POST /api/sellers/{id}/link`: a new link for the seller; the previous one stops working.
+pub async fn create(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(seller_id): Path<Uuid>,
+) -> ApiResult<(StatusCode, Json<SellerLinkDto>)> {
+    let event_id = seller_event(&state, &user, seller_id).await?;
+    let (token, hash) = new_token()?;
+    let id = Uuid::new_v4();
+    let sealed = seal(&state, id, &token)?;
+    let mut tx = state.pool.begin().await?;
+    sqlx::query!(
+        "update seller_links set revoked_at = now() where seller_id = $1 and revoked_at is null",
+        seller_id
+    )
+    .execute(&mut *tx)
+    .await?;
+    let created_at = sqlx::query_scalar!(
+        r#"insert into seller_links (id, event_id, seller_id, token_hash, sealed, created_by)
+           values ($1, $2, $3, $4, $5, $6) returning created_at"#,
+        id,
+        event_id,
+        seller_id,
+        hash,
+        sealed,
+        user.id,
+    )
+    .fetch_one(&mut *tx)
+    .await?;
+    tx.commit().await?;
+    Ok((
+        StatusCode::CREATED,
+        Json(SellerLinkDto {
+            url: link_url(&state, &token),
+            created_at,
+            last_opened_at: None,
+        }),
+    ))
+}
+
+/// `DELETE /api/sellers/{id}/link`: the link stops working; the marked sales stay.
+pub async fn revoke(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(seller_id): Path<Uuid>,
+) -> ApiResult<StatusCode> {
+    seller_event(&state, &user, seller_id).await?;
+    sqlx::query!(
+        "update seller_links set revoked_at = now() where seller_id = $1 and revoked_at is null",
+        seller_id
+    )
+    .execute(&state.pool)
+    .await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// `GET /api/events/{id}/ticket-sales`: every number marked as sold, by number.
+pub async fn list_sales(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(event_id): Path<Uuid>,
+) -> ApiResult<Json<Vec<TicketSaleDto>>> {
+    authorize_event(&state.pool, &user, event_id).await?;
+    let sales = sqlx::query_as!(
+        TicketSaleDto,
+        r#"select ticket_number as number, seller_id, buyer_name, buyer_phone, sold_at
+           from ticket_sales where event_id = $1 order by ticket_number"#,
+        event_id
+    )
+    .fetch_all(&state.pool)
+    .await?;
+    Ok(Json(sales))
+}
+
+// The seller's page ------------------------------------------------------------------------
+
+/// The link of a token: its seller and event.
+struct LinkRow {
+    id: Uuid,
+    event_id: Uuid,
+    seller_id: Uuid,
+}
+
+async fn find_link(state: &AppState, token: &str) -> ApiResult<LinkRow> {
+    let token = token.trim();
+    if token.is_empty() || token.len() > 128 {
+        return Err(ApiError::NotFound);
+    }
+    sqlx::query_as!(
+        LinkRow,
+        "select id, event_id, seller_id from seller_links where token_hash = $1 and revoked_at is null",
+        token_hash(token)
+    )
+    .fetch_optional(&state.pool)
+    .await?
+    .ok_or(ApiError::NotFound)
+}
+
+/// Writes respect the maintenance mode and a suspended organization, like the panel does.
+async fn ensure_writable(state: &AppState, event_id: Uuid, path: &str) -> ApiResult<()> {
+    state
+        .settings
+        .get(&state.pool)
+        .await?
+        .check_request(&Method::POST, path)?;
+    let suspended = sqlx::query_scalar!(
+        r#"select o.suspended_at is not null as "suspended!"
+           from events e join organizations o on o.id = e.organization_id where e.id = $1"#,
+        event_id
+    )
+    .fetch_one(&state.pool)
+    .await?;
+    if suspended {
+        return Err(ApiError::Suspended);
+    }
+    Ok(())
+}
+
+/// Parts of the seller's numbers that no longer count (returned, lost or voided).
+async fn seller_voids(state: &AppState, link: &LinkRow) -> ApiResult<Vec<SellerVoidDto>> {
+    sqlx::query!(
+        r#"select v.numbers * a.numbers as "numbers!", v.reason
+           from ticket_voids v
+           join seller_assignments a on a.event_id = v.event_id and a.seller_id = $2 and a.numbers && v.numbers
+           where v.event_id = $1 and v.undone_at is null
+           order by lower(v.numbers * a.numbers)"#,
+        link.event_id,
+        link.seller_id,
+    )
+    .fetch_all(&state.pool)
+    .await?
+    .into_iter()
+    .map(|row| {
+        let (first, last) = bounds(&row.numbers)?;
+        let reason = VoidReason::from_db(&row.reason).ok_or_else(|| {
+            ApiError::Internal(anyhow::anyhow!("unknown void reason {}", row.reason))
+        })?;
+        Ok(SellerVoidDto {
+            first,
+            last,
+            reason,
+        })
+    })
+    .collect()
+}
+
+/// Money the organizer recorded from the seller, newest first.
+async fn seller_payments(
+    state: &AppState,
+    seller_id: Uuid,
+) -> ApiResult<Vec<SellerViewPaymentDto>> {
+    sqlx::query!(
+        r#"select amount_cents, method, received_on from seller_payments
+           where seller_id = $1 order by received_on desc, created_at desc"#,
+        seller_id
+    )
+    .fetch_all(&state.pool)
+    .await?
+    .into_iter()
+    .map(|row| {
+        Ok(SellerViewPaymentDto {
+            amount_cents: row.amount_cents,
+            method: SellerPaymentMethod::from_db(&row.method).ok_or_else(|| {
+                ApiError::Internal(anyhow::anyhow!("unknown payment method {}", row.method))
+            })?,
+            received_on: row.received_on.to_string(),
+        })
+    })
+    .collect()
+}
+
+/// Builds the page of a link.
+async fn view(state: &AppState, link: &LinkRow) -> ApiResult<SellerViewDto> {
+    let event = sqlx::query!(
+        r#"select e.name, e.venue, e.starts_at, e.utc_offset_minutes, e.ticket_price_cents,
+                  o.name as organizer, s.name as seller
+           from events e join organizations o on o.id = e.organization_id
+                         join sellers s on s.id = $2
+           where e.id = $1"#,
+        link.event_id,
+        link.seller_id,
+    )
+    .fetch_one(&state.pool)
+    .await?;
+    // Only paid numbers can be sold: the seller's ranges cut to the paid batches.
+    let held = sqlx::query_scalar!(
+        r#"select a.numbers * b.numbers as "numbers!"
+           from seller_assignments a
+           join ticket_batches b on b.event_id = a.event_id and b.status = 'paid' and b.numbers && a.numbers
+           where a.seller_id = $1
+           order by lower(a.numbers * b.numbers)"#,
+        link.seller_id
+    )
+    .fetch_all(&state.pool)
+    .await?;
+    let ranges = held
+        .iter()
+        .map(|numbers| bounds(numbers).map(|(first, last)| NumberRangeDto { first, last }))
+        .collect::<ApiResult<Vec<_>>>()?;
+    let voids = seller_voids(state, link).await?;
+    let sales = sqlx::query_as!(
+        SellerSaleDto,
+        r#"select ticket_number as number, buyer_name, buyer_phone, sold_at
+           from ticket_sales where event_id = $1 and seller_id = $2 order by ticket_number"#,
+        link.event_id,
+        link.seller_id,
+    )
+    .fetch_all(&state.pool)
+    .await?;
+    let payments = seller_payments(state, link.seller_id).await?;
+    // Counted per number, as the report does: a number in two voids counts once.
+    let counts = sqlx::query!(
+        r#"with held as (
+               select n as number
+               from seller_assignments a
+               join ticket_batches b on b.event_id = a.event_id and b.status = 'paid' and b.numbers && a.numbers,
+                    generate_series(lower(a.numbers * b.numbers), upper(a.numbers * b.numbers) - 1) as n
+               where a.seller_id = $2
+           ),
+           voided as (
+               select distinct on (h.number) h.number, v.reason
+               from held h join ticket_voids v
+                 on v.event_id = $1 and v.undone_at is null and v.numbers @> h.number
+               order by h.number, v.created_at
+           )
+           select count(*)::int as "tickets!",
+                  (count(s.ticket_number) filter (where v.number is null))::int as "sold!",
+                  (count(*) filter (where v.number is null and s.ticket_number is null))::int as "available!",
+                  (count(*) filter (where v.reason = 'unsold'))::int as "unsold!",
+                  (count(*) filter (where v.reason = 'lost'))::int as "lost!"
+           from held h
+           left join voided v on v.number = h.number
+           left join ticket_sales s on s.event_id = $1 and s.ticket_number = h.number and s.seller_id = $2"#,
+        link.event_id,
+        link.seller_id,
+    )
+    .fetch_one(&state.pool)
+    .await?;
+    let received_cents: i64 = payments.iter().map(|p| i64::from(p.amount_cents)).sum();
+    let due_tickets = counts.tickets - counts.unsold - counts.lost;
+    let amount_due_cents = event
+        .ticket_price_cents
+        .map(|price| i64::from(due_tickets) * i64::from(price));
+    let offset = time::UtcOffset::from_whole_seconds(i32::from(event.utc_offset_minutes) * 60)
+        .unwrap_or(time::UtcOffset::UTC);
+    let (number_prefix, number_digits) = super::tickets::number_style(state, link.event_id).await?;
+    Ok(SellerViewDto {
+        event: SellerViewEvent {
+            name: event.name,
+            venue: event.venue,
+            starts_at: event.starts_at.to_offset(offset),
+            organizer: event.organizer,
+            ticket_price_cents: event.ticket_price_cents,
+        },
+        seller: event.seller,
+        number_prefix,
+        number_digits,
+        ranges,
+        voids,
+        sales,
+        payments,
+        summary: SellerSummaryDto {
+            tickets: counts.tickets,
+            sold: counts.sold,
+            available: counts.available,
+            unsold: counts.unsold,
+            lost: counts.lost,
+            due_tickets,
+            amount_due_cents,
+            received_cents,
+            balance_cents: amount_due_cents.map(|due| due - received_cents),
+        },
+    })
+}
+
+fn no_store(view: SellerViewDto) -> Response {
+    (
+        [(CACHE_CONTROL, HeaderValue::from_static("no-store"))],
+        Json(view),
+    )
+        .into_response()
+}
+
+/// `POST /api/seller` (no login; the token is the credential): the seller's page.
+pub async fn open(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<SellerTokenBody>,
+) -> ApiResult<Response> {
+    ratelimit::by_ip(&state, &headers, ratelimit::SELLER_VIEW).await?;
+    let link = find_link(&state, &body.token).await?;
+    sqlx::query!(
+        "update seller_links set last_opened_at = now() where id = $1",
+        link.id
+    )
+    .execute(&state.pool)
+    .await?;
+    Ok(no_store(view(&state, &link).await?))
+}
+
+fn contact(value: Option<String>, max: usize, code: &'static str) -> ApiResult<Option<String>> {
+    let value = optional_text(value);
+    if let Some(text) = &value {
+        if text.chars().count() > max {
+            return Err(bad_request(code, format!("up to {max} characters")));
+        }
+        one_line(text, code)?;
+    }
+    Ok(value)
+}
+
+/// `POST /api/seller/sales`: marks numbers as sold. They must be the seller's, paid and not
+/// voided; marking a number again updates its buyer.
+pub async fn mark(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<SellerMarkBody>,
+) -> ApiResult<Response> {
+    ratelimit::by_ip(&state, &headers, ratelimit::SELLER_WRITE).await?;
+    let link = find_link(&state, &body.token).await?;
+    ensure_writable(&state, link.event_id, "/api/seller/sales").await?;
+    if body.ranges.is_empty() || body.ranges.len() > MAX_MARK_RANGES {
+        return Err(bad_request(
+            "invalid_range",
+            format!("give 1 to {MAX_MARK_RANGES} ranges"),
+        ));
+    }
+    let ranges = body
+        .ranges
+        .iter()
+        .map(|item| range(item.first, item.last).map(|numbers| (item.first, item.last, numbers)))
+        .collect::<ApiResult<Vec<(i32, i32, PgRange<i32>)>>>()?;
+    let total: i64 = ranges
+        .iter()
+        .map(|(first, last, _)| i64::from(*last) - i64::from(*first) + 1)
+        .sum();
+    if total > MAX_MARK_NUMBERS {
+        return Err(bad_request(
+            "invalid_range",
+            format!("up to {MAX_MARK_NUMBERS} numbers at once"),
+        ));
+    }
+    let buyer_name = contact(body.buyer_name, 80, "invalid_buyer_name")?;
+    let buyer_phone = contact(body.buyer_phone, 30, "invalid_buyer_phone")?;
+
+    let mut tx = state.pool.begin().await?;
+    for (first, last, numbers) in &ranges {
+        // Assignments never overlap each other, nor do batches: the sum of the intersections is
+        // the part of the range the seller holds in paid batches.
+        let held = sqlx::query_scalar!(
+            r#"select coalesce(sum(upper(a.numbers * b.numbers * $3) - lower(a.numbers * b.numbers * $3)), 0)::bigint as "held!"
+               from seller_assignments a
+               join ticket_batches b on b.event_id = a.event_id and b.status = 'paid' and b.numbers && a.numbers
+               where a.event_id = $1 and a.seller_id = $2 and a.numbers && $3 and b.numbers && $3"#,
+            link.event_id,
+            link.seller_id,
+            numbers.clone(),
+        )
+        .fetch_one(&mut *tx)
+        .await?;
+        if held != i64::from(*last) - i64::from(*first) + 1 {
+            return Err(bad_request(
+                "range_not_held",
+                "every number must belong to the seller",
+            ));
+        }
+        let voided = sqlx::query_scalar!(
+            r#"select exists(select 1 from ticket_voids
+                             where event_id = $1 and undone_at is null and numbers && $2) as "voided!""#,
+            link.event_id,
+            numbers.clone(),
+        )
+        .fetch_one(&mut *tx)
+        .await?;
+        if voided {
+            return Err(ApiError::Conflict(
+                "already_voided",
+                "some of these numbers are voided".to_owned(),
+            ));
+        }
+        sqlx::query!(
+            r#"insert into ticket_sales (event_id, ticket_number, seller_id, buyer_name, buyer_phone)
+               select $1, n, $2, $3, $4 from generate_series($5::int, $6::int) as n
+               on conflict (event_id, ticket_number) do update
+               set buyer_name = coalesce(excluded.buyer_name,
+                                         case when ticket_sales.seller_id = excluded.seller_id
+                                              then ticket_sales.buyer_name end),
+                   buyer_phone = coalesce(excluded.buyer_phone,
+                                          case when ticket_sales.seller_id = excluded.seller_id
+                                               then ticket_sales.buyer_phone end),
+                   sold_at = case when ticket_sales.seller_id = excluded.seller_id
+                                  then ticket_sales.sold_at else now() end,
+                   seller_id = excluded.seller_id"#,
+            link.event_id,
+            link.seller_id,
+            buyer_name,
+            buyer_phone,
+            first,
+            last,
+        )
+        .execute(&mut *tx)
+        .await?;
+    }
+    tx.commit().await?;
+    Ok(no_store(view(&state, &link).await?))
+}
+
+/// `POST /api/seller/sales/undo`: a number marked by mistake goes back to the seller.
+pub async fn unmark(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<SellerUnmarkBody>,
+) -> ApiResult<Response> {
+    ratelimit::by_ip(&state, &headers, ratelimit::SELLER_WRITE).await?;
+    let link = find_link(&state, &body.token).await?;
+    ensure_writable(&state, link.event_id, "/api/seller/sales/undo").await?;
+    sqlx::query!(
+        "delete from ticket_sales where event_id = $1 and ticket_number = $2 and seller_id = $3",
+        link.event_id,
+        body.number,
+        link.seller_id,
+    )
+    .execute(&state.pool)
+    .await?;
+    Ok(no_store(view(&state, &link).await?))
+}
+
+/// Removes the sale marks of numbers that left the seller (a return, a range taken back).
+pub(crate) async fn clear_marks(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    event_id: Uuid,
+    numbers: &PgRange<i32>,
+) -> ApiResult<()> {
+    sqlx::query!(
+        "delete from ticket_sales where event_id = $1 and $2::int4range @> ticket_number",
+        event_id,
+        numbers.clone(),
+    )
+    .execute(&mut **tx)
+    .await?;
+    Ok(())
+}

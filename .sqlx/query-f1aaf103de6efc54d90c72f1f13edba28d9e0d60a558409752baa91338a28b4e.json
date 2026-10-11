@@ -1,0 +1,101 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select e.name, e.venue, e.starts_at, e.utc_offset_minutes, e.ticket_price_cents,\n                  o.name as organizer, s.name as seller\n           from events e join organizations o on o.id = e.organization_id\n                         join sellers s on s.id = $2\n           where e.id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "venue",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "venue"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "starts_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "starts_at"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "utc_offset_minutes",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "utc_offset_minutes"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "ticket_price_cents",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "ticket_price_cents"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "organizer",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "organizations",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "seller",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "sellers",
+            "name": "name"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      false,
+      false,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "f1aaf103de6efc54d90c72f1f13edba28d9e0d60a558409752baa91338a28b4e"
+}

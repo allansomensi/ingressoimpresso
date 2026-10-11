@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select a.numbers * b.numbers as \"numbers!\"\n           from seller_assignments a\n           join ticket_batches b on b.event_id = a.event_id and b.status = 'paid' and b.numbers && a.numbers\n           where a.seller_id = $1\n           order by lower(a.numbers * b.numbers)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "numbers!",
+        "type_info": "Int4Range",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "aba4deb12bebbac6324fb506bb910108de3d28d9a28303b87d1d721133041d3c"
+}

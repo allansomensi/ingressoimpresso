@@ -56,6 +56,19 @@ pub const TICKET_IMAGE: Limit = Limit {
     window: Duration::from_mins(5),
 };
 
+/// `POST /api/seller`: a seller's page, refreshed as they mark sales (ADR 0053).
+pub const SELLER_VIEW: Limit = Limit {
+    name: "seller-view",
+    max: 300,
+    window: Duration::from_mins(5),
+};
+/// `POST /api/seller/sales` and `/undo`.
+pub const SELLER_WRITE: Limit = Limit {
+    name: "seller-write",
+    max: 120,
+    window: Duration::from_mins(5),
+};
+
 /// Counts this request against `limit` for its address. Without an address (a direct request in
 /// development or a test) nothing is counted; in production every request comes through the
 /// proxy, and one without an address shares a single bucket instead of escaping the limit.

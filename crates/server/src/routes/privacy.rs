@@ -2,9 +2,9 @@
 //! holds, and deleting the account.
 //!
 //! Deleting keeps only what the law requires: batches and payments (fiscal records) stay, tied to
-//! an anonymized user and to events renamed "Evento excluído"; art, designs, sellers (and the
-//! money they handed over), voids' notes, digital tickets, door data and files go. An account
-//! that never paid for anything is removed entirely.
+//! an anonymized user and to events renamed "Evento excluído"; art, designs, sellers (with the
+//! money they handed over, their links and the buyers they wrote down), voids' notes, digital
+//! tickets, door data and files go. An account that never paid for anything is removed entirely.
 
 use axum::extract::State;
 use axum::http::StatusCode;
@@ -192,9 +192,24 @@ async fn export_event(state: &AppState, event_id: Uuid) -> ApiResult<Value> {
             })
         })
         .collect::<Vec<_>>();
+        let sales = sqlx::query!(
+            r#"select ticket_number, buyer_name, buyer_phone, sold_at from ticket_sales
+               where seller_id = $1 order by ticket_number"#,
+            seller.id
+        )
+        .fetch_all(&state.pool)
+        .await?
+        .into_iter()
+        .map(|sale| {
+            json!({
+                "number": sale.ticket_number, "buyerName": sale.buyer_name,
+                "buyerPhone": sale.buyer_phone, "soldAt": rfc3339(sale.sold_at),
+            })
+        })
+        .collect::<Vec<_>>();
         seller_list.push(json!({
             "name": seller.name, "phone": seller.phone, "createdAt": rfc3339(seller.created_at),
-            "ranges": ranges, "received": received,
+            "ranges": ranges, "received": received, "sales": sales,
         }));
     }
     let voids = sqlx::query!(

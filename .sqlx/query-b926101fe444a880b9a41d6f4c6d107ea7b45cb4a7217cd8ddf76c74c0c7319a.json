@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into ticket_sales (event_id, ticket_number, seller_id, buyer_name, buyer_phone)\n               select $1, n, $2, $3, $4 from generate_series($5::int, $6::int) as n\n               on conflict (event_id, ticket_number) do update\n               set buyer_name = coalesce(excluded.buyer_name,\n                                         case when ticket_sales.seller_id = excluded.seller_id\n                                              then ticket_sales.buyer_name end),\n                   buyer_phone = coalesce(excluded.buyer_phone,\n                                          case when ticket_sales.seller_id = excluded.seller_id\n                                               then ticket_sales.buyer_phone end),\n                   sold_at = case when ticket_sales.seller_id = excluded.seller_id\n                                  then ticket_sales.sold_at else now() end,\n                   seller_id = excluded.seller_id",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Text",
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b926101fe444a880b9a41d6f4c6d107ea7b45cb4a7217cd8ddf76c74c0c7319a"
+}

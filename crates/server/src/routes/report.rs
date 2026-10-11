@@ -29,6 +29,7 @@ struct Counts {
     blocked_copies: i64,
     void_entries: i64,
     received_cents: i64,
+    marked_sold: i64,
 }
 
 impl Counts {
@@ -42,6 +43,7 @@ impl Counts {
         self.blocked_copies += other.blocked_copies;
         self.void_entries += other.void_entries;
         self.received_cents += other.received_cents;
+        self.marked_sold += other.marked_sold;
     }
 
     /// A report line. `owed`: a seller answers for these tickets; unassigned ones have no
@@ -72,6 +74,7 @@ impl Counts {
             balance_cents: amount_due_cents
                 .filter(|_| owed)
                 .map(|due| due - self.received_cents),
+            marked_sold: self.marked_sold,
         }
     }
 }
@@ -191,12 +194,15 @@ async fn counts_by_seller(
                   count(e.ticket_number) as "entries!",
                   coalesce(sum(c.offline_duplicates), 0)::bigint as "offline_duplicates!",
                   coalesce(sum(c.blocked_copies), 0)::bigint as "blocked_copies!",
-                  coalesce(sum(c.void_entries), 0)::bigint as "void_entries!"
+                  coalesce(sum(c.void_entries), 0)::bigint as "void_entries!",
+                  count(ts.ticket_number) filter (where v.number is null) as "marked_sold!"
            from issued i
            left join seller_assignments a on a.event_id = $1 and a.numbers @> i.number
            left join voided v on v.number = i.number
            left join entries e on e.event_id = $1 and e.ticket_number = i.number
            left join scanned c on c.number = i.number
+           left join ticket_sales ts on ts.event_id = $1 and ts.ticket_number = i.number
+                                    and ts.seller_id = a.seller_id
            group by a.seller_id"#,
         event_id,
     )
@@ -217,6 +223,7 @@ async fn counts_by_seller(
                     blocked_copies: line.blocked_copies,
                     void_entries: line.void_entries,
                     received_cents: 0,
+                    marked_sold: line.marked_sold,
                 },
             )
         })

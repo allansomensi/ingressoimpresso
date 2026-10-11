@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select id, event_id, seller_id from seller_links where token_hash = $1 and revoked_at is null",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "seller_links",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "event_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "seller_links",
+            "name": "event_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "seller_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "seller_links",
+            "name": "seller_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "fc54e1e192ebd2282414fb535d3401dc057656300383ac35c11f89c3715d63ab"
+}

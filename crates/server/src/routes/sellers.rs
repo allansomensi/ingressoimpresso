@@ -57,6 +57,7 @@ pub async fn list(
     )
     .fetch_all(&state.pool)
     .await?;
+    let mut links = super::seller_links::active_links(&state, event_id).await?;
     let mut ranges: HashMap<Uuid, Vec<RangeDto>> = HashMap::new();
     for assignment in assignments {
         let (first, last) = bounds(&assignment.numbers)?;
@@ -74,6 +75,7 @@ pub async fn list(
             .into_iter()
             .map(|seller| SellerDto {
                 ranges: ranges.remove(&seller.id).unwrap_or_default(),
+                link: links.remove(&seller.id),
                 id: seller.id,
                 name: seller.name,
                 phone: seller.phone,
@@ -114,6 +116,7 @@ pub async fn create(
             name,
             phone,
             ranges: Vec::new(),
+            link: None,
         }),
     ))
 }
@@ -201,16 +204,20 @@ pub async fn unassign(
     user: AuthUser,
     Path(range_id): Path<Uuid>,
 ) -> ApiResult<StatusCode> {
-    let event_id = sqlx::query_scalar!(
-        "select event_id from seller_assignments where id = $1",
+    let row = sqlx::query!(
+        "select event_id, numbers from seller_assignments where id = $1",
         range_id
     )
     .fetch_optional(&state.pool)
     .await?
     .ok_or(ApiError::NotFound)?;
-    authorize_event(&state.pool, &user, event_id).await?;
+    authorize_event(&state.pool, &user, row.event_id).await?;
+    let mut tx = state.pool.begin().await?;
     sqlx::query!("delete from seller_assignments where id = $1", range_id)
-        .execute(&state.pool)
+        .execute(&mut *tx)
         .await?;
+    // Sales marked on numbers the seller no longer holds would count for nobody.
+    super::seller_links::clear_marks(&mut tx, row.event_id, &row.numbers).await?;
+    tx.commit().await?;
     Ok(StatusCode::NO_CONTENT)
 }

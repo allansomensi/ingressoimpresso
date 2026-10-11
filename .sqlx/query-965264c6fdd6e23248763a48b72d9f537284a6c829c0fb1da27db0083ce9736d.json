@@ -1,0 +1,33 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into seller_links (id, event_id, seller_id, token_hash, sealed, created_by)\n           values ($1, $2, $3, $4, $5, $6) returning created_at",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "seller_links",
+            "name": "created_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Bytea",
+        "Bytea",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "965264c6fdd6e23248763a48b72d9f537284a6c829c0fb1da27db0083ce9736d"
+}
