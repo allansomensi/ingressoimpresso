@@ -12,6 +12,28 @@ e não acompanha estes números.
 
 ## [Não lançado]
 
+### Adicionado
+
+- Acerto com vendedores na aba Vendedores: registre o que cada um paga (Pix, dinheiro ou outro) e
+  veja quanto falta, quem está quitado e quem pagou a mais, com resumo geral e histórico
+  (ADR 0050).
+- Devolução por vendedor com vários números de uma vez (`12, 15, 40-50`), como devolvidos sem vender
+  ou perdidos, conferida contra os números de cada vendedor.
+- Resumo do acerto pronto para mandar pelo WhatsApp ou copiar, para cada vendedor.
+- Simulador de preços na página inicial: escolha quantos ingressos e veja o custo na hora, com os
+  ingressos grátis e a conta detalhada.
+- Exemplos de uso na página inicial (show de banda, rifa da turma e baile de formatura), passo a
+  passo e com ilustrações.
+- Página Sobre, com a ideia do produto, os princípios, quem faz e a versão em uso (ADR 0051).
+
+### Alterado
+
+- O relatório separa o acerto (com recebido e falta) da portaria, e a planilha traz as colunas de
+  dinheiro recebido e saldo.
+- A versão do site ficou discreta no canto do rodapé e leva à página Sobre, em vez das Novidades
+  (ADR 0051).
+- Textos mais claros: "emitidos" no lugar de "pagos" quando se fala dos ingressos gerados.
+
 ## [1.0.0] - 2026-10-10
 
 Primeira versão numerada: o produto que já estava em produção, das fases 0 a 9 e da blindagem
