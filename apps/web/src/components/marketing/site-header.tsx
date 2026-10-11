@@ -53,7 +53,7 @@ export function SiteHeader() {
     >
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
         <Logo />
-        <nav className="hidden items-center gap-1 md:flex" aria-label={t.menu}>
+        <nav className="hidden items-center gap-1 lg:flex" aria-label={t.menu}>
           {LINKS.map((link) => (
             <Link
               key={link.href}
@@ -64,7 +64,7 @@ export function SiteHeader() {
             </Link>
           ))}
         </nav>
-        <div className="hidden items-center gap-2 md:flex">
+        <div className="hidden items-center gap-2 lg:flex">
           {signedIn ? (
             <ButtonLink href="/painel" icon={<ArrowRight />} className="flex-row-reverse">
               {t.panel}
@@ -80,7 +80,7 @@ export function SiteHeader() {
         </div>
         <button
           type="button"
-          className="flex size-10 items-center justify-center rounded-lg text-fg md:hidden"
+          className="flex size-10 items-center justify-center rounded-lg text-fg lg:hidden"
           aria-label={t.menu}
           aria-expanded={open}
           onClick={() => {
@@ -91,7 +91,7 @@ export function SiteHeader() {
         </button>
       </div>
       {open && (
-        <div className="border-t border-border px-4 pt-2 pb-5 md:hidden animate-fade-in">
+        <div className="border-t border-border px-4 pt-2 pb-5 lg:hidden animate-fade-in">
           <nav className="flex flex-col" aria-label={t.menu}>
             {LINKS.map((link) => (
               <Link
