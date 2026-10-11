@@ -14,11 +14,12 @@ use axum::response::{IntoResponse, Response};
 use sqlx::postgres::types::PgRange;
 use uuid::Uuid;
 
-use super::{authorize_event, bounds, one_line, optional_text, range};
+use super::{EventRow, authorize_event, bounds, one_line, optional_text, range};
 use crate::api::{
     NumberRangeDto, SellerCategoryDto, SellerDueLineDto, SellerLinkDto, SellerMarkBody,
-    SellerPaymentMethod, SellerSaleDto, SellerSummaryDto, SellerTokenBody, SellerUnmarkBody,
-    SellerViewDto, SellerViewEvent, SellerViewPaymentDto, SellerVoidDto, TicketSaleDto, VoidReason,
+    SellerPaymentMethod, SellerSaleDto, SellerSettingsDto, SellerSummaryDto, SellerTicketBody,
+    SellerTokenBody, SellerUnmarkBody, SellerViewDto, SellerViewEvent, SellerViewPaymentDto,
+    SellerVoidDto, TicketSaleDto, VoidReason,
 };
 use crate::auth::{AuthUser, new_token, token_hash};
 use crate::error::{ApiError, ApiResult, bad_request};
@@ -343,11 +344,35 @@ async fn categories(
         .collect())
 }
 
+/// The numbers the seller marked as sold, each with its digital ticket when one was sent.
+async fn sales(state: &AppState, link: &LinkRow) -> ApiResult<Vec<SellerSaleDto>> {
+    let sales = sqlx::query!(
+        r#"select ticket_number, buyer_name, buyer_phone, sold_at
+           from ticket_sales where event_id = $1 and seller_id = $2 order by ticket_number"#,
+        link.event_id,
+        link.seller_id,
+    )
+    .fetch_all(&state.pool)
+    .await?;
+    let sold: Vec<i32> = sales.iter().map(|sale| sale.ticket_number).collect();
+    let mut urls = super::tickets::active_urls(state, link.event_id, &sold).await?;
+    Ok(sales
+        .into_iter()
+        .map(|sale| SellerSaleDto {
+            number: sale.ticket_number,
+            buyer_name: sale.buyer_name,
+            buyer_phone: sale.buyer_phone,
+            sold_at: sale.sold_at,
+            ticket_url: urls.remove(&sale.ticket_number),
+        })
+        .collect())
+}
+
 /// Builds the page of a link.
 async fn view(state: &AppState, link: &LinkRow) -> ApiResult<SellerViewDto> {
     let event = sqlx::query!(
         r#"select e.name, e.venue, e.starts_at, e.utc_offset_minutes, e.ticket_price_cents,
-                  o.name as organizer, s.name as seller
+                  e.sellers_send_tickets, o.name as organizer, s.name as seller
            from events e join organizations o on o.id = e.organization_id
                          join sellers s on s.id = $2
            where e.id = $1"#,
@@ -358,15 +383,7 @@ async fn view(state: &AppState, link: &LinkRow) -> ApiResult<SellerViewDto> {
     .await?;
     let ranges = held_ranges(state, link).await?;
     let voids = seller_voids(state, link).await?;
-    let sales = sqlx::query_as!(
-        SellerSaleDto,
-        r#"select ticket_number as number, buyer_name, buyer_phone, sold_at
-           from ticket_sales where event_id = $1 and seller_id = $2 order by ticket_number"#,
-        link.event_id,
-        link.seller_id,
-    )
-    .fetch_all(&state.pool)
-    .await?;
+    let sales = sales(state, link).await?;
     let payments = seller_payments(state, link.seller_id).await?;
     // Counted per number, as the report does: a number in two voids counts once.
     let counts = sqlx::query!(
@@ -442,6 +459,7 @@ async fn view(state: &AppState, link: &LinkRow) -> ApiResult<SellerViewDto> {
         },
         categories: categories(state, link.event_id, event.ticket_price_cents).await?,
         receivers: super::team::receivers(state, link.event_id).await?,
+        can_send_tickets: event.sellers_send_tickets,
     })
 }
 
@@ -594,7 +612,94 @@ pub async fn unmark(
     )
     .execute(&state.pool)
     .await?;
+    // A digital ticket the seller sent for a sale undone stops opening (ADR 0061).
+    super::tickets::revoke_seller_links(&state, link.event_id, link.seller_id, body.number).await?;
     Ok(no_store(view(&state, &link).await?))
+}
+
+/// `POST /api/seller/tickets`: the seller sends the digital ticket of a number they sold (ADR
+/// 0061): the same signed QR as the paper, for the buyer far away. When the organizer allows it.
+pub async fn send_ticket(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<SellerTicketBody>,
+) -> ApiResult<Response> {
+    ratelimit::by_ip(&state, &headers, ratelimit::SELLER_WRITE).await?;
+    let link = find_link(&state, &body.token).await?;
+    ensure_writable(&state, link.event_id, "/api/seller/tickets").await?;
+    let event = sqlx::query_as!(
+        EventRow,
+        r#"select id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag,
+                  utc_offset_minutes from events where id = $1"#,
+        link.event_id
+    )
+    .fetch_one(&state.pool)
+    .await?;
+    let allowed = sqlx::query_scalar!(
+        "select sellers_send_tickets from events where id = $1",
+        link.event_id
+    )
+    .fetch_one(&state.pool)
+    .await?;
+    if !allowed {
+        return Err(ApiError::Refused(
+            "seller_tickets_off",
+            "the organizer turned off digital tickets from sellers".to_owned(),
+        ));
+    }
+    let buyer = sqlx::query_scalar!(
+        r#"select buyer_name from ticket_sales
+           where event_id = $1 and ticket_number = $2 and seller_id = $3"#,
+        link.event_id,
+        body.number,
+        link.seller_id,
+    )
+    .fetch_optional(&state.pool)
+    .await?
+    .ok_or_else(|| bad_request("ticket_not_sold", "mark the number as sold first"))?;
+    super::tickets::send_for_seller(
+        &state,
+        &event,
+        link.seller_id,
+        body.number,
+        buyer.as_deref(),
+    )
+    .await?;
+    Ok(no_store(view(&state, &link).await?))
+}
+
+/// `GET /api/events/{id}/seller-settings`: what sellers may do on their links.
+pub async fn settings(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(event_id): Path<Uuid>,
+) -> ApiResult<Json<SellerSettingsDto>> {
+    authorize_event(&state.pool, &user, event_id).await?;
+    let send_tickets = sqlx::query_scalar!(
+        "select sellers_send_tickets from events where id = $1",
+        event_id
+    )
+    .fetch_one(&state.pool)
+    .await?;
+    Ok(Json(SellerSettingsDto { send_tickets }))
+}
+
+/// `PUT /api/events/{id}/seller-settings`.
+pub async fn update_settings(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(event_id): Path<Uuid>,
+    Json(body): Json<SellerSettingsDto>,
+) -> ApiResult<Json<SellerSettingsDto>> {
+    authorize_event(&state.pool, &user, event_id).await?;
+    sqlx::query!(
+        "update events set sellers_send_tickets = $2 where id = $1",
+        event_id,
+        body.send_tickets
+    )
+    .execute(&state.pool)
+    .await?;
+    Ok(Json(body))
 }
 
 /// Removes the sale marks of numbers that left the seller (a return, a range taken back).

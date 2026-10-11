@@ -878,6 +878,8 @@ dto! {
         #[serde(with = "time::serde::rfc3339::option")]
         #[cfg_attr(feature = "ts", ts(type = "string | null"))]
         pub entered_at: Option<OffsetDateTime>,
+        /// The seller who sent it from their link (ADR 0061); `null` when sent from the panel.
+        pub seller: Option<String>,
     }
 
     /// `GET /api/events/{id}/tickets`.
@@ -1187,6 +1189,43 @@ dto! {
         pub buyer_phone: Option<String>,
     }
 
+    /// `POST /api/seller/tickets`: the seller sends the digital ticket of a number they sold
+    /// (ADR 0061).
+    pub struct SellerTicketBody {
+        /// The token from the link's fragment.
+        pub token: String,
+        /// The number, already marked as sold by this seller.
+        pub number: i32,
+    }
+
+    /// `GET`/`PUT /api/events/{id}/seller-settings`: what sellers may do on their links.
+    pub struct SellerSettingsDto {
+        /// Sellers may send the digital ticket of what they sold (ADR 0061).
+        pub send_tickets: bool,
+    }
+
+    /// `POST /api/events/{id}/tickets/replace`: the replacement of a lost ticket (ADR 0061).
+    pub struct ReplaceTicketBody {
+        /// The lost number: it is voided.
+        pub number: i32,
+        /// The number to send instead; `null` takes the next free one of the same category.
+        pub new_number: Option<i32>,
+        /// Who receives it (optional, up to 80 characters); `null` keeps the lost ticket's holder.
+        pub holder_name: Option<String>,
+        /// Why (optional, up to 200 characters), kept in the void.
+        pub note: Option<String>,
+    }
+
+    /// A replacement made: the voided number and the digital ticket sent instead.
+    pub struct TicketReplacementDto {
+        /// The lost number, now voided.
+        pub old_number: i32,
+        /// The lost number as printed.
+        pub old_label: String,
+        /// The digital ticket of the new number.
+        pub link: TicketLinkDto,
+    }
+
     /// `POST /api/seller/sales/undo`: a number marked by mistake.
     pub struct SellerUnmarkBody {
         /// The token from the link's fragment.
@@ -1225,6 +1264,8 @@ dto! {
         #[serde(with = "time::serde::rfc3339")]
         #[cfg_attr(feature = "ts", ts(type = "string"))]
         pub sold_at: OffsetDateTime,
+        /// The number's active digital ticket, if one was sent (ADR 0061).
+        pub ticket_url: Option<String>,
     }
 
     /// Money the organizer recorded from this seller, on their page.
@@ -1328,6 +1369,8 @@ dto! {
         pub receivers: Vec<String>,
         /// The event's categories (ADR 0056), to tell which numbers are meia, VIP…
         pub categories: Vec<SellerCategoryDto>,
+        /// The seller may send digital tickets of what they sold (ADR 0061).
+        pub can_send_tickets: bool,
     }
 
     /// An inclusive range of ticket numbers.
@@ -1634,6 +1677,8 @@ dto! {
         pub undone_at: Option<OffsetDateTime>,
         /// Covers a refunded batch: permanent, cannot be undone (ADR 0032).
         pub locked: bool,
+        /// The number sent instead, when this void is a replacement of a lost ticket (ADR 0061).
+        pub replaced_by: Option<i32>,
     }
 
     /// `POST /api/events/{id}/exports`.

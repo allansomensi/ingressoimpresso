@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select sellers_send_tickets from events where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "sellers_send_tickets",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "sellers_send_tickets"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "c9bd229d740957dd36b7376d5e939927f06b9ee73c60066b2fa8d675dace2a8b"
+}

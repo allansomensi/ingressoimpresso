@@ -14,6 +14,13 @@ e não acompanha estes números.
 
 ### Adicionado
 
+- O vendedor manda o ingresso no celular de quem comprou, pelo WhatsApp, direto da página dele: o
+  mesmo QR do papel, para o comprador que está longe. O organizador pode desligar na aba
+  Vendedores, e a aba Digitais mostra quem enviou cada ingresso (ADR 0061).
+- Segunda via de ingresso perdido, num passo só, na aba Digitais: o número perdido é cancelado na
+  portaria, um número livre da mesma categoria vai para a mesma pessoa como ingresso no celular, o
+  lugar na mesa vai junto e o motivo fica registrado. Em Cancelamentos, aparece "Segunda via: nº X"
+  (ADR 0061).
 - No celular, o botão **Seções** da página do evento mostra todas as abas de uma vez, agrupadas
   (preparar, vender e entregar, no dia, pessoas) e com o que cada uma faz.
 - Na página inicial, no celular, uma barra com "Criar meu evento grátis" acompanha a leitura
@@ -47,6 +54,8 @@ e não acompanha estes números.
 - No app instalado no iPhone, a barra de abas do evento, o cabeçalho do site e os avisos respeitam
   a barra de status, e o conteúdo fica longe do entalhe com o celular deitado.
 - No celular, o botão "Instalar app" virou só um ícone, para não apertar o cabeçalho do painel.
+- Na página inicial, no tema claro, o quadro do que está incluso no preço deixou de ser um bloco
+  preto e acompanha o tema.
 
 ## [1.2.0] - 2026-10-11
 

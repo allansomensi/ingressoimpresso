@@ -21,6 +21,7 @@ struct VoidRow {
     created_at: OffsetDateTime,
     undone_at: Option<OffsetDateTime>,
     locked: bool,
+    replaced_by: Option<i32>,
 }
 
 impl VoidRow {
@@ -37,6 +38,7 @@ impl VoidRow {
             created_at: self.created_at,
             undone_at: self.undone_at,
             locked: self.locked,
+            replaced_by: self.replaced_by,
         })
     }
 }
@@ -52,7 +54,8 @@ pub async fn list(
         VoidRow,
         r#"select id, numbers, reason, note, created_at, undone_at,
                   exists(select 1 from ticket_batches b where b.event_id = ticket_voids.event_id
-                         and b.status = 'refunded' and b.numbers && ticket_voids.numbers) as "locked!"
+                         and b.status = 'refunded' and b.numbers && ticket_voids.numbers) as "locked!",
+                  (select r.new_number from ticket_replacements r where r.void_id = ticket_voids.id) as "replaced_by?"
            from ticket_voids where event_id = $1 order by created_at desc"#,
         event_id
     )
@@ -92,7 +95,8 @@ pub async fn create(
            values ($1, $2, $3, $4, $5, $6)
            returning id, numbers, reason, note, created_at, undone_at,
                      exists(select 1 from ticket_batches b where b.event_id = ticket_voids.event_id
-                         and b.status = 'refunded' and b.numbers && ticket_voids.numbers) as "locked!""#,
+                         and b.status = 'refunded' and b.numbers && ticket_voids.numbers) as "locked!",
+                     null::int as "replaced_by?""#,
         Uuid::new_v4(),
         event_id,
         numbers,
@@ -123,7 +127,8 @@ pub async fn undo(
            where id = $1 and undone_at is null
              and not exists(select 1 from ticket_batches b where b.event_id = ticket_voids.event_id
                             and b.status = 'refunded' and b.numbers && ticket_voids.numbers)
-           returning id, numbers, reason, note, created_at, undone_at, false as "locked!""#,
+           returning id, numbers, reason, note, created_at, undone_at, false as "locked!",
+                     (select r.new_number from ticket_replacements r where r.void_id = ticket_voids.id) as "replaced_by?""#,
         void_id,
         user.id,
     )

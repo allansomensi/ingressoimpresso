@@ -4,8 +4,11 @@ import type {
   CreateTicketLinkBody,
   CreateTicketLinksBody,
   EventDto,
+  ReplaceTicketBody,
   TicketLinkDto,
   TicketLinksDto,
+  TicketReplacementDto,
+  TicketSaleDto,
 } from "@ingressoimpresso/api-types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -24,10 +27,12 @@ import {
   Search,
   Send,
   Smartphone,
+  TicketX,
   TriangleAlert,
+  UserRound,
   X,
 } from "lucide-react";
-import { useDeferredValue, useState, type FormEvent } from "react";
+import { useDeferredValue, useState, type FormEvent, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { QrCode } from "@/components/qr";
@@ -95,11 +100,13 @@ function ShareLink({
   link,
   eventName,
   phone,
+  title,
   onClose,
 }: {
   link: TicketLinkDto;
   eventName: string;
   phone: string;
+  title: ReactNode;
   onClose: () => void;
 }) {
   const [copied, setCopied] = useState(false);
@@ -115,7 +122,7 @@ function ShareLink({
         <div className="flex min-w-0 flex-1 flex-col gap-4">
           <div className="flex items-start justify-between gap-3">
             <div className="flex flex-col gap-1">
-              <h3 className="text-lg font-semibold tracking-tight text-fg">{t.createdTitle(link.numberLabel)}</h3>
+              <h3 className="text-lg font-semibold tracking-tight text-fg">{title}</h3>
               <p className="text-sm leading-relaxed text-fg-muted">{t.createdHint}</p>
             </div>
             <Button variant="ghost" size="icon" aria-label={texts.common.close} onClick={onClose}>
@@ -209,6 +216,156 @@ function RenameDialog({ link, onClose, eventId }: { link: TicketLinkDto | null; 
           />
         </Field>
         <ErrorMessage error={save.error} />
+      </form>
+    </Dialog>
+  );
+}
+
+/** Who holds `number`: the name on its active link, or the buyer its seller marked. */
+function holderOf(number: number, links: readonly TicketLinkDto[], sales: readonly TicketSaleDto[]) {
+  const link = links.find((item) => item.number === number && item.revokedAt === null);
+  const sale = sales.find((item) => item.number === number);
+  return { name: link?.holderName ?? sale?.buyerName ?? null, phone: sale?.buyerPhone ?? null };
+}
+
+/**
+ * The replacement of a lost ticket (ADR 0061), in one step: the lost number is voided and a free
+ * number goes to the same person as a digital ticket.
+ */
+function ReplaceDialog({
+  eventId,
+  initial,
+  links,
+  label,
+  onClose,
+  onReplaced,
+}: {
+  eventId: string;
+  initial: number | null;
+  links: readonly TicketLinkDto[];
+  label: (value: number) => string;
+  onClose: () => void;
+  onReplaced: (replacement: TicketReplacementDto, phone: string) => void;
+}) {
+  const r = t.replace;
+  const queryClient = useQueryClient();
+  const sales = useQuery({
+    queryKey: ["ticket-sales", eventId],
+    queryFn: () => api<TicketSaleDto[]>(`/api/events/${eventId}/ticket-sales`),
+  });
+  const [lost, setLost] = useState(initial === null ? "" : String(initial));
+  const [holder, setHolder] = useState<string | null>(null);
+  const [fresh, setFresh] = useState("");
+  const [note, setNote] = useState("");
+  const lostNumber = lost === "" ? null : Number(lost);
+  const known = lostNumber === null ? { name: null, phone: null } : holderOf(lostNumber, links, sales.data ?? []);
+  // The holder field follows the lost number until it is edited.
+  const name = holder ?? known.name ?? "";
+
+  const replace = useMutation({
+    mutationFn: () => {
+      const body: ReplaceTicketBody = {
+        number: lostNumber ?? 0,
+        newNumber: fresh === "" ? null : Number(fresh),
+        holderName: name.trim() === "" ? null : name.trim(),
+        note: note.trim() === "" ? r.defaultNote : note.trim(),
+      };
+      return api<TicketReplacementDto>(`/api/events/${eventId}/tickets/replace`, { method: "POST", body });
+    },
+    onSuccess: (replacement) => {
+      for (const key of ["tickets", "voids", "report", "ticket-sales", "analytics", "tables"]) {
+        void queryClient.invalidateQueries({ queryKey: [key, eventId] });
+      }
+      toast.success(r.done(replacement.oldLabel, replacement.link.numberLabel));
+      onReplaced(replacement, known.phone ?? "");
+    },
+  });
+
+  // The dialog itself is the confirmation: it says what happens, and the button is red.
+  const submit = (formEvent: FormEvent) => {
+    formEvent.preventDefault();
+    if (lostNumber !== null) {
+      replace.mutate();
+    }
+  };
+
+  return (
+    <Dialog
+      open
+      onClose={onClose}
+      title={r.dialogTitle}
+      description={r.dialogBody}
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>
+            {texts.common.cancel}
+          </Button>
+          <Button type="submit" form="replace-ticket" variant="danger" icon={<TicketX />} loading={replace.isPending} disabled={lostNumber === null}>
+            {r.submit}
+          </Button>
+        </>
+      }
+    >
+      <form id="replace-ticket" onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
+        <Field
+          label={r.lost}
+          hint={
+            known.name === null ? undefined : (
+              <span className="inline-flex items-center gap-1">
+                <UserRound aria-hidden className="size-3.5" />
+                {r.lostHolder(known.name)}
+              </span>
+            )
+          }
+        >
+          <Input
+            inputMode="numeric"
+            value={lost}
+            required
+            autoFocus={initial === null}
+            onChange={(changeEvent) => {
+              setLost(changeEvent.target.value.replace(/\D/g, ""));
+              setHolder(null);
+              replace.reset();
+            }}
+          />
+        </Field>
+        <Field label={r.newNumber} optional hint={r.newNumberHint}>
+          <Input
+            inputMode="numeric"
+            value={fresh}
+            placeholder={r.newNumberPlaceholder}
+            onChange={(changeEvent) => {
+              setFresh(changeEvent.target.value.replace(/\D/g, ""));
+              replace.reset();
+            }}
+          />
+        </Field>
+        <Field label={r.holder} optional className="sm:col-span-2">
+          <Input
+            value={name}
+            maxLength={80}
+            placeholder={t.holderPlaceholder}
+            onChange={(changeEvent) => {
+              setHolder(changeEvent.target.value);
+            }}
+          />
+        </Field>
+        <Field label={r.reason} optional hint={r.reasonHint} className="sm:col-span-2">
+          <Input
+            value={note}
+            maxLength={200}
+            placeholder={r.reasonPlaceholder}
+            onChange={(changeEvent) => {
+              setNote(changeEvent.target.value);
+            }}
+          />
+        </Field>
+        <p className="flex items-start gap-2 text-xs leading-relaxed text-fg-muted sm:col-span-2">
+          <TriangleAlert className="mt-0.5 size-3.5 shrink-0 text-warning" aria-hidden />
+          {lostNumber === null ? r.warning : r.warningNumber(label(lostNumber))}
+        </p>
+        <ErrorMessage error={replace.error} className="sm:col-span-2" />
       </form>
     </Dialog>
   );
@@ -309,7 +466,8 @@ export function DigitalTab({ eventId, onSelect }: { eventId: string; onSelect: S
   const [number, setNumber] = useState("");
   const [holder, setHolder] = useState("");
   const [phone, setPhone] = useState("");
-  const [created, setCreated] = useState<{ link: TicketLinkDto; phone: string } | null>(null);
+  const [created, setCreated] = useState<{ link: TicketLinkDto; phone: string; title: string } | null>(null);
+  const [replacing, setReplacing] = useState<{ number: number | null } | null>(null);
   const [renaming, setRenaming] = useState<TicketLinkDto | null>(null);
   const [query, setQuery] = useState("");
   const search = useDeferredValue(query.trim().toLowerCase());
@@ -321,7 +479,7 @@ export function DigitalTab({ eventId, onSelect }: { eventId: string; onSelect: S
       return api<TicketLinkDto>(`/api/events/${eventId}/tickets`, { method: "POST", body });
     },
     onSuccess: (link) => {
-      setCreated({ link, phone });
+      setCreated({ link, phone, title: t.createdTitle(link.numberLabel) });
       setNumber("");
       setHolder("");
       setPhone("");
@@ -401,6 +559,7 @@ export function DigitalTab({ eventId, onSelect }: { eventId: string; onSelect: S
           link={created.link}
           eventName={eventName}
           phone={created.phone}
+          title={created.title}
           onClose={() => {
             setCreated(null);
           }}
@@ -469,6 +628,27 @@ export function DigitalTab({ eventId, onSelect }: { eventId: string; onSelect: S
         </Card>
       )}
 
+      {!closed && (
+        <Card>
+          <CardHeader
+            icon={TicketX}
+            title={t.replace.title}
+            description={t.replace.hint}
+            className="mb-4"
+          />
+          <Button
+            variant="secondary"
+            icon={<TicketX />}
+            className="w-full sm:w-fit"
+            onClick={() => {
+              setReplacing({ number: null });
+            }}
+          >
+            {t.replace.open}
+          </Button>
+        </Card>
+      )}
+
       {!closed && <BulkLinks eventId={eventId} eventName={eventName} />}
 
       <section className="flex flex-col gap-3">
@@ -511,6 +691,7 @@ export function DigitalTab({ eventId, onSelect }: { eventId: string; onSelect: S
                       <span className="flex flex-wrap items-center gap-2 text-xs text-fg-subtle">
                         <LinkState link={link} />
                         <span>{shortDateTime(link.createdAt)}</span>
+                        {link.seller !== null && <span>{t.bySeller(link.seller)}</span>}
                       </span>
                     </div>
                   </div>
@@ -559,6 +740,16 @@ export function DigitalTab({ eventId, onSelect }: { eventId: string; onSelect: S
                         >
                           {t.rename}
                         </MenuItem>
+                        {!closed && link.state === "valid" && (
+                          <MenuItem
+                            icon={<TicketX />}
+                            onSelect={() => {
+                              setReplacing({ number: link.number });
+                            }}
+                          >
+                            {t.replace.title}
+                          </MenuItem>
+                        )}
                         <MenuItem
                           tone="danger"
                           icon={<Ban />}
@@ -579,6 +770,27 @@ export function DigitalTab({ eventId, onSelect }: { eventId: string; onSelect: S
           </List>
         )}
       </section>
+
+      {replacing !== null && (
+        <ReplaceDialog
+          eventId={eventId}
+          initial={replacing.number}
+          links={data.links}
+          label={label}
+          onClose={() => {
+            setReplacing(null);
+          }}
+          onReplaced={(replacement, replacedPhone) => {
+            setReplacing(null);
+            setCreated({
+              link: replacement.link,
+              phone: replacedPhone,
+              title: t.replacedTitle(replacement.oldLabel, replacement.link.numberLabel),
+            });
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }}
+        />
+      )}
 
       <RenameDialog
         key={renaming?.id ?? "none"}

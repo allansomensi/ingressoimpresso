@@ -52,4 +52,8 @@ state: TicketState,
 /**
  * When the ticket entered.
  */
-enteredAt: string | null, };
+enteredAt: string | null, 
+/**
+ * The seller who sent it from their link (ADR 0061); `null` when sent from the panel.
+ */
+seller: string | null, };
