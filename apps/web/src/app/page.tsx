@@ -31,7 +31,11 @@ import { UseCases } from "@/components/marketing/use-cases";
 import { ButtonLink } from "@/components/ui";
 import { texts } from "@/texts/pt-BR";
 
-export const metadata: Metadata = { alternates: { canonical: "/" } };
+export const metadata: Metadata = {
+  // The words people search for first, the brand after (the layout's default puts the brand first).
+  title: { absolute: texts.landing.metaTitle },
+  alternates: { canonical: "/" },
+};
 
 const t = texts.landing;
 const FEATURE_ICONS: readonly LucideIcon[] = [
@@ -156,9 +160,12 @@ export default function LandingPage() {
               <SectionHeading eyebrow={texts.nav.templates} title={t.templatesTitle} lead={t.templatesLead} />
             </div>
             <TemplateShowcase />
-            <div className="flex justify-center px-4">
+            <div className="flex flex-col justify-center gap-3 px-4 sm:flex-row">
               <ButtonLink href="/entrar" size="lg" icon={<ArrowRight />} className="flex-row-reverse">
                 {t.templatesCta}
+              </ButtonLink>
+              <ButtonLink href="/modelos" size="lg" variant="secondary">
+                {texts.templateGallery.all}
               </ButtonLink>
             </div>
           </div>

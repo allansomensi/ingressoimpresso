@@ -1,25 +1,26 @@
-import { ArrowRight, Check, CircleCheck, ChevronRight, XCircle } from "lucide-react";
+import { ArrowRight, Check, CircleCheck, XCircle } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { JsonLd, eventPageJsonLd } from "@/components/json-ld";
+import { Breadcrumb } from "@/components/marketing/breadcrumb";
 import { FaqList } from "@/components/marketing/faq-list";
+import { FinalCta } from "@/components/marketing/final-cta";
 import { MobileCta } from "@/components/marketing/mobile-cta";
 import { PhoneMock, TicketMock } from "@/components/marketing/mockups";
 import { SectionHeading } from "@/components/marketing/section-heading";
 import { SiteFooter } from "@/components/marketing/site-footer";
 import { SiteHeader } from "@/components/marketing/site-header";
+import { TemplateCard } from "@/components/marketing/template-card";
 import { ButtonLink } from "@/components/ui";
 import { eventSeoPage, eventSeoPages } from "@/content/seo-event-pages";
+import { EVENT_TEMPLATES, templateSeoById } from "@/content/seo-templates";
 import { texts } from "@/texts/pt-BR";
 
 const t = texts.eventPages;
 
 type Props = { params: Promise<{ slug: string }> };
-
-/** The site's share image (app/opengraph-image.png). */
-const SHARE_IMAGE = { url: "/opengraph-image.png", width: 1200, height: 630, alt: texts.meta.shareImageAlt };
 
 // Only the pages in eventSeoPages exist; any other slug is a 404.
 export const dynamicParams = false;
@@ -39,17 +40,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: { absolute: page.title },
     description: page.description,
     alternates: { canonical: path },
-    // Setting openGraph and twitter replaces the layout's: the share image and card come along.
-    openGraph: {
-      type: "website",
-      locale: "pt_BR",
-      siteName: texts.meta.title,
-      url: path,
-      title: page.title,
-      description: page.description,
-      images: [SHARE_IMAGE],
-    },
-    twitter: { card: "summary_large_image", title: page.title, description: page.description, images: [SHARE_IMAGE] },
+    // The share image is ./opengraph-image.tsx (and ./twitter-image.tsx).
+    openGraph: { type: "website", locale: "pt_BR", siteName: texts.meta.title, url: path, title: page.title, description: page.description },
+    twitter: { card: "summary_large_image", title: page.title, description: page.description },
   };
 }
 
@@ -59,6 +52,8 @@ export default async function EventTypePage({ params }: Props) {
   if (page === undefined) {
     notFound();
   }
+  const templates = (EVENT_TEMPLATES[page.slug] ?? []).map(templateSeoById).filter((template) => template !== undefined);
+  const others = eventSeoPages.filter((other) => other.slug !== page.slug);
   return (
     <div className="flex min-h-dvh flex-col">
       <JsonLd data={eventPageJsonLd(page)} />
@@ -69,21 +64,7 @@ export default async function EventTypePage({ params }: Props) {
           <div aria-hidden className="absolute inset-0 bg-dots [mask-image:radial-gradient(ellipse_at_top,black,transparent_70%)] opacity-60" />
           <div className="relative mx-auto grid max-w-6xl items-center gap-14 px-4 pt-10 pb-20 sm:px-6 lg:grid-cols-[1.1fr_1fr] lg:pt-16 lg:pb-28">
             <div className="flex flex-col items-start gap-6 animate-rise">
-              <nav aria-label={t.breadcrumb}>
-                <ol className="flex items-center gap-1.5 text-sm text-fg-subtle">
-                  <li>
-                    <Link href="/" className="relative transition touch-target hover:text-fg">
-                      {t.home}
-                    </Link>
-                  </li>
-                  <li aria-hidden>
-                    <ChevronRight className="size-3.5" />
-                  </li>
-                  <li aria-current="page" className="text-fg-muted">
-                    {page.label}
-                  </li>
-                </ol>
-              </nav>
+              <Breadcrumb items={[{ label: t.home, href: "/" }, { label: page.label }]} />
               <span className="inline-flex items-center gap-2 rounded-full border border-brand/20 bg-brand-soft px-3 py-1 text-[13px] font-medium text-brand-soft-fg">
                 <span className="size-1.5 rounded-full bg-brand" />
                 {t.eyebrow(page.label)}
@@ -162,17 +143,49 @@ export default async function EventTypePage({ params }: Props) {
           </div>
         </section>
 
-        {/* Final CTA */}
-        <section id="criar" className="px-4 py-20 sm:px-6">
-          <div className="relative mx-auto flex max-w-5xl flex-col items-center gap-6 overflow-hidden rounded-[2rem] bg-brand-solid px-6 py-16 text-center text-white shadow-lg shadow-brand/30">
-            <div aria-hidden className="absolute inset-0 bg-[radial-gradient(60%_80%_at_50%_0%,rgba(255,255,255,0.25),transparent)]" />
-            <h2 className="relative max-w-2xl text-3xl font-semibold tracking-tight text-balance sm:text-4xl">{page.cta}</h2>
-            <p className="relative max-w-xl text-lg text-white/80">{texts.landing.finalBody}</p>
-            <ButtonLink href="/entrar" size="lg" variant="inverse" icon={<ArrowRight />} className="relative flex-row-reverse">
-              {texts.landing.primaryCta}
-            </ButtonLink>
+        {/* Templates for this kind of event */}
+        {templates.length > 0 && (
+          <section className="border-t border-border bg-bg">
+            <div className="mx-auto flex max-w-6xl flex-col gap-10 px-4 py-20 sm:px-6 lg:py-24">
+              <SectionHeading title={t.templatesTitle(page.label)} lead={t.templatesLead} />
+              <ul className="grid gap-4 sm:grid-cols-3">
+                {templates.map((template) => (
+                  <li key={template.id}>
+                    <TemplateCard page={template} headingLevel="h3" />
+                  </li>
+                ))}
+              </ul>
+              <div className="flex justify-center">
+                <ButtonLink href="/modelos" variant="secondary">
+                  {texts.templateGallery.all}
+                </ButtonLink>
+              </div>
+            </div>
+          </section>
+        )}
+
+        <FinalCta title={page.cta} />
+
+        {/* The other kinds of event */}
+        <nav aria-labelledby="outros-eventos" className="border-t border-border bg-surface">
+          <div className="mx-auto flex max-w-5xl flex-col items-center gap-5 px-4 py-12 sm:px-6">
+            <h2 id="outros-eventos" className="text-sm font-semibold text-fg-subtle">
+              {t.otherEvents}
+            </h2>
+            <ul className="flex flex-wrap justify-center gap-2.5">
+              {others.map((other) => (
+                <li key={other.slug}>
+                  <Link
+                    href={`/ingresso-para/${other.slug}`}
+                    className="inline-flex min-h-10 items-center rounded-full border border-border bg-bg px-4 text-sm font-medium text-fg-muted transition hover:border-brand/40 hover:text-fg active:bg-surface-2"
+                  >
+                    {other.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
           </div>
-        </section>
+        </nav>
       </main>
 
       <SiteFooter />
