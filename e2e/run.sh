@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Runs the door end-to-end test and the CSP check: API (cargo, DATABASE_URL from the environment) on :8080 and the
+# Runs the door and seller end-to-end tests and the CSP check: API (cargo, DATABASE_URL from the environment) on :8080 and the
 # production web build on :3000, then e2e/portaria.e2e.mjs. Called by `just e2e` and by CI.
 # E2E_API_PORT and E2E_WEB_PORT move them (several worktrees on one machine).
 set -euo pipefail
@@ -50,5 +50,7 @@ for url in "http://localhost:$api_port/healthz" "http://localhost:$web_port/port
 done
 
 E2E_API_LOG="$out/api.log" E2E_OUT="$out" node e2e/portaria.e2e.mjs
+# The seller's link without internet (ADR 0074): reopening offline, the queue and its conflicts.
+E2E_API_LOG="$out/api.log" E2E_OUT="$out" node e2e/vendedor.e2e.mjs
 # The same production server: every page carries its CSP nonce (ADR 0048).
 node e2e/csp.e2e.mjs

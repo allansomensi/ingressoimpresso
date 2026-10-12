@@ -45,6 +45,19 @@ e não acompanha estes números.
   vendidos, a curva da última hora, cada porta, categoria e celular (com alerta de quem está sem
   sincronizar), as recusas, a lista de nomes e a bilheteria; no dia do evento, a visão geral
   ganha um resumo (ADR 0071).
+- Reservas do vendedor: na página do vendedor e na aba Vendedores, dá para separar números para
+  alguém até amanhã, daqui a 3 dias, sexta ou uma data, e depois marcar como vendido num toque ou
+  cancelar. Reserva vencida volta a ficar livre sozinha; as que vencem em 24 horas aparecem em
+  destaque, com o lembrete pronto para mandar no WhatsApp. O relatório e o acerto mostram os
+  reservados à parte, e a reserva nunca muda nada na portaria (ADR 0072).
+- Metas e ranking: meta de ingressos por vendedor (ou a mesma meta para todos de uma vez), com a
+  barra de progresso na página do vendedor e a visão **Ranking e metas** na aba Vendedores. Se o
+  organizador ligar, cada vendedor vê a própria posição e os 5 primeiros, só com o primeiro nome e
+  a inicial (ADR 0073).
+- O link do vendedor funciona sem internet: a página abre com os dados da última visita, aceita
+  vendas e reservas guardadas no celular ("Sem internet · 3 alterações para enviar") e envia tudo
+  quando a conexão volta, sem duplicar; o que mudou em outro aparelho é explicado em palavras
+  simples (ADR 0074).
 - Página **Conferir ingresso** (`/conferir`): quem vai comprar o ingresso de outra pessoa lê o QR
   com a câmera, envia uma foto ou cola o texto e vê se ele é nosso, de qual evento, número e
   categoria, e se o número foi cancelado ou o evento mudou. Nunca mostra quem comprou nem se já
@@ -64,6 +77,14 @@ e não acompanha estes números.
   ingresso, arte liberada, lote pago, links dos vendedores, ingressos entregues, portaria, ensaio,
   contato da organização e os opcionais), cada item levando à aba certa, para cada pessoa da
   equipe o que é dela. A lista de eventos mostra "Faltam 3" (ADR 0078).
+
+### Alterado
+
+- A Política de Privacidade descreve os dados das novidades desta versão: o perfil público da
+  organização, as indicações, a lista de nomes da portaria, os compradores e as reservas anotados
+  pelos vendedores, a página do vendedor sem internet e a conferência de ingressos. Ao entrar, cada
+  conta aceita a nova versão. Quando uma conta convidada é excluída, quem convidou deixa de ver o
+  e-mail dela.
 
 ### Corrigido
 

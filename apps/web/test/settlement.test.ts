@@ -21,6 +21,7 @@ function row(overrides: Partial<ReportRowDto>): ReportRowDto {
     receivedCents: 50000,
     balanceCents: 18000,
     markedSold: 0,
+    reserved: 0,
     boxOffice: false,
     ...overrides,
   };
@@ -149,6 +150,20 @@ describe("settlement", () => {
       "",
       "👉 Falta: *R$ 180,00*",
     ]);
+  });
+
+  it("reminds the seller of the reserved numbers (not money yet)", () => {
+    const message = settlementMessage({
+      seller: "Maria Souza",
+      eventName: "Show da Banda",
+      ranges: [{ first: 1, last: 40 }],
+      row: row({ reserved: 3 }),
+      priceCents: 2000,
+    });
+    expect(message).toContain("📌 Reservados (ainda não pagos): 3");
+    expect(settlementMessage({ seller: "Caio", eventName: "Show", ranges: [], row: row({ reserved: 3, boxOffice: true }), priceCents: 2000 })).not.toContain(
+      "Reservados",
+    );
   });
 
   it("links to the seller's WhatsApp with the country code", () => {

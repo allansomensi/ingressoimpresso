@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "delete from ticket_reservations where expires_at < now() - interval '7 days'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "5983e3736d2a59125bb0c7a1938c57a3c891fdd99c5c416640701906f44a958d"
+}

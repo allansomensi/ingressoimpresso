@@ -67,6 +67,10 @@ balanceCents: number | null,
  */
 markedSold: number, 
 /**
+ * Reserved for someone and not sold yet (ADR 0072): still the seller's, not money.
+ */
+reserved: number, 
+/**
  * A box office seller (ADR 0069): sold = numbers that entered.
  */
 boxOffice: boolean, };

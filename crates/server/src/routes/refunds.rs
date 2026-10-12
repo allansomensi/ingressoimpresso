@@ -174,6 +174,14 @@ pub(crate) async fn record_refund(
             .await?;
             outcome.batch_refunded = true;
         }
+    } else {
+        // What stays paid may fall under the minimum that earned a referral (ADR 0076).
+        super::referrals::revoke_below_minimum(
+            &mut tx,
+            payment.batch_id,
+            i64::from(updated.amount_cents) - i64::from(updated.refunded_cents),
+        )
+        .await?;
     }
     tx.commit().await?;
     if outcome.batch_refunded {

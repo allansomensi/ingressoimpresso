@@ -104,13 +104,21 @@ async fn check_categories(
     Ok(())
 }
 
-/// Refuses a list that would pass [`MAX_GUESTS`].
-async fn check_room(state: &AppState, event_id: Uuid, adding: usize) -> ApiResult<()> {
+/// Refuses a list that would pass [`MAX_GUESTS`]. Holds the event's row until the transaction
+/// ends, so two lists pasted at once cannot both fit in the room left for one.
+async fn check_room(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    event_id: Uuid,
+    adding: usize,
+) -> ApiResult<()> {
+    sqlx::query!("select id from events where id = $1 for update", event_id)
+        .fetch_one(&mut **tx)
+        .await?;
     let count = sqlx::query_scalar!(
         r#"select count(*) as "count!" from guest_list where event_id = $1"#,
         event_id
     )
-    .fetch_one(&state.pool)
+    .fetch_one(&mut **tx)
     .await?;
     if count + i64::try_from(adding).unwrap_or(i64::MAX) > MAX_GUESTS {
         return Err(ApiError::Conflict(
@@ -205,8 +213,8 @@ async fn insert(
     guests: Vec<CleanGuest>,
 ) -> ApiResult<Vec<Uuid>> {
     check_categories(state, event_id, &guests).await?;
-    check_room(state, event_id, guests.len()).await?;
     let mut tx = state.pool.begin().await?;
+    check_room(&mut tx, event_id, guests.len()).await?;
     let mut ids = Vec::with_capacity(guests.len());
     for guest in guests {
         let id = Uuid::new_v4();
@@ -326,10 +334,14 @@ pub(crate) async fn door_list(
     held: Option<&str>,
 ) -> ApiResult<(Option<Vec<DoorGuestDto>>, String)> {
     let version = sqlx::query_scalar!(
+        // A renamed, recoloured or deleted category changes what the phones show, not the row.
         r#"select count(*)::text || '-' ||
-                  coalesce(md5(string_agg(g.id::text || g.updated_at::text, ',' order by g.id)), '')
+                  coalesce(md5(string_agg(g.id::text || g.updated_at::text || coalesce(g.category_id::text, '')
+                                          || coalesce(c.name, '') || coalesce(c.color, ''),
+                                          ',' order by g.id)), '')
                   as "version!"
-           from guest_list g where g.event_id = $1"#,
+           from guest_list g left join ticket_categories c on c.id = g.category_id
+           where g.event_id = $1"#,
         event_id
     )
     .fetch_one(&state.pool)

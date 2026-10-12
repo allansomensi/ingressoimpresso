@@ -37,8 +37,10 @@ pub(crate) struct Facts {
     pub rejected: i64,
     pub categories: bool,
     pub paid: bool,
-    /// Sellers with numbers, and how many of them have an active private link.
+    /// Sellers with numbers; those of them who use a private link (the box office does not,
+    /// ADR 0069), and how many of these have an active one.
     pub sellers: i32,
+    pub link_sellers: i32,
     pub linked: i32,
     /// Files generated or digital tickets sent.
     pub delivered: bool,
@@ -78,6 +80,10 @@ pub(crate) async fn facts(pool: &PgPool, ids: &[Uuid]) -> ApiResult<HashMap<Uuid
                   (select count(distinct a.seller_id) from seller_assignments a
                    where a.event_id = e.id)::int4 as "sellers!",
                   (select count(distinct a.seller_id) from seller_assignments a
+                   join sellers s on s.id = a.seller_id and not s.box_office
+                   where a.event_id = e.id)::int4 as "link_sellers!",
+                  (select count(distinct a.seller_id) from seller_assignments a
+                   join sellers s on s.id = a.seller_id and not s.box_office
                    where a.event_id = e.id
                      and exists(select 1 from seller_links l
                                 where l.seller_id = a.seller_id and l.revoked_at is null))::int4 as "linked!",
@@ -120,6 +126,7 @@ pub(crate) async fn facts(pool: &PgPool, ids: &[Uuid]) -> ApiResult<HashMap<Uuid
                     categories: row.categories,
                     paid: row.paid,
                     sellers: row.sellers,
+                    link_sellers: row.link_sellers,
                     linked: row.linked,
                     delivered: row.delivered,
                     door_link: row.door_link,
@@ -232,17 +239,17 @@ pub(crate) fn items(
         Key::SellerLinks,
         Some(TeamArea::Delivery),
         false,
-        if facts.sellers == 0 {
+        if facts.link_sellers == 0 {
             NotApplicable
         } else {
-            required(facts.linked >= facts.sellers)
+            required(facts.linked >= facts.link_sellers)
         },
         &can,
     );
-    if facts.sellers > 0 {
+    if facts.link_sellers > 0 {
         links.progress = Some(ChecklistProgressDto {
-            done: facts.linked.min(facts.sellers),
-            total: facts.sellers,
+            done: facts.linked.min(facts.link_sellers),
+            total: facts.link_sellers,
         });
     }
     let mut rehearsal = item(
@@ -388,6 +395,7 @@ mod tests {
             categories: false,
             paid: true,
             sellers: 2,
+            link_sellers: 2,
             linked: 2,
             delivered: true,
             door_link: true,
@@ -450,6 +458,22 @@ mod tests {
             rehearsal.and_then(|item| item.hint),
             Some(ChecklistHint::NoDevices)
         );
+    }
+
+    #[test]
+    fn a_box_office_needs_no_link() {
+        let facts = Facts {
+            sellers: 1,
+            link_sellers: 0,
+            linked: 0,
+            ..ready()
+        };
+        let items = items(&facts, |_| true);
+        let links = items
+            .iter()
+            .find(|item| item.key == ChecklistKey::SellerLinks)
+            .map(|item| item.state);
+        assert_eq!(links, Some(ChecklistState::NotApplicable));
     }
 
     #[test]

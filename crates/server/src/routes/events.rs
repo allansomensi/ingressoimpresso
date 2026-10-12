@@ -505,8 +505,8 @@ pub(crate) async fn copy_event(
         .await?;
     }
     sqlx::query!(
-        r#"insert into sellers (id, event_id, name, phone)
-           select gen_random_uuid(), $2, name, phone from sellers where event_id = $1"#,
+        r#"insert into sellers (id, event_id, name, phone, box_office, goal)
+           select gen_random_uuid(), $2, name, phone, box_office, goal from sellers where event_id = $1"#,
         event_id,
         copy.id,
     )
@@ -514,10 +514,11 @@ pub(crate) async fn copy_event(
     .await?;
     super::team::copy(tx, event_id, copy.id, to.user_id).await?;
     copy_categories_and_tables(tx, event_id, copy.id).await?;
-    // The event's switches are setup too: sellers sending tickets (ADR 0061) and the public
-    // check (ADR 0075).
+    // The event's switches are setup too: sellers sending tickets (ADR 0061), the sellers'
+    // ranking (ADR 0073) and the public check (ADR 0075).
     sqlx::query!(
-        r#"update events c set sellers_send_tickets = s.sellers_send_tickets, public_verify = s.public_verify,
+        r#"update events c set sellers_send_tickets = s.sellers_send_tickets,
+                              sellers_ranking = s.sellers_ranking, public_verify = s.public_verify,
                               series_id = $3
            from events s where s.id = $1 and c.id = $2"#,
         event_id,

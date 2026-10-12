@@ -61,6 +61,16 @@ Opção 3.
 
 ## Consequências
 
+- O convite público nunca mostra um nome de organização que ainda é um e-mail (conta criada pelo
+  código e não renomeada): a página diz só "Você recebeu um convite".
+- Um reembolso parcial que deixa pago menos que o lote mínimo revoga a indicação, como o total.
+- Uma organização anonimizada pela exclusão da conta perde o código (o link deixa de valer) e
+  sai das indicações ainda pendentes: quem ela convidou ganha sozinho, como quando a organização
+  é apagada inteira.
+- Ao excluir a conta convidada, a dica do e-mail (`referred_email_hint`) é apagada: quem convidou
+  vê "Conta excluída". Fica só o hash com chave, para o mesmo e-mail não valer de novo; a Política
+  de Privacidade (versão 2026-10-12.1) diz isso.
+
 - Burlar exige pagar lotes de verdade com e-mails distintos, e cada indicadora tem um teto mensal.
   O admin vê tudo e cancela o que parecer combinado.
 - O hash do e-mail indicado fica depois da exclusão da conta, só para impedir a repetição; não

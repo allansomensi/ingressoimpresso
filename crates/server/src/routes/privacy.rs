@@ -200,7 +200,7 @@ async fn export_event(state: &AppState, event_id: Uuid) -> ApiResult<Value> {
     })
     .collect::<Vec<_>>();
     let sellers = sqlx::query!(
-        "select id, name, phone, box_office, created_at from sellers where event_id = $1 order by name",
+        "select id, name, phone, box_office, goal, created_at from sellers where event_id = $1 order by name",
         event_id
     )
     .fetch_all(&state.pool)
@@ -247,9 +247,28 @@ async fn export_event(state: &AppState, event_id: Uuid) -> ApiResult<Value> {
             })
         })
         .collect::<Vec<_>>();
+        // Reservations (ADR 0072) hold names and phones of people too.
+        let reservations = sqlx::query!(
+            r#"select ticket_number, holder_name, holder_phone, expires_at, created_at
+               from ticket_reservations where seller_id = $1 order by ticket_number"#,
+            seller.id
+        )
+        .fetch_all(&state.pool)
+        .await?
+        .into_iter()
+        .map(|reservation| {
+            json!({
+                "number": reservation.ticket_number, "holderName": reservation.holder_name,
+                "holderPhone": reservation.holder_phone,
+                "expiresAt": rfc3339(reservation.expires_at),
+                "createdAt": rfc3339(reservation.created_at),
+            })
+        })
+        .collect::<Vec<_>>();
         seller_list.push(json!({
             "name": seller.name, "phone": seller.phone, "createdAt": rfc3339(seller.created_at),
-            "boxOffice": seller.box_office, "ranges": ranges, "received": received, "sales": sales,
+            "boxOffice": seller.box_office, "goal": seller.goal, "ranges": ranges,
+            "received": received, "sales": sales, "reservations": reservations,
         }));
     }
     let voids = sqlx::query!(
@@ -431,6 +450,14 @@ pub async fn delete(
     .fetch_all(&mut *tx)
     .await?;
     for organization_id in organizations {
+        // A referral row outlives the referred account only for its keyed e-mail hash (one
+        // e-mail counts once, ADR 0076); the hint the referrer saw goes with the account.
+        sqlx::query!(
+            "update referrals set referred_email_hint = '' where referred_organization_id = $1",
+            organization_id
+        )
+        .execute(&mut *tx)
+        .await?;
         let keeps_records = sqlx::query_scalar!(
             r#"select exists(select 1 from ticket_batches b join events e on e.id = b.event_id
                              where e.organization_id = $1
@@ -493,9 +520,19 @@ pub async fn delete(
         )
         .execute(&mut *tx)
         .await?;
+        // A deleted organization refers nobody any more: its link stops working, and the people
+        // it invited who have not paid yet earn alone, as when the organization is removed whole
+        // (the foreign key sets the referrer to null).
+        sqlx::query!(
+            r#"update referrals set referrer_organization_id = null
+               where referrer_organization_id = $1 and status = 'pending'"#,
+            organization_id
+        )
+        .execute(&mut *tx)
+        .await?;
         sqlx::query!(
             r#"update organizations set name = $2, bonus_free_tickets = 0, suspended_at = null,
-                      suspended_reason = null where id = $1"#,
+                      suspended_reason = null, referral_code = null where id = $1"#,
             organization_id,
             DELETED_ORGANIZATION,
         )

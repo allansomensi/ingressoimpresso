@@ -82,7 +82,11 @@ pub fn need(method: &Method, path: &str) -> Need {
             | "events/{id}/tables"
             | "events/{id}/tables/bulk"
             | "tables/{id}/tickets"
-            | "tables/{id}/tickets/remove",
+            | "tables/{id}/tickets/remove"
+            // Reservations and goals of sellers (ADRs 0072, 0073).
+            | "sellers/{id}/reservations"
+            | "reservations/{id}/sell"
+            | "events/{id}/sellers/goals",
         )
         | (
             "PUT",
@@ -91,10 +95,14 @@ pub fn need(method: &Method, path: &str) -> Need {
             | "tables/{id}"
             | "events/{id}/tables/layout"
             | "events/{id}/seller-settings"
+            | "sellers/{id}/goal"
             // The public check of the event's tickets (ADR 0075) goes with the digital tickets.
             | "events/{id}/verify-settings",
         )
-        | ("DELETE", "sellers/{id}" | "sellers/{id}/link" | "ranges/{id}" | "tables/{id}") => {
+        | (
+            "DELETE",
+            "sellers/{id}" | "sellers/{id}/link" | "ranges/{id}" | "tables/{id}" | "reservations/{id}",
+        ) => {
             Need::Area(TeamArea::Delivery)
         }
         ("POST", "voids/{id}/undo") => Need::Either(TeamArea::Delivery, TeamArea::Money),
@@ -690,6 +698,28 @@ mod tests {
                 "{method} {template}"
             );
         }
+    }
+
+    #[test]
+    fn reservations_and_goals_belong_to_delivery() {
+        let cases = [
+            (Method::POST, "sellers/{id}/reservations"),
+            (Method::POST, "reservations/{id}/sell"),
+            (Method::DELETE, "reservations/{id}"),
+            (Method::PUT, "sellers/{id}/goal"),
+            (Method::POST, "events/{id}/sellers/goals"),
+        ];
+        for (method, template) in cases {
+            assert_eq!(
+                need(&method, &path(template)),
+                Need::Area(TeamArea::Delivery),
+                "{method} {template}"
+            );
+        }
+        assert_eq!(
+            need(&Method::GET, &path("events/{id}/reservations")),
+            Need::Read
+        );
     }
 
     #[test]

@@ -468,6 +468,20 @@ pub(crate) async fn revoke(
 /// # Errors
 ///
 /// Database errors.
+/// A partial refund that leaves less paid than the program's minimum revokes the referral the
+/// batch earned, as a full refund does: otherwise a refund could keep a reward for almost nothing.
+pub(crate) async fn revoke_below_minimum(
+    tx: &mut Transaction<'_, Postgres>,
+    batch_id: Uuid,
+    kept_cents: i64,
+) -> ApiResult<()> {
+    let settings = load_settings(&mut **tx).await?;
+    if kept_cents < i64::from(settings.min_batch_cents) {
+        revoke_for_batch(tx, batch_id).await?;
+    }
+    Ok(())
+}
+
 pub(crate) async fn revoke_for_batch(
     tx: &mut Transaction<'_, Postgres>,
     batch_id: Uuid,
@@ -536,6 +550,12 @@ pub(crate) async fn export(
     Ok(serde_json::json!({ "code": code, "invitedBy": invited_by, "referred": referred }))
 }
 
+/// The referrer's name as strangers may see it. An organization signed up by e-mail code is
+/// named after that e-mail until renamed: never shown to whoever opens a public invite.
+fn public_name(name: String) -> Option<String> {
+    (!name.contains('@')).then_some(name)
+}
+
 // Handlers ---------------------------------------------------------------------------------
 
 /// `GET /api/referrals/{code}` (no login): who invites, for the sign-up page. Unknown codes,
@@ -560,7 +580,7 @@ pub async fn invite(
     .ok_or(ApiError::NotFound)?;
     Ok(Json(ReferralInviteDto {
         code,
-        organization_name: name,
+        organization_name: public_name(name),
         referred_cents: settings.referred_cents,
         min_batch_cents: settings.min_batch_cents,
     }))
@@ -649,7 +669,7 @@ pub async fn mine(State(state): State<AppState>, user: AuthUser) -> ApiResult<Js
     .map(|row| {
         let status = status(&row.status)?;
         Ok::<_, ApiError>(InvitedByDto {
-            organization_name: row.name,
+            organization_name: row.name.and_then(public_name),
             referred_cents: if status == ReferralStatus::Pending {
                 settings.referred_cents
             } else {
@@ -814,6 +834,15 @@ pub async fn admin_revoke(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn e_mail_names_stay_private() {
+        assert_eq!(public_name("ana@banda.com.br".to_owned()), None);
+        assert_eq!(
+            public_name("Banda Ana".to_owned()).as_deref(),
+            Some("Banda Ana")
+        );
+    }
 
     #[test]
     fn codes_are_normalized() {

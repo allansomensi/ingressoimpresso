@@ -1213,6 +1213,8 @@ dto! {
         pub link: Option<SellerLinkDto>,
         /// Sells at the door (ADR 0069): sold = numbers that entered.
         pub box_office: bool,
+        /// Tickets the seller aims to sell (ADR 0073); never on a box office.
+        pub goal: Option<i32>,
     }
 
     /// A seller's private link, where they mark what they sold (ADR 0053).
@@ -1273,10 +1275,155 @@ dto! {
         pub number: i32,
     }
 
-    /// `GET`/`PUT /api/events/{id}/seller-settings`: what sellers may do on their links.
+    /// `GET /api/events/{id}/seller-settings`: what sellers may do and see on their links.
     pub struct SellerSettingsDto {
         /// Sellers may send the digital ticket of what they sold (ADR 0061).
         pub send_tickets: bool,
+        /// Sellers see their position and the top 5 (ADR 0073).
+        pub ranking: bool,
+    }
+
+    /// `PUT /api/events/{id}/seller-settings`: a missing field keeps its value.
+    pub struct SellerSettingsBody {
+        /// Sellers may send digital tickets.
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional))]
+        pub send_tickets: Option<bool>,
+        /// Sellers see the ranking.
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional))]
+        pub ranking: Option<bool>,
+    }
+
+    /// `PUT /api/sellers/{id}/goal`.
+    pub struct SellerGoalBody {
+        /// Tickets to sell (1–100,000); `null` removes the goal.
+        pub goal: Option<i32>,
+    }
+
+    /// `POST /api/events/{id}/sellers/goals`: one goal for every seller (box offices aside).
+    pub struct SellerGoalsBody {
+        /// Tickets to sell (1–100,000); `null` removes every goal.
+        pub goal: Option<i32>,
+        /// Only sellers without a goal yet.
+        pub only_missing: bool,
+    }
+
+    /// How many sellers got the goal.
+    pub struct SellerGoalsDto {
+        /// Sellers changed.
+        pub updated: i32,
+    }
+
+    /// A reservation (ADR 0072): numbers a seller holds for a person until a deadline. The
+    /// seller's word, not a payment: it never reaches the door.
+    pub struct ReservationDto {
+        /// Id, shared by the numbers reserved together.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// The seller.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub seller_id: Uuid,
+        /// Numbers still reserved (sold, returned or moved numbers leave the reservation).
+        pub numbers: Vec<NumberRangeDto>,
+        /// For whom.
+        pub holder_name: String,
+        /// Their phone, for the reminder.
+        pub holder_phone: Option<String>,
+        /// Until when, in the event's offset.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub expires_at: OffsetDateTime,
+        /// When it was made.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub created_at: OffsetDateTime,
+        /// Still holds its numbers (the deadline has not passed).
+        pub active: bool,
+        /// Made by the organizer on the panel.
+        pub by_organizer: bool,
+    }
+
+    /// `POST /api/sellers/{id}/reservations`.
+    pub struct ReservationBody {
+        /// The numbers (1 to 100 ranges, up to 1,000 numbers), all the seller's.
+        pub ranges: Vec<RangeBody>,
+        /// For whom (1–80 characters, one line).
+        pub holder_name: String,
+        /// Their phone (up to 30 characters).
+        pub holder_phone: Option<String>,
+        /// Until when: in the future, before the event ends.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub expires_at: OffsetDateTime,
+    }
+
+    /// The seller's position among the event's sellers (ADR 0073), when the organizer shows it.
+    pub struct SellerRankingDto {
+        /// The seller's position (ties share it); `null` before their first sale.
+        pub position: Option<i32>,
+        /// Sellers in the ranking (box offices and sellers without numbers aside).
+        pub participants: i32,
+        /// The first ones with at least one sale (up to 5).
+        pub top: Vec<SellerRankingEntryDto>,
+    }
+
+    /// One line of the ranking: only the first name and an initial of the others.
+    pub struct SellerRankingEntryDto {
+        /// Position (ties share it).
+        pub position: i32,
+        /// "Ana S.".
+        pub name: String,
+        /// Sales marked.
+        pub sold: i32,
+        /// The seller who is looking.
+        pub you: bool,
+    }
+
+    /// `POST /api/seller/sync`: changes made on the seller's page, in order (ADR 0074).
+    pub struct SellerSyncBody {
+        /// The token from the link's fragment.
+        pub token: String,
+        /// Up to 50 changes; each id is created on the phone, so a repeated one changes nothing.
+        pub ops: Vec<SellerOpItem>,
+    }
+
+    /// One change of the seller's page.
+    pub struct SellerOpItem {
+        /// Id created on the phone.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// What it does.
+        pub op: SellerOp,
+    }
+
+    /// The answer of `POST /api/seller/sync`: the page after the changes and what became of each.
+    pub struct SellerSyncDto {
+        /// The page, fresh.
+        pub view: SellerViewDto,
+        /// One result per change, in order.
+        pub results: Vec<SellerOpResultDto>,
+    }
+
+    /// What became of one change; the same answer every time the id is sent.
+    pub struct SellerOpResultDto {
+        /// The change.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// Done, partly done or not done.
+        pub outcome: SellerOpOutcome,
+        /// Why numbers were left out.
+        pub problems: Vec<SellerOpProblemDto>,
+    }
+
+    /// Numbers a change left out, and why.
+    pub struct SellerOpProblemDto {
+        /// Why.
+        pub reason: SellerOpProblem,
+        /// Which numbers (empty when it is about the whole change).
+        pub numbers: Vec<NumberRangeDto>,
+        /// The buyer or the person the numbers are reserved for, when it helps to explain.
+        pub holder: Option<String>,
     }
 
     /// `POST /api/events/{id}/tickets/replace`: the replacement of a lost ticket (ADR 0061).
@@ -1359,8 +1506,10 @@ dto! {
         pub tickets: i32,
         /// Marked as sold (and not voided).
         pub sold: i32,
-        /// Still with the seller: not sold and not voided.
+        /// Still with the seller: not sold, not reserved and not voided.
         pub available: i32,
+        /// Reserved for someone (ADR 0072), not sold yet.
+        pub reserved: i32,
         /// Returned unsold.
         pub unsold: i32,
         /// Lost.
@@ -1422,6 +1571,12 @@ dto! {
         pub address: Option<String>,
         /// Postponement and cancellation (ADR 0065): a canceled event takes no more sales.
         pub change: EventChangeDto,
+        /// End, in the event's own offset (reservations end before it).
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub ends_at: OffsetDateTime,
+        /// The event's UTC offset in minutes (reservation deadlines are in its time).
+        pub utc_offset_minutes: i16,
         /// One of several dates (ADR 0077): the page says which session the link is for.
         #[serde(default)]
         pub in_series: bool,
@@ -1457,6 +1612,12 @@ dto! {
         pub can_send_tickets: bool,
         /// The seller is the box office (ADR 0069): what entered counts as sold.
         pub box_office: bool,
+        /// The seller's reservations (ADR 0072): active first, then the recently expired.
+        pub reservations: Vec<ReservationDto>,
+        /// Tickets the seller aims to sell (ADR 0073).
+        pub goal: Option<i32>,
+        /// Where the seller stands among the others, when the organizer shows it (ADR 0073).
+        pub ranking: Option<SellerRankingDto>,
     }
 
     /// An inclusive range of ticket numbers.
@@ -2203,6 +2364,9 @@ dto! {
         /// Marked as sold by the seller on their link (ADR 0053), not voided.
         #[cfg_attr(feature = "ts", ts(type = "number"))]
         pub marked_sold: i64,
+        /// Reserved for someone and not sold yet (ADR 0072): still the seller's, not money.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub reserved: i64,
         /// A box office seller (ADR 0069): sold = numbers that entered.
         pub box_office: bool,
     }
@@ -2295,6 +2459,36 @@ dto_enum! {
         Open,
         /// Paid by Pix, waiting for Stripe to confirm the transfer.
         Processing,
+    }
+
+    /// What became of a change of the seller's page (ADR 0074).
+    pub enum SellerOpOutcome {
+        /// Done.
+        Applied,
+        /// Done for some numbers; `problems` says which were left out.
+        Partial,
+        /// Not done.
+        Rejected,
+    }
+
+    /// Why a change of the seller's page left numbers out.
+    pub enum SellerOpProblem {
+        /// Marked as sold already (on another phone, or by the organizer).
+        AlreadySold,
+        /// No longer with the seller (taken back by the organizer, or its batch canceled).
+        NotHeld,
+        /// Returned, lost or canceled.
+        Voided,
+        /// Reserved for someone else.
+        Reserved,
+        /// The reservation's deadline passed before the change reached the server.
+        Expired,
+        /// The event was canceled.
+        EventCanceled,
+        /// A box office does not reserve.
+        BoxOffice,
+        /// Something the page should not have sent (a name too long, a bad number).
+        Invalid,
     }
 
     /// How a seller handed money over.
@@ -2426,6 +2620,64 @@ pub enum ExportScope {
         /// Seller id.
         #[cfg_attr(feature = "ts", ts(type = "string"))]
         seller_id: Uuid,
+    },
+}
+
+/// One change of the seller's page (ADR 0074).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(
+    tag = "kind",
+    rename_all = "snake_case",
+    rename_all_fields = "camelCase"
+)]
+#[cfg_attr(
+    feature = "ts",
+    derive(ts_rs::TS),
+    ts(export, export_to = "api-types/src/generated/")
+)]
+pub enum SellerOp {
+    /// Numbers sold, all to one buyer.
+    Mark {
+        /// The numbers (1 to 100 ranges, up to 1,000 numbers).
+        ranges: Vec<RangeBody>,
+        /// Buyer's name.
+        buyer_name: Option<String>,
+        /// Buyer's phone.
+        buyer_phone: Option<String>,
+        /// Changes the buyer of numbers sold already (otherwise they are a conflict).
+        edit: bool,
+        /// The reservation the page showed on these numbers: it becomes the sale. A number
+        /// reserved by another one is a conflict.
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        reservation_id: Option<Uuid>,
+    },
+    /// A sale marked by mistake.
+    Unmark {
+        /// The number.
+        number: i32,
+    },
+    /// Numbers held for a person until a deadline; the same id again changes the person or
+    /// the deadline.
+    Reserve {
+        /// Id created on the phone.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        reservation_id: Uuid,
+        /// The numbers.
+        ranges: Vec<RangeBody>,
+        /// For whom.
+        holder_name: String,
+        /// Their phone.
+        holder_phone: Option<String>,
+        /// Until when.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        expires_at: OffsetDateTime,
+    },
+    /// A reservation given up: its numbers are free again.
+    CancelReservation {
+        /// The reservation.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        reservation_id: Uuid,
     },
 }
 
@@ -4111,8 +4363,9 @@ dto! {
     pub struct ReferralInviteDto {
         /// The code, normalized.
         pub code: String,
-        /// The referring organization's name.
-        pub organization_name: String,
+        /// The referring organization's name; `null` while it is still an e-mail address (never
+        /// shown on a public link).
+        pub organization_name: Option<String>,
         /// Credit the new account earns on its first paid batch, in centavos.
         pub referred_cents: i32,
         /// Smallest first batch that counts, in centavos.

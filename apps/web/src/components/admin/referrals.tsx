@@ -204,7 +204,7 @@ export function AdminReferrals() {
                       <OrganizationName id={referral.referrerId} name={referral.referrerName} />
                       <ArrowRight aria-label={t.arrow} className="size-3.5 shrink-0 text-fg-subtle" />
                       <OrganizationName id={referral.referredId} name={referral.referredName} />
-                      {referral.referredName?.includes("@") !== true && <span className="text-xs text-fg-subtle">({referral.emailHint})</span>}
+                      {referral.referredName?.includes("@") !== true && referral.emailHint !== "" && <span className="text-xs text-fg-subtle">({referral.emailHint})</span>}
                     </span>
                     <span className="flex flex-wrap items-center gap-2">
                       <Badge tone={tone} dot={referral.status === "pending"}>

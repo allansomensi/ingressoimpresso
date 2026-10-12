@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into ticket_reservations\n               (event_id, ticket_number, reservation_id, seller_id, holder_name, holder_phone,\n                expires_at, created_by)\n           select $1, n, $2, $3, $4, $5, $6, $7 from unnest($8::int4[]) as n\n           on conflict (event_id, ticket_number) do update\n           set holder_name = excluded.holder_name,\n               holder_phone = excluded.holder_phone,\n               expires_at = excluded.expires_at,\n               created_at = case when ticket_reservations.reservation_id = excluded.reservation_id\n                                 then ticket_reservations.created_at else now() end,\n               created_by = case when ticket_reservations.reservation_id = excluded.reservation_id\n                                 then ticket_reservations.created_by else excluded.created_by end,\n               reservation_id = excluded.reservation_id,\n               seller_id = excluded.seller_id",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Text",
+        "Timestamptz",
+        "Uuid",
+        "Int4Array"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "649029360cc3a13a2563b854f9c3b54dc8dc62c071b236c219f7a789aabd3ad6"
+}

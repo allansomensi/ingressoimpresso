@@ -24,8 +24,9 @@ use crate::routes::organization::MAX_LOGO_BYTES;
 use crate::routes::{
     account, admin, analytics, announcements, batches, billing, categories, changelog, door,
     door_live, door_rehearsal, event_changes, events, exports, guests, ledger, mail_admin,
-    moderation, organization, platform, privacy, refunds, report, seller_links, sellers,
-    settlement, status, support, tables, team, tickets, two_factor, voids,
+    moderation, organization, platform, privacy, refunds, report, reservations, seller_goals,
+    seller_links, seller_sync, sellers, settlement, status, support, tables, team, tickets,
+    two_factor, voids,
 };
 use crate::routes::{checklist, series};
 use crate::routes::{referrals, verify};
@@ -314,6 +315,14 @@ pub fn router(state: AppState) -> Router {
         .route("/events/{id}/guests/bulk", post(guests::create_bulk))
         .route("/guests/{id}", put(guests::update).delete(guests::delete))
         .route("/door/guests", post(guests::upload))
+        // Sellers' reservations, goals and the offline queue (ADRs 0072–0074).
+        .route("/events/{id}/reservations", get(reservations::list))
+        .route("/sellers/{id}/reservations", post(reservations::create))
+        .route("/reservations/{id}/sell", post(reservations::sell))
+        .route("/reservations/{id}", delete(reservations::cancel))
+        .route("/sellers/{id}/goal", put(seller_goals::set))
+        .route("/events/{id}/sellers/goals", post(seller_goals::set_all))
+        .route("/seller/sync", post(seller_sync::sync))
         // Check a ticket before buying it and refer and earn (ADRs 0075, 0076).
         .route("/verify", post(verify::verify))
         .route(

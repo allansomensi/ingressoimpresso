@@ -3,6 +3,7 @@
 import type {
   RangeDto,
   ReportRowDto,
+  ReservationDto,
   SellerDto,
   SellerPaymentBody,
   SellerPaymentDto,
@@ -256,6 +257,7 @@ export function ReturnDialog({
   seller,
   voids,
   sales,
+  reservations,
   onSaved,
 }: {
   open: boolean;
@@ -264,6 +266,8 @@ export function ReturnDialog({
   voids: readonly VoidDto[];
   /** This seller's numbers marked as sold on their link (ADR 0053). */
   sales: readonly TicketSaleDto[];
+  /** This seller's reservations (ADR 0072): reserved numbers are not "what was left". */
+  reservations: readonly ReservationDto[];
   onSaved: () => void;
 }) {
   const g = t.giveBackDialog;
@@ -276,9 +280,13 @@ export function ReturnDialog({
   // What the seller still has: their numbers minus everything returned, lost or voided.
   const remaining = subtract(holding, active);
   const sold = mergeRanges(sales.map((sale) => ({ first: sale.number, last: sale.number })));
-  // With marks on the link, what was not marked is what should come back.
-  const unsold = sold.length === 0 ? [] : subtract(remaining, sold);
+  // Numbers someone is still going to pay for stay with the seller.
+  const reserved = mergeRanges(reservations.filter((item) => item.active).flatMap((item) => item.numbers));
+  const keptReserved = countNumbers(intersect(subtract(remaining, sold), reserved));
+  // With marks on the link, what was not marked (nor reserved) is what should come back.
+  const unsold = sold.length === 0 ? [] : subtract(subtract(remaining, sold), reserved);
   const clearing = parsed.ok ? countNumbers(intersect(parsed.ranges, sold)) : 0;
+  const clearingReserved = parsed.ok ? countNumbers(intersect(parsed.ranges, reserved)) : 0;
 
   let problem: string | null = null;
   if (!parsed.ok) {
@@ -341,6 +349,9 @@ export function ReturnDialog({
               <span className="font-medium text-fg">
                 {g.preview(parsed.count, formatRanges(parsed.ranges))}
                 {clearing > 0 && <span className="block font-normal text-warning-fg">{g.clearsMarks(clearing)}</span>}
+                {clearingReserved > 0 && (
+                  <span className="block font-normal text-warning-fg">{texts.event.sellers.reservations.returnClears(clearingReserved)}</span>
+                )}
               </span>
             ) : (
               g.numbersHint
@@ -371,6 +382,9 @@ export function ReturnDialog({
             <Undo2 aria-hidden className="size-3.5" />
             {g.unsoldShortcut(countNumbers(unsold))}
           </button>
+        )}
+        {unsold.length > 0 && keptReserved > 0 && (
+          <p className="-mt-3 text-xs text-fg-muted">{texts.event.sellers.reservations.returnKeeps(keptReserved)}</p>
         )}
         {remaining.length > 0 && (
           <div className="flex flex-col gap-2">

@@ -544,6 +544,16 @@ async fn prune(pool: &PgPool) -> ApiResult<()> {
     sqlx::query!("delete from moderation_usage where day < current_date - 60")
         .execute(pool)
         .await?;
+    // An expired reservation frees its numbers by itself (ADR 0072); the seller still sees it for
+    // a week, to sell it late or give it up.
+    sqlx::query!("delete from ticket_reservations where expires_at < now() - interval '7 days'")
+        .execute(pool)
+        .await?;
+    // The answers kept for repeated changes of the seller's page (ADR 0074): a phone retries
+    // within hours, not weeks.
+    sqlx::query!("delete from seller_sync_ops where created_at < now() - interval '30 days'")
+        .execute(pool)
+        .await?;
     Ok(())
 }
 

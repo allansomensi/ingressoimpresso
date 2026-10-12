@@ -30,6 +30,8 @@ struct Counts {
     void_entries: i64,
     received_cents: i64,
     marked_sold: i64,
+    /// Reserved and not sold (ADR 0072).
+    reserved: i64,
     /// Declared sold numbers × their price (the category's, else the event's), ADR 0056.
     due_cents: i64,
     /// Declared sold numbers without any price: the amount due cannot be known.
@@ -53,6 +55,7 @@ impl Counts {
         self.void_entries += other.void_entries;
         self.received_cents += other.received_cents;
         self.marked_sold += other.marked_sold;
+        self.reserved += other.reserved;
         self.due_cents += other.due_cents;
         self.unpriced += other.unpriced;
         self.declared_sold += other.declared_sold;
@@ -99,6 +102,7 @@ impl Counts {
                 .filter(|_| owed)
                 .map(|due| due - self.received_cents),
             marked_sold: self.marked_sold,
+            reserved: self.reserved,
             box_office,
         }
     }
@@ -245,6 +249,7 @@ async fn counts_by_seller(
                   coalesce(sum(c.blocked_copies), 0)::bigint as "blocked_copies!",
                   coalesce(sum(c.void_entries), 0)::bigint as "void_entries!",
                   count(ts.ticket_number) filter (where v.number is null) as "marked_sold!",
+                  count(rr.ticket_number) filter (where v.number is null and ts.ticket_number is null) as "reserved!",
                   coalesce(sum(coalesce(tc.price_cents, $2::int4))
                            filter (where v.reason is distinct from 'unsold' and v.reason is distinct from 'lost'), 0)::bigint as "due_cents!",
                   count(*) filter (where v.reason is distinct from 'unsold' and v.reason is distinct from 'lost'
@@ -260,6 +265,8 @@ async fn counts_by_seller(
            left join scanned c on c.number = i.number
            left join ticket_sales ts on ts.event_id = $1 and ts.ticket_number = i.number
                                     and ts.seller_id = a.seller_id
+           left join ticket_reservations rr on rr.event_id = $1 and rr.ticket_number = i.number
+                                           and rr.seller_id = a.seller_id and rr.expires_at > now()
            left join category_ranges cr on cr.event_id = $1 and cr.numbers @> i.number
            left join ticket_categories tc on tc.id = cr.category_id
            group by a.seller_id"#,
@@ -284,6 +291,7 @@ async fn counts_by_seller(
                     void_entries: line.void_entries,
                     received_cents: 0,
                     marked_sold: line.marked_sold,
+                    reserved: line.reserved,
                     due_cents: line.due_cents,
                     unpriced: line.unpriced,
                     declared_sold: line.tickets - line.unsold - line.lost,

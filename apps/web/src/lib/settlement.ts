@@ -120,6 +120,10 @@ export function settlementMessage({
   } else if (row.unsold > 0 || row.lost > 0) {
     lines.push(w.gaveBack(row.unsold, row.lost));
   }
+  if (!row.boxOffice && row.reserved > 0) {
+    // Reserved numbers are still with the seller (ADR 0072): not money yet, but worth a reminder.
+    lines.push(w.reserved(row.reserved));
+  }
   if (priceCents !== null && row.amountDueCents !== null) {
     lines.push(w.due(row.declaredSold, money(priceCents), money(row.amountDueCents)));
   }

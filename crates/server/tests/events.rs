@@ -81,7 +81,7 @@ async fn duplicating_copies_details_design_art_and_sellers(pool: PgPool) {
     app.put(
         &format!("/api/events/{event}/seller-settings"),
         &token,
-        json!({ "sendTickets": false }),
+        json!({ "sendTickets": false, "ranking": true }),
     )
     .await;
     app.put(
@@ -102,6 +102,7 @@ async fn duplicating_copies_details_design_art_and_sellers(pool: PgPool) {
         .await
         .json();
     assert_eq!(seller_settings["sendTickets"], false);
+    assert_eq!(seller_settings["ranking"], true);
     let verify_settings = app
         .get(&format!("/api/events/{id}/verify-settings"), &token)
         .await

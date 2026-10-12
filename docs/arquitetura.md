@@ -368,6 +368,19 @@ create table seller_links (id uuid primary key, event_id uuid not null reference
 create table ticket_sales (event_id uuid not null references events, ticket_number integer not null,
   seller_id uuid not null references sellers, buyer_name text, buyer_phone text,
   sold_at timestamptz not null default now(), primary key (event_id, ticket_number));
+-- Reservas do vendedor (ADR 0072): a palavra do vendedor, nunca vai à portaria; ativa enquanto
+-- expires_at > now(), a limpeza horária apaga as vencidas há mais de 7 dias
+create table ticket_reservations (event_id uuid not null references events, ticket_number integer not null,
+  reservation_id uuid not null,   -- os números reservados juntos
+  seller_id uuid not null references sellers, holder_name text not null, holder_phone text,
+  expires_at timestamptz not null, created_by uuid references users,   -- null: pelo link do vendedor
+  created_at timestamptz not null default now(), primary key (event_id, ticket_number));
+-- Metas e ranking (ADR 0073): sellers.goal integer (1–100000, nunca na bilheteria) e
+-- events.sellers_ranking boolean (desligado por padrão)
+-- Fila do link do vendedor sem internet (ADR 0074): a resposta de cada alteração, por id criado
+-- no celular, para repetir sem duplicar (apagada depois de 30 dias)
+create table seller_sync_ops (seller_id uuid not null references sellers, op_id uuid not null,
+  result jsonb not null, created_at timestamptz not null default now(), primary key (seller_id, op_id));
 -- Equipe do evento (ADR 0055): quem ajuda e o que cada um cuida; a organização continua dona
 create table event_team (id uuid primary key, event_id uuid not null references events,
   email citext not null, name text, user_id uuid references users,   -- null até o primeiro login
@@ -537,6 +550,11 @@ GET /api/events/{id}/seller-payments           POST /api/sellers/{id}/payments  
 POST /api/sellers/{id}/returns                 (vários números do vendedor de uma vez, ADR 0050)
 POST|DELETE /api/sellers/{id}/link             GET /api/events/{id}/ticket-sales   (ADR 0053)
 POST /api/seller   POST /api/seller/sales   POST /api/seller/sales/undo   (sem login: token no corpo)
+POST /api/seller/sync { token, ops: [{ id, op }] } → { view, results }   (ADR 0074: fila do celular,
+                                               idempotente por id; mark | unmark | reserve | cancel_reservation)
+GET /api/events/{id}/reservations   POST /api/sellers/{id}/reservations   (ADR 0072)
+POST /api/reservations/{id}/sell    DELETE /api/reservations/{id}
+PUT /api/sellers/{id}/goal   POST /api/events/{id}/sellers/goals   (ADR 0073; ranking em seller-settings)
 GET|POST /api/events/{id}/categories   PUT|DELETE /api/categories/{id}   (ADR 0056)
 POST /api/categories/{id}/ranges   DELETE /api/category-ranges/{id}
 GET|POST /api/events/{id}/tables   POST /api/events/{id}/tables/bulk   PUT /api/events/{id}/tables/layout

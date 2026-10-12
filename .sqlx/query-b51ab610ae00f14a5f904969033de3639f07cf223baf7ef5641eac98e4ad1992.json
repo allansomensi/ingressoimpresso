@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select result from seller_sync_ops where seller_id = $1 and op_id = $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "result",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "seller_sync_ops",
+            "name": "result"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "b51ab610ae00f14a5f904969033de3639f07cf223baf7ef5641eac98e4ad1992"
+}

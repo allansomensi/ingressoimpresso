@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select id, name, phone, box_office from sellers where event_id = $1 order by name",
+  "query": "select id, name, phone, box_office, goal, created_at from sellers where event_id = $1 order by name",
   "describe": {
     "columns": [
       {
@@ -46,6 +46,28 @@
             "name": "box_office"
           }
         }
+      },
+      {
+        "ordinal": 4,
+        "name": "goal",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "sellers",
+            "name": "goal"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "sellers",
+            "name": "created_at"
+          }
+        }
       }
     ],
     "parameters": {
@@ -57,8 +79,10 @@
       false,
       false,
       true,
+      false,
+      true,
       false
     ]
   },
-  "hash": "ca16391bc164eba6a746b24aad2835a221a89bfcbbc85b85992c37612f184d3f"
+  "hash": "483e5f6a311d5b1dbc17b9f51bc96a48b09d0068e00e6e08c038143b8deff2ef"
 }

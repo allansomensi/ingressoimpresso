@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update seller_sync_ops set result = $3 where seller_id = $1 and op_id = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Jsonb"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "928e0bab496046fb016bca64a664c42a34d4ea07331994d9a1c890765ca1e3b9"
+}

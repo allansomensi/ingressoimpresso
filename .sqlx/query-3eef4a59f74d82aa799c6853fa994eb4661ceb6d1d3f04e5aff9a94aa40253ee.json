@@ -1,0 +1,59 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with held as (\n               select n as number\n               from seller_assignments a\n               join ticket_batches b on b.event_id = a.event_id and b.status = 'paid' and b.numbers && a.numbers,\n                    generate_series(lower(a.numbers * b.numbers), upper(a.numbers * b.numbers) - 1) as n\n               where a.seller_id = $2\n           ),\n           voided as (\n               select distinct on (h.number) h.number, v.reason\n               from held h join ticket_voids v\n                 on v.event_id = $1 and v.undone_at is null and v.numbers @> h.number\n               order by h.number, v.created_at\n           )\n           select count(*)::int as \"tickets!\",\n                  (count(s.ticket_number) filter (where v.number is null))::int as \"sold!\",\n                  (count(*) filter (where v.number is null and s.ticket_number is null\n                                      and r.ticket_number is null))::int as \"available!\",\n                  (count(r.ticket_number) filter (where v.number is null and s.ticket_number is null))::int as \"reserved!\",\n                  (count(*) filter (where v.reason = 'unsold'))::int as \"unsold!\",\n                  (count(*) filter (where v.reason = 'lost'))::int as \"lost!\"\n           from held h\n           left join voided v on v.number = h.number\n           left join ticket_sales s on s.event_id = $1 and s.ticket_number = h.number and s.seller_id = $2\n           left join ticket_reservations r on r.event_id = $1 and r.ticket_number = h.number\n                                          and r.seller_id = $2 and r.expires_at > now()",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "tickets!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "sold!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "available!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "reserved!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "unsold!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "lost!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "3eef4a59f74d82aa799c6853fa994eb4661ceb6d1d3f04e5aff9a94aa40253ee"
+}

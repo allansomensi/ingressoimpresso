@@ -6,21 +6,26 @@
 // ticket typefaces (/fonts/): cache, refreshed in the background. Pages always come from the network (an old copy could point at
 // build files that no longer exist after a deploy); without network, the offline page.
 //
-// The digital ticket (/ingresso, ADR 0030) is the exception: the holder opens it at the door, often
-// without signal. Its page and build files are kept (refreshed on every online visit), and the
-// ticket itself is in the page's localStorage.
+// The digital ticket (/ingresso, ADR 0030) and the seller's page (/vendedor, ADR 0074) are the
+// exceptions: the holder opens the ticket at the door and the seller marks sales on the street,
+// often without signal. Their pages and build files are kept (refreshed on every online visit),
+// and the data is in the page's localStorage (the link's token stays in the fragment, which never
+// reaches a request).
 
-const CACHE = "app-v3";
+const CACHE = "app-v4";
 const OFFLINE = "/offline";
 const TICKET = "/ingresso";
-const PRECACHE = [OFFLINE, TICKET, "/icons/icon-192.png", "/brand/logo-mark.svg"];
+const SELLER = "/vendedor";
+/** Pages that open without network, from their last copy. */
+const KEPT = [TICKET, SELLER];
+const PRECACHE = [OFFLINE, ...KEPT, "/icons/icon-192.png", "/brand/logo-mark.svg"];
 const PAGE_TIMEOUT_MS = 8000;
 const MAX_ENTRIES = 250;
 
-/** Build files the offline and ticket pages need (styles, fonts, scripts), read from their HTML. */
+/** Build files the offline and kept pages need (styles, fonts, scripts), read from their HTML. */
 async function offlineAssets(cache) {
   const assets = new Set();
-  for (const path of [OFFLINE, TICKET]) {
+  for (const path of [OFFLINE, ...KEPT]) {
     const page = await cache.match(path);
     const html = page === undefined ? "" : await page.text();
     for (const asset of html.match(/\/_next\/static\/[^"'\s)]+/g) ?? []) {
@@ -107,27 +112,28 @@ async function staleWhileRevalidate(request) {
   return cached ?? (await refresh) ?? Response.error();
 }
 
-/** Stores the ticket page and the build files it points at (after the page was answered). */
-async function keepTicket(response) {
+/** Stores a kept page and the build files it points at (after the page was answered). */
+async function keepPage(path, response) {
   const cache = await caches.open(CACHE);
   const html = await response.clone().text();
-  await cache.put(TICKET, response);
+  await cache.put(path, response);
   await Promise.all(
     (html.match(/\/_next\/static\/[^"'\s)]+/g) ?? []).map((asset) => cacheFirst(new Request(asset)).catch(() => undefined)),
   );
 }
 
 async function page(request, event) {
-  const ticket = new URL(request.url).pathname === TICKET;
+  const path = new URL(request.url).pathname;
+  const kept = KEPT.includes(path) ? path : null;
   try {
     const response = await fetch(request, { signal: AbortSignal.timeout(PAGE_TIMEOUT_MS) });
-    if (ticket && response.ok) {
-      event.waitUntil(keepTicket(response.clone()).catch(() => undefined));
+    if (kept !== null && response.ok) {
+      event.waitUntil(keepPage(kept, response.clone()).catch(() => undefined));
     }
     return response;
   } catch {
-    if (ticket) {
-      const cached = await caches.match(TICKET);
+    if (kept !== null) {
+      const cached = await caches.match(kept);
       if (cached !== undefined) {
         return cached;
       }

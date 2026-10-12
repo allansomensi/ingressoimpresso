@@ -9,9 +9,10 @@ export type ReferralInviteDto = {
  */
 code: string, 
 /**
- * The referring organization's name.
+ * The referring organization's name; `null` while it is still an e-mail address (never
+ * shown on a public link).
  */
-organizationName: string, 
+organizationName: string | null, 
 /**
  * Credit the new account earns on its first paid batch, in centavos.
  */

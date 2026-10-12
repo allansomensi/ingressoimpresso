@@ -1,0 +1,42 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update events set sellers_send_tickets = coalesce($2, sellers_send_tickets),\n                             sellers_ranking = coalesce($3, sellers_ranking)\n           where id = $1 returning sellers_send_tickets, sellers_ranking",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "sellers_send_tickets",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "sellers_send_tickets"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "sellers_ranking",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "sellers_ranking"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Bool",
+        "Bool"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "d32234ba09dad1a330cf11d9b6feba2d20b15590155c8f9b0283f8fc4038e484"
+}

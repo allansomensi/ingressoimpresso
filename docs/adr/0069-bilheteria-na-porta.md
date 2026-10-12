@@ -37,6 +37,8 @@ Opção 3.
 
 ## Consequências
 
+- Ligar ou desligar a bilheteria (ao criar o vendedor ou depois) é da parte `money` da equipe,
+  não só de `delivery`: muda quanto o vendedor deve (passa a contar as entradas).
 - Nada muda para os outros vendedores; desligar a bilheteria volta à regra antiga.
 - Uma cópia de um número de bilheteria entra uma vez só em `entries`: conta uma venda.
 - Número de bilheteria que entrou pela "porta errada" com exceção também conta como vendido.
