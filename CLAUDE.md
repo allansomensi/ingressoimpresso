@@ -113,6 +113,16 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   imagem de compartilhamento por página (`opengraph-image.tsx`, `lib/share-image.tsx`, gerada no
   build), JSON-LD em `components/json-ld.tsx`, sitemap com imagens e `robots` bloqueando só as
   áreas privadas.
+- **Reembolsos do Stripe e receita líquida (ADR 0063): implementados.** O webhook
+  `charge.refunded` (parciais incluídos) grava `payments.refunded_cents`/`refunded_at` de forma
+  idempotente; reembolso total estorna o lote como o admin (`refunds::refund_batch`: números
+  cancelados na porta, registro em Cancelamentos e auditoria `batch_refund_stripe`); a view
+  `revenue_entries` dá bruta, reembolsos e líquida na visão geral do admin (total e 30 dias) e no
+  financeiro; **Conferir reembolsos no Stripe** (`POST /api/admin/payments/sync-refunds`) corrige
+  os antigos. Remetente único dos e-mails em `config::DEFAULT_MAIL_FROM`
+  (`contato@ingressoimpresso.com.br`), `MAIL_FROM` sobrescreve. Falta o que depende do
+  mantenedor: `charge.refunded` no webhook da Stripe, o domínio raiz verificado no Resend e
+  apagar o `MAIL_FROM` antigo no Render.
 
 Plano completo em `docs/arquitetura.md` §12.
 
@@ -152,6 +162,8 @@ crates/server        API (pacote `ingressoimpresso-server`, binário `ingressoim
                      notificações em routes/announcements.rs, preços/promoções/cupons/crédito em
                      pricing.rs + routes/billing.rs, e-mails em routes/mail_admin.rs (+ webhook),
                      moderação em moderation.rs + routes/moderation.rs, status em routes/status.rs,
+                     reembolsos do Stripe (webhook charge.refunded e conferência) em
+                     routes/refunds.rs (receita pela view revenue_entries),
                      acerto com vendedores (pagamentos e devoluções) em routes/settlement.rs,
                      link do vendedor (página sem conta, marcar vendas) em routes/seller_links.rs,
                      equipe do evento em routes/team.rs (toda rota nova de evento que altera algo
@@ -254,7 +266,9 @@ docs/deploy.md       domínio próprio: Neon, Resend, DNS (Registro.br), Render,
   Bearer + CORS (ADR 0016); downloads por link temporário.
 - **Banco:** Neon `aws-us-east-1`, host direto com `sslmode=verify-full`. Precisa ficar junto da
   API, não do usuário. Dorme quando parado (worker consulta sozinho a cada hora).
-- **E-mail:** Resend (o cliente manda `User-Agent`, senão o Resend recusa). `MAIL_DAILY_LIMIT`
+- **E-mail:** Resend (o cliente manda `User-Agent`, senão o Resend recusa). Remetente de todos
+  os e-mails: `DEFAULT_MAIL_FROM` (`Ingresso Impresso <contato@ingressoimpresso.com.br>`), ou
+  `MAIL_FROM` quando definida. `MAIL_DAILY_LIMIT`
   (padrão 95) segura a cota do plano grátis; esgotada, o login oferece o Google (ADR 0028).
 - **Opcionais da fase 9:** `RESEND_WEBHOOK_SECRET` (status de entrega no painel de e-mails,
   ADR 0041) e `MODERATION_VISION_API_KEY` + `MODERATION_DAILY_LIMIT` (análise automática das

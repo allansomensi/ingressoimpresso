@@ -41,6 +41,8 @@ services:
         sync: false
       - key: RESEND_API_KEY
         sync: false
+      # Optional: without it, every e-mail comes from DEFAULT_MAIL_FROM
+      # ("Ingresso Impresso <contato@ingressoimpresso.com.br>", crates/server/src/config.rs).
       - key: MAIL_FROM
         sync: false
       - key: ADMIN_EMAILS

@@ -14,6 +14,13 @@ e não acompanha estes números.
 
 ### Adicionado
 
+- Reembolsos feitos no Stripe, inclusive parciais, passam a ser registrados em cada pagamento. Um
+  reembolso total cancela os ingressos do lote na portaria, como o estorno pelo painel, e fica
+  registrado em Cancelamentos do evento (ADR 0063).
+- No admin, a visão geral mostra receita bruta, reembolsos e receita líquida, desde o início e
+  nos últimos 30 dias, com a líquida em destaque, e o botão **Conferir reembolsos no Stripe**
+  corrige os reembolsos feitos antes.
+
 - Galeria pública de modelos em `/modelos`, com uma página para cada um dos 16 modelos: o modelo
   preenchido com um evento de exemplo, as combinações de cores, o que vem nele e o tipo de evento
   em que ele se encaixa (ADR 0062).
@@ -39,6 +46,8 @@ e não acompanha estes números.
 
 ### Alterado
 
+- Todos os e-mails (código de login, pagamento confirmado, convite da equipe) passam a sair de
+  "Ingresso Impresso <contato@ingressoimpresso.com.br>".
 - "Modelos", no menu e no rodapé do site, leva à galeria de modelos. Na página inicial, cada
   exemplo de uso aponta para a página do tipo de evento ou do modelo dele.
 - O título da página inicial nos buscadores começa por "Ingresso numerado com QR code para
@@ -59,6 +68,8 @@ e não acompanha estes números.
 
 ### Corrigido
 
+- A receita do admin deixava de contar os lotes estornados e não descontava reembolsos feitos no
+  Stripe.
 - No iPhone, os campos de faixas de números (categorias, mesas e devoluções) abriam um teclado sem
   hífen e sem vírgula. O número da venda, na página do vendedor, aceita vírgula ou ponto entre os
   números.

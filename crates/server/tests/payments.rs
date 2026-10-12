@@ -60,6 +60,7 @@ async fn webhook(app: &TestApp, secret: &str, kind: &str, session: &Value) -> St
         "id": format!("evt_{}", uuid::Uuid::new_v4().simple()),
         "object": "event",
         "type": kind,
+        "created": time::OffsetDateTime::now_utc().unix_timestamp(),
         "data": { "object": session },
     }))
     .unwrap();
@@ -691,5 +692,300 @@ async fn the_first_tickets_of_an_organization_are_free(pool: PgPool) {
     assert_eq!(
         app.get("/api/account", &other_org).await.json()["freeTicketsLeft"],
         30
+    );
+}
+
+/// A batch of 10 paid online; returns its id and payment intent.
+async fn paid_batch(
+    app: &TestApp,
+    stripe: &std::sync::Mutex<FakeStripe>,
+    token: &str,
+    event: &str,
+) -> (String, String) {
+    let batch_id = batch(app, token, event, 10).await["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    assert_eq!(checkout(app, token, &batch_id).await.status, StatusCode::OK);
+    let session_id = stripe
+        .lock()
+        .unwrap()
+        .sessions
+        .values()
+        .find(|session| session.status.as_deref() == Some("open"))
+        .unwrap()
+        .id
+        .clone();
+    let paid = stripe.lock().unwrap().pay(&session_id).unwrap();
+    assert_eq!(
+        webhook(
+            app,
+            WEBHOOK_SECRET,
+            "checkout.session.completed",
+            &session_json(&paid)
+        )
+        .await,
+        StatusCode::OK
+    );
+    (batch_id, paid.payment_intent.unwrap())
+}
+
+fn charge(intent: &str, amount: i64, refunded: i64) -> Value {
+    json!({
+        "id": format!("ch_{intent}"),
+        "object": "charge",
+        "amount": amount,
+        "amount_refunded": refunded,
+        "refunded": refunded == amount,
+        "currency": "brl",
+        "payment_intent": intent,
+    })
+}
+
+async fn refunded(app: &TestApp, intent: &str) -> (i32, Option<time::OffsetDateTime>, String) {
+    sqlx::query_as(
+        "select refunded_cents, refunded_at, status from payments where payment_intent_id = $1",
+    )
+    .bind(intent)
+    .fetch_one(&app.state.pool)
+    .await
+    .unwrap()
+}
+
+#[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
+async fn stripe_refunds_are_recorded_and_a_full_one_blocks_the_batch(pool: PgPool) {
+    let (app, stripe) = TestApp::with_stripe(pool).await;
+    let admin = app.login(ADMIN).await;
+    let token = app.login("banda@exemplo.com").await;
+    let event = app.create_event(&token, "Show").await;
+    let (batch_id, intent) = paid_batch(&app, &stripe, &token, &event).await;
+
+    // A partial refund is recorded; the batch stays paid and its tickets valid.
+    assert_eq!(
+        webhook(
+            &app,
+            WEBHOOK_SECRET,
+            "charge.refunded",
+            &charge(&intent, 290, 100)
+        )
+        .await,
+        StatusCode::OK
+    );
+    let partial = refunded(&app, &intent).await;
+    assert_eq!((partial.0, partial.2.as_str()), (100, "paid"));
+    assert!(partial.1.is_some());
+    assert_eq!(
+        batch_status(&app, &token, &event, &batch_id).await["status"],
+        "paid"
+    );
+    // A replay or an older event changes nothing, not even the date.
+    for amount in [100, 50] {
+        assert_eq!(
+            webhook(
+                &app,
+                WEBHOOK_SECRET,
+                "charge.refunded",
+                &charge(&intent, 290, amount)
+            )
+            .await,
+            StatusCode::OK
+        );
+        assert_eq!(refunded(&app, &intent).await, partial);
+    }
+    let overview = app.get("/api/admin/overview", &admin).await.json();
+    assert_eq!(
+        (
+            &overview["grossCents"],
+            &overview["refundsCents"],
+            &overview["netCents"]
+        ),
+        (&json!(290), &json!(100), &json!(190))
+    );
+    assert_eq!(
+        (
+            &overview["gross30dCents"],
+            &overview["refunds30dCents"],
+            &overview["net30dCents"]
+        ),
+        (&json!(290), &json!(100), &json!(190))
+    );
+
+    // The rest goes back: the batch is refunded and its numbers voided for good.
+    for _ in 0..2 {
+        assert_eq!(
+            webhook(
+                &app,
+                WEBHOOK_SECRET,
+                "charge.refunded",
+                &charge(&intent, 290, 290)
+            )
+            .await,
+            StatusCode::OK
+        );
+    }
+    let full = refunded(&app, &intent).await;
+    assert_eq!((full.0, full.2.as_str()), (290, "refunded"));
+    let batch = batch_status(&app, &token, &event, &batch_id).await;
+    assert_eq!(batch["status"], "refunded");
+    assert!(batch["refundedAt"].is_string());
+    let voids = app
+        .get(&format!("/api/events/{event}/voids"), &token)
+        .await
+        .json();
+    let voids = voids.as_array().unwrap();
+    assert_eq!(voids.len(), 1, "a replay voids nothing more");
+    assert_eq!(
+        (
+            &voids[0]["first"],
+            &voids[0]["last"],
+            &voids[0]["reason"],
+            &voids[0]["locked"]
+        ),
+        (&json!(1), &json!(10), &json!("revoked"), &json!(true))
+    );
+    assert_eq!(voids[0]["note"], "Lote reembolsado no Stripe (1 a 10)");
+    let audit = app
+        .get("/api/admin/audit?action=batch_refund_stripe", &admin)
+        .await
+        .json();
+    assert_eq!(audit["items"].as_array().unwrap().len(), 1);
+    assert_eq!(audit["items"][0]["actorEmail"], "Stripe");
+    assert_eq!(audit["items"][0]["eventId"], event.as_str());
+
+    let overview = app.get("/api/admin/overview", &admin).await.json();
+    assert_eq!(
+        (
+            &overview["grossCents"],
+            &overview["refundsCents"],
+            &overview["netCents"]
+        ),
+        (&json!(290), &json!(290), &json!(0))
+    );
+    let finance = app.get("/api/admin/finance?days=30", &admin).await.json();
+    assert_eq!(
+        (
+            &finance["revenueCents"],
+            &finance["refundsCents"],
+            &finance["netCents"],
+            &finance["refundedBatches"]
+        ),
+        (&json!(290), &json!(290), &json!(0), &json!(1))
+    );
+
+    // A refund of a payment that is not ours is ignored.
+    assert_eq!(
+        webhook(
+            &app,
+            WEBHOOK_SECRET,
+            "charge.refunded",
+            &charge("pi_other", 500, 500)
+        )
+        .await,
+        StatusCode::OK
+    );
+}
+
+#[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
+async fn admins_recompute_refunds_made_on_stripe(pool: PgPool) {
+    let (app, stripe) = TestApp::with_stripe(pool).await;
+    let admin = app.login(ADMIN).await;
+    let token = app.login("banda@exemplo.com").await;
+    let event = app.create_event(&token, "Show").await;
+    let (partial_batch, partial_intent) = paid_batch(&app, &stripe, &token, &event).await;
+    let (full_batch, full_intent) = paid_batch(&app, &stripe, &token, &event).await;
+    let (admin_batch, admin_intent) = paid_batch(&app, &stripe, &token, &event).await;
+
+    // Refunds made in the dashboard before the webhook listened to them.
+    let earlier = time::OffsetDateTime::now_utc().unix_timestamp() - 40 * 86_400;
+    {
+        let mut stripe = stripe.lock().unwrap();
+        stripe.refund_in_dashboard(&partial_intent, 90, earlier);
+        stripe.refund_in_dashboard(&full_intent, 200, earlier);
+        stripe.refund_in_dashboard(&full_intent, 90, earlier + 60);
+    }
+    // An admin's refund already records the whole payment.
+    let refund = app
+        .post(
+            &format!("/api/admin/batches/{admin_batch}/refund"),
+            &admin,
+            json!({ "refundOnStripe": true }),
+        )
+        .await;
+    assert_eq!(refund.status, StatusCode::OK);
+    assert_eq!(stripe.lock().unwrap().refunds, vec![admin_intent.clone()]);
+    assert_eq!(refunded(&app, &admin_intent).await.0, 290);
+
+    let forbidden = app
+        .post("/api/admin/payments/sync-refunds", &token, json!({}))
+        .await;
+    assert_eq!(forbidden.status, StatusCode::FORBIDDEN);
+    let synced = app
+        .post("/api/admin/payments/sync-refunds", &admin, json!({}))
+        .await;
+    assert_eq!(synced.status, StatusCode::OK, "{:?}", synced.json());
+    assert_eq!(
+        synced.json(),
+        json!({ "checked": 2, "updated": 2, "refundedBatches": 1, "remaining": 0 })
+    );
+    assert_eq!(refunded(&app, &partial_intent).await.0, 90);
+    let full = refunded(&app, &full_intent).await;
+    assert_eq!((full.0, full.2.as_str()), (290, "refunded"));
+    assert_eq!(
+        full.1.unwrap().unix_timestamp(),
+        earlier + 60,
+        "the date of the last refund"
+    );
+    let mut statuses = Vec::new();
+    for id in [&partial_batch, &full_batch, &admin_batch] {
+        statuses.push(batch_status(&app, &token, &event, id).await["status"].clone());
+    }
+    assert_eq!(
+        statuses,
+        [json!("paid"), json!("refunded"), json!("refunded")]
+    );
+    let voids = app
+        .get(&format!("/api/events/{event}/voids"), &token)
+        .await
+        .json();
+    assert_eq!(voids.as_array().unwrap().len(), 2);
+
+    // Totals: three batches of 290 came in; 90 + 290 + 290 went back (40 days ago for the
+    // dashboard refunds, now for the admin's).
+    let overview = app.get("/api/admin/overview", &admin).await.json();
+    assert_eq!(
+        (
+            &overview["grossCents"],
+            &overview["refundsCents"],
+            &overview["netCents"],
+            &overview["refunds30dCents"],
+            &overview["net30dCents"]
+        ),
+        (
+            &json!(870),
+            &json!(670),
+            &json!(200),
+            &json!(290),
+            &json!(580)
+        )
+    );
+
+    // The webhook of the admin's refund and a second click find nothing new.
+    assert_eq!(
+        webhook(
+            &app,
+            WEBHOOK_SECRET,
+            "charge.refunded",
+            &charge(&admin_intent, 290, 290)
+        )
+        .await,
+        StatusCode::OK
+    );
+    let again = app
+        .post("/api/admin/payments/sync-refunds", &admin, json!({}))
+        .await
+        .json();
+    assert_eq!(
+        again,
+        json!({ "checked": 0, "updated": 0, "refundedBatches": 0, "remaining": 0 })
     );
 }

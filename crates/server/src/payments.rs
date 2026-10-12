@@ -108,6 +108,9 @@ pub struct StripeEvent {
     /// e.g. `checkout.session.completed`.
     #[serde(rename = "type")]
     pub kind: String,
+    /// Unix time when Stripe created the event.
+    #[serde(default)]
+    pub created: i64,
     /// The object the event is about.
     pub data: StripeEventData,
 }
@@ -128,6 +131,57 @@ pub struct Refund {
     pub status: Option<String>,
     /// Refunded amount in centavos.
     pub amount: Option<i64>,
+    /// Unix time of the refund.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub created: Option<i64>,
+}
+
+impl Refund {
+    /// Whether the money is going back: a failed or canceled refund returned nothing.
+    pub fn counts(&self) -> bool {
+        !matches!(self.status.as_deref(), Some("failed" | "canceled"))
+    }
+}
+
+/// What a payment intent has refunded so far, from its refunds.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RefundTotal {
+    /// Centavos refunded, failed and canceled refunds left out.
+    pub cents: i64,
+    /// Unix time of the latest refund that counts.
+    pub last_at: Option<i64>,
+}
+
+impl RefundTotal {
+    /// Sums the refunds that count.
+    pub fn of(refunds: &[Refund]) -> Self {
+        let counted = refunds.iter().filter(|refund| refund.counts());
+        Self {
+            cents: counted.clone().filter_map(|refund| refund.amount).sum(),
+            last_at: counted.filter_map(|refund| refund.created).max(),
+        }
+    }
+}
+
+/// The fields of a Charge we use (`charge.refunded`).
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct Charge {
+    /// `ch_...` or `py_...`.
+    pub id: String,
+    /// `pi_...` of the Checkout payment.
+    pub payment_intent: Option<String>,
+    /// Charged amount in centavos.
+    pub amount: i64,
+    /// Refunded so far in centavos (every partial refund added up).
+    pub amount_refunded: i64,
+}
+
+/// A page of a Stripe list.
+#[derive(Debug, Deserialize)]
+struct StripeList<T> {
+    data: Vec<T>,
+    #[serde(default)]
+    has_more: bool,
 }
 
 /// In-memory Stripe for tests: sessions by id.
@@ -139,6 +193,8 @@ pub struct FakeStripe {
     pub requests: Vec<CheckoutRequest>,
     /// Payment intents refunded, in order.
     pub refunds: Vec<String>,
+    /// Refunds made in the Stripe dashboard, by payment intent (what `list_refunds` returns).
+    pub dashboard_refunds: HashMap<String, Vec<Refund>>,
 }
 
 impl FakeStripe {
@@ -158,6 +214,19 @@ impl FakeStripe {
         session.url = None;
         session.payment_intent = Some(format!("pi_{session_id}"));
         Some(session.clone())
+    }
+
+    /// Refunds part of a payment in the dashboard, as an admin would on Stripe.
+    pub fn refund_in_dashboard(&mut self, payment_intent: &str, amount: i64, created: i64) {
+        self.dashboard_refunds
+            .entry(payment_intent.to_owned())
+            .or_default()
+            .push(Refund {
+                id: format!("re_{}", Uuid::new_v4().simple()),
+                status: Some("succeeded".to_owned()),
+                amount: Some(amount),
+                created: Some(created),
+            });
     }
 }
 
@@ -408,8 +477,57 @@ impl Payments {
                     id: format!("re_{}", Uuid::new_v4().simple()),
                     status: Some("succeeded".to_owned()),
                     amount: None,
+                    created: None,
                 })
             }
+        }
+    }
+
+    /// Every refund of a payment intent (to recompute what was refunded on Stripe).
+    ///
+    /// # Errors
+    ///
+    /// See [`PaymentError`].
+    pub async fn list_refunds(&self, payment_intent: &str) -> Result<Vec<Refund>, PaymentError> {
+        match self {
+            Self::Stripe {
+                client,
+                api_base,
+                secret_key,
+                ..
+            } => {
+                let mut refunds = Vec::new();
+                let mut after: Option<String> = None;
+                loop {
+                    let query = {
+                        let mut query = form_urlencoded::Serializer::new(String::new());
+                        query
+                            .append_pair("payment_intent", payment_intent)
+                            .append_pair("limit", "100");
+                        if let Some(after) = after.take() {
+                            query.append_pair("starting_after", &after);
+                        }
+                        query.finish()
+                    };
+                    let response = client
+                        .get(format!("{api_base}/v1/refunds?{query}"))
+                        .bearer_auth(secret_key)
+                        .send()
+                        .await;
+                    let page: StripeList<Refund> = stripe_reply(response).await?;
+                    after = page.data.last().map(|refund| refund.id.clone());
+                    refunds.extend(page.data);
+                    if !page.has_more || after.is_none() {
+                        return Ok(refunds);
+                    }
+                }
+            }
+            Self::Disabled => Err(PaymentError::Disabled),
+            Self::Fake { stripe, .. } => Ok(lock(stripe)?
+                .dashboard_refunds
+                .get(payment_intent)
+                .cloned()
+                .unwrap_or_default()),
         }
     }
 
@@ -566,5 +684,44 @@ mod tests {
         .unwrap();
         assert!(session.is_paid());
         assert_eq!(session.amount_total, Some(4_000));
+    }
+
+    #[test]
+    fn parses_a_refunded_charge_and_adds_up_refunds() {
+        let charge: Charge = serde_json::from_str(
+            r#"{"id":"ch_1","object":"charge","amount":4000,"amount_refunded":1500,
+                "refunded":false,"payment_intent":"pi_1","currency":"brl"}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            (charge.payment_intent.as_deref(), charge.amount_refunded),
+            (Some("pi_1"), 1_500)
+        );
+        let refund = |amount, status: &str, created| Refund {
+            id: "re_x".to_owned(),
+            status: Some(status.to_owned()),
+            amount: Some(amount),
+            created: Some(created),
+        };
+        let total = RefundTotal::of(&[
+            refund(1_000, "succeeded", 10),
+            refund(500, "pending", 30),
+            refund(2_500, "failed", 40),
+            refund(700, "canceled", 50),
+        ]);
+        assert_eq!(
+            total,
+            RefundTotal {
+                cents: 1_500,
+                last_at: Some(30)
+            }
+        );
+        assert_eq!(
+            RefundTotal::of(&[]),
+            RefundTotal {
+                cents: 0,
+                last_at: None
+            }
+        );
     }
 }

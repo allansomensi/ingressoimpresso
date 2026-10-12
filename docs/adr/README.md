@@ -72,3 +72,4 @@ feita e as consequências.
 | [0060](0060-interface-pensada-para-o-celular.md) | Interface pensada para o celular | Aceito |
 | [0061](0061-ingresso-do-vendedor-e-segunda-via.md) | Ingresso no celular pelo vendedor e segunda via | Aceito |
 | [0062](0062-paginas-publicas-para-busca.md) | Páginas públicas para busca: tipos de evento e galeria de modelos | Aceito |
+| [0063](0063-reembolsos-do-stripe-e-receita-liquida.md) | Reembolsos do Stripe e receita líquida | Aceito |

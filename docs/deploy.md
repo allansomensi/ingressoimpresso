@@ -14,7 +14,7 @@ Troque **`seudominio.com.br`** pelo seu domínio em todos os passos.
 | Site, painel e portaria | Vercel | `https://seudominio.com.br` (o `www` redireciona para ele) |
 | API | Render, região Virginia | `https://api.seudominio.com.br` |
 | Banco | Neon, região AWS US East (N. Virginia) | (só a API acessa) |
-| E-mail de login | Resend, região São Paulo | `login@mail.seudominio.com.br` |
+| E-mails (login, pagamento, convites) | Resend, região São Paulo | `contato@seudominio.com.br` |
 | DNS | Registro.br | (zona do domínio) |
 | Deploy do site e backup | GitHub Actions | (workflows **Deploy web** e **Backup**) |
 
@@ -116,18 +116,27 @@ termina verde. É esperado.
    Confira que o host termina em `.us-east-1.aws.neon.tech`. Não crie tabelas: a API cria tudo
    quando sobe.
 
-## 3. Resend (e-mail do login)
+## 3. Resend (e-mails)
+
+Todos os e-mails (código de login, pagamento confirmado, convite da equipe) saem de um remetente
+só: `Ingresso Impresso <contato@ingressoimpresso.com.br>`, a constante `DEFAULT_MAIL_FROM` de
+`crates/server/src/config.rs`. A variável `MAIL_FROM` troca o remetente sem mexer no código
+(remetente de teste do Resend, staging, outro domínio).
 
 1. Crie a conta em `https://resend.com/signup` com o e-mail que será o administrador.
 2. **Domains** → **Add Domain**:
-   - **Name:** `mail.seudominio.com.br` (um subdomínio, como o Resend recomenda);
+   - **Name:** o domínio do remetente. Para `contato@seudominio.com.br`, é o próprio
+     `seudominio.com.br`; os registros do Resend ficam em `send` e `resend._domainkey`, sem mexer
+     no MX do domínio (onde chegam as respostas ao `contato@`). Instalações antigas verificaram
+     `mail.seudominio.com.br`: acrescente o domínio raiz, espere ficar **Verified** e só então
+     apague o `MAIL_FROM` antigo (`login@mail...`) no Render;
    - **Region:** **São Paulo (sa-east-1)**. Não dá para mudar depois;
    - mantenha o *Return-Path* padrão (`send`) e clique em **Add**.
 3. Deixe a aba **Records** aberta: os registros dela entram no DNS no passo seguinte.
 4. **API Keys** → **Create API Key**:
    - **Name:** `ingressoimpresso-render`;
    - **Permission:** **Sending access**;
-   - **Domain:** **All domains**. Uma chave restrita a `mail.seudominio.com.br` só pode ser criada
+   - **Domain:** **All domains**. Uma chave restrita a um domínio só pode ser criada
      depois da verificação e não envia pelo remetente de teste do Resend.
 
    Copie a chave (`re_...`) para o gerenciador de senhas: ela só aparece uma vez.
@@ -145,20 +154,20 @@ termina verde. É esperado.
 
    | Tipo | Nome | Valor |
    |---|---|---|
-   | MX | `send.mail` | `feedback-smtp.sa-east-1.amazonses.com`, prioridade `10` |
-   | TXT | `send.mail` | `v=spf1 include:amazonses.com ~all` |
-   | TXT | `resend._domainkey.mail` | o `p=...` da aba Records, inteiro, sem aspas |
+   | MX | `send` | `feedback-smtp.sa-east-1.amazonses.com`, prioridade `10` |
+   | TXT | `send` | `v=spf1 include:amazonses.com ~all` |
+   | TXT | `resend._domainkey` | o `p=...` da aba Records, inteiro, sem aspas |
    | TXT | `_dmarc` | `v=DMARC1; p=none;` |
 
    - Copie os registros **da aba Records do Resend**, inclusive o **tipo**: se forem diferentes da
      tabela, valem os do Resend. Domínios novos podem receber, no lugar do MX e do TXT de
-     `send.mail`, dois registros **CNAME** (por exemplo `send.mail` e `rsend.mail`). Nesse caso,
-     crie só os CNAME, e não o MX nem o TXT de `send.mail`: um CNAME não divide o nome com nenhum
+     `send`, dois registros **CNAME** (por exemplo `send` e `rsend`). Nesse caso,
+     crie só os CNAME, e não o MX nem o TXT de `send`: um CNAME não divide o nome com nenhum
      outro registro.
    - Se o formulário do MX não tiver campo de prioridade, escreva `10 feedback-smtp...`.
-   - Só pode existir **um** MX em `send.mail`.
+   - Só pode existir **um** MX em `send`.
 4. Clique em **Salvar alterações**. Nada é publicado sem isso.
-5. No Resend: **Domains** → `mail.seudominio.com.br` → **Verify DNS Records**. Costuma ficar
+5. No Resend: **Domains** → `seudominio.com.br` → **Verify DNS Records**. Costuma ficar
    **Verified** em uns 15 minutos (no pior caso, até 72 horas). Se ficar **Failed**, corrija o
    registro que não ficou verde e clique em **Restart verification**. Com dois CNAME, o domínio
    pode aparecer como **Partially verified** até o segundo ser confirmado.
@@ -181,7 +190,7 @@ padrão).
    | `DATABASE_URL` | a string do Neon com `?sslmode=verify-full` (passo 2) |
    | `TICKET_KEY_ENCRYPTION_KEY` | a chave mestra (passo 0) |
    | `RESEND_API_KEY` | a chave `re_...` (passo 3) |
-   | `MAIL_FROM` | `Ingresso Impresso <login@mail.seudominio.com.br>` |
+   | `MAIL_FROM` | opcional: sem ela, `Ingresso Impresso <contato@ingressoimpresso.com.br>` |
    | `ADMIN_EMAILS` | seu e-mail (pode marcar lotes como pagos); vários, separados por vírgula |
    | `PUBLIC_API_URL` | `https://api.seudominio.com.br` |
    | `ALLOWED_ORIGINS` | `https://seudominio.com.br,https://www.seudominio.com.br` |
@@ -189,8 +198,8 @@ padrão).
    - Sem barra no fim, sem espaços dentro dos endereços.
    - Se o Resend ainda não verificou o domínio, use por enquanto
      `Ingresso Impresso <onboarding@resend.dev>` em `MAIL_FROM`. Nesse modo, só o e-mail da sua conta
-     no Resend recebe os códigos. Quando ficar **Verified**, troque `MAIL_FROM` por
-     `Ingresso Impresso <login@mail.seudominio.com.br>` (**Save and deploy**, abaixo).
+     no Resend recebe os códigos. Quando ficar **Verified**, apague `MAIL_FROM` (vale o remetente
+     padrão) ou ponha nela o remetente do seu domínio (**Save and deploy**, abaixo).
 5. Clique em **Deploy Blueprint**. A primeira compilação do Rust leva de 20 a 40 minutos; as
    seguintes são bem mais rápidas. Acompanhe em `ingressoimpresso-api` → **Events** → o deploy em
    andamento.
@@ -228,7 +237,9 @@ organizador pagar sozinho, com Pix ou cartão:
 4. **Developers** → **Webhooks** → **Add endpoint**:
    - **Endpoint URL:** `https://api.seudominio.com.br/api/stripe/webhook`;
    - **Events:** `checkout.session.completed`, `checkout.session.async_payment_succeeded`,
-     `checkout.session.async_payment_failed` e `checkout.session.expired`.
+     `checkout.session.async_payment_failed`, `checkout.session.expired` e `charge.refunded`
+     (reembolsos, inclusive parciais). Num endpoint já criado, acrescente `charge.refunded` em
+     **Update details** → **Select events**.
 
    Depois de criar, copie o **Signing secret** (`whsec_...`).
 5. **Developers** → **API keys**: copie a **Secret key** (`sk_live_...`). Uma **restricted key** com
@@ -265,6 +276,15 @@ pelo painel: **Admin** → **Lotes** → filtro **Pagos** → menu do lote → *
 "Devolver o dinheiro pela Stripe agora" ligado, a API pede o estorno à Stripe; a chave precisa de
 escrita em **Refunds** (uma restricted key com Checkout Sessions e Refunds). Em qualquer caso, o
 lote vira **Estornado** e os números dele ficam cancelados na porta para sempre (ADR 0032).
+
+Reembolsos feitos direto no painel da Stripe chegam pelo webhook `charge.refunded`: cada pagamento
+guarda quanto voltou e quando, e a **Visão geral** do admin mostra receita bruta, reembolsos e
+líquida. Um reembolso parcial só desconta da receita; um reembolso total faz o mesmo que o
+**Estornar** (lote **Estornado**, números cancelados na porta, registro em **Cancelamentos** do
+evento e na auditoria, com o autor "Stripe"). Para reembolsos feitos antes de o webhook ouvir
+`charge.refunded`, ou entregas perdidas: **Admin** → **Visão geral** → **Conferir reembolsos no
+Stripe** (a chave precisa de leitura em **Refunds**). Ele relê até 100 pagamentos por clique; se
+sobrar algum, clique de novo.
 
 ## 5.2 Login com Google (ADR 0029)
 
@@ -578,7 +598,7 @@ Depois disso, siga o ensaio geral em [`docs/ensaio.md`](ensaio.md).
 | Sintoma | Causa provável | O que fazer |
 |---|---|---|
 | Painel diz "Sem conexão com o servidor", mas há internet | A origem do site não está em `ALLOWED_ORIGINS`, ou `NEXT_PUBLIC_API_URL` está errada | No navegador, abra o console (F12): um erro de CORS confirma. Corrija `ALLOWED_ORIGINS` no Render (**Save and deploy**) ou a variável na Vercel e rode o **Deploy web** de novo |
-| O código de login não chega | Domínio não verificado no Resend, `MAIL_FROM` com domínio diferente de `mail.seudominio.com.br`, ou limite diário | Nos **Logs** do Render, procure `resend answered`: a mensagem diz o motivo. Confira o spam |
+| O código de login não chega | Domínio não verificado no Resend, remetente (`MAIL_FROM` ou o padrão `contato@ingressoimpresso.com.br`) num domínio que o Resend não verificou, ou limite diário | Nos **Logs** do Render, procure `resend answered`: a mensagem diz o motivo. Confira o spam |
 | Login diz "Os códigos por e-mail acabaram por hoje" | `MAIL_DAILY_LIMIT` atingido em 24 horas | Entre com o Google (passo 5.2). Se for frequente, mude o plano da Resend e suba `MAIL_DAILY_LIMIT` |
 | Organizadores veem "Voltamos em instantes" | O modo manutenção está ligado | **Admin** → **Configurações** → **Modo manutenção** → **Desligado** → **Salvar** |
 | Ninguém consegue criar conta | Cadastros fechados ou domínio bloqueado | **Admin** → **Configurações**: ligue **Aceitar novas contas** e confira os domínios |
@@ -654,7 +674,7 @@ openssl rand -base64 32
    | `DATABASE_URL` | a do passo 11.2 |
    | `TICKET_KEY_ENCRYPTION_KEY` | a do passo 11.3 |
    | `RESEND_API_KEY` | **outra** chave da Resend, só de envio (**API Keys** → **Create**, permissão *Sending access*): se o staging vazar, revoga-se só ela |
-   | `MAIL_FROM` | `Ingresso Impresso (testes) <login@mail.seudominio.com.br>` |
+   | `MAIL_FROM` | `Ingresso Impresso (testes) <contato@seudominio.com.br>` |
    | `ADMIN_EMAILS` | o seu e-mail |
    | `ALLOWED_ORIGINS` | `https://staging.seudominio.com.br` |
    | `PUBLIC_API_URL` | `https://ingressoimpresso-api-staging.onrender.com` (ou o domínio próprio, se usar) |
@@ -717,9 +737,9 @@ O endereço pode ser outro: crie a variável `VERCEL_STAGING_ALIAS` em **GitHub*
 | A | (vazio) | `76.76.21.21` | site (Vercel) |
 | CNAME | `www` | `cname.vercel-dns.com` | site (redireciona) |
 | CNAME | `api` | host do serviço no Render, ex. `ingressoimpresso-api.onrender.com` | API |
-| MX | `send.mail` | `feedback-smtp.sa-east-1.amazonses.com` (prioridade 10), **ou** os CNAME que a aba Records mostrar (nunca os dois jeitos juntos) | Resend |
-| TXT | `send.mail` | `v=spf1 include:amazonses.com ~all` | Resend |
-| TXT | `resend._domainkey.mail` | `p=...` (copie do Resend) | Resend |
+| MX | `send` | `feedback-smtp.sa-east-1.amazonses.com` (prioridade 10), **ou** os CNAME que a aba Records mostrar (nunca os dois jeitos juntos) | Resend |
+| TXT | `send` | `v=spf1 include:amazonses.com ~all` | Resend |
+| TXT | `resend._domainkey` | `p=...` (copie do Resend) | Resend |
 | TXT | `_dmarc` | `v=DMARC1; p=none;` | e-mail |
 
 **Onde fica cada segredo:**

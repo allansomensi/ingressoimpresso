@@ -325,18 +325,28 @@ pub async fn finance(
     let since = now - Duration::days(days);
     let before = since - Duration::days(days);
 
+    // Money as it moved: received (payments, refunded ones included) and given back (Stripe
+    // refunds, partial ones included, and admin refunds), each on its own date.
+    let money = sqlx::query!(
+        r#"select
+             coalesce(sum(cents) filter (where kind = 'gross' and at >= $1), 0)::bigint as "revenue!",
+             coalesce(sum(cents) filter (where kind = 'gross' and at >= $2 and at < $1), 0)::bigint as "previous!",
+             coalesce(sum(cents) filter (where kind = 'refund' and at >= $1), 0)::bigint as "refunds!"
+           from revenue_entries where at >= $2"#,
+        since,
+        before,
+    )
+    .fetch_one(&state.pool)
+    .await?;
     let totals = sqlx::query!(
         r#"select
-             coalesce(sum(price_cents) filter (where paid_at >= $1), 0)::bigint as "revenue!",
-             coalesce(sum(price_cents) filter (where paid_at >= $2 and paid_at < $1), 0)::bigint as "previous!",
              count(*) filter (where paid_at >= $1 and price_cents > 0) as "charged_batches!",
              coalesce(sum(upper(numbers) - lower(numbers) - free_tickets)
                       filter (where paid_at >= $1 and price_cents > 0), 0)::bigint as "charged_tickets!",
-             coalesce(sum(price_cents) filter (where refunded_at >= $1), 0)::bigint as "refunds!",
-             count(*) filter (where refunded_at >= $1) as "refunded_batches!"
-           from ticket_batches where status in ('paid', 'refunded') and paid_at >= $2"#,
+             count(*) filter (where status = 'refunded' and refunded_at >= $1) as "refunded_batches!"
+           from ticket_batches where status in ('paid', 'refunded')
+             and (paid_at >= $1 or refunded_at >= $1)"#,
         since,
-        before,
     )
     .fetch_one(&state.pool)
     .await?;
@@ -405,15 +415,15 @@ pub async fn finance(
 
     Ok(Json(AdminFinanceDto {
         days,
-        revenue_cents: totals.revenue,
-        previous_revenue_cents: totals.previous,
-        refunds_cents: totals.refunds,
+        revenue_cents: money.revenue,
+        previous_revenue_cents: money.previous,
+        refunds_cents: money.refunds,
         refunded_batches: totals.refunded_batches,
-        net_cents: totals.revenue - totals.refunds,
+        net_cents: money.revenue - money.refunds,
         charged_batches: totals.charged_batches,
         charged_tickets: totals.charged_tickets,
         average_batch_cents: if totals.charged_batches > 0 {
-            totals.revenue / totals.charged_batches
+            money.revenue / totals.charged_batches
         } else {
             0
         },
