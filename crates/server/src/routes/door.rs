@@ -453,6 +453,7 @@ async fn event_info(state: &AppState, event_id: Uuid) -> ApiResult<DoorEventInfo
             .map_err(|_| ApiError::Internal(anyhow::anyhow!("invalid digits {}", row.digits)))?,
         ticket_price_cents: row.ticket_price_cents,
         canceled_at: row.canceled_at,
+        in_series: super::series::in_series(&state.pool, event_id).await?,
     })
 }
 
@@ -518,6 +519,7 @@ pub async fn manifest(
         guests,
         guests_version,
         guest_arrivals,
+        sessions: super::series::sessions(&state.pool, device.event_id).await?,
     }))
 }
 

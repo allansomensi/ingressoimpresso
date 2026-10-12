@@ -928,6 +928,7 @@ pub async fn open(
             id: link.event_id,
             address: row.address.clone(),
             change: row.change(),
+            in_series: super::series::in_series(&state.pool, link.event_id).await?,
         },
         organization: super::organization::event_organization(&state.pool, link.event_id).await?,
         table_map: table_map(&state, link.event_id, link.ticket_number).await?,

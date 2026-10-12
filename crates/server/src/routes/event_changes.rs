@@ -22,16 +22,6 @@ use crate::state::AppState;
 /// Longest reason of a postponement or a cancellation (one line on the ticket's notice).
 const MAX_REASON: usize = 200;
 
-fn into_dto(access: EventAccess, row: EventRow) -> ApiResult<EventDto> {
-    let mut event = row.into_dto(access.organization_name)?;
-    event.support_access = access.support;
-    event.team = access.team.map(|areas| crate::api::EventTeamAccessDto {
-        areas,
-        organization: event.organization_name.clone(),
-    });
-    Ok(event)
-}
-
 /// Tells everyone who works on the event (its organization and its team), except who did it.
 async fn notify_team(
     tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
@@ -139,7 +129,7 @@ pub async fn postpone(
     )
     .await?;
     tx.commit().await?;
-    Ok(Json(into_dto(access, row)?))
+    Ok(Json(access.dto(&state.pool, row).await?))
 }
 
 /// `POST /api/events/{id}/cancel`: the event will not happen. Canceling again only changes the
@@ -176,7 +166,7 @@ pub async fn cancel(
         .await?;
     }
     tx.commit().await?;
-    Ok(Json(into_dto(access, row)?))
+    Ok(Json(access.dto(&state.pool, row).await?))
 }
 
 /// `POST /api/events/{id}/cancel/undo`: the event happens after all.
@@ -200,5 +190,5 @@ pub async fn undo_cancel(
     .ok_or_else(|| {
         ApiError::Conflict("event_not_canceled", "the event is not canceled".to_owned())
     })?;
-    Ok(Json(into_dto(access, row)?))
+    Ok(Json(access.dto(&state.pool, row).await?))
 }

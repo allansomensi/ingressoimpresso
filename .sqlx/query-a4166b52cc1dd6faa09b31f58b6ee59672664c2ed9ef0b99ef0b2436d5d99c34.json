@@ -1,0 +1,54 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select s.id, s.name,\n                  (select count(*) from events x where x.series_id = s.id)::int4 as \"dates!\",\n                  (select count(*) from events x where x.series_id = s.id\n                   and (x.starts_at, x.id) <= (e.starts_at, e.id))::int4 as \"position!\"\n           from events e join event_series s on s.id = e.series_id\n           where e.id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "event_series",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "event_series",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "dates!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "position!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null,
+      null
+    ]
+  },
+  "hash": "a4166b52cc1dd6faa09b31f58b6ee59672664c2ed9ef0b99ef0b2436d5d99c34"
+}

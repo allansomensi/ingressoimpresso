@@ -219,6 +219,11 @@ dto! {
         pub organization_name: String,
         /// Postponement and cancellation (ADR 0065).
         pub change: EventChangeDto,
+        /// The series of dates it is one of (ADR 0077); `null` for an event with one date.
+        pub series: Option<EventSeriesRefDto>,
+        /// Required checklist items still missing (ADR 0078), in the event list only; `null`
+        /// elsewhere and when the checklist does not apply (ended, archived or canceled).
+        pub checklist_missing: Option<i32>,
     }
 
     /// The current user's place on the team of an event of another organization (ADR 0055).
@@ -1014,6 +1019,9 @@ dto! {
         pub address: Option<String>,
         /// Postponement and cancellation, as the panel shows them (ADR 0065).
         pub change: EventChangeDto,
+        /// One of several dates (ADR 0077): the ticket says which session it is for.
+        #[serde(default)]
+        pub in_series: bool,
     }
 
     /// `GET /api/analytics`: results of every event of the organization (ADR 0034).
@@ -1414,6 +1422,9 @@ dto! {
         pub address: Option<String>,
         /// Postponement and cancellation (ADR 0065): a canceled event takes no more sales.
         pub change: EventChangeDto,
+        /// One of several dates (ADR 0077): the page says which session the link is for.
+        #[serde(default)]
+        pub in_series: bool,
     }
 
     /// `POST /api/seller`: everything the seller's page shows (ADR 0053).
@@ -1939,6 +1950,9 @@ dto! {
         #[serde(default, with = "time::serde::rfc3339::option")]
         #[cfg_attr(feature = "ts", ts(type = "string | null"))]
         pub canceled_at: Option<OffsetDateTime>,
+        /// One of several dates (ADR 0077): the door says which session it is for.
+        #[serde(default)]
+        pub in_series: bool,
     }
 
     /// What `DoorCore` needs to verify tickets; same shape as ticket-core's `DoorEventDto`.
@@ -2068,6 +2082,20 @@ dto! {
         /// Guest arrivals (and undos) since `since`, from every phone.
         #[serde(default)]
         pub guest_arrivals: Vec<DoorGuestArrivalDto>,
+        /// The other dates of the series (ADR 0077), to tell a ticket of another session apart
+        /// from one of another event. Their tickets never enter here.
+        #[serde(default)]
+        pub sessions: Vec<DoorSessionDto>,
+    }
+
+    /// Another date of the event's series.
+    pub struct DoorSessionDto {
+        /// The QR tag of that date.
+        pub event_tag: u32,
+        /// Its start, with its offset.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub starts_at: OffsetDateTime,
     }
 
     /// One scan uploaded by a phone.
@@ -4045,6 +4073,8 @@ dto! {
         pub ends_at: OffsetDateTime,
         /// Postponement and cancellation (ADR 0065).
         pub change: EventChangeDto,
+        /// One of several dates (ADR 0077): the page says which session the ticket is for.
+        pub in_series: bool,
     }
 
     /// `GET|PUT /api/events/{id}/verify-settings`.
@@ -4240,3 +4270,217 @@ dto_enum! {
 }
 
 db_enum!(ReferralStatus { Pending => "pending", Rewarded => "rewarded", Revoked => "revoked" });
+
+// Several dates of one event (ADR 0077) and the checklist of what is missing (ADR 0078).
+dto! {
+    /// The series of dates an event is one of.
+    pub struct EventSeriesRefDto {
+        /// Series id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// The series' name.
+        pub name: String,
+        /// Dates in the series (all of them, also those the user cannot open).
+        pub dates: i32,
+        /// This date's place by start, from 1.
+        pub position: i32,
+    }
+
+    /// `POST /api/events/{id}/dates`: another date with the same setup.
+    pub struct NewDateBody {
+        /// Start, with the event's offset.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub starts_at: OffsetDateTime,
+        /// End.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub ends_at: OffsetDateTime,
+    }
+
+    /// `PUT /api/series/{id}`: renames the series (and the dates that still carry its name).
+    pub struct SeriesBody {
+        /// New name.
+        pub name: String,
+    }
+
+    /// `GET /api/series/{id}`: the dates side by side and the series' totals.
+    pub struct SeriesDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// Name.
+        pub name: String,
+        /// The organization that runs it.
+        pub organization_name: String,
+        /// Whether the user may rename the series and add or detach dates (the organization's
+        /// own people).
+        pub can_manage: bool,
+        /// Opened by an admin outside their organization (support mode, ADR 0032).
+        pub support_access: bool,
+        /// The dates the user may open, earliest first.
+        pub dates: Vec<SeriesDateDto>,
+        /// Dates the user cannot open (on the team of some dates only).
+        pub hidden_dates: i32,
+        /// Sums of the dates shown.
+        pub totals: SeriesNumbersDto,
+        /// Sellers of the dates shown, added up by name.
+        pub sellers: Vec<SeriesSellerDto>,
+    }
+
+    /// One date of a series and its numbers.
+    pub struct SeriesDateDto {
+        /// The event of that date.
+        pub event: EventDto,
+        /// Its numbers.
+        pub numbers: SeriesNumbersDto,
+    }
+
+    /// What one date (or the whole series) issued, sold and took in, as the report counts it.
+    #[derive(Default)]
+    pub struct SeriesNumbersDto {
+        /// Paid tickets.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub tickets: i64,
+        /// Declared sold (paid − returned − lost; entries for a box office).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub sold: i64,
+        /// Entries at the door.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub entries: i64,
+        /// Sold × price, in centavos; `null` when a sold ticket has no price.
+        #[cfg_attr(feature = "ts", ts(type = "number | null"))]
+        pub amount_due_cents: Option<i64>,
+        /// Received from sellers, in centavos.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub received_cents: i64,
+        /// Paid for batches, in centavos.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub cost_cents: i64,
+        /// Amount due minus cost; `null` without an amount.
+        #[cfg_attr(feature = "ts", ts(type = "number | null"))]
+        pub net_cents: Option<i64>,
+    }
+
+    /// A seller across the dates, matched by name.
+    pub struct SeriesSellerDto {
+        /// Name, as on the first date it appears.
+        pub name: String,
+        /// Dates the seller is on.
+        pub dates: i32,
+        /// Tickets handed to the seller.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub tickets: i64,
+        /// Declared sold.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub sold: i64,
+        /// Amount due, in centavos; `null` when some date has no price.
+        #[cfg_attr(feature = "ts", ts(type = "number | null"))]
+        pub amount_due_cents: Option<i64>,
+        /// Received, in centavos.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub received_cents: i64,
+        /// Still owed, in centavos; `null` without an amount.
+        #[cfg_attr(feature = "ts", ts(type = "number | null"))]
+        pub balance_cents: Option<i64>,
+    }
+
+    /// `GET /api/events/{id}/checklist`: what is missing before the event.
+    pub struct ChecklistDto {
+        /// Whether the checklist applies: the event has not ended and is neither archived nor
+        /// canceled. When it does not, `items` is empty.
+        pub applies: bool,
+        /// Required items still missing (optional ones never count).
+        pub missing: i32,
+        /// Required items (done or not), the ones that do not apply aside.
+        pub required: i32,
+        /// Every item, in the order the work goes.
+        pub items: Vec<ChecklistItemDto>,
+    }
+
+    /// One thing to have ready.
+    pub struct ChecklistItemDto {
+        /// What.
+        pub key: ChecklistKey,
+        /// Where it stands.
+        pub state: ChecklistState,
+        /// Optional items never count as missing.
+        pub optional: bool,
+        /// The team area that takes care of it; `null`: the organization's own people.
+        pub area: Option<TeamArea>,
+        /// Whether the user may do it (the panel offers the way only then).
+        pub can_act: bool,
+        /// How far, when it is made of parts (sellers with a link out of sellers with numbers).
+        pub progress: Option<ChecklistProgressDto>,
+        /// Why it is missing, when there is more to say.
+        pub hint: Option<ChecklistHint>,
+    }
+
+    /// Done out of total.
+    pub struct ChecklistProgressDto {
+        /// Done.
+        pub done: i32,
+        /// Total.
+        pub total: i32,
+    }
+}
+
+dto_enum! {
+    /// An item of the checklist.
+    pub enum ChecklistKey {
+        /// Venue and address.
+        Details,
+        /// A saved ticket design.
+        Design,
+        /// The images of the design are free to print (ADR 0042).
+        Art,
+        /// Categories (optional).
+        Categories,
+        /// A paid batch.
+        Batch,
+        /// Sellers with numbers (optional).
+        Sellers,
+        /// Every seller with numbers has a private link (ADR 0053).
+        SellerLinks,
+        /// Files generated or digital tickets sent.
+        Delivery,
+        /// An open door link.
+        DoorLink,
+        /// A phone rehearsed the door (ADR 0067).
+        Rehearsal,
+        /// The guest list (optional, ADR 0070).
+        Guests,
+        /// The public check is on (ADR 0075).
+        PublicVerify,
+        /// The organization's profile has a contact (ADR 0064).
+        OrganizationContact,
+    }
+
+    /// Where an item stands.
+    pub enum ChecklistState {
+        /// Ready.
+        Done,
+        /// Still to do.
+        Missing,
+        /// Not done, and optional.
+        Optional,
+        /// Does not apply to this event (no images to review, no sellers).
+        NotApplicable,
+    }
+
+    /// More about a missing item.
+    pub enum ChecklistHint {
+        /// The venue is empty.
+        NoVenue,
+        /// The address is empty.
+        NoAddress,
+        /// Neither.
+        NoVenueNorAddress,
+        /// An image is waiting for the review.
+        ArtUnderReview,
+        /// An image was refused.
+        ArtRejected,
+        /// No phone was registered at the door yet.
+        NoDevices,
+    }
+}

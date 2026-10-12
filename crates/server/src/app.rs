@@ -27,6 +27,7 @@ use crate::routes::{
     moderation, organization, platform, privacy, refunds, report, seller_links, sellers,
     settlement, status, support, tables, team, tickets, two_factor, voids,
 };
+use crate::routes::{checklist, series};
 use crate::routes::{referrals, verify};
 use crate::state::AppState;
 
@@ -327,6 +328,11 @@ pub fn router(state: AppState) -> Router {
             "/admin/referrals/{id}/revoke",
             post(referrals::admin_revoke),
         )
+        // Several dates of one event and the checklist (ADRs 0077, 0078).
+        .route("/events/{id}/dates", post(series::add_date))
+        .route("/events/{id}/series/leave", post(series::leave))
+        .route("/series/{id}", get(series::get).put(series::rename))
+        .route("/events/{id}/checklist", get(checklist::checklist))
         .fallback(not_found)
         .layer(DefaultBodyLimit::max(JSON_BODY_LIMIT))
         // Axum's own rejections (bad JSON, a malformed id, a body too large) answer plain text;

@@ -653,6 +653,9 @@ mod tests {
             (Method::DELETE, "events/{id}", Need::Owner),
             (Method::PUT, "events/{id}/status", Need::Owner),
             (Method::POST, "events/{id}/duplicate", Need::Owner),
+            // Another date of the event and leaving the series (ADR 0077), like duplicating.
+            (Method::POST, "events/{id}/dates", Need::Owner),
+            (Method::POST, "events/{id}/series/leave", Need::Owner),
             (Method::POST, "events/{id}/something-new", Need::Owner),
         ];
         for (method, template, expected) in cases {

@@ -7,6 +7,7 @@ import type { DoorGuestDto } from "./DoorGuestDto";
 import type { DoorRouteDto } from "./DoorRouteDto";
 import type { DoorSeatDto } from "./DoorSeatDto";
 import type { DoorSellerRangeDto } from "./DoorSellerRangeDto";
+import type { DoorSessionDto } from "./DoorSessionDto";
 import type { DoorVerifierDto } from "./DoorVerifierDto";
 import type { DoorVoidDto } from "./DoorVoidDto";
 
@@ -77,4 +78,9 @@ guestsVersion: string,
 /**
  * Guest arrivals (and undos) since `since`, from every phone.
  */
-guestArrivals: Array<DoorGuestArrivalDto>, };
+guestArrivals: Array<DoorGuestArrivalDto>, 
+/**
+ * The other dates of the series (ADR 0077), to tell a ticket of another session apart
+ * from one of another event. Their tickets never enter here.
+ */
+sessions: Array<DoorSessionDto>, };

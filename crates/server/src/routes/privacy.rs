@@ -65,7 +65,8 @@ pub async fn export(State(state): State<AppState>, user: AuthUser) -> ApiResult<
     .ok_or(ApiError::NotFound)?;
     let events = sqlx::query!(
         r#"select id, name, venue, starts_at, ends_at, ticket_price_cents, status, created_at,
-                  address, postponed_from_starts_at, postpone_reason, canceled_at, cancel_reason
+                  address, postponed_from_starts_at, postpone_reason, canceled_at, cancel_reason,
+                  (select s.name from event_series s where s.id = series_id) as series
            from events where organization_id = $1 order by starts_at"#,
         account.organization_id
     )
@@ -87,6 +88,8 @@ pub async fn export(State(state): State<AppState>, user: AuthUser) -> ApiResult<
                 "postponeReason": event.postpone_reason,
                 "canceledAt": optional_rfc3339(event.canceled_at),
                 "cancelReason": event.cancel_reason,
+                // The series of dates it is one of (ADR 0077).
+                "series": event.series,
             });
             if let (Some(target), Value::Object(extra)) = (value.as_object_mut(), details) {
                 target.extend(extra);
@@ -459,6 +462,13 @@ pub async fn delete(
                where organization_id = $1"#,
             organization_id,
             DELETED_EVENT,
+        )
+        .execute(&mut *tx)
+        .await?;
+        // Series names go with the event names (ADR 0077); the dates stay apart.
+        sqlx::query!(
+            "delete from event_series where organization_id = $1",
+            organization_id
         )
         .execute(&mut *tx)
         .await?;

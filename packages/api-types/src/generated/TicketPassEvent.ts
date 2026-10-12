@@ -36,4 +36,8 @@ address: string | null,
 /**
  * Postponement and cancellation, as the panel shows them (ADR 0065).
  */
-change: EventChangeDto, };
+change: EventChangeDto, 
+/**
+ * One of several dates (ADR 0077): the ticket says which session it is for.
+ */
+inSeries: boolean, };

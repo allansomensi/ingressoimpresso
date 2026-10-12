@@ -153,6 +153,7 @@ pub async fn verify(
     let (prefix, digits) = super::tickets::number_style(&state, event.id).await?;
     let tags = super::categories::NumberTags::load(&state.pool, event.id).await?;
     let offset = event.offset();
+    let in_series = super::series::in_series(&state.pool, event.id).await?;
     let result = VerifyResultDto {
         verdict: verdict(
             event.canceled_at.is_some(),
@@ -181,6 +182,7 @@ pub async fn verify(
                 address: event.address,
                 starts_at: event.starts_at.to_offset(offset),
                 ends_at: event.ends_at.to_offset(offset),
+                in_series,
             },
         }),
     };

@@ -28,4 +28,8 @@ endsAt: string,
 /**
  * Postponement and cancellation (ADR 0065).
  */
-change: EventChangeDto, };
+change: EventChangeDto, 
+/**
+ * One of several dates (ADR 0077): the page says which session the ticket is for.
+ */
+inSeries: boolean, };

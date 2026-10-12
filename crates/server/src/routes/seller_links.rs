@@ -458,6 +458,7 @@ async fn view(state: &AppState, link: &LinkRow) -> ApiResult<SellerViewDto> {
             ticket_price_cents: event.ticket_price_cents,
             address: row.address.clone(),
             change: row.change(),
+            in_series: super::series::in_series(&state.pool, link.event_id).await?,
         },
         organization: super::organization::event_organization(&state.pool, link.event_id).await?,
         seller: event.seller,

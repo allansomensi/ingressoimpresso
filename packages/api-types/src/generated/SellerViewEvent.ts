@@ -32,4 +32,8 @@ address: string | null,
 /**
  * Postponement and cancellation (ADR 0065): a canceled event takes no more sales.
  */
-change: EventChangeDto, };
+change: EventChangeDto, 
+/**
+ * One of several dates (ADR 0077): the page says which session the link is for.
+ */
+inSeries: boolean, };

@@ -36,4 +36,8 @@ ticketPriceCents: number | null,
  * When the organizer canceled the event (ADR 0065): the door shows it and keeps
  * reading, the organizer decides.
  */
-canceledAt: string | null, };
+canceledAt: string | null, 
+/**
+ * One of several dates (ADR 0077): the door says which session it is for.
+ */
+inSeries: boolean, };
