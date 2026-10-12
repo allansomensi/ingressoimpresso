@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "insert into events (id, organization_id, name, venue, starts_at, ends_at, qr_tag,\n                                   ticket_price_cents, utc_offset_minutes)\n               values ($1, $2, $3, $4, $5, $6, $7, $8, $9)\n               on conflict (qr_tag) do nothing\n               returning id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag,\n                         utc_offset_minutes",
+  "query": "select e.id, e.name, e.venue, e.starts_at, e.ends_at, e.canceled_at,\n                  coalesce((select (spec -> 'number' ->> 'digits')::int from ticket_designs\n                            where event_id = e.id order by version desc limit 1), $2) as \"digits!\"\n           from events e where e.id = $1",
   "describe": {
     "columns": [
       {
@@ -60,60 +60,26 @@
       },
       {
         "ordinal": 5,
-        "name": "ticket_price_cents",
-        "type_info": "Int4",
+        "name": "canceled_at",
+        "type_info": "Timestamptz",
         "origin": {
           "Table": {
             "table": "events",
-            "name": "ticket_price_cents"
+            "name": "canceled_at"
           }
         }
       },
       {
         "ordinal": 6,
-        "name": "status",
-        "type_info": "Text",
-        "origin": {
-          "Table": {
-            "table": "events",
-            "name": "status"
-          }
-        }
-      },
-      {
-        "ordinal": 7,
-        "name": "qr_tag",
-        "type_info": "Int8",
-        "origin": {
-          "Table": {
-            "table": "events",
-            "name": "qr_tag"
-          }
-        }
-      },
-      {
-        "ordinal": 8,
-        "name": "utc_offset_minutes",
-        "type_info": "Int2",
-        "origin": {
-          "Table": {
-            "table": "events",
-            "name": "utc_offset_minutes"
-          }
-        }
+        "name": "digits!",
+        "type_info": "Int4",
+        "origin": "Expression"
       }
     ],
     "parameters": {
       "Left": [
         "Uuid",
-        "Uuid",
-        "Text",
-        "Text",
-        "Timestamptz",
-        "Timestamptz",
-        "Int8",
-        "Int4",
-        "Int2"
+        "Int4"
       ]
     },
     "nullable": [
@@ -123,10 +89,8 @@
       false,
       false,
       true,
-      false,
-      false,
-      false
+      null
     ]
   },
-  "hash": "0cd50a221635d29525aa9fbef671d4cb8d0ccc17489ffd25e8d434e406158b5a"
+  "hash": "e1d700d7b3fb99e4fc0f354768c27e8f629689d5619347d63522baf374b9769a"
 }

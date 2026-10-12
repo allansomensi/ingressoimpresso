@@ -17,8 +17,8 @@ use uuid::Uuid;
 
 use super::{EventRow, authorize_event, door, event_access, one_line, optional_text};
 use crate::api::{
-    ArtDto, DesignBody, DesignResponse, EventBody, EventDto, EventStatus, EventStatusBody,
-    EventTeamAccessDto, TeamArea,
+    ArtDto, DesignBody, DesignResponse, EventBody, EventChangeDto, EventDto, EventStatus,
+    EventStatusBody, EventTeamAccessDto, TeamArea,
 };
 use crate::auth::AuthUser;
 use crate::error::{ApiError, ApiResult, bad_request};
@@ -28,12 +28,12 @@ use crate::texts;
 
 /// Upload limit for art (also enforced by the router body limit).
 pub const MAX_ART_BYTES: usize = 20 * 1024 * 1024;
-const MAX_ART_SIDE_PX: u32 = 10_000;
+pub(crate) const MAX_ART_SIDE_PX: u32 = 10_000;
 /// 24 MP: a 300 × 200 mm ticket at 300 dpi is 8.4 MP, so this leaves room; a larger image would
 /// decode to hundreds of megabytes on the single API instance.
-const MAX_ART_PIXELS: u64 = 24_000_000;
+pub(crate) const MAX_ART_PIXELS: u64 = 24_000_000;
 /// Most memory one image decode may take (previews, moderation); beyond it the decoder stops.
-const MAX_DECODE_BYTES: u64 = 256 * 1024 * 1024;
+pub(crate) const MAX_DECODE_BYTES: u64 = 256 * 1024 * 1024;
 /// Design previews one user may ask for per minute: each one renders a sheet of samples.
 const PREVIEWS_PER_MINUTE: usize = 30;
 /// Art an organization may keep (every event, every saved version): ten large files.
@@ -41,10 +41,25 @@ const MAX_ART_BYTES_PER_ORGANIZATION: i64 = 200 * 1024 * 1024;
 const PREVIEW_DPI: u32 = 110;
 /// Width of the art shown in the editor's live preview.
 const ART_PREVIEW_WIDTH_PX: u32 = 1600;
+/// Longest street address of a venue (ADR 0066).
+const MAX_ADDRESS: usize = 200;
 
 impl EventRow {
-    fn into_dto(self) -> ApiResult<EventDto> {
+    /// Postponement and cancellation, with the event's offset.
+    pub(crate) fn change(&self) -> EventChangeDto {
         let offset = self.offset();
+        EventChangeDto {
+            postponed_from_starts_at: self.postponed_from_starts_at.map(|at| at.to_offset(offset)),
+            postponed_at: self.postponed_at,
+            postpone_reason: self.postpone_reason.clone(),
+            canceled_at: self.canceled_at,
+            cancel_reason: self.cancel_reason.clone(),
+        }
+    }
+
+    pub(crate) fn into_dto(self, organization_name: String) -> ApiResult<EventDto> {
+        let offset = self.offset();
+        let change = self.change();
         Ok(EventDto {
             id: self.id,
             name: self.name,
@@ -58,12 +73,53 @@ impl EventRow {
             })?,
             support_access: false,
             team: None,
+            address: self.address,
+            organization_name,
+            change,
         })
     }
 }
 
-/// Name, venue and UTC offset (minutes) of a valid event body.
-fn validate_event(body: &EventBody) -> ApiResult<(String, Option<String>, i16)> {
+/// A valid event body: name, venue, address and UTC offset (minutes).
+struct ValidEvent {
+    name: String,
+    venue: Option<String>,
+    address: Option<String>,
+    offset: i16,
+}
+
+/// An optional one-line text of at most `max` characters (blank is `None`).
+pub(crate) fn short_text(
+    value: Option<String>,
+    max: usize,
+    code: &'static str,
+) -> ApiResult<Option<String>> {
+    let value = optional_text(value);
+    if let Some(text) = &value {
+        if text.chars().count() > max {
+            return Err(bad_request(code, format!("up to {max} characters")));
+        }
+        one_line(text, code)?;
+    }
+    Ok(value)
+}
+
+/// Checks the dates of an event: the end after the start, an offset that exists.
+pub(crate) fn validate_dates(starts_at: OffsetDateTime, ends_at: OffsetDateTime) -> ApiResult<i16> {
+    if ends_at <= starts_at {
+        return Err(bad_request("invalid_dates", "end must be after start"));
+    }
+    let offset = starts_at.offset().whole_minutes();
+    if !(-720..=840).contains(&offset) {
+        return Err(bad_request(
+            "invalid_dates",
+            "offset must be -12:00 to +14:00",
+        ));
+    }
+    Ok(offset)
+}
+
+fn validate_event(body: &EventBody) -> ApiResult<ValidEvent> {
     let name = body.name.trim().to_owned();
     if name.is_empty() || name.chars().count() > 100 {
         return Err(bad_request(
@@ -85,20 +141,17 @@ fn validate_event(body: &EventBody) -> ApiResult<(String, Option<String>, i16)> 
     if let Some(venue) = &venue {
         one_line(venue, "invalid_venue")?;
     }
-    if body.ends_at <= body.starts_at {
-        return Err(bad_request("invalid_dates", "end must be after start"));
-    }
+    let address = short_text(body.address.clone(), MAX_ADDRESS, "invalid_address")?;
+    let offset = validate_dates(body.starts_at, body.ends_at)?;
     if body.ticket_price_cents.is_some_and(|price| price < 0) {
         return Err(bad_request("invalid_price", "price must not be negative"));
     }
-    let offset = body.starts_at.offset().whole_minutes();
-    if !(-720..=840).contains(&offset) {
-        return Err(bad_request(
-            "invalid_dates",
-            "offset must be -12:00 to +14:00",
-        ));
-    }
-    Ok((name, venue, offset))
+    Ok(ValidEvent {
+        name,
+        venue,
+        address,
+        offset,
+    })
 }
 
 /// `GET /api/events`: the organization's events and the ones whose team the user is on
@@ -106,7 +159,9 @@ fn validate_event(body: &EventBody) -> ApiResult<(String, Option<String>, i16)> 
 pub async fn list(State(state): State<AppState>, user: AuthUser) -> ApiResult<Json<Vec<EventDto>>> {
     let rows = sqlx::query!(
         r#"select e.id, e.name, e.venue, e.starts_at, e.ends_at, e.ticket_price_cents, e.status, e.qr_tag,
-                  e.utc_offset_minutes, o.name as organization, t.areas as "areas?"
+                  e.utc_offset_minutes, e.address, e.postponed_from_starts_at, e.postponed_at,
+                  e.postpone_reason, e.canceled_at, e.cancel_reason,
+                  o.name as organization, t.areas as "areas?"
            from events e join organizations o on o.id = e.organization_id
            left join event_team t on t.event_id = e.id and t.user_id = $1
            where exists (select 1 from memberships m where m.organization_id = e.organization_id and m.user_id = $1)
@@ -128,8 +183,14 @@ pub async fn list(State(state): State<AppState>, user: AuthUser) -> ApiResult<Js
                 status: row.status,
                 qr_tag: row.qr_tag,
                 utc_offset_minutes: row.utc_offset_minutes,
+                address: row.address,
+                postponed_from_starts_at: row.postponed_from_starts_at,
+                postponed_at: row.postponed_at,
+                postpone_reason: row.postpone_reason,
+                canceled_at: row.canceled_at,
+                cancel_reason: row.cancel_reason,
             }
-            .into_dto()?;
+            .into_dto(row.organization.clone())?;
             event.team = row.areas.map(|areas| team_access(&areas, row.organization));
             Ok(event)
         })
@@ -152,6 +213,7 @@ struct NewEvent<'a> {
     organization_id: Uuid,
     name: &'a str,
     venue: Option<&'a str>,
+    address: Option<&'a str>,
     starts_at: OffsetDateTime,
     ends_at: OffsetDateTime,
     ticket_price_cents: Option<i32>,
@@ -172,11 +234,12 @@ async fn insert_event(
         created = sqlx::query_as!(
             EventRow,
             r#"insert into events (id, organization_id, name, venue, starts_at, ends_at, qr_tag,
-                                   ticket_price_cents, utc_offset_minutes)
-               values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                                   ticket_price_cents, utc_offset_minutes, address)
+               values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
                on conflict (qr_tag) do nothing
                returning id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag,
-                         utc_offset_minutes"#,
+                         utc_offset_minutes, address, postponed_from_starts_at, postponed_at,
+                         postpone_reason, canceled_at, cancel_reason"#,
             event_id,
             event.organization_id,
             event.name,
@@ -186,6 +249,7 @@ async fn insert_event(
             tag,
             event.ticket_price_cents,
             event.utc_offset_minutes,
+            event.address,
         )
         .fetch_optional(&mut **tx)
         .await?;
@@ -217,10 +281,11 @@ pub async fn create(
     user: AuthUser,
     Json(body): Json<EventBody>,
 ) -> ApiResult<(StatusCode, Json<EventDto>)> {
-    let (name, venue, offset) = validate_event(&body)?;
+    let valid = validate_event(&body)?;
     let mut tx = state.pool.begin().await?;
-    let organization_id = sqlx::query_scalar!(
-        "select organization_id from memberships where user_id = $1 and role = 'owner' order by created_at limit 1",
+    let organization = sqlx::query!(
+        r#"select m.organization_id, o.name from memberships m join organizations o on o.id = m.organization_id
+           where m.user_id = $1 and m.role = 'owner' order by m.created_at limit 1"#,
         user.id
     )
     .fetch_optional(&mut *tx)
@@ -230,18 +295,22 @@ pub async fn create(
         &state,
         &mut tx,
         NewEvent {
-            organization_id,
-            name: &name,
-            venue: venue.as_deref(),
+            organization_id: organization.organization_id,
+            name: &valid.name,
+            venue: valid.venue.as_deref(),
+            address: valid.address.as_deref(),
             starts_at: body.starts_at,
             ends_at: body.ends_at,
             ticket_price_cents: body.ticket_price_cents,
-            utc_offset_minutes: offset,
+            utc_offset_minutes: valid.offset,
         },
     )
     .await?;
     tx.commit().await?;
-    Ok((StatusCode::CREATED, Json(event.into_dto()?)))
+    Ok((
+        StatusCode::CREATED,
+        Json(event.into_dto(organization.name)?),
+    ))
 }
 
 /// The name of a copy: "Show (cópia)", cut to fit 100 characters.
@@ -260,7 +329,8 @@ pub async fn duplicate(
     user: AuthUser,
     Path(event_id): Path<Uuid>,
 ) -> ApiResult<(StatusCode, Json<EventDto>)> {
-    let source = authorize_event(&state.pool, &user, event_id).await?;
+    let access = event_access(&state.pool, &user, event_id).await?;
+    let source = access.event;
     let mut tx = state.pool.begin().await?;
     let organization_id =
         sqlx::query_scalar!("select organization_id from events where id = $1", event_id)
@@ -274,6 +344,7 @@ pub async fn duplicate(
             organization_id,
             name: &name,
             venue: source.venue.as_deref(),
+            address: source.address.as_deref(),
             starts_at: source.starts_at,
             ends_at: source.ends_at,
             ticket_price_cents: source.ticket_price_cents,
@@ -340,7 +411,10 @@ pub async fn duplicate(
     for art_id in copied_art.into_iter().chain(unchecked_logos) {
         crate::moderation::spawn_check(&state, art_id);
     }
-    Ok((StatusCode::CREATED, Json(copy.into_dto()?)))
+    Ok((
+        StatusCode::CREATED,
+        Json(copy.into_dto(access.organization_name)?),
+    ))
 }
 
 /// Categories (with their numbers) and tables (without guests) go to the copy (ADR 0056, 0057).
@@ -463,18 +537,19 @@ pub async fn set_status(
     Path(event_id): Path<Uuid>,
     Json(body): Json<EventStatusBody>,
 ) -> ApiResult<Json<EventDto>> {
-    authorize_event(&state.pool, &user, event_id).await?;
+    let access = event_access(&state.pool, &user, event_id).await?;
     let row = sqlx::query_as!(
         EventRow,
         r#"update events set status = $2 where id = $1
            returning id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag,
-                     utc_offset_minutes"#,
+                     utc_offset_minutes, address, postponed_from_starts_at, postponed_at,
+                     postpone_reason, canceled_at, cancel_reason"#,
         event_id,
         body.status.db(),
     )
     .fetch_one(&state.pool)
     .await?;
-    Ok(Json(row.into_dto()?))
+    Ok(Json(row.into_dto(access.organization_name)?))
 }
 
 /// `DELETE /api/events/{id}`: only an event without batches (canceled ones aside): nothing was
@@ -511,7 +586,7 @@ pub async fn get(
     Path(event_id): Path<Uuid>,
 ) -> ApiResult<Json<EventDto>> {
     let access = event_access(&state.pool, &user, event_id).await?;
-    let mut event = access.event.into_dto()?;
+    let mut event = access.event.into_dto(access.organization_name.clone())?;
     event.support_access = access.support;
     event.team = access.team.map(|areas| EventTeamAccessDto {
         areas,
@@ -527,37 +602,33 @@ pub async fn update(
     Path(event_id): Path<Uuid>,
     Json(body): Json<EventBody>,
 ) -> ApiResult<Json<EventDto>> {
-    authorize_event(&state.pool, &user, event_id).await?;
-    let (name, venue, offset) = validate_event(&body)?;
+    let access = event_access(&state.pool, &user, event_id).await?;
+    let valid = validate_event(&body)?;
     let mut tx = state.pool.begin().await?;
     let row = sqlx::query_as!(
         EventRow,
         r#"update events set name = $2, venue = $3, starts_at = $4, ends_at = $5, ticket_price_cents = $6,
-                             utc_offset_minutes = $7
+                             utc_offset_minutes = $7, address = $8
            where id = $1
            returning id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag,
-                     utc_offset_minutes"#,
+                     utc_offset_minutes, address, postponed_from_starts_at, postponed_at,
+                     postpone_reason, canceled_at, cancel_reason"#,
         event_id,
-        name,
-        venue,
+        valid.name,
+        valid.venue,
         body.starts_at,
         body.ends_at,
         body.ticket_price_cents,
-        offset,
+        valid.offset,
+        valid.address,
     )
     .fetch_one(&mut *tx)
     .await?;
     // Door links live until the end of the event plus a grace period: a postponed event must
     // not lock its phones out at the gate.
-    sqlx::query!(
-        "update door_accesses set expires_at = $2 where event_id = $1 and revoked_at is null",
-        event_id,
-        row.ends_at + door::ACCESS_GRACE,
-    )
-    .execute(&mut *tx)
-    .await?;
+    door::extend_accesses(&mut tx, event_id, row.ends_at).await?;
     tx.commit().await?;
-    Ok(Json(row.into_dto()?))
+    Ok(Json(row.into_dto(access.organization_name)?))
 }
 
 struct ArtRow {
@@ -818,7 +889,7 @@ pub async fn upload_art(
 
 /// Moderation of an image already seen (ADR 0042): one the team refused anywhere is refused
 /// again; one already found fine is not classified twice.
-async fn known_moderation(state: &AppState, digest: &[u8]) -> ApiResult<&'static str> {
+pub(crate) async fn known_moderation(state: &AppState, digest: &[u8]) -> ApiResult<&'static str> {
     let refused = sqlx::query_scalar!(
         r#"select exists(select 1 from rejected_art where sha256 = $1) as "refused!""#,
         digest
@@ -919,7 +990,7 @@ pub async fn preview(
     // Samples show the band of the event's categories and seats, as printed (ADR 0056).
     let tags = super::categories::NumberTags::load(&state.pool, event_id).await?;
     let job = RenderJob {
-        details: event.details(),
+        details: super::event_details(&state.pool, &event).await?,
         design: body.design,
         art,
         sponsors,

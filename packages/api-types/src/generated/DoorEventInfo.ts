@@ -27,4 +27,9 @@ endsAt: string,
 /**
  * Digits of printed numbers (zero padded).
  */
-numberDigits: number, };
+numberDigits: number, 
+/**
+ * When the organizer canceled the event (ADR 0065): the door shows it and keeps
+ * reading, the organizer decides.
+ */
+canceledAt: string | null, };

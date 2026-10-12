@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "update events set status = $2 where id = $1\n           returning id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag,\n                     utc_offset_minutes",
+  "query": "insert into events (id, organization_id, name, venue, starts_at, ends_at, qr_tag,\n                                   ticket_price_cents, utc_offset_minutes, address)\n               values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)\n               on conflict (qr_tag) do nothing\n               returning id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag,\n                         utc_offset_minutes, address, postponed_from_starts_at, postponed_at,\n                         postpone_reason, canceled_at, cancel_reason",
   "describe": {
     "columns": [
       {
@@ -101,11 +101,85 @@
             "name": "utc_offset_minutes"
           }
         }
+      },
+      {
+        "ordinal": 9,
+        "name": "address",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "address"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "postponed_from_starts_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "postponed_from_starts_at"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "postponed_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "postponed_at"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "postpone_reason",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "postpone_reason"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "canceled_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "canceled_at"
+          }
+        }
+      },
+      {
+        "ordinal": 14,
+        "name": "cancel_reason",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "cancel_reason"
+          }
+        }
       }
     ],
     "parameters": {
       "Left": [
         "Uuid",
+        "Uuid",
+        "Text",
+        "Text",
+        "Timestamptz",
+        "Timestamptz",
+        "Int8",
+        "Int4",
+        "Int2",
         "Text"
       ]
     },
@@ -118,8 +192,14 @@
       true,
       false,
       false,
-      false
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
     ]
   },
-  "hash": "01393fad2496271cf1a92a5438716b9d4cc219e7e551191d91498352e960f4c7"
+  "hash": "96a402ddd535e816a174b1335c48004d4d18684dca1bd48abf0545fe57ca0c7a"
 }

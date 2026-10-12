@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "delete from blobs where organization_id = $1 and id <> $2\n           and moderation_status not in ('flagged', 'rejected')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "757e69d1ff5077a79eacecc2dd6792f2cbe4091a8904022daba18c8fb4a91882"
+}

@@ -112,7 +112,11 @@ pub fn need(method: &Method, path: &str) -> Need {
             | "batches/{id}/checkout"
             | "events/{id}/team"
             | "events/{id}/categories"
-            | "categories/{id}/ranges",
+            | "categories/{id}/ranges"
+            // Postponing or canceling the event (ADR 0065) is coordination too.
+            | "events/{id}/postpone"
+            | "events/{id}/cancel"
+            | "events/{id}/cancel/undo",
         )
         | ("DELETE", "team-members/{id}" | "categories/{id}" | "category-ranges/{id}") => {
             Need::Area(TeamArea::Manage)
@@ -647,6 +651,21 @@ mod tests {
                 need(&method, &path(template)),
                 expected,
                 "{method} {template}"
+            );
+        }
+    }
+
+    #[test]
+    fn postponing_and_canceling_are_coordination() {
+        for template in [
+            "events/{id}/postpone",
+            "events/{id}/cancel",
+            "events/{id}/cancel/undo",
+        ] {
+            assert_eq!(
+                need(&Method::POST, &path(template)),
+                Need::Area(TeamArea::Manage),
+                "{template}"
             );
         }
     }

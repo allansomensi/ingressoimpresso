@@ -1,18 +1,13 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select id, name, venue, starts_at, ends_at, ticket_price_cents, status, created_at\n           from events where organization_id = $1 order by starts_at",
+  "query": "select (select coalesce(max(version), 0) from ticket_designs where event_id = e.id) as \"version!\",\n                  e.name, e.venue, e.starts_at, e.utc_offset_minutes, e.ticket_price_cents,\n                  o.name as organization\n           from events e join organizations o on o.id = e.organization_id where e.id = $1",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "id",
-        "type_info": "Uuid",
-        "origin": {
-          "Table": {
-            "table": "events",
-            "name": "id"
-          }
-        }
+        "name": "version!",
+        "type_info": "Int4",
+        "origin": "Expression"
       },
       {
         "ordinal": 1,
@@ -49,12 +44,12 @@
       },
       {
         "ordinal": 4,
-        "name": "ends_at",
-        "type_info": "Timestamptz",
+        "name": "utc_offset_minutes",
+        "type_info": "Int2",
         "origin": {
           "Table": {
             "table": "events",
-            "name": "ends_at"
+            "name": "utc_offset_minutes"
           }
         }
       },
@@ -71,23 +66,12 @@
       },
       {
         "ordinal": 6,
-        "name": "status",
+        "name": "organization",
         "type_info": "Text",
         "origin": {
           "Table": {
-            "table": "events",
-            "name": "status"
-          }
-        }
-      },
-      {
-        "ordinal": 7,
-        "name": "created_at",
-        "type_info": "Timestamptz",
-        "origin": {
-          "Table": {
-            "table": "events",
-            "name": "created_at"
+            "table": "organizations",
+            "name": "name"
           }
         }
       }
@@ -98,15 +82,14 @@
       ]
     },
     "nullable": [
-      false,
-      false,
-      true,
-      false,
+      null,
       false,
       true,
       false,
+      false,
+      true,
       false
     ]
   },
-  "hash": "449ad338a46b87233f8f676cd36444387cc2cd9a032804b34e476e968d098cf7"
+  "hash": "a9d0da1b2fa95414e96adacd926fff69e403806066aafa4cdc6a8cd867c0d6d1"
 }

@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update organization_profiles set logo_blob_id = null, updated_at = now() where organization_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "683f5c0572c500c5b6172757cc3e18ddb182dbc9256d4ad1d8c5c656322f3081"
+}

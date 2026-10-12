@@ -56,6 +56,9 @@ pub struct JobEvent {
     /// Ticket price in cents, for `{preco}`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub price_cents: Option<i64>,
+    /// Organization running the event, for `{organizacao}`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub organization: Option<String>,
 }
 
 /// Inclusive number range.
@@ -116,6 +119,7 @@ pub fn init(name: &str, job_path: &Path, seed_path: &Path) -> Result<JobFile> {
             venue: None,
             starts_at: None,
             price_cents: None,
+            organization: None,
         },
         design: TicketDesign::default_v1(),
         art: None,
@@ -270,6 +274,7 @@ impl JobFile {
             venue: self.event.venue.clone(),
             starts_at,
             price_cents: self.event.price_cents,
+            organization: self.event.organization.clone(),
         })
     }
 

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag, utc_offset_minutes\n           from events where id = $1",
+  "query": "select id, name, venue, starts_at, ends_at, ticket_price_cents, status, created_at,\n                  address, postponed_from_starts_at, postpone_reason, canceled_at, cancel_reason\n           from events where organization_id = $1 order by starts_at",
   "describe": {
     "columns": [
       {
@@ -82,23 +82,67 @@
       },
       {
         "ordinal": 7,
-        "name": "qr_tag",
-        "type_info": "Int8",
+        "name": "created_at",
+        "type_info": "Timestamptz",
         "origin": {
           "Table": {
             "table": "events",
-            "name": "qr_tag"
+            "name": "created_at"
           }
         }
       },
       {
         "ordinal": 8,
-        "name": "utc_offset_minutes",
-        "type_info": "Int2",
+        "name": "address",
+        "type_info": "Text",
         "origin": {
           "Table": {
             "table": "events",
-            "name": "utc_offset_minutes"
+            "name": "address"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "postponed_from_starts_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "postponed_from_starts_at"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "postpone_reason",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "postpone_reason"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "canceled_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "canceled_at"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "cancel_reason",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "cancel_reason"
           }
         }
       }
@@ -117,8 +161,12 @@
       true,
       false,
       false,
-      false
+      true,
+      true,
+      true,
+      true,
+      true
     ]
   },
-  "hash": "f9c5dc2cffe7e814f604512cb7763fe5963126ad535c17e3ee6122dfaf1590a8"
+  "hash": "e2a2b2f4785ee9be0d1b71681e5d6f4109dcd23acfb89eb889277886a8258095"
 }

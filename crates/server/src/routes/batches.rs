@@ -152,6 +152,7 @@ pub async fn create(
             "reopen the event to create batches".to_owned(),
         ));
     }
+    event.ensure_not_canceled()?;
     if !(1..=MAX_BATCH).contains(&body.quantity) {
         return Err(bad_request(
             "invalid_quantity",
@@ -265,6 +266,7 @@ pub async fn checkout(
     }
     let event_id = batch_event(&state, batch_id).await?;
     let event = authorize_event(&state.pool, &user, event_id).await?;
+    event.ensure_not_canceled()?;
     let _guard = state.batch_lock(batch_id).await;
 
     let batch = sqlx::query!(

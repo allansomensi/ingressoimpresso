@@ -164,6 +164,10 @@ dto! {
         pub ends_at: OffsetDateTime,
         /// Ticket price in cents, for the seller settlement report.
         pub ticket_price_cents: Option<i32>,
+        /// Street address of the venue (optional, up to 200 characters, ADR 0066).
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional = nullable))]
+        pub address: Option<String>,
     }
 
     /// `PUT /api/events/{id}/status`: archive (`closed`) or reopen (`active`).
@@ -198,6 +202,12 @@ dto! {
         /// How the user is on the event's team (ADR 0055); `null` for the organization's own
         /// people, who may do everything.
         pub team: Option<EventTeamAccessDto>,
+        /// Street address of the venue (ADR 0066).
+        pub address: Option<String>,
+        /// Name of the organization that runs it (`{organizacao}` on the ticket, ADR 0064).
+        pub organization_name: String,
+        /// Postponement and cancellation (ADR 0065).
+        pub change: EventChangeDto,
     }
 
     /// The current user's place on the team of an event of another organization (ADR 0055).
@@ -956,6 +966,10 @@ dto! {
         pub category: Option<DoorCategoryTagDto>,
         /// Table and seat (ADR 0057), e.g. `Mesa 5 · Lugar 3`.
         pub seat: Option<String>,
+        /// Who runs the event: name, logo and contact (ADR 0064).
+        pub organization: PublicOrganizationDto,
+        /// The room with the holder's table highlighted (ADR 0066); `null` without a seat.
+        pub table_map: Option<PassTableMapDto>,
     }
 
     /// A category's name and colour.
@@ -982,6 +996,13 @@ dto! {
         pub ends_at: OffsetDateTime,
         /// Organization name.
         pub organizer: String,
+        /// Event id: the stable `UID` of the calendar entry (ADR 0066).
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// Street address of the venue.
+        pub address: Option<String>,
+        /// Postponement and cancellation, as the panel shows them (ADR 0065).
+        pub change: EventChangeDto,
     }
 
     /// `GET /api/analytics`: results of every event of the organization (ADR 0034).
@@ -1372,12 +1393,18 @@ dto! {
         pub organizer: String,
         /// Ticket price in cents.
         pub ticket_price_cents: Option<i32>,
+        /// Street address of the venue (ADR 0066).
+        pub address: Option<String>,
+        /// Postponement and cancellation (ADR 0065): a canceled event takes no more sales.
+        pub change: EventChangeDto,
     }
 
     /// `POST /api/seller`: everything the seller's page shows (ADR 0053).
     pub struct SellerViewDto {
         /// The event.
         pub event: SellerViewEvent,
+        /// Who runs the event: name, logo and contact (ADR 0064).
+        pub organization: PublicOrganizationDto,
         /// The seller's name.
         pub seller: String,
         /// Printed prefix of the number (`Nº`).
@@ -1868,6 +1895,11 @@ dto! {
         pub ends_at: OffsetDateTime,
         /// Digits of printed numbers (zero padded).
         pub number_digits: u8,
+        /// When the organizer canceled the event (ADR 0065): the door shows it and keeps
+        /// reading, the organizer decides.
+        #[serde(default, with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub canceled_at: Option<OffsetDateTime>,
     }
 
     /// What `DoorCore` needs to verify tickets; same shape as ticket-core's `DoorEventDto`.
@@ -2948,11 +2980,11 @@ dto! {
         pub organization_id: Uuid,
         /// Its name.
         pub organization_name: String,
-        /// Event.
-        #[cfg_attr(feature = "ts", ts(type = "string"))]
-        pub event_id: Uuid,
+        /// Event; `null` for the organization's logo (ADR 0064).
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub event_id: Option<Uuid>,
         /// Its name.
-        pub event_name: String,
+        pub event_name: Option<String>,
         /// Uploader.
         pub uploaded_by: Option<String>,
         /// `adult`, `violence`, `racy`, `manual`...
@@ -2994,11 +3026,11 @@ dto! {
         pub organization_id: Uuid,
         /// Its name.
         pub organization_name: String,
-        /// Event.
-        #[cfg_attr(feature = "ts", ts(type = "string"))]
-        pub event_id: Uuid,
+        /// Event; `null` for the organization's logo (ADR 0064).
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub event_id: Option<Uuid>,
         /// Its name.
-        pub event_name: String,
+        pub event_name: Option<String>,
         /// Moderation of the image.
         pub moderation: String,
         /// Upload time.
@@ -3253,6 +3285,10 @@ dto_enum! {
         PriceChange,
         /// The user was added to an event's team (ADR 0055).
         TeamAdded,
+        /// An event the user works on was postponed (ADR 0065).
+        EventPostponed,
+        /// An event the user works on was canceled (ADR 0065).
+        EventCanceled,
     }
 
     /// What a promo code gives.
@@ -3375,6 +3411,8 @@ db_enum!(NotificationKind {
     DiscountGranted => "discount_granted",
     PriceChange => "price_change",
     TeamAdded => "team_added",
+    EventPostponed => "event_postponed",
+    EventCanceled => "event_canceled",
 });
 db_enum!(LedgerKind { Expense => "expense", Income => "income" });
 db_enum!(TableShape { Round => "round", Rect => "rect" });
@@ -3407,3 +3445,146 @@ db_enum!(IncidentStatus {
     Monitoring => "monitoring",
     Resolved => "resolved",
 });
+
+// Organization profile, postponing or canceling, the digital ticket's extras (ADRs 0064–0066) --
+
+dto! {
+    /// Postponement and cancellation of an event (ADR 0065).
+    pub struct EventChangeDto {
+        /// Start before the first postponement; `null` when never postponed (or moved back to
+        /// the original date).
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub postponed_from_starts_at: Option<OffsetDateTime>,
+        /// When it was last postponed.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub postponed_at: Option<OffsetDateTime>,
+        /// Why it was postponed, as the organizer wrote it.
+        pub postpone_reason: Option<String>,
+        /// When it was canceled; `null` when it happens.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub canceled_at: Option<OffsetDateTime>,
+        /// Why it was canceled.
+        pub cancel_reason: Option<String>,
+    }
+
+    /// `POST /api/events/{id}/postpone`.
+    pub struct PostponeEventBody {
+        /// New start, with the event's offset.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub starts_at: OffsetDateTime,
+        /// New end (after the start).
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub ends_at: OffsetDateTime,
+        /// Why (optional, up to 200 characters, one line).
+        pub reason: Option<String>,
+    }
+
+    /// `POST /api/events/{id}/cancel`.
+    pub struct CancelEventBody {
+        /// Why (optional, up to 200 characters, one line).
+        pub reason: Option<String>,
+    }
+
+    /// `GET /api/account/profile`: the organization's profile (ADR 0064).
+    pub struct OrganizationProfileDto {
+        /// Organization name (changed with `PUT /api/account`).
+        pub organization_name: String,
+        /// The logo, if any.
+        pub logo: Option<ProfileLogoDto>,
+        /// Brand colour (`#rrggbb`).
+        pub brand_color: Option<String>,
+        /// WhatsApp number, digits only with the country code (`5511999998888`).
+        pub whatsapp: Option<String>,
+        /// Public contact e-mail.
+        pub contact_email: Option<String>,
+        /// Site (`https://…`).
+        pub website: Option<String>,
+        /// Instagram handle, without the `@`.
+        pub instagram: Option<String>,
+        /// Venue of new events.
+        pub default_venue: Option<String>,
+        /// Address of new events.
+        pub default_address: Option<String>,
+        /// Ticket price of new events, in cents.
+        pub default_ticket_price_cents: Option<i32>,
+    }
+
+    /// `PUT /api/account/profile`: every field at once (blank clears it).
+    pub struct OrganizationProfileBody {
+        /// `#rrggbb`.
+        pub brand_color: Option<String>,
+        /// Typed as people write it: `(11) 99999-8888`, `+55 11 99999-8888`…
+        pub whatsapp: Option<String>,
+        /// Public e-mail.
+        pub contact_email: Option<String>,
+        /// `exemplo.com.br` or `https://…`.
+        pub website: Option<String>,
+        /// `@perfil`, `perfil` or the profile's address.
+        pub instagram: Option<String>,
+        /// Up to 120 characters.
+        pub default_venue: Option<String>,
+        /// Up to 200 characters.
+        pub default_address: Option<String>,
+        /// Not negative.
+        pub default_ticket_price_cents: Option<i32>,
+    }
+
+    /// The organization's logo and its review (moderated like the art, ADR 0042).
+    pub struct ProfileLogoDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// `unchecked`, `clean`, `flagged`, `approved` or `rejected`.
+        pub moderation: String,
+        /// Public address of the image (`/api/logos/{id}`); `null` while it is under review or
+        /// after it was refused.
+        pub path: Option<String>,
+    }
+
+    /// Who runs an event, as the public pages show it (ADR 0064).
+    pub struct PublicOrganizationDto {
+        /// Name.
+        pub name: String,
+        /// Logo (`/api/logos/{id}`, an image of the API), when there is one and it may be shown.
+        pub logo_path: Option<String>,
+        /// Brand colour (`#rrggbb`).
+        pub brand_color: Option<String>,
+        /// WhatsApp, digits with the country code: the "Falar com a organização" button.
+        pub whatsapp: Option<String>,
+        /// Public e-mail.
+        pub email: Option<String>,
+        /// Site.
+        pub website: Option<String>,
+        /// Instagram handle.
+        pub instagram: Option<String>,
+    }
+
+    /// The room on the digital ticket (ADR 0066): every table, without who sits where.
+    pub struct PassTableMapDto {
+        /// Tables of the event.
+        pub tables: Vec<PassTableDto>,
+        /// The holder's table (names are unique in an event).
+        pub table: String,
+        /// The holder's seat.
+        pub seat: i16,
+    }
+
+    /// A table on the ticket's map.
+    pub struct PassTableDto {
+        /// Name.
+        pub name: String,
+        /// Seats.
+        pub seats: i16,
+        /// Drawing.
+        pub shape: TableShape,
+        /// Centre (0–1 of the width).
+        pub x: f32,
+        /// Centre (0–1 of the height).
+        pub y: f32,
+    }
+}

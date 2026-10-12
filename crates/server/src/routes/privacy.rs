@@ -2,9 +2,10 @@
 //! holds, and deleting the account.
 //!
 //! Deleting keeps only what the law requires: batches and payments (fiscal records) stay, tied to
-//! an anonymized user and to events renamed "Evento excluído"; art, designs, sellers (with the
-//! money they handed over, their links and the buyers they wrote down), voids' notes, digital
-//! tickets, door data and files go. An account that never paid for anything is removed entirely.
+//! an anonymized user and to events renamed "Evento excluído"; the organization's profile and
+//! logo, art, designs, sellers (with the money they handed over, their links and the buyers they
+//! wrote down), voids' notes, digital tickets, door data and files go. An account that never paid
+//! for anything is removed entirely.
 
 use axum::extract::State;
 use axum::http::StatusCode;
@@ -63,7 +64,8 @@ pub async fn export(State(state): State<AppState>, user: AuthUser) -> ApiResult<
     .await?
     .ok_or(ApiError::NotFound)?;
     let events = sqlx::query!(
-        r#"select id, name, venue, starts_at, ends_at, ticket_price_cents, status, created_at
+        r#"select id, name, venue, starts_at, ends_at, ticket_price_cents, status, created_at,
+                  address, postponed_from_starts_at, postpone_reason, canceled_at, cancel_reason
            from events where organization_id = $1 order by starts_at"#,
         account.organization_id
     )
@@ -80,6 +82,11 @@ pub async fn export(State(state): State<AppState>, user: AuthUser) -> ApiResult<
                 "ticketPriceCents": event.ticket_price_cents,
                 "status": event.status,
                 "createdAt": rfc3339(event.created_at),
+                "address": event.address,
+                "postponedFromStartsAt": optional_rfc3339(event.postponed_from_starts_at),
+                "postponeReason": event.postpone_reason,
+                "canceledAt": optional_rfc3339(event.canceled_at),
+                "cancelReason": event.cancel_reason,
             });
             if let (Some(target), Value::Object(extra)) = (value.as_object_mut(), details) {
                 target.extend(extra);
@@ -88,6 +95,7 @@ pub async fn export(State(state): State<AppState>, user: AuthUser) -> ApiResult<
         })?);
     }
     let teams = team_memberships(&state, user.id).await?;
+    let profile = profile(&state, account.organization_id).await?;
     let document = json!({
         "format": "ingressoimpresso-account-export",
         "version": 1,
@@ -104,6 +112,7 @@ pub async fn export(State(state): State<AppState>, user: AuthUser) -> ApiResult<
         "organization": {
             "name": account.organization_name,
             "createdAt": rfc3339(account.organization_created_at),
+            "profile": profile,
         },
         "events": exported,
         "teams": teams,
@@ -121,6 +130,31 @@ pub async fn export(State(state): State<AppState>, user: AuthUser) -> ApiResult<
         body,
     )
         .into_response())
+}
+
+/// The organization's public profile and the defaults of new events (ADR 0064); the logo is an
+/// image the account already has.
+async fn profile(state: &AppState, organization_id: Uuid) -> ApiResult<Value> {
+    let public = super::organization::public_organization(&state.pool, organization_id).await?;
+    let defaults = sqlx::query!(
+        r#"select default_venue, default_address, default_ticket_price_cents,
+                  logo_blob_id is not null as "logo!"
+           from organization_profiles where organization_id = $1"#,
+        organization_id
+    )
+    .fetch_optional(&state.pool)
+    .await?;
+    Ok(json!({
+        "hasLogo": defaults.as_ref().is_some_and(|row| row.logo),
+        "brandColor": public.brand_color,
+        "whatsapp": public.whatsapp,
+        "contactEmail": public.email,
+        "website": public.website,
+        "instagram": public.instagram,
+        "defaultVenue": defaults.as_ref().and_then(|row| row.default_venue.clone()),
+        "defaultAddress": defaults.as_ref().and_then(|row| row.default_address.clone()),
+        "defaultTicketPriceCents": defaults.as_ref().and_then(|row| row.default_ticket_price_cents),
+    }))
 }
 
 #[expect(
@@ -399,7 +433,9 @@ pub async fn delete(
                doors as (delete from door_accesses where event_id in (select id from events)),
                files as (delete from exports where event_id in (select id from events)),
                notes as (update ticket_voids set note = null where event_id in (select id from events))
-               update events set name = $2, venue = null where organization_id = $1"#,
+               update events set name = $2, venue = null, address = null, postpone_reason = null,
+                             cancel_reason = null
+               where organization_id = $1"#,
             organization_id,
             DELETED_EVENT,
         )
@@ -408,6 +444,20 @@ pub async fn delete(
         // Art goes after the designs that point at it.
         sqlx::query!(
             "delete from blobs where event_id in (select id from events where organization_id = $1)",
+            organization_id
+        )
+        .execute(&mut *tx)
+        .await?;
+        // The public profile and the logo are personal too (ADR 0064); a refused logo stays
+        // refused by its hash (`rejected_art`).
+        sqlx::query!(
+            "delete from organization_profiles where organization_id = $1",
+            organization_id
+        )
+        .execute(&mut *tx)
+        .await?;
+        sqlx::query!(
+            "delete from blobs where organization_id = $1",
             organization_id
         )
         .execute(&mut *tx)

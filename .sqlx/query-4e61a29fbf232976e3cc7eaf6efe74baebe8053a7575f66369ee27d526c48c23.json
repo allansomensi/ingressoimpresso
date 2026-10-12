@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select f.blob_id, f.organization_id, f.event_id, f.status, e.name as event_name\n           from moderation_flags f join events e on e.id = f.event_id\n           where f.id = $1 for update of f",
+  "query": "select f.blob_id, f.organization_id, f.event_id, f.status, e.name as \"event_name?\"\n           from moderation_flags f left join events e on e.id = f.event_id\n           where f.id = $1 for update of f",
   "describe": {
     "columns": [
       {
@@ -49,7 +49,7 @@
       },
       {
         "ordinal": 4,
-        "name": "event_name",
+        "name": "event_name?",
         "type_info": "Text",
         "origin": {
           "Table": {
@@ -67,10 +67,10 @@
     "nullable": [
       false,
       false,
-      false,
+      true,
       false,
       false
     ]
   },
-  "hash": "34bfdb20f575138340ed234c6975f3c3cfacc5ca4fc489ecc8dbe42cbb9c5bd1"
+  "hash": "4e61a29fbf232976e3cc7eaf6efe74baebe8053a7575f66369ee27d526c48c23"
 }

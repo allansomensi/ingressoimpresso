@@ -156,6 +156,24 @@ pub async fn create_access(
     ))
 }
 
+/// Moves the end of every link of the event that was not revoked to the new end of the event
+/// plus the grace: a postponed event must not lock its phones out at the gate (ADR 0065), and a
+/// link that expired at the old date works again for the new one.
+pub(crate) async fn extend_accesses(
+    tx: &mut Transaction<'_, Postgres>,
+    event_id: Uuid,
+    ends_at: OffsetDateTime,
+) -> ApiResult<()> {
+    sqlx::query!(
+        "update door_accesses set expires_at = $2 where event_id = $1 and revoked_at is null",
+        event_id,
+        ends_at + ACCESS_GRACE,
+    )
+    .execute(&mut **tx)
+    .await?;
+    Ok(())
+}
+
 /// `POST /api/door-accesses/{id}/revoke`: cuts the link and every phone registered with it.
 pub async fn revoke_access(
     State(state): State<AppState>,
@@ -307,7 +325,7 @@ pub async fn register(
 
 async fn event_info(state: &AppState, event_id: Uuid) -> ApiResult<DoorEventInfo> {
     let row = sqlx::query!(
-        r#"select e.id, e.name, e.venue, e.starts_at, e.ends_at,
+        r#"select e.id, e.name, e.venue, e.starts_at, e.ends_at, e.canceled_at,
                   coalesce((select (spec -> 'number' ->> 'digits')::int from ticket_designs
                             where event_id = e.id order by version desc limit 1), $2) as "digits!"
            from events e where e.id = $1"#,
@@ -324,6 +342,7 @@ async fn event_info(state: &AppState, event_id: Uuid) -> ApiResult<DoorEventInfo
         ends_at: row.ends_at,
         number_digits: u8::try_from(row.digits)
             .map_err(|_| ApiError::Internal(anyhow::anyhow!("invalid digits {}", row.digits)))?,
+        canceled_at: row.canceled_at,
     })
 }
 
