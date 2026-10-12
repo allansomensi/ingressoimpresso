@@ -53,6 +53,8 @@ export function normalizePass(pass: TicketPassDto): TicketPassDto {
       venue: event.venue ?? null,
       address: event.address ?? null,
       change: event.change ?? NO_CHANGE,
+      // Saved before an event could have several dates (ADR 0077).
+      inSeries: event.inSeries ?? false,
     },
   };
 }

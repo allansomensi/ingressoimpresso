@@ -7,6 +7,7 @@ import { EventChangeNotice, OrganizationContact, OrganizationLogo } from "@/comp
 import { Alert, Button } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { spokenDate } from "@/lib/event-change";
+import { sessionLabel } from "@/lib/series";
 import { verdictTone, type VerdictTone } from "@/lib/verify";
 import { texts } from "@/texts/pt-BR";
 
@@ -34,6 +35,13 @@ function TicketSummary({ ticket }: { ticket: VerifiedTicketDto }) {
       </div>
       <div className="flex flex-col gap-3 px-4 py-4">
         <h3 className="text-xl leading-snug font-semibold tracking-tight text-balance text-fg">{event.name}</h3>
+        {/* One of several dates (ADR 0077): the ticket enters this session only. */}
+        {event.inSeries && (
+          <p className="-mt-1 flex flex-col gap-1.5">
+            <span className="w-fit rounded-full bg-brand-soft px-2.5 py-0.5 text-xs font-semibold text-brand-soft-fg">{sessionLabel(event.startsAt)}</span>
+            <span className="text-xs text-fg-muted">{texts.series.sessionOnly}</span>
+          </p>
+        )}
         <dl className="flex flex-col gap-2 text-sm">
           <div className="flex items-start gap-2.5">
             <dt className="sr-only">{t.when}</dt>

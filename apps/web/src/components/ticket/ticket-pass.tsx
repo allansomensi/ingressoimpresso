@@ -42,6 +42,7 @@ import { cn } from "@/lib/cn";
 import { inkFor } from "@/lib/design-rules";
 import { changeKind } from "@/lib/event-change";
 import { shortDateTime } from "@/lib/format";
+import { sessionLabel } from "@/lib/series";
 import { SITE_URL } from "@/lib/site";
 import { forgetPass, normalizePass, passBand, passDate, passImage, saveImage, storePass, storedPass, textOn } from "@/lib/ticket-pass";
 import { texts } from "@/texts/pt-BR";
@@ -330,6 +331,12 @@ export function TicketPass() {
             <span className="text-xs font-semibold tracking-[0.18em] uppercase opacity-90">{t.by(pass.organization.name)}</span>
           </span>
           <h1 className="text-2xl leading-tight font-bold tracking-tight text-balance">{pass.event.name}</h1>
+          {/* One of several dates (ADR 0077): this ticket is for this session only. */}
+          {pass.event.inSeries && (
+            <span className="w-fit rounded-full border border-current/35 px-2.5 py-0.5 text-xs font-semibold tracking-wide">
+              {sessionLabel(pass.event.startsAt)}
+            </span>
+          )}
           <p className="flex items-start gap-2 text-sm opacity-90">
             <CalendarDays className="mt-0.5 size-4 shrink-0" aria-hidden />
             <span className={cn("first-letter:uppercase", canceled && "line-through")}>{passDate(pass.event.startsAt)}</span>

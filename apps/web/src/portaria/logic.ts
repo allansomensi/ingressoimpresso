@@ -9,12 +9,14 @@ import type {
   DoorRouteDto,
   DoorSeatDto,
   DoorSellerRangeDto,
+  DoorSessionDto,
   ScanOutcome,
   VoidReason,
 } from "@ingressoimpresso/api-types";
 import type { DecisionDto } from "@ingressoimpresso/ticket-core-wasm";
 
 import { money } from "@/lib/format";
+import { sessionLabel } from "@/lib/series";
 import { texts } from "@/texts/pt-BR";
 
 /** Sync period while the door screen is open. */
@@ -119,6 +121,14 @@ export interface DoorContext {
   doors?: readonly DoorRouteDto[];
   /** The event's ticket price, for the box office (ADR 0069). */
   priceCents?: number | null;
+  /** The other dates of the event's series (ADR 0077): their tickets are told apart. */
+  sessions?: readonly DoorSessionDto[];
+}
+
+/** The session of another date of the series a QR tag belongs to, if any (ADR 0077). */
+export function otherSession(context: DoorContext, eventTag: number): string | null {
+  const session = (context.sessions ?? []).find((item) => item.eventTag === eventTag);
+  return session === undefined ? null : sessionLabel(session.startsAt);
 }
 
 /** Category range that holds `number`. */
@@ -245,8 +255,13 @@ export function viewOf(
       };
     case "voided":
       return { tone: "bad", title: t.voided, number: label, detail: t.voidReasons[decision.reason], seller: sellerLine, ...tags };
-    case "other_event":
-      return { tone: "warn", title: t.otherEvent, number: null, detail: null, seller: null, ...none };
+    case "other_event": {
+      // A ticket of another date of the same event never enters here, but the door says which.
+      const session = otherSession(context, decision.eventTag);
+      return session === null
+        ? { tone: "warn", title: t.otherEvent, number: null, detail: null, seller: null, ...none }
+        : { tone: "warn", title: t.otherSession, number: null, detail: t.otherSessionDetail(session), seller: null, ...none };
+    }
     case "invalid":
       return { tone: "bad", title: t.invalid, number: null, detail: t.invalidReasons[decision.reason], seller: null, ...none };
   }

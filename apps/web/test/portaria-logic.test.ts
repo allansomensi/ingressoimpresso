@@ -64,6 +64,14 @@ describe("decisions", () => {
   it("never shows a number for codes that are not our tickets", () => {
     expect(viewOf({ kind: "invalid", reason: "malformed" }, context)).toMatchObject({ tone: "bad", number: null, seller: null });
     expect(viewOf({ kind: "other_event", eventTag: 1 }, context)).toMatchObject({ tone: "warn", number: null });
+    // Another date of the same event (ADR 0077) says which; it still does not enter.
+    const series = { ...context, sessions: [{ eventTag: 7, startsAt: "2026-11-13T20:00:00-03:00" }] };
+    expect(viewOf({ kind: "other_event", eventTag: 7 }, series)).toMatchObject({
+      tone: "warn",
+      title: "INGRESSO DE OUTRA DATA",
+      detail: "Sessão de 13/11 às 20h: só entra nessa data.",
+    });
+    expect(viewOf({ kind: "other_event", eventTag: 8 }, series)).toMatchObject({ title: "INGRESSO DE OUTRO EVENTO" });
     expect(viewOf({ kind: "voided", number: 120, reason: "unsold" }, context)).toMatchObject({
       tone: "bad",
       number: "Nº 0120",

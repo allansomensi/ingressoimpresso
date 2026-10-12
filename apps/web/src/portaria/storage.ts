@@ -9,6 +9,7 @@ import type {
   DoorGuestUpload,
   DoorRouteDto,
   DoorSeatDto,
+  DoorSessionDto,
   DoorEventInfo,
   DoorScanUpload,
   DoorSellerRangeDto,
@@ -42,6 +43,8 @@ export interface StoredManifest {
   doors?: DoorRouteDto[];
   guests?: DoorGuestDto[];
   guestsVersion?: string;
+  /** Missing in manifests stored before an event could have several dates (ADR 0077). */
+  sessions?: DoorSessionDto[];
   cursor: string;
   /** Local time of the last successful sync. */
   syncedAt: number;

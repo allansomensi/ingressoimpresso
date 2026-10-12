@@ -8,6 +8,7 @@ import {
   SearchX,
   Ban,
   CalendarDays,
+  CalendarRange,
   ChevronLeft,
   FileDown,
   LayoutDashboard,
@@ -42,6 +43,7 @@ import { ApiError, api, isUuid } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { eventDateTime, money } from "@/lib/format";
 import { changeKind } from "@/lib/event-change";
+import { positionLabel } from "@/lib/series";
 import { areaList, canDo } from "@/lib/team";
 import { hasUnsavedChanges } from "@/lib/unsaved";
 import { texts } from "@/texts/pt-BR";
@@ -287,19 +289,34 @@ function EventView() {
               </span>
             )}
           </div>
-          {data.team !== null && (
-            <button
-              type="button"
-              onClick={() => {
-                void select("team");
-              }}
-              className="flex w-fit max-w-full flex-wrap items-center gap-x-2 gap-y-1 rounded-full border border-border bg-surface px-3 py-1 text-xs text-fg-muted transition hover:border-border-strong hover:text-fg active:bg-surface-2"
-            >
-              <UsersRound className="size-3.5 text-brand" aria-hidden />
-              <span className="font-medium text-fg">{texts.event.team.teamOf(data.team.organization)}</span>
-              <span aria-hidden>·</span>
-              <span>{texts.event.team.yourParts(areaList(data.team.areas))}</span>
-            </button>
+          {(data.team !== null || data.series !== null) && (
+            <div className="flex flex-wrap items-center gap-2">
+              {data.series !== null && (
+                <Link
+                  href={`/painel/series/${data.series.id}`}
+                  className="flex w-fit max-w-full flex-wrap items-center gap-x-2 gap-y-1 rounded-full border border-border bg-surface px-3 py-1 text-xs text-fg-muted transition hover:border-border-strong hover:text-fg active:bg-surface-2 pointer-coarse:py-1.5"
+                >
+                  <CalendarRange className="size-3.5 text-brand" aria-hidden />
+                  <span className="font-medium text-fg">{positionLabel(data.series)}</span>
+                  <span aria-hidden>·</span>
+                  <span>{texts.series.seeAll}</span>
+                </Link>
+              )}
+              {data.team !== null && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    void select("team");
+                  }}
+                  className="flex w-fit max-w-full flex-wrap items-center gap-x-2 gap-y-1 rounded-full border border-border bg-surface px-3 py-1 text-xs text-fg-muted transition hover:border-border-strong hover:text-fg active:bg-surface-2"
+                >
+                  <UsersRound className="size-3.5 text-brand" aria-hidden />
+                  <span className="font-medium text-fg">{texts.event.team.teamOf(data.team.organization)}</span>
+                  <span aria-hidden>·</span>
+                  <span>{texts.event.team.yourParts(areaList(data.team.areas))}</span>
+                </button>
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -368,7 +385,16 @@ function EventView() {
         aria-labelledby={tab === "team" ? undefined : `tab-${tab}`}
         className="animate-fade-in"
       >
-        {tab === "overview" && <OverviewTab eventId={eventId} onSelect={select} event={data} />}
+        {tab === "overview" && (
+          <OverviewTab
+            eventId={eventId}
+            onSelect={select}
+            event={data}
+            onEditEvent={() => {
+              setEditing(true);
+            }}
+          />
+        )}
         {tab === "design" && <DesignTab eventId={eventId} />}
         {tab === "batches" && (
           <AreaGate eventId={eventId} area="manage">

@@ -35,6 +35,7 @@ import { whatsappLink } from "@/lib/settlement";
 import { copyText } from "@/lib/share";
 import { categoryOf } from "@/lib/categories";
 import { changeKind } from "@/lib/event-change";
+import { sessionLabel } from "@/lib/series";
 import { textOn } from "@/lib/ticket-pass";
 import { listNames } from "@/lib/team";
 import { texts } from "@/texts/pt-BR";
@@ -535,6 +536,12 @@ export function SellerPage() {
           </span>
           <span className="text-sm text-white/90">{t.hello(firstName)}</span>
           <h1 className="text-2xl leading-tight font-semibold tracking-tight text-balance">{view.event.name}</h1>
+          {/* One of several dates (ADR 0077): this link sells this session only. */}
+          {view.event.inSeries === true && (
+            <span className="mt-1 w-fit rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold tracking-wide ring-1 ring-white/30">
+              {sessionLabel(view.event.startsAt)}
+            </span>
+          )}
           <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-white/90">
             <span className="flex items-center gap-1">
               <CalendarDays aria-hidden className="size-3.5" />

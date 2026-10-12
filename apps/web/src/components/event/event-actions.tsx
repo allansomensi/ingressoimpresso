@@ -2,11 +2,12 @@
 
 import type { EventDto, EventStatus } from "@ingressoimpresso/api-types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Archive, ArchiveRestore, CalendarClock, Copy, MoreHorizontal, RotateCcw, Trash2, XCircle } from "lucide-react";
+import { Archive, ArchiveRestore, CalendarClock, CalendarPlus, Copy, MoreHorizontal, RotateCcw, Trash2, Unlink, XCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { AddDateDialog } from "@/components/event/add-date";
 import { CancelDialog, ChangeMessageDialog, PostponeDialog } from "@/components/event/event-change";
 import { Menu, MenuItem, buttonClass, errorMessage, useConfirm } from "@/components/ui";
 import { api } from "@/lib/api";
@@ -15,10 +16,11 @@ import { texts } from "@/texts/pt-BR";
 
 const t = texts.event.actions;
 const c = texts.eventChange;
+const s = texts.series;
 
 /**
- * Postpone or cancel (coordination, ADR 0065); duplicate, archive or reopen, and delete (the
- * organization's own people).
+ * Postpone or cancel (coordination, ADR 0065); add another date or leave the series (ADR 0077),
+ * duplicate, archive or reopen, and delete (the organization's own people).
  */
 export function EventActions({ event }: { event: EventDto }) {
   const queryClient = useQueryClient();
@@ -65,7 +67,18 @@ export function EventActions({ event }: { event: EventDto }) {
     },
     onError: fail,
   });
-  const [dialog, setDialog] = useState<"postpone" | "cancel" | "message" | null>(null);
+  // Another date of the event, or this date on its own again (ADR 0077).
+  const leaveSeries = useMutation({
+    mutationFn: () => api<EventDto>(`/api/events/${event.id}/series/leave`, { method: "POST" }),
+    onSuccess: (saved) => {
+      toast.success(s.left);
+      queryClient.setQueryData(["event", saved.id], saved);
+      void queryClient.invalidateQueries({ queryKey: ["events"] });
+      void queryClient.invalidateQueries({ queryKey: ["series"] });
+    },
+    onError: fail,
+  });
+  const [dialog, setDialog] = useState<"postpone" | "cancel" | "message" | "date" | null>(null);
   const close = () => {
     setDialog(null);
   };
@@ -101,13 +114,20 @@ export function EventActions({ event }: { event: EventDto }) {
   const toMessage = () => {
     setDialog("message");
   };
+  const confirmLeave = () => {
+    void confirm({ title: s.leaveTitle, description: s.leaveBody, confirmLabel: s.leaveConfirm, danger: false }).then((ok) => {
+      if (ok) {
+        leaveSeries.mutate();
+      }
+    });
+  };
 
   // Everyday actions first; the ones that change the event for everybody at the end, in red.
   return (
     <>
       <Menu
         label={t.menu}
-        disabled={duplicate.isPending || setStatus.isPending || remove.isPending || undoCancel.isPending}
+        disabled={duplicate.isPending || setStatus.isPending || remove.isPending || undoCancel.isPending || leaveSeries.isPending}
         trigger={<MoreHorizontal />}
         triggerClassName={buttonClass({ variant: "secondary", size: "icon-sm" })}
       >
@@ -124,6 +144,21 @@ export function EventActions({ event }: { event: EventDto }) {
         {manage && canceled && (
           <MenuItem icon={<RotateCcw />} onSelect={confirmUndo}>
             {c.undo}
+          </MenuItem>
+        )}
+        {owner && (
+          <MenuItem
+            icon={<CalendarPlus />}
+            onSelect={() => {
+              setDialog("date");
+            }}
+          >
+            {s.addDate}
+          </MenuItem>
+        )}
+        {owner && event.series !== null && (
+          <MenuItem icon={<Unlink />} onSelect={confirmLeave}>
+            {s.leave}
           </MenuItem>
         )}
         {owner && (
@@ -171,6 +206,7 @@ export function EventActions({ event }: { event: EventDto }) {
       <PostponeDialog event={event} open={dialog === "postpone"} onClose={close} onDone={toMessage} />
       <CancelDialog event={event} open={dialog === "cancel"} onClose={close} onDone={toMessage} />
       <ChangeMessageDialog event={event} open={dialog === "message"} onClose={close} />
+      <AddDateDialog event={event} open={dialog === "date"} onClose={close} />
     </>
   );
 }

@@ -30,6 +30,7 @@ import { announce, rehearseFeedback, unlockAudio } from "@/portaria/feedback";
 import { accessTokenFromHash, clearHash, noAccessToken, subscribeHash } from "@/portaria/hash";
 import { inkFor } from "@/lib/design-rules";
 import { money } from "@/lib/format";
+import { sessionLabel } from "@/lib/series";
 import { OFFLINE_WARNING_MS, canRehearse, clockTime, type ResultView } from "@/portaria/logic";
 import { cameraGranted, keepOffline, keepScreenOn, persistStorage } from "@/portaria/offline";
 import { texts } from "@/texts/pt-BR";
@@ -351,6 +352,8 @@ function Door({ engine, state }: { engine: DoorEngine; state: DoorState }) {
           </span>
           <span aria-hidden>·</span>
           <span>{state.device?.deviceName}</span>
+          {/* One of several dates (ADR 0077): which session this phone lets in. */}
+          {event?.inSeries === true && <span className="basis-full font-semibold text-white">{sessionLabel(event.startsAt)}</span>}
           {state.pending > 0 && (
             <span className="rounded-full bg-amber-400/15 px-2 py-0.5 text-xs font-semibold text-amber-200">{t.pending(state.pending)}</span>
           )}

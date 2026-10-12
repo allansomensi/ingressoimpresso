@@ -46,6 +46,7 @@ describe("digital ticket helpers", () => {
     expect(pass.event.change).toEqual(NO_CHANGE);
     expect(pass.event.address).toBeNull();
     expect(pass.event.id).toBe("");
+    expect(pass.event.inSeries).toBe(false);
     expect(pass.category).toBeNull();
     expect(pass.seat).toBeNull();
     expect(pass.tableMap).toBeNull();

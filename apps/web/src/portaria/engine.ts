@@ -504,6 +504,7 @@ export class DoorEngine {
       allowedCategoryIds: manifest?.allowedCategoryIds ?? [],
       doors: manifest?.doors ?? [],
       priceCents: manifest?.event.ticketPriceCents ?? null,
+      sessions: manifest?.sessions ?? [],
     };
   }
 
@@ -624,6 +625,7 @@ export class DoorEngine {
       offsetMs,
       allowedCategoryIds: manifest.allowedCategoryIds,
       doors: manifest.doors,
+      sessions: manifest.sessions,
       // The list comes only when it changed (ADR 0070).
       guests: manifest.guests ?? previous?.guests ?? [],
       guestsVersion: manifest.guests === null ? (previous?.guestsVersion ?? "") : manifest.guestsVersion,
