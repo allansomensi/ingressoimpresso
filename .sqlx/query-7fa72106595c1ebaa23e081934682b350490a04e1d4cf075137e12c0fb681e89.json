@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into seller_sync_ops (seller_id, op_id, result) values ($1, $2, '{}')\n           on conflict (seller_id, op_id) do nothing returning op_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "op_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "seller_sync_ops",
+            "name": "op_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "7fa72106595c1ebaa23e081934682b350490a04e1d4cf075137e12c0fb681e89"
+}

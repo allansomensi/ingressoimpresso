@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update event_series set name = $2 where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1b143d27dddaa4c0aae395f5e072eb6ea90a9661f407d9978a7f6c9ee2aebc0c"
+}

@@ -9,6 +9,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
   return [
     { url: SITE_URL, changeFrequency: "monthly", priority: 1 },
     { url: `${SITE_URL}/sobre`, changeFrequency: "monthly", priority: 0.5 },
+    // Check a ticket before buying it (ADR 0075).
+    { url: `${SITE_URL}/conferir`, changeFrequency: "monthly", priority: 0.7 },
     { url: `${SITE_URL}/novidades`, changeFrequency: "weekly", priority: 0.5 },
     { url: `${SITE_URL}/status`, changeFrequency: "daily", priority: 0.3 },
     { url: `${SITE_URL}/entrar`, changeFrequency: "yearly", priority: 0.3 },

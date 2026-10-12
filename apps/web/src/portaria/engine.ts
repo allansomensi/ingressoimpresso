@@ -6,10 +6,10 @@
  * can only make a result stricter (a copy or a void found online), within a 1.2 s budget.
  */
 import type { DoorManifest, DoorScanResult, DoorVerifierDto } from "@ingressoimpresso/api-types";
-import { DoorCore, loadTicketCore, type DecisionDto, type EntryDto } from "@ingressoimpresso/ticket-core-wasm";
+import { DoorCore, loadTicketCore, type EntryDto } from "@ingressoimpresso/ticket-core-wasm";
 
 import { CORE_WASM_URL } from "./assets";
-import { DoorApiError, fetchManifest, registerDevice, uploadScans } from "./client";
+import { DoorApiError, fetchManifest, registerDevice, reportRehearsal, uploadArrivals, uploadScans } from "./client";
 import {
   CONFIRM_BUDGET_MS,
   ConfirmGate,
@@ -17,10 +17,16 @@ import {
   RESCAN_WINDOW_MS,
   SYNC_INTERVAL_MS,
   alreadyEnteredView,
+  boxOfficeTotals,
+  canUndoArrival,
+  guestState,
   numberOf,
   outcomeOf,
+  rehearsalView,
   viewOf,
   voidedView,
+  wrongDoor,
+  wrongDoorView,
   type DoorContext,
   type ResultView,
 } from "./logic";
@@ -29,6 +35,12 @@ import * as storage from "./storage";
 const UPLOAD_BATCH = 500;
 
 export type Phase = "loading" | "unregistered" | "ready" | "revoked" | "failed";
+
+/** Box office sales counted on this phone and across every phone (ADR 0069). */
+export interface BoxOfficeCount {
+  mine: { count: number; cents: number; unpriced: number };
+  all: { count: number; cents: number; unpriced: number };
+}
 
 export interface DoorState {
   phase: Phase;
@@ -49,6 +61,18 @@ export interface DoorState {
   testScanDone: boolean;
   /** A scan could not be persisted. */
   storageFailed: boolean;
+  /** Rehearsal mode (ADR 0067): reads show what would happen, nothing is recorded. */
+  rehearsing: boolean;
+  /** A rehearsal was finished on this phone (since it registered). */
+  rehearsed: boolean;
+  /** A code was read in the current rehearsal. */
+  rehearsalRead: boolean;
+  /** Box office sales, when a seller is the box office (ADR 0069). */
+  boxOffice: BoxOfficeCount | null;
+  /** Guest arrivals of every phone (ADR 0070); the list itself is in the manifest. */
+  arrivals: storage.StoredArrival[];
+  /** Arrivals recorded on this phone (they may be undone for a while). */
+  ownArrivalIds: ReadonlySet<string>;
 }
 
 const INITIAL: DoorState = {
@@ -63,6 +87,12 @@ const INITIAL: DoorState = {
   checking: false,
   testScanDone: false,
   storageFailed: false,
+  rehearsing: false,
+  rehearsed: false,
+  rehearsalRead: false,
+  boxOffice: null,
+  arrivals: [],
+  ownArrivalIds: new Set(),
 };
 
 function toEntryDto(entry: storage.StoredEntry): EntryDto {
@@ -82,6 +112,12 @@ export class DoorEngine {
   /** The last scanned QR and when it was last seen by the camera. */
   #last: { text: string; seenAt: number; view: ResultView } | null = null;
   readonly #gate = new ConfirmGate();
+  /** The ticket on the "wrong door" screen, which may be let in anyway (ADR 0068). */
+  #wrongDoor: { text: string; number: number } | null = null;
+  /** Numbers known to have entered (all phones) and let in by this phone, for the box office. */
+  #entered = new Set<number>();
+  #admittedHere = new Set<number>();
+  #uploadingArrivals = false;
 
   // --- React binding -------------------------------------------------------------------
 
@@ -115,13 +151,24 @@ export class DoorEngine {
       if (manifest !== undefined) {
         await this.#rebuildCore(manifest.verifier, manifest);
       }
+      const [arrivals, admitted, entries, rehearsalPending] = await Promise.all([
+        storage.allArrivals(),
+        storage.ownAdmittedNumbers(),
+        storage.allEntries(),
+        storage.readFlag("rehearsalPending"),
+      ]);
+      this.#entered = new Set(entries.map((entry) => entry.number));
+      this.#admittedHere = new Set(admitted);
       this.#set({
         phase: "ready",
         device,
         manifest: manifest ?? null,
         lastSyncOkAt: null,
-        pending: await storage.pendingCount(),
+        pending: await this.#pendingTotal(),
+        rehearsed: rehearsalPending,
+        ...this.#arrivalState(arrivals),
       });
+      this.#countBoxOffice();
       this.#loop(generation);
     } catch {
       this.#set({ phase: "failed" });
@@ -149,6 +196,9 @@ export class DoorEngine {
     this.#core = null;
     this.#verifierJson = "";
     this.#last = null;
+    this.#wrongDoor = null;
+    this.#entered = new Set();
+    this.#admittedHere = new Set();
     this.#set({ ...INITIAL, phase: "ready", device });
     clearTimeout(this.#timer);
     this.#loop(this.#generation);
@@ -194,15 +244,34 @@ export class DoorEngine {
     }
     this.#scanning = true;
     try {
+      if (this.#state.rehearsing) {
+        // Rehearsal: what would happen, never recorded nor sent (ADR 0067).
+        const view = rehearsalView(text, core.evaluate(text), this.#context());
+        this.#last = { text, seenAt: Date.now(), view };
+        this.#set({ result: view, testScanDone: true, rehearsalRead: true });
+        return;
+      }
       // DoorCore takes integer milliseconds.
       const at = Math.round(now + (this.#state.manifest?.offsetMs ?? 0));
-      const decision = core.checkIn(text, at, device.deviceName);
-      const scan = await this.#persist(decision, at, device.deviceName);
-      let view = viewOf(decision, this.#context());
-      if (decision.kind === "admit" && scan !== null && this.#gate.canConfirm(Date.now(), this.#state.lastSyncOkAt)) {
-        this.#set({ checking: true, testScanDone: true });
-        view = (await this.#confirm(scan, decision.number)) ?? view;
+      const context = this.#context();
+      // A door limited to some categories looks before letting in (ADR 0068): a valid ticket of
+      // another category is refused without an entry, and the refusal is logged like any scan.
+      if ((context.allowedCategoryIds ?? []).length > 0) {
+        const preview = core.evaluate(text);
+        const wrong = preview.kind === "admit" ? wrongDoor(context, preview.number) : null;
+        if (preview.kind === "admit" && wrong !== null) {
+          await this.#persist(
+            { id: crypto.randomUUID(), number: preview.number, outcome: "rejected_wrong_door", scannedAtMs: at, synced: 0 },
+            null,
+          );
+          const view = wrongDoorView(preview.number, wrong, context);
+          this.#wrongDoor = { text, number: preview.number };
+          this.#last = { text, seenAt: Date.now(), view: { ...view, override: false } };
+          this.#set({ result: view, testScanDone: true });
+          return;
+        }
       }
+      const view = await this.#checkIn(core, text, at, device.deviceName, false);
       this.#last = { text, seenAt: Date.now(), view };
       this.#set({ result: view, checking: false, testScanDone: true, entryCount: core.entryCount });
     } catch {
@@ -213,8 +282,216 @@ export class DoorEngine {
     }
   }
 
-  dismissResult(): void {
+  /** "Let in anyway" on the wrong-door screen: a normal check-in, marked as an exception. */
+  async admitAnyway(): Promise<void> {
+    const core = this.#core;
+    const device = this.#state.device;
+    const pending = this.#wrongDoor;
+    if (core === null || device === null || pending === null || this.#scanning) {
+      return;
+    }
+    this.#wrongDoor = null;
+    this.#scanning = true;
     this.#set({ result: null });
+    try {
+      const at = Math.round(Date.now() + (this.#state.manifest?.offsetMs ?? 0));
+      const view = await this.#checkIn(core, pending.text, at, device.deviceName, true);
+      this.#last = { text: pending.text, seenAt: Date.now(), view };
+      this.#set({ result: view, checking: false, entryCount: core.entryCount });
+    } catch {
+      this.#set({ result: errorView(), checking: false });
+    } finally {
+      this.#scanning = false;
+    }
+  }
+
+  /** Decides, persists (invariant 6) and, with a fresh sync, confirms online. */
+  async #checkIn(core: DoorCore, text: string, at: number, deviceName: string, exception: boolean): Promise<ResultView> {
+    const decision = core.checkIn(text, at, deviceName);
+    const number = numberOf(decision);
+    const scan = await this.#persist(
+      {
+        id: crypto.randomUUID(),
+        number,
+        outcome: outcomeOf(decision),
+        scannedAtMs: at,
+        synced: 0,
+        ...(exception && decision.kind === "admit" ? { exception: true } : {}),
+      },
+      decision.kind === "admit" ? { number: decision.number, atUnixMs: at, deviceName } : null,
+    );
+    let view = viewOf(decision, this.#context());
+    if (decision.kind === "admit") {
+      this.#entered.add(decision.number);
+      this.#admittedHere.add(decision.number);
+      this.#countBoxOffice();
+    }
+    if (decision.kind === "admit" && scan !== null && this.#gate.canConfirm(Date.now(), this.#state.lastSyncOkAt)) {
+      this.#set({ checking: true, testScanDone: true });
+      view = (await this.#confirm(scan, decision.number)) ?? view;
+    }
+    return view;
+  }
+
+  dismissResult(): void {
+    this.#wrongDoor = null;
+    this.#set({ result: null });
+  }
+
+  // --- Rehearsal (ADR 0067) ------------------------------------------------------------
+
+  startRehearsal(): void {
+    this.#last = null;
+    this.#wrongDoor = null;
+    this.#set({ rehearsing: true, rehearsalRead: false, result: null });
+  }
+
+  /** Ends the rehearsal; the panel hears of it now or on the next sync. */
+  async finishRehearsal(done: boolean): Promise<void> {
+    this.#last = null;
+    this.#set({ rehearsing: false, result: null });
+    if (!done) {
+      return;
+    }
+    this.#set({ rehearsed: true });
+    try {
+      await storage.writeFlag("rehearsalPending", true);
+    } catch {
+      // Told on the next sync attempt of this session at worst.
+    }
+    void this.#sendRehearsal();
+  }
+
+  async #sendRehearsal(): Promise<void> {
+    const device = this.#state.device;
+    if (device === null || !(await storage.readFlag("rehearsalPending").catch(() => this.#state.rehearsed))) {
+      return;
+    }
+    try {
+      await reportRehearsal(device.secret);
+      await storage.writeFlag("rehearsalPending", false);
+    } catch {
+      // Offline: tried again on the next sync.
+    }
+  }
+
+  // --- Guest list (ADR 0070) -----------------------------------------------------------
+
+  /** Records that `people` of a guest's party came in: persisted before the screen shows it. */
+  async arrive(guestId: string, people: number): Promise<storage.StoredArrival | null> {
+    const device = this.#state.device;
+    const guest = this.#state.manifest?.guests?.find((item) => item.id === guestId);
+    if (device === null || guest === undefined) {
+      return null;
+    }
+    const state = guestState(guest, this.#state.arrivals);
+    const count = Math.min(Math.max(1, Math.round(people)), state.party - state.people);
+    if (count < 1) {
+      return null;
+    }
+    const arrival = {
+      id: crypto.randomUUID(),
+      guestId,
+      people: count,
+      atUnixMs: Math.round(Date.now() + (this.#state.manifest?.offsetMs ?? 0)),
+      deviceName: device.deviceName,
+      undoneAtMs: null,
+    };
+    try {
+      await storage.recordArrival(arrival);
+    } catch {
+      this.#set({ storageFailed: true });
+      return null;
+    }
+    const stored: storage.StoredArrival = { ...arrival, own: 1, synced: 0 };
+    this.#set({
+      storageFailed: false,
+      pending: this.#state.pending + 1,
+      ...this.#arrivalState([...this.#state.arrivals, stored]),
+    });
+    void this.#uploadArrivals();
+    return stored;
+  }
+
+  /** Undoes an arrival recorded here by mistake (within 2 minutes). */
+  async undoArrival(id: string): Promise<boolean> {
+    const offset = this.#state.manifest?.offsetMs ?? 0;
+    const now = Math.round(Date.now() + offset);
+    const arrival = this.#state.arrivals.find((item) => item.id === id);
+    if (arrival === undefined || !canUndoArrival(arrival, this.#state.ownArrivalIds, now)) {
+      return false;
+    }
+    const undone = await storage.undoArrival(id, now).catch(() => undefined);
+    if (undone === undefined) {
+      return false;
+    }
+    this.#set({
+      pending: arrival.synced === 1 ? this.#state.pending + 1 : this.#state.pending,
+      ...this.#arrivalState(this.#state.arrivals.map((item) => (item.id === id ? undone : item))),
+    });
+    void this.#uploadArrivals();
+    return true;
+  }
+
+  #arrivalState(arrivals: storage.StoredArrival[]): Pick<DoorState, "arrivals" | "ownArrivalIds"> {
+    return {
+      arrivals,
+      ownArrivalIds: new Set(arrivals.filter((arrival) => arrival.own === 1).map((arrival) => arrival.id)),
+    };
+  }
+
+  /** Sends pending arrivals and undos right away (the sync loop retries what fails). */
+  async #uploadArrivals(): Promise<void> {
+    const device = this.#state.device;
+    if (device === null || this.#uploadingArrivals) {
+      return;
+    }
+    this.#uploadingArrivals = true;
+    try {
+      for (;;) {
+        const pending = await storage.pendingArrivals(UPLOAD_BATCH);
+        if (pending.length === 0) {
+          break;
+        }
+        const uploads = pending.map(storage.toArrivalUpload);
+        await uploadArrivals(device.secret, uploads);
+        await storage.markArrivalsSynced(uploads);
+        if (pending.length < UPLOAD_BATCH) {
+          break;
+        }
+      }
+      const arrivals = await storage.allArrivals();
+      this.#set({ pending: await this.#pendingTotal(), ...this.#arrivalState(arrivals) });
+    } catch (error) {
+      if (error instanceof DoorApiError && error.revoked) {
+        this.#set({ phase: "revoked" });
+      }
+    } finally {
+      this.#uploadingArrivals = false;
+    }
+  }
+
+  async #pendingTotal(): Promise<number> {
+    const [scans, arrivals] = await Promise.all([storage.pendingCount(), storage.pendingArrivalCount()]);
+    return scans + arrivals;
+  }
+
+  // --- Box office (ADR 0069) -----------------------------------------------------------
+
+  #countBoxOffice(): void {
+    const context = this.#context();
+    if (!context.sellers.some((seller) => seller.boxOffice === true)) {
+      if (this.#state.boxOffice !== null) {
+        this.#set({ boxOffice: null });
+      }
+      return;
+    }
+    this.#set({
+      boxOffice: {
+        mine: boxOfficeTotals(context, this.#admittedHere),
+        all: boxOfficeTotals(context, this.#entered),
+      },
+    });
   }
 
   #context(): DoorContext {
@@ -224,22 +501,20 @@ export class DoorEngine {
       sellers: manifest?.sellers ?? [],
       categories: manifest?.categories ?? [],
       seats: manifest?.seats ?? [],
+      allowedCategoryIds: manifest?.allowedCategoryIds ?? [],
+      doors: manifest?.doors ?? [],
+      priceCents: manifest?.event.ticketPriceCents ?? null,
+      sessions: manifest?.sessions ?? [],
     };
   }
 
-  async #persist(decision: DecisionDto, at: number, deviceName: string): Promise<storage.StoredScan | null> {
-    const number = numberOf(decision);
-    const scan: storage.StoredScan = {
-      id: crypto.randomUUID(),
-      number,
-      outcome: outcomeOf(decision),
-      scannedAtMs: at,
-      synced: 0,
-    };
-    const entry =
-      decision.kind === "admit" ? { scanId: scan.id, number: decision.number, atUnixMs: at, deviceName } : null;
+  /** Persists a scan, and its entry when admitted, before any result shows (invariant 6). */
+  async #persist(
+    scan: storage.StoredScan,
+    entry: Omit<storage.StoredEntry, "scanId"> | null,
+  ): Promise<storage.StoredScan | null> {
     try {
-      await storage.recordScan(scan, entry);
+      await storage.recordScan(scan, entry === null ? null : { scanId: scan.id, ...entry });
       this.#set({ pending: this.#state.pending + 1, storageFailed: false });
       return scan;
     } catch {
@@ -315,11 +590,16 @@ export class DoorEngine {
           break;
         }
       }
+      await this.#uploadArrivals();
       const sentAt = Date.now();
-      const manifest = await fetchManifest(device.secret, this.#state.manifest?.cursor ?? null);
+      const manifest = await fetchManifest(device.secret, this.#state.manifest?.cursor ?? null, {
+        pending: await this.#pendingTotal(),
+        guests: this.#state.manifest?.guestsVersion ?? "",
+      });
       const receivedAt = Date.now();
       await this.#apply(manifest, receivedAt, Math.round(manifest.serverTimeMs - (sentAt + receivedAt) / 2));
-      this.#set({ lastSyncOkAt: receivedAt, offlineSince: null, pending: await storage.pendingCount() });
+      this.#set({ lastSyncOkAt: receivedAt, offlineSince: null, pending: await this.#pendingTotal() });
+      void this.#sendRehearsal();
     } catch (error) {
       if (error instanceof DoorApiError && error.revoked) {
         this.#set({ phase: "revoked" });
@@ -332,6 +612,7 @@ export class DoorEngine {
   }
 
   async #apply(manifest: DoorManifest, syncedAt: number, offsetMs: number): Promise<void> {
+    const previous = this.#state.manifest;
     const stored: storage.StoredManifest = {
       event: manifest.event,
       verifier: manifest.verifier,
@@ -342,7 +623,16 @@ export class DoorEngine {
       cursor: manifest.cursor,
       syncedAt,
       offsetMs,
+      allowedCategoryIds: manifest.allowedCategoryIds,
+      doors: manifest.doors,
+      sessions: manifest.sessions,
+      // The list comes only when it changed (ADR 0070).
+      guests: manifest.guests ?? previous?.guests ?? [],
+      guestsVersion: manifest.guests === null ? (previous?.guestsVersion ?? "") : manifest.guestsVersion,
     };
+    if (await storage.mergeArrivals(manifest.guestArrivals)) {
+      this.#set(this.#arrivalState(await storage.allArrivals()));
+    }
     const added = await storage.addEntries(
       manifest.entries.map((entry) => ({
         scanId: entry.scanId,
@@ -358,7 +648,11 @@ export class DoorEngine {
       this.#core.recordEntries(added.map(toEntryDto));
     }
     await storage.saveManifest(stored);
+    for (const entry of added) {
+      this.#entered.add(entry.number);
+    }
     this.#set({ manifest: stored, entryCount: this.#core?.entryCount ?? 0 });
+    this.#countBoxOffice();
   }
 
   /** A fresh core for new keys: verifier, voids and every known entry. */

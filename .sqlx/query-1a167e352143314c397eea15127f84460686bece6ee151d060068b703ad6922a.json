@@ -1,0 +1,74 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select referrals_enabled, referral_referrer_cents, referral_referred_cents,\n                  referral_monthly_limit, referral_min_batch_cents\n           from platform_settings where id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "referrals_enabled",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "platform_settings",
+            "name": "referrals_enabled"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "referral_referrer_cents",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "platform_settings",
+            "name": "referral_referrer_cents"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "referral_referred_cents",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "platform_settings",
+            "name": "referral_referred_cents"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "referral_monthly_limit",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "platform_settings",
+            "name": "referral_monthly_limit"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "referral_min_batch_cents",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "platform_settings",
+            "name": "referral_min_batch_cents"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "1a167e352143314c397eea15127f84460686bece6ee151d060068b703ad6922a"
+}

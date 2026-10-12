@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update referrals set referred_email_hint = '' where referred_organization_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c469c5c9c39dce44772eed384e9daa12d0afc0c5861d2853337cc3e1656c6293"
+}

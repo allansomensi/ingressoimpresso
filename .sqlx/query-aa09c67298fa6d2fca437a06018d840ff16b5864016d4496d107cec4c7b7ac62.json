@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select exists(select 1 from ticket_reservations\n                         where reservation_id = $1 and (event_id <> $2 or seller_id <> $3)) as \"elsewhere!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "elsewhere!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "aa09c67298fa6d2fca437a06018d840ff16b5864016d4496d107cec4c7b7ac62"
+}

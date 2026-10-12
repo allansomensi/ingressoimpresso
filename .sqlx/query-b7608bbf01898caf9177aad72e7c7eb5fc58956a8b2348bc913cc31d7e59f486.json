@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select public_verify from events where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "public_verify",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "public_verify"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "b7608bbf01898caf9177aad72e7c7eb5fc58956a8b2348bc913cc31d7e59f486"
+}

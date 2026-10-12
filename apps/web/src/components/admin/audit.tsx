@@ -23,6 +23,7 @@ const CATEGORIES = [
   "price",
   "promotion",
   "promo_code",
+  "referral",
   "announcement",
   "changelog",
   "moderation",

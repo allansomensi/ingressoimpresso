@@ -2,9 +2,10 @@
  * Digital tickets on the holder's phone (ADR 0030): the copy kept in this browser so the ticket
  * opens without internet at the door, and the image saved to the gallery.
  */
-import type { TicketPassDto } from "@ingressoimpresso/api-types";
+import type { PublicOrganizationDto, TicketPassDto } from "@ingressoimpresso/api-types";
 import { encode } from "uqr";
 
+import { NO_CHANGE } from "@/lib/event-change";
 import { wallClockDate } from "@/lib/event-time";
 
 const STORE_KEY = "ingressoimpresso.tickets";
@@ -23,9 +24,45 @@ function readStore(): Stored {
   }
 }
 
+/**
+ * A pass as saved on the phone, with what older versions did not have filled in: passes saved
+ * before categories, seats, the organization's profile or the event's changes (ADRs 0056–0066)
+ * still open at the door.
+ */
+export function normalizePass(pass: TicketPassDto): TicketPassDto {
+  const partial = pass as Partial<TicketPassDto> & Pick<TicketPassDto, "event">;
+  const event = partial.event as Partial<TicketPassDto["event"]> & Pick<TicketPassDto["event"], "name" | "organizer" | "startsAt" | "endsAt">;
+  const organization: PublicOrganizationDto = partial.organization ?? {
+    name: event.organizer,
+    logoPath: null,
+    brandColor: null,
+    whatsapp: null,
+    email: null,
+    website: null,
+    instagram: null,
+  };
+  return {
+    ...pass,
+    category: partial.category ?? null,
+    seat: partial.seat ?? null,
+    organization,
+    tableMap: partial.tableMap ?? null,
+    event: {
+      ...pass.event,
+      id: event.id ?? "",
+      venue: event.venue ?? null,
+      address: event.address ?? null,
+      change: event.change ?? NO_CHANGE,
+      // Saved before an event could have several dates (ADR 0077).
+      inSeries: event.inSeries ?? false,
+    },
+  };
+}
+
 /** The ticket saved for `token`, if this browser opened it before. */
 export function storedPass(token: string): TicketPassDto | null {
-  return readStore()[token]?.pass ?? null;
+  const pass = readStore()[token]?.pass;
+  return pass === undefined ? null : normalizePass(pass);
 }
 
 /** Keeps the latest version of a ticket (and drops the oldest beyond the limit). */
@@ -39,6 +76,41 @@ export function storePass(token: string, pass: TicketPassDto): void {
     window.localStorage.setItem(STORE_KEY, JSON.stringify(Object.fromEntries(kept)));
   } catch {
     // Storage full or blocked: the ticket still shows, it just will not open offline.
+  }
+}
+
+const LOGO_KEY = "ingressoimpresso.logos";
+/** Logos kept per browser (one per organization of the saved tickets, in practice). */
+const MAX_LOGOS = 8;
+
+type StoredLogos = Record<string, { data: string; savedAt: number }>;
+
+function readLogos(): StoredLogos {
+  try {
+    const raw = window.localStorage.getItem(LOGO_KEY);
+    const parsed: unknown = raw === null ? {} : JSON.parse(raw);
+    return typeof parsed === "object" && parsed !== null ? (parsed as StoredLogos) : {};
+  } catch {
+    return {};
+  }
+}
+
+/** The organization's logo saved with a ticket (a `data:` URL), so it shows offline too. */
+export function storedLogo(path: string): string | null {
+  return readLogos()[path]?.data ?? null;
+}
+
+/** Keeps a logo (the newest ones, up to a few). */
+export function storeLogo(path: string, data: string): void {
+  try {
+    const logos = readLogos();
+    logos[path] = { data, savedAt: Date.now() };
+    const kept = Object.entries(logos)
+      .sort(([, a], [, b]) => b.savedAt - a.savedAt)
+      .slice(0, MAX_LOGOS);
+    window.localStorage.setItem(LOGO_KEY, JSON.stringify(Object.fromEntries(kept)));
+  } catch {
+    // Storage full: the logo shows while online.
   }
 }
 
@@ -80,14 +152,18 @@ export function textOn(hex: string): "#0e0d14" | "#ffffff" {
   return luminance > 0.4 ? "#0e0d14" : "#ffffff";
 }
 
-/** The header colour of a digital ticket: the design's background, or the brand's when that is near white. */
-export function passBand(hex: string): string {
+/**
+ * The header colour of a digital ticket: the design's background, or, when that is near white,
+ * the organization's colour (ADR 0064) and else the site's brand.
+ */
+export function passBand(hex: string, brand: string | null = null): string {
+  const fallback = brand !== null && /^#[0-9a-f]{6}$/i.test(brand) ? brand : "#5b3df5";
   if (!/^#[0-9a-f]{6}$/i.test(hex)) {
-    return "#5b3df5";
+    return fallback;
   }
   const value = Number.parseInt(hex.slice(1), 16);
   const lightest = Math.min((value >> 16) & 0xff, (value >> 8) & 0xff, value & 0xff);
-  return lightest > 225 ? "#5b3df5" : hex;
+  return lightest > 225 ? fallback : hex;
 }
 
 /** Lines of `text` that fit `width` on the canvas, at most `max` (the last one ends in "…"). */
@@ -134,7 +210,7 @@ export async function passImage(pass: TicketPassDto, labels: { ticket: string; s
   if (context === null) {
     throw new Error("canvas unavailable");
   }
-  const band = passBand(pass.backgroundColor);
+  const band = passBand(pass.backgroundColor, pass.organization.brandColor);
   const ink = textOn(band);
   context.fillStyle = "#ffffff";
   context.fillRect(0, 0, width, height);

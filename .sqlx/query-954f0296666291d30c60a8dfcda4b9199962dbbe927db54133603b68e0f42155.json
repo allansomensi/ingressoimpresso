@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select exists(select 1 from sellers where event_id = $1 and box_office) as \"enabled!\",\n                  count(e.ticket_number) as \"sold!\",\n                  sum(coalesce(tc.price_cents, $2::int4))::bigint as amount,\n                  count(e.ticket_number) filter (where coalesce(tc.price_cents, $2::int4) is null) as \"unpriced!\",\n                  count(e.ticket_number) filter (where coalesce(tc.price_cents, $2::int4) = 0) as \"courtesies!\"\n           from entries e\n           join seller_assignments sa on sa.event_id = e.event_id and sa.numbers @> e.ticket_number\n           join sellers s on s.id = sa.seller_id and s.box_office\n           left join category_ranges cr on cr.event_id = e.event_id and cr.numbers @> e.ticket_number\n           left join ticket_categories tc on tc.id = cr.category_id\n           where e.event_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "enabled!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "sold!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "amount",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "unpriced!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "courtesies!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "954f0296666291d30c60a8dfcda4b9199962dbbe927db54133603b68e0f42155"
+}

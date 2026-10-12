@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "delete from door_access_categories where door_access_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "41e542b90632fa21d48987e2ef654c38b43ba1097098aa4fb747fafcc06f1b5e"
+}

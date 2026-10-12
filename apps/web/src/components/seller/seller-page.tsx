@@ -1,7 +1,9 @@
 "use client";
 
-import type { SellerMarkBody, SellerTicketBody, SellerUnmarkBody, SellerViewDto } from "@ingressoimpresso/api-types";
+import type { ReservationDto, SellerOp, SellerTicketBody, SellerViewDto } from "@ingressoimpresso/api-types";
 import {
+  Bookmark,
+  BookmarkPlus,
   CalendarDays,
   Check,
   CheckCircle2,
@@ -15,234 +17,69 @@ import {
   RotateCcw,
   ShieldCheck,
   Smartphone,
+  Store,
   Ticket,
   UserRound,
   WifiOff,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { LogoMark } from "@/components/brand";
-import { Button, Dialog, ErrorMessage, Field, Input, Spinner, buttonClass, useConfirm } from "@/components/ui";
+import { EventChangeNotice, OrganizationContact, OrganizationLogo } from "@/components/organization/organization";
+import { GoalCard } from "@/components/seller/goal-card";
+import { MarkSheet, type SheetStart } from "@/components/seller/mark-sheet";
+import { ReservationSheet, ReservationsSection } from "@/components/seller/reservations";
+import { NoticesDialog, PendingList, SyncStatus } from "@/components/seller/sync-status";
+import { useSellerSync } from "@/components/seller/use-seller-sync";
+import { Button, Dialog, Spinner, buttonClass, useConfirm } from "@/components/ui";
 import { ApiError, api } from "@/lib/api";
+import { categoryOf } from "@/lib/categories";
 import { cn } from "@/lib/cn";
+import { changeKind } from "@/lib/event-change";
 import { eventDateTime, money, shortDateTime } from "@/lib/format";
-import { firstOutside, firstShared, formatRanges, intersect, parseNumberList } from "@/lib/number-list";
-import { nextAvailable, numberCells, padNumber, type NumberCell, type NumberState } from "@/lib/seller-page";
+import { intersect } from "@/lib/number-list";
+import { pendingNumbers } from "@/lib/seller-offline";
+import { numberCells, padNumber, type NumberCell, type NumberState } from "@/lib/seller-page";
 import { whatsappLink } from "@/lib/settlement";
 import { copyText } from "@/lib/share";
-import { categoryOf } from "@/lib/categories";
+import { sessionLabel } from "@/lib/series";
 import { listNames } from "@/lib/team";
+import { textOn } from "@/lib/ticket-pass";
 import { texts } from "@/texts/pt-BR";
 
 const t = texts.sellerPage;
 
-type State =
-  | { status: "loading" }
-  | { status: "no-token" }
-  | { status: "not-found" }
-  | { status: "error" }
-  | { status: "ready"; view: SellerViewDto };
-
 type Filter = "available" | "sold" | "all";
-
-/** The link's token: everything after `#` (the fragment never reaches a server). */
-function readToken(): string | null {
-  const token = window.location.hash.replace(/^#/, "").trim();
-  return token === "" ? null : token;
-}
 
 function Centered({ children }: { children: ReactNode }) {
   return <div className="m-auto flex max-w-sm flex-col items-center gap-4 px-6 py-16 text-center animate-rise">{children}</div>;
 }
 
 const TILE: Record<NumberState, string> = {
-  available: "border-border-strong bg-surface text-fg hover:border-brand hover:bg-brand-soft",
+  available: "border-border-strong bg-surface text-fg hover:border-brand hover:bg-brand-soft active:border-brand active:bg-brand-soft",
   sold: "border-transparent bg-brand-solid text-brand-fg shadow-sm shadow-brand/25",
+  reserved: "border-warning/50 bg-warning-soft text-warning-fg hover:border-warning active:border-warning",
   unsold: "border-dashed border-border bg-transparent text-fg-subtle line-through",
   lost: "border-dashed border-danger/30 bg-danger-soft/40 text-danger-fg/70 line-through",
   revoked: "border-dashed border-border bg-transparent text-fg-subtle line-through",
 };
 
-/** Marks one or more numbers as sold, optionally with the buyer. */
-function MarkSheet({
-  open,
-  onClose,
-  token,
-  view,
-  cells,
-  initial,
-  onSaved,
-}: {
-  open: boolean;
-  onClose: () => void;
-  token: string;
-  view: SellerViewDto;
-  cells: readonly NumberCell[];
-  initial: { numbers: string; name: string; phone: string };
-  onSaved: (view: SellerViewDto) => void;
-}) {
-  const s = t.sheet;
-  const [numbers, setNumbers] = useState(initial.numbers);
-  const [name, setName] = useState(initial.name);
-  const [phone, setPhone] = useState(initial.phone);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<unknown>(null);
-  const digits = view.numberDigits;
-  const pad = (number: number) => padNumber(number, digits);
-
-  const parsed = parseNumberList(numbers);
-  const voids = view.voids.map(({ first, last }) => ({ first, last }));
-  const soldRanges = view.sales.map((sale) => ({ first: sale.number, last: sale.number }));
-  let problem: string | null = null;
-  let updating = false;
-  if (!parsed.ok) {
-    problem = parsed.error === "invalid" ? s.errors.invalid(parsed.token ?? "") : parsed.error === "too_many" ? s.errors.tooMany : null;
-  } else {
-    const outside = firstOutside(parsed.ranges, view.ranges);
-    const voided = outside === null ? firstShared(parsed.ranges, voids) : null;
-    problem = outside !== null ? s.errors.outside(pad(outside)) : voided !== null ? s.errors.voided(pad(voided)) : null;
-    updating = problem === null && firstShared(parsed.ranges, soldRanges) !== null;
-  }
-  const valid = parsed.ok && problem === null;
-  const next = nextAvailable(cells);
-
-  const submit = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!parsed.ok || !valid) {
-      return;
-    }
-    setSaving(true);
-    setError(null);
-    try {
-      const body: SellerMarkBody = {
-        token,
-        ranges: parsed.ranges,
-        buyerName: name.trim() === "" ? null : name.trim(),
-        buyerPhone: phone.trim() === "" ? null : phone.trim(),
-      };
-      const fresh = await api<SellerViewDto>("/api/seller/sales", { method: "POST", body });
-      toast.success(s.savedToast(parsed.count));
-      onSaved(fresh);
-      onClose();
-    } catch (caught) {
-      setError(caught);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      title={s.title}
-      footer={
-        <>
-          <Button variant="secondary" onClick={onClose}>
-            {texts.common.cancel}
-          </Button>
-          <Button type="submit" form="seller-mark" loading={saving} disabled={!valid} icon={<Check />}>
-            {parsed.ok && valid ? s.submit(parsed.count) : s.submitEmpty}
-          </Button>
-        </>
-      }
-    >
-      <form id="seller-mark" onSubmit={(event) => void submit(event)} className="flex flex-col gap-5">
-        <div className="flex flex-col gap-2">
-          <Field
-            label={parsed.ok && parsed.count > 1 ? s.numbersPlural : s.numbers}
-            hint={
-              problem !== null ? (
-                <span className="text-danger-fg">{problem}</span>
-              ) : parsed.ok ? (
-                <span className="font-medium text-fg">
-                  {s.preview(parsed.count, formatRanges(parsed.ranges, digits))}
-                  {updating && <span className="block font-normal text-fg-muted">{s.updating}</span>}
-                </span>
-              ) : (
-                s.numbersHint
-              )
-            }
-          >
-            <Input
-              value={numbers}
-              onChange={(event) => {
-                setNumbers(event.target.value);
-              }}
-              // The seller usually types one number: a number pad that still has the comma for a
-              // list ("12,15"); a range can also be written "20 a 25" on a full keyboard.
-              inputMode="decimal"
-              autoComplete="off"
-              enterKeyHint="done"
-              aria-invalid={problem !== null}
-              className="font-mono text-lg tabular sm:text-lg"
-              required
-            />
-          </Field>
-          {next !== null && numbers.trim() === "" && (
-            <button
-              type="button"
-              onClick={() => {
-                setNumbers(String(next));
-              }}
-              className="w-fit rounded-full border border-brand/25 bg-brand-soft px-3 py-1 font-mono text-[13px] font-medium text-brand-soft-fg tabular"
-            >
-              {s.next(pad(next))}
-            </button>
-          )}
-        </div>
-        <fieldset className="flex flex-col gap-3">
-          <legend className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-fg">
-            <UserRound aria-hidden className="size-4 text-fg-subtle" />
-            {s.buyer} <span className="text-xs font-normal text-fg-subtle">({texts.common.optional})</span>
-          </legend>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label={s.buyerName}>
-              <Input
-                value={name}
-                onChange={(event) => {
-                  setName(event.target.value);
-                }}
-                placeholder={s.buyerNamePlaceholder}
-                autoComplete="off"
-                maxLength={80}
-              />
-            </Field>
-            <Field label={s.buyerPhone}>
-              <Input
-                value={phone}
-                onChange={(event) => {
-                  setPhone(event.target.value);
-                }}
-                placeholder={s.buyerPhonePlaceholder}
-                inputMode="tel"
-                autoComplete="off"
-                maxLength={30}
-              />
-            </Field>
-          </div>
-          <p className="text-xs leading-relaxed text-fg-muted">{s.buyerHint}</p>
-        </fieldset>
-        <ErrorMessage error={error} />
-      </form>
-    </Dialog>
-  );
-}
-
-/** A sold number: its buyer, and the way back. */
 /** The sold number's digital ticket (ADR 0061): created on demand, then sent by WhatsApp. */
 function SaleTicket({
   cell,
   token,
   label,
   eventName,
+  ready,
   onSaved,
 }: {
   cell: NumberCell;
   token: string;
   label: string;
   eventName: string;
+  /** The sale reached the server and there is a connection: the ticket can be created. */
+  ready: boolean;
   onSaved: (view: SellerViewDto) => void;
 }) {
   const [busy, setBusy] = useState(false);
@@ -275,12 +112,12 @@ function SaleTicket({
           <h3 id="sale-ticket" className="text-sm font-semibold text-fg">
             {t.sale.ticketTitle}
           </h3>
-          <p className="text-xs leading-relaxed text-fg-muted">{url === null ? t.sale.ticketHint : t.sale.ticketSent}</p>
+          <p className="text-xs leading-relaxed text-fg-muted">{url === null ? (ready ? t.sale.ticketHint : t.offline.ticketOffline) : t.sale.ticketSent}</p>
         </div>
       </div>
       {url === null ? (
-        <Button variant="secondary" icon={<Smartphone />} loading={busy} onClick={() => void create()} className="w-full">
-          {t.sale.ticketCreate}
+        <Button variant="secondary" icon={ready ? <Smartphone /> : <WifiOff />} loading={busy} disabled={!ready} onClick={() => void create()} className="w-full">
+          {ready ? t.sale.ticketCreate : t.offline.needsInternet}
         </Button>
       ) : (
         <div className="flex flex-col gap-2 sm:flex-row">
@@ -313,27 +150,32 @@ function SaleTicket({
   );
 }
 
+/** A sold number: its buyer, the digital ticket and the way back. */
 function SaleSheet({
   cell,
   onClose,
   onEdit,
+  onUndo,
   token,
   digits,
   eventName,
   canSendTickets,
+  ticketReady,
   onSaved,
 }: {
   cell: NumberCell | null;
   onClose: () => void;
-  onEdit: (cell: NumberCell) => void;
+  /** `null` when sales can no longer change (canceled event). */
+  onEdit: ((cell: NumberCell) => void) | null;
+  onUndo: (cell: NumberCell) => void;
   token: string;
   digits: number;
   eventName: string;
   canSendTickets: boolean;
+  ticketReady: boolean;
   onSaved: (view: SellerViewDto) => void;
 }) {
   const confirm = useConfirm();
-  const [busy, setBusy] = useState(false);
   const sale = cell?.sale ?? null;
   const label = cell === null ? "" : padNumber(cell.number, digits);
 
@@ -341,17 +183,8 @@ function SaleSheet({
     if (cell === null || !(await confirm({ title: t.sale.undoTitle(label), description: t.sale.undoBody, confirmLabel: t.sale.undo }))) {
       return;
     }
-    setBusy(true);
-    try {
-      const body: SellerUnmarkBody = { token, number: cell.number };
-      onSaved(await api<SellerViewDto>("/api/seller/sales/undo", { method: "POST", body }));
-      toast.success(t.sale.undoneToast);
-      onClose();
-    } catch (error) {
-      toast.error(error instanceof ApiError ? error.userMessage : texts.errors.generic);
-    } finally {
-      setBusy(false);
-    }
+    onUndo(cell);
+    onClose();
   };
 
   return (
@@ -362,20 +195,22 @@ function SaleSheet({
       description={sale === null ? undefined : t.sale.soldAt(shortDateTime(sale.soldAt))}
       footer={
         <>
-          <Button variant="danger-ghost" icon={<RotateCcw />} loading={busy} onClick={() => void undo()}>
+          <Button variant="danger-ghost" icon={<RotateCcw />} onClick={() => void undo()}>
             {t.sale.undo}
           </Button>
-          <Button
-            variant="secondary"
-            icon={<Pencil />}
-            onClick={() => {
-              if (cell !== null) {
-                onEdit(cell);
-              }
-            }}
-          >
-            {t.sale.edit}
-          </Button>
+          {onEdit !== null && (
+            <Button
+              variant="secondary"
+              icon={<Pencil />}
+              onClick={() => {
+                if (cell !== null) {
+                  onEdit(cell);
+                }
+              }}
+            >
+              {t.sale.edit}
+            </Button>
+          )}
         </>
       }
     >
@@ -393,71 +228,38 @@ function SaleSheet({
             target="_blank"
             rel="noopener noreferrer"
             aria-label={t.sale.call}
-            className="flex size-10 items-center justify-center rounded-full bg-success-solid text-white"
+            className="flex size-11 items-center justify-center rounded-full bg-success-solid text-white active:bg-success-solid/80"
           >
             <MessageCircle className="size-5" aria-hidden />
           </a>
         )}
       </div>
       {cell !== null && (canSendTickets || (cell.sale?.ticketUrl ?? null) !== null) && (
-        <SaleTicket cell={cell} token={token} label={label} eventName={eventName} onSaved={onSaved} />
+        <SaleTicket cell={cell} token={token} label={label} eventName={eventName} ready={ticketReady} onSaved={onSaved} />
       )}
     </Dialog>
   );
 }
 
 export function SellerPage() {
-  const [state, setState] = useState<State>({ status: "loading" });
-  const [token, setToken] = useState<string | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
+  const sync = useSellerSync();
+  const { token, phase, view, serverView, queue, now, enqueue } = sync;
+  const confirm = useConfirm();
   const [filter, setFilter] = useState<Filter>("available");
-  const [marking, setMarking] = useState<{ numbers: string; name: string; phone: string } | null>(null);
-  const [selected, setSelected] = useState<NumberCell | null>(null);
+  const [sheet, setSheet] = useState<SheetStart | null>(null);
+  const [selected, setSelected] = useState<number | null>(null);
+  const [reservationId, setReservationId] = useState<string | null>(null);
 
-  const load = useCallback(async (current: string) => {
-    try {
-      const view = await api<SellerViewDto>("/api/seller", { method: "POST", body: { token: current } });
-      setState({ status: "ready", view });
-    } catch (error) {
-      setState(error instanceof ApiError && error.status === 404 ? { status: "not-found" } : { status: "error" });
-    }
-  }, []);
-
+  const cells = useMemo(() => (view === null ? [] : numberCells(view, now)), [view, now]);
+  const pending = useMemo(() => (view === null ? new Set<number>() : pendingNumbers(queue, view)), [queue, view]);
+  const eventName = view?.event.name ?? null;
   useEffect(() => {
-    const read = () => {
-      const current = readToken();
-      setToken(current);
-      if (current === null) {
-        setState({ status: "no-token" });
-      } else {
-        void load(current);
-      }
-    };
-    read();
-    window.addEventListener("hashchange", read);
-    return () => {
-      window.removeEventListener("hashchange", read);
-    };
-  }, [load]);
-
-  const view = state.status === "ready" ? state.view : null;
-  const cells = useMemo(() => (view === null ? [] : numberCells(view)), [view]);
-  useEffect(() => {
-    if (view !== null) {
-      document.title = `${t.metaTitle} · ${view.event.name}`;
+    if (eventName !== null) {
+      document.title = `${t.metaTitle} · ${eventName}`;
     }
-  }, [view]);
+  }, [eventName]);
 
-  const refresh = async () => {
-    if (token === null) {
-      return;
-    }
-    setRefreshing(true);
-    await load(token);
-    setRefreshing(false);
-  };
-
-  if (state.status === "loading") {
+  if (phase === "loading" || (phase === "ready" && view === null)) {
     return (
       <Centered>
         <Spinner />
@@ -465,21 +267,22 @@ export function SellerPage() {
       </Centered>
     );
   }
-  if (state.status !== "ready" || token === null || view === null) {
-    const title = state.status === "not-found" ? t.notFoundTitle : state.status === "error" ? t.errorTitle : t.noTokenTitle;
-    const body = state.status === "not-found" ? t.notFound : state.status === "error" ? t.error : t.noToken;
+  if (phase !== "ready" || token === null || view === null) {
+    const title = phase === "not-found" ? t.notFoundTitle : phase === "error" ? t.errorTitle : t.noTokenTitle;
+    const body = phase === "not-found" ? t.notFound : phase === "error" ? t.error : t.noToken;
     return (
       <Centered>
         <span className="flex size-14 items-center justify-center rounded-2xl bg-brand-soft text-brand-soft-fg">
-          {state.status === "error" ? <WifiOff className="size-7" aria-hidden /> : <Ticket className="size-7" aria-hidden />}
+          {phase === "error" ? <WifiOff className="size-7" aria-hidden /> : <Ticket className="size-7" aria-hidden />}
         </span>
         <h1 className="text-xl font-semibold tracking-tight text-fg">{title}</h1>
         <p className="text-[15px] leading-relaxed text-fg-muted">{body}</p>
-        {state.status === "error" && (
-          <Button variant="secondary" icon={<RefreshCw />} onClick={() => void refresh()} loading={refreshing}>
+        {phase === "error" && (
+          <Button variant="secondary" icon={<RefreshCw />} onClick={() => void sync.sync()} loading={sync.syncing}>
             {t.retry}
           </Button>
         )}
+        {phase === "not-found" && <PendingList queue={queue} view={serverView} />}
       </Centered>
     );
   }
@@ -490,11 +293,47 @@ export function SellerPage() {
   const percent = s.tickets === 0 ? 0 : Math.round((s.sold / s.tickets) * 100);
   // Only the categories of the seller's own numbers.
   const legend = view.categories.filter((category) => intersect(category.ranges, view.ranges).length > 0);
-  const shown = cells.filter((cell) => filter === "all" || cell.state === filter);
+  // "Com você" is everything still in the seller's hands, reserved or not.
+  const shown = cells.filter((cell) =>
+    filter === "all" ? true : filter === "sold" ? cell.state === "sold" : cell.state === "available" || cell.state === "reserved",
+  );
   const firstName = view.seller.trim().split(/\s+/)[0] ?? view.seller;
-  const openMark = (numbers = "", name = "", phone = "") => {
+  // A canceled event takes no more sales (ADR 0065): the page only shows what was done.
+  const canceled = changeKind(view.event.change, view.event.startsAt) === "canceled";
+  // A box office sells at the door (ADR 0069): no reservations, no goal.
+  const canReserve = !view.boxOffice && !canceled;
+  // The organization's colour (ADR 0064) when white text reads on it; the site's otherwise.
+  const brand = view.organization.brandColor;
+  const heroColor = brand !== null && textOn(brand) === "#ffffff" ? brand : null;
+  const withYou = s.available + s.reserved;
+  const selectedCell = selected === null ? null : (cells.find((cell) => cell.number === selected && cell.state === "sold") ?? null);
+  const reservation = view.reservations.find((item) => item.id === reservationId) ?? null;
+  // The digital ticket needs the sale on the server and a connection.
+  const ticketReady =
+    sync.online && selectedCell !== null && serverView?.sales.some((sale) => sale.number === selectedCell.number) === true && !pending.has(selectedCell.number);
+
+  const submit = (op: SellerOp, done: string) => {
+    enqueue(op);
+    toast.success(done);
+  };
+  const openSheet = (start: Partial<SheetStart> & Pick<SheetStart, "mode">) => {
     setSelected(null);
-    setMarking({ numbers, name, phone });
+    setReservationId(null);
+    setSheet({ numbers: "", name: "", phone: "", ...start });
+  };
+  const sellReservation = (item: ReservationDto) => {
+    setReservationId(null);
+    submit(
+      { kind: "mark", ranges: item.numbers, buyerName: item.holderName, buyerPhone: item.holderPhone, edit: false, reservationId: item.id },
+      t.reservations.sold(item.numbers.reduce((sum, range) => sum + range.last - range.first + 1, 0)),
+    );
+  };
+  const cancelReservation = async (item: ReservationDto, dismiss: boolean) => {
+    if (!dismiss && !(await confirm({ title: t.reservations.cancelTitle(item.holderName), description: t.reservations.cancelBody, confirmLabel: t.reservations.cancel }))) {
+      return;
+    }
+    setReservationId(null);
+    submit({ kind: "cancel_reservation", reservationId: item.id }, dismiss ? t.reservations.dismissedToast : t.reservations.canceledToast);
   };
 
   return (
@@ -504,16 +343,40 @@ export function SellerPage() {
           <LogoMark className="size-6" />
           {texts.brand.name}
         </span>
-        <Button variant="ghost" size="sm" icon={<RefreshCw />} loading={refreshing} onClick={() => void refresh()}>
+        <Button variant="ghost" size="sm" icon={<RefreshCw />} loading={sync.syncing} disabled={!sync.online} onClick={() => void sync.sync()}>
           {t.refresh}
         </Button>
       </header>
 
-      <section className="relative overflow-hidden rounded-3xl bg-brand-solid p-5 text-white shadow-lg shadow-brand/25">
+      <SyncStatus
+        online={sync.online}
+        syncing={sync.syncing}
+        pending={queue.length}
+        savedAt={sync.savedAt}
+        problem={sync.problem}
+        onRetry={() => void sync.sync()}
+      />
+
+      <EventChangeNotice change={view.event.change} startsAt={view.event.startsAt} forSeller />
+
+      <section
+        className={cn("relative overflow-hidden rounded-3xl bg-brand-solid p-5 text-white shadow-lg", heroColor === null && "shadow-brand/25")}
+        style={heroColor === null ? undefined : { backgroundColor: heroColor }}
+      >
         <div aria-hidden className="absolute -top-16 -right-16 size-48 rounded-full bg-white/10 blur-2xl" />
         <div className="relative flex flex-col gap-1">
+          <span className="mb-2 flex items-center gap-2.5">
+            <OrganizationLogo organization={view.organization} className="size-9 rounded-lg" />
+            <span className="text-xs font-semibold tracking-[0.14em] text-white/90 uppercase">{t.by(view.organization.name)}</span>
+          </span>
           <span className="text-sm text-white/90">{t.hello(firstName)}</span>
           <h1 className="text-2xl leading-tight font-semibold tracking-tight text-balance">{view.event.name}</h1>
+          {/* One of several dates (ADR 0077): this link sells this session only. */}
+          {view.event.inSeries === true && (
+            <span className="mt-1 w-fit rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold tracking-wide ring-1 ring-white/30">
+              {sessionLabel(view.event.startsAt)}
+            </span>
+          )}
           <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-white/90">
             <span className="flex items-center gap-1">
               <CalendarDays aria-hidden className="size-3.5" />
@@ -525,23 +388,45 @@ export function SellerPage() {
                 {view.event.venue}
               </span>
             )}
+            {view.event.address !== null && <span className="basis-full text-white/80">{view.event.address}</span>}
           </span>
         </div>
         <div className="relative mt-5 flex flex-col gap-2">
           <div className="flex items-baseline justify-between gap-3">
-            <span className="text-3xl font-semibold tracking-tight tabular">{s.available === 0 && s.sold > 0 ? t.allSold : t.soldOf(s.sold, s.tickets)}</span>
+            <span className="text-3xl font-semibold tracking-tight tabular">{withYou === 0 && s.sold > 0 ? t.allSold : t.soldOf(s.sold, s.tickets)}</span>
             <span className="text-sm font-medium text-white/90 tabular">{percent}%</span>
           </div>
           <div role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent} aria-label={t.soldOf(s.sold, s.tickets)} className="h-2.5 overflow-hidden rounded-full bg-white/20">
             <div className="h-full rounded-full bg-white transition-[width] duration-500" style={{ width: `${String(percent)}%` }} />
           </div>
           <span className="flex flex-wrap gap-2 pt-1">
-            <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-medium">{t.withYou(s.available)}</span>
+            <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-medium">{t.withYou(withYou)}</span>
+            {s.reserved > 0 && <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-medium">{t.reservedCount(s.reserved)}</span>}
             {s.unsold > 0 && <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-medium">{t.returned(s.unsold)}</span>}
             {s.lost > 0 && <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-medium">{t.lost(s.lost)}</span>}
           </span>
         </div>
       </section>
+
+      {view.boxOffice && (
+        <p role="note" className="flex items-start gap-3 rounded-2xl border border-brand/30 bg-brand-soft px-4 py-3 text-sm leading-relaxed text-brand-soft-fg">
+          <Store aria-hidden className="mt-0.5 size-4 shrink-0" />
+          {t.boxOffice}
+        </p>
+      )}
+
+      <GoalCard goal={view.goal} sold={s.sold} ranking={view.ranking} />
+
+      <ReservationsSection
+        view={view}
+        now={now}
+        canceled={canceled}
+        onOpen={(item) => {
+          setReservationId(item.id);
+        }}
+        onSell={sellReservation}
+        onDismiss={(item) => void cancelReservation(item, true)}
+      />
 
       {s.amountDueCents !== null && s.balanceCents !== null && (
         <section className="flex flex-col gap-3 rounded-3xl border border-border bg-surface p-5 shadow-xs">
@@ -549,17 +434,13 @@ export function SellerPage() {
             <HandCoins aria-hidden className="size-[18px] text-brand" />
             {t.money.title}
           </h2>
-          {view.receivers.length > 0 && (
-            <p className="-mt-1 text-sm text-fg-muted">{t.money.receiver(listNames(view.receivers))}</p>
-          )}
+          {view.receivers.length > 0 && <p className="-mt-1 text-sm text-fg-muted">{t.money.receiver(listNames(view.receivers))}</p>}
           <dl className="grid grid-cols-3 gap-2 text-center">
             <div className="flex flex-col gap-0.5 rounded-2xl bg-surface-2 p-3">
               <dt className="text-[11px] font-medium text-fg-muted">{t.money.due}</dt>
               <dd className="text-base font-semibold text-fg tabular">{money(s.amountDueCents)}</dd>
               <dd className="text-[10px] text-fg-subtle tabular">
-                {s.dueLines.length === 1 && s.dueLines[0]?.priceCents != null
-                  ? t.money.dueHint(s.dueTickets, money(s.dueLines[0].priceCents))
-                  : t.money.byCategory}
+                {s.dueLines.length === 1 && s.dueLines[0]?.priceCents != null ? t.money.dueHint(s.dueTickets, money(s.dueLines[0].priceCents)) : t.money.byCategory}
               </dd>
             </div>
             <div className="flex flex-col gap-0.5 rounded-2xl bg-surface-2 p-3">
@@ -568,9 +449,7 @@ export function SellerPage() {
             </div>
             <div className={cn("flex flex-col gap-0.5 rounded-2xl p-3", s.balanceCents > 0 ? "bg-warning-soft" : "bg-success-soft")}>
               <dt className="text-[11px] font-medium text-fg-muted">{t.money.outstanding}</dt>
-              <dd className={cn("text-base font-semibold tabular", s.balanceCents > 0 ? "text-warning-fg" : "text-success-fg")}>
-                {money(Math.max(s.balanceCents, 0))}
-              </dd>
+              <dd className={cn("text-base font-semibold tabular", s.balanceCents > 0 ? "text-warning-fg" : "text-success-fg")}>{money(Math.max(s.balanceCents, 0))}</dd>
             </div>
           </dl>
           {s.dueLines.length > 1 && (
@@ -583,9 +462,7 @@ export function SellerPage() {
                       {line.tickets.toLocaleString("pt-BR")} {line.category ?? t.money.noCategory}
                     </span>
                   </span>
-                  <span className="shrink-0 text-fg-muted">
-                    {line.priceCents === null ? "—" : line.priceCents === 0 ? t.money.free : `× ${money(line.priceCents)}`}
-                  </span>
+                  <span className="shrink-0 text-fg-muted">{line.priceCents === null ? "—" : line.priceCents === 0 ? t.money.free : `× ${money(line.priceCents)}`}</span>
                 </li>
               ))}
             </ul>
@@ -600,7 +477,7 @@ export function SellerPage() {
       <section className="flex flex-col gap-3">
         <div role="radiogroup" aria-label={t.metaTitle} className="grid grid-cols-3 gap-1 rounded-2xl border border-border bg-surface p-1">
           {(["available", "sold", "all"] as const).map((option) => {
-            const count = option === "available" ? s.available : option === "sold" ? s.sold : s.tickets;
+            const count = option === "available" ? withYou : option === "sold" ? s.sold : s.tickets;
             return (
               <button
                 key={option}
@@ -612,7 +489,7 @@ export function SellerPage() {
                 }}
                 className={cn(
                   "rounded-xl px-2 py-2 text-sm font-medium transition pointer-coarse:py-2.5",
-                  filter === option ? "bg-surface-2 text-fg shadow-xs ring-1 ring-border" : "text-fg-muted hover:text-fg",
+                  filter === option ? "bg-surface-2 text-fg shadow-xs ring-1 ring-border" : "text-fg-muted hover:text-fg active:text-fg",
                 )}
               >
                 {t.filters[option]} <span className="text-fg-subtle tabular">{count}</span>
@@ -631,12 +508,18 @@ export function SellerPage() {
                   <button
                     type="button"
                     onClick={() => {
-                      setSelected(cell);
+                      setSelected(cell.number);
                     }}
                     className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-surface-2 active:bg-surface-2"
                   >
                     <span className="rounded-lg bg-brand-soft px-2 py-1 font-mono text-sm font-semibold text-brand-soft-fg tabular">{pad(cell.number)}</span>
                     <span className="min-w-0 flex-1 truncate text-sm text-fg">{cell.sale?.buyerName ?? <span className="text-fg-subtle">{t.noBuyer}</span>}</span>
+                    {pending.has(cell.number) && (
+                      <span className="flex items-center gap-1 text-xs text-warning-fg">
+                        <WifiOff aria-hidden className="size-3.5" />
+                        <span className="sr-only">{t.offline.pendingTile}</span>
+                      </span>
+                    )}
                     {cell.sale?.buyerPhone !== null && cell.sale?.buyerPhone !== undefined && (
                       <span className="hidden text-xs text-fg-muted sm:block">{cell.sale.buyerPhone}</span>
                     )}
@@ -649,7 +532,7 @@ export function SellerPage() {
           <p className="rounded-2xl border border-dashed border-border-strong px-4 py-8 text-center text-sm text-fg-muted">{t.emptyAvailable}</p>
         ) : (
           <>
-            <p className="text-xs text-fg-muted">{t.gridHint}</p>
+            <p className={cn("text-xs", canceled ? "font-medium text-danger-fg" : "text-fg-muted")}>{canceled ? t.canceledNoSales : t.gridHint}</p>
             {legend.length > 0 && (
               <ul aria-label={t.categoriesLegend} className="flex flex-wrap gap-1.5">
                 {legend.map((category) => (
@@ -663,20 +546,24 @@ export function SellerPage() {
             )}
             <ul className="grid grid-cols-5 gap-2 sm:grid-cols-8">
               {shown.map((cell) => {
-                const tappable = cell.state === "available" || cell.state === "sold";
+                const tappable = (cell.state === "available" && !canceled) || cell.state === "sold" || cell.state === "reserved";
                 const category = categoryOf(view.categories, cell.number);
+                const waiting = pending.has(cell.number);
+                const state = cell.state === "reserved" && cell.reservation !== null ? `${t.states.reserved} · ${cell.reservation.holderName}` : t.states[cell.state];
                 return (
                   <li key={cell.number}>
                     <button
                       type="button"
                       disabled={!tappable}
-                      title={category === null ? t.states[cell.state] : `${category.name} · ${t.states[cell.state]}`}
-                      aria-label={`${pad(cell.number)} · ${category === null ? "" : `${category.name} · `}${t.states[cell.state]}`}
+                      title={category === null ? state : `${category.name} · ${state}`}
+                      aria-label={`${pad(cell.number)} · ${category === null ? "" : `${category.name} · `}${state}${waiting ? ` · ${t.offline.pendingTile}` : ""}`}
                       onClick={() => {
                         if (cell.state === "sold") {
-                          setSelected(cell);
+                          setSelected(cell.number);
+                        } else if (cell.state === "reserved" && cell.reservation !== null) {
+                          setReservationId(cell.reservation.id);
                         } else {
-                          openMark(String(cell.number));
+                          openSheet({ mode: "sell", numbers: String(cell.number) });
                         }
                       }}
                       className={cn(
@@ -686,9 +573,9 @@ export function SellerPage() {
                     >
                       {pad(cell.number)}
                       {cell.state === "sold" && <Check aria-hidden className="absolute top-1 right-1 size-3" strokeWidth={3} />}
-                      {category !== null && (
-                        <span aria-hidden className="absolute inset-x-2 bottom-1 h-[3px] rounded-full" style={{ backgroundColor: category.color }} />
-                      )}
+                      {cell.state === "reserved" && <Bookmark aria-hidden className="absolute top-1 right-1 size-3" strokeWidth={2.5} />}
+                      {waiting && <span aria-hidden className="absolute top-1 left-1 size-1.5 animate-pulse rounded-full bg-warning" />}
+                      {category !== null && <span aria-hidden className="absolute inset-x-2 bottom-1 h-[3px] rounded-full" style={{ backgroundColor: category.color }} />}
                     </button>
                   </li>
                 );
@@ -717,23 +604,38 @@ export function SellerPage() {
         )}
       </section>
 
+      <OrganizationContact organization={view.organization} message={t.contactMessage(view.event.name, view.seller)} />
+
       <footer className="flex flex-col items-center gap-1 pt-2 text-center text-xs text-fg-subtle">
         <span className="flex items-center gap-1.5">
           <ShieldCheck aria-hidden className="size-3.5" />
           {t.privacy}
         </span>
-        <span>{t.by(view.event.organizer)}</span>
+        <span>{t.by(view.organization.name)}</span>
       </footer>
 
-      {s.available > 0 && (
+      {s.available > 0 && !canceled && (
         <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-bg/90 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-xl">
-          <div className="mx-auto max-w-xl">
+          <div className="mx-auto flex max-w-xl gap-2">
+            {canReserve && (
+              <Button
+                size="lg"
+                variant="secondary"
+                icon={<BookmarkPlus />}
+                className="flex-1"
+                onClick={() => {
+                  openSheet({ mode: "reserve" });
+                }}
+              >
+                {t.reserve}
+              </Button>
+            )}
             <Button
               size="lg"
               icon={<Plus />}
-              className="w-full"
+              className={canReserve ? "flex-[1.4]" : "w-full"}
               onClick={() => {
-                openMark();
+                openSheet({ mode: "sell" });
               }}
             >
               {t.mark}
@@ -743,38 +645,63 @@ export function SellerPage() {
       )}
 
       {/* Mounted only while open, so each opening starts from its own values. */}
-      {marking !== null && (
+      {sheet !== null && (
         <MarkSheet
-          key={`${marking.numbers}|${marking.name}|${marking.phone}`}
-          open
-          onClose={() => {
-            setMarking(null);
-          }}
-          token={token}
+          key={`${sheet.mode}|${sheet.numbers}|${sheet.name}|${sheet.reservation?.id ?? ""}`}
           view={view}
           cells={cells}
-          initial={marking}
-          onSaved={(fresh) => {
-            setState({ status: "ready", view: fresh });
+          start={sheet}
+          canReserve={canReserve}
+          now={now}
+          onClose={() => {
+            setSheet(null);
           }}
+          onSubmit={submit}
         />
       )}
       <SaleSheet
-        cell={selected === null ? null : (cells.find((cell) => cell.number === selected.number && cell.state === "sold") ?? null)}
+        cell={selectedCell}
         onClose={() => {
           setSelected(null);
         }}
-        onEdit={(cell) => {
-          openMark(String(cell.number), cell.sale?.buyerName ?? "", cell.sale?.buyerPhone ?? "");
+        onEdit={
+          canceled
+            ? null
+            : (cell) => {
+                openSheet({ mode: "sell", numbers: String(cell.number), name: cell.sale?.buyerName ?? "", phone: cell.sale?.buyerPhone ?? "", edit: true });
+              }
+        }
+        onUndo={(cell) => {
+          submit({ kind: "unmark", number: cell.number }, t.sale.undoneToast);
         }}
         token={token}
         digits={digits}
         eventName={view.event.name}
-        canSendTickets={view.canSendTickets}
-        onSaved={(fresh) => {
-          setState({ status: "ready", view: fresh });
-        }}
+        canSendTickets={view.canSendTickets && !canceled}
+        ticketReady={ticketReady}
+        onSaved={sync.replaceView}
       />
+      <ReservationSheet
+        reservation={reservation}
+        view={view}
+        now={now}
+        canceled={canceled}
+        onClose={() => {
+          setReservationId(null);
+        }}
+        onSell={sellReservation}
+        onEdit={(item) => {
+          openSheet({
+            mode: "reserve",
+            numbers: item.numbers.map((range) => (range.first === range.last ? String(range.first) : `${String(range.first)}-${String(range.last)}`)).join(", "),
+            name: item.holderName,
+            phone: item.holderPhone ?? "",
+            reservation: item,
+          });
+        }}
+        onCancel={(item) => void cancelReservation(item, false)}
+      />
+      <NoticesDialog notices={sync.notices} onClose={sync.dismissNotices} />
     </div>
   );
 }

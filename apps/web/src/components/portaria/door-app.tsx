@@ -1,18 +1,37 @@
 "use client";
 
-import { AlertTriangle, CheckCircle2, Circle, Flashlight, FlashlightOff, Pause, ScanLine, Wifi, WifiOff, XCircle } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Circle,
+  ClipboardCheck,
+  Flashlight,
+  FlashlightOff,
+  MoreVertical,
+  Pause,
+  ScanLine,
+  Store,
+  UsersRound,
+  Volume2,
+  Wifi,
+  WifiOff,
+  XCircle,
+} from "lucide-react";
 import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent, type ReactNode } from "react";
 
 import { LogoMark } from "@/components/brand";
+import { GuestList } from "@/components/portaria/guest-list";
 
 import { Scanner } from "@/portaria/camera";
 import { clockNow, serverClockNow, subscribeClock } from "@/portaria/clock";
 import { DoorApiError } from "@/portaria/client";
 import { DoorEngine, type DoorState } from "@/portaria/engine";
-import { announce, unlockAudio } from "@/portaria/feedback";
+import { announce, rehearseFeedback, unlockAudio } from "@/portaria/feedback";
 import { accessTokenFromHash, clearHash, noAccessToken, subscribeHash } from "@/portaria/hash";
 import { inkFor } from "@/lib/design-rules";
-import { OFFLINE_WARNING_MS, clockTime, type ResultView } from "@/portaria/logic";
+import { money } from "@/lib/format";
+import { sessionLabel } from "@/lib/series";
+import { OFFLINE_WARNING_MS, canRehearse, clockTime, type ResultView } from "@/portaria/logic";
 import { cameraGranted, keepOffline, keepScreenOn, persistStorage } from "@/portaria/offline";
 import { texts } from "@/texts/pt-BR";
 
@@ -20,6 +39,17 @@ const t = texts.portaria;
 
 /** How long a result stays on screen: short for "enter", longer for anything to look at. */
 const RESULT_MS = { ok: 1600, bad: 4000, warn: 4000 } as const;
+
+/** A box office charge or a wrong-door choice needs time to act on (ADRs 0068, 0069). */
+function resultMs(view: ResultView): number {
+  if (view.override === true) {
+    return 8000;
+  }
+  if (view.charge !== undefined && view.charge !== null) {
+    return 5000;
+  }
+  return view.rehearsal === true ? Math.max(RESULT_MS[view.tone], 3000) : RESULT_MS[view.tone];
+}
 
 export function DoorApp() {
   const [engine] = useState(() => new DoorEngine());
@@ -189,6 +219,9 @@ function Door({ engine, state }: { engine: DoorEngine; state: DoorState }) {
   const [torch, setTorch] = useState<boolean | null>(null);
   const [cameraFailed, setCameraFailed] = useState(false);
   const [checks, setChecks] = useState({ app: false, camera: false, storage: false });
+  const [showGuests, setShowGuests] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [rehearsal, setRehearsal] = useState({ sound: false, torch: false });
   const now = useSyncExternalStore(subscribeClock, clockNow, serverClockNow);
 
   // Readiness checks that need no user gesture.
@@ -211,7 +244,7 @@ function Door({ engine, state }: { engine: DoorEngine; state: DoorState }) {
     }
     const timer = setTimeout(() => {
       engine.dismissResult();
-    }, RESULT_MS[result.tone]);
+    }, resultMs(result));
     return () => {
       clearTimeout(timer);
     };
@@ -259,18 +292,58 @@ function Door({ engine, state }: { engine: DoorEngine; state: DoorState }) {
   const offlineFor = state.offlineSince === null ? 0 : now - state.offlineSince;
 
   const synced = state.offlineSince === null && state.lastSyncOkAt !== null;
+  const hasGuests = (manifest?.guests?.length ?? 0) > 0;
+  const rehearsing = state.rehearsing;
+
+  const startRehearsal = () => {
+    setMenuOpen(false);
+    setRehearsal({ sound: false, torch: false });
+    engine.startRehearsal();
+  };
+  const toggleTorch = () => {
+    const next = !(torch ?? false);
+    void scannerRef.current?.setTorch(next).then(() => {
+      setTorch(next);
+      setRehearsal((current) => ({ ...current, torch: true }));
+    });
+  };
 
   return (
     <div className="flex min-h-dvh flex-col">
-      <header className="sticky top-0 z-10 flex flex-col gap-2 border-b border-white/10 bg-[#0b0a12]/85 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 backdrop-blur-xl">
-        <div className="flex items-center justify-between gap-3">
+      {rehearsing && (
+        <div
+          role="status"
+          className="sticky top-0 z-20 bg-amber-400 px-4 pt-[max(0.5rem,env(safe-area-inset-top))] pb-2 text-center text-sm font-black tracking-wide text-black"
+        >
+          {t.rehearsal.banner}
+        </div>
+      )}
+      <header
+        className={`sticky z-10 flex flex-col gap-2 border-b border-white/10 bg-[#0b0a12]/85 px-4 pb-3 backdrop-blur-xl ${rehearsing ? "top-[calc(2.25rem+env(safe-area-inset-top))] pt-3" : "top-0 pt-[max(0.75rem,env(safe-area-inset-top))]"}`}
+      >
+        <div className="flex items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-2.5">
             <LogoMark className="size-7" />
             <h1 className="truncate text-lg font-bold tracking-tight">{event?.name ?? t.title}</h1>
           </div>
-          <span className="rounded-full bg-white/10 px-3 py-1 text-sm font-semibold whitespace-nowrap tabular-nums">
-            {t.entries(state.entryCount)}
-          </span>
+          <div className="flex shrink-0 items-center gap-1">
+            <span className="rounded-full bg-white/10 px-3 py-1 text-sm font-semibold whitespace-nowrap tabular-nums">
+              {t.entries(state.entryCount)}
+            </span>
+            {!rehearsing && (
+              <button
+                type="button"
+                aria-label={t.menu}
+                aria-expanded={menuOpen}
+                onClick={() => {
+                  setMenuOpen(!menuOpen);
+                }}
+                className="-mr-2 flex size-11 items-center justify-center rounded-xl text-white/80 transition active:bg-white/10"
+              >
+                <MoreVertical className="size-5" aria-hidden />
+              </button>
+            )}
+          </div>
         </div>
         <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-white/70" aria-live="polite">
           <span className={`inline-flex items-center gap-1.5 ${synced ? "text-emerald-300" : "text-amber-300"}`}>
@@ -279,6 +352,8 @@ function Door({ engine, state }: { engine: DoorEngine; state: DoorState }) {
           </span>
           <span aria-hidden>·</span>
           <span>{state.device?.deviceName}</span>
+          {/* One of several dates (ADR 0077): which session this phone lets in. */}
+          {event?.inSeries === true && <span className="basis-full font-semibold text-white">{sessionLabel(event.startsAt)}</span>}
           {state.pending > 0 && (
             <span className="rounded-full bg-amber-400/15 px-2 py-0.5 text-xs font-semibold text-amber-200">{t.pending(state.pending)}</span>
           )}
@@ -290,8 +365,59 @@ function Door({ engine, state }: { engine: DoorEngine; state: DoorState }) {
           </p>
         )}
         {state.storageFailed && <p className="rounded-xl bg-red-600 px-3 py-2 text-sm font-semibold">{t.storageError}</p>}
+        {/* Canceled by the organizer (ADR 0065): the door keeps reading, the organizer decides. */}
+        {event?.canceledAt != null && (
+          <p role="status" className="flex items-start gap-2 rounded-xl bg-red-600 px-3 py-2 text-sm font-semibold text-white">
+            <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
+            {t.canceledBanner}
+          </p>
+        )}
+        {state.boxOffice !== null && !rehearsing && (
+          <p className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl bg-white/[0.06] px-3 py-2 text-sm">
+            <Store className="size-4 shrink-0 text-emerald-300" aria-hidden />
+            <span className="font-semibold">{t.boxOffice.title}</span>
+            <span className="text-white/75 tabular-nums">{t.boxOffice.mine(state.boxOffice.mine.count, boxOfficeAmount(state.boxOffice.mine))}</span>
+            <span className="text-white/50" aria-hidden>
+              ·
+            </span>
+            <span className="text-white/75 tabular-nums">{t.boxOffice.all(state.boxOffice.all.count, boxOfficeAmount(state.boxOffice.all))}</span>
+          </p>
+        )}
       </header>
 
+        {menuOpen && (
+          <>
+          <button type="button" aria-hidden tabIndex={-1} className="fixed inset-0 z-20 cursor-default" onClick={() => { setMenuOpen(false); }} />
+          <div className="fixed top-[calc(3.75rem+env(safe-area-inset-top))] right-3 z-30 flex w-64 flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#17151f] py-1 shadow-2xl">
+            <button
+              type="button"
+              onClick={() => {
+                setMenuOpen(false);
+                setShowGuests(true);
+              }}
+              className="flex min-h-12 items-center gap-3 px-4 text-left active:bg-white/10"
+            >
+              <UsersRound className="size-5 text-white/70" aria-hidden />
+              <span className="font-semibold">{t.guests.title}</span>
+            </button>
+            {/* Rehearsal stays out of the way of the real work (ADR 0067): last, quiet, and gone
+                once the first ticket entered. */}
+            {canRehearse(state.entryCount, rehearsing) && (
+              <button
+                type="button"
+                onClick={startRehearsal}
+                className="mt-1 flex min-h-12 items-center gap-3 border-t border-white/10 px-4 py-2 text-left text-white/70 active:bg-white/10"
+              >
+                <ClipboardCheck className="size-5 shrink-0 text-white/45" aria-hidden />
+                <span className="flex flex-col">
+                  <span className="text-sm font-medium">{t.rehearsal.start}</span>
+                  <span className="text-xs text-white/50">{t.rehearsal.startHint}</span>
+                </span>
+              </button>
+            )}
+          </div>
+          </>
+        )}
       <div className="relative flex flex-1 flex-col items-center justify-center gap-4 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
         <div className={`relative w-full max-w-md ${running ? "" : "hidden"}`}>
           <video ref={videoRef} className="aspect-square w-full rounded-3xl bg-black object-cover" muted playsInline />
@@ -302,7 +428,9 @@ function Door({ engine, state }: { engine: DoorEngine; state: DoorState }) {
             <span className="absolute right-0 bottom-0 size-10 rounded-br-2xl border-r-4 border-b-4 border-white/90" />
             <span className="absolute inset-x-3 top-1/2 h-0.5 animate-pulse rounded-full bg-[#7c66ff] shadow-[0_0_16px_4px_rgba(124,102,255,0.6)]" />
           </div>
-          <p className="absolute inset-x-0 bottom-4 text-center text-sm font-medium text-white/85 drop-shadow">{t.scanHint}</p>
+          <p className="absolute inset-x-0 bottom-4 text-center text-sm font-medium text-white/85 drop-shadow">
+            {rehearsing ? t.rehearsal.readHint : t.scanHint}
+          </p>
         </div>
         {cameraFailed && <p role="alert" className="w-full max-w-md rounded-xl bg-red-500/15 px-3 py-2 text-center text-red-300">{t.cameraError}</p>}
         <div className="flex w-full max-w-md gap-2">
@@ -321,29 +449,48 @@ function Door({ engine, state }: { engine: DoorEngine; state: DoorState }) {
             {running ? t.stop : t.start}
           </button>
           {running && torch !== null && (
-            <button
-              type="button"
-              className={secondaryClass}
-              onClick={() => {
-                const next = !torch;
-                void scannerRef.current?.setTorch(next).then(() => {
-                  setTorch(next);
-                });
-              }}
-            >
+            <button type="button" className={secondaryClass} onClick={toggleTorch}>
               {torch ? <FlashlightOff aria-hidden /> : <Flashlight aria-hidden />}
               {torch ? t.torchOff : t.torchOn}
             </button>
           )}
+          {!rehearsing && hasGuests && (
+            <button
+              type="button"
+              className={secondaryClass.replace("w-full", "w-auto shrink-0 px-5")}
+              onClick={() => {
+                setShowGuests(true);
+              }}
+            >
+              <UsersRound aria-hidden />
+              <span className={running && torch !== null ? "sr-only" : ""}>{t.guests.open}</span>
+            </button>
+          )}
         </div>
-        {!running && (
-          <Readiness
-            app={checks.app}
-            dataAt={manifest?.syncedAt ?? null}
-            camera={checks.camera}
-            storage={checks.storage}
-            testScan={state.testScanDone}
+        {rehearsing ? (
+          <RehearsalPanel
+            checks={{ ...rehearsal, read: state.rehearsalRead }}
+            torch={running ? torch !== null : null}
+            onSound={() => {
+              rehearseFeedback();
+              setRehearsal((current) => ({ ...current, sound: true }));
+            }}
+            onTorch={toggleTorch}
+            onFinish={(done) => {
+              setRunning(false);
+              void engine.finishRehearsal(done);
+            }}
           />
+        ) : (
+          !running && (
+            <Readiness
+              app={checks.app}
+              dataAt={manifest?.syncedAt ?? null}
+              camera={checks.camera}
+              storage={checks.storage}
+              testScan={state.testScanDone}
+            />
+          )
         )}
       </div>
 
@@ -359,9 +506,93 @@ function Door({ engine, state }: { engine: DoorEngine; state: DoorState }) {
           onDismiss={() => {
             engine.dismissResult();
           }}
+          onOverride={() => {
+            void engine.admitAnyway();
+          }}
+        />
+      )}
+      {showGuests && (
+        <GuestList
+          engine={engine}
+          state={state}
+          now={now}
+          onClose={() => {
+            setShowGuests(false);
+          }}
         />
       )}
     </div>
+  );
+}
+
+function boxOfficeAmount(totals: { cents: number; unpriced: number }): string {
+  return totals.unpriced > 0 && totals.cents === 0 ? t.boxOffice.unpriced : money(totals.cents);
+}
+
+/** Rehearsal (ADR 0067): read a sample, hear the sounds, try the torch, then finish. */
+function RehearsalPanel(props: {
+  checks: { read: boolean; sound: boolean; torch: boolean };
+  /** Torch available (`null`: the camera is not on yet). */
+  torch: boolean | null;
+  onSound: () => void;
+  onTorch: () => void;
+  onFinish: (done: boolean) => void;
+}) {
+  const r = t.rehearsal;
+  const items: [boolean, string][] = [
+    [props.checks.read, r.readCheck],
+    [props.checks.sound, r.sound],
+    [props.checks.torch || props.torch === false, props.torch === false ? r.noTorch : props.torch === null ? r.torchNeedsCamera : r.torch],
+  ];
+  return (
+    <section className="w-full max-w-md rounded-3xl border border-amber-300/30 bg-amber-300/[0.06] p-4" aria-label={r.title}>
+      <h2 className="font-semibold">{r.title}</h2>
+      <p className="mt-1 text-sm leading-relaxed text-white/70">{r.intro}</p>
+      <ul className="mt-3 flex flex-col gap-2 text-sm">
+        {items.map(([ok, label]) => (
+          <li key={label} data-ok={ok} className="flex items-start gap-2.5">
+            {ok ? (
+              <CheckCircle2 className="mt-px size-[18px] shrink-0 text-emerald-400" aria-hidden />
+            ) : (
+              <Circle className="mt-px size-[18px] shrink-0 text-amber-300/80" aria-hidden />
+            )}
+            <span className={ok ? "text-white/90" : "text-white/60"}>{label}</span>
+          </li>
+        ))}
+      </ul>
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        <button type="button" className={`${secondaryClass} text-base`} onClick={props.onSound}>
+          <Volume2 aria-hidden />
+          {r.soundButton}
+        </button>
+        <button type="button" className={`${secondaryClass} text-base`} disabled={props.torch !== true} onClick={props.onTorch}>
+          <Flashlight aria-hidden />
+          {r.torchButton}
+        </button>
+      </div>
+      <div className="mt-4 flex flex-col gap-2 border-t border-white/10 pt-4">
+        <button
+          type="button"
+          className={buttonClass}
+          disabled={!props.checks.read}
+          onClick={() => {
+            props.onFinish(true);
+          }}
+        >
+          <CheckCircle2 aria-hidden />
+          {r.finish}
+        </button>
+        <button
+          type="button"
+          className="min-h-11 rounded-2xl px-4 font-semibold text-white/75 active:bg-white/10"
+          onClick={() => {
+            props.onFinish(false);
+          }}
+        >
+          {r.cancel}
+        </button>
+      </div>
+    </section>
   );
 }
 
@@ -375,7 +606,13 @@ function syncLabel(state: DoorState, now: number): string {
   return t.syncedAgo(Math.max(0, Math.floor((now - state.lastSyncOkAt) / 1000)));
 }
 
-function Readiness(props: { app: boolean; dataAt: number | null; camera: boolean; storage: boolean; testScan: boolean }) {
+function Readiness(props: {
+  app: boolean;
+  dataAt: number | null;
+  camera: boolean;
+  storage: boolean;
+  testScan: boolean;
+}) {
   const r = t.readiness;
   const items: [boolean, string][] = [
     [props.app, r.app],
@@ -420,22 +657,32 @@ const TONE_CLASS = {
 
 const TONE_ICON = { ok: CheckCircle2, bad: XCircle, warn: AlertTriangle } as const;
 
-function Result({ view, onDismiss }: { view: ResultView; onDismiss: () => void }) {
+function Result({ view, onDismiss, onOverride }: { view: ResultView; onDismiss: () => void; onOverride: () => void }) {
   const Icon = TONE_ICON[view.tone];
   return (
-    <button
-      type="button"
-      onClick={onDismiss}
-      className={`fixed inset-0 z-30 flex flex-col items-center justify-center gap-4 p-6 text-center ${TONE_CLASS[view.tone]}`}
+    <div
+      className={`fixed inset-0 z-30 flex flex-col items-center justify-center gap-4 overflow-x-hidden overflow-y-auto p-6 pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))] text-center [&>*]:max-w-full ${TONE_CLASS[view.tone]}`}
       role="alert"
       data-tone={view.tone}
     >
-      <Icon className="size-24 animate-pop" strokeWidth={2.25} aria-hidden />
-      <span className="text-5xl leading-tight font-black tracking-tight">{view.title}</span>
-      {view.number !== null && <span className="font-mono text-4xl font-bold">{view.number}</span>}
-      {view.detail !== null && <span className="text-2xl">{view.detail}</span>}
+      {/* The whole screen dismisses; the override button sits above it. */}
+      <button type="button" onClick={onDismiss} aria-label={t.tapToContinue} className="absolute inset-0 cursor-default" />
+      {view.rehearsal === true && (
+        <span className="pointer-events-none relative rounded-full bg-black/80 px-4 py-1.5 text-sm font-black tracking-wide text-amber-300">
+          {t.rehearsal.note}
+        </span>
+      )}
+      <Icon className="pointer-events-none relative size-24 animate-pop" strokeWidth={2.25} aria-hidden />
+      <span className="pointer-events-none relative text-[clamp(2.25rem,12vw,3rem)] leading-tight font-black tracking-tight text-balance">{view.title}</span>
+      {view.number !== null && <span className="pointer-events-none relative font-mono text-4xl font-bold">{view.number}</span>}
+      {view.charge !== undefined && view.charge !== null && (
+        <span className="pointer-events-none relative rounded-2xl bg-white px-5 py-3 text-[clamp(1.5rem,7vw,1.875rem)] leading-tight font-black text-balance text-[#14532d] shadow-lg">
+          {view.charge}
+        </span>
+      )}
+      {view.detail !== null && <span className="pointer-events-none relative text-2xl text-balance">{view.detail}</span>}
       {(view.category !== null || view.seat !== null) && (
-        <span className="flex flex-wrap items-center justify-center gap-3">
+        <span className="pointer-events-none relative flex flex-wrap items-center justify-center gap-3">
           {view.category !== null && (
             <span
               className="rounded-2xl px-5 py-2 text-3xl font-black tracking-wide uppercase shadow-lg ring-4 ring-white/70"
@@ -447,8 +694,20 @@ function Result({ view, onDismiss }: { view: ResultView; onDismiss: () => void }
           {view.seat !== null && <span className="rounded-2xl bg-black/15 px-4 py-2 text-2xl font-bold">{view.seat}</span>}
         </span>
       )}
-      {view.seller !== null && <span className="text-xl opacity-90">{view.seller}</span>}
-      <span className="mt-8 rounded-full bg-black/15 px-4 py-1.5 text-sm font-medium opacity-90">{t.tapToContinue}</span>
-    </button>
+      {view.seller !== null && <span className="pointer-events-none relative text-xl opacity-90">{view.seller}</span>}
+      {view.override === true && (
+        <span className="relative mt-4 flex w-full max-w-sm flex-col items-center gap-1.5">
+          <button
+            type="button"
+            onClick={onOverride}
+            className="flex min-h-14 w-full items-center justify-center rounded-2xl bg-black px-4 text-lg font-bold text-white shadow-lg transition active:scale-[0.98]"
+          >
+            {t.result.letInAnyway}
+          </button>
+          <span className="text-sm font-medium opacity-80">{t.result.letInAnywayHint}</span>
+        </span>
+      )}
+      <span className="pointer-events-none relative mt-6 rounded-full bg-black/15 px-4 py-1.5 text-sm font-medium opacity-90">{t.tapToContinue}</span>
+    </div>
   );
 }

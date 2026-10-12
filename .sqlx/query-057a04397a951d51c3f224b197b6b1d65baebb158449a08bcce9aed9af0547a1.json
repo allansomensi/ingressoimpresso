@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "delete from seller_sync_ops where created_at < now() - interval '30 days'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "057a04397a951d51c3f224b197b6b1d65baebb158449a08bcce9aed9af0547a1"
+}

@@ -45,7 +45,7 @@ const SESSION_TTL: Duration = Duration::days(30);
 const SESSION_REFRESH_EVERY: Duration = Duration::hours(1);
 /// Version of the Terms of Use and Privacy Policy accepted by signing in (ADR 0033). Same value
 /// as `TERMS_VERSION` in apps/web/src/content/legal.ts.
-pub const TERMS_VERSION: &str = "2026-10-10.2";
+pub const TERMS_VERSION: &str = "2026-10-12.1";
 
 /// The authenticated user of a request.
 #[derive(Debug, Clone)]
@@ -331,11 +331,21 @@ pub async fn verify_code(
     let settings = state.settings.get(&state.pool).await?;
     let invited = existing.is_none() && crate::routes::team::invited(&mut *tx, &email).await?;
     check_sign_in(&state, &settings, &email, existing.is_some() || invited)?;
-    let user_id = match existing {
-        Some(id) => id,
-        None => create_user(&mut tx, &email, None, None).await?,
+    let (user_id, referred) = if let Some(id) = existing {
+        (id, false)
+    } else {
+        let (user_id, organization_id) = create_user(&mut tx, &email, None, None).await?;
+        let referred = crate::routes::referrals::attach(
+            &state,
+            &mut tx,
+            organization_id,
+            &email,
+            body.referral_code.as_deref(),
+        )
+        .await?;
+        (user_id, referred)
     };
-    let session = start_session(&state, &mut tx, user_id).await?;
+    let session = start_session(&state, &mut tx, user_id, referred).await?;
     tx.commit().await?;
     Ok(Json(session))
 }
@@ -388,6 +398,7 @@ pub async fn google(
         .await?;
     let invited = !known && crate::routes::team::invited(&mut *tx, &email).await?;
     check_sign_in(&state, &settings, &email, known || invited)?;
+    let mut referred = false;
     let user_id = if let Some(user) = by_subject {
         // The Google account's e-mail changed: follow it unless another account owns it.
         if user.email != email {
@@ -425,16 +436,25 @@ pub async fn google(
         .await?;
         user.id
     } else {
-        create_user(
+        let (user_id, organization_id) = create_user(
             &mut tx,
             &email,
             Some(&identity.subject),
             identity.name.as_deref(),
         )
-        .await?
+        .await?;
+        referred = crate::routes::referrals::attach(
+            &state,
+            &mut tx,
+            organization_id,
+            &email,
+            body.referral_code.as_deref(),
+        )
+        .await?;
+        user_id
     };
     two_factor::check(&state, &mut tx, user_id, body.two_factor_code.as_deref()).await?;
-    let session = start_session(&state, &mut tx, user_id).await?;
+    let session = start_session(&state, &mut tx, user_id, referred).await?;
     tx.commit().await?;
     Ok(Json(session))
 }
@@ -473,13 +493,13 @@ fn check_sign_in(
     Ok(())
 }
 
-/// First login: the user and a personal organization named after the e-mail.
+/// First login: the user and a personal organization named after the e-mail. Returns both ids.
 async fn create_user(
     tx: &mut Transaction<'_, Postgres>,
     email: &str,
     google_sub: Option<&str>,
     name: Option<&str>,
-) -> ApiResult<Uuid> {
+) -> ApiResult<(Uuid, Uuid)> {
     let user_id = Uuid::new_v4();
     let organization_id = Uuid::new_v4();
     sqlx::query!(
@@ -510,14 +530,16 @@ async fn create_user(
     )
     .execute(&mut **tx)
     .await?;
-    Ok(user_id)
+    Ok((user_id, organization_id))
 }
 
 /// A new session for `user_id`; signing in accepts the current terms (the sign-in page says so).
+/// `referred`: the account was just created through a referral (ADR 0076).
 async fn start_session(
     state: &AppState,
     tx: &mut Transaction<'_, Postgres>,
     user_id: Uuid,
+    referred: bool,
 ) -> ApiResult<SessionResponse> {
     sqlx::query!(
         r#"update users set last_login_at = now(),
@@ -541,7 +563,11 @@ async fn start_session(
     .execute(&mut **tx)
     .await?;
     let user = me_user(state, &mut **tx, user_id).await?;
-    Ok(SessionResponse { token, user })
+    Ok(SessionResponse {
+        token,
+        user,
+        referred,
+    })
 }
 
 async fn me_user<'e, E>(state: &AppState, executor: E, user_id: Uuid) -> ApiResult<MeUser>

@@ -20,11 +20,16 @@ use tower_http::trace::TraceLayer;
 use crate::auth;
 use crate::error::ApiError;
 use crate::routes::events::MAX_ART_BYTES;
+use crate::routes::organization::MAX_LOGO_BYTES;
 use crate::routes::{
     account, admin, analytics, announcements, batches, billing, categories, changelog, door,
-    events, exports, ledger, mail_admin, moderation, platform, privacy, refunds, report,
-    seller_links, sellers, settlement, status, support, tables, team, tickets, two_factor, voids,
+    door_live, door_rehearsal, event_changes, events, exports, guests, ledger, mail_admin,
+    moderation, organization, platform, privacy, refunds, report, reservations, seller_goals,
+    seller_links, seller_sync, sellers, settlement, status, support, tables, team, tickets,
+    two_factor, voids,
 };
+use crate::routes::{checklist, series};
+use crate::routes::{referrals, verify};
 use crate::state::AppState;
 
 /// JSON bodies are small; only art uploads get a bigger limit.
@@ -277,6 +282,66 @@ pub fn router(state: AppState) -> Router {
         .route("/door/register", post(door::register))
         .route("/door/manifest", get(door::manifest))
         .route("/door/scans", post(door::upload_scans))
+        // Organization profile, postponing or canceling (ADRs 0064, 0065).
+        .route(
+            "/account/profile",
+            get(organization::profile).put(organization::update),
+        )
+        .route(
+            "/account/profile/logo",
+            post(organization::upload_logo)
+                .delete(organization::delete_logo)
+                .layer(DefaultBodyLimit::max(MAX_LOGO_BYTES)),
+        )
+        .route("/logos/{id}", get(organization::logo))
+        .route("/events/{id}/postpone", post(event_changes::postpone))
+        .route("/events/{id}/cancel", post(event_changes::cancel))
+        .route("/events/{id}/cancel/undo", post(event_changes::undo_cancel))
+        // Door features (ADRs 0067–0071).
+        .route(
+            "/door-accesses/{id}/categories",
+            put(door::update_access_categories),
+        )
+        .route("/door/rehearsal", post(door_rehearsal::done))
+        .route(
+            "/events/{id}/door/rehearsal-sheet",
+            get(door_rehearsal::sheet),
+        )
+        .route("/events/{id}/door/live", get(door_live::live))
+        .route(
+            "/events/{id}/guests",
+            get(guests::list).post(guests::create),
+        )
+        .route("/events/{id}/guests/bulk", post(guests::create_bulk))
+        .route("/guests/{id}", put(guests::update).delete(guests::delete))
+        .route("/door/guests", post(guests::upload))
+        // Sellers' reservations, goals and the offline queue (ADRs 0072–0074).
+        .route("/events/{id}/reservations", get(reservations::list))
+        .route("/sellers/{id}/reservations", post(reservations::create))
+        .route("/reservations/{id}/sell", post(reservations::sell))
+        .route("/reservations/{id}", delete(reservations::cancel))
+        .route("/sellers/{id}/goal", put(seller_goals::set))
+        .route("/events/{id}/sellers/goals", post(seller_goals::set_all))
+        .route("/seller/sync", post(seller_sync::sync))
+        // Check a ticket before buying it and refer and earn (ADRs 0075, 0076).
+        .route("/verify", post(verify::verify))
+        .route(
+            "/events/{id}/verify-settings",
+            get(verify::settings).put(verify::update_settings),
+        )
+        .route("/referrals/{code}", get(referrals::invite))
+        .route("/account/referrals", get(referrals::mine))
+        .route("/admin/referrals", get(referrals::admin_list))
+        .route("/admin/referrals/settings", put(referrals::update_settings))
+        .route(
+            "/admin/referrals/{id}/revoke",
+            post(referrals::admin_revoke),
+        )
+        // Several dates of one event and the checklist (ADRs 0077, 0078).
+        .route("/events/{id}/dates", post(series::add_date))
+        .route("/events/{id}/series/leave", post(series::leave))
+        .route("/series/{id}", get(series::get).put(series::rename))
+        .route("/events/{id}/checklist", get(checklist::checklist))
         .fallback(not_found)
         .layer(DefaultBodyLimit::max(JSON_BODY_LIMIT))
         // Axum's own rejections (bad JSON, a malformed id, a body too large) answer plain text;

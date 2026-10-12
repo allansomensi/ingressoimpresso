@@ -8,6 +8,7 @@ import {
   Building2,
   ChevronDown,
   Coins,
+  Gift,
   History,
   LayoutDashboard,
   Mail,
@@ -43,6 +44,8 @@ const SECTIONS = {
   prices: { slug: "precos", icon: Coins, view: load(() => import("@/components/admin/billing").then((m) => m.AdminPrices)) },
   promotions: { slug: "promocoes", icon: BadgePercent, view: load(() => import("@/components/admin/billing").then((m) => m.AdminPromotions)) },
   codes: { slug: "codigos", icon: TicketPercent, view: load(() => import("@/components/admin/billing").then((m) => m.AdminCodes)) },
+  // Refer and earn (ADR 0076).
+  referrals: { slug: "indicacoes", icon: Gift, view: load(() => import("@/components/admin/referrals").then((m) => m.AdminReferrals)) },
   announcements: {
     slug: "pronunciamentos",
     icon: Radio,
@@ -60,7 +63,7 @@ type Section = keyof typeof SECTIONS;
 const GROUPS: readonly { key: keyof typeof t.groups; sections: readonly Section[] }[] = [
   { key: "overview", sections: ["overview", "finance"] },
   { key: "customers", sections: ["organizations", "batches"] },
-  { key: "sales", sections: ["prices", "promotions", "codes"] },
+  { key: "sales", sections: ["prices", "promotions", "codes", "referrals"] },
   { key: "communication", sections: ["announcements", "changelog", "emails"] },
   { key: "safety", sections: ["moderation", "audit"] },
   { key: "platform", sections: ["settings", "status"] },

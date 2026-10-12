@@ -82,7 +82,11 @@ pub fn need(method: &Method, path: &str) -> Need {
             | "events/{id}/tables"
             | "events/{id}/tables/bulk"
             | "tables/{id}/tickets"
-            | "tables/{id}/tickets/remove",
+            | "tables/{id}/tickets/remove"
+            // Reservations and goals of sellers (ADRs 0072, 0073).
+            | "sellers/{id}/reservations"
+            | "reservations/{id}/sell"
+            | "events/{id}/sellers/goals",
         )
         | (
             "PUT",
@@ -90,19 +94,32 @@ pub fn need(method: &Method, path: &str) -> Need {
             | "ticket-links/{id}"
             | "tables/{id}"
             | "events/{id}/tables/layout"
-            | "events/{id}/seller-settings",
+            | "events/{id}/seller-settings"
+            | "sellers/{id}/goal"
+            // The public check of the event's tickets (ADR 0075) goes with the digital tickets.
+            | "events/{id}/verify-settings",
         )
-        | ("DELETE", "sellers/{id}" | "sellers/{id}/link" | "ranges/{id}" | "tables/{id}") => {
+        | (
+            "DELETE",
+            "sellers/{id}" | "sellers/{id}/link" | "ranges/{id}" | "tables/{id}" | "reservations/{id}",
+        ) => {
             Need::Area(TeamArea::Delivery)
         }
         ("POST", "voids/{id}/undo") => Need::Either(TeamArea::Delivery, TeamArea::Money),
         ("POST", "sellers/{id}/payments" | "sellers/{id}/returns" | "events/{id}/ledger")
         | ("PUT", "ledger/{id}")
         | ("DELETE", "seller-payments/{id}" | "ledger/{id}") => Need::Area(TeamArea::Money),
+        // Door links, door by category and the guest list (ADRs 0068, 0070).
         (
             "POST",
-            "events/{id}/door/accesses" | "door-accesses/{id}/revoke" | "door-devices/{id}/revoke",
-        ) => Need::Area(TeamArea::Door),
+            "events/{id}/door/accesses"
+            | "door-accesses/{id}/revoke"
+            | "door-devices/{id}/revoke"
+            | "events/{id}/guests"
+            | "events/{id}/guests/bulk",
+        )
+        | ("PUT", "door-accesses/{id}/categories" | "guests/{id}")
+        | ("DELETE", "guests/{id}") => Need::Area(TeamArea::Door),
         // Categories set prices, so they belong to coordination.
         ("PUT", "events/{id}" | "team-members/{id}" | "categories/{id}")
         | (
@@ -112,7 +129,11 @@ pub fn need(method: &Method, path: &str) -> Need {
             | "batches/{id}/checkout"
             | "events/{id}/team"
             | "events/{id}/categories"
-            | "categories/{id}/ranges",
+            | "categories/{id}/ranges"
+            // Postponing or canceling the event (ADR 0065) is coordination too.
+            | "events/{id}/postpone"
+            | "events/{id}/cancel"
+            | "events/{id}/cancel/undo",
         )
         | ("DELETE", "team-members/{id}" | "categories/{id}" | "category-ranges/{id}") => {
             Need::Area(TeamArea::Manage)
@@ -640,6 +661,9 @@ mod tests {
             (Method::DELETE, "events/{id}", Need::Owner),
             (Method::PUT, "events/{id}/status", Need::Owner),
             (Method::POST, "events/{id}/duplicate", Need::Owner),
+            // Another date of the event and leaving the series (ADR 0077), like duplicating.
+            (Method::POST, "events/{id}/dates", Need::Owner),
+            (Method::POST, "events/{id}/series/leave", Need::Owner),
             (Method::POST, "events/{id}/something-new", Need::Owner),
         ];
         for (method, template, expected) in cases {
@@ -647,6 +671,68 @@ mod tests {
                 need(&method, &path(template)),
                 expected,
                 "{method} {template}"
+            );
+        }
+    }
+
+    #[test]
+    fn door_features_belong_to_the_door() {
+        let cases = [
+            (
+                Method::PUT,
+                "door-accesses/{id}/categories",
+                Need::Area(TeamArea::Door),
+            ),
+            (
+                Method::POST,
+                "events/{id}/guests/bulk",
+                Need::Area(TeamArea::Door),
+            ),
+            (Method::DELETE, "guests/{id}", Need::Area(TeamArea::Door)),
+            (Method::GET, "events/{id}/door/live", Need::Read),
+        ];
+        for (method, template, expected) in cases {
+            assert_eq!(
+                need(&method, &path(template)),
+                expected,
+                "{method} {template}"
+            );
+        }
+    }
+
+    #[test]
+    fn reservations_and_goals_belong_to_delivery() {
+        let cases = [
+            (Method::POST, "sellers/{id}/reservations"),
+            (Method::POST, "reservations/{id}/sell"),
+            (Method::DELETE, "reservations/{id}"),
+            (Method::PUT, "sellers/{id}/goal"),
+            (Method::POST, "events/{id}/sellers/goals"),
+        ];
+        for (method, template) in cases {
+            assert_eq!(
+                need(&method, &path(template)),
+                Need::Area(TeamArea::Delivery),
+                "{method} {template}"
+            );
+        }
+        assert_eq!(
+            need(&Method::GET, &path("events/{id}/reservations")),
+            Need::Read
+        );
+    }
+
+    #[test]
+    fn postponing_and_canceling_are_coordination() {
+        for template in [
+            "events/{id}/postpone",
+            "events/{id}/cancel",
+            "events/{id}/cancel/undo",
+        ] {
+            assert_eq!(
+                need(&Method::POST, &path(template)),
+                Need::Area(TeamArea::Manage),
+                "{template}"
             );
         }
     }

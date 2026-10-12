@@ -1,0 +1,31 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select count(*) as \"dates!\", bool_or(starts_at = $2) as \"taken!\"\n           from events where series_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "dates!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "taken!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "a768bc27a606f284db71a0c4ce76306a42bff57226e886203be51f9732f900d2"
+}

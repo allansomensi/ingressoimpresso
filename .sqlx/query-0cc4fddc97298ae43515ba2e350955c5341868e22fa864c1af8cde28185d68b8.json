@@ -1,0 +1,120 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select g.id, g.name, g.companions, g.note, g.category_id, g.created_at,\n                  f.arrived_at as \"arrived_at?\", f.name as \"device_name?\",\n                  (select coalesce(sum(a.people), 0) from guest_arrivals a\n                   where a.guest_id = g.id and a.undone_at is null)::int as \"people!\"\n           from guest_list g\n           left join lateral (\n               select a.arrived_at, d.name from guest_arrivals a\n               join door_devices d on d.id = a.device_id\n               where a.guest_id = g.id and a.undone_at is null\n               order by a.arrived_at, a.id limit 1\n           ) f on true\n           where g.event_id = $1 and ($2::uuid[] is null or g.id = any($2))\n           order by lower(g.name), g.created_at",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "guest_list",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "guest_list",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "companions",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "guest_list",
+            "name": "companions"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "note",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "guest_list",
+            "name": "note"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "category_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "guest_list",
+            "name": "category_id"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "guest_list",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "arrived_at?",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "guest_arrivals",
+            "name": "arrived_at"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "device_name?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "door_devices",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "people!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "UuidArray"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "0cc4fddc97298ae43515ba2e350955c5341868e22fa864c1af8cde28185d68b8"
+}

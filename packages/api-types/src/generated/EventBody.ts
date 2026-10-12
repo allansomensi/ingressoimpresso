@@ -23,4 +23,8 @@ endsAt: string,
 /**
  * Ticket price in cents, for the seller settlement report.
  */
-ticketPriceCents: number | null, };
+ticketPriceCents: number | null, 
+/**
+ * Street address of the venue (optional, up to 200 characters, ADR 0066).
+ */
+address?: string | null, };

@@ -36,6 +36,7 @@ import { useDeferredValue, useState, type FormEvent, type ReactNode } from "reac
 import { toast } from "sonner";
 
 import { QrCode } from "@/components/qr";
+import { PublicVerifyCard } from "@/components/verify/verify-settings";
 import {
   Alert,
   Badge,
@@ -800,6 +801,8 @@ export function DigitalTab({ eventId, onSelect }: { eventId: string; onSelect: S
           setRenaming(null);
         }}
       />
+      {/* Anyone holding a ticket may check it on /conferir (ADR 0075). */}
+      <PublicVerifyCard eventId={eventId} />
     </div>
   );
 }

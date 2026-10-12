@@ -20,6 +20,7 @@ pub const FIELDS: &[&str] = &[
     "ano",
     "hora",
     "preco",
+    "organizacao",
 ];
 
 /// What text blocks can print about the event, besides its name.
@@ -31,6 +32,8 @@ pub struct EventDetails {
     pub starts_at: Option<PrimitiveDateTime>,
     /// Ticket price in cents.
     pub price_cents: Option<i64>,
+    /// Name of the organization that runs the event (ADR 0064).
+    pub organization: Option<String>,
 }
 
 /// `text` with its fields replaced. `None` when a field it uses has no value (an event without
@@ -112,6 +115,12 @@ fn value(name: &str, event_name: &str, details: &EventDetails) -> Option<String>
             minute => format!("{}h{minute:02}", d.hour()),
         }),
         "preco" => details.price_cents.map_or_else(String::new, money),
+        "organizacao" => details
+            .organization
+            .as_deref()
+            .unwrap_or_default()
+            .trim()
+            .to_owned(),
         _ => return None,
     })
 }
@@ -144,6 +153,7 @@ mod tests {
             venue: Some("Ginásio Municipal".to_owned()),
             starts_at: Some(datetime!(2026-03-14 21:00)),
             price_cents: Some(2_500),
+            organization: Some(" Banda Os Vizinhos ".to_owned()),
         }
     }
 
@@ -162,6 +172,8 @@ mod tests {
             ("{hora}", "21h"),
             ("{preco}", "R$ 25,00"),
             ("{dia}/{mes_curto} · {hora}", "14/mar · 21h"),
+            ("{organizacao}", "Banda Os Vizinhos"),
+            ("Realização: {organizacao}", "Realização: Banda Os Vizinhos"),
         ];
         for (text, expected) in cases {
             assert_eq!(
@@ -178,6 +190,7 @@ mod tests {
             venue: None,
             starts_at: Some(datetime!(2026-01-05 09:30)),
             price_cents: Some(123_456_789),
+            organization: None,
         };
         assert_eq!(resolve("{hora}", "", &details).as_deref(), Some("9h30"));
         assert_eq!(resolve("{dia}", "", &details).as_deref(), Some("05"));
@@ -202,6 +215,7 @@ mod tests {
         assert_eq!(resolve("Local: {local}", "Show", &empty), None);
         assert_eq!(resolve("{preco}", "Show", &empty), None);
         assert_eq!(resolve("{data} {hora}", "Show", &empty), None);
+        assert_eq!(resolve("Realização: {organizacao}", "Show", &empty), None);
         assert_eq!(
             resolve("Entrada individual", "Show", &empty).as_deref(),
             Some("Entrada individual")

@@ -17,13 +17,13 @@ organizationId: string,
  */
 organizationName: string, 
 /**
- * Event.
+ * Event; `null` for the organization's logo (ADR 0064).
  */
-eventId: string, 
+eventId: string | null, 
 /**
  * Its name.
  */
-eventName: string, 
+eventName: string | null, 
 /**
  * Moderation of the image.
  */

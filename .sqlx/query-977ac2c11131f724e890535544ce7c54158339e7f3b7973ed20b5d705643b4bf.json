@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update door_devices set last_sync_at = now(), pending_scans = coalesce($2, pending_scans)\n           where id = $1\n             and (last_sync_at is null or last_sync_at < now() - make_interval(secs => $3)\n                  or pending_scans is distinct from coalesce($2, pending_scans))",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4",
+        "Float8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "977ac2c11131f724e890535544ce7c54158339e7f3b7973ed20b5d705643b4bf"
+}

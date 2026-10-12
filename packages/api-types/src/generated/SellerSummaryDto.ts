@@ -14,9 +14,13 @@ tickets: number,
  */
 sold: number, 
 /**
- * Still with the seller: not sold and not voided.
+ * Still with the seller: not sold, not reserved and not voided.
  */
 available: number, 
+/**
+ * Reserved for someone (ADR 0072), not sold yet.
+ */
+reserved: number, 
 /**
  * Returned unsold.
  */

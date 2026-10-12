@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select count(*) as \"count!\" from referrals\n               where referrer_organization_id = $1 and id <> $2 and status = 'rewarded'\n                 and referrer_cents > 0 and rewarded_at > now() - interval '30 days'",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "8afaa5823f3419ac889be5f76bac323cbb34d23fab872db46182a36a2ea45631"
+}

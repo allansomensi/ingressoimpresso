@@ -1,0 +1,44 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with arrived as (\n               select g.id, g.companions + 1 as size,\n                      (select sum(a.people) from guest_arrivals a\n                       where a.guest_id = g.id and a.undone_at is null) as people\n               from guest_list g where g.event_id = $1\n           )\n           select count(*) as \"guests!\",\n                  coalesce(sum(size), 0)::bigint as \"people!\",\n                  count(*) filter (where people is not null) as \"arrived_guests!\",\n                  coalesce(sum(least(coalesce(people, 0), size)), 0)::bigint as \"arrived_people!\"\n           from arrived",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "guests!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "people!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "arrived_guests!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "arrived_people!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "94168ddbcac8ad5ff420200c99c5b3a6769a61adcefa7fdfbe7458a50793deb1"
+}

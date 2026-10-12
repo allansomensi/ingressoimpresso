@@ -31,4 +31,16 @@ revokedAt: string | null,
 /**
  * Scans received from it.
  */
-scanCount: number, };
+scanCount: number, 
+/**
+ * When it finished a rehearsal (ADR 0067).
+ */
+rehearsedAt: string | null, 
+/**
+ * Last manifest it downloaded (ADR 0071).
+ */
+lastSyncAt: string | null, 
+/**
+ * Scans and arrivals it still had to send at its last sync (`null`: not reported).
+ */
+pendingScans: number | null, };

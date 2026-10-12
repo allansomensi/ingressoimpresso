@@ -4,7 +4,8 @@
 // Run with `just e2e`, which starts Postgres-backed API and `next start` first. Covers: link
 // registration, manifest, camera + zxing reading, local decision, online confirmation of a copy,
 // the app opening offline from the service worker, an offline decision, sync on reconnect and
-// convergence of the first entry across phones.
+// convergence of the first entry across phones; then the door features (ADRs 0067–0071):
+// rehearsal, a door limited to a category, the guest list and the live view.
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -140,6 +141,20 @@ async function cameraFile(browser, jpeg, name) {
   return path;
 }
 
+/**
+ * Pauses reading with the ticket still in front of the fake camera. The same code seen again
+ * re-shows its result (without a new scan), which keeps covering the pause button, so the click is
+ * dispatched to the button itself; then the last result is dismissed for good.
+ */
+async function pauseReading(page) {
+  await page.getByRole("button", { name: "Pausar" }).dispatchEvent("click");
+  await page.getByRole("button", { name: "Começar a ler" }).waitFor({ timeout: TIMEOUT });
+  const dismiss = page.getByRole("button", { name: "Toque para continuar" });
+  if (await dismiss.isVisible()) {
+    await dismiss.click();
+  }
+}
+
 /** A phone: its own browser, profile and camera. */
 async function phone(camera) {
   const browser = await chromium.launch({
@@ -208,12 +223,30 @@ const doorLink = `${WEB}/portaria#acesso=${access.token}`;
 const helper = await chromium.launch();
 const camera1 = await cameraFile(helper, ticket(1), "ticket-1");
 const camera2 = await cameraFile(helper, ticket(2), "ticket-2");
+const camera4 = await cameraFile(helper, ticket(4), "ticket-4");
 await helper.close();
 
-// 1. A admits ticket 1; B, online, is told it already entered through A.
+// 0. Rehearsal on A before the doors open (ADR 0067): a real ticket shows what would happen and
+// nothing is recorded. The option lives in the ⋮ menu only while nobody has entered yet.
 const a = await phone(camera1);
 await register(a, doorLink, "Porta A");
-let result = await readOnce(a, "a");
+await a.page.getByRole("button", { name: "Mais opções" }).click();
+await a.page.getByRole("button", { name: /^Ensaiar/ }).click();
+await a.page.getByText("ENSAIO · nada é registrado").waitFor({ timeout: TIMEOUT });
+let result = await readOnce(a, "a-rehearsal");
+assert.equal(result.tone, "warn", result.text);
+assert.match(result.text, /Ensaio: nada foi registrado[\s\S]*ENTRARIA[\s\S]*Nº 0001/);
+await pauseReading(a.page);
+await a.page.getByRole("button", { name: "Terminar ensaio" }).click();
+await until("rehearsal on the server", async () => {
+  const devices = (await api(`/api/events/${event.id}/door`, { token })).devices;
+  const phoneA = devices.find((device) => device.name === "Porta A");
+  return phoneA.rehearsedAt !== null && phoneA.scanCount === 0;
+});
+console.log("ok: rehearsal reported, nothing scanned");
+
+// 1. A admits ticket 1; B, online, is told it already entered through A.
+result = await readOnce(a, "a");
 assert.equal(result.tone, "ok", result.text);
 assert.match(result.text, /PODE ENTRAR[\s\S]*Nº 0001[\s\S]*Vendedor: João/);
 
@@ -223,6 +256,9 @@ result = await readOnce(b, "b");
 assert.equal(result.tone, "bad", result.text);
 assert.match(result.text, /JÁ ENTROU[\s\S]*por Porta A/);
 console.log("ok: online copy detected");
+await pauseReading(b.page);
+await b.page.getByRole("button", { name: "Mais opções" }).click();
+assert.equal(await b.page.getByRole("button", { name: /^Ensaiar/ }).count(), 0, "no rehearsal once tickets entered");
 
 // 2. C prepares, loses the network, reopens the app offline and admits ticket 2 on its own.
 const c = await phone(camera2);
@@ -263,7 +299,38 @@ assert.equal(result.tone, "bad", result.text);
 assert.match(result.text, /JÁ ENTROU[\s\S]*por Porta C/);
 console.log("ok: entries converge after sync");
 
-// 5. The painel report shows the door's work per seller (once E has uploaded its rejection).
+// 5. A door for the VIP category (ADR 0068): a pista ticket is sent elsewhere, then let in as
+// an exception. The guest list (ADR 0070) is checked on the same phone, offline-first.
+const vip = await api(`/api/events/${event.id}/categories`, { token, body: { name: "VIP", color: "#7c3aed", priceCents: null } });
+await api(`/api/categories/${vip.id}/ranges`, { token, body: { first: 3, last: 3 } });
+const pista = await api(`/api/events/${event.id}/categories`, { token, body: { name: "Pista", color: "#2563eb", priceCents: null } });
+await api(`/api/categories/${pista.id}/ranges`, { token, body: { first: 4, last: 5 } });
+await api(`/api/events/${event.id}/guests`, { token, body: { name: "Maria Souza", companions: 1 } });
+const vipAccess = await api(`/api/events/${event.id}/door/accesses`, { token, body: { label: "Porta VIP", categoryIds: [vip.id] } });
+const f = await phone(camera4);
+await register(f, `${WEB}/portaria#acesso=${vipAccess.token}`, "Porta F");
+result = await readOnce(f, "f-wrong-door");
+assert.equal(result.tone, "warn", result.text);
+assert.match(result.text, /OUTRA PORTA[\s\S]*Nº 0004[\s\S]*Pista: entrada pela Ensaio/);
+await f.page.getByRole("button", { name: "Deixar entrar mesmo assim" }).click();
+await f.page.locator('[data-tone="ok"]').waitFor({ timeout: TIMEOUT });
+await pauseReading(f.page);
+await f.page.getByRole("button", { name: "Lista" }).click();
+await f.page.getByRole("searchbox").fill("maria");
+await f.page.getByRole("button", { name: "Chegou" }).click();
+await f.page.getByRole("button", { name: "Entraram 2 pessoas" }).click();
+await f.page.getByText("Chegada registrada").waitFor({ timeout: TIMEOUT });
+await f.page.screenshot({ path: join(OUT, "f-guests.png") });
+const live = await until("the live view", async () => {
+  const now = await api(`/api/events/${event.id}/door/live`, { token });
+  // The refusal goes up with the next sync; the exception was confirmed online right away.
+  return now.guests.arrivedPeople === 2 && now.refusals.wrongDoorAdmitted === 1 && now.refusals.wrongDoor === 1 ? now : null;
+});
+assert.equal(live.entries, 3);
+assert.equal(live.refusals.wrongDoor, 1);
+console.log("ok: wrong door, exception, guest list and live view");
+
+// 6. The painel report shows the door's work per seller (once E has uploaded its rejection).
 await until("E's scan on the server", async () => {
   const report = await api(`/api/events/${event.id}/report`, { token });
   return report.totals.blockedCopies === 2;
@@ -293,11 +360,11 @@ const sold = (await settlement.locator("td").allInnerTexts()).slice(1, 6).map(Nu
 assert.deepEqual(sold, [5, 0, 0, 0, 5]);
 // Entries, offline copies, blocked copies, voided entries.
 const entered = (await door.locator("td").allInnerTexts()).slice(1, 5).map(Number);
-assert.deepEqual(entered, [2, 1, 2, 0]);
+assert.deepEqual(entered, [3, 1, 2, 0]);
 await painel.close();
 console.log("ok: report counts the door");
 
-for (const device of [a, b, c, d, e]) {
+for (const device of [a, b, c, d, e, f]) {
   await device.browser.close();
 }
 console.log("door e2e: all checks passed");

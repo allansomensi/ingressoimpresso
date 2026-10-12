@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select u.email::text as \"email!\" from memberships m join users u on u.id = m.user_id\n           where m.organization_id = $1\n           union\n           select t.email::text as \"email!\" from event_team t join events e on e.id = t.event_id\n           where e.organization_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "email!",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "fbd34d5a26dd70a9c024cb1ced77f3c1056182691bb4b0d33e71627835654a8d"
+}

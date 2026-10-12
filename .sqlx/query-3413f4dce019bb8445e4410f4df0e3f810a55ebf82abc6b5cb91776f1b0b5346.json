@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select key_id, public_key, status from event_signing_keys where event_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "key_id",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "event_signing_keys",
+            "name": "key_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "public_key",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "event_signing_keys",
+            "name": "public_key"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "event_signing_keys",
+            "name": "status"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "3413f4dce019bb8445e4410f4df0e3f810a55ebf82abc6b5cb91776f1b0b5346"
+}

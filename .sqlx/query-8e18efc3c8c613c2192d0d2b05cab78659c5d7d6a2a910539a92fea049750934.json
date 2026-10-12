@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select series_id from events where id = $1 for update",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "series_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "series_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "8e18efc3c8c613c2192d0d2b05cab78659c5d7d6a2a910539a92fea049750934"
+}

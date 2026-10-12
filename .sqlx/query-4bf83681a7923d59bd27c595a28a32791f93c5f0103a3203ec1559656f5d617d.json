@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "delete from events e where e.id = $1\n           and not exists (select 1 from ticket_batches b\n                           where b.event_id = e.id and b.status <> 'canceled')\n           returning e.series_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "series_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "series_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "4bf83681a7923d59bd27c595a28a32791f93c5f0103a3203ec1559656f5d617d"
+}

@@ -73,3 +73,18 @@ feita e as consequências.
 | [0061](0061-ingresso-do-vendedor-e-segunda-via.md) | Ingresso no celular pelo vendedor e segunda via | Aceito |
 | [0062](0062-paginas-publicas-para-busca.md) | Páginas públicas para busca: tipos de evento e galeria de modelos | Aceito |
 | [0063](0063-reembolsos-do-stripe-e-receita-liquida.md) | Reembolsos do Stripe e receita líquida | Aceito |
+| [0064](0064-perfil-da-organizacao.md) | Perfil da organização | Aceito |
+| [0065](0065-adiar-ou-cancelar-o-evento.md) | Adiar ou cancelar o evento | Aceito |
+| [0066](0066-agenda-como-chegar-e-mesa-no-ingresso-digital.md) | Agenda, como chegar e "onde fica minha mesa" no ingresso digital | Aceito |
+| [0067](0067-modo-ensaio-da-portaria.md) | Modo ensaio da portaria | Aceito |
+| [0068](0068-porta-por-categoria.md) | Porta por categoria | Aceito |
+| [0069](0069-bilheteria-na-porta.md) | Bilheteria na porta | Aceito |
+| [0070](0070-lista-de-nomes-na-porta.md) | Lista de nomes na porta | Aceito |
+| [0071](0071-portaria-ao-vivo.md) | Portaria ao vivo | Aceito |
+| [0072](0072-reservas-do-vendedor.md) | Reservas do vendedor | Aceito |
+| [0073](0073-metas-e-ranking-de-vendedores.md) | Metas e ranking de vendedores | Aceito |
+| [0074](0074-link-do-vendedor-offline.md) | Link do vendedor offline | Aceito |
+| [0075](0075-conferir-ingresso-antes-de-comprar.md) | Conferir ingresso antes de comprar | Aceito |
+| [0076](0076-indique-e-ganhe.md) | Indique e ganhe | Aceito |
+| [0077](0077-evento-com-varias-datas.md) | Evento com várias datas | Aceito |
+| [0078](0078-lista-do-que-falta.md) | Lista do que falta | Aceito |

@@ -6,10 +6,12 @@ import type {
   RangeBody,
   RangeDto,
   ReportRowDto,
+  ReservationDto,
   SellerBody,
   SellerDto,
   SellerLinkDto,
   SellerPaymentDto,
+  SellerSettingsBody,
   SellerSettingsDto,
   TicketSaleDto,
   VoidDto,
@@ -17,6 +19,7 @@ import type {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Banknote,
+  BookmarkPlus,
   CheckCircle2,
   ChevronDown,
   CircleDollarSign,
@@ -34,6 +37,7 @@ import {
   QrCode,
   RefreshCw,
   RotateCcw,
+  Store,
   Tag,
   Ticket,
   Trash2,
@@ -48,6 +52,7 @@ import { useState, type FormEvent, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { ReadOnlyNotice, useEventAccess } from "@/components/event/access";
+import { GoalDialog, GoalLine, RankingCard, ReserveDialog, SellerReservations } from "@/components/event/seller-extras";
 import { PaymentDialog, ReturnDialog } from "@/components/event/settlement-dialogs";
 import {
   Alert,
@@ -150,7 +155,7 @@ function stateLabel(state: SettlementState): string {
   }
 }
 
-/** "Levou 40 − Devolveu 5 − Perdeu 1 = Acerta 34", as chips. */
+/** "Levou 40 − Devolveu 5 − Perdeu 1 = Acerta 34", as chips; "Levou 20 → Entraram 8" at the box office. */
 function Equation({ row }: { row: ReportRowDto }) {
   const part = (label: string, value: number, strong = false) => (
     <span
@@ -169,6 +174,21 @@ function Equation({ row }: { row: ReportRowDto }) {
       {text}
     </span>
   );
+  if (row.boxOffice) {
+    return (
+      <div
+        role="img"
+        aria-label={t.boxOffice.equationLabel(row.tickets, row.declaredSold)}
+        className="grid grid-cols-[1fr_auto_1fr_auto_1fr] items-center gap-1 text-center"
+      >
+        {part(t.equation.took, row.tickets)}
+        {sign("→")}
+        {part(t.boxOffice.entered, row.declaredSold)}
+        {sign("=")}
+        {part(t.equation.due, row.declaredSold, true)}
+      </div>
+    );
+  }
   return (
     <div
       role="img"
@@ -503,12 +523,25 @@ function SellerLink({ seller, event, onChange }: { seller: SellerDto; event: Eve
   );
 }
 
+/**
+ * Whether the seller still holds a number to reserve: paid, not given back, lost or canceled, not
+ * sold nor reserved yet (ADR 0072). Before the report loads, having numbers is enough.
+ */
+function canReserve(seller: SellerDto, row: ReportRowDto | undefined): boolean {
+  if (seller.ranges.length === 0) {
+    return false;
+  }
+  return row === undefined || row.tickets - row.unsold - row.lost - row.revoked - row.markedSold - row.reserved > 0;
+}
+
 function SellerCard({
   seller,
   row,
   payments,
   voids,
   sales,
+  reservations,
+  allReservations,
   event,
   onChange,
 }: {
@@ -517,6 +550,10 @@ function SellerCard({
   payments: readonly SellerPaymentDto[];
   voids: readonly VoidDto[];
   sales: readonly TicketSaleDto[];
+  /** This seller's reservations (ADR 0072). */
+  reservations: readonly ReservationDto[];
+  /** Every reservation of the event (numbers taken). */
+  allReservations: readonly ReservationDto[];
   event: EventDto;
   onChange: () => void;
 }) {
@@ -525,11 +562,24 @@ function SellerCard({
   const delivery = can("delivery");
   const cash = can("money");
   const [assigning, setAssigning] = useState(false);
-  const [dialog, setDialog] = useState<"payment" | "return" | null>(null);
+  const [dialog, setDialog] = useState<"payment" | "return" | "goal" | "reserve" | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const remove = useMutation({
     mutationFn: (path: string) => api<undefined>(path, { method: "DELETE" }),
     onSuccess: onChange,
+    onError: (error) => {
+      toast.error(errorMessage(error));
+    },
+  });
+  const boxOffice = useMutation({
+    mutationFn: (on: boolean) => {
+      const body: SellerBody = { name: seller.name, phone: seller.phone, boxOffice: on };
+      return api<undefined>(`/api/sellers/${seller.id}`, { method: "PUT", body });
+    },
+    onSuccess: (_, on) => {
+      toast.success(t.boxOffice.saved(on));
+      onChange();
+    },
     onError: (error) => {
       toast.error(errorMessage(error));
     },
@@ -554,7 +604,15 @@ function SellerCard({
             {initials(seller.name)}
           </span>
           <div className="flex min-w-0 flex-col">
-            <span className="truncate font-semibold text-fg">{seller.name}</span>
+            <span className="flex min-w-0 items-center gap-2">
+              <span className="truncate font-semibold text-fg">{seller.name}</span>
+              {seller.boxOffice && (
+                <Badge tone="brand" className="shrink-0">
+                  <Store className="size-3" aria-hidden />
+                  {t.boxOffice.badge}
+                </Badge>
+              )}
+            </span>
             <span className="flex min-w-0 items-center gap-1.5 text-sm text-fg-muted">
               {seller.phone !== null && (
                 <>
@@ -601,6 +659,17 @@ function SellerCard({
                   {t.copySummary}
                 </MenuItem>
               </>
+            )}
+            {/* The box office changes what the seller owes: the money part's call (ADR 0069). */}
+            {delivery && cash && (
+              <MenuItem
+                icon={<Store />}
+                onSelect={() => {
+                  boxOffice.mutate(!seller.boxOffice);
+                }}
+              >
+                {seller.boxOffice ? t.boxOffice.turnOff : t.boxOffice.turnOn}
+              </MenuItem>
             )}
             {delivery && (
             <MenuItem
@@ -695,11 +764,24 @@ function SellerCard({
         ) : (
           <div className="flex flex-col gap-4 border-t border-border pt-4">
             <Equation row={row} />
-            {(seller.link !== null || row.markedSold > 0) && (
+            {!row.boxOffice && (seller.link !== null || row.markedSold > 0) && (
               <p className="flex items-center gap-2 text-sm text-fg-muted">
                 <CheckCircle2 aria-hidden className="size-4 shrink-0 text-brand" />
                 {t.marked(row.markedSold, row.declaredSold)}
               </p>
+            )}
+            {!row.boxOffice && (
+              <GoalLine
+                seller={seller}
+                sold={row.markedSold}
+                editable={delivery}
+                onEdit={() => {
+                  setDialog("goal");
+                }}
+              />
+            )}
+            {!row.boxOffice && (
+              <SellerReservations seller={seller} event={event} reservations={reservations} editable={delivery} onChange={onChange} />
             )}
             <MoneyBar row={row} />
             <div className="flex flex-wrap items-center gap-2">
@@ -715,6 +797,7 @@ function SellerCard({
               >
                 {t.pay}
               </Button>
+              {!seller.boxOffice && (
               <Button
                 variant="secondary"
                 size="sm"
@@ -726,7 +809,21 @@ function SellerCard({
               >
                 {t.giveBack}
               </Button>
+              )}
               </>
+              )}
+              {delivery && !seller.boxOffice && event.change.canceledAt === null && canReserve(seller, row) && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  icon={<BookmarkPlus />}
+                  className="flex-1 sm:flex-none"
+                  onClick={() => {
+                    setDialog("reserve");
+                  }}
+                >
+                  {t.reservations.new}
+                </Button>
               )}
               <Button
                 variant="ghost"
@@ -744,6 +841,13 @@ function SellerCard({
             {showHistory && <History seller={seller} payments={payments} voids={voids} editable={cash} onChange={onChange} />}
           </div>
         ))}
+
+      {seller.boxOffice && (
+        <p className="flex items-start gap-2.5 rounded-xl bg-brand-soft px-3.5 py-3 text-sm leading-relaxed text-brand-soft-fg">
+          <Store aria-hidden className="mt-0.5 size-4 shrink-0" />
+          {t.boxOffice.toggleOn}
+        </p>
+      )}
 
       {delivery && total > 0 && <SellerLink seller={seller} event={event} onChange={onChange} />}
 
@@ -765,6 +869,27 @@ function SellerCard({
         seller={seller}
         voids={voids}
         sales={sales}
+        reservations={reservations}
+        onSaved={onChange}
+      />
+      {dialog === "goal" && (
+        <GoalDialog
+          open
+          onClose={() => {
+            setDialog(null);
+          }}
+          seller={seller}
+          onSaved={onChange}
+        />
+      )}
+      <ReserveDialog
+        open={dialog === "reserve"}
+        onClose={() => {
+          setDialog(null);
+        }}
+        seller={seller}
+        event={event}
+        reservations={allReservations}
         onSaved={onChange}
       />
     </Card>
@@ -825,7 +950,7 @@ function SellerSettings({ eventId }: { eventId: string }) {
   const key = ["seller-settings", eventId];
   const settings = useQuery({ queryKey: key, queryFn: () => api<SellerSettingsDto>(`/api/events/${eventId}/seller-settings`) });
   const save = useMutation({
-    mutationFn: (body: SellerSettingsDto) => api<SellerSettingsDto>(`/api/events/${eventId}/seller-settings`, { method: "PUT", body }),
+    mutationFn: (body: SellerSettingsBody) => api<SellerSettingsDto>(`/api/events/${eventId}/seller-settings`, { method: "PUT", body }),
     onSuccess: (saved) => {
       queryClient.setQueryData(key, saved);
       toast.success(t.sendTicketsSaved(saved.sendTickets));
@@ -837,7 +962,7 @@ function SellerSettings({ eventId }: { eventId: string }) {
   if (settings.data === undefined) {
     return null;
   }
-  const on = save.isPending ? save.variables.sendTickets : settings.data.sendTickets;
+  const on = save.isPending ? (save.variables.sendTickets ?? settings.data.sendTickets) : settings.data.sendTickets;
   return (
     <Card>
       <Switch
@@ -897,17 +1022,20 @@ function NoPriceNotice({ onEditEvent }: { onEditEvent: () => void }) {
 
 /** The new-seller form: a card on its own while there are no sellers, a tile in the grid after. */
 function NewSeller({ eventId, onCreated, tile }: { eventId: string; onCreated: () => void; tile: boolean }) {
+  const { can } = useEventAccess();
   const [open, setOpen] = useState(!tile);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [boxOffice, setBoxOffice] = useState(false);
   const create = useMutation({
     mutationFn: () => {
-      const body: SellerBody = { name: name.trim(), phone: phone.trim() === "" ? null : phone.trim() };
+      const body: SellerBody = { name: name.trim(), phone: phone.trim() === "" ? null : phone.trim(), boxOffice };
       return api<SellerDto>(`/api/events/${eventId}/sellers`, { method: "POST", body });
     },
     onSuccess: () => {
       setName("");
       setPhone("");
+      setBoxOffice(false);
       toast.success(t.createdToast);
       onCreated();
     },
@@ -979,6 +1107,11 @@ function NewSeller({ eventId, onCreated, tile }: { eventId: string; onCreated: (
             {t.create}
           </Button>
         </div>
+        {can("money") && (
+          <div className="sm:col-span-full">
+            <Switch checked={boxOffice} onChange={setBoxOffice} label={t.boxOffice.newLabel} description={t.boxOffice.newHint} />
+          </div>
+        )}
       </form>
       {!tile && <p className="mt-3 text-xs text-fg-muted">{t.phoneHint}</p>}
       <ErrorMessage error={create.error} className="mt-4" />
@@ -1001,8 +1134,12 @@ export function SellersTab({ eventId, event, onEditEvent }: { eventId: string; e
     queryKey: ["ticket-sales", eventId],
     queryFn: () => api<TicketSaleDto[]>(`/api/events/${eventId}/ticket-sales`),
   });
+  const reservations = useQuery({
+    queryKey: ["reservations", eventId],
+    queryFn: () => api<ReservationDto[]>(`/api/events/${eventId}/reservations`),
+  });
   const refresh = () => {
-    for (const key of ["sellers", "report", "seller-payments", "voids", "ticket-sales", "analytics"]) {
+    for (const key of ["sellers", "report", "seller-payments", "voids", "ticket-sales", "reservations", "analytics"]) {
       void queryClient.invalidateQueries({ queryKey: [key, eventId] });
     }
   };
@@ -1032,6 +1169,8 @@ export function SellersTab({ eventId, event, onEditEvent }: { eventId: string; e
             row={rows.get(seller.id)}
             payments={(payments.data ?? []).filter((payment) => payment.sellerId === seller.id)}
             sales={(sales.data ?? []).filter((sale) => sale.sellerId === seller.id)}
+            reservations={(reservations.data ?? []).filter((item) => item.sellerId === seller.id)}
+            allReservations={reservations.data ?? []}
             voids={voids.data ?? []}
             event={event}
             onChange={refresh}
@@ -1056,6 +1195,9 @@ export function SellersTab({ eventId, event, onEditEvent }: { eventId: string; e
       {!delivery && !can("money") && <ReadOnlyNotice eventId={eventId} area="delivery" />}
       {holding && event.ticketPriceCents === null && can("manage") && <NoPriceNotice onEditEvent={onEditEvent} />}
       {holding && report.data !== undefined && event.ticketPriceCents !== null && <SettlementSummary rows={report.data.sellers} />}
+      {holding && report.data !== undefined && (
+        <RankingCard eventId={eventId} sellers={list} rows={rows} editable={delivery && event.status !== "closed"} onChange={refresh} />
+      )}
       {content}
     </div>
   );

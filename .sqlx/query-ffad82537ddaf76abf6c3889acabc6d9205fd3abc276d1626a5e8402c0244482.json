@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select o.name as \"name?\", r.status, r.referred_cents\n           from referrals r left join organizations o on o.id = r.referrer_organization_id\n           where r.referred_organization_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "name?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "organizations",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "referrals",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "referred_cents",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "referrals",
+            "name": "referred_cents"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "ffad82537ddaf76abf6c3889acabc6d9205fd3abc276d1626a5e8402c0244482"
+}

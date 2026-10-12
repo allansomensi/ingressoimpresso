@@ -3,4 +3,4 @@
 /**
  * Why credit moved.
  */
-export type CreditReason = "promo_code" | "admin_adjustment" | "batch_payment" | "batch_cancel" | "batch_refund";
+export type CreditReason = "promo_code" | "admin_adjustment" | "batch_payment" | "batch_cancel" | "batch_refund" | "referral" | "referral_revoked";
