@@ -14,6 +14,20 @@ e não acompanha estes números.
 
 ### Adicionado
 
+- Perfil da organização, em Minha conta: logo, cor da marca, WhatsApp, e-mail, site e Instagram
+  aparecem no ingresso no celular e na página dos vendedores, com o botão **Falar com a
+  organização**; local, endereço e preço de sempre já vêm preenchidos em cada evento novo. O logo
+  passa pela mesma revisão das artes, e o campo `{organizacao}` pode ser impresso no ingresso
+  (ADR 0064).
+- Adiar ou cancelar o evento pelo menu do evento, com motivo e uma mensagem pronta para os
+  vendedores repassarem no WhatsApp. O ingresso no celular e a página do vendedor mostram o aviso
+  (com a data original e a nova); os links da portaria passam para a nova data; num evento
+  cancelado, os vendedores param de marcar vendas, não dá para criar lotes e a portaria mostra a
+  faixa "Evento cancelado" sem deixar de ler. O cancelamento pode ser desfeito, e a equipe recebe o
+  aviso no sininho (ADR 0065).
+- No ingresso no celular: **Adicionar à agenda** (funciona sem internet, com lembrete), Google
+  Agenda, **Como chegar** com o novo campo de endereço do evento e, para quem tem lugar marcado,
+  o mapa das mesas com a sua mesa e o seu lugar em destaque (ADR 0066).
 - Modo ensaio na portaria: em **Ensaiar**, o celular lê a folha de ensaio, uma prévia ou um
   ingresso e mostra o que aconteceria, sem registrar nada, e testa som, vibração e lanterna. O
   painel mostra quais celulares já ensaiaram e oferece a folha de ensaio em PDF (ADR 0067).
@@ -29,6 +43,11 @@ e não acompanha estes números.
   vendidos, a curva da última hora, cada porta, categoria e celular (com alerta de quem está sem
   sincronizar), as recusas, a lista de nomes e a bilheteria; no dia do evento, a visão geral
   ganha um resumo (ADR 0071).
+
+### Corrigido
+
+- A imagem do ingresso no celular com a arte passa a mostrar a data, o local e o preço atuais
+  depois de uma mudança no evento (antes ficava a versão antiga por até um dia).
 
 ## [1.3.0] - 2026-10-12
 

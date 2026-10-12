@@ -217,8 +217,8 @@ async fn generate(state: &AppState, export: &ExportRow) -> Result<(i32, String, 
     let scope = export.scope()?;
     let event = sqlx::query_as!(
         EventRow,
-        r#"select id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag,
-                  utc_offset_minutes
+        r#"select id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag, utc_offset_minutes,
+                  address, postponed_from_starts_at, postponed_at, postpone_reason, canceled_at, cancel_reason
            from events where id = $1"#,
         export.event_id
     )
@@ -288,7 +288,7 @@ async fn generate(state: &AppState, export: &ExportRow) -> Result<(i32, String, 
     let ticket_count =
         i32::try_from(rendered.len()).map_err(|error| JobError::Retry(error.into()))?;
     let job = RenderJob {
-        details: event.details(),
+        details: crate::routes::event_details(&state.pool, &event).await?,
         design,
         art,
         sponsors,

@@ -43,4 +43,13 @@ describe("event list", () => {
     ];
     expect(sortEvents(list, NOW).map((item) => item.name)).toEqual(["recent", "old"]);
   });
+
+  it("puts a canceled event with the ones that ended (ADR 0065)", () => {
+    const canceled = { ...event("canceled", "2026-11-01T20:00:00-03:00", "2026-11-01T23:00:00-03:00"), change: { canceledAt: "2026-10-01T12:00:00Z" } };
+    expect(eventPhase(canceled, NOW)).toBe("canceled");
+    expect(eventPhase({ ...canceled, status: "closed" }, NOW)).toBe("archived");
+    expect(eventPhase({ ...canceled, change: { canceledAt: null } }, NOW)).toBe("upcoming");
+    const list = [canceled, event("ended", "2026-09-10T20:00:00-03:00", "2026-09-10T23:00:00-03:00"), event("next", "2026-12-10T20:00:00-03:00", "2026-12-10T23:00:00-03:00")];
+    expect(sortEvents(list, NOW).map((item) => item.name)).toEqual(["next", "canceled", "ended"]);
+  });
 });

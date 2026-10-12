@@ -132,6 +132,17 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   `pending_scans`/`last_sync_at` dos celulares). Campos novos do manifesto são opcionais para o
   app antigo; `just e2e` cobre ensaio, porta errada e lista (`E2E_API_PORT`/`E2E_WEB_PORT`).
 
+- **Perfil da organização, adiar ou cancelar, extras do ingresso digital (ADRs 0064–0066):
+  implementados.** Perfil público em `/painel/organizacao` (`organization_profiles`,
+  `routes/organization.rs`): logo moderado como a arte (um `blob` da organização:
+  `blobs.organization_id`, `event_id` opcional; servido em `GET /api/logos/{id}` só se não estiver
+  em revisão nem recusado), cor, contato e padrões de evento novo; campo `{organizacao}` nos dois
+  lados. Adiar, cancelar e desfazer (`routes/event_changes.rs`, parte `manage`): `events.address`,
+  `postponed_from_starts_at` (data original da 1ª vez), `canceled_at`; cancelado recusa lote,
+  checkout e vendas do vendedor (`event_canceled`), a portaria só mostra a faixa; mensagem pronta e
+  aviso no sininho. No ingresso digital, `.ics` feito no navegador, rota no mapa e o salão com a
+  mesa do portador (`tableMap`, sem ocupação), tudo offline.
+
 Plano completo em `docs/arquitetura.md` §12.
 
 ## Onde está cada coisa
@@ -182,6 +193,9 @@ crates/server        API (pacote `ingressoimpresso-server`, binário `ingressoim
                      portaria do dia (ADRs 0067–0071): ensaio e folha de ensaio em
                      routes/door_rehearsal.rs, lista de nomes em routes/guests.rs (painel e
                      celulares), ao vivo em routes/door_live.rs; categorias da porta em routes/door.rs,
+                     perfil da organização e logo público em routes/organization.rs (ADR 0064),
+                     adiar/cancelar em routes/event_changes.rs (ADR 0065; links da portaria por
+                     door::extend_accesses),
                      conta em routes/account.rs + routes/privacy.rs
                      (exportar/excluir), ingresso digital em routes/tickets.rs (também o enviado
                      pelo vendedor e a segunda via, ADR 0061), novidades em
@@ -249,6 +263,13 @@ apps/web             landing em src/app/page.tsx (+ src/components/marketing: si
                      folhas arrastáveis e trava de rolagem em components/ui/sheet.ts;
                      duas etapas: cartão em components/account/two-factor.tsx e segundo passo do
                      login em components/two-factor-step.tsx;
+                     perfil da organização em app/painel/organizacao, logo/contato/aviso de mudança
+                     em components/organization/organization.tsx (useLogo guarda o logo no aparelho)
+                     e regras em lib/organization.ts; adiar/cancelar em
+                     components/event/event-change.tsx (+ menu em event-actions.tsx), mensagem e
+                     avisos em lib/event-change.ts; agenda (.ics), Google Agenda e mapas em
+                     lib/calendar.ts; mapa das mesas no ingresso em components/ticket/seat-map.tsx
+                     + lib/seat-map.ts (ADRs 0064–0066);
                      status público em app/status + components/status;
                      menus e popovers em components/ui/popover.tsx (portal; folha no celular)
 e2e/                 portaria.e2e.mjs: 5 "celulares" Chromium com câmera falsa (`just e2e`);

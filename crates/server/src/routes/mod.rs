@@ -11,12 +11,14 @@ pub mod changelog;
 pub mod door;
 pub mod door_live;
 pub mod door_rehearsal;
+pub mod event_changes;
 pub mod events;
 pub mod exports;
 pub mod guests;
 pub mod ledger;
 pub mod mail_admin;
 pub mod moderation;
+pub mod organization;
 pub mod platform;
 pub mod privacy;
 pub mod refunds;
@@ -64,6 +66,18 @@ pub struct EventRow {
     pub status: String,
     pub qr_tag: i64,
     pub utc_offset_minutes: i16,
+    /// Street address of the venue (ADR 0066).
+    pub address: Option<String>,
+    /// Start before the first postponement (ADR 0065).
+    pub postponed_from_starts_at: Option<OffsetDateTime>,
+    /// When it was last postponed.
+    pub postponed_at: Option<OffsetDateTime>,
+    /// Why, as the organizer wrote it.
+    pub postpone_reason: Option<String>,
+    /// When it was canceled (ADR 0065); `None` when it happens.
+    pub canceled_at: Option<OffsetDateTime>,
+    /// Why.
+    pub cancel_reason: Option<String>,
 }
 
 impl EventRow {
@@ -72,15 +86,43 @@ impl EventRow {
         UtcOffset::from_whole_seconds(i32::from(self.utc_offset_minutes) * 60).unwrap_or(BRASILIA)
     }
 
-    /// Venue, local start and price for the design's text blocks.
-    pub fn details(&self) -> EventDetails {
+    /// Venue, local start, price and organization for the design's text blocks.
+    pub fn details(&self, organization: String) -> EventDetails {
         let start = self.starts_at.to_offset(self.offset());
         EventDetails {
             venue: self.venue.clone(),
             starts_at: Some(PrimitiveDateTime::new(start.date(), start.time())),
             price_cents: self.ticket_price_cents.map(i64::from),
+            organization: Some(organization),
         }
     }
+
+    /// Refuses what a canceled event no longer takes (ADR 0065): new batches, payments and the
+    /// sellers' sales.
+    ///
+    /// # Errors
+    ///
+    /// `event_canceled` as a 409.
+    pub fn ensure_not_canceled(&self) -> ApiResult<()> {
+        if self.canceled_at.is_some() {
+            return Err(ApiError::Conflict(
+                "event_canceled",
+                "the event was canceled".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// [`EventRow::details`] with the name of the event's organization (`{organizacao}`).
+pub async fn event_details(pool: &PgPool, event: &EventRow) -> ApiResult<EventDetails> {
+    let organization = sqlx::query_scalar!(
+        "select o.name from events e join organizations o on o.id = e.organization_id where e.id = $1",
+        event.id
+    )
+    .fetch_one(pool)
+    .await?;
+    Ok(event.details(organization))
 }
 
 /// An event the user may access, and how.
@@ -123,7 +165,9 @@ pub async fn event_access(
 ) -> ApiResult<EventAccess> {
     let row = sqlx::query!(
         r#"select e.id, e.name, e.venue, e.starts_at, e.ends_at, e.ticket_price_cents, e.status, e.qr_tag,
-                  e.utc_offset_minutes, e.organization_id, o.name as organization_name,
+                  e.utc_offset_minutes, e.address, e.postponed_from_starts_at, e.postponed_at,
+                  e.postpone_reason, e.canceled_at, e.cancel_reason,
+                  e.organization_id, o.name as organization_name,
                   o.suspended_at is not null as "organization_suspended!",
                   exists(select 1 from memberships m
                          where m.organization_id = e.organization_id and m.user_id = $2) as "member!",
@@ -191,6 +235,12 @@ pub async fn event_access(
             status: row.status,
             qr_tag: row.qr_tag,
             utc_offset_minutes: row.utc_offset_minutes,
+            address: row.address,
+            postponed_from_starts_at: row.postponed_from_starts_at,
+            postponed_at: row.postponed_at,
+            postpone_reason: row.postpone_reason,
+            canceled_at: row.canceled_at,
+            cancel_reason: row.cancel_reason,
         },
         organization_id: row.organization_id,
         support,

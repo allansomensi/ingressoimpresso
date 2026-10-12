@@ -1,14 +1,18 @@
 /** Where an event stands, and the order of the event list (what needs attention first). */
 
-import type { EventDto } from "@ingressoimpresso/api-types";
+import type { EventChangeDto, EventDto } from "@ingressoimpresso/api-types";
 
-export type EventPhase = "happening" | "today" | "upcoming" | "past" | "archived";
+export type EventPhase = "happening" | "today" | "upcoming" | "past" | "canceled" | "archived";
 
-type Timed = Pick<EventDto, "status" | "startsAt" | "endsAt">;
+type Timed = Pick<EventDto, "status" | "startsAt" | "endsAt"> & { change?: Pick<EventChangeDto, "canceledAt"> };
 
 export function eventPhase(event: Timed, now: number): EventPhase {
   if (event.status === "closed") {
     return "archived";
+  }
+  // A canceled event (ADR 0065) goes with the ones that ended: nothing will happen there.
+  if (event.change !== undefined && event.change.canceledAt !== null) {
+    return "canceled";
   }
   const start = Date.parse(event.startsAt);
   const end = Date.parse(event.endsAt);
@@ -24,7 +28,7 @@ export function eventPhase(event: Timed, now: number): EventPhase {
   return "upcoming";
 }
 
-const RANK: Record<EventPhase, number> = { happening: 0, today: 1, upcoming: 2, past: 3, archived: 4 };
+const RANK: Record<EventPhase, number> = { happening: 0, today: 1, upcoming: 2, past: 3, canceled: 3, archived: 4 };
 
 /**
  * The event list as an organizer reads it: what is happening now, then today's, then the next
@@ -38,7 +42,7 @@ export function sortEvents<T extends Timed>(events: readonly T[], now: number): 
       if (byPhase !== 0) {
         return byPhase;
       }
-      const latestFirst = a.phase === "past" || a.phase === "archived";
+      const latestFirst = RANK[a.phase] >= RANK.past;
       return latestFirst ? b.start - a.start : a.start - b.start;
     })
     .map(({ event }) => event);

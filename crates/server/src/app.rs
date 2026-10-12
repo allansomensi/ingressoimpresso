@@ -20,11 +20,12 @@ use tower_http::trace::TraceLayer;
 use crate::auth;
 use crate::error::ApiError;
 use crate::routes::events::MAX_ART_BYTES;
+use crate::routes::organization::MAX_LOGO_BYTES;
 use crate::routes::{
     account, admin, analytics, announcements, batches, billing, categories, changelog, door,
-    door_live, door_rehearsal, events, exports, guests, ledger, mail_admin, moderation, platform,
-    privacy, refunds, report, seller_links, sellers, settlement, status, support, tables, team,
-    tickets, two_factor, voids,
+    door_live, door_rehearsal, event_changes, events, exports, guests, ledger, mail_admin,
+    moderation, organization, platform, privacy, refunds, report, seller_links, sellers,
+    settlement, status, support, tables, team, tickets, two_factor, voids,
 };
 use crate::state::AppState;
 
@@ -278,6 +279,21 @@ pub fn router(state: AppState) -> Router {
         .route("/door/register", post(door::register))
         .route("/door/manifest", get(door::manifest))
         .route("/door/scans", post(door::upload_scans))
+        // Organization profile, postponing or canceling (ADRs 0064, 0065).
+        .route(
+            "/account/profile",
+            get(organization::profile).put(organization::update),
+        )
+        .route(
+            "/account/profile/logo",
+            post(organization::upload_logo)
+                .delete(organization::delete_logo)
+                .layer(DefaultBodyLimit::max(MAX_LOGO_BYTES)),
+        )
+        .route("/logos/{id}", get(organization::logo))
+        .route("/events/{id}/postpone", post(event_changes::postpone))
+        .route("/events/{id}/cancel", post(event_changes::cancel))
+        .route("/events/{id}/cancel/undo", post(event_changes::undo_cancel))
         // Door features (ADRs 0067–0071).
         .route(
             "/door-accesses/{id}/categories",

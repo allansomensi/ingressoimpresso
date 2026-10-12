@@ -35,12 +35,14 @@ import { AreaGate, EventAccessProvider } from "@/components/event/access";
 import { SectionsSheet } from "@/components/event/sections-sheet";
 import { STRIP_TABS, tabFromSlug, tabSlug, type Tab } from "@/components/event/tabs";
 import { EventActions } from "@/components/event/event-actions";
+import { EventChangeBanner } from "@/components/event/event-change";
 import { EventFormDialog } from "@/components/panel/event-form";
 import { Badge, Button, ButtonLink, EmptyState, ErrorMessage, LoadingBlock, Skeleton, useConfirm } from "@/components/ui";
 import { ApiError, api, isUuid } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { eventDateTime, money } from "@/lib/format";
-import { areaList, canDo, isOwner } from "@/lib/team";
+import { changeKind } from "@/lib/event-change";
+import { areaList, canDo } from "@/lib/team";
 import { hasUnsavedChanges } from "@/lib/unsaved";
 import { texts } from "@/texts/pt-BR";
 
@@ -243,7 +245,7 @@ function EventView() {
               <span className="max-sm:sr-only">{texts.panel.editEvent}</span>
             </Button>
           )}
-          {isOwner(data) && <EventActions event={data} />}
+          <EventActions event={data} />
         </div>
         <div className="col-span-2 col-start-1 row-start-2 flex min-w-0 flex-col gap-2 sm:col-span-1">
           <h1 className="text-[1.375rem] leading-tight font-semibold tracking-tight text-balance text-fg sm:text-3xl">
@@ -252,6 +254,17 @@ function EventView() {
               <Badge tone="neutral" className="ml-3 align-middle">
                 {texts.event.actions.archivedBadge}
               </Badge>
+            )}
+            {changeKind(data.change, data.startsAt) === "canceled" ? (
+              <Badge tone="danger" className="ml-3 align-middle">
+                {texts.eventChange.canceledBadge}
+              </Badge>
+            ) : (
+              data.change.postponedFromStartsAt !== null && (
+                <Badge tone="warning" className="ml-3 align-middle">
+                  {texts.eventChange.postponedBadge}
+                </Badge>
+              )
             )}
           </h1>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px] text-fg-muted sm:text-sm">
@@ -262,7 +275,10 @@ function EventView() {
             {/* On phones the place takes a line of its own (and is cut if too long). */}
             <span className="flex min-w-0 items-center gap-1.5 max-sm:order-last max-sm:w-full">
               <MapPin className="size-4 shrink-0 text-fg-subtle" aria-hidden />
-              <span className="truncate">{data.venue ?? texts.panel.noVenue}</span>
+              <span className="truncate">
+                {data.venue ?? texts.panel.noVenue}
+                {data.address !== null && <span className="text-fg-subtle"> · {data.address}</span>}
+              </span>
             </span>
             {data.ticketPriceCents !== null && (
               <span className="flex items-center gap-1.5">
@@ -287,6 +303,8 @@ function EventView() {
           )}
         </div>
       </div>
+
+      <EventChangeBanner event={data} />
 
       {/* Under the panel header, which is taller by the safe area in an installed iPhone app. */}
       <div className="sticky top-[calc(4rem+env(safe-area-inset-top))] z-30 -mx-4 border-b border-border bg-bg/85 backdrop-blur-xl sm:-mx-6 sm:px-6">

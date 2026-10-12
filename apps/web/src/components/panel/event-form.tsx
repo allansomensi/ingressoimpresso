@@ -1,11 +1,12 @@
 "use client";
 
-import type { EventBody, EventDto } from "@ingressoimpresso/api-types";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import type { EventBody, EventDto, OrganizationProfileDto } from "@ingressoimpresso/api-types";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Sparkles } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
-import { Button, Dialog, ErrorMessage, Field, Input } from "@/components/ui";
+import { Button, Dialog, ErrorMessage, Field, Input, LoadingBlock } from "@/components/ui";
 import { api } from "@/lib/api";
 import { browserOffset, offsetMinutes, wallClockInput, withOffset } from "@/lib/event-time";
 import { parseMoney } from "@/lib/format";
@@ -43,27 +44,49 @@ export function EventFormDialog({
       description={t.newEventDescription}
     >
       {/* Remount on open so the fields start from the current values. */}
-      {open && <EventForm event={event} onClose={onClose} onSaved={onSaved} />}
+      {open && (event === undefined ? <NewEventForm onClose={onClose} onSaved={onSaved} /> : <EventForm event={event} onClose={onClose} onSaved={onSaved} />)}
     </Dialog>
   );
 }
 
+/** A new event starts with the venue, address and price of the organization's profile (ADR 0064). */
+function NewEventForm({ onClose, onSaved }: { onClose: () => void; onSaved: ((event: EventDto) => void) | undefined }) {
+  const profile = useQuery({
+    queryKey: ["organization-profile"],
+    queryFn: () => api<OrganizationProfileDto>("/api/account/profile"),
+    staleTime: 60_000,
+    retry: false,
+  });
+  if (profile.isPending) {
+    return <LoadingBlock rows={3} />;
+  }
+  // Without a profile (an error, or someone only on other teams) the form starts empty.
+  return <EventForm event={undefined} defaults={profile.data ?? null} onClose={onClose} onSaved={onSaved} />;
+}
+
 function EventForm({
   event,
+  defaults = null,
   onClose,
   onSaved,
 }: {
   event: EventDto | undefined;
+  defaults?: OrganizationProfileDto | null;
   onClose: () => void;
   onSaved: ((event: EventDto) => void) | undefined;
 }) {
   const queryClient = useQueryClient();
   const [name, setName] = useState(event?.name ?? "");
-  const [venue, setVenue] = useState(event?.venue ?? "");
+  const [venue, setVenue] = useState(event?.venue ?? defaults?.defaultVenue ?? "");
+  const [address, setAddress] = useState(event?.address ?? defaults?.defaultAddress ?? "");
+  const fromProfile =
+    event === undefined &&
+    defaults !== null &&
+    (defaults.defaultVenue !== null || defaults.defaultAddress !== null || defaults.defaultTicketPriceCents !== null);
   // Times are typed in the event's own wall-clock time (ADR 0025).
   const [startsAt, setStartsAt] = useState(event === undefined ? "" : wallClockInput(event.startsAt));
   const [endsAt, setEndsAt] = useState(event === undefined ? "" : wallClockInput(event.endsAt));
-  const [price, setPrice] = useState(priceText(event?.ticketPriceCents ?? null));
+  const [price, setPrice] = useState(priceText(event === undefined ? (defaults?.defaultTicketPriceCents ?? null) : event.ticketPriceCents));
   // The end follows the start (+5 h) until it is edited by hand.
   const [endTouched, setEndTouched] = useState(event !== undefined);
   const parsedPrice = parseMoney(price);
@@ -77,6 +100,7 @@ function EventForm({
       const body: EventBody = {
         name: name.trim(),
         venue: venue.trim() === "" ? null : venue.trim(),
+        address: address.trim() === "" ? null : address.trim(),
         startsAt: withOffset(startsAt, offset),
         endsAt: withOffset(endsAt, offset),
         ticketPriceCents: parsedPrice.ok ? parsedPrice.cents : null,
@@ -128,6 +152,18 @@ function EventForm({
           enterKeyHint="next"
         />
       </Field>
+      <Field label={t.address} optional hint={t.addressHint}>
+        <Input
+          value={address}
+          onChange={(e) => {
+            setAddress(e.target.value);
+          }}
+          placeholder={t.addressPlaceholder}
+          maxLength={200}
+          autoComplete="street-address"
+          enterKeyHint="next"
+        />
+      </Field>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label={t.startsAt}>
           <Input
@@ -174,6 +210,12 @@ function EventForm({
           />
         </span>
       </Field>
+      {fromProfile && (
+        <p className="flex items-center gap-2 text-xs text-fg-muted">
+          <Sparkles aria-hidden className="size-3.5 shrink-0 text-brand" />
+          {t.fromProfile}
+        </p>
+      )}
       <ErrorMessage error={save.error} />
       <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
         <Button variant="secondary" onClick={onClose}>

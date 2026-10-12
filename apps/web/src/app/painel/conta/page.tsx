@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Building2,
   CalendarDays,
+  ChevronRight,
   Download,
   Gift,
   Receipt,
@@ -301,6 +302,17 @@ export default function AccountPage() {
           <Card>
             <CardHeader icon={Building2} title={t.organization} description={t.organizationHint} />
             <OrganizationForm key={a.organizationName} account={a} />
+            {/* The public profile (ADR 0064) has a page of its own. */}
+            <Link
+              href="/painel/organizacao"
+              className="mt-5 flex items-center gap-3 rounded-xl border border-border bg-surface-2 px-4 py-3 transition hover:border-border-strong active:bg-surface-3"
+            >
+              <span className="flex min-w-0 flex-1 flex-col">
+                <span className="text-sm font-semibold text-fg">{texts.profile.open}</span>
+                <span className="text-xs text-fg-muted">{texts.profile.openHint}</span>
+              </span>
+              <ChevronRight aria-hidden className="size-4 shrink-0 text-fg-subtle" />
+            </Link>
           </Card>
           <div className="grid grid-cols-2 gap-3 sm:gap-4">
             <Stat label={t.events} value={a.eventCount.toLocaleString("pt-BR")} icon={CalendarDays} />

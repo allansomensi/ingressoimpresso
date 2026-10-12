@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart3, CalendarDays, LifeBuoy, LogOut, Megaphone, RefreshCw, ShieldAlert, ShieldCheck, UserRound, WifiOff } from "lucide-react";
+import { BarChart3, Building2, CalendarDays, LifeBuoy, LogOut, Megaphone, RefreshCw, ShieldAlert, ShieldCheck, UserRound, WifiOff } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { MouseEvent, ReactNode } from "react";
@@ -47,6 +47,10 @@ function UserMenu({ email, isAdmin, onSignOut }: { email: string; isAdmin: boole
         <UserRound className="size-4" aria-hidden />
         {t.accountPage}
       </Link>
+      <Link href="/painel/organizacao" className={menuLink}>
+        <Building2 className="size-4" aria-hidden />
+        {texts.profile.open}
+      </Link>
       {isAdmin && (
         <Link href="/painel/admin" className={menuLink}>
           <ShieldCheck className="size-4" aria-hidden />
@@ -89,7 +93,7 @@ function TabBar({
     { href: "/painel", label: t.events, icon: CalendarDays, active: pathname === "/painel" || pathname.startsWith("/painel/eventos") },
     { href: "/painel/resultados", label: t.results, icon: BarChart3, active: pathname.startsWith("/painel/resultados") },
     ...(isAdmin ? [{ href: "/painel/admin", label: texts.admin.nav, icon: ShieldCheck, active: pathname.startsWith("/painel/admin") }] : []),
-    { href: "/painel/conta", label: t.account, icon: UserRound, active: pathname.startsWith("/painel/conta") },
+    { href: "/painel/conta", label: t.account, icon: UserRound, active: pathname.startsWith("/painel/conta") || pathname.startsWith("/painel/organizacao") },
   ];
   return (
     <nav

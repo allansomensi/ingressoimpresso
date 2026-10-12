@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into organization_profiles (organization_id, logo_blob_id) values ($1, $2)\n           on conflict (organization_id) do update set logo_blob_id = excluded.logo_blob_id,\n                                                        updated_at = now()",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d9df2db3072e121c323b511f4ccc9f7308ea91e293ebad9f27416184b04787b5"
+}

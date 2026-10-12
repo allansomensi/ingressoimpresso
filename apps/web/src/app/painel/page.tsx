@@ -23,6 +23,7 @@ const PHASE: Record<EventPhase, { label: string; tone: Tone }> = {
   today: { label: t.today, tone: "warning" },
   upcoming: { label: t.upcoming, tone: "brand" },
   past: { label: t.past, tone: "neutral" },
+  canceled: { label: texts.eventChange.canceledBadge, tone: "danger" },
   archived: { label: texts.event.actions.archivedBadge, tone: "neutral" },
 };
 
@@ -30,10 +31,16 @@ const PHASE: Record<EventPhase, { label: string; tone: Tone }> = {
 function EventCard({ event, now }: { event: EventDto; now: number }) {
   const date = dateParts(event.startsAt);
   const status = PHASE[eventPhase(event, now)];
+  const phase = eventPhase(event, now);
+  // A postponed event (ADR 0065) says so next to its phase, until it ends.
+  const postponed = event.change.postponedFromStartsAt !== null && (phase === "upcoming" || phase === "today");
   const badge = (
-    <Badge tone={status.tone} dot pulse={status.tone === "success"}>
-      {status.label}
-    </Badge>
+    <span className="flex flex-wrap items-center justify-end gap-1.5">
+      <Badge tone={status.tone} dot pulse={status.tone === "success"}>
+        {status.label}
+      </Badge>
+      {postponed && <Badge tone="warning">{texts.eventChange.postponedBadge}</Badge>}
+    </span>
   );
   return (
     <Link

@@ -12,6 +12,7 @@ use axum::extract::{Path, State};
 use axum::http::header::{CACHE_CONTROL, CONTENT_TYPE};
 use axum::http::{HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
+use sha2::{Digest as _, Sha256};
 use sqlx::{Postgres, Transaction};
 use ticket_core::SignedTicket;
 use ticket_render::{RenderJob, TicketQr, TicketToRender};
@@ -20,9 +21,9 @@ use uuid::Uuid;
 
 use super::{EventRow, MAX_TICKET_NUMBER, authorize_event, one_line, optional_text};
 use crate::api::{
-    CreateTicketLinkBody, CreateTicketLinksBody, DoorCategoryTagDto, OpenTicketBody,
-    ReplaceTicketBody, TicketLinkDto, TicketLinksDto, TicketPassDto, TicketPassEvent,
-    TicketReplacementDto, TicketState, UpdateTicketLinkBody,
+    CreateTicketLinkBody, CreateTicketLinksBody, DoorCategoryTagDto, OpenTicketBody, PassTableDto,
+    PassTableMapDto, ReplaceTicketBody, TableShape, TicketLinkDto, TicketLinksDto, TicketPassDto,
+    TicketPassEvent, TicketReplacementDto, TicketState, UpdateTicketLinkBody,
 };
 use crate::auth::{AuthUser, new_token, token_hash};
 use crate::error::{ApiError, ApiResult, bad_request};
@@ -900,6 +901,16 @@ pub async fn open(
         .unwrap_or(time::UtcOffset::UTC);
     let ticket_state = state_of(event.voided, event.entered_at);
     let tags = super::categories::NumberTags::load(&state.pool, link.event_id).await?;
+    let row = sqlx::query_as!(
+        EventRow,
+        r#"select id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag,
+                  utc_offset_minutes, address, postponed_from_starts_at, postponed_at,
+                  postpone_reason, canceled_at, cancel_reason
+           from events where id = $1"#,
+        link.event_id
+    )
+    .fetch_one(&state.pool)
+    .await?;
     let pass = TicketPassDto {
         category: tags
             .category(link.ticket_number)
@@ -914,7 +925,12 @@ pub async fn open(
             starts_at: event.starts_at.to_offset(offset),
             ends_at: event.ends_at.to_offset(offset),
             organizer: event.organizer,
+            id: link.event_id,
+            address: row.address.clone(),
+            change: row.change(),
         },
+        organization: super::organization::event_organization(&state.pool, link.event_id).await?,
+        table_map: table_map(&state, link.event_id, link.ticket_number).await?,
         number: link.ticket_number,
         number_label: label(link.ticket_number, digits),
         number_prefix: prefix,
@@ -930,6 +946,46 @@ pub async fn open(
         Json(pass),
     )
         .into_response())
+}
+
+/// The room for the holder of `number` (ADR 0066): every table of the event by name, shape and
+/// place (nobody's seat but theirs), when the number has a seat.
+async fn table_map(
+    state: &AppState,
+    event_id: Uuid,
+    number: i32,
+) -> ApiResult<Option<PassTableMapDto>> {
+    let Some(seat) = sqlx::query!(
+        r#"select t.name, s.seat from ticket_seats s join event_tables t on t.id = s.table_id
+           where s.event_id = $1 and s.ticket_number = $2"#,
+        event_id,
+        number,
+    )
+    .fetch_optional(&state.pool)
+    .await?
+    else {
+        return Ok(None);
+    };
+    let tables = sqlx::query!(
+        "select name, seats, shape, x, y from event_tables where event_id = $1 order by name",
+        event_id
+    )
+    .fetch_all(&state.pool)
+    .await?;
+    Ok(Some(PassTableMapDto {
+        tables: tables
+            .into_iter()
+            .map(|table| PassTableDto {
+                name: table.name,
+                seats: table.seats,
+                shape: TableShape::from_db(&table.shape).unwrap_or(TableShape::Round),
+                x: table.x,
+                y: table.y,
+            })
+            .collect(),
+        table: seat.name,
+        seat: seat.seat,
+    }))
 }
 
 /// `POST /api/ticket/image`: the ticket as printed (design, art and the real QR), as a JPEG.
@@ -955,16 +1011,35 @@ pub async fn image(
     crate::moderation::ensure_event_printable(&state.pool, link.event_id).await?;
     // Rendering is the expensive part: one image per link and design version, kept with the
     // other generated files (cleaned after a day), so repeated requests cost a file read.
-    let version = sqlx::query_scalar!(
-        r#"select coalesce(max(version), 0) as "version!" from ticket_designs where event_id = $1"#,
+    // The key also follows what the text blocks print (date, venue, price, organization): a
+    // postponed event (ADR 0065) must not keep showing the old date.
+    let drawn = sqlx::query!(
+        r#"select (select coalesce(max(version), 0) from ticket_designs where event_id = e.id) as "version!",
+                  e.name, e.venue, e.starts_at, e.utc_offset_minutes, e.ticket_price_cents,
+                  o.name as organization
+           from events e join organizations o on o.id = e.organization_id where e.id = $1"#,
         link.event_id
     )
     .fetch_one(&state.pool)
     .await?;
-    let cached = state
-        .config
-        .export_dir
-        .join(format!("ticket-{}-v{version}.jpg", link.id));
+    let details = Sha256::digest(
+        format!(
+            "{}\n{}\n{}\n{}\n{:?}\n{}",
+            drawn.name,
+            drawn.venue.unwrap_or_default(),
+            drawn.starts_at.unix_timestamp(),
+            drawn.utc_offset_minutes,
+            drawn.ticket_price_cents,
+            drawn.organization,
+        )
+        .as_bytes(),
+    );
+    let cached = state.config.export_dir.join(format!(
+        "ticket-{}-v{}-{}.jpg",
+        link.id,
+        drawn.version,
+        hex::encode(details.get(..6).unwrap_or_default()),
+    ));
     let jpeg = if let Ok(bytes) = tokio::fs::read(&cached).await {
         bytes
     } else {
@@ -1008,7 +1083,9 @@ async fn render_image(state: &AppState, link: &OpenRow) -> ApiResult<Vec<u8>> {
         .map_err(|error| ApiError::Internal(error.into()))?;
     let event = sqlx::query_as!(
         EventRow,
-        r#"select id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag, utc_offset_minutes
+        r#"select id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag,
+                  utc_offset_minutes, address, postponed_from_starts_at, postponed_at,
+                  postpone_reason, canceled_at, cancel_reason
            from events where id = $1"#,
         link.event_id
     )
@@ -1018,7 +1095,7 @@ async fn render_image(state: &AppState, link: &OpenRow) -> ApiResult<Vec<u8>> {
     let tags = super::categories::NumberTags::load(&state.pool, link.event_id).await?;
     let number = i32::try_from(ticket.header().number.get()).unwrap_or(i32::MAX);
     let job = RenderJob {
-        details: event.details(),
+        details: super::event_details(&state.pool, &event).await?,
         design,
         art,
         sponsors,

@@ -209,6 +209,24 @@ async fn ensure_writable(state: &AppState, event_id: Uuid, path: &str) -> ApiRes
     Ok(())
 }
 
+async fn event_row(state: &AppState, event_id: Uuid) -> ApiResult<EventRow> {
+    Ok(sqlx::query_as!(
+        EventRow,
+        r#"select id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag,
+                  utc_offset_minutes, address, postponed_from_starts_at, postponed_at,
+                  postpone_reason, canceled_at, cancel_reason
+           from events where id = $1"#,
+        event_id
+    )
+    .fetch_one(&state.pool)
+    .await?)
+}
+
+/// A canceled event takes no more sales from its sellers (ADR 0065); undoing a mark still works.
+async fn ensure_selling(state: &AppState, event_id: Uuid) -> ApiResult<()> {
+    event_row(state, event_id).await?.ensure_not_canceled()
+}
+
 /// Parts of the seller's numbers that no longer count (returned, lost or voided).
 async fn seller_voids(state: &AppState, link: &LinkRow) -> ApiResult<Vec<SellerVoidDto>> {
     sqlx::query!(
@@ -426,20 +444,11 @@ async fn view(state: &AppState, link: &LinkRow) -> ApiResult<SellerViewDto> {
     } else {
         counts.tickets - counts.unsold - counts.lost
     };
-    let amount_due_cents = due_lines
-        .iter()
-        .map(|line| {
-            line.price_cents
-                .map(|price| i64::from(line.tickets) * i64::from(price))
-        })
-        .sum::<Option<i64>>()
-        .filter(|_| {
-            event.ticket_price_cents.is_some()
-                || due_lines.iter().any(|line| line.price_cents.is_some())
-        });
+    let amount_due_cents = amount_due(&due_lines, event.ticket_price_cents);
     let offset = time::UtcOffset::from_whole_seconds(i32::from(event.utc_offset_minutes) * 60)
         .unwrap_or(time::UtcOffset::UTC);
     let (number_prefix, number_digits) = super::tickets::number_style(state, link.event_id).await?;
+    let row = event_row(state, link.event_id).await?;
     Ok(SellerViewDto {
         event: SellerViewEvent {
             name: event.name,
@@ -447,7 +456,10 @@ async fn view(state: &AppState, link: &LinkRow) -> ApiResult<SellerViewDto> {
             starts_at: event.starts_at.to_offset(offset),
             organizer: event.organizer,
             ticket_price_cents: event.ticket_price_cents,
+            address: row.address.clone(),
+            change: row.change(),
         },
+        organization: super::organization::event_organization(&state.pool, link.event_id).await?,
         seller: event.seller,
         number_prefix,
         number_digits,
@@ -472,6 +484,20 @@ async fn view(state: &AppState, link: &LinkRow) -> ApiResult<SellerViewDto> {
         can_send_tickets: event.sellers_send_tickets,
         box_office: event.box_office,
     })
+}
+
+/// What the seller owes for `lines`; `null` when a line has no price (nor the event one).
+fn amount_due(lines: &[SellerDueLineDto], event_price_cents: Option<i32>) -> Option<i64> {
+    lines
+        .iter()
+        .map(|line| {
+            line.price_cents
+                .map(|price| i64::from(line.tickets) * i64::from(price))
+        })
+        .sum::<Option<i64>>()
+        .filter(|_| {
+            event_price_cents.is_some() || lines.iter().any(|line| line.price_cents.is_some())
+        })
 }
 
 fn no_store(view: SellerViewDto) -> Response {
@@ -520,6 +546,7 @@ pub async fn mark(
     ratelimit::by_ip(&state, &headers, ratelimit::SELLER_WRITE).await?;
     let link = find_link(&state, &body.token).await?;
     ensure_writable(&state, link.event_id, "/api/seller/sales").await?;
+    ensure_selling(&state, link.event_id).await?;
     if body.ranges.is_empty() || body.ranges.len() > MAX_MARK_RANGES {
         return Err(bad_request(
             "invalid_range",
@@ -638,14 +665,8 @@ pub async fn send_ticket(
     ratelimit::by_ip(&state, &headers, ratelimit::SELLER_WRITE).await?;
     let link = find_link(&state, &body.token).await?;
     ensure_writable(&state, link.event_id, "/api/seller/tickets").await?;
-    let event = sqlx::query_as!(
-        EventRow,
-        r#"select id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag,
-                  utc_offset_minutes from events where id = $1"#,
-        link.event_id
-    )
-    .fetch_one(&state.pool)
-    .await?;
+    let event = event_row(&state, link.event_id).await?;
+    event.ensure_not_canceled()?;
     let allowed = sqlx::query_scalar!(
         "select sellers_send_tickets from events where id = $1",
         link.event_id

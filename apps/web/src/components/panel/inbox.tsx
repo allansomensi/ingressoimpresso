@@ -2,7 +2,22 @@
 
 import type { AnnouncementDto, AnnouncementLevel, NotificationDto } from "@ingressoimpresso/api-types";
 import { useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Bell, CheckCircle2, Coins, Gift, ImageOff, Info, Megaphone, ShieldCheck, Sparkles, UsersRound, type LucideIcon } from "lucide-react";
+import {
+  AlertTriangle,
+  Bell,
+  CalendarClock,
+  CalendarX,
+  CheckCircle2,
+  Coins,
+  Gift,
+  ImageOff,
+  Info,
+  Megaphone,
+  ShieldCheck,
+  Sparkles,
+  UsersRound,
+  type LucideIcon,
+} from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -10,6 +25,7 @@ import { ChangelogEntry } from "@/components/changelog/changelog-page";
 import { Popover } from "@/components/ui";
 import { markSeen, unreadCount, useChangelog, useSeenAt } from "@/lib/changelog";
 import { cn } from "@/lib/cn";
+import { spokenDate } from "@/lib/event-change";
 import { money, shortDateTime } from "@/lib/format";
 import { isUuid } from "@/lib/api";
 import { markInboxRead, safeLink, useInbox } from "@/lib/platform";
@@ -48,8 +64,14 @@ export function describeNotification(item: NotificationDto): { title: string; bo
   const event = text(item.data, "eventName");
   const eventId = text(item.data, "eventId");
   const note = text(item.data, "note");
+  // The organization's logo has no event (ADR 0064): its decision opens the profile.
+  const logo = item.data["logo"] === true;
+  const eventLink = isUuid(eventId) ? `/painel/eventos/${eventId}` : null;
   switch (item.kind) {
     case "art_rejected":
+      if (logo) {
+        return { title: t.kinds.logoRejected, body: t.kinds.logoRejectedBody(note), icon: ImageOff, href: "/painel/organizacao" };
+      }
       return {
         title: t.kinds.artRejected,
         body: t.kinds.artRejectedBody(event, note),
@@ -57,6 +79,9 @@ export function describeNotification(item: NotificationDto): { title: string; bo
         href: eventId === "" ? null : `/painel/eventos/${eventId}?aba=ingresso`,
       };
     case "art_approved":
+      if (logo) {
+        return { title: t.kinds.logoApproved, body: t.kinds.logoApprovedBody, icon: ShieldCheck, href: "/painel/organizacao" };
+      }
       return { title: t.kinds.artApproved, body: t.kinds.artApprovedBody(event), icon: ShieldCheck, href: eventId === "" ? null : `/painel/eventos/${eventId}?aba=arquivos` };
     case "credits_granted":
       return { title: t.kinds.credits, body: t.kinds.creditsBody(money(number(item.data, "amountCents")), note), icon: Coins, href: "/painel/conta" };
@@ -72,6 +97,22 @@ export function describeNotification(item: NotificationDto): { title: string; bo
         body: t.kinds.teamAddedBody(text(item.data, "by"), event, areaList(parseAreas(item.data["areas"]))),
         icon: UsersRound,
         href: isUuid(eventId) ? `/painel/eventos/${eventId}` : null,
+      };
+    case "event_postponed": {
+      const startsAt = text(item.data, "startsAt");
+      return {
+        title: t.kinds.eventPostponed,
+        body: t.kinds.eventPostponedBody(text(item.data, "by"), event, startsAt === "" ? "" : spokenDate(startsAt)),
+        icon: CalendarClock,
+        href: eventLink,
+      };
+    }
+    case "event_canceled":
+      return {
+        title: t.kinds.eventCanceled,
+        body: t.kinds.eventCanceledBody(text(item.data, "by"), event, text(item.data, "reason")),
+        icon: CalendarX,
+        href: eventLink,
       };
   }
 }

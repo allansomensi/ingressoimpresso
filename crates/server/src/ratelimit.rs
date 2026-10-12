@@ -69,6 +69,14 @@ pub const SELLER_WRITE: Limit = Limit {
     window: Duration::from_mins(5),
 };
 
+/// `GET /api/logos/{id}`: the organization's logo on the public pages (ADR 0064); browsers keep
+/// it for an hour, so a crowd costs little.
+pub const LOGO: Limit = Limit {
+    name: "logo",
+    max: 600,
+    window: Duration::from_mins(5),
+};
+
 /// Counts this request against `limit` for its address. Without an address (a direct request in
 /// development or a test) nothing is counted; in production every request comes through the
 /// proxy, and one without an address shares a single bucket instead of escaping the limit.
