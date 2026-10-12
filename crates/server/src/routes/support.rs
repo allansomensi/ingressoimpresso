@@ -61,7 +61,7 @@ impl From<AuditRow> for AuditEntryDto {
 
 /// Families of audit actions (the part before the first `_` of the action, except
 /// `promo_code`), for the filter of the admin panel.
-pub const AUDIT_CATEGORIES: [&str; 14] = [
+pub const AUDIT_CATEGORIES: [&str; 15] = [
     "batch",
     "organization",
     "user",
@@ -76,6 +76,7 @@ pub const AUDIT_CATEGORIES: [&str; 14] = [
     "moderation",
     "incident",
     "email",
+    "referral",
 ];
 
 /// What to read from the audit log.

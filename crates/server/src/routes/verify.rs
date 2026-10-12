@@ -67,6 +67,19 @@ async fn verifier(state: &AppState, event_id: Uuid, tag: u32) -> ApiResult<Optio
     Ok(EventVerifier::new(EventId::from(event_id), EventTag::new(tag), keys).ok())
 }
 
+/// The ticket in a text as read or pasted. A space is a base45 character, so the text is tried
+/// as it came first; then without line breaks and tabs, then trimmed (a paste picks up extra
+/// blanks around it).
+fn decode(text: &str) -> Option<SignedTicket> {
+    let without_breaks: String = text
+        .chars()
+        .filter(|c| !matches!(c, '\r' | '\n' | '\t'))
+        .collect();
+    [text, without_breaks.as_str(), without_breaks.trim()]
+        .into_iter()
+        .find_map(|candidate| SignedTicket::from_qr_text(candidate).ok())
+}
+
 /// What an authentic ticket of an event is now, most important first.
 pub(crate) fn verdict(
     event_canceled: bool,
@@ -95,11 +108,10 @@ pub async fn verify(
     Json(body): Json<VerifyTicketBody>,
 ) -> ApiResult<Json<VerifyResultDto>> {
     ratelimit::by_ip(&state, &headers, ratelimit::VERIFY).await?;
-    let text = body.text.trim();
-    if text.len() > MAX_TEXT {
+    if body.text.len() > MAX_TEXT {
         return Ok(answer(VerifyVerdict::NotOurs));
     }
-    let Ok(ticket) = SignedTicket::from_qr_text(text) else {
+    let Some(ticket) = decode(&body.text) else {
         return Ok(answer(VerifyVerdict::NotOurs));
     };
     let tag = ticket.header().event_tag.get();
