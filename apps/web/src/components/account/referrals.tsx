@@ -59,11 +59,13 @@ function ReferralRow({ referral }: { referral: ReferralDto }) {
           state === "rewarded" ? "bg-success-soft text-success-fg" : "bg-surface-2 text-fg-muted",
         )}
       >
-        {referral.emailHint.slice(0, 2)}
+        {referral.emailHint === "" ? "–" : referral.emailHint.slice(0, 2)}
       </span>
       <span className="flex min-w-0 flex-1 flex-col items-start gap-1">
         <span className="flex w-full items-baseline justify-between gap-3">
-          <span className="truncate text-sm font-medium text-fg">{referral.emailHint}</span>
+          <span className={cn("truncate text-sm font-medium", referral.emailHint === "" ? "text-fg-muted italic" : "text-fg")}>
+            {referral.emailHint === "" ? t.deletedAccount : referral.emailHint}
+          </span>
           <span className="shrink-0 text-xs text-fg-subtle tabular">{t.joined(new Date(referral.createdAt).toLocaleDateString("pt-BR"))}</span>
         </span>
         <Badge tone={STATE_TONE[state]} dot={state === "pending"}>

@@ -3585,6 +3585,7 @@ export const texts = {
     },
     capped: "Limite do mês: só a pessoa ganhou",
     joined: (date: string) => `desde ${date}`,
+    deletedAccount: "Conta excluída",
     off: "O Indique e ganhe está pausado. Seu link fica guardado aqui para quando voltar.",
     invitedTitle: "Você chegou por indicação",
     invitedPending: (by: string | null, amount: string, min: string) =>

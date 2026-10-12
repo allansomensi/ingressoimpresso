@@ -325,6 +325,8 @@ async fn own_people_repeats_and_a_closed_program_earn_nothing(pool: PgPool) {
     assert!(!sign_up(&app, "Carla+volta@gmail.com", Some(&code)).await.1);
     let list = referrals(&app, &ana).await["referrals"].clone();
     assert_eq!(list.as_array().unwrap().len(), 1, "{list}");
+    // Only the keyed hash stays: the referrer no longer sees the deleted account's e-mail hint.
+    assert_eq!(list[0]["emailHint"], "", "{list}");
 
     // A closed program: the invite is 404 and new accounts are not linked.
     let settings = set_program(&app, &admin, json!({ "enabled": false })).await;

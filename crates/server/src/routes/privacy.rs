@@ -447,6 +447,14 @@ pub async fn delete(
     .fetch_all(&mut *tx)
     .await?;
     for organization_id in organizations {
+        // A referral row outlives the referred account only for its keyed e-mail hash (one
+        // e-mail counts once, ADR 0076); the hint the referrer saw goes with the account.
+        sqlx::query!(
+            "update referrals set referred_email_hint = '' where referred_organization_id = $1",
+            organization_id
+        )
+        .execute(&mut *tx)
+        .await?;
         let keeps_records = sqlx::query_scalar!(
             r#"select exists(select 1 from ticket_batches b join events e on e.id = b.event_id
                              where e.organization_id = $1
