@@ -4,7 +4,7 @@
 //! Deleting keeps only what the law requires: batches and payments (fiscal records) stay, tied to
 //! an anonymized user and to events renamed "Evento excluído"; art, designs, sellers (with the
 //! money they handed over, their links and the buyers they wrote down), voids' notes, digital
-//! tickets, door data and files go. An account that never paid for anything is removed entirely.
+//! tickets, door data, guest lists and files go. An account that never paid for anything is removed entirely.
 
 use axum::extract::State;
 use axum::http::StatusCode;
@@ -162,7 +162,7 @@ async fn export_event(state: &AppState, event_id: Uuid) -> ApiResult<Value> {
     })
     .collect::<Vec<_>>();
     let sellers = sqlx::query!(
-        "select id, name, phone, created_at from sellers where event_id = $1 order by name",
+        "select id, name, phone, box_office, created_at from sellers where event_id = $1 order by name",
         event_id
     )
     .fetch_all(&state.pool)
@@ -211,7 +211,7 @@ async fn export_event(state: &AppState, event_id: Uuid) -> ApiResult<Value> {
         .collect::<Vec<_>>();
         seller_list.push(json!({
             "name": seller.name, "phone": seller.phone, "createdAt": rfc3339(seller.created_at),
-            "ranges": ranges, "received": received, "sales": sales,
+            "boxOffice": seller.box_office, "ranges": ranges, "received": received, "sales": sales,
         }));
     }
     let voids = sqlx::query!(
@@ -306,6 +306,24 @@ async fn export_event(state: &AppState, event_id: Uuid) -> ApiResult<Value> {
     )
     .fetch_one(&state.pool)
     .await?;
+    // The guest list (ADR 0070), with when each name arrived.
+    let guests = sqlx::query!(
+        r#"select g.name, g.companions, g.note, g.created_at,
+                  (select min(a.arrived_at) from guest_arrivals a
+                   where a.guest_id = g.id and a.undone_at is null) as arrived_at
+           from guest_list g where g.event_id = $1 order by g.name"#,
+        event_id
+    )
+    .fetch_all(&state.pool)
+    .await?
+    .into_iter()
+    .map(|guest| {
+        json!({
+            "name": guest.name, "companions": guest.companions, "note": guest.note,
+            "createdAt": rfc3339(guest.created_at), "arrivedAt": optional_rfc3339(guest.arrived_at),
+        })
+    })
+    .collect::<Vec<_>>();
     Ok(json!({
         "batches": batch_list,
         "payments": payments,
@@ -317,6 +335,7 @@ async fn export_event(state: &AppState, event_id: Uuid) -> ApiResult<Value> {
         "categories": categories,
         "tables": tables,
         "entries": entries,
+        "guestList": guests,
     }))
 }
 
@@ -397,6 +416,7 @@ pub async fn delete(
                team as (delete from event_team where event_id in (select id from events)),
                links as (delete from ticket_links where event_id in (select id from events)),
                doors as (delete from door_accesses where event_id in (select id from events)),
+               guests as (delete from guest_list where event_id in (select id from events)),
                files as (delete from exports where event_id in (select id from events)),
                notes as (update ticket_voids set note = null where event_id in (select id from events))
                update events set name = $2, venue = null where organization_id = $1"#,

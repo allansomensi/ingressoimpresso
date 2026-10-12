@@ -24,4 +24,8 @@ outcome: ScanOutcome,
 /**
  * Unix milliseconds (phone clock corrected by the server offset).
  */
-scannedAtMs: number, };
+scannedAtMs: number, 
+/**
+ * Let in although this door does not take its category (ADR 0068).
+ */
+exception?: boolean, };

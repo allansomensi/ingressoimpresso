@@ -46,7 +46,7 @@ pub async fn list(
 ) -> ApiResult<Json<Vec<SellerDto>>> {
     authorize_event(&state.pool, &user, event_id).await?;
     let sellers = sqlx::query!(
-        "select id, name, phone from sellers where event_id = $1 order by name",
+        "select id, name, phone, box_office from sellers where event_id = $1 order by name",
         event_id
     )
     .fetch_all(&state.pool)
@@ -79,6 +79,7 @@ pub async fn list(
                 id: seller.id,
                 name: seller.name,
                 phone: seller.phone,
+                box_office: seller.box_office,
             })
             .collect(),
     ))
@@ -93,13 +94,15 @@ pub async fn create(
 ) -> ApiResult<(StatusCode, Json<SellerDto>)> {
     authorize_event(&state.pool, &user, event_id).await?;
     let (name, phone) = validate(&body)?;
+    let box_office = body.box_office.unwrap_or(false);
     let id = Uuid::new_v4();
     sqlx::query!(
-        "insert into sellers (id, event_id, name, phone) values ($1, $2, $3, $4)",
+        "insert into sellers (id, event_id, name, phone, box_office) values ($1, $2, $3, $4, $5)",
         id,
         event_id,
         name,
-        phone
+        phone,
+        box_office,
     )
     .execute(&state.pool)
     .await
@@ -117,6 +120,7 @@ pub async fn create(
             phone,
             ranges: Vec::new(),
             link: None,
+            box_office,
         }),
     ))
 }
@@ -139,11 +143,13 @@ pub async fn update(
 ) -> ApiResult<StatusCode> {
     seller_event(&state, &user, seller_id).await?;
     let (name, phone) = validate(&body)?;
+    // A missing `boxOffice` keeps the current choice (ADR 0069).
     sqlx::query!(
-        "update sellers set name = $2, phone = $3 where id = $1",
+        "update sellers set name = $2, phone = $3, box_office = coalesce($4, box_office) where id = $1",
         seller_id,
         name,
-        phone
+        phone,
+        body.box_office,
     )
     .execute(&state.pool)
     .await?;

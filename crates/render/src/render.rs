@@ -846,6 +846,13 @@ mod tests {
     }
 
     #[test]
+    fn sample_qr_text_is_the_door_constant() {
+        // The door app recognizes the sample by this exact text (ADR 0067):
+        // SAMPLE_QR_TEXT in apps/web/src/portaria/logic.ts.
+        assert_eq!(sample_qr_text(), format!("U50{}", "FGW".repeat(36)));
+    }
+
+    #[test]
     fn sample_qr_is_rejected_as_malformed() {
         let text = sample_qr_text();
         assert_eq!(text.len(), ticket_core::QR_TEXT_LEN);

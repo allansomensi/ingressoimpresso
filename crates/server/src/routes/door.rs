@@ -13,11 +13,12 @@ use uuid::Uuid;
 
 use super::{authorize_event, bounds, one_line};
 use crate::api::{
-    CreateDoorAccessBody, CreatedDoorAccess, DoorAccessDto, DoorCategoryRangeDto, DoorDeviceDto,
-    DoorEntryDto, DoorEventInfo, DoorFirstEntryDto, DoorKeyDto, DoorManifest, DoorOverviewDto,
-    DoorRegisterBody, DoorRegistration, DoorScanResult, DoorScanUpload, DoorScansBody,
-    DoorScansResponse, DoorSeatDto, DoorSellerRangeDto, DoorVerifierDto, DoorVoidDto, KeyStatus,
-    ScanClass, ScanOutcome, VoidReason,
+    CreateDoorAccessBody, CreatedDoorAccess, DoorAccessCategoriesBody, DoorAccessDto,
+    DoorCategoryRangeDto, DoorDeviceDto, DoorEntryDto, DoorEventInfo, DoorFirstEntryDto,
+    DoorKeyDto, DoorManifest, DoorOverviewDto, DoorRegisterBody, DoorRegistration, DoorRouteDto,
+    DoorScanResult, DoorScanUpload, DoorScansBody, DoorScansResponse, DoorSeatDto,
+    DoorSellerRangeDto, DoorVerifierDto, DoorVoidDto, KeyStatus, ScanClass, ScanOutcome,
+    VoidReason,
 };
 use crate::auth::{AuthUser, bearer_token, new_token, token_hash};
 use crate::error::{ApiError, ApiResult, bad_request};
@@ -31,6 +32,10 @@ const MAX_LABEL_CHARS: usize = 60;
 const MAX_DEVICE_NAME_CHARS: usize = 40;
 /// `last_seen_at` is written at most this often per phone (it syncs every few seconds).
 const LAST_SEEN_EVERY_SECONDS: f64 = 10.0;
+/// Most categories one door may be limited to (ADR 0068).
+const MAX_DOOR_CATEGORIES: usize = 50;
+/// Largest pending count a phone may report (anything above is clamped).
+const MAX_REPORTED_PENDING: i64 = 1_000_000;
 /// Printed digits when the event has no saved design yet (the default design's).
 const DEFAULT_DIGITS: i32 = 4;
 
@@ -42,6 +47,7 @@ struct AccessRow {
     expires_at: OffsetDateTime,
     revoked_at: Option<OffsetDateTime>,
     created_at: OffsetDateTime,
+    category_ids: Vec<Uuid>,
 }
 
 impl From<AccessRow> for DoorAccessDto {
@@ -52,6 +58,7 @@ impl From<AccessRow> for DoorAccessDto {
             expires_at: row.expires_at,
             revoked_at: row.revoked_at,
             created_at: row.created_at,
+            category_ids: row.category_ids,
         }
     }
 }
@@ -64,6 +71,9 @@ struct DeviceRow {
     last_seen_at: Option<OffsetDateTime>,
     revoked_at: Option<OffsetDateTime>,
     scan_count: i64,
+    rehearsed_at: Option<OffsetDateTime>,
+    last_sync_at: Option<OffsetDateTime>,
+    pending_scans: Option<i32>,
 }
 
 impl From<DeviceRow> for DoorDeviceDto {
@@ -76,6 +86,9 @@ impl From<DeviceRow> for DoorDeviceDto {
             last_seen_at: row.last_seen_at,
             revoked_at: row.revoked_at,
             scan_count: row.scan_count,
+            rehearsed_at: row.rehearsed_at,
+            last_sync_at: row.last_sync_at,
+            pending_scans: row.pending_scans,
         }
     }
 }
@@ -89,7 +102,10 @@ pub async fn overview(
     authorize_event(&state.pool, &user, event_id).await?;
     let accesses = sqlx::query_as!(
         AccessRow,
-        "select id, label, expires_at, revoked_at, created_at from door_accesses where event_id = $1 order by created_at desc",
+        r#"select a.id, a.label, a.expires_at, a.revoked_at, a.created_at,
+                  array(select c.category_id from door_access_categories c
+                        where c.door_access_id = a.id order by c.category_id) as "category_ids!"
+           from door_accesses a where a.event_id = $1 order by a.created_at desc"#,
         event_id
     )
     .fetch_all(&state.pool)
@@ -97,7 +113,8 @@ pub async fn overview(
     let devices = sqlx::query_as!(
         DeviceRow,
         r#"select d.id, d.door_access_id, d.name, d.created_at, d.last_seen_at, d.revoked_at,
-                  (select count(*) from scans s where s.device_id = d.id) as "scan_count!"
+                  (select count(*) from scans s where s.device_id = d.id) as "scan_count!",
+                  d.rehearsed_at, d.last_sync_at, d.pending_scans
            from door_devices d where d.event_id = $1 order by d.created_at desc"#,
         event_id
     )
@@ -132,21 +149,26 @@ pub async fn create_access(
         ));
     }
     one_line(label, "invalid_label")?;
+    let categories =
+        door_categories(&state, event_id, body.category_ids.unwrap_or_default()).await?;
     let (token, hash) = new_token()?;
-    let row = sqlx::query_as!(
-        AccessRow,
+    let id = Uuid::new_v4();
+    let mut tx = state.pool.begin().await?;
+    sqlx::query!(
         r#"insert into door_accesses (id, event_id, label, token_hash, expires_at, created_by)
-           values ($1, $2, $3, $4, $5, $6)
-           returning id, label, expires_at, revoked_at, created_at"#,
-        Uuid::new_v4(),
+           values ($1, $2, $3, $4, $5, $6)"#,
+        id,
         event_id,
         label,
         hash,
         event.ends_at + ACCESS_GRACE,
         user.id,
     )
-    .fetch_one(&state.pool)
+    .execute(&mut *tx)
     .await?;
+    set_categories(&mut tx, id, &categories).await?;
+    tx.commit().await?;
+    let row = access_row(&state, id).await?;
     Ok((
         StatusCode::CREATED,
         Json(CreatedDoorAccess {
@@ -170,15 +192,99 @@ pub async fn revoke_access(
     .await?
     .ok_or(ApiError::NotFound)?;
     authorize_event(&state.pool, &user, event_id).await?;
-    let row = sqlx::query_as!(
-        AccessRow,
-        r#"update door_accesses set revoked_at = coalesce(revoked_at, now()) where id = $1
-           returning id, label, expires_at, revoked_at, created_at"#,
+    sqlx::query!(
+        "update door_accesses set revoked_at = coalesce(revoked_at, now()) where id = $1",
         access_id
+    )
+    .execute(&state.pool)
+    .await?;
+    Ok(Json(access_row(&state, access_id).await?.into()))
+}
+
+/// `PUT /api/door-accesses/{id}/categories` (ADR 0068): which categories the door admits. Phones
+/// already registered with the link pick the change up on their next sync.
+pub async fn update_access_categories(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(access_id): Path<Uuid>,
+    Json(body): Json<DoorAccessCategoriesBody>,
+) -> ApiResult<Json<DoorAccessDto>> {
+    let event_id = sqlx::query_scalar!(
+        "select event_id from door_accesses where id = $1",
+        access_id
+    )
+    .fetch_optional(&state.pool)
+    .await?
+    .ok_or(ApiError::NotFound)?;
+    authorize_event(&state.pool, &user, event_id).await?;
+    let categories = door_categories(&state, event_id, body.category_ids).await?;
+    let mut tx = state.pool.begin().await?;
+    sqlx::query!(
+        "delete from door_access_categories where door_access_id = $1",
+        access_id
+    )
+    .execute(&mut *tx)
+    .await?;
+    set_categories(&mut tx, access_id, &categories).await?;
+    tx.commit().await?;
+    Ok(Json(access_row(&state, access_id).await?.into()))
+}
+
+/// Categories chosen for a door: distinct, at most [`MAX_DOOR_CATEGORIES`], all of the event.
+async fn door_categories(
+    state: &AppState,
+    event_id: Uuid,
+    mut ids: Vec<Uuid>,
+) -> ApiResult<Vec<Uuid>> {
+    ids.sort_unstable();
+    ids.dedup();
+    let invalid = || bad_request("invalid_door_categories", "unknown category");
+    if ids.len() > MAX_DOOR_CATEGORIES {
+        return Err(invalid());
+    }
+    if ids.is_empty() {
+        return Ok(ids);
+    }
+    let known = sqlx::query_scalar!(
+        r#"select count(*) as "count!" from ticket_categories where event_id = $1 and id = any($2)"#,
+        event_id,
+        &ids,
     )
     .fetch_one(&state.pool)
     .await?;
-    Ok(Json(row.into()))
+    if usize::try_from(known).ok() != Some(ids.len()) {
+        return Err(invalid());
+    }
+    Ok(ids)
+}
+
+async fn set_categories(
+    tx: &mut Transaction<'static, Postgres>,
+    access_id: Uuid,
+    categories: &[Uuid],
+) -> ApiResult<()> {
+    sqlx::query!(
+        r#"insert into door_access_categories (door_access_id, category_id)
+           select $1, unnest($2::uuid[]) on conflict do nothing"#,
+        access_id,
+        categories,
+    )
+    .execute(&mut **tx)
+    .await?;
+    Ok(())
+}
+
+async fn access_row(state: &AppState, access_id: Uuid) -> ApiResult<AccessRow> {
+    Ok(sqlx::query_as!(
+        AccessRow,
+        r#"select a.id, a.label, a.expires_at, a.revoked_at, a.created_at,
+                  array(select c.category_id from door_access_categories c
+                        where c.door_access_id = a.id order by c.category_id) as "category_ids!"
+           from door_accesses a where a.id = $1"#,
+        access_id
+    )
+    .fetch_one(&state.pool)
+    .await?)
 }
 
 /// `POST /api/door-devices/{id}/revoke`: cuts one phone.
@@ -197,7 +303,8 @@ pub async fn revoke_device(
         DeviceRow,
         r#"update door_devices set revoked_at = coalesce(revoked_at, now()) where id = $1
            returning id, door_access_id, name, created_at, last_seen_at, revoked_at,
-                     (select count(*) from scans s where s.device_id = $1) as "scan_count!""#,
+                     (select count(*) from scans s where s.device_id = $1) as "scan_count!",
+                     rehearsed_at, last_sync_at, pending_scans"#,
         device_id
     )
     .fetch_one(&state.pool)
@@ -217,6 +324,8 @@ pub struct DoorDevice {
     pub event_id: Uuid,
     /// Its name.
     pub name: String,
+    /// The access link it registered with.
+    pub access_id: Uuid,
 }
 
 impl FromRequestParts<AppState> for DoorDevice {
@@ -229,7 +338,7 @@ impl FromRequestParts<AppState> for DoorDevice {
         let hash = token_hash(bearer_token(parts)?);
         let device = sqlx::query_as!(
             DoorDevice,
-            r#"select d.id, d.event_id, d.name from door_devices d
+            r#"select d.id, d.event_id, d.name, d.door_access_id as access_id from door_devices d
                join door_accesses a on a.id = d.door_access_id
                where d.secret_hash = $1 and d.revoked_at is null and a.revoked_at is null
                  and a.expires_at > now()"#,
@@ -307,7 +416,7 @@ pub async fn register(
 
 async fn event_info(state: &AppState, event_id: Uuid) -> ApiResult<DoorEventInfo> {
     let row = sqlx::query!(
-        r#"select e.id, e.name, e.venue, e.starts_at, e.ends_at,
+        r#"select e.id, e.name, e.venue, e.starts_at, e.ends_at, e.ticket_price_cents,
                   coalesce((select (spec -> 'number' ->> 'digits')::int from ticket_designs
                             where event_id = e.id order by version desc limit 1), $2) as "digits!"
            from events e where e.id = $1"#,
@@ -324,13 +433,17 @@ async fn event_info(state: &AppState, event_id: Uuid) -> ApiResult<DoorEventInfo
         ends_at: row.ends_at,
         number_digits: u8::try_from(row.digits)
             .map_err(|_| ApiError::Internal(anyhow::anyhow!("invalid digits {}", row.digits)))?,
+        ticket_price_cents: row.ticket_price_cents,
     })
 }
 
-/// `?since=` of the manifest.
+/// `?since=` of the manifest; newer apps also send `pending` (what they still have to upload,
+/// ADR 0071) and `guests` (the version of the guest list they hold, ADR 0070).
 #[derive(Debug, Deserialize)]
 pub struct ManifestQuery {
     since: Option<String>,
+    pending: Option<i64>,
+    guests: Option<String>,
 }
 
 /// `GET /api/door/manifest?since=<cursor>`: keys, voids and sellers whole, admitted scans
@@ -357,6 +470,10 @@ pub async fn manifest(
     let voids = active_voids(&state, event_id).await?;
     let sellers = seller_ranges(&state, event_id).await?;
     let (categories, seats) = tags(&state, event_id).await?;
+    let (allowed_category_ids, doors) = doors(&state, &device).await?;
+    let (guests, guests_version) =
+        super::guests::door_list(&state, event_id, query.guests.as_deref()).await?;
+    record_sync(&state, device.id, query.pending).await?;
     // Every transaction below xmin has finished: its rows are visible to the next statement.
     let xmin = sqlx::query_scalar!(
         r#"select pg_snapshot_xmin(pg_current_snapshot())::text::bigint as "xmin!""#
@@ -364,6 +481,7 @@ pub async fn manifest(
     .fetch_one(&state.pool)
     .await?;
     let entries = entries_between(&state, event_id, since, xmin).await?;
+    let guest_arrivals = super::guests::arrivals_between(&state, event_id, since, xmin).await?;
     Ok(Json(DoorManifest {
         device_id: device.id,
         device_name: device.name,
@@ -376,7 +494,62 @@ pub async fn manifest(
         entries,
         cursor: since.max(xmin).to_string(),
         server_time_ms: unix_ms(OffsetDateTime::now_utc()),
+        allowed_category_ids,
+        doors,
+        guests,
+        guests_version,
+        guest_arrivals,
     }))
+}
+
+/// When the phone last synced and what it still had to send (ADR 0071). Written at most every
+/// few seconds unless the pending count changed, like `last_seen_at`.
+async fn record_sync(state: &AppState, device_id: Uuid, pending: Option<i64>) -> ApiResult<()> {
+    let pending = pending
+        .map(|value| i32::try_from(value.clamp(0, MAX_REPORTED_PENDING)))
+        .transpose()
+        .map_err(|error| ApiError::Internal(error.into()))?;
+    sqlx::query!(
+        r#"update door_devices set last_sync_at = now(), pending_scans = coalesce($2, pending_scans)
+           where id = $1
+             and (last_sync_at is null or last_sync_at < now() - make_interval(secs => $3)
+                  or pending_scans is distinct from coalesce($2, pending_scans))"#,
+        device_id,
+        pending,
+        LAST_SEEN_EVERY_SECONDS,
+    )
+    .execute(&state.pool)
+    .await?;
+    Ok(())
+}
+
+/// The categories this phone's door admits and the event's other open doors (ADR 0068).
+async fn doors(state: &AppState, device: &DoorDevice) -> ApiResult<(Vec<Uuid>, Vec<DoorRouteDto>)> {
+    let rows = sqlx::query!(
+        r#"select a.id, a.label,
+                  array(select c.category_id from door_access_categories c
+                        where c.door_access_id = a.id order by c.category_id) as "category_ids!"
+           from door_accesses a
+           where a.event_id = $1 and (a.id = $2 or (a.revoked_at is null and a.expires_at > now()))
+           order by a.label, a.created_at"#,
+        device.event_id,
+        device.access_id,
+    )
+    .fetch_all(&state.pool)
+    .await?;
+    let mut allowed = Vec::new();
+    let mut others = Vec::new();
+    for row in rows {
+        if row.id == device.access_id {
+            allowed = row.category_ids;
+        } else {
+            others.push(DoorRouteDto {
+                label: row.label,
+                category_ids: row.category_ids,
+            });
+        }
+    }
+    Ok((allowed, others))
 }
 
 async fn verifier(state: &AppState, event_id: Uuid) -> ApiResult<DoorVerifierDto> {
@@ -434,7 +607,7 @@ async fn tags(
     event_id: Uuid,
 ) -> ApiResult<(Vec<DoorCategoryRangeDto>, Vec<DoorSeatDto>)> {
     let categories = sqlx::query!(
-        r#"select c.name, c.color, r.numbers from category_ranges r
+        r#"select c.id, c.name, c.color, c.price_cents, r.numbers from category_ranges r
            join ticket_categories c on c.id = r.category_id
            where r.event_id = $1 order by lower(r.numbers)"#,
         event_id
@@ -445,10 +618,12 @@ async fn tags(
     .map(|row| {
         let (first, last) = unsigned_bounds(&row.numbers)?;
         Ok(DoorCategoryRangeDto {
+            id: row.id,
             name: row.name,
             color: row.color,
             first,
             last,
+            price_cents: row.price_cents,
         })
     })
     .collect::<ApiResult<Vec<_>>>()?;
@@ -472,7 +647,7 @@ async fn tags(
 
 async fn seller_ranges(state: &AppState, event_id: Uuid) -> ApiResult<Vec<DoorSellerRangeDto>> {
     sqlx::query!(
-        r#"select s.name, a.numbers from seller_assignments a join sellers s on s.id = a.seller_id
+        r#"select s.name, s.box_office, a.numbers from seller_assignments a join sellers s on s.id = a.seller_id
            where a.event_id = $1 order by lower(a.numbers)"#,
         event_id
     )
@@ -485,6 +660,7 @@ async fn seller_ranges(state: &AppState, event_id: Uuid) -> ApiResult<Vec<DoorSe
             seller: row.name,
             first,
             last,
+            box_office: row.box_office,
         })
     })
     .collect()
@@ -570,6 +746,7 @@ struct ValidScan {
     key_id: Option<i16>,
     outcome: ScanOutcome,
     scanned_at: OffsetDateTime,
+    exception: bool,
 }
 
 impl TryFrom<&DoorScanUpload> for ValidScan {
@@ -582,7 +759,14 @@ impl TryFrom<&DoorScanUpload> for ValidScan {
             .map(|number| i32::try_from(number).ok().filter(|number| *number >= 1))
             .map(|number| number.ok_or_else(invalid))
             .transpose()?;
-        if scan.outcome == ScanOutcome::Admitted && number.is_none() {
+        let exception = scan.exception.unwrap_or(false);
+        // Only an authentic ticket of this event can be at the wrong door, or let in anyway.
+        if (matches!(
+            scan.outcome,
+            ScanOutcome::Admitted | ScanOutcome::RejectedWrongDoor
+        ) && number.is_none())
+            || (exception && scan.outcome != ScanOutcome::Admitted)
+        {
             return Err(invalid());
         }
         let scanned_at =
@@ -594,6 +778,7 @@ impl TryFrom<&DoorScanUpload> for ValidScan {
             key_id: scan.key_id.map(i16::from),
             outcome: scan.outcome,
             scanned_at,
+            exception,
         })
     }
 }
@@ -660,8 +845,8 @@ async fn record_scan(
     };
     sqlx::query!(
         r#"insert into scans (id, event_id, device_id, ticket_number, key_id, local_outcome, scanned_at,
-                              confirmed_online, server_class)
-           values ($1, $2, $3, $4, $5, $6, $7, $8, $9) on conflict (id) do nothing"#,
+                              confirmed_online, server_class, door_exception)
+           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) on conflict (id) do nothing"#,
         scan.id,
         device.event_id,
         device.id,
@@ -671,6 +856,7 @@ async fn record_scan(
         scan.scanned_at,
         confirm,
         class.map(ScanClass::db),
+        scan.exception,
     )
     .execute(&mut **tx)
     .await?;
@@ -747,6 +933,6 @@ fn unsigned_bounds(range: &PgRange<i32>) -> ApiResult<(u32, u32)> {
     clippy::cast_possible_truncation,
     reason = "Unix milliseconds of any timestamptz fit in i64"
 )]
-fn unix_ms(at: OffsetDateTime) -> i64 {
+pub(crate) fn unix_ms(at: OffsetDateTime) -> i64 {
     (at.unix_timestamp_nanos() / 1_000_000) as i64
 }

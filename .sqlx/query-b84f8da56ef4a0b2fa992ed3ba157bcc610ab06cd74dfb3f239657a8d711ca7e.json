@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select s.name, s.box_office, a.numbers from seller_assignments a join sellers s on s.id = a.seller_id\n           where a.event_id = $1 order by lower(a.numbers)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "sellers",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "box_office",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "sellers",
+            "name": "box_office"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "numbers",
+        "type_info": "Int4Range",
+        "origin": {
+          "Table": {
+            "table": "seller_assignments",
+            "name": "numbers"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "b84f8da56ef4a0b2fa992ed3ba157bcc610ab06cd74dfb3f239657a8d711ca7e"
+}

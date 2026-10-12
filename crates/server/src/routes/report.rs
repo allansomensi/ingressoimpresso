@@ -34,6 +34,11 @@ struct Counts {
     due_cents: i64,
     /// Declared sold numbers without any price: the amount due cannot be known.
     unpriced: i64,
+    /// Sold: tickets − unsold − lost, or the entries of a box office (ADR 0069).
+    declared_sold: i64,
+    /// Entered numbers × their price, and how many entered without one (box office).
+    entered_due_cents: i64,
+    entered_unpriced: i64,
 }
 
 impl Counts {
@@ -50,12 +55,30 @@ impl Counts {
         self.marked_sold += other.marked_sold;
         self.due_cents += other.due_cents;
         self.unpriced += other.unpriced;
+        self.declared_sold += other.declared_sold;
+        self.entered_due_cents += other.entered_due_cents;
+        self.entered_unpriced += other.entered_unpriced;
+    }
+
+    /// A box office sells at the door (ADR 0069): what entered is what was sold, and what it owes
+    /// is the price of what entered, whatever it gave back.
+    fn as_box_office(mut self) -> Self {
+        self.declared_sold = self.entries;
+        self.due_cents = self.entered_due_cents;
+        self.unpriced = self.entered_unpriced;
+        self
     }
 
     /// A report line. `owed`: a seller answers for these tickets; unassigned ones have no
     /// balance.
-    fn row(self, seller: Option<(Uuid, String)>, priced: bool, owed: bool) -> ReportRowDto {
-        let declared_sold = self.tickets - self.unsold - self.lost;
+    fn row(
+        self,
+        seller: Option<(Uuid, String)>,
+        priced: bool,
+        owed: bool,
+        box_office: bool,
+    ) -> ReportRowDto {
+        let declared_sold = self.declared_sold;
         let amount_due_cents = (priced && self.unpriced == 0).then_some(self.due_cents);
         let (seller_id, seller) = seller.unzip();
         ReportRowDto {
@@ -76,6 +99,7 @@ impl Counts {
                 .filter(|_| owed)
                 .map(|due| due - self.received_cents),
             marked_sold: self.marked_sold,
+            box_office,
         }
     }
 }
@@ -106,7 +130,7 @@ pub(crate) async fn build(state: &AppState, event: &EventRow) -> ApiResult<Event
     let mut by_seller = counts_by_seller(state, event_id, price).await?;
 
     let sellers = sqlx::query!(
-        "select id, name from sellers where event_id = $1 order by name",
+        "select id, name, box_office from sellers where event_id = $1 order by name",
         event_id
     )
     .fetch_all(&state.pool)
@@ -126,16 +150,24 @@ pub(crate) async fn build(state: &AppState, event: &EventRow) -> ApiResult<Event
     let mut rows = Vec::with_capacity(sellers.len());
     for seller in sellers {
         let mut counts = by_seller.remove(&Some(seller.id)).unwrap_or_default();
+        if seller.box_office {
+            counts = counts.as_box_office();
+        }
         counts.received_cents = received.get(&seller.id).copied().unwrap_or_default();
         totals.add(counts);
         owed.add(counts);
-        rows.push(counts.row(Some((seller.id, seller.name)), priced, true));
+        rows.push(counts.row(
+            Some((seller.id, seller.name)),
+            priced,
+            true,
+            seller.box_office,
+        ));
     }
     let unassigned = by_seller.remove(&None).unwrap_or_default();
     totals.add(unassigned);
     // The total balance is what sellers still owe (net): unassigned tickets are nobody's debt.
-    let mut totals_row = totals.row(None, priced, false);
-    totals_row.balance_cents = owed.row(None, priced, true).balance_cents;
+    let mut totals_row = totals.row(None, priced, false, false);
+    totals_row.balance_cents = owed.row(None, priced, true, false).balance_cents;
 
     let devices = sqlx::query_as!(
         ReportDeviceDto,
@@ -166,7 +198,7 @@ pub(crate) async fn build(state: &AppState, event: &EventRow) -> ApiResult<Event
     Ok(EventReportDto {
         ticket_price_cents: price,
         sellers: rows,
-        unassigned: unassigned.row(None, priced, false),
+        unassigned: unassigned.row(None, priced, false, false),
         categories: by_category(state, event_id, price).await?,
         totals: totals_row,
         devices,
@@ -216,7 +248,11 @@ async fn counts_by_seller(
                   coalesce(sum(coalesce(tc.price_cents, $2::int4))
                            filter (where v.reason is distinct from 'unsold' and v.reason is distinct from 'lost'), 0)::bigint as "due_cents!",
                   count(*) filter (where v.reason is distinct from 'unsold' and v.reason is distinct from 'lost'
-                                     and coalesce(tc.price_cents, $2::int4) is null) as "unpriced!"
+                                     and coalesce(tc.price_cents, $2::int4) is null) as "unpriced!",
+                  coalesce(sum(coalesce(tc.price_cents, $2::int4))
+                           filter (where e.ticket_number is not null), 0)::bigint as "entered_due_cents!",
+                  count(*) filter (where e.ticket_number is not null
+                                     and coalesce(tc.price_cents, $2::int4) is null) as "entered_unpriced!"
            from issued i
            left join seller_assignments a on a.event_id = $1 and a.numbers @> i.number
            left join voided v on v.number = i.number
@@ -250,6 +286,9 @@ async fn counts_by_seller(
                     marked_sold: line.marked_sold,
                     due_cents: line.due_cents,
                     unpriced: line.unpriced,
+                    declared_sold: line.tickets - line.unsold - line.lost,
+                    entered_due_cents: line.entered_due_cents,
+                    entered_unpriced: line.entered_unpriced,
                 },
             )
         })
@@ -258,7 +297,7 @@ async fn counts_by_seller(
 
 /// Paid tickets by category (ADR 0056): how many, declared sold, entries and the amount at the
 /// category's price. Empty when the event has no categories.
-async fn by_category(
+pub(crate) async fn by_category(
     state: &AppState,
     event_id: Uuid,
     price: Option<i32>,

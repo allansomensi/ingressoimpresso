@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update door_accesses set revoked_at = coalesce(revoked_at, now()) where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c3e9c43023394dda220b16c376b0b1553ceb59f346ff53591426390da2d3607b"
+}

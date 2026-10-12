@@ -65,4 +65,8 @@ balanceCents: number | null,
 /**
  * Marked as sold by the seller on their link (ADR 0053), not voided.
  */
-markedSold: number, };
+markedSold: number, 
+/**
+ * A box office seller (ADR 0069): sold = numbers that entered.
+ */
+boxOffice: boolean, };

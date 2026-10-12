@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into door_access_categories (door_access_id, category_id)\n           select $1, unnest($2::uuid[]) on conflict do nothing",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "UuidArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9272fa85d8f8ffb5607994a8cec04e25ba96bae704aac4e928a3e7d33f2d2d3b"
+}

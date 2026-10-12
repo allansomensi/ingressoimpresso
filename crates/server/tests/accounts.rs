@@ -266,6 +266,12 @@ async fn holders_export_their_data(pool: PgPool) {
         )
         .await;
     assert_eq!(seller.status, StatusCode::CREATED);
+    app.post(
+        &format!("/api/events/{event}/guests"),
+        &token,
+        json!({ "name": "Maria Souza", "companions": 1 }),
+    )
+    .await;
     let reply = app.get("/api/account/export", &token).await;
     assert_eq!(reply.status, StatusCode::OK);
     assert!(
@@ -279,6 +285,7 @@ async fn holders_export_their_data(pool: PgPool) {
     assert_eq!(export["events"][0]["name"], "Show de Lançamento");
     assert_eq!(export["events"][0]["batches"][0]["paidVia"], "free");
     assert_eq!(export["events"][0]["sellers"][0]["phone"], "11 98888-7777");
+    assert_eq!(export["events"][0]["guestList"][0]["name"], "Maria Souza");
 }
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
@@ -324,6 +331,12 @@ async fn deleting_keeps_only_fiscal_records(pool: PgPool) {
         json!({ "name": "João" }),
     )
     .await;
+    app.post(
+        &format!("/api/events/{event}/guests"),
+        &token,
+        json!({ "name": "Convidada" }),
+    )
+    .await;
     let deleted = app
         .delete(
             "/api/account",
@@ -343,6 +356,13 @@ async fn deleting_keeps_only_fiscal_records(pool: PgPool) {
     .await
     .unwrap();
     assert_eq!(kept, ("Evento excluído".to_owned(), 1, 0));
+    let guests: i64 =
+        sqlx::query_scalar("select count(*) from guest_list where event_id = $1::uuid")
+            .bind(&event)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(guests, 0);
     let email_left: i64 =
         sqlx::query_scalar("select count(*) from users where email = 'banda@exemplo.com'")
             .fetch_one(&pool)

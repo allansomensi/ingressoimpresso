@@ -22,8 +22,9 @@ use crate::error::ApiError;
 use crate::routes::events::MAX_ART_BYTES;
 use crate::routes::{
     account, admin, analytics, announcements, batches, billing, categories, changelog, door,
-    events, exports, ledger, mail_admin, moderation, platform, privacy, refunds, report,
-    seller_links, sellers, settlement, status, support, tables, team, tickets, two_factor, voids,
+    door_live, door_rehearsal, events, exports, guests, ledger, mail_admin, moderation, platform,
+    privacy, refunds, report, seller_links, sellers, settlement, status, support, tables, team,
+    tickets, two_factor, voids,
 };
 use crate::state::AppState;
 
@@ -277,6 +278,24 @@ pub fn router(state: AppState) -> Router {
         .route("/door/register", post(door::register))
         .route("/door/manifest", get(door::manifest))
         .route("/door/scans", post(door::upload_scans))
+        // Door features (ADRs 0067–0071).
+        .route(
+            "/door-accesses/{id}/categories",
+            put(door::update_access_categories),
+        )
+        .route("/door/rehearsal", post(door_rehearsal::done))
+        .route(
+            "/events/{id}/door/rehearsal-sheet",
+            get(door_rehearsal::sheet),
+        )
+        .route("/events/{id}/door/live", get(door_live::live))
+        .route(
+            "/events/{id}/guests",
+            get(guests::list).post(guests::create),
+        )
+        .route("/events/{id}/guests/bulk", post(guests::create_bulk))
+        .route("/guests/{id}", put(guests::update).delete(guests::delete))
+        .route("/door/guests", post(guests::upload))
         .fallback(not_found)
         .layer(DefaultBodyLimit::max(JSON_BODY_LIMIT))
         // Axum's own rejections (bad JSON, a malformed id, a body too large) answer plain text;

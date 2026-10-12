@@ -27,4 +27,8 @@ endsAt: string,
 /**
  * Digits of printed numbers (zero padded).
  */
-numberDigits: number, };
+numberDigits: number, 
+/**
+ * Ticket price, charged by the box office (ADR 0069) when the category has none.
+ */
+ticketPriceCents: number | null, };

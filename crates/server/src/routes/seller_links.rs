@@ -279,11 +279,13 @@ async fn held_ranges(state: &AppState, link: &LinkRow) -> ApiResult<Vec<NumberRa
         .collect()
 }
 
-/// What the seller answers for (held, not returned unsold nor lost), by price.
+/// What the seller answers for (held, not returned unsold nor lost), by price. A box office
+/// answers for what entered (ADR 0069).
 async fn due_lines(
     state: &AppState,
     link: &LinkRow,
     price: Option<i32>,
+    box_office: bool,
 ) -> ApiResult<Vec<SellerDueLineDto>> {
     Ok(sqlx::query!(
         r#"with held as (
@@ -298,14 +300,18 @@ async fn due_lines(
            from held h
            left join category_ranges cr on cr.event_id = $1 and cr.numbers @> h.number
            left join ticket_categories tc on tc.id = cr.category_id
-           where not exists (select 1 from ticket_voids v
-                             where v.event_id = $1 and v.undone_at is null and v.numbers @> h.number
-                               and v.reason in ('unsold', 'lost'))
+           where case when $4::bool
+                      then exists (select 1 from entries e where e.event_id = $1 and e.ticket_number = h.number)
+                      else not exists (select 1 from ticket_voids v
+                                       where v.event_id = $1 and v.undone_at is null and v.numbers @> h.number
+                                         and v.reason in ('unsold', 'lost'))
+                 end
            group by tc.name, tc.color, tc.price_cents, tc.position
            order by tc.position nulls last, tc.name"#,
         link.event_id,
         link.seller_id,
         price,
+        box_office,
     )
     .fetch_all(&state.pool)
     .await?
@@ -372,7 +378,7 @@ async fn sales(state: &AppState, link: &LinkRow) -> ApiResult<Vec<SellerSaleDto>
 async fn view(state: &AppState, link: &LinkRow) -> ApiResult<SellerViewDto> {
     let event = sqlx::query!(
         r#"select e.name, e.venue, e.starts_at, e.utc_offset_minutes, e.ticket_price_cents,
-                  e.sellers_send_tickets, o.name as organizer, s.name as seller
+                  e.sellers_send_tickets, o.name as organizer, s.name as seller, s.box_office
            from events e join organizations o on o.id = e.organization_id
                          join sellers s on s.id = $2
            where e.id = $1"#,
@@ -414,8 +420,12 @@ async fn view(state: &AppState, link: &LinkRow) -> ApiResult<SellerViewDto> {
     .fetch_one(&state.pool)
     .await?;
     let received_cents: i64 = payments.iter().map(|p| i64::from(p.amount_cents)).sum();
-    let due_tickets = counts.tickets - counts.unsold - counts.lost;
-    let due_lines = due_lines(state, link, event.ticket_price_cents).await?;
+    let due_lines = due_lines(state, link, event.ticket_price_cents, event.box_office).await?;
+    let due_tickets = if event.box_office {
+        due_lines.iter().map(|line| line.tickets).sum()
+    } else {
+        counts.tickets - counts.unsold - counts.lost
+    };
     let amount_due_cents = due_lines
         .iter()
         .map(|line| {
@@ -460,6 +470,7 @@ async fn view(state: &AppState, link: &LinkRow) -> ApiResult<SellerViewDto> {
         categories: categories(state, link.event_id, event.ticket_price_cents).await?,
         receivers: super::team::receivers(state, link.event_id).await?,
         can_send_tickets: event.sellers_send_tickets,
+        box_office: event.box_office,
     })
 }
 

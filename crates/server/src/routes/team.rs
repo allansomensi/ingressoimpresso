@@ -99,10 +99,17 @@ pub fn need(method: &Method, path: &str) -> Need {
         ("POST", "sellers/{id}/payments" | "sellers/{id}/returns" | "events/{id}/ledger")
         | ("PUT", "ledger/{id}")
         | ("DELETE", "seller-payments/{id}" | "ledger/{id}") => Need::Area(TeamArea::Money),
+        // Door links, door by category and the guest list (ADRs 0068, 0070).
         (
             "POST",
-            "events/{id}/door/accesses" | "door-accesses/{id}/revoke" | "door-devices/{id}/revoke",
-        ) => Need::Area(TeamArea::Door),
+            "events/{id}/door/accesses"
+            | "door-accesses/{id}/revoke"
+            | "door-devices/{id}/revoke"
+            | "events/{id}/guests"
+            | "events/{id}/guests/bulk",
+        )
+        | ("PUT", "door-accesses/{id}/categories" | "guests/{id}")
+        | ("DELETE", "guests/{id}") => Need::Area(TeamArea::Door),
         // Categories set prices, so they belong to coordination.
         ("PUT", "events/{id}" | "team-members/{id}" | "categories/{id}")
         | (
@@ -641,6 +648,31 @@ mod tests {
             (Method::PUT, "events/{id}/status", Need::Owner),
             (Method::POST, "events/{id}/duplicate", Need::Owner),
             (Method::POST, "events/{id}/something-new", Need::Owner),
+        ];
+        for (method, template, expected) in cases {
+            assert_eq!(
+                need(&method, &path(template)),
+                expected,
+                "{method} {template}"
+            );
+        }
+    }
+
+    #[test]
+    fn door_features_belong_to_the_door() {
+        let cases = [
+            (
+                Method::PUT,
+                "door-accesses/{id}/categories",
+                Need::Area(TeamArea::Door),
+            ),
+            (
+                Method::POST,
+                "events/{id}/guests/bulk",
+                Need::Area(TeamArea::Door),
+            ),
+            (Method::DELETE, "guests/{id}", Need::Area(TeamArea::Door)),
+            (Method::GET, "events/{id}/door/live", Need::Read),
         ];
         for (method, template, expected) in cases {
             assert_eq!(

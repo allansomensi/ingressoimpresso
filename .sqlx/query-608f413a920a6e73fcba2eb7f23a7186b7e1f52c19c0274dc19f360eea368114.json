@@ -1,0 +1,32 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with bins as (\n               select generate_series(\n                   date_bin('5 minutes', $2::timestamptz, timestamptz '2000-01-01') - make_interval(mins => 5 * ($3::int - 1)),\n                   date_bin('5 minutes', $2::timestamptz, timestamptz '2000-01-01'),\n                   interval '5 minutes') as start\n           )\n           select b.start as \"start!\", count(s.id) as \"entries!\"\n           from bins b\n           left join (entries e join scans s on s.id = e.first_scan_id)\n             on e.event_id = $1 and s.scanned_at >= b.start and s.scanned_at < b.start + interval '5 minutes'\n           group by b.start order by b.start",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "start!",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "entries!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Timestamptz",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "608f413a920a6e73fcba2eb7f23a7186b7e1f52c19c0274dc19f360eea368114"
+}

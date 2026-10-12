@@ -50,6 +50,7 @@ function sellersTotal(rows: readonly ReportRowDto[]): ReportRowDto {
     receivedCents: sum((row) => row.receivedCents),
     balanceCents: due === null ? null : due - sum((row) => row.receivedCents),
     markedSold: sum((row) => row.markedSold),
+    boxOffice: false,
   };
 }
 
