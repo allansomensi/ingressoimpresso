@@ -122,16 +122,6 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   os antigos. Remetente único dos e-mails em `config::DEFAULT_MAIL_FROM`
   (`contato@ingressoimpresso.com.br`), `MAIL_FROM` sobrescreve; o domínio raiz já envia nos dois
   ambientes. Falta o que depende do mantenedor: `charge.refunded` no webhook da Stripe.
-- **Portaria do dia (ADRs 0067–0071): implementada.** Modo ensaio no app (`DoorCore.evaluate`,
-  nada gravado; a amostra é reconhecida por `SAMPLE_QR_TEXT` = `sample_qr_text()`), `POST
-  /api/door/rehearsal` e folha de ensaio em PDF (`routes/door_rehearsal.rs`); links que aceitam só
-  algumas categorias (`door_access_categories`, desfecho `rejected_wrong_door`, exceção em
-  `scans.door_exception`); bilheteria (`sellers.box_office`: vendido = entrou); lista de nomes
-  (`guest_list`, `guest_arrivals` com o mesmo cursor `xid8`; desfazer dá `txid` novo,
-  `routes/guests.rs`); aba **Ao vivo** (`GET /api/events/{id}/door/live`, `routes/door_live.rs`,
-  `pending_scans`/`last_sync_at` dos celulares). Campos novos do manifesto são opcionais para o
-  app antigo; `just e2e` cobre ensaio, porta errada e lista (`E2E_API_PORT`/`E2E_WEB_PORT`).
-
 - **Perfil da organização, adiar ou cancelar, extras do ingresso digital (ADRs 0064–0066):
   implementados.** Perfil público em `/painel/organizacao` (`organization_profiles`,
   `routes/organization.rs`): logo moderado como a arte (um `blob` da organização:
@@ -142,7 +132,16 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   checkout e vendas do vendedor (`event_canceled`), a portaria só mostra a faixa; mensagem pronta e
   aviso no sininho. No ingresso digital, `.ics` feito no navegador, rota no mapa e o salão com a
   mesa do portador (`tableMap`, sem ocupação), tudo offline.
-
+- **Portaria do dia (ADRs 0067–0071): implementada.** Modo ensaio discreto no app (só no fim do
+  menu ⋮ e só antes da primeira entrada; `DoorCore.evaluate`, nada gravado, "ENTRARIA" em amarelo;
+  a amostra é reconhecida por `SAMPLE_QR_TEXT` = `sample_qr_text()`), `POST /api/door/rehearsal`
+  e folha de ensaio em PDF (`routes/door_rehearsal.rs`); links que aceitam só
+  algumas categorias (`door_access_categories`, desfecho `rejected_wrong_door`, exceção em
+  `scans.door_exception`); bilheteria (`sellers.box_office`: vendido = entrou); lista de nomes
+  (`guest_list`, `guest_arrivals` com o mesmo cursor `xid8`; desfazer dá `txid` novo,
+  `routes/guests.rs`); aba **Ao vivo** (`GET /api/events/{id}/door/live`, `routes/door_live.rs`,
+  `pending_scans`/`last_sync_at` dos celulares). Campos novos do manifesto são opcionais para o
+  app antigo; `just e2e` cobre ensaio, porta errada e lista (`E2E_API_PORT`/`E2E_WEB_PORT`).
 - **Reservas, metas e ranking, link do vendedor offline (ADRs 0072–0074): implementados.**
   Reservas por número com prazo no horário do evento (`ticket_reservations`, ativa enquanto
   `expires_at > now()`, `jobs::prune` apaga as vencidas há 7 dias; nunca vão à portaria; a
@@ -162,7 +161,6 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   em dinheiro a partir do mínimo, as duas ganham crédito na transação que muda o lote para pago
   (`reward_paid_batch`, uma vez); estorno total revoga o que sobrou (`revoke_for_batch` em
   `refund_batch`). Cartão em Minha conta e seção Indicações no admin.
-
 - **Várias datas e lista do que falta (ADRs 0077, 0078): implementados.** Cada data é um evento
   inteiro (chave, `qr_tag`, lotes, portaria e acerto próprios) ligado por `event_series`
   (`events.series_id`; série tem 2+ datas, 60 no máximo): `POST /api/events/{id}/dates` copia a

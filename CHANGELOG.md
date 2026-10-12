@@ -88,9 +88,9 @@ e não acompanha estes números.
 
 ### Corrigido
 
-- Duplicar um evento passa a manter se os vendedores mandam ingressos no celular e se a
-  conferência pública está ligada.
-
+- Duplicar um evento (ou adicionar outra data) passa a manter a bilheteria e a meta de cada
+  vendedor, se os vendedores mandam ingressos no celular e veem o ranking, e se a conferência
+  pública está ligada.
 - A imagem do ingresso no celular com a arte passa a mostrar a data, o local e o preço atuais
   depois de uma mudança no evento (antes ficava a versão antiga por até um dia).
 
