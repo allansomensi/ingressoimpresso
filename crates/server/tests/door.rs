@@ -171,7 +171,7 @@ async fn scans_are_classified_once_across_phones(pool: PgPool) {
     );
     assert_eq!(
         start["sellers"],
-        json!([{ "seller": "João", "first": 1, "last": 5 }])
+        json!([{ "seller": "João", "first": 1, "last": 5, "boxOffice": false }])
     );
     let cursor = start["cursor"].as_str().unwrap().to_owned();
 

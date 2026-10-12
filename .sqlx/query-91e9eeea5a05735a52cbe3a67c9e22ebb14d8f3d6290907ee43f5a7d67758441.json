@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update events set public_verify = $2 where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "91e9eeea5a05735a52cbe3a67c9e22ebb14d8f3d6290907ee43f5a7d67758441"
+}

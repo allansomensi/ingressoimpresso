@@ -1,0 +1,85 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select a.id, a.guest_id, a.people, a.arrived_at, a.undone_at is not null as \"undone!\", d.name\n           from guest_arrivals a join door_devices d on d.id = a.device_id\n           where a.event_id = $1\n             and a.txid >= $2::bigint::text::xid8 and a.txid < $3::bigint::text::xid8\n           order by a.txid, a.id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "guest_arrivals",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "guest_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "guest_arrivals",
+            "name": "guest_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "people",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "guest_arrivals",
+            "name": "people"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "arrived_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "guest_arrivals",
+            "name": "arrived_at"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "undone!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "door_devices",
+            "name": "name"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      null,
+      false
+    ]
+  },
+  "hash": "0414e2f020720cab4ecb8fcfa4254e3d1cd957008b3d02f3239dab41d1a8a47f"
+}

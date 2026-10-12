@@ -206,8 +206,9 @@ async fn try_check_art(state: &AppState, blob_id: Uuid) -> ApiResult<()> {
         return Ok(());
     };
     let Some(blob) = sqlx::query!(
-        r#"select b.data, b.moderation_status, b.event_id, e.organization_id
-           from blobs b join events e on e.id = b.event_id where b.id = $1"#,
+        r#"select b.data, b.moderation_status, b.event_id,
+                  coalesce(e.organization_id, b.organization_id) as "organization_id!"
+           from blobs b left join events e on e.id = b.event_id where b.id = $1"#,
         blob_id
     )
     .fetch_optional(&state.pool)

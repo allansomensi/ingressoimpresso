@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update door_devices set rehearsed_at = now() where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "01be73eb2759897628082cb6615efa6734e0de3a04b9bc0b8ce5aa435d5b40db"
+}

@@ -1,0 +1,143 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select o.name, p.brand_color as \"brand_color?\", p.whatsapp as \"whatsapp?\",\n                  p.contact_email::text as \"contact_email?\", p.website as \"website?\",\n                  p.instagram as \"instagram?\", p.default_venue as \"default_venue?\",\n                  p.default_address as \"default_address?\",\n                  p.default_ticket_price_cents as \"default_ticket_price_cents?\",\n                  b.id as \"logo_id?\", b.moderation_status as \"logo_moderation?\"\n           from organizations o\n           left join organization_profiles p on p.organization_id = o.id\n           left join blobs b on b.id = p.logo_blob_id\n           where o.id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "organizations",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "brand_color?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "organization_profiles",
+            "name": "brand_color"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "whatsapp?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "organization_profiles",
+            "name": "whatsapp"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "contact_email?",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "website?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "organization_profiles",
+            "name": "website"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "instagram?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "organization_profiles",
+            "name": "instagram"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "default_venue?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "organization_profiles",
+            "name": "default_venue"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "default_address?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "organization_profiles",
+            "name": "default_address"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "default_ticket_price_cents?",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "organization_profiles",
+            "name": "default_ticket_price_cents"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "logo_id?",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "blobs",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "logo_moderation?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "blobs",
+            "name": "moderation_status"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      null,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "0bda24a51e14410cf5cc10b3cf583801bbcedae3d4b939539f598df6c4a87e54"
+}

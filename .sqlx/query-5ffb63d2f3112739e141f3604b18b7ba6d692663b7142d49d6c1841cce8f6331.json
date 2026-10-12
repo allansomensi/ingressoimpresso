@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update guest_arrivals set undone_at = $2, txid = pg_current_xact_id()\n                           where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "5ffb63d2f3112739e141f3604b18b7ba6d692663b7142d49d6c1841cce8f6331"
+}

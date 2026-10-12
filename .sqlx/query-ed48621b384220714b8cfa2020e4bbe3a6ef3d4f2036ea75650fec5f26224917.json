@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select referral_code from organizations where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "referral_code",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "organizations",
+            "name": "referral_code"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "ed48621b384220714b8cfa2020e4bbe3a6ef3d4f2036ea75650fec5f26224917"
+}

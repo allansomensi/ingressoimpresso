@@ -8,6 +8,7 @@ import {
   SearchX,
   Ban,
   CalendarDays,
+  CalendarRange,
   ChevronLeft,
   FileDown,
   LayoutDashboard,
@@ -22,6 +23,8 @@ import {
   Layers,
   Tags,
   LifeBuoy,
+  Activity,
+  ListChecks,
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
@@ -33,12 +36,15 @@ import { AreaGate, EventAccessProvider } from "@/components/event/access";
 import { SectionsSheet } from "@/components/event/sections-sheet";
 import { STRIP_TABS, tabFromSlug, tabSlug, type Tab } from "@/components/event/tabs";
 import { EventActions } from "@/components/event/event-actions";
+import { EventChangeBanner } from "@/components/event/event-change";
 import { EventFormDialog } from "@/components/panel/event-form";
 import { Badge, Button, ButtonLink, EmptyState, ErrorMessage, LoadingBlock, Skeleton, useConfirm } from "@/components/ui";
 import { ApiError, api, isUuid } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { eventDateTime, money } from "@/lib/format";
-import { areaList, canDo, isOwner } from "@/lib/team";
+import { changeKind } from "@/lib/event-change";
+import { positionLabel } from "@/lib/series";
+import { areaList, canDo } from "@/lib/team";
 import { hasUnsavedChanges } from "@/lib/unsaved";
 import { texts } from "@/texts/pt-BR";
 
@@ -55,6 +61,8 @@ const DoorTab = dynamic(() => import("@/components/event/door").then((m) => m.Do
 const ReportTab = dynamic(() => import("@/components/event/report").then((m) => m.ReportTab), { loading: tabLoading });
 const CategoriesTab = dynamic(() => import("@/components/event/categories").then((m) => m.CategoriesTab), { loading: tabLoading });
 const TeamTab = dynamic(() => import("@/components/event/team").then((m) => m.TeamTab), { loading: tabLoading });
+const LiveTab = dynamic(() => import("@/components/event/live").then((m) => m.LiveTab), { loading: tabLoading });
+const GuestsTab = dynamic(() => import("@/components/event/guests").then((m) => m.GuestsTab), { loading: tabLoading });
 
 const ICONS: Record<Tab, LucideIcon> = {
   overview: LayoutDashboard,
@@ -68,6 +76,8 @@ const ICONS: Record<Tab, LucideIcon> = {
   report: BarChart3,
   categories: Tags,
   team: UsersRound,
+  live: Activity,
+  guests: ListChecks,
 };
 
 export default function EventPage() {
@@ -237,7 +247,7 @@ function EventView() {
               <span className="max-sm:sr-only">{texts.panel.editEvent}</span>
             </Button>
           )}
-          {isOwner(data) && <EventActions event={data} />}
+          <EventActions event={data} />
         </div>
         <div className="col-span-2 col-start-1 row-start-2 flex min-w-0 flex-col gap-2 sm:col-span-1">
           <h1 className="text-[1.375rem] leading-tight font-semibold tracking-tight text-balance text-fg sm:text-3xl">
@@ -246,6 +256,17 @@ function EventView() {
               <Badge tone="neutral" className="ml-3 align-middle">
                 {texts.event.actions.archivedBadge}
               </Badge>
+            )}
+            {changeKind(data.change, data.startsAt) === "canceled" ? (
+              <Badge tone="danger" className="ml-3 align-middle">
+                {texts.eventChange.canceledBadge}
+              </Badge>
+            ) : (
+              data.change.postponedFromStartsAt !== null && (
+                <Badge tone="warning" className="ml-3 align-middle">
+                  {texts.eventChange.postponedBadge}
+                </Badge>
+              )
             )}
           </h1>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px] text-fg-muted sm:text-sm">
@@ -256,7 +277,10 @@ function EventView() {
             {/* On phones the place takes a line of its own (and is cut if too long). */}
             <span className="flex min-w-0 items-center gap-1.5 max-sm:order-last max-sm:w-full">
               <MapPin className="size-4 shrink-0 text-fg-subtle" aria-hidden />
-              <span className="truncate">{data.venue ?? texts.panel.noVenue}</span>
+              <span className="truncate">
+                {data.venue ?? texts.panel.noVenue}
+                {data.address !== null && <span className="text-fg-subtle"> · {data.address}</span>}
+              </span>
             </span>
             {data.ticketPriceCents !== null && (
               <span className="flex items-center gap-1.5">
@@ -265,22 +289,39 @@ function EventView() {
               </span>
             )}
           </div>
-          {data.team !== null && (
-            <button
-              type="button"
-              onClick={() => {
-                void select("team");
-              }}
-              className="flex w-fit max-w-full flex-wrap items-center gap-x-2 gap-y-1 rounded-full border border-border bg-surface px-3 py-1 text-xs text-fg-muted transition hover:border-border-strong hover:text-fg active:bg-surface-2"
-            >
-              <UsersRound className="size-3.5 text-brand" aria-hidden />
-              <span className="font-medium text-fg">{texts.event.team.teamOf(data.team.organization)}</span>
-              <span aria-hidden>·</span>
-              <span>{texts.event.team.yourParts(areaList(data.team.areas))}</span>
-            </button>
+          {(data.team !== null || data.series !== null) && (
+            <div className="flex flex-wrap items-center gap-2">
+              {data.series !== null && (
+                <Link
+                  href={`/painel/series/${data.series.id}`}
+                  className="flex w-fit max-w-full flex-wrap items-center gap-x-2 gap-y-1 rounded-full border border-border bg-surface px-3 py-1 text-xs text-fg-muted transition hover:border-border-strong hover:text-fg active:bg-surface-2 pointer-coarse:py-1.5"
+                >
+                  <CalendarRange className="size-3.5 text-brand" aria-hidden />
+                  <span className="font-medium text-fg">{positionLabel(data.series)}</span>
+                  <span aria-hidden>·</span>
+                  <span>{texts.series.seeAll}</span>
+                </Link>
+              )}
+              {data.team !== null && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    void select("team");
+                  }}
+                  className="flex w-fit max-w-full flex-wrap items-center gap-x-2 gap-y-1 rounded-full border border-border bg-surface px-3 py-1 text-xs text-fg-muted transition hover:border-border-strong hover:text-fg active:bg-surface-2"
+                >
+                  <UsersRound className="size-3.5 text-brand" aria-hidden />
+                  <span className="font-medium text-fg">{texts.event.team.teamOf(data.team.organization)}</span>
+                  <span aria-hidden>·</span>
+                  <span>{texts.event.team.yourParts(areaList(data.team.areas))}</span>
+                </button>
+              )}
+            </div>
           )}
         </div>
       </div>
+
+      <EventChangeBanner event={data} />
 
       {/* Under the panel header, which is taller by the safe area in an installed iPhone app. */}
       <div className="sticky top-[calc(4rem+env(safe-area-inset-top))] z-30 -mx-4 border-b border-border bg-bg/85 backdrop-blur-xl sm:-mx-6 sm:px-6">
@@ -344,7 +385,16 @@ function EventView() {
         aria-labelledby={tab === "team" ? undefined : `tab-${tab}`}
         className="animate-fade-in"
       >
-        {tab === "overview" && <OverviewTab eventId={eventId} onSelect={select} />}
+        {tab === "overview" && (
+          <OverviewTab
+            eventId={eventId}
+            onSelect={select}
+            event={data}
+            onEditEvent={() => {
+              setEditing(true);
+            }}
+          />
+        )}
         {tab === "design" && <DesignTab eventId={eventId} />}
         {tab === "batches" && (
           <AreaGate eventId={eventId} area="manage">
@@ -374,6 +424,12 @@ function EventView() {
         {tab === "door" && (
           <AreaGate eventId={eventId} area="door">
             <DoorTab eventId={eventId} />
+          </AreaGate>
+        )}
+        {tab === "live" && <LiveTab eventId={eventId} onSelect={select} />}
+        {tab === "guests" && (
+          <AreaGate eventId={eventId} area="door">
+            <GuestsTab eventId={eventId} />
           </AreaGate>
         )}
         {tab === "report" && <ReportTab eventId={eventId} onSelect={select} />}

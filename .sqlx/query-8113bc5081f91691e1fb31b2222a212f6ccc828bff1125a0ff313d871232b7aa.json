@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select m.organization_id, o.name from memberships m join organizations o on o.id = m.organization_id\n           where m.user_id = $1 and m.role = 'owner' order by m.created_at limit 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "organization_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "memberships",
+            "name": "organization_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "organizations",
+            "name": "name"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "8113bc5081f91691e1fb31b2222a212f6ccc828bff1125a0ff313d871232b7aa"
+}

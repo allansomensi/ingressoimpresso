@@ -1,0 +1,31 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update sellers set name = $2, phone = $3, box_office = coalesce($4, box_office),\n                              goal = case when coalesce($4, box_office) then null else goal end\n           where id = $1 returning box_office",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "box_office",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "sellers",
+            "name": "box_office"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Bool"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "8b1d0925055595582025a32d5a32f70e57cd4b14106774d295a9a42c55574aa7"
+}

@@ -5,6 +5,10 @@
  */
 export type DoorCategoryRangeDto = { 
 /**
+ * Category id (ADR 0068), to tell whether this door admits it.
+ */
+id: string, 
+/**
  * Category name.
  */
 name: string, 
@@ -19,4 +23,8 @@ first: number,
 /**
  * Last number (inclusive).
  */
-last: number, };
+last: number, 
+/**
+ * The category's own price (`null`: the event's; 0: courtesy), for the box office.
+ */
+priceCents: number | null, };

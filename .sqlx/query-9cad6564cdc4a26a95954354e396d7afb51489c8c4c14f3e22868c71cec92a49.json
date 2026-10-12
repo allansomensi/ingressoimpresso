@@ -1,0 +1,115 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select r.reservation_id, r.seller_id, r.ticket_number, r.holder_name, r.holder_phone,\n                  r.expires_at, r.created_at, r.created_by is not null as \"by_organizer!\",\n                  r.expires_at > now() as \"active!\"\n           from ticket_reservations r\n           where r.event_id = $1 and ($2::uuid is null or r.seller_id = $2)\n             and exists(select 1 from seller_assignments a\n                        join ticket_batches b on b.event_id = a.event_id and b.status = 'paid'\n                                             and b.numbers @> r.ticket_number\n                        where a.event_id = $1 and a.seller_id = r.seller_id and a.numbers @> r.ticket_number)\n             and not exists(select 1 from ticket_voids v\n                            where v.event_id = $1 and v.undone_at is null and v.numbers @> r.ticket_number)\n             and not exists(select 1 from ticket_sales s\n                            where s.event_id = $1 and s.ticket_number = r.ticket_number)\n           order by r.expires_at > now() desc,\n                    case when r.expires_at > now() then r.expires_at end,\n                    r.expires_at desc, r.reservation_id, r.ticket_number",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "reservation_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "ticket_reservations",
+            "name": "reservation_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "seller_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "ticket_reservations",
+            "name": "seller_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "ticket_number",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "ticket_reservations",
+            "name": "ticket_number"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "holder_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ticket_reservations",
+            "name": "holder_name"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "holder_phone",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ticket_reservations",
+            "name": "holder_phone"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "expires_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "ticket_reservations",
+            "name": "expires_at"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "ticket_reservations",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "by_organizer!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 8,
+        "name": "active!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      null,
+      null
+    ]
+  },
+  "hash": "9cad6564cdc4a26a95954354e396d7afb51489c8c4c14f3e22868c71cec92a49"
+}

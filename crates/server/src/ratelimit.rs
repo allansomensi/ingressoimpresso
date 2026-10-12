@@ -69,6 +69,28 @@ pub const SELLER_WRITE: Limit = Limit {
     window: Duration::from_mins(5),
 };
 
+/// `GET /api/logos/{id}`: the organization's logo on the public pages (ADR 0064); browsers keep
+/// it for an hour, so a crowd costs little.
+pub const LOGO: Limit = Limit {
+    name: "logo",
+    max: 600,
+    window: Duration::from_mins(5),
+};
+
+/// `POST /api/verify`: the public check of a ticket (ADR 0075). Tight: a buyer checks a few
+/// tickets, and nobody needs to try thousands of QR texts.
+pub const VERIFY: Limit = Limit {
+    name: "verify",
+    max: 30,
+    window: Duration::from_mins(10),
+};
+/// `GET /api/referrals/{code}`: who invites, on the sign-up page (ADR 0076).
+pub const REFERRAL_INVITE: Limit = Limit {
+    name: "referral-invite",
+    max: 30,
+    window: Duration::from_mins(10),
+};
+
 /// Counts this request against `limit` for its address. Without an address (a direct request in
 /// development or a test) nothing is counted; in production every request comes through the
 /// proxy, and one without an address shares a single bucket instead of escaping the limit.

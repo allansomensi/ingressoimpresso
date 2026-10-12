@@ -1,0 +1,79 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select s.id, s.name, s.organization_id, o.name as organization_name,\n                  exists(select 1 from memberships m\n                         where m.organization_id = s.organization_id and m.user_id = $2) as \"member!\",\n                  exists(select 1 from events e join event_team t on t.event_id = e.id\n                         where e.series_id = s.id and t.user_id = $2) as \"on_team!\"\n           from event_series s join organizations o on o.id = s.organization_id\n           where s.id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "event_series",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "event_series",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "organization_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "event_series",
+            "name": "organization_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "organization_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "organizations",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "member!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "on_team!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      null,
+      null
+    ]
+  },
+  "hash": "acb63b1b3d18c4f4997d0899609b32b3173ff75a9814ee4d5e539bdb32505b60"
+}

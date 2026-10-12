@@ -2,9 +2,10 @@
 //! holds, and deleting the account.
 //!
 //! Deleting keeps only what the law requires: batches and payments (fiscal records) stay, tied to
-//! an anonymized user and to events renamed "Evento excluído"; art, designs, sellers (with the
-//! money they handed over, their links and the buyers they wrote down), voids' notes, digital
-//! tickets, door data and files go. An account that never paid for anything is removed entirely.
+//! an anonymized user and to events renamed "Evento excluído"; the organization's profile and
+//! logo, art, designs, sellers (with the money they handed over, their links and the buyers they
+//! wrote down), voids' notes, digital tickets, door data, guest lists and files go. An account
+//! that never paid for anything is removed entirely.
 
 use axum::extract::State;
 use axum::http::StatusCode;
@@ -26,11 +27,11 @@ const DELETED_ORGANIZATION: &str = "Conta excluída";
 /// Name kept on the events of an anonymized organization.
 const DELETED_EVENT: &str = "Evento excluído";
 
-fn rfc3339(at: OffsetDateTime) -> Value {
+pub(crate) fn rfc3339(at: OffsetDateTime) -> Value {
     at.format(&Rfc3339).map_or(Value::Null, Value::String)
 }
 
-fn optional_rfc3339(at: Option<OffsetDateTime>) -> Value {
+pub(crate) fn optional_rfc3339(at: Option<OffsetDateTime>) -> Value {
     at.map_or(Value::Null, rfc3339)
 }
 
@@ -63,7 +64,9 @@ pub async fn export(State(state): State<AppState>, user: AuthUser) -> ApiResult<
     .await?
     .ok_or(ApiError::NotFound)?;
     let events = sqlx::query!(
-        r#"select id, name, venue, starts_at, ends_at, ticket_price_cents, status, created_at
+        r#"select id, name, venue, starts_at, ends_at, ticket_price_cents, status, created_at,
+                  address, postponed_from_starts_at, postpone_reason, canceled_at, cancel_reason,
+                  (select s.name from event_series s where s.id = series_id) as series
            from events where organization_id = $1 order by starts_at"#,
         account.organization_id
     )
@@ -80,6 +83,13 @@ pub async fn export(State(state): State<AppState>, user: AuthUser) -> ApiResult<
                 "ticketPriceCents": event.ticket_price_cents,
                 "status": event.status,
                 "createdAt": rfc3339(event.created_at),
+                "address": event.address,
+                "postponedFromStartsAt": optional_rfc3339(event.postponed_from_starts_at),
+                "postponeReason": event.postpone_reason,
+                "canceledAt": optional_rfc3339(event.canceled_at),
+                "cancelReason": event.cancel_reason,
+                // The series of dates it is one of (ADR 0077).
+                "series": event.series,
             });
             if let (Some(target), Value::Object(extra)) = (value.as_object_mut(), details) {
                 target.extend(extra);
@@ -88,6 +98,7 @@ pub async fn export(State(state): State<AppState>, user: AuthUser) -> ApiResult<
         })?);
     }
     let teams = team_memberships(&state, user.id).await?;
+    let profile = profile(&state, account.organization_id).await?;
     let document = json!({
         "format": "ingressoimpresso-account-export",
         "version": 1,
@@ -104,6 +115,8 @@ pub async fn export(State(state): State<AppState>, user: AuthUser) -> ApiResult<
         "organization": {
             "name": account.organization_name,
             "createdAt": rfc3339(account.organization_created_at),
+            "profile": profile,
+            "referrals": super::referrals::export(&state.pool, account.organization_id).await?,
         },
         "events": exported,
         "teams": teams,
@@ -121,6 +134,31 @@ pub async fn export(State(state): State<AppState>, user: AuthUser) -> ApiResult<
         body,
     )
         .into_response())
+}
+
+/// The organization's public profile and the defaults of new events (ADR 0064); the logo is an
+/// image the account already has.
+async fn profile(state: &AppState, organization_id: Uuid) -> ApiResult<Value> {
+    let public = super::organization::public_organization(&state.pool, organization_id).await?;
+    let defaults = sqlx::query!(
+        r#"select default_venue, default_address, default_ticket_price_cents,
+                  logo_blob_id is not null as "logo!"
+           from organization_profiles where organization_id = $1"#,
+        organization_id
+    )
+    .fetch_optional(&state.pool)
+    .await?;
+    Ok(json!({
+        "hasLogo": defaults.as_ref().is_some_and(|row| row.logo),
+        "brandColor": public.brand_color,
+        "whatsapp": public.whatsapp,
+        "contactEmail": public.email,
+        "website": public.website,
+        "instagram": public.instagram,
+        "defaultVenue": defaults.as_ref().and_then(|row| row.default_venue.clone()),
+        "defaultAddress": defaults.as_ref().and_then(|row| row.default_address.clone()),
+        "defaultTicketPriceCents": defaults.as_ref().and_then(|row| row.default_ticket_price_cents),
+    }))
 }
 
 #[expect(
@@ -162,7 +200,7 @@ async fn export_event(state: &AppState, event_id: Uuid) -> ApiResult<Value> {
     })
     .collect::<Vec<_>>();
     let sellers = sqlx::query!(
-        "select id, name, phone, created_at from sellers where event_id = $1 order by name",
+        "select id, name, phone, box_office, goal, created_at from sellers where event_id = $1 order by name",
         event_id
     )
     .fetch_all(&state.pool)
@@ -209,9 +247,28 @@ async fn export_event(state: &AppState, event_id: Uuid) -> ApiResult<Value> {
             })
         })
         .collect::<Vec<_>>();
+        // Reservations (ADR 0072) hold names and phones of people too.
+        let reservations = sqlx::query!(
+            r#"select ticket_number, holder_name, holder_phone, expires_at, created_at
+               from ticket_reservations where seller_id = $1 order by ticket_number"#,
+            seller.id
+        )
+        .fetch_all(&state.pool)
+        .await?
+        .into_iter()
+        .map(|reservation| {
+            json!({
+                "number": reservation.ticket_number, "holderName": reservation.holder_name,
+                "holderPhone": reservation.holder_phone,
+                "expiresAt": rfc3339(reservation.expires_at),
+                "createdAt": rfc3339(reservation.created_at),
+            })
+        })
+        .collect::<Vec<_>>();
         seller_list.push(json!({
             "name": seller.name, "phone": seller.phone, "createdAt": rfc3339(seller.created_at),
-            "ranges": ranges, "received": received, "sales": sales,
+            "boxOffice": seller.box_office, "goal": seller.goal, "ranges": ranges,
+            "received": received, "sales": sales, "reservations": reservations,
         }));
     }
     let voids = sqlx::query!(
@@ -306,6 +363,24 @@ async fn export_event(state: &AppState, event_id: Uuid) -> ApiResult<Value> {
     )
     .fetch_one(&state.pool)
     .await?;
+    // The guest list (ADR 0070), with when each name arrived.
+    let guests = sqlx::query!(
+        r#"select g.name, g.companions, g.note, g.created_at,
+                  (select min(a.arrived_at) from guest_arrivals a
+                   where a.guest_id = g.id and a.undone_at is null) as arrived_at
+           from guest_list g where g.event_id = $1 order by g.name"#,
+        event_id
+    )
+    .fetch_all(&state.pool)
+    .await?
+    .into_iter()
+    .map(|guest| {
+        json!({
+            "name": guest.name, "companions": guest.companions, "note": guest.note,
+            "createdAt": rfc3339(guest.created_at), "arrivedAt": optional_rfc3339(guest.arrived_at),
+        })
+    })
+    .collect::<Vec<_>>();
     Ok(json!({
         "batches": batch_list,
         "payments": payments,
@@ -317,6 +392,7 @@ async fn export_event(state: &AppState, event_id: Uuid) -> ApiResult<Value> {
         "categories": categories,
         "tables": tables,
         "entries": entries,
+        "guestList": guests,
     }))
 }
 
@@ -374,6 +450,14 @@ pub async fn delete(
     .fetch_all(&mut *tx)
     .await?;
     for organization_id in organizations {
+        // A referral row outlives the referred account only for its keyed e-mail hash (one
+        // e-mail counts once, ADR 0076); the hint the referrer saw goes with the account.
+        sqlx::query!(
+            "update referrals set referred_email_hint = '' where referred_organization_id = $1",
+            organization_id
+        )
+        .execute(&mut *tx)
+        .await?;
         let keeps_records = sqlx::query_scalar!(
             r#"select exists(select 1 from ticket_batches b join events e on e.id = b.event_id
                              where e.organization_id = $1
@@ -397,11 +481,21 @@ pub async fn delete(
                team as (delete from event_team where event_id in (select id from events)),
                links as (delete from ticket_links where event_id in (select id from events)),
                doors as (delete from door_accesses where event_id in (select id from events)),
+               guests as (delete from guest_list where event_id in (select id from events)),
                files as (delete from exports where event_id in (select id from events)),
                notes as (update ticket_voids set note = null where event_id in (select id from events))
-               update events set name = $2, venue = null where organization_id = $1"#,
+               update events set name = $2, venue = null, address = null, postpone_reason = null,
+                             cancel_reason = null
+               where organization_id = $1"#,
             organization_id,
             DELETED_EVENT,
+        )
+        .execute(&mut *tx)
+        .await?;
+        // Series names go with the event names (ADR 0077); the dates stay apart.
+        sqlx::query!(
+            "delete from event_series where organization_id = $1",
+            organization_id
         )
         .execute(&mut *tx)
         .await?;
@@ -412,9 +506,33 @@ pub async fn delete(
         )
         .execute(&mut *tx)
         .await?;
+        // The public profile and the logo are personal too (ADR 0064); a refused logo stays
+        // refused by its hash (`rejected_art`).
+        sqlx::query!(
+            "delete from organization_profiles where organization_id = $1",
+            organization_id
+        )
+        .execute(&mut *tx)
+        .await?;
+        sqlx::query!(
+            "delete from blobs where organization_id = $1",
+            organization_id
+        )
+        .execute(&mut *tx)
+        .await?;
+        // A deleted organization refers nobody any more: its link stops working, and the people
+        // it invited who have not paid yet earn alone, as when the organization is removed whole
+        // (the foreign key sets the referrer to null).
+        sqlx::query!(
+            r#"update referrals set referrer_organization_id = null
+               where referrer_organization_id = $1 and status = 'pending'"#,
+            organization_id
+        )
+        .execute(&mut *tx)
+        .await?;
         sqlx::query!(
             r#"update organizations set name = $2, bonus_free_tickets = 0, suspended_at = null,
-                      suspended_reason = null where id = $1"#,
+                      suspended_reason = null, referral_code = null where id = $1"#,
             organization_id,
             DELETED_ORGANIZATION,
         )

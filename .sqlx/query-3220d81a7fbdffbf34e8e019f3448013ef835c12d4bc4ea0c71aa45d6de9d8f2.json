@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into guest_arrivals (id, event_id, guest_id, device_id, people, arrived_at, undone_at)\n                       select $1, g.event_id, g.id, $3, $4, $5, $6 from guest_list g\n                       where g.id = $2 and g.event_id = $7",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Int2",
+        "Timestamptz",
+        "Timestamptz",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "3220d81a7fbdffbf34e8e019f3448013ef835c12d4bc4ea0c71aa45d6de9d8f2"
+}

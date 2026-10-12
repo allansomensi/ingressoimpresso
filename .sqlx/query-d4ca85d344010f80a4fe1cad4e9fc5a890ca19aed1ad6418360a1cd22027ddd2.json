@@ -1,0 +1,54 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select ticket_number, holder_name, holder_phone from ticket_reservations\n           where reservation_id = $1 and event_id = $2 and seller_id = $3 order by ticket_number",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "ticket_number",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "ticket_reservations",
+            "name": "ticket_number"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "holder_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ticket_reservations",
+            "name": "holder_name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "holder_phone",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ticket_reservations",
+            "name": "holder_phone"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "d4ca85d344010f80a4fe1cad4e9fc5a890ca19aed1ad6418360a1cd22027ddd2"
+}

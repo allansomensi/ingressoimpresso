@@ -3,6 +3,9 @@
  * organizer session. Every call has a deadline: the door never hangs on the network.
  */
 import type {
+  DoorGuestUpload,
+  DoorGuestsBody,
+  DoorGuestsResponse,
   DoorManifest,
   DoorRegisterBody,
   DoorRegistration,
@@ -72,6 +75,9 @@ async function call<T>(
   } catch {
     throw new DoorApiError(0, "network");
   }
+  if (response.status === 204) {
+    return undefined as T;
+  }
   if (!response.ok) {
     let code = "generic";
     try {
@@ -94,9 +100,33 @@ export function registerDevice(accessToken: string, deviceName: string): Promise
   return call<DoorRegistration>("/api/door/register", { body });
 }
 
-export function fetchManifest(secret: string, since: string | null): Promise<DoorManifest> {
-  const query = since === null ? "" : `?since=${encodeURIComponent(since)}`;
-  return call<DoorManifest>(`/api/door/manifest${query}`, { secret });
+/**
+ * The manifest since `since`. `pending` tells the panel what this phone still has to send
+ * (ADR 0071); `guests` is the version of the guest list held here, so it comes only when it
+ * changed (ADR 0070).
+ */
+export function fetchManifest(
+  secret: string,
+  since: string | null,
+  extra: { pending: number; guests: string },
+): Promise<DoorManifest> {
+  const query = new URLSearchParams();
+  if (since !== null) {
+    query.set("since", since);
+  }
+  query.set("pending", String(extra.pending));
+  query.set("guests", extra.guests);
+  return call<DoorManifest>(`/api/door/manifest?${query.toString()}`, { secret });
+}
+
+export function uploadArrivals(secret: string, arrivals: DoorGuestUpload[]): Promise<DoorGuestsResponse> {
+  const body: DoorGuestsBody = { arrivals };
+  return call<DoorGuestsResponse>("/api/door/guests", { secret, body });
+}
+
+/** Tells the panel this phone finished a rehearsal (ADR 0067). */
+export function reportRehearsal(secret: string): Promise<void> {
+  return call<undefined>("/api/door/rehearsal", { secret, body: {} });
 }
 
 export function uploadScans(

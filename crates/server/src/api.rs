@@ -51,6 +51,11 @@ dto! {
         #[serde(default)]
         #[cfg_attr(feature = "ts", ts(optional))]
         pub two_factor_code: Option<String>,
+        /// Code of the organization that referred a new account (ADR 0076); ignored for an
+        /// existing one.
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional))]
+        pub referral_code: Option<String>,
     }
 
     /// A new session.
@@ -59,6 +64,8 @@ dto! {
         pub token: String,
         /// The signed-in user.
         pub user: MeUser,
+        /// The account was just created through a referral link (ADR 0076).
+        pub referred: bool,
     }
 
     /// The signed-in user.
@@ -103,6 +110,10 @@ dto! {
         #[serde(default)]
         #[cfg_attr(feature = "ts", ts(optional))]
         pub two_factor_code: Option<String>,
+        /// Code of the organization that referred a new account (ADR 0076).
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional))]
+        pub referral_code: Option<String>,
     }
 
     /// `GET /api/account/two-factor`: the account's two-step verification (ADR 0045).
@@ -164,6 +175,10 @@ dto! {
         pub ends_at: OffsetDateTime,
         /// Ticket price in cents, for the seller settlement report.
         pub ticket_price_cents: Option<i32>,
+        /// Street address of the venue (optional, up to 200 characters, ADR 0066).
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional = nullable))]
+        pub address: Option<String>,
     }
 
     /// `PUT /api/events/{id}/status`: archive (`closed`) or reopen (`active`).
@@ -198,6 +213,17 @@ dto! {
         /// How the user is on the event's team (ADR 0055); `null` for the organization's own
         /// people, who may do everything.
         pub team: Option<EventTeamAccessDto>,
+        /// Street address of the venue (ADR 0066).
+        pub address: Option<String>,
+        /// Name of the organization that runs it (`{organizacao}` on the ticket, ADR 0064).
+        pub organization_name: String,
+        /// Postponement and cancellation (ADR 0065).
+        pub change: EventChangeDto,
+        /// The series of dates it is one of (ADR 0077); `null` for an event with one date.
+        pub series: Option<EventSeriesRefDto>,
+        /// Required checklist items still missing (ADR 0078), in the event list only; `null`
+        /// elsewhere and when the checklist does not apply (ended, archived or canceled).
+        pub checklist_missing: Option<i32>,
     }
 
     /// The current user's place on the team of an event of another organization (ADR 0055).
@@ -956,6 +982,10 @@ dto! {
         pub category: Option<DoorCategoryTagDto>,
         /// Table and seat (ADR 0057), e.g. `Mesa 5 · Lugar 3`.
         pub seat: Option<String>,
+        /// Who runs the event: name, logo and contact (ADR 0064).
+        pub organization: PublicOrganizationDto,
+        /// The room with the holder's table highlighted (ADR 0066); `null` without a seat.
+        pub table_map: Option<PassTableMapDto>,
     }
 
     /// A category's name and colour.
@@ -982,6 +1012,16 @@ dto! {
         pub ends_at: OffsetDateTime,
         /// Organization name.
         pub organizer: String,
+        /// Event id: the stable `UID` of the calendar entry (ADR 0066).
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// Street address of the venue.
+        pub address: Option<String>,
+        /// Postponement and cancellation, as the panel shows them (ADR 0065).
+        pub change: EventChangeDto,
+        /// One of several dates (ADR 0077): the ticket says which session it is for.
+        #[serde(default)]
+        pub in_series: bool,
     }
 
     /// `GET /api/analytics`: results of every event of the organization (ADR 0034).
@@ -1152,6 +1192,10 @@ dto! {
         pub name: String,
         /// Phone (optional).
         pub phone: Option<String>,
+        /// Box office (ADR 0069); missing keeps the current choice (no on a new seller).
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional))]
+        pub box_office: Option<bool>,
     }
 
     /// A seller with the ranges they hold.
@@ -1167,6 +1211,10 @@ dto! {
         pub ranges: Vec<RangeDto>,
         /// The seller's active private link (ADR 0053), if any.
         pub link: Option<SellerLinkDto>,
+        /// Sells at the door (ADR 0069): sold = numbers that entered.
+        pub box_office: bool,
+        /// Tickets the seller aims to sell (ADR 0073); never on a box office.
+        pub goal: Option<i32>,
     }
 
     /// A seller's private link, where they mark what they sold (ADR 0053).
@@ -1227,10 +1275,155 @@ dto! {
         pub number: i32,
     }
 
-    /// `GET`/`PUT /api/events/{id}/seller-settings`: what sellers may do on their links.
+    /// `GET /api/events/{id}/seller-settings`: what sellers may do and see on their links.
     pub struct SellerSettingsDto {
         /// Sellers may send the digital ticket of what they sold (ADR 0061).
         pub send_tickets: bool,
+        /// Sellers see their position and the top 5 (ADR 0073).
+        pub ranking: bool,
+    }
+
+    /// `PUT /api/events/{id}/seller-settings`: a missing field keeps its value.
+    pub struct SellerSettingsBody {
+        /// Sellers may send digital tickets.
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional))]
+        pub send_tickets: Option<bool>,
+        /// Sellers see the ranking.
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional))]
+        pub ranking: Option<bool>,
+    }
+
+    /// `PUT /api/sellers/{id}/goal`.
+    pub struct SellerGoalBody {
+        /// Tickets to sell (1–100,000); `null` removes the goal.
+        pub goal: Option<i32>,
+    }
+
+    /// `POST /api/events/{id}/sellers/goals`: one goal for every seller (box offices aside).
+    pub struct SellerGoalsBody {
+        /// Tickets to sell (1–100,000); `null` removes every goal.
+        pub goal: Option<i32>,
+        /// Only sellers without a goal yet.
+        pub only_missing: bool,
+    }
+
+    /// How many sellers got the goal.
+    pub struct SellerGoalsDto {
+        /// Sellers changed.
+        pub updated: i32,
+    }
+
+    /// A reservation (ADR 0072): numbers a seller holds for a person until a deadline. The
+    /// seller's word, not a payment: it never reaches the door.
+    pub struct ReservationDto {
+        /// Id, shared by the numbers reserved together.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// The seller.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub seller_id: Uuid,
+        /// Numbers still reserved (sold, returned or moved numbers leave the reservation).
+        pub numbers: Vec<NumberRangeDto>,
+        /// For whom.
+        pub holder_name: String,
+        /// Their phone, for the reminder.
+        pub holder_phone: Option<String>,
+        /// Until when, in the event's offset.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub expires_at: OffsetDateTime,
+        /// When it was made.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub created_at: OffsetDateTime,
+        /// Still holds its numbers (the deadline has not passed).
+        pub active: bool,
+        /// Made by the organizer on the panel.
+        pub by_organizer: bool,
+    }
+
+    /// `POST /api/sellers/{id}/reservations`.
+    pub struct ReservationBody {
+        /// The numbers (1 to 100 ranges, up to 1,000 numbers), all the seller's.
+        pub ranges: Vec<RangeBody>,
+        /// For whom (1–80 characters, one line).
+        pub holder_name: String,
+        /// Their phone (up to 30 characters).
+        pub holder_phone: Option<String>,
+        /// Until when: in the future, before the event ends.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub expires_at: OffsetDateTime,
+    }
+
+    /// The seller's position among the event's sellers (ADR 0073), when the organizer shows it.
+    pub struct SellerRankingDto {
+        /// The seller's position (ties share it); `null` before their first sale.
+        pub position: Option<i32>,
+        /// Sellers in the ranking (box offices and sellers without numbers aside).
+        pub participants: i32,
+        /// The first ones with at least one sale (up to 5).
+        pub top: Vec<SellerRankingEntryDto>,
+    }
+
+    /// One line of the ranking: only the first name and an initial of the others.
+    pub struct SellerRankingEntryDto {
+        /// Position (ties share it).
+        pub position: i32,
+        /// "Ana S.".
+        pub name: String,
+        /// Sales marked.
+        pub sold: i32,
+        /// The seller who is looking.
+        pub you: bool,
+    }
+
+    /// `POST /api/seller/sync`: changes made on the seller's page, in order (ADR 0074).
+    pub struct SellerSyncBody {
+        /// The token from the link's fragment.
+        pub token: String,
+        /// Up to 50 changes; each id is created on the phone, so a repeated one changes nothing.
+        pub ops: Vec<SellerOpItem>,
+    }
+
+    /// One change of the seller's page.
+    pub struct SellerOpItem {
+        /// Id created on the phone.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// What it does.
+        pub op: SellerOp,
+    }
+
+    /// The answer of `POST /api/seller/sync`: the page after the changes and what became of each.
+    pub struct SellerSyncDto {
+        /// The page, fresh.
+        pub view: SellerViewDto,
+        /// One result per change, in order.
+        pub results: Vec<SellerOpResultDto>,
+    }
+
+    /// What became of one change; the same answer every time the id is sent.
+    pub struct SellerOpResultDto {
+        /// The change.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// Done, partly done or not done.
+        pub outcome: SellerOpOutcome,
+        /// Why numbers were left out.
+        pub problems: Vec<SellerOpProblemDto>,
+    }
+
+    /// Numbers a change left out, and why.
+    pub struct SellerOpProblemDto {
+        /// Why.
+        pub reason: SellerOpProblem,
+        /// Which numbers (empty when it is about the whole change).
+        pub numbers: Vec<NumberRangeDto>,
+        /// The buyer or the person the numbers are reserved for, when it helps to explain.
+        pub holder: Option<String>,
     }
 
     /// `POST /api/events/{id}/tickets/replace`: the replacement of a lost ticket (ADR 0061).
@@ -1313,8 +1506,10 @@ dto! {
         pub tickets: i32,
         /// Marked as sold (and not voided).
         pub sold: i32,
-        /// Still with the seller: not sold and not voided.
+        /// Still with the seller: not sold, not reserved and not voided.
         pub available: i32,
+        /// Reserved for someone (ADR 0072), not sold yet.
+        pub reserved: i32,
         /// Returned unsold.
         pub unsold: i32,
         /// Lost.
@@ -1372,12 +1567,27 @@ dto! {
         pub organizer: String,
         /// Ticket price in cents.
         pub ticket_price_cents: Option<i32>,
+        /// Street address of the venue (ADR 0066).
+        pub address: Option<String>,
+        /// Postponement and cancellation (ADR 0065): a canceled event takes no more sales.
+        pub change: EventChangeDto,
+        /// End, in the event's own offset (reservations end before it).
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub ends_at: OffsetDateTime,
+        /// The event's UTC offset in minutes (reservation deadlines are in its time).
+        pub utc_offset_minutes: i16,
+        /// One of several dates (ADR 0077): the page says which session the link is for.
+        #[serde(default)]
+        pub in_series: bool,
     }
 
     /// `POST /api/seller`: everything the seller's page shows (ADR 0053).
     pub struct SellerViewDto {
         /// The event.
         pub event: SellerViewEvent,
+        /// Who runs the event: name, logo and contact (ADR 0064).
+        pub organization: PublicOrganizationDto,
         /// The seller's name.
         pub seller: String,
         /// Printed prefix of the number (`Nº`).
@@ -1400,6 +1610,14 @@ dto! {
         pub categories: Vec<SellerCategoryDto>,
         /// The seller may send digital tickets of what they sold (ADR 0061).
         pub can_send_tickets: bool,
+        /// The seller is the box office (ADR 0069): what entered counts as sold.
+        pub box_office: bool,
+        /// The seller's reservations (ADR 0072): active first, then the recently expired.
+        pub reservations: Vec<ReservationDto>,
+        /// Tickets the seller aims to sell (ADR 0073).
+        pub goal: Option<i32>,
+        /// Where the seller stands among the others, when the organizer shows it (ADR 0073).
+        pub ranking: Option<SellerRankingDto>,
     }
 
     /// An inclusive range of ticket numbers.
@@ -1759,6 +1977,10 @@ dto! {
     pub struct CreateDoorAccessBody {
         /// Who the link is for, e.g. "Equipe da porta" (1–60 characters).
         pub label: String,
+        /// Categories this door admits (ADR 0068); empty or missing: every ticket.
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional, as = "Option<Vec<String>>"))]
+        pub category_ids: Option<Vec<Uuid>>,
     }
 
     /// A door access link (ADR 0007). The token itself is shown only once, at creation.
@@ -1780,6 +2002,9 @@ dto! {
         #[serde(with = "time::serde::rfc3339")]
         #[cfg_attr(feature = "ts", ts(type = "string"))]
         pub created_at: OffsetDateTime,
+        /// Categories this door admits (ADR 0068); empty: every ticket.
+        #[cfg_attr(feature = "ts", ts(type = "string[]"))]
+        pub category_ids: Vec<Uuid>,
     }
 
     /// A new access link with its token (never retrievable again).
@@ -1815,6 +2040,16 @@ dto! {
         /// Scans received from it.
         #[cfg_attr(feature = "ts", ts(type = "number"))]
         pub scan_count: i64,
+        /// When it finished a rehearsal (ADR 0067).
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub rehearsed_at: Option<OffsetDateTime>,
+        /// Last manifest it downloaded (ADR 0071).
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub last_sync_at: Option<OffsetDateTime>,
+        /// Scans and arrivals it still had to send at its last sync (`null`: not reported).
+        pub pending_scans: Option<i32>,
     }
 
     /// `GET /api/events/{id}/door`.
@@ -1868,6 +2103,17 @@ dto! {
         pub ends_at: OffsetDateTime,
         /// Digits of printed numbers (zero padded).
         pub number_digits: u8,
+        /// Ticket price, charged by the box office (ADR 0069) when the category has none.
+        #[serde(default)]
+        pub ticket_price_cents: Option<i32>,
+        /// When the organizer canceled the event (ADR 0065): the door shows it and keeps
+        /// reading, the organizer decides.
+        #[serde(default, with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub canceled_at: Option<OffsetDateTime>,
+        /// One of several dates (ADR 0077): the door says which session it is for.
+        #[serde(default)]
+        pub in_series: bool,
     }
 
     /// What `DoorCore` needs to verify tickets; same shape as ticket-core's `DoorEventDto`.
@@ -1908,10 +2154,16 @@ dto! {
         pub first: u32,
         /// Last number (inclusive).
         pub last: u32,
+        /// The seller is the box office (ADR 0069): these numbers are sold at the door.
+        #[serde(default)]
+        pub box_office: bool,
     }
 
     /// Numbers of one category, for the door.
     pub struct DoorCategoryRangeDto {
+        /// Category id (ADR 0068), to tell whether this door admits it.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
         /// Category name.
         pub name: String,
         /// Band colour (`#rrggbb`).
@@ -1920,6 +2172,9 @@ dto! {
         pub first: u32,
         /// Last number (inclusive).
         pub last: u32,
+        /// The category's own price (`null`: the event's; 0: courtesy), for the box office.
+        #[serde(default)]
+        pub price_cents: Option<i32>,
     }
 
     /// The table and seat of a ticket, for the door.
@@ -1972,6 +2227,36 @@ dto! {
         /// Server clock, Unix milliseconds.
         #[cfg_attr(feature = "ts", ts(type = "number"))]
         pub server_time_ms: i64,
+        /// Categories this phone's door admits (ADR 0068); empty: every ticket.
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(type = "string[]"))]
+        pub allowed_category_ids: Vec<Uuid>,
+        /// The event's other open doors, to send a guest to the right one.
+        #[serde(default)]
+        pub doors: Vec<DoorRouteDto>,
+        /// The guest list (ADR 0070), only when it changed since `guests=<version>`.
+        #[serde(default)]
+        pub guests: Option<Vec<DoorGuestDto>>,
+        /// Version of the guest list, for the next call.
+        #[serde(default)]
+        pub guests_version: String,
+        /// Guest arrivals (and undos) since `since`, from every phone.
+        #[serde(default)]
+        pub guest_arrivals: Vec<DoorGuestArrivalDto>,
+        /// The other dates of the series (ADR 0077), to tell a ticket of another session apart
+        /// from one of another event. Their tickets never enter here.
+        #[serde(default)]
+        pub sessions: Vec<DoorSessionDto>,
+    }
+
+    /// Another date of the event's series.
+    pub struct DoorSessionDto {
+        /// The QR tag of that date.
+        pub event_tag: u32,
+        /// Its start, with its offset.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub starts_at: OffsetDateTime,
     }
 
     /// One scan uploaded by a phone.
@@ -1988,6 +2273,10 @@ dto! {
         /// Unix milliseconds (phone clock corrected by the server offset).
         #[cfg_attr(feature = "ts", ts(type = "number"))]
         pub scanned_at_ms: i64,
+        /// Let in although this door does not take its category (ADR 0068).
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional))]
+        pub exception: Option<bool>,
     }
 
     /// `POST /api/door/scans`.
@@ -2075,6 +2364,11 @@ dto! {
         /// Marked as sold by the seller on their link (ADR 0053), not voided.
         #[cfg_attr(feature = "ts", ts(type = "number"))]
         pub marked_sold: i64,
+        /// Reserved for someone and not sold yet (ADR 0072): still the seller's, not money.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub reserved: i64,
+        /// A box office seller (ADR 0069): sold = numbers that entered.
+        pub box_office: bool,
     }
 
     /// What one door phone did.
@@ -2167,6 +2461,36 @@ dto_enum! {
         Processing,
     }
 
+    /// What became of a change of the seller's page (ADR 0074).
+    pub enum SellerOpOutcome {
+        /// Done.
+        Applied,
+        /// Done for some numbers; `problems` says which were left out.
+        Partial,
+        /// Not done.
+        Rejected,
+    }
+
+    /// Why a change of the seller's page left numbers out.
+    pub enum SellerOpProblem {
+        /// Marked as sold already (on another phone, or by the organizer).
+        AlreadySold,
+        /// No longer with the seller (taken back by the organizer, or its batch canceled).
+        NotHeld,
+        /// Returned, lost or canceled.
+        Voided,
+        /// Reserved for someone else.
+        Reserved,
+        /// The reservation's deadline passed before the change reached the server.
+        Expired,
+        /// The event was canceled.
+        EventCanceled,
+        /// A box office does not reserve.
+        BoxOffice,
+        /// Something the page should not have sent (a name too long, a bad number).
+        Invalid,
+    }
+
     /// How a seller handed money over.
     pub enum SellerPaymentMethod {
         /// Pix transfer.
@@ -2233,6 +2557,8 @@ dto_enum! {
         RejectedInvalid,
         /// Yellow: ticket of another event.
         RejectedOtherEvent,
+        /// Yellow: a category this door does not take (ADR 0068); no entry recorded.
+        RejectedWrongDoor,
     }
 
     /// Kind of a changelog note.
@@ -2297,6 +2623,64 @@ pub enum ExportScope {
     },
 }
 
+/// One change of the seller's page (ADR 0074).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(
+    tag = "kind",
+    rename_all = "snake_case",
+    rename_all_fields = "camelCase"
+)]
+#[cfg_attr(
+    feature = "ts",
+    derive(ts_rs::TS),
+    ts(export, export_to = "api-types/src/generated/")
+)]
+pub enum SellerOp {
+    /// Numbers sold, all to one buyer.
+    Mark {
+        /// The numbers (1 to 100 ranges, up to 1,000 numbers).
+        ranges: Vec<RangeBody>,
+        /// Buyer's name.
+        buyer_name: Option<String>,
+        /// Buyer's phone.
+        buyer_phone: Option<String>,
+        /// Changes the buyer of numbers sold already (otherwise they are a conflict).
+        edit: bool,
+        /// The reservation the page showed on these numbers: it becomes the sale. A number
+        /// reserved by another one is a conflict.
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        reservation_id: Option<Uuid>,
+    },
+    /// A sale marked by mistake.
+    Unmark {
+        /// The number.
+        number: i32,
+    },
+    /// Numbers held for a person until a deadline; the same id again changes the person or
+    /// the deadline.
+    Reserve {
+        /// Id created on the phone.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        reservation_id: Uuid,
+        /// The numbers.
+        ranges: Vec<RangeBody>,
+        /// For whom.
+        holder_name: String,
+        /// Their phone.
+        holder_phone: Option<String>,
+        /// Until when.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        expires_at: OffsetDateTime,
+    },
+    /// A reservation given up: its numbers are free again.
+    CancelReservation {
+        /// The reservation.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        reservation_id: Uuid,
+    },
+}
+
 macro_rules! db_enum {
     ($ty:ty { $($variant:ident => $text:literal),* $(,)? }) => {
         impl $ty {
@@ -2329,6 +2713,7 @@ db_enum!(ScanOutcome {
     RejectedVoid => "rejected_void",
     RejectedInvalid => "rejected_invalid",
     RejectedOtherEvent => "rejected_other_event",
+    RejectedWrongDoor => "rejected_wrong_door",
 });
 db_enum!(ScanClass { FirstEntry => "first_entry", DuplicateEntry => "duplicate_entry", VoidEntry => "void_entry" });
 
@@ -2948,11 +3333,11 @@ dto! {
         pub organization_id: Uuid,
         /// Its name.
         pub organization_name: String,
-        /// Event.
-        #[cfg_attr(feature = "ts", ts(type = "string"))]
-        pub event_id: Uuid,
+        /// Event; `null` for the organization's logo (ADR 0064).
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub event_id: Option<Uuid>,
         /// Its name.
-        pub event_name: String,
+        pub event_name: Option<String>,
         /// Uploader.
         pub uploaded_by: Option<String>,
         /// `adult`, `violence`, `racy`, `manual`...
@@ -2994,11 +3379,11 @@ dto! {
         pub organization_id: Uuid,
         /// Its name.
         pub organization_name: String,
-        /// Event.
-        #[cfg_attr(feature = "ts", ts(type = "string"))]
-        pub event_id: Uuid,
+        /// Event; `null` for the organization's logo (ADR 0064).
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub event_id: Option<Uuid>,
         /// Its name.
-        pub event_name: String,
+        pub event_name: Option<String>,
         /// Moderation of the image.
         pub moderation: String,
         /// Upload time.
@@ -3253,6 +3638,12 @@ dto_enum! {
         PriceChange,
         /// The user was added to an event's team (ADR 0055).
         TeamAdded,
+        /// An event the user works on was postponed (ADR 0065).
+        EventPostponed,
+        /// An event the user works on was canceled (ADR 0065).
+        EventCanceled,
+        /// A referral earned credit (ADR 0076).
+        ReferralRewarded,
     }
 
     /// What a promo code gives.
@@ -3277,6 +3668,10 @@ dto_enum! {
         BatchCancel,
         /// Back from a refunded batch.
         BatchRefund,
+        /// A referral's reward (ADR 0076).
+        Referral,
+        /// A referral's reward taken back (its batch was refunded).
+        ReferralRevoked,
     }
 
     /// Delivery status of an e-mail.
@@ -3375,6 +3770,9 @@ db_enum!(NotificationKind {
     DiscountGranted => "discount_granted",
     PriceChange => "price_change",
     TeamAdded => "team_added",
+    EventPostponed => "event_postponed",
+    EventCanceled => "event_canceled",
+    ReferralRewarded => "referral_rewarded",
 });
 db_enum!(LedgerKind { Expense => "expense", Income => "income" });
 db_enum!(TableShape { Round => "round", Rect => "rect" });
@@ -3386,6 +3784,8 @@ db_enum!(CreditReason {
     BatchPayment => "batch_payment",
     BatchCancel => "batch_cancel",
     BatchRefund => "batch_refund",
+    Referral => "referral",
+    ReferralRevoked => "referral_revoked",
 });
 db_enum!(MailStatus {
     Sending => "sending",
@@ -3407,3 +3807,933 @@ db_enum!(IncidentStatus {
     Monitoring => "monitoring",
     Resolved => "resolved",
 });
+
+// Door features (ADRs 0067–0071) ------------------------------------------------------------
+
+dto! {
+    /// Another open door of the event, as a phone sees it (ADR 0068).
+    pub struct DoorRouteDto {
+        /// The link's label, e.g. "Porta VIP".
+        pub label: String,
+        /// Categories it admits; empty: every ticket.
+        #[cfg_attr(feature = "ts", ts(type = "string[]"))]
+        pub category_ids: Vec<Uuid>,
+    }
+
+    /// `PUT /api/door-accesses/{id}/categories`.
+    pub struct DoorAccessCategoriesBody {
+        /// Categories the door admits; empty: every ticket.
+        #[cfg_attr(feature = "ts", ts(type = "string[]"))]
+        pub category_ids: Vec<Uuid>,
+    }
+
+    /// A guest, as the door phones keep it (ADR 0070).
+    pub struct DoorGuestDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// Name.
+        pub name: String,
+        /// People besides the guest (0–20).
+        pub companions: i16,
+        /// Note for the door, e.g. "camarim".
+        pub note: Option<String>,
+        /// Category, shown in its colour.
+        pub category: Option<DoorCategoryTagDto>,
+    }
+
+    /// An arrival recorded by a door phone (or its undo), for every phone.
+    pub struct DoorGuestArrivalDto {
+        /// Generated on the phone.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// The guest.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub guest_id: Uuid,
+        /// How many people came in (the guest and companions).
+        pub people: i16,
+        /// Unix milliseconds (phone clock corrected by the server offset).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub at_unix_ms: i64,
+        /// Phone that recorded it.
+        pub device_name: String,
+        /// Undone by mistake on that phone.
+        pub undone: bool,
+    }
+
+    /// One arrival uploaded by a phone; uploaded again when undone.
+    pub struct DoorGuestUpload {
+        /// Generated on the phone (uploads are idempotent).
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// The guest.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub guest_id: Uuid,
+        /// People who came in (1–21).
+        pub people: i16,
+        /// Unix milliseconds (phone clock corrected by the server offset).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub arrived_at_ms: i64,
+        /// When it was undone (on the same phone, within 2 minutes), Unix milliseconds.
+        #[cfg_attr(feature = "ts", ts(type = "number | null"))]
+        pub undone_at_ms: Option<i64>,
+    }
+
+    /// `POST /api/door/guests`.
+    pub struct DoorGuestsBody {
+        /// Up to 500 arrivals.
+        pub arrivals: Vec<DoorGuestUpload>,
+    }
+
+    /// `POST /api/door/guests` response, in request order.
+    pub struct DoorGuestsResponse {
+        /// Per arrival: kept, or dropped because the guest left the list.
+        pub results: Vec<DoorGuestResult>,
+    }
+
+    /// Server view of an uploaded arrival.
+    pub struct DoorGuestResult {
+        /// Arrival id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// `false`: the guest was removed from the list meanwhile (nothing to send again).
+        pub kept: bool,
+    }
+
+    /// `POST /api/events/{id}/guests`, `PUT /api/guests/{id}`.
+    pub struct GuestBody {
+        /// Name (1–80 characters).
+        pub name: String,
+        /// People besides the guest (0–20).
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional))]
+        pub companions: Option<i16>,
+        /// Note for the door (up to 120 characters).
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional))]
+        pub note: Option<String>,
+        /// Category of the event.
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional, as = "Option<String>"))]
+        pub category_id: Option<Uuid>,
+    }
+
+    /// `POST /api/events/{id}/guests/bulk`: names pasted one per line.
+    pub struct GuestBulkBody {
+        /// Up to 500 guests.
+        pub guests: Vec<GuestBody>,
+    }
+
+    /// When a guest arrived (the first arrival that was not undone).
+    pub struct GuestArrivalDto {
+        /// When.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub at: OffsetDateTime,
+        /// Which phone.
+        pub device_name: String,
+        /// People in, across every arrival (at most the guest and companions).
+        pub people: i32,
+    }
+
+    /// A guest on the list (ADR 0070).
+    pub struct GuestDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// Name.
+        pub name: String,
+        /// People besides the guest.
+        pub companions: i16,
+        /// Note.
+        pub note: Option<String>,
+        /// Category.
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub category_id: Option<Uuid>,
+        /// Arrival, once they came in.
+        pub arrival: Option<GuestArrivalDto>,
+        /// Added at.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub created_at: OffsetDateTime,
+    }
+
+    /// `GET /api/events/{id}/door/live` (ADR 0071): the door right now.
+    pub struct DoorLiveDto {
+        /// Paid tickets.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub issued: i64,
+        /// Paid tickets not returned unsold nor lost (what may still come in).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub sold: i64,
+        /// Tickets that entered.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub entries: i64,
+        /// First and last entry of the night.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub first_entry_at: Option<OffsetDateTime>,
+        /// Last entry.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub last_entry_at: Option<OffsetDateTime>,
+        /// Entries per 5 minutes over the last hour, oldest first (12 buckets).
+        pub timeline: Vec<DoorLiveBucketDto>,
+        /// Entries per door link.
+        pub doors: Vec<DoorLiveDoorDto>,
+        /// Every phone, with how it is doing.
+        pub devices: Vec<DoorLiveDeviceDto>,
+        /// Entries per category; empty without categories.
+        pub categories: Vec<DoorLiveCategoryDto>,
+        /// What the door stopped or let through by exception.
+        pub refusals: DoorLiveRefusalsDto,
+        /// The guest list (ADR 0070).
+        pub guests: DoorLiveGuestsDto,
+        /// Sales at the door (ADR 0069).
+        pub box_office: DoorLiveBoxOfficeDto,
+        /// Server clock.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub generated_at: OffsetDateTime,
+    }
+
+    /// Entries in a 5-minute window.
+    pub struct DoorLiveBucketDto {
+        /// Window start.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub start: OffsetDateTime,
+        /// First entries in it.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub entries: i64,
+    }
+
+    /// One door link.
+    pub struct DoorLiveDoorDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// Label.
+        pub label: String,
+        /// Category names it admits; empty: every ticket.
+        pub categories: Vec<String>,
+        /// Revoked or expired.
+        pub closed: bool,
+        /// First entries recorded by its phones.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub entries: i64,
+    }
+
+    /// One phone.
+    pub struct DoorLiveDeviceDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// Name.
+        pub name: String,
+        /// Its door link's label.
+        pub door: String,
+        /// First entries it recorded.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub entries: i64,
+        /// Every scan received from it.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub scans: i64,
+        /// Last contact with the server.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub last_seen_at: Option<OffsetDateTime>,
+        /// Last manifest downloaded.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub last_sync_at: Option<OffsetDateTime>,
+        /// Still to send at its last sync (`null`: not reported).
+        pub pending_scans: Option<i32>,
+        /// Rehearsal finished (ADR 0067).
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub rehearsed_at: Option<OffsetDateTime>,
+        /// Disconnected by the organizer (or its link was).
+        pub revoked: bool,
+    }
+
+    /// Entries of one category.
+    pub struct DoorLiveCategoryDto {
+        /// Name; `null`: numbers without a category.
+        pub name: Option<String>,
+        /// Band colour.
+        pub color: Option<String>,
+        /// Paid tickets not returned unsold nor lost.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub sold: i64,
+        /// Entries.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub entries: i64,
+    }
+
+    /// Readings that did not let anyone in, and exceptions.
+    pub struct DoorLiveRefusalsDto {
+        /// Copies stopped (locally or by the online confirmation).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub blocked_copies: i64,
+        /// Copies that entered through phones offline (found on sync).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub offline_duplicates: i64,
+        /// Forged, damaged or foreign QR codes.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub invalid: i64,
+        /// Tickets of other events.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub other_event: i64,
+        /// Canceled tickets stopped at the door.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub voided: i64,
+        /// Canceled tickets that entered (the phone did not know yet).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub void_entries: i64,
+        /// Sent to another door (ADR 0068).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub wrong_door: i64,
+        /// Let in anyway at a door that does not take their category.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub wrong_door_admitted: i64,
+    }
+
+    /// The guest list at the door.
+    pub struct DoorLiveGuestsDto {
+        /// Names on the list.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub guests: i64,
+        /// People on the list (guests and companions).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub people: i64,
+        /// Names that arrived.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub arrived_guests: i64,
+        /// People who came in.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub arrived_people: i64,
+    }
+
+    /// Box office sales: box office numbers that entered.
+    pub struct DoorLiveBoxOfficeDto {
+        /// Whether any seller is the box office.
+        pub enabled: bool,
+        /// Tickets sold at the door.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub sold: i64,
+        /// Their price (the category's, else the event's); `null` when one has no price.
+        #[cfg_attr(feature = "ts", ts(type = "number | null"))]
+        pub amount_cents: Option<i64>,
+        /// Courtesies among them (price 0).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub courtesies: i64,
+    }
+}
+
+// Organization profile, postponing or canceling, the digital ticket's extras (ADRs 0064–0066) --
+
+dto! {
+    /// Postponement and cancellation of an event (ADR 0065).
+    pub struct EventChangeDto {
+        /// Start before the first postponement; `null` when never postponed (or moved back to
+        /// the original date).
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub postponed_from_starts_at: Option<OffsetDateTime>,
+        /// When it was last postponed.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub postponed_at: Option<OffsetDateTime>,
+        /// Why it was postponed, as the organizer wrote it.
+        pub postpone_reason: Option<String>,
+        /// When it was canceled; `null` when it happens.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub canceled_at: Option<OffsetDateTime>,
+        /// Why it was canceled.
+        pub cancel_reason: Option<String>,
+    }
+
+    /// `POST /api/events/{id}/postpone`.
+    pub struct PostponeEventBody {
+        /// New start, with the event's offset.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub starts_at: OffsetDateTime,
+        /// New end (after the start).
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub ends_at: OffsetDateTime,
+        /// Why (optional, up to 200 characters, one line).
+        pub reason: Option<String>,
+    }
+
+    /// `POST /api/events/{id}/cancel`.
+    pub struct CancelEventBody {
+        /// Why (optional, up to 200 characters, one line).
+        pub reason: Option<String>,
+    }
+
+    /// `GET /api/account/profile`: the organization's profile (ADR 0064).
+    pub struct OrganizationProfileDto {
+        /// Organization name (changed with `PUT /api/account`).
+        pub organization_name: String,
+        /// The logo, if any.
+        pub logo: Option<ProfileLogoDto>,
+        /// Brand colour (`#rrggbb`).
+        pub brand_color: Option<String>,
+        /// WhatsApp number, digits only with the country code (`5511999998888`).
+        pub whatsapp: Option<String>,
+        /// Public contact e-mail.
+        pub contact_email: Option<String>,
+        /// Site (`https://…`).
+        pub website: Option<String>,
+        /// Instagram handle, without the `@`.
+        pub instagram: Option<String>,
+        /// Venue of new events.
+        pub default_venue: Option<String>,
+        /// Address of new events.
+        pub default_address: Option<String>,
+        /// Ticket price of new events, in cents.
+        pub default_ticket_price_cents: Option<i32>,
+    }
+
+    /// `PUT /api/account/profile`: every field at once (blank clears it).
+    pub struct OrganizationProfileBody {
+        /// `#rrggbb`.
+        pub brand_color: Option<String>,
+        /// Typed as people write it: `(11) 99999-8888`, `+55 11 99999-8888`…
+        pub whatsapp: Option<String>,
+        /// Public e-mail.
+        pub contact_email: Option<String>,
+        /// `exemplo.com.br` or `https://…`.
+        pub website: Option<String>,
+        /// `@perfil`, `perfil` or the profile's address.
+        pub instagram: Option<String>,
+        /// Up to 120 characters.
+        pub default_venue: Option<String>,
+        /// Up to 200 characters.
+        pub default_address: Option<String>,
+        /// Not negative.
+        pub default_ticket_price_cents: Option<i32>,
+    }
+
+    /// The organization's logo and its review (moderated like the art, ADR 0042).
+    pub struct ProfileLogoDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// `unchecked`, `clean`, `flagged`, `approved` or `rejected`.
+        pub moderation: String,
+        /// Public address of the image (`/api/logos/{id}`); `null` while it is under review or
+        /// after it was refused.
+        pub path: Option<String>,
+    }
+
+    /// Who runs an event, as the public pages show it (ADR 0064).
+    pub struct PublicOrganizationDto {
+        /// Name.
+        pub name: String,
+        /// Logo (`/api/logos/{id}`, an image of the API), when there is one and it may be shown.
+        pub logo_path: Option<String>,
+        /// Brand colour (`#rrggbb`).
+        pub brand_color: Option<String>,
+        /// WhatsApp, digits with the country code: the "Falar com a organização" button.
+        pub whatsapp: Option<String>,
+        /// Public e-mail.
+        pub email: Option<String>,
+        /// Site.
+        pub website: Option<String>,
+        /// Instagram handle.
+        pub instagram: Option<String>,
+    }
+
+    /// The room on the digital ticket (ADR 0066): every table, without who sits where.
+    pub struct PassTableMapDto {
+        /// Tables of the event.
+        pub tables: Vec<PassTableDto>,
+        /// The holder's table (names are unique in an event).
+        pub table: String,
+        /// The holder's seat.
+        pub seat: i16,
+    }
+
+    /// A table on the ticket's map.
+    pub struct PassTableDto {
+        /// Name.
+        pub name: String,
+        /// Seats.
+        pub seats: i16,
+        /// Drawing.
+        pub shape: TableShape,
+        /// Centre (0–1 of the width).
+        pub x: f32,
+        /// Centre (0–1 of the height).
+        pub y: f32,
+    }
+}
+
+// Check a ticket before buying it (ADR 0075) ------------------------------------------------
+
+dto! {
+    /// `POST /api/verify` (no login): the text read from a ticket's QR.
+    pub struct VerifyTicketBody {
+        /// QR text, as read by the camera or pasted.
+        pub text: String,
+    }
+
+    /// What the public check says. Never whether the ticket already entered, nor who has it.
+    pub struct VerifyResultDto {
+        /// The answer.
+        pub verdict: VerifyVerdict,
+        /// The ticket, when the QR is an authentic ticket of an event that allows the check.
+        pub ticket: Option<VerifiedTicketDto>,
+    }
+
+    /// An authentic ticket, as printed.
+    pub struct VerifiedTicketDto {
+        /// The event.
+        pub event: VerifiedEventDto,
+        /// Who runs it: name, logo and contact (ADR 0064).
+        pub organization: PublicOrganizationDto,
+        /// Ticket number.
+        pub number: i32,
+        /// Number as printed.
+        pub number_label: String,
+        /// Text before the number on paper, e.g. "Nº ".
+        pub number_prefix: String,
+        /// Category (ADR 0056).
+        pub category: Option<DoorCategoryTagDto>,
+    }
+
+    /// The event of a checked ticket.
+    pub struct VerifiedEventDto {
+        /// Name.
+        pub name: String,
+        /// Venue.
+        pub venue: Option<String>,
+        /// Street address.
+        pub address: Option<String>,
+        /// Start, with the event's offset.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub starts_at: OffsetDateTime,
+        /// End.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub ends_at: OffsetDateTime,
+        /// Postponement and cancellation (ADR 0065).
+        pub change: EventChangeDto,
+        /// One of several dates (ADR 0077): the page says which session the ticket is for.
+        pub in_series: bool,
+    }
+
+    /// `GET|PUT /api/events/{id}/verify-settings`.
+    pub struct VerifySettingsDto {
+        /// Whether anyone with the ticket may check it on the site.
+        pub public_verify: bool,
+    }
+}
+
+dto_enum! {
+    /// The answer of the public check.
+    pub enum VerifyVerdict {
+        /// Authentic, not canceled, the event is on.
+        Valid,
+        /// Authentic, but the event changed date.
+        EventPostponed,
+        /// Authentic, but the event already happened.
+        EventOver,
+        /// Authentic, but the event was canceled.
+        EventCanceled,
+        /// Authentic, but this number was canceled by the organizer.
+        TicketCanceled,
+        /// The organizer turned the public check off for this event.
+        Private,
+        /// Not a ticket we issued (or tampered with).
+        NotOurs,
+    }
+}
+
+// Refer and earn (ADR 0076) -----------------------------------------------------------------
+
+dto! {
+    /// `GET /api/referrals/{code}` (no login): who invites, and what a new account earns.
+    pub struct ReferralInviteDto {
+        /// The code, normalized.
+        pub code: String,
+        /// The referring organization's name; `null` while it is still an e-mail address (never
+        /// shown on a public link).
+        pub organization_name: Option<String>,
+        /// Credit the new account earns on its first paid batch, in centavos.
+        pub referred_cents: i32,
+        /// Smallest first batch that counts, in centavos.
+        pub min_batch_cents: i32,
+    }
+
+    /// `GET /api/account/referrals`: the organization's link and the people it referred.
+    pub struct ReferralsDto {
+        /// Whether the program is on.
+        pub enabled: bool,
+        /// The organization's code (`/i/<code>`).
+        pub code: String,
+        /// What the referrer earns per referral, in centavos.
+        pub referrer_cents: i32,
+        /// What the referred organization earns, in centavos.
+        pub referred_cents: i32,
+        /// Smallest first batch that counts, in centavos.
+        pub min_batch_cents: i32,
+        /// Rewards the referrer may earn in any 30 days.
+        pub monthly_limit: i32,
+        /// Credit earned by referring, revoked rewards left out, in centavos.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub earned_cents: i64,
+        /// People referred, newest first.
+        pub referrals: Vec<ReferralDto>,
+        /// The organization itself came through a referral.
+        pub invited_by: Option<InvitedByDto>,
+    }
+
+    /// A referred account, as its referrer sees it (never the whole e-mail).
+    pub struct ReferralDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// Masked e-mail, e.g. `ma•••@gmail.com`.
+        pub email_hint: String,
+        /// Where it is.
+        pub status: ReferralStatus,
+        /// When the account was created.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub created_at: OffsetDateTime,
+        /// When the reward came.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub rewarded_at: Option<OffsetDateTime>,
+        /// What the referrer earned, in centavos.
+        pub earned_cents: i32,
+        /// The monthly limit was reached: only the referred account earned.
+        pub capped: bool,
+    }
+
+    /// The referral that brought the organization in.
+    pub struct InvitedByDto {
+        /// Who referred it; `null` if that account was deleted.
+        pub organization_name: Option<String>,
+        /// Where it is.
+        pub status: ReferralStatus,
+        /// Credit earned, or to earn on the first paid batch, in centavos.
+        pub referred_cents: i32,
+    }
+
+    /// `GET|PUT /api/admin/referrals/settings`.
+    pub struct ReferralSettingsDto {
+        /// Whether new referrals are taken and rewards paid.
+        pub enabled: bool,
+        /// Credit for the referrer, in centavos (0–100000).
+        pub referrer_cents: i32,
+        /// Credit for the referred organization, in centavos (0–100000).
+        pub referred_cents: i32,
+        /// Rewards one referrer may earn in any 30 days (0–1000).
+        pub monthly_limit: i32,
+        /// Smallest batch, actually paid, that earns the reward, in centavos.
+        pub min_batch_cents: i32,
+    }
+
+    /// `GET /api/admin/referrals`.
+    pub struct AdminReferralsDto {
+        /// The program's switches.
+        pub settings: ReferralSettingsDto,
+        /// Referrals by status.
+        pub totals: ReferralTotalsDto,
+        /// The latest referrals.
+        pub referrals: Vec<AdminReferralDto>,
+    }
+
+    /// Sums of the program.
+    pub struct ReferralTotalsDto {
+        /// Waiting for the first paid batch.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub pending: i64,
+        /// Rewarded.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub rewarded: i64,
+        /// Revoked.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub revoked: i64,
+        /// Credit given and not revoked, in centavos.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub credit_cents: i64,
+    }
+
+    /// A referral in the admin panel.
+    pub struct AdminReferralDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// Referrer; `null` once deleted.
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub referrer_id: Option<Uuid>,
+        /// Referrer's name.
+        pub referrer_name: Option<String>,
+        /// Referred organization; `null` once deleted.
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub referred_id: Option<Uuid>,
+        /// Referred organization's name.
+        pub referred_name: Option<String>,
+        /// Masked e-mail of the referred account.
+        pub email_hint: String,
+        /// Where it is.
+        pub status: ReferralStatus,
+        /// When the account was created.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub created_at: OffsetDateTime,
+        /// When the reward came.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub rewarded_at: Option<OffsetDateTime>,
+        /// Credit given to the referrer, in centavos.
+        pub referrer_cents: i32,
+        /// Credit given to the referred organization, in centavos.
+        pub referred_cents: i32,
+        /// The referrer was over the monthly limit.
+        pub referrer_capped: bool,
+        /// When it was revoked.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub revoked_at: Option<OffsetDateTime>,
+        /// Why: `batch_refunded` or `admin`.
+        pub revoke_reason: Option<String>,
+    }
+}
+
+dto_enum! {
+    /// Where a referral is.
+    pub enum ReferralStatus {
+        /// The account exists; its first paid batch is awaited.
+        Pending,
+        /// Both sides got their credit.
+        Rewarded,
+        /// Taken back (refunded batch, or an admin).
+        Revoked,
+    }
+}
+
+db_enum!(ReferralStatus { Pending => "pending", Rewarded => "rewarded", Revoked => "revoked" });
+
+// Several dates of one event (ADR 0077) and the checklist of what is missing (ADR 0078).
+dto! {
+    /// The series of dates an event is one of.
+    pub struct EventSeriesRefDto {
+        /// Series id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// The series' name.
+        pub name: String,
+        /// Dates in the series (all of them, also those the user cannot open).
+        pub dates: i32,
+        /// This date's place by start, from 1.
+        pub position: i32,
+    }
+
+    /// `POST /api/events/{id}/dates`: another date with the same setup.
+    pub struct NewDateBody {
+        /// Start, with the event's offset.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub starts_at: OffsetDateTime,
+        /// End.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub ends_at: OffsetDateTime,
+    }
+
+    /// `PUT /api/series/{id}`: renames the series (and the dates that still carry its name).
+    pub struct SeriesBody {
+        /// New name.
+        pub name: String,
+    }
+
+    /// `GET /api/series/{id}`: the dates side by side and the series' totals.
+    pub struct SeriesDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// Name.
+        pub name: String,
+        /// The organization that runs it.
+        pub organization_name: String,
+        /// Whether the user may rename the series and add or detach dates (the organization's
+        /// own people).
+        pub can_manage: bool,
+        /// Opened by an admin outside their organization (support mode, ADR 0032).
+        pub support_access: bool,
+        /// The dates the user may open, earliest first.
+        pub dates: Vec<SeriesDateDto>,
+        /// Dates the user cannot open (on the team of some dates only).
+        pub hidden_dates: i32,
+        /// Sums of the dates shown.
+        pub totals: SeriesNumbersDto,
+        /// Sellers of the dates shown, added up by name.
+        pub sellers: Vec<SeriesSellerDto>,
+    }
+
+    /// One date of a series and its numbers.
+    pub struct SeriesDateDto {
+        /// The event of that date.
+        pub event: EventDto,
+        /// Its numbers.
+        pub numbers: SeriesNumbersDto,
+    }
+
+    /// What one date (or the whole series) issued, sold and took in, as the report counts it.
+    #[derive(Default)]
+    pub struct SeriesNumbersDto {
+        /// Paid tickets.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub tickets: i64,
+        /// Declared sold (paid − returned − lost; entries for a box office).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub sold: i64,
+        /// Entries at the door.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub entries: i64,
+        /// Sold × price, in centavos; `null` when a sold ticket has no price.
+        #[cfg_attr(feature = "ts", ts(type = "number | null"))]
+        pub amount_due_cents: Option<i64>,
+        /// Received from sellers, in centavos.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub received_cents: i64,
+        /// Paid for batches, in centavos.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub cost_cents: i64,
+        /// Amount due minus cost; `null` without an amount.
+        #[cfg_attr(feature = "ts", ts(type = "number | null"))]
+        pub net_cents: Option<i64>,
+    }
+
+    /// A seller across the dates, matched by name.
+    pub struct SeriesSellerDto {
+        /// Name, as on the first date it appears.
+        pub name: String,
+        /// Dates the seller had numbers or handed over money on.
+        pub dates: i32,
+        /// Tickets handed to the seller.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub tickets: i64,
+        /// Declared sold.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub sold: i64,
+        /// Amount due, in centavos; `null` when some date has no price.
+        #[cfg_attr(feature = "ts", ts(type = "number | null"))]
+        pub amount_due_cents: Option<i64>,
+        /// Received, in centavos.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub received_cents: i64,
+        /// Still owed, in centavos; `null` without an amount.
+        #[cfg_attr(feature = "ts", ts(type = "number | null"))]
+        pub balance_cents: Option<i64>,
+    }
+
+    /// `GET /api/events/{id}/checklist`: what is missing before the event.
+    pub struct ChecklistDto {
+        /// Whether the checklist applies: the event has not ended and is neither archived nor
+        /// canceled. When it does not, `items` is empty.
+        pub applies: bool,
+        /// Required items still missing (optional ones never count).
+        pub missing: i32,
+        /// Required items (done or not), the ones that do not apply aside.
+        pub required: i32,
+        /// Every item, in the order the work goes.
+        pub items: Vec<ChecklistItemDto>,
+    }
+
+    /// One thing to have ready.
+    pub struct ChecklistItemDto {
+        /// What.
+        pub key: ChecklistKey,
+        /// Where it stands.
+        pub state: ChecklistState,
+        /// Optional items never count as missing.
+        pub optional: bool,
+        /// The team area that takes care of it; `null`: the organization's own people.
+        pub area: Option<TeamArea>,
+        /// Whether the user may do it (the panel offers the way only then).
+        pub can_act: bool,
+        /// How far, when it is made of parts (sellers with a link out of sellers with numbers).
+        pub progress: Option<ChecklistProgressDto>,
+        /// Why it is missing, when there is more to say.
+        pub hint: Option<ChecklistHint>,
+    }
+
+    /// Done out of total.
+    pub struct ChecklistProgressDto {
+        /// Done.
+        pub done: i32,
+        /// Total.
+        pub total: i32,
+    }
+}
+
+dto_enum! {
+    /// An item of the checklist.
+    pub enum ChecklistKey {
+        /// Venue and address.
+        Details,
+        /// A saved ticket design.
+        Design,
+        /// The images of the design are free to print (ADR 0042).
+        Art,
+        /// Categories (optional).
+        Categories,
+        /// A paid batch.
+        Batch,
+        /// Sellers with numbers (optional).
+        Sellers,
+        /// Every seller with numbers has a private link (ADR 0053).
+        SellerLinks,
+        /// Files generated or digital tickets sent.
+        Delivery,
+        /// An open door link.
+        DoorLink,
+        /// A phone rehearsed the door (ADR 0067).
+        Rehearsal,
+        /// The guest list (optional, ADR 0070).
+        Guests,
+        /// The public check is on (ADR 0075).
+        PublicVerify,
+        /// The organization's profile has a contact (ADR 0064).
+        OrganizationContact,
+    }
+
+    /// Where an item stands.
+    pub enum ChecklistState {
+        /// Ready.
+        Done,
+        /// Still to do.
+        Missing,
+        /// Not done, and optional.
+        Optional,
+        /// Does not apply to this event (no images to review, no sellers).
+        NotApplicable,
+    }
+
+    /// More about a missing item.
+    pub enum ChecklistHint {
+        /// The venue is empty.
+        NoVenue,
+        /// The address is empty.
+        NoAddress,
+        /// Neither.
+        NoVenueNorAddress,
+        /// An image is waiting for the review.
+        ArtUnderReview,
+        /// An image was refused.
+        ArtRejected,
+        /// No phone was registered at the door yet.
+        NoDevices,
+    }
+}

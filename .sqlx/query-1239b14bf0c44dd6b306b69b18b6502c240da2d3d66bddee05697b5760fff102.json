@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select series_id is not null as \"in_series!\" from events where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "in_series!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "1239b14bf0c44dd6b306b69b18b6502c240da2d3d66bddee05697b5760fff102"
+}

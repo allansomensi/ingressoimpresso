@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update sellers set goal = $2 where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "7dbc1cde9dbe3af961519f4e57e3b2d99ff2d35118998896bcb925adf1f24472"
+}

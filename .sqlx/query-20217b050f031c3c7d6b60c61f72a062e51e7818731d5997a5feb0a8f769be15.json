@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update referrals set referrer_cents = $2, referred_cents = $3, referrer_capped = $4\n           where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4",
+        "Int4",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "20217b050f031c3c7d6b60c61f72a062e51e7818731d5997a5feb0a8f769be15"
+}

@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select seller_id from ticket_reservations where reservation_id = $1 limit 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "seller_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "ticket_reservations",
+            "name": "seller_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "57500d288317cac12640b188f4837dc25f29aafc2d7fbeb88c29199b5d21020a"
+}

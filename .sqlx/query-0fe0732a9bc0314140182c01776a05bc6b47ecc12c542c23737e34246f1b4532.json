@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into sellers (id, event_id, name, phone, box_office, goal)\n           select gen_random_uuid(), $2, name, phone, box_office, goal from sellers where event_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "0fe0732a9bc0314140182c01776a05bc6b47ecc12c542c23737e34246f1b4532"
+}

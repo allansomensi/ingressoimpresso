@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select count(*)::text || '-' ||\n                  coalesce(md5(string_agg(g.id::text || g.updated_at::text || coalesce(g.category_id::text, '')\n                                          || coalesce(c.name, '') || coalesce(c.color, ''),\n                                          ',' order by g.id)), '')\n                  as \"version!\"\n           from guest_list g left join ticket_categories c on c.id = g.category_id\n           where g.event_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "version!",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "7d75f4f7ed8367087c79b8594780587f78325b0edbc3037942e60c4f721f07f6"
+}

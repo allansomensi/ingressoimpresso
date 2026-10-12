@@ -39,8 +39,8 @@ struct FlagRow {
     blob_id: Uuid,
     organization_id: Uuid,
     organization_name: String,
-    event_id: Uuid,
-    event_name: String,
+    event_id: Option<Uuid>,
+    event_name: Option<String>,
     uploaded_by: Option<String>,
     reasons: Vec<String>,
     details: serde_json::Value,
@@ -63,13 +63,13 @@ async fn load_flags(
     let rows = sqlx::query_as!(
         FlagRow,
         r#"select f.id, f.blob_id, f.organization_id, o.name as organization_name, f.event_id,
-                  e.name as event_name, up.email::text as "uploaded_by?", f.reasons, f.details,
+                  e.name as "event_name?", up.email::text as "uploaded_by?", f.reasons, f.details,
                   f.score, f.source, f.status, f.resolution_note, rb.email::text as "resolved_by?",
                   f.resolved_at, f.created_at, b.width_px, b.height_px
            from moderation_flags f
            join blobs b on b.id = f.blob_id
            join organizations o on o.id = f.organization_id
-           join events e on e.id = f.event_id
+           left join events e on e.id = f.event_id
            left join users up on up.id = b.uploaded_by
            left join users rb on rb.id = f.resolved_by
            where ($1::text is null or f.status = $1) and ($2::uuid is null or f.id = $2)
@@ -151,9 +151,10 @@ pub async fn recent(
 ) -> ApiResult<Json<Vec<RecentArtDto>>> {
     require_admin(&user)?;
     let rows = sqlx::query!(
-        r#"select b.id, e.organization_id, o.name as organization_name, b.event_id,
-                  e.name as event_name, b.moderation_status, b.created_at
-           from blobs b join events e on e.id = b.event_id join organizations o on o.id = e.organization_id
+        r#"select b.id, o.id as organization_id, o.name as organization_name, b.event_id,
+                  e.name as "event_name?", b.moderation_status, b.created_at
+           from blobs b left join events e on e.id = b.event_id
+           join organizations o on o.id = coalesce(e.organization_id, b.organization_id)
            order by b.created_at desc limit 60"#
     )
     .fetch_all(&state.pool)
@@ -227,7 +228,8 @@ pub async fn flag(
     let note = checked_note(body.note)?;
     let mut tx = state.pool.begin().await?;
     let blob = sqlx::query!(
-        "select b.event_id, e.organization_id from blobs b join events e on e.id = b.event_id where b.id = $1",
+        r#"select b.event_id, coalesce(e.organization_id, b.organization_id) as "organization_id!"
+           from blobs b left join events e on e.id = b.event_id where b.id = $1"#,
         blob_id
     )
     .fetch_optional(&mut *tx)
@@ -258,7 +260,7 @@ pub async fn flag(
         &user,
         "moderation_flag",
         Some(blob.organization_id),
-        Some(blob.event_id),
+        blob.event_id,
         Some(blob_id),
         serde_json::json!({ "note": note }),
     )
@@ -283,8 +285,8 @@ pub async fn resolve(
     let note = checked_note(body.note)?;
     let mut tx = state.pool.begin().await?;
     let flag = sqlx::query!(
-        r#"select f.blob_id, f.organization_id, f.event_id, f.status, e.name as event_name
-           from moderation_flags f join events e on e.id = f.event_id
+        r#"select f.blob_id, f.organization_id, f.event_id, f.status, e.name as "event_name?"
+           from moderation_flags f left join events e on e.id = f.event_id
            where f.id = $1 for update of f"#,
         flag_id
     )
@@ -334,7 +336,13 @@ pub async fn resolve(
             &mut *tx,
             flag.organization_id,
             kind,
-            serde_json::json!({ "eventId": flag.event_id, "eventName": flag.event_name, "note": note }),
+            // A logo has no event (ADR 0064): the notification says so and opens the account.
+            serde_json::json!({
+                "eventId": flag.event_id,
+                "eventName": flag.event_name,
+                "logo": flag.event_id.is_none(),
+                "note": note,
+            }),
         )
         .await?;
     }
@@ -359,7 +367,7 @@ pub async fn resolve(
             "moderation_reject"
         },
         Some(flag.organization_id),
-        Some(flag.event_id),
+        flag.event_id,
         Some(flag.blob_id),
         serde_json::json!({ "note": note, "notified": body.notify, "suspended": suspend }),
     )

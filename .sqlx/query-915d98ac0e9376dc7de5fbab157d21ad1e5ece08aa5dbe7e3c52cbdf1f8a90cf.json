@@ -1,0 +1,76 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select referred_email_hint, status, created_at, rewarded_at, referrer_cents from referrals\n           where referrer_organization_id = $1 order by created_at",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "referred_email_hint",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "referrals",
+            "name": "referred_email_hint"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "referrals",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "referrals",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "rewarded_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "referrals",
+            "name": "rewarded_at"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "referrer_cents",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "referrals",
+            "name": "referrer_cents"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "915d98ac0e9376dc7de5fbab157d21ad1e5ece08aa5dbe7e3c52cbdf1f8a90cf"
+}

@@ -15,4 +15,9 @@ code: string,
 /**
  * Authenticator or recovery code, for accounts with two-step verification (ADR 0045).
  */
-twoFactorCode?: string, };
+twoFactorCode?: string, 
+/**
+ * Code of the organization that referred a new account (ADR 0076); ignored for an
+ * existing one.
+ */
+referralCode?: string, };

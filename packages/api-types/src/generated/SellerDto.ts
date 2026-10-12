@@ -25,4 +25,12 @@ ranges: Array<RangeDto>,
 /**
  * The seller's active private link (ADR 0053), if any.
  */
-link: SellerLinkDto | null, };
+link: SellerLinkDto | null, 
+/**
+ * Sells at the door (ADR 0069): sold = numbers that entered.
+ */
+boxOffice: boolean, 
+/**
+ * Tickets the seller aims to sell (ADR 0073); never on a box office.
+ */
+goal: number | null, };

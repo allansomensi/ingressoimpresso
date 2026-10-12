@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update organizations set referral_code = coalesce(referral_code, $2)\n               where id = $1 returning referral_code as \"code!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "code!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "organizations",
+            "name": "referral_code"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "4fea064ba02c3fff578f5f79cfce26a09134baf832f55e9d7e9ffa0d16bf63fb"
+}

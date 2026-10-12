@@ -368,6 +368,19 @@ create table seller_links (id uuid primary key, event_id uuid not null reference
 create table ticket_sales (event_id uuid not null references events, ticket_number integer not null,
   seller_id uuid not null references sellers, buyer_name text, buyer_phone text,
   sold_at timestamptz not null default now(), primary key (event_id, ticket_number));
+-- Reservas do vendedor (ADR 0072): a palavra do vendedor, nunca vai à portaria; ativa enquanto
+-- expires_at > now(), a limpeza horária apaga as vencidas há mais de 7 dias
+create table ticket_reservations (event_id uuid not null references events, ticket_number integer not null,
+  reservation_id uuid not null,   -- os números reservados juntos
+  seller_id uuid not null references sellers, holder_name text not null, holder_phone text,
+  expires_at timestamptz not null, created_by uuid references users,   -- null: pelo link do vendedor
+  created_at timestamptz not null default now(), primary key (event_id, ticket_number));
+-- Metas e ranking (ADR 0073): sellers.goal integer (1–100000, nunca na bilheteria) e
+-- events.sellers_ranking boolean (desligado por padrão)
+-- Fila do link do vendedor sem internet (ADR 0074): a resposta de cada alteração, por id criado
+-- no celular, para repetir sem duplicar (apagada depois de 30 dias)
+create table seller_sync_ops (seller_id uuid not null references sellers, op_id uuid not null,
+  result jsonb not null, created_at timestamptz not null default now(), primary key (seller_id, op_id));
 -- Equipe do evento (ADR 0055): quem ajuda e o que cada um cuida; a organização continua dona
 create table event_team (id uuid primary key, event_id uuid not null references events,
   email citext not null, name text, user_id uuid references users,   -- null até o primeiro login
@@ -412,6 +425,19 @@ create table scans (                                  -- log só-de-acréscimo (
 create table entries (                                -- primeira entrada de cada ingresso
   event_id uuid references events, ticket_number integer,
   first_scan_id uuid not null references scans, primary key (event_id, ticket_number));
+-- Portaria do dia (ADRs 0067–0071): door_devices ganha rehearsed_at, last_sync_at e
+-- pending_scans; scans ganha door_exception e o desfecho 'rejected_wrong_door'; sellers ganha
+-- box_office (vendido = entrou).
+create table door_access_categories (door_access_id uuid references door_accesses,
+  category_id uuid references ticket_categories, primary key (door_access_id, category_id));
+create table guest_list (id uuid primary key, event_id uuid not null references events,
+  name text not null, companions smallint not null, note text, category_id uuid,
+  created_by uuid, created_at timestamptz not null, updated_at timestamptz not null);
+create table guest_arrivals (                         -- G-Set como scans; desfazer = novo txid
+  id uuid primary key, event_id uuid not null, guest_id uuid not null references guest_list,
+  device_id uuid not null references door_devices, people smallint not null,
+  arrived_at timestamptz not null, undone_at timestamptz, received_at timestamptz not null,
+  txid xid8 not null default pg_current_xact_id());
 
 -- Pagamentos (ADR 0020): uma linha por Checkout Session da Stripe
 create table payments (id uuid primary key, batch_id uuid not null references ticket_batches,
@@ -444,6 +470,29 @@ create table ticket_links (id uuid primary key, event_id uuid not null reference
 -- mail_sends: to_email, subject (sem o código), status, provider_id, error
 -- blobs.moderation_status + uploaded_by; moderation_flags; moderation_usage (orçamento diário)
 -- status_incidents + status_incident_updates
+
+-- Perfil da organização e mudanças do evento (ADRs 0064–0066); 20261028000001/2.
+-- organization_profiles (1:1): logo_blob_id, brand_color, whatsapp (dígitos com DDI), contact_email,
+--   website, instagram, default_venue, default_address, default_ticket_price_cents
+-- blobs.event_id passa a ser opcional e blobs.organization_id guarda os logos (um dos dois);
+--   moderation_flags.event_id opcional (flag de logo não tem evento)
+-- events: address, postponed_from_starts_at (data original da 1ª vez), postponed_at, postpone_reason,
+--   canceled_at, cancel_reason (cancelar ≠ arquivar: status continua 'active')
+
+-- Conferir ingresso e Indique e ganhe (ADRs 0075, 0076); 20261031000001.
+-- events.public_verify (conferência pública em /conferir, ligada por padrão)
+-- organizations.referral_code (único, criado na primeira vez que o cartão aparece)
+-- platform_settings: referrals_enabled, referral_referrer_cents, referral_referred_cents,
+--   referral_monthly_limit (por 30 dias), referral_min_batch_cents
+-- referrals: referrer/referred_organization_id (set null), code, referred_email_hash (único, hash
+--   com chave do e-mail normalizado), referred_email_hint, status pending|rewarded|revoked,
+--   qualifying_batch_id, referrer_cents, referred_cents, referrer_capped, revoked_at, revoke_reason
+-- credit_ledger.reason + 'referral' | 'referral_revoked' (único por referência, organização e motivo)
+
+-- Várias datas e lista do que falta (ADRs 0077, 0078); 20261101000001.
+-- event_series (id, organization_id, name); events.series_id (set null; série tem 2+ datas)
+--   Cada data é um evento inteiro: chave, qr_tag, lotes, portaria e acerto próprios.
+--   A lista do que falta não tem tabela: é calculada do que o evento tem (checklist::facts).
 
 -- Duas etapas (ADR 0045); detalhes em 20261017000001_two_factor.sql.
 -- users: totp_secret (selada), totp_enabled_at, totp_last_step; recovery_codes (hash com chave, used_at)
@@ -501,6 +550,11 @@ GET /api/events/{id}/seller-payments           POST /api/sellers/{id}/payments  
 POST /api/sellers/{id}/returns                 (vários números do vendedor de uma vez, ADR 0050)
 POST|DELETE /api/sellers/{id}/link             GET /api/events/{id}/ticket-sales   (ADR 0053)
 POST /api/seller   POST /api/seller/sales   POST /api/seller/sales/undo   (sem login: token no corpo)
+POST /api/seller/sync { token, ops: [{ id, op }] } → { view, results }   (ADR 0074: fila do celular,
+                                               idempotente por id; mark | unmark | reserve | cancel_reservation)
+GET /api/events/{id}/reservations   POST /api/sellers/{id}/reservations   (ADR 0072)
+POST /api/reservations/{id}/sell    DELETE /api/reservations/{id}
+PUT /api/sellers/{id}/goal   POST /api/events/{id}/sellers/goals   (ADR 0073; ranking em seller-settings)
 GET|POST /api/events/{id}/categories   PUT|DELETE /api/categories/{id}   (ADR 0056)
 POST /api/categories/{id}/ranges   DELETE /api/category-ranges/{id}
 GET|POST /api/events/{id}/tables   POST /api/events/{id}/tables/bulk   PUT /api/events/{id}/tables/layout
@@ -512,6 +566,16 @@ GET|POST /api/events/{id}/team   PUT|DELETE /api/team-members/{id}   POST /api/e
 GET|POST /api/events/{id}/exports              GET /api/exports/{id}
 POST /api/exports/{id}/link    → link de 10 min  GET /api/downloads/{token} (sem login)
 GET /healthz (sem banco)                       GET /readyz (consulta o banco)
+```
+
+Várias datas e lista do que falta (ADRs 0077, 0078):
+
+```
+POST /api/events/{id}/dates          { startsAt, endsAt } → a nova data (cópia da configuração, chave e QR próprios)
+POST /api/events/{id}/series/leave   → a data, fora da série (a série de uma data só é desfeita)
+GET|PUT /api/series/{id}             datas lado a lado, totais e vendedores somados; PUT { name }
+GET /api/events/{id}/checklist       { applies, missing, required, items[{ key, state, optional, area, canAct, progress, hint }] }
+GET /api/events                      … + series { id, name, dates, position }, checklistMissing (uma consulta)
 ```
 
 Pagamento, fase 6 (ADR 0020):
@@ -582,6 +646,38 @@ POST /api/account/two-factor/recovery-codes { code }   POST /api/account/two-fac
 POST /api/admin/users/{id}/two-factor/reset
 ```
 
+Perfil da organização, adiar e cancelar (ADRs 0064–0066):
+
+```
+GET|PUT /api/account/profile               perfil (contato, cor, padrões de evento novo)
+POST|DELETE /api/account/profile/logo      PNG/JPEG cru (até 8 MB), guardado em até 512 px, moderado
+GET  /api/logos/{id}                       (sem login) o logo atual, se não estiver em revisão nem recusado
+POST /api/events/{id}/postpone { startsAt, endsAt, reason? }   links da portaria vão para o novo fim
+POST /api/events/{id}/cancel { reason? }   POST /api/events/{id}/cancel/undo   (parte "manage" da equipe)
+```
+
+`POST /api/ticket` passa a trazer `organization` (nome, logo, contato), `event.address`,
+`event.change` (adiamento/cancelamento) e `tableMap` (mesas do evento, sem quem senta, e a mesa e o
+lugar do portador); `POST /api/seller` traz `organization` e `event.change`; o manifesto da portaria
+traz `event.canceledAt`. Evento cancelado recusa lote novo, checkout e as vendas e envios do link do
+vendedor (`event_canceled`).
+
+Conferir ingresso e Indique e ganhe (ADRs 0075, 0076):
+
+```
+POST /api/verify { text }  (sem login, 30/10 min por endereço)
+     → { verdict: valid|event_postponed|event_over|event_canceled|ticket_canceled|private|not_ours,
+         ticket?: { event, organization, number, numberLabel, numberPrefix, category } }
+GET|PUT /api/events/{id}/verify-settings { publicVerify }        (parte "delivery" da equipe)
+GET  /api/referrals/{code}  (sem login) → { organizationName, referredCents, minBatchCents }
+GET  /api/account/referrals → { code, valores, referrals[] (e-mail mascarado), invitedBy? }
+GET  /api/admin/referrals   PUT /api/admin/referrals/settings   POST /api/admin/referrals/{id}/revoke
+```
+
+`POST /api/auth/verify` e `/api/auth/google` aceitam `referralCode` (só para conta nova) e
+respondem `referred`. A recompensa sai na transação que muda o lote para pago (webhook, retorno do
+pagador ou `mark-paid`); `refund_batch` revoga a do lote estornado.
+
 Em manutenção `read_only`, organizadores só fazem GET; em `full`, recebem 503 `maintenance`. Admins,
 portaria, ingresso digital e Stripe nunca param.
 
@@ -613,6 +709,22 @@ POST /api/door/scans           { scans: [{ id, number?, keyId?, outcome, scanned
   escrita longa no banco segura a sincronização até terminar.
 - `confirm` classifica uma leitura só, enquanto o celular espera. A classificação é a primeira
   inserção em `entries`, com a mesma precedência da portaria: cancelado > já entrou > entra.
+
+Portaria do dia (ADRs 0067–0071). Campos novos são opcionais para o app antigo:
+
+```
+GET  /api/door/manifest?since=&pending=<n>&guests=<versão>
+     → … + allowedCategoryIds[], doors[{ label, categoryIds }], guests[]|null, guestsVersion,
+       guestArrivals[{ id, guestId, people, atUnixMs, deviceName, undone }],
+       sessions[{ eventTag, startsAt }] (as outras datas da série, ADR 0077)
+POST /api/door/scans           … scans[].exception? (só com outcome admitted); outcome rejected_wrong_door
+POST /api/door/guests          { arrivals: [{ id, guestId, people, arrivedAtMs, undoneAtMs }] } → { results[{ id, kept }] }
+POST /api/door/rehearsal       → 204
+PUT  /api/door-accesses/{id}/categories   { categoryIds }
+GET  /api/events/{id}/door/rehearsal-sheet → PDF com ingressos de amostra
+GET  /api/events/{id}/door/live            → entradas, curva de 5 min, portas, celulares, recusas, lista, bilheteria
+GET|POST /api/events/{id}/guests, POST /api/events/{id}/guests/bulk, PUT|DELETE /api/guests/{id}
+```
 
 Os DTOs são structs Rust com `#[derive(TS)]` (`ts-rs`), e os tipos TS são gerados em
 `packages/api-types`. Um teste do CI falha se os tipos gerados estiverem desatualizados.

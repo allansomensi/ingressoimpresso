@@ -68,6 +68,8 @@ pub(crate) async fn refund_batch(
     .execute(&mut **tx)
     .await?;
     billing::give_back(tx, batch_id, CreditReason::BatchRefund, actor).await?;
+    // A referral rewarded for this batch is taken back (ADR 0076).
+    super::referrals::revoke_for_batch(tx, batch_id).await?;
     Ok(Some(batch.event_id))
 }
 
@@ -172,6 +174,14 @@ pub(crate) async fn record_refund(
             .await?;
             outcome.batch_refunded = true;
         }
+    } else {
+        // What stays paid may fall under the minimum that earned a referral (ADR 0076).
+        super::referrals::revoke_below_minimum(
+            &mut tx,
+            payment.batch_id,
+            i64::from(updated.amount_cents) - i64::from(updated.refunded_cents),
+        )
+        .await?;
     }
     tx.commit().await?;
     if outcome.batch_refunded {

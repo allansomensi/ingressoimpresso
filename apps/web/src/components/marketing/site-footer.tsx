@@ -20,6 +20,7 @@ const COLUMNS = [
       { href: "/modelos", label: t.templates },
       { href: "/#precos", label: t.pricing },
       { href: "/#duvidas", label: t.faq },
+      { href: "/conferir", label: t.verify },
     ],
   },
   {

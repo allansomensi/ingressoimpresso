@@ -12,6 +12,90 @@ e não acompanha estes números.
 
 ## [Não lançado]
 
+## [1.4.0] - 2026-10-12
+
+### Adicionado
+
+- Perfil da organização, em Minha conta: logo, cor da marca, WhatsApp, e-mail, site e Instagram
+  aparecem no ingresso no celular e na página dos vendedores, com o botão **Falar com a
+  organização**; local, endereço e preço de sempre já vêm preenchidos em cada evento novo. O logo
+  passa pela mesma revisão das artes, e o campo `{organizacao}` pode ser impresso no ingresso
+  (ADR 0064).
+- Adiar ou cancelar o evento pelo menu do evento, com motivo e uma mensagem pronta para os
+  vendedores repassarem no WhatsApp. O ingresso no celular e a página do vendedor mostram o aviso
+  (com a data original e a nova); os links da portaria passam para a nova data; num evento
+  cancelado, os vendedores param de marcar vendas, não dá para criar lotes e a portaria mostra a
+  faixa "Evento cancelado" sem deixar de ler. O cancelamento pode ser desfeito, e a equipe recebe o
+  aviso no sininho (ADR 0065).
+- No ingresso no celular: **Adicionar à agenda** (funciona sem internet, com lembrete), Google
+  Agenda, **Como chegar** com o novo campo de endereço do evento e, para quem tem lugar marcado,
+  o mapa das mesas com a sua mesa e o seu lugar em destaque (ADR 0066).
+- Modo ensaio na portaria: antes de o evento começar, **Ensaiar** (no menu ⋮ do celular) lê a
+  folha de ensaio, uma prévia ou um ingresso e mostra o que aconteceria, sem registrar nada, e
+  testa som, vibração e lanterna. A opção some quando o primeiro ingresso entra, para não
+  atrapalhar o trabalho. O painel mostra quais celulares já ensaiaram e oferece a folha de ensaio
+  em PDF (ADR 0067).
+- Porta por categoria: um link da portaria pode aceitar só algumas categorias. Ingresso de outra
+  categoria aparece em amarelo com a porta certa, e o porteiro pode deixar entrar mesmo assim,
+  com a exceção registrada (ADR 0068).
+- Bilheteria na porta: um vendedor marcado como bilheteria vende na entrada. O celular diz quanto
+  cobrar e soma os vendidos na porta, e o acerto da bilheteria conta o que entrou (ADR 0069).
+- Lista de nomes: a aba **Lista** guarda convidados e acompanhantes (dá para colar a lista
+  inteira), e na portaria o celular busca o nome mesmo sem internet, marca quem chegou e quantas
+  pessoas, e todos os celulares ficam sabendo (ADR 0070).
+- Portaria ao vivo: a aba **Ao vivo** mostra, atualizando sozinha, as entradas contra os
+  vendidos, a curva da última hora, cada porta, categoria e celular (com alerta de quem está sem
+  sincronizar), as recusas, a lista de nomes e a bilheteria; no dia do evento, a visão geral
+  ganha um resumo (ADR 0071).
+- Reservas do vendedor: na página do vendedor e na aba Vendedores, dá para separar números para
+  alguém até amanhã, daqui a 3 dias, sexta ou uma data, e depois marcar como vendido num toque ou
+  cancelar. Reserva vencida volta a ficar livre sozinha; as que vencem em 24 horas aparecem em
+  destaque, com o lembrete pronto para mandar no WhatsApp. O relatório e o acerto mostram os
+  reservados à parte, e a reserva nunca muda nada na portaria (ADR 0072).
+- Metas e ranking: meta de ingressos por vendedor (ou a mesma meta para todos de uma vez), com a
+  barra de progresso na página do vendedor e a visão **Ranking e metas** na aba Vendedores. Se o
+  organizador ligar, cada vendedor vê a própria posição e os 5 primeiros, só com o primeiro nome e
+  a inicial (ADR 0073).
+- O link do vendedor funciona sem internet: a página abre com os dados da última visita, aceita
+  vendas e reservas guardadas no celular ("Sem internet · 3 alterações para enviar") e envia tudo
+  quando a conexão volta, sem duplicar; o que mudou em outro aparelho é explicado em palavras
+  simples (ADR 0074).
+- Página **Conferir ingresso** (`/conferir`): quem vai comprar o ingresso de outra pessoa lê o QR
+  com a câmera, envia uma foto ou cola o texto e vê se ele é nosso, de qual evento, número e
+  categoria, e se o número foi cancelado ou o evento mudou. Nunca mostra quem comprou nem se já
+  entrou, e avisa que uma cópia também aparece como autêntica. O organizador pode desligar a
+  conferência na aba Digitais (ADR 0075).
+- **Indique e ganhe**, em Minha conta: um link para mandar no WhatsApp; quando quem chegou por ele
+  paga o primeiro lote, as duas contas ganham crédito (R$ 10 cada, pelas regras de agora). Quem
+  chega pelo convite vê na entrada o que vai ganhar; o admin ajusta valores, limite e lote mínimo e
+  acompanha as indicações (ADR 0076).
+- Evento com várias datas: **Adicionar outra data**, no menu do evento, cria uma nova sessão com o
+  mesmo ingresso, categorias, mesas, vendedores e equipe. Cada data tem os seus números, lotes,
+  portaria e acerto, e um ingresso de uma data nunca entra na outra. Na lista, as datas aparecem
+  juntas; a página da série mostra as datas lado a lado, os totais e os vendedores somados. O
+  ingresso no celular, a página do vendedor, a conferência e a portaria dizem "Sessão de 12/11 às
+  20h", e a portaria avisa quando o ingresso é de outra data (ADR 0077).
+- **O que falta**, na visão geral do evento: a lista do que deixa o evento pronto (endereço,
+  ingresso, arte liberada, lote pago, links dos vendedores, ingressos entregues, portaria, ensaio,
+  contato da organização e os opcionais), cada item levando à aba certa, para cada pessoa da
+  equipe o que é dela. A lista de eventos mostra "Faltam 3" (ADR 0078).
+
+### Alterado
+
+- A Política de Privacidade descreve os dados das novidades desta versão: o perfil público da
+  organização, as indicações, a lista de nomes da portaria, os compradores e as reservas anotados
+  pelos vendedores, a página do vendedor sem internet e a conferência de ingressos. Ao entrar, cada
+  conta aceita a nova versão. Quando uma conta convidada é excluída, quem convidou deixa de ver o
+  e-mail dela.
+
+### Corrigido
+
+- Duplicar um evento (ou adicionar outra data) passa a manter a bilheteria e a meta de cada
+  vendedor, se os vendedores mandam ingressos no celular e veem o ranking, e se a conferência
+  pública está ligada.
+- A imagem do ingresso no celular com a arte passa a mostrar a data, o local e o preço atuais
+  depois de uma mudança no evento (antes ficava a versão antiga por até um dia).
+
 ## [1.3.0] - 2026-10-12
 
 ### Adicionado
@@ -183,7 +267,8 @@ Primeira versão numerada: o produto que já estava em produção, das fases 0 a
 - Política de segurança de conteúdo (CSP) com nonce por requisição em todo o site (ADR 0048).
 - Verificação anti-robô antes do envio do código de login (ADR 0044).
 
-[Não lançado]: https://github.com/allansomensi/ingressoimpresso/compare/v1.3.0...HEAD
+[Não lançado]: https://github.com/allansomensi/ingressoimpresso/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.0.0...v1.1.0

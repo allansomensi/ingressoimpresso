@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { passBand, passDate, textOn } from "@/lib/ticket-pass";
+import type { TicketPassDto } from "@ingressoimpresso/api-types";
+
+import { NO_CHANGE } from "@/lib/event-change";
+import { normalizePass, passBand, passDate, textOn } from "@/lib/ticket-pass";
 
 describe("digital ticket helpers", () => {
   it("reads the date in the event's own time", () => {
@@ -12,6 +15,42 @@ describe("digital ticket helpers", () => {
     expect(passBand("#ffffff")).toBe("#5b3df5");
     expect(passBand("#f8f6f0")).toBe("#5b3df5");
     expect(passBand("nope")).toBe("#5b3df5");
+    // The organization's colour replaces the site's (ADR 0064).
+    expect(passBand("#ffffff", "#1a7f5a")).toBe("#1a7f5a");
+    expect(passBand("#1a1a2e", "#1a7f5a")).toBe("#1a1a2e");
+    expect(passBand("#ffffff", "verde")).toBe("#5b3df5");
+  });
+
+  it("opens passes saved before the profile, the changes and the room", () => {
+    const old = {
+      event: { name: "Show", venue: "Bar", startsAt: "2026-11-20T22:00:00-03:00", endsAt: "2026-11-21T03:00:00-03:00", organizer: "Banda" },
+      number: 7,
+      numberLabel: "0007",
+      numberPrefix: "Nº ",
+      holderName: null,
+      qrText: "QR",
+      state: "valid",
+      enteredAt: null,
+      backgroundColor: "#ffffff",
+    } as unknown as TicketPassDto;
+    const pass = normalizePass(old);
+    expect(pass.organization).toEqual({
+      name: "Banda",
+      logoPath: null,
+      brandColor: null,
+      whatsapp: null,
+      email: null,
+      website: null,
+      instagram: null,
+    });
+    expect(pass.event.change).toEqual(NO_CHANGE);
+    expect(pass.event.address).toBeNull();
+    expect(pass.event.id).toBe("");
+    expect(pass.event.inSeries).toBe(false);
+    expect(pass.category).toBeNull();
+    expect(pass.seat).toBeNull();
+    expect(pass.tableMap).toBeNull();
+    expect(pass.qrText).toBe("QR");
   });
 
   it("picks readable text", () => {

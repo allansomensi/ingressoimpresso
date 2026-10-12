@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "delete from event_series s where s.id = $1\n               and (select count(*) from events e where e.series_id = s.id) < 2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "0a082a464b5f0db507a11f9e41f1a5749af1e40ec9a8c066f0c85eb70ee71364"
+}

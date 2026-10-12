@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select x.qr_tag, x.starts_at, x.utc_offset_minutes\n           from events e join events x on x.series_id = e.series_id and x.id <> e.id\n           where e.id = $1\n           order by x.starts_at",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "qr_tag",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "qr_tag"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "starts_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "starts_at"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "utc_offset_minutes",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "utc_offset_minutes"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "cce59672158a220eb867dea4df7550fadf433644377df47c62e3a73a9d07595d"
+}

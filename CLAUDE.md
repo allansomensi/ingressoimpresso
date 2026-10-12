@@ -67,7 +67,7 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   (`apps/web/src/proxy.ts`, ADR 0048: toda página é dinâmica). Do lado do mantenedor já estão
   feitos: duas etapas na conta admin, rulesets e Environments no GitHub (Production, Staging,
   Preview, Backup), backup com `verify-full` e chave da Resend separada no staging.
-- **Versionamento (ADR 0049): implementado, versão atual 1.3.0.** Uma versão SemVer para o produto
+- **Versionamento (ADR 0049): implementado, versão atual 1.4.0.** Uma versão SemVer para o produto
   inteiro (todos os manifestos, conferidos por `scripts/release.mjs check`), `CHANGELOG.md` em
   português (Keep a Changelog), `just release` no `staging` e tag `vX.Y.Z` + GitHub Release pelo
   job **Release** do CI no `main`; versão em Minha conta, em `/sobre`, em `/status` (site e API) e
@@ -122,6 +122,57 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   os antigos. Remetente único dos e-mails em `config::DEFAULT_MAIL_FROM`
   (`contato@ingressoimpresso.com.br`), `MAIL_FROM` sobrescreve; o domínio raiz já envia nos dois
   ambientes. Falta o que depende do mantenedor: `charge.refunded` no webhook da Stripe.
+- **Perfil da organização, adiar ou cancelar, extras do ingresso digital (ADRs 0064–0066):
+  implementados.** Perfil público em `/painel/organizacao` (`organization_profiles`,
+  `routes/organization.rs`): logo moderado como a arte (um `blob` da organização:
+  `blobs.organization_id`, `event_id` opcional; servido em `GET /api/logos/{id}` só se não estiver
+  em revisão nem recusado), cor, contato e padrões de evento novo; campo `{organizacao}` nos dois
+  lados. Adiar, cancelar e desfazer (`routes/event_changes.rs`, parte `manage`): `events.address`,
+  `postponed_from_starts_at` (data original da 1ª vez), `canceled_at`; cancelado recusa lote,
+  checkout e vendas do vendedor (`event_canceled`), a portaria só mostra a faixa; mensagem pronta e
+  aviso no sininho. No ingresso digital, `.ics` feito no navegador, rota no mapa e o salão com a
+  mesa do portador (`tableMap`, sem ocupação), tudo offline.
+- **Portaria do dia (ADRs 0067–0071): implementada.** Modo ensaio discreto no app (só no fim do
+  menu ⋮ e só antes da primeira entrada; `DoorCore.evaluate`, nada gravado, "ENTRARIA" em amarelo;
+  a amostra é reconhecida por `SAMPLE_QR_TEXT` = `sample_qr_text()`), `POST /api/door/rehearsal`
+  e folha de ensaio em PDF (`routes/door_rehearsal.rs`); links que aceitam só
+  algumas categorias (`door_access_categories`, desfecho `rejected_wrong_door`, exceção em
+  `scans.door_exception`); bilheteria (`sellers.box_office`: vendido = entrou); lista de nomes
+  (`guest_list`, `guest_arrivals` com o mesmo cursor `xid8`; desfazer dá `txid` novo,
+  `routes/guests.rs`); aba **Ao vivo** (`GET /api/events/{id}/door/live`, `routes/door_live.rs`,
+  `pending_scans`/`last_sync_at` dos celulares). Campos novos do manifesto são opcionais para o
+  app antigo; `just e2e` cobre ensaio, porta errada e lista (`E2E_API_PORT`/`E2E_WEB_PORT`).
+- **Reservas, metas e ranking, link do vendedor offline (ADRs 0072–0074): implementados.**
+  Reservas por número com prazo no horário do evento (`ticket_reservations`, ativa enquanto
+  `expires_at > now()`, `jobs::prune` apaga as vencidas há 7 dias; nunca vão à portaria; a
+  bilheteria não reserva), regras número a número em `routes/seller_ops.rs` (link e painel),
+  painel em `routes/reservations.rs`; metas (`sellers.goal`) e ranking opcional
+  (`events.sellers_ranking`, só "Ana S." para os outros) em `routes/seller_goals.rs`; fila do
+  celular em `POST /api/seller/sync` (`routes/seller_sync.rs`, idempotente por id em
+  `seller_sync_ops`, responde a página e o que ficou de fora); `public/sw.js` guarda `/vendedor`;
+  `e2e/vendedor.e2e.mjs` testa o fluxo sem internet.
+- **Conferir ingresso e Indique e ganhe (ADRs 0075, 0076): implementados.** Página pública
+  `/conferir` (câmera, foto ou texto; leitor da portaria sem o service worker dela) e
+  `POST /api/verify` (`routes/verify.rs`): o servidor confere a assinatura com o `ticket-core` e diz
+  evento, número, categoria e o estado (cancelado, evento cancelado/adiado/passado), nunca "já
+  usado" nem quem comprou; `events.public_verify` desliga por evento (aba Digitais). Indicações em
+  `routes/referrals.rs` (`referrals`, `organizations.referral_code`, regras em `platform_settings`):
+  `/i/<código>` guarda o código e abre `/entrar`; a conta nova fica ligada e, no primeiro lote pago
+  em dinheiro a partir do mínimo, as duas ganham crédito na transação que muda o lote para pago
+  (`reward_paid_batch`, uma vez); estorno total revoga o que sobrou (`revoke_for_batch` em
+  `refund_batch`). Cartão em Minha conta e seção Indicações no admin.
+- **Várias datas e lista do que falta (ADRs 0077, 0078): implementados.** Cada data é um evento
+  inteiro (chave, `qr_tag`, lotes, portaria e acerto próprios) ligado por `event_series`
+  (`events.series_id`; série tem 2+ datas, 60 no máximo): `POST /api/events/{id}/dates` copia a
+  configuração como duplicar (`events::copy_event`), `POST /api/events/{id}/series/leave`,
+  `GET|PUT /api/series/{id}` (datas lado a lado pelo `report::build` de cada uma, vendedores
+  somados por nome; renomear leva junto as datas com o nome antigo), tudo em `routes/series.rs`
+  e só da organização. Lista de eventos agrupa as datas (`groupSeries`), página
+  `/painel/series/[id]`, "Sessão de 12/11 às 20h" no ingresso, vendedor, `/conferir` e portaria
+  (manifesto com `sessions`: a outra data é "INGRESSO DE OUTRA DATA"). O card **O que falta**
+  (`GET /api/events/{id}/checklist`, `routes/checklist.rs`) substitui o passo a passo: fatos de N
+  eventos numa consulta (`checklist::facts`), `checklistMissing` na lista ("Faltam 3"),
+  `canAct` pela parte da equipe.
 
 Plano completo em `docs/arquitetura.md` §12.
 
@@ -165,11 +216,25 @@ crates/server        API (pacote `ingressoimpresso-server`, binário `ingressoim
                      routes/refunds.rs (receita pela view revenue_entries),
                      acerto com vendedores (pagamentos e devoluções) em routes/settlement.rs,
                      link do vendedor (página sem conta, marcar vendas) em routes/seller_links.rs,
+                     reservas, metas e fila offline do vendedor (ADRs 0072–0074): regras por número
+                     em routes/seller_ops.rs, painel em routes/reservations.rs, metas e ranking em
+                     routes/seller_goals.rs, POST /api/seller/sync em routes/seller_sync.rs,
                      equipe do evento em routes/team.rs (toda rota nova de evento que altera algo
                      entra em team::need, senão fica só para a organização),
                      categorias em routes/categories.rs (NumberTags: categoria e lugar de cada
                      número para os arquivos), mesas em routes/tables.rs, prestação de contas em
                      routes/ledger.rs (resumo, PDF e planilha; report::build é a base),
+                     portaria do dia (ADRs 0067–0071): ensaio e folha de ensaio em
+                     routes/door_rehearsal.rs, lista de nomes em routes/guests.rs (painel e
+                     celulares), ao vivo em routes/door_live.rs; categorias da porta em routes/door.rs,
+                     perfil da organização e logo público em routes/organization.rs (ADR 0064),
+                     adiar/cancelar em routes/event_changes.rs (ADR 0065; links da portaria por
+                     door::extend_accesses),
+                     conferir ingresso (público, ADR 0075) em routes/verify.rs, indique e
+                     ganhe (código, vínculo no cadastro, recompensa e revogação) em
+                     routes/referrals.rs (ADR 0076), várias datas em routes/series.rs
+                     (ADR 0077; a cópia em events::copy_event) e o que falta em
+                     routes/checklist.rs (ADR 0078),
                      conta em routes/account.rs + routes/privacy.rs
                      (exportar/excluir), ingresso digital em routes/tickets.rs (também o enviado
                      pelo vendedor e a segunda via, ADR 0061), novidades em
@@ -198,7 +263,7 @@ apps/web             landing em src/app/page.tsx (+ src/components/marketing: si
                      tema em src/lib/theme{,-script}.ts (data-theme no <html>, ADR 0022);
                      Analytics em src/components/site-analytics.tsx (fora da portaria);
                      PWA do painel: app/manifest.ts + public/sw.js (escopo /, ignora /portaria;
-                     guarda /ingresso para abrir offline); CSP com nonce em src/proxy.ts (ADR 0048:
+                     guarda /ingresso e /vendedor para abrir offline); CSP com nonce em src/proxy.ts (ADR 0048:
                      o layout raiz lê x-nonce; script inline novo precisa de nonce={nonce});
                      ingresso digital: app/ingresso + components/ticket/ticket-pass.tsx +
                      lib/ticket-pass.ts, aba components/event/digital.tsx (segunda via em
@@ -219,7 +284,11 @@ apps/web             landing em src/app/page.tsx (+ src/components/marketing: si
                      e regras em lib/categories.ts; prestação de contas em
                      components/event/accountability.tsx (no Relatório);
                      portaria em src/app/portaria + src/portaria (engine, storage, camera, logic) +
-                     public/portaria-sw.js (ADR 0018); Vitest em test/;
+                     public/portaria-sw.js (ADR 0018); Vitest em test/; ensaio, porta por
+                     categoria, bilheteria e lista no app (logic.ts, engine.ts, IndexedDB v2 com
+                     arrivals/meta, components/portaria/guest-list.tsx); no painel, aba Ao vivo em
+                     components/event/live.tsx + live-chart.tsx (regras em lib/door-live.ts) e aba
+                     Lista em components/event/guests.tsx (regras em lib/guest-list.ts);
                      editor do ingresso em src/components/event/design*.tsx + prévia ao vivo em
                      src/components/ticket/ticket-view.tsx (regras espelhadas em lib/design-rules.ts),
                      modelos em src/lib/templates (catálogo + fundos SVG em mm), fontes do ingresso
@@ -228,14 +297,41 @@ apps/web             landing em src/app/page.tsx (+ src/components/marketing: si
                      cupons em billing.tsx, pronunciamentos, e-mails, moderação, auditoria,
                      configurações, incidentes); conta em src/app/painel/conta (+ components/account);
                      sininho e avisos em components/panel/{inbox,platform-notices}.tsx + lib/platform.ts;
-                     lista de eventos em app/painel/page.tsx (ordem em lib/event-list.ts); folha
+                     lista de eventos em app/painel/page.tsx (ordem e séries em lib/event-list.ts,
+                     selos em components/panel/event-phase.tsx); página da série em
+                     app/painel/series/[id] + components/series/series-view.tsx, outra data em
+                     components/event/add-date.tsx, "Sessão de …" em lib/series.ts; card O que
+                     falta em components/event/checklist.tsx (destinos em lib/checklist.ts); folha
                      Seções do evento em components/event/sections-sheet.tsx (grupos em tabs.ts);
                      folhas arrastáveis e trava de rolagem em components/ui/sheet.ts;
                      duas etapas: cartão em components/account/two-factor.tsx e segundo passo do
                      login em components/two-factor-step.tsx;
+                     perfil da organização em app/painel/organizacao, logo/contato/aviso de mudança
+                     em components/organization/organization.tsx (useLogo guarda o logo no aparelho)
+                     e regras em lib/organization.ts; adiar/cancelar em
+                     components/event/event-change.tsx (+ menu em event-actions.tsx), mensagem e
+                     avisos em lib/event-change.ts; agenda (.ics), Google Agenda e mapas em
+                     lib/calendar.ts; mapa das mesas no ingresso em components/ticket/seat-map.tsx
+                     + lib/seat-map.ts (ADRs 0064–0066);
+                     vendedores (ADRs 0072–0074): na página do vendedor, a fila offline em
+                     components/seller/use-seller-sync.ts (+ lib/seller-offline.ts: aplicar a fila,
+                     explicar conflitos, guardar no aparelho por hash do token), folha de venda e
+                     reserva em components/seller/mark-sheet.tsx (prazo em deadline-picker.tsx,
+                     regras em lib/reservations.ts), reservas em components/seller/reservations.tsx,
+                     meta e ranking em components/seller/goal-card.tsx, aviso "Sem internet" e
+                     conflitos em components/seller/sync-status.tsx; no painel,
+                     components/event/seller-extras.tsx (reservas, metas, Ranking e metas; regras
+                     em lib/seller-goals.ts);
                      status público em app/status + components/status;
+                     conferir ingresso em app/conferir + components/verify (ticket-checker,
+                     verify-result, verify-settings na aba Digitais) + lib/verify.ts; a câmera e
+                     a foto usam portaria/camera.ts (readQrImage);
+                     indique e ganhe: app/i/[code] (guarda o código, lib/referral.ts), convite em
+                     app/entrar, cartão em components/account/referrals.tsx, admin em
+                     components/admin/referrals.tsx;
                      menus e popovers em components/ui/popover.tsx (portal; folha no celular)
 e2e/                 portaria.e2e.mjs: 5 "celulares" Chromium com câmera falsa (`just e2e`);
+                     vendedor.e2e.mjs: link do vendedor sem internet, fila e conflito (ADR 0074);
                      csp.e2e.mjs: toda página com nonce e nada recusado (ADR 0048)
 packages/ticket-core-wasm  wrapper TS tipado (src/), tipos gerados (src/generated/, NÃO editar),
                      pkg/ gerado por `just wasm` (não versionado), testes Vitest com os vetores
@@ -468,7 +564,7 @@ just backup-restore-test <dump.age> <chave-age>   # restaura um backup num banco
 - **Commits:** pequenos, em **Conventional Commits + gitmoji**, no formato
   `tipo(escopo): <gitmoji> assunto`, por exemplo `feat(core): ✨ ...`, `fix(door): 🐛 ...`,
   `docs(adr): 📝 ...`, `test(wasm): ✅ ...`, `ci: 👷 ...`, `chore: 🔧 ...`,
-  `refactor: ♻️ ...`, `chore(release): 🔖 v1.3.0`. Regras:
+  `refactor: ♻️ ...`, `chore(release): 🔖 v1.4.0`. Regras:
   - assunto em inglês, curto e no imperativo;
   - corpo opcional, de uma ou duas linhas, direto ao ponto;
   - cada commit deve compilar e passar em `just check`.
