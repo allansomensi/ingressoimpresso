@@ -10,6 +10,7 @@ import type {
   SellerDto,
   SellerLinkDto,
   SellerPaymentDto,
+  SellerSettingsBody,
   SellerSettingsDto,
   TicketSaleDto,
   VoidDto,
@@ -881,7 +882,7 @@ function SellerSettings({ eventId }: { eventId: string }) {
   const key = ["seller-settings", eventId];
   const settings = useQuery({ queryKey: key, queryFn: () => api<SellerSettingsDto>(`/api/events/${eventId}/seller-settings`) });
   const save = useMutation({
-    mutationFn: (body: SellerSettingsDto) => api<SellerSettingsDto>(`/api/events/${eventId}/seller-settings`, { method: "PUT", body }),
+    mutationFn: (body: SellerSettingsBody) => api<SellerSettingsDto>(`/api/events/${eventId}/seller-settings`, { method: "PUT", body }),
     onSuccess: (saved) => {
       queryClient.setQueryData(key, saved);
       toast.success(t.sendTicketsSaved(saved.sendTickets));
@@ -893,7 +894,7 @@ function SellerSettings({ eventId }: { eventId: string }) {
   if (settings.data === undefined) {
     return null;
   }
-  const on = save.isPending ? save.variables.sendTickets : settings.data.sendTickets;
+  const on = save.isPending ? (save.variables.sendTickets ?? settings.data.sendTickets) : settings.data.sendTickets;
   return (
     <Card>
       <Switch

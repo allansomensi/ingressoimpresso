@@ -1,0 +1,94 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select n as \"number!\",\n                  exists(select 1 from seller_assignments a\n                         join ticket_batches b on b.event_id = a.event_id and b.status = 'paid' and b.numbers @> n\n                         where a.event_id = $1 and a.seller_id = $2 and a.numbers @> n) as \"held!\",\n                  exists(select 1 from ticket_voids v\n                         where v.event_id = $1 and v.undone_at is null and v.numbers @> n) as \"voided!\",\n                  s.seller_id as \"sold_by?\", s.buyer_name as \"buyer?\",\n                  r.reservation_id as \"reservation?\", r.holder_name as \"holder?\",\n                  coalesce(r.expires_at > now(), false) as \"reserved!\"\n           from unnest($3::int4[]) as n\n           left join ticket_sales s on s.event_id = $1 and s.ticket_number = n\n           left join ticket_reservations r on r.event_id = $1 and r.ticket_number = n\n           order by n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "number!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "held!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "voided!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "sold_by?",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "ticket_sales",
+            "name": "seller_id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "buyer?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ticket_sales",
+            "name": "buyer_name"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "reservation?",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "ticket_reservations",
+            "name": "reservation_id"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "holder?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ticket_reservations",
+            "name": "holder_name"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "reserved!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Int4Array"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      true,
+      true,
+      true,
+      true,
+      null
+    ]
+  },
+  "hash": "66692917c4e26b86fabcf9caf937f557a7445d5ee61373b2e19260a2e7e82d58"
+}

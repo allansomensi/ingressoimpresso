@@ -32,4 +32,12 @@ address: string | null,
 /**
  * Postponement and cancellation (ADR 0065): a canceled event takes no more sales.
  */
-change: EventChangeDto, };
+change: EventChangeDto, 
+/**
+ * End, in the event's own offset (reservations end before it).
+ */
+endsAt: string, 
+/**
+ * The event's UTC offset in minutes (reservation deadlines are in its time).
+ */
+utcOffsetMinutes: number, };

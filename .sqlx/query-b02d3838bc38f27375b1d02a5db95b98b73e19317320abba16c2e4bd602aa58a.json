@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update sellers set goal = $2\n           where event_id = $1 and not box_office and ($3 = false or goal is null)\n             and goal is distinct from $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b02d3838bc38f27375b1d02a5db95b98b73e19317320abba16c2e4bd602aa58a"
+}

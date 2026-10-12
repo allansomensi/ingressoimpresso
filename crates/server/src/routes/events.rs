@@ -397,8 +397,8 @@ pub async fn duplicate(
         .await?;
     }
     sqlx::query!(
-        r#"insert into sellers (id, event_id, name, phone)
-           select gen_random_uuid(), $2, name, phone from sellers where event_id = $1"#,
+        r#"insert into sellers (id, event_id, name, phone, box_office, goal)
+           select gen_random_uuid(), $2, name, phone, box_office, goal from sellers where event_id = $1"#,
         event_id,
         copy.id,
     )

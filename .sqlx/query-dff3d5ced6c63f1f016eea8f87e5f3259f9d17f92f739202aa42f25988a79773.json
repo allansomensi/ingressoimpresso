@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select box_office from sellers where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "box_office",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "sellers",
+            "name": "box_office"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "dff3d5ced6c63f1f016eea8f87e5f3259f9d17f92f739202aa42f25988a79773"
+}

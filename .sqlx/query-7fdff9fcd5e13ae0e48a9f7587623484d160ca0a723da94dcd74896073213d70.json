@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "delete from ticket_reservations where event_id = $1 and $2::int4range @> ticket_number",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4Range"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "7fdff9fcd5e13ae0e48a9f7587623484d160ca0a723da94dcd74896073213d70"
+}

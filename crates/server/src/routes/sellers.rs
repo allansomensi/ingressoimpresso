@@ -46,7 +46,7 @@ pub async fn list(
 ) -> ApiResult<Json<Vec<SellerDto>>> {
     authorize_event(&state.pool, &user, event_id).await?;
     let sellers = sqlx::query!(
-        "select id, name, phone, box_office from sellers where event_id = $1 order by name",
+        "select id, name, phone, box_office, goal from sellers where event_id = $1 order by name",
         event_id
     )
     .fetch_all(&state.pool)
@@ -80,6 +80,7 @@ pub async fn list(
                 name: seller.name,
                 phone: seller.phone,
                 box_office: seller.box_office,
+                goal: seller.goal,
             })
             .collect(),
     ))
@@ -121,6 +122,7 @@ pub async fn create(
             ranges: Vec::new(),
             link: None,
             box_office,
+            goal: None,
         }),
     ))
 }
@@ -143,16 +145,29 @@ pub async fn update(
 ) -> ApiResult<StatusCode> {
     seller_event(&state, &user, seller_id).await?;
     let (name, phone) = validate(&body)?;
-    // A missing `boxOffice` keeps the current choice (ADR 0069).
-    sqlx::query!(
-        "update sellers set name = $2, phone = $3, box_office = coalesce($4, box_office) where id = $1",
+    // A missing `boxOffice` keeps the current choice (ADR 0069). A box office has no goal and no
+    // reservations (ADRs 0072, 0073): turning it on drops them.
+    let mut tx = state.pool.begin().await?;
+    let box_office = sqlx::query_scalar!(
+        r#"update sellers set name = $2, phone = $3, box_office = coalesce($4, box_office),
+                              goal = case when coalesce($4, box_office) then null else goal end
+           where id = $1 returning box_office"#,
         seller_id,
         name,
         phone,
         body.box_office,
     )
-    .execute(&state.pool)
+    .fetch_one(&mut *tx)
     .await?;
+    if box_office {
+        sqlx::query!(
+            "delete from ticket_reservations where seller_id = $1",
+            seller_id
+        )
+        .execute(&mut *tx)
+        .await?;
+    }
+    tx.commit().await?;
     Ok(StatusCode::NO_CONTENT)
 }
 

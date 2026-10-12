@@ -196,7 +196,7 @@ async fn export_event(state: &AppState, event_id: Uuid) -> ApiResult<Value> {
     })
     .collect::<Vec<_>>();
     let sellers = sqlx::query!(
-        "select id, name, phone, box_office, created_at from sellers where event_id = $1 order by name",
+        "select id, name, phone, box_office, goal, created_at from sellers where event_id = $1 order by name",
         event_id
     )
     .fetch_all(&state.pool)
@@ -243,9 +243,28 @@ async fn export_event(state: &AppState, event_id: Uuid) -> ApiResult<Value> {
             })
         })
         .collect::<Vec<_>>();
+        // Reservations (ADR 0072) hold names and phones of people too.
+        let reservations = sqlx::query!(
+            r#"select ticket_number, holder_name, holder_phone, expires_at, created_at
+               from ticket_reservations where seller_id = $1 order by ticket_number"#,
+            seller.id
+        )
+        .fetch_all(&state.pool)
+        .await?
+        .into_iter()
+        .map(|reservation| {
+            json!({
+                "number": reservation.ticket_number, "holderName": reservation.holder_name,
+                "holderPhone": reservation.holder_phone,
+                "expiresAt": rfc3339(reservation.expires_at),
+                "createdAt": rfc3339(reservation.created_at),
+            })
+        })
+        .collect::<Vec<_>>();
         seller_list.push(json!({
             "name": seller.name, "phone": seller.phone, "createdAt": rfc3339(seller.created_at),
-            "boxOffice": seller.box_office, "ranges": ranges, "received": received, "sales": sales,
+            "boxOffice": seller.box_office, "goal": seller.goal, "ranges": ranges,
+            "received": received, "sales": sales, "reservations": reservations,
         }));
     }
     let voids = sqlx::query!(

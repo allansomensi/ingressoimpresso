@@ -1,0 +1,47 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with held as (\n               select a.seller_id, n\n               from seller_assignments a\n               join sellers s on s.id = a.seller_id and not s.box_office\n               join ticket_batches b on b.event_id = a.event_id and b.status = 'paid' and b.numbers && a.numbers,\n                    generate_series(lower(a.numbers * b.numbers), upper(a.numbers * b.numbers) - 1) as n\n               where a.event_id = $1\n           )\n           select s.id, s.name,\n                  (count(ts.ticket_number) filter (\n                       where not exists (select 1 from ticket_voids v\n                                         where v.event_id = $1 and v.undone_at is null and v.numbers @> h.n)\n                  ))::int as \"sold!\"\n           from held h\n           join sellers s on s.id = h.seller_id\n           left join ticket_sales ts on ts.event_id = $1 and ts.ticket_number = h.n and ts.seller_id = h.seller_id\n           group by s.id, s.name",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "sellers",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "sellers",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "sold!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "d2f976866ea107394c77237fc79d69373e30ec30648dc232d701744bfc3918b3"
+}
