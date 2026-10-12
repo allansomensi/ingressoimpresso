@@ -73,3 +73,6 @@ feita e as consequências.
 | [0061](0061-ingresso-do-vendedor-e-segunda-via.md) | Ingresso no celular pelo vendedor e segunda via | Aceito |
 | [0062](0062-paginas-publicas-para-busca.md) | Páginas públicas para busca: tipos de evento e galeria de modelos | Aceito |
 | [0063](0063-reembolsos-do-stripe-e-receita-liquida.md) | Reembolsos do Stripe e receita líquida | Aceito |
+| [0064](0064-perfil-da-organizacao.md) | Perfil da organização | Aceito |
+| [0065](0065-adiar-ou-cancelar-o-evento.md) | Adiar ou cancelar o evento | Aceito |
+| [0066](0066-agenda-como-chegar-e-mesa-no-ingresso-digital.md) | Agenda, como chegar e "onde fica minha mesa" no ingresso digital | Aceito |

@@ -445,6 +445,14 @@ create table ticket_links (id uuid primary key, event_id uuid not null reference
 -- blobs.moderation_status + uploaded_by; moderation_flags; moderation_usage (orçamento diário)
 -- status_incidents + status_incident_updates
 
+-- Perfil da organização e mudanças do evento (ADRs 0064–0066); 20261028000001/2.
+-- organization_profiles (1:1): logo_blob_id, brand_color, whatsapp (dígitos com DDI), contact_email,
+--   website, instagram, default_venue, default_address, default_ticket_price_cents
+-- blobs.event_id passa a ser opcional e blobs.organization_id guarda os logos (um dos dois);
+--   moderation_flags.event_id opcional (flag de logo não tem evento)
+-- events: address, postponed_from_starts_at (data original da 1ª vez), postponed_at, postpone_reason,
+--   canceled_at, cancel_reason (cancelar ≠ arquivar: status continua 'active')
+
 -- Duas etapas (ADR 0045); detalhes em 20261017000001_two_factor.sql.
 -- users: totp_secret (selada), totp_enabled_at, totp_last_step; recovery_codes (hash com chave, used_at)
 
@@ -581,6 +589,22 @@ GET  /api/account/two-factor               POST .../setup → { secret, uri }   
 POST /api/account/two-factor/recovery-codes { code }   POST /api/account/two-factor/disable { code }
 POST /api/admin/users/{id}/two-factor/reset
 ```
+
+Perfil da organização, adiar e cancelar (ADRs 0064–0066):
+
+```
+GET|PUT /api/account/profile               perfil (contato, cor, padrões de evento novo)
+POST|DELETE /api/account/profile/logo      PNG/JPEG cru (até 8 MB), guardado em até 512 px, moderado
+GET  /api/logos/{id}                       (sem login) o logo atual, se não estiver em revisão nem recusado
+POST /api/events/{id}/postpone { startsAt, endsAt, reason? }   links da portaria vão para o novo fim
+POST /api/events/{id}/cancel { reason? }   POST /api/events/{id}/cancel/undo   (parte "manage" da equipe)
+```
+
+`POST /api/ticket` passa a trazer `organization` (nome, logo, contato), `event.address`,
+`event.change` (adiamento/cancelamento) e `tableMap` (mesas do evento, sem quem senta, e a mesa e o
+lugar do portador); `POST /api/seller` traz `organization` e `event.change`; o manifesto da portaria
+traz `event.canceledAt`. Evento cancelado recusa lote novo, checkout e as vendas e envios do link do
+vendedor (`event_canceled`).
 
 Em manutenção `read_only`, organizadores só fazem GET; em `full`, recebem 503 `maintenance`. Admins,
 portaria, ingresso digital e Stripe nunca param.
