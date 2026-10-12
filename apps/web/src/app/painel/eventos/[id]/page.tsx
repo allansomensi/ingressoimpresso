@@ -22,6 +22,8 @@ import {
   Layers,
   Tags,
   LifeBuoy,
+  Activity,
+  ListChecks,
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
@@ -55,6 +57,8 @@ const DoorTab = dynamic(() => import("@/components/event/door").then((m) => m.Do
 const ReportTab = dynamic(() => import("@/components/event/report").then((m) => m.ReportTab), { loading: tabLoading });
 const CategoriesTab = dynamic(() => import("@/components/event/categories").then((m) => m.CategoriesTab), { loading: tabLoading });
 const TeamTab = dynamic(() => import("@/components/event/team").then((m) => m.TeamTab), { loading: tabLoading });
+const LiveTab = dynamic(() => import("@/components/event/live").then((m) => m.LiveTab), { loading: tabLoading });
+const GuestsTab = dynamic(() => import("@/components/event/guests").then((m) => m.GuestsTab), { loading: tabLoading });
 
 const ICONS: Record<Tab, LucideIcon> = {
   overview: LayoutDashboard,
@@ -68,6 +72,8 @@ const ICONS: Record<Tab, LucideIcon> = {
   report: BarChart3,
   categories: Tags,
   team: UsersRound,
+  live: Activity,
+  guests: ListChecks,
 };
 
 export default function EventPage() {
@@ -344,7 +350,7 @@ function EventView() {
         aria-labelledby={tab === "team" ? undefined : `tab-${tab}`}
         className="animate-fade-in"
       >
-        {tab === "overview" && <OverviewTab eventId={eventId} onSelect={select} />}
+        {tab === "overview" && <OverviewTab eventId={eventId} onSelect={select} event={data} />}
         {tab === "design" && <DesignTab eventId={eventId} />}
         {tab === "batches" && (
           <AreaGate eventId={eventId} area="manage">
@@ -374,6 +380,12 @@ function EventView() {
         {tab === "door" && (
           <AreaGate eventId={eventId} area="door">
             <DoorTab eventId={eventId} />
+          </AreaGate>
+        )}
+        {tab === "live" && <LiveTab eventId={eventId} onSelect={select} />}
+        {tab === "guests" && (
+          <AreaGate eventId={eventId} area="door">
+            <GuestsTab eventId={eventId} />
           </AreaGate>
         )}
         {tab === "report" && <ReportTab eventId={eventId} onSelect={select} />}

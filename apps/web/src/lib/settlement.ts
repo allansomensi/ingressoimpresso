@@ -114,7 +114,10 @@ export function settlementMessage({
   const w = texts.event.sellers.whatsapp;
   const firstName = seller.trim().split(/\s+/)[0] ?? seller;
   const lines = [w.greeting(firstName, eventName), "", w.took(row.tickets, formatRanges(ranges))];
-  if (row.unsold > 0 || row.lost > 0) {
+  if (row.boxOffice) {
+    // A box office sells what enters at the door (ADR 0069): returns do not count.
+    lines.push(w.boxOffice(row.declaredSold));
+  } else if (row.unsold > 0 || row.lost > 0) {
     lines.push(w.gaveBack(row.unsold, row.lost));
   }
   if (priceCents !== null && row.amountDueCents !== null) {

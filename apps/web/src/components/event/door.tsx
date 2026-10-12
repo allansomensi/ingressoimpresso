@@ -1,14 +1,16 @@
 "use client";
 
 import type {
+  CategoryDto,
   CreateDoorAccessBody,
   CreatedDoorAccess,
+  DoorAccessCategoriesBody,
   DoorAccessDto,
   DoorDeviceDto,
   DoorOverviewDto,
 } from "@ingressoimpresso/api-types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Copy, Link2, LogIn, MessageCircle, Plus, Smartphone, X } from "lucide-react";
+import { Check, ClipboardCheck, Copy, Download, Link2, LogIn, MessageCircle, Plus, Smartphone, Tags, X } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
@@ -18,6 +20,7 @@ import {
   Button,
   Card,
   CardHeader,
+  Dialog,
   ErrorMessage,
   Field,
   Input,
@@ -28,7 +31,7 @@ import {
   errorMessage,
   useConfirm,
 } from "@/components/ui";
-import { api } from "@/lib/api";
+import { api, fetchBlobUrl } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { shortDateTime } from "@/lib/format";
 import { texts } from "@/texts/pt-BR";
@@ -59,7 +62,13 @@ export function DoorTab({ eventId }: { eventId: string }) {
     // Last contact of each phone changes while the door is working.
     refetchInterval: 15_000,
   });
+  const categories = useQuery({
+    queryKey: ["categories", eventId],
+    queryFn: () => api<CategoryDto[]>(`/api/events/${eventId}/categories`),
+  });
   const [label, setLabel] = useState<string>(t.defaultLabel);
+  const [chosen, setChosen] = useState<string[]>([]);
+  const [editing, setEditing] = useState<DoorAccessDto | null>(null);
   const [created, setCreated] = useState<{ url: string; label: string } | null>(null);
   const [copied, setCopied] = useState(false);
   const refresh = () => queryClient.invalidateQueries({ queryKey: key });
@@ -69,14 +78,27 @@ export function DoorTab({ eventId }: { eventId: string }) {
 
   const create = useMutation({
     mutationFn: () => {
-      const body: CreateDoorAccessBody = { label: label.trim() };
+      const body: CreateDoorAccessBody = { label: label.trim(), categoryIds: chosen };
       return api<CreatedDoorAccess>(`/api/events/${eventId}/door/accesses`, { method: "POST", body });
     },
     onSuccess: (result) => {
       setCreated({ url: doorUrl(result.token), label: result.access.label });
       setCopied(false);
+      setChosen([]);
       void refresh();
     },
+  });
+  const saveCategories = useMutation({
+    mutationFn: ({ id, categoryIds }: { id: string; categoryIds: string[] }) => {
+      const body: DoorAccessCategoriesBody = { categoryIds };
+      return api<DoorAccessDto>(`/api/door-accesses/${id}/categories`, { method: "PUT", body });
+    },
+    onSuccess: () => {
+      toast.success(t.categoriesSaved);
+      setEditing(null);
+      void refresh();
+    },
+    onError,
   });
   const revokeAccess = useMutation({
     mutationFn: (id: string) => api<DoorAccessDto>(`/api/door-accesses/${id}/revoke`, { method: "POST" }),
@@ -122,6 +144,7 @@ export function DoorTab({ eventId }: { eventId: string }) {
   const online = (device: DoorDeviceDto) =>
     device.revokedAt === null && device.lastSeenAt !== null && now - Date.parse(device.lastSeenAt) < ONLINE_MS;
   const activeLinks = overview.data.accesses.filter((access) => accessState(access, now) === "active").length;
+  const eventCategories = categories.data ?? [];
 
   return (
     <div className="flex flex-col gap-6">
@@ -180,6 +203,13 @@ export function DoorTab({ eventId }: { eventId: string }) {
               {t.create}
             </Button>
           </form>
+          {eventCategories.length > 0 && (
+            <fieldset className="-mt-2 mb-5 flex flex-col gap-2">
+              <legend className="mb-2 text-sm font-medium text-fg">{t.categories}</legend>
+              <CategoryChips categories={eventCategories} chosen={chosen} onChange={setChosen} />
+              <p className="text-xs leading-relaxed text-fg-muted">{t.categoriesHint}</p>
+            </fieldset>
+          )}
           <ErrorMessage error={create.error} className="mb-4" />
           {overview.data.accesses.length === 0 ? (
             <p className="text-sm text-fg-subtle">{t.noLinks}</p>
@@ -188,13 +218,42 @@ export function DoorTab({ eventId }: { eventId: string }) {
               {overview.data.accesses.map((access) => {
                 const state = accessState(access, now);
                 return (
-                  <li key={access.id} className={cn("flex items-center gap-3 py-3", state !== "active" && "opacity-60")}>
-                    <span className="flex min-w-0 flex-1 flex-col">
+                  <li key={access.id} className={cn("flex flex-wrap items-center gap-x-3 gap-y-2 py-3", state !== "active" && "opacity-60")}>
+                    <span className="flex min-w-0 flex-1 basis-48 flex-col gap-1">
                       <span className="truncate text-sm font-medium text-fg">{access.label}</span>
                       <span className="text-xs text-fg-muted">
                         {state === "active" ? t.activeUntil(shortDateTime(access.expiresAt)) : state === "expired" ? t.expired : t.revoked}
                       </span>
+                      {eventCategories.length > 0 && (
+                        <span className="flex flex-wrap gap-1">
+                          {access.categoryIds.length === 0 ? (
+                            <span className="text-xs text-fg-subtle">{t.allCategories}</span>
+                          ) : (
+                            eventCategories.filter((category) => access.categoryIds.includes(category.id)).map((category) => {
+                              const id = category.id;
+                              return (
+                                <span key={id} className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-2 px-2 py-0.5 text-xs font-medium text-fg">
+                                  <span className="size-2 rounded-full" style={{ backgroundColor: category.color }} aria-hidden />
+                                  {category.name}
+                                </span>
+                              );
+                            })
+                          )}
+                        </span>
+                      )}
                     </span>
+                    {state === "active" && eventCategories.length > 0 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        icon={<Tags />}
+                        onClick={() => {
+                          setEditing(access);
+                        }}
+                      >
+                        {t.editCategories}
+                      </Button>
+                    )}
                     {state === "active" ? (
                       <Button
                         variant="danger-ghost"
@@ -250,6 +309,14 @@ export function DoorTab({ eventId }: { eventId: string }) {
                               ? t.neverSeen
                               : t.lastSeen(shortDateTime(device.lastSeenAt))}
                       </span>
+                      <span className="mt-1 flex flex-wrap gap-1">
+                        {device.rehearsedAt !== null ? (
+                          <Badge tone="success">{t.rehearsedAt(shortDateTime(device.rehearsedAt))}</Badge>
+                        ) : (
+                          <Badge tone="warning">{t.notRehearsed}</Badge>
+                        )}
+                        {!revoked && (device.pendingScans ?? 0) > 0 && <Badge tone="warning">{t.pendingScans(device.pendingScans ?? 0)}</Badge>}
+                      </span>
                     </span>
                     {!revoked && (
                       <Button
@@ -277,6 +344,168 @@ export function DoorTab({ eventId }: { eventId: string }) {
           )}
         </Card>
       </div>
+
+      <RehearsalSheet eventId={eventId} />
+
+      <CategoriesDialog
+        access={editing}
+        categories={eventCategories}
+        saving={saveCategories.isPending}
+        onClose={() => {
+          setEditing(null);
+        }}
+        onSave={(categoryIds) => {
+          if (editing !== null) {
+            saveCategories.mutate({ id: editing.id, categoryIds });
+          }
+        }}
+      />
     </div>
+  );
+}
+
+/** Toggle chips of the event's categories (ADR 0068). */
+function CategoryChips({
+  categories,
+  chosen,
+  onChange,
+}: {
+  categories: readonly CategoryDto[];
+  chosen: readonly string[];
+  onChange: (ids: string[]) => void;
+}) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {categories.map((category) => {
+        const on = chosen.includes(category.id);
+        return (
+          <button
+            key={category.id}
+            type="button"
+            aria-pressed={on}
+            onClick={() => {
+              onChange(on ? chosen.filter((id) => id !== category.id) : [...chosen, category.id]);
+            }}
+            className={cn(
+              "inline-flex min-h-9 items-center gap-2 rounded-full border px-3 text-sm font-medium transition pointer-coarse:min-h-11",
+              on
+                ? "border-brand bg-brand-soft text-brand-soft-fg"
+                : "border-border bg-surface text-fg-muted hover:border-border-strong hover:text-fg active:bg-surface-2",
+            )}
+          >
+            <span className="size-2.5 rounded-full ring-1 ring-black/10" style={{ backgroundColor: category.color }} aria-hidden />
+            {category.name}
+            {on && <Check className="size-3.5" aria-hidden />}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function CategoriesDialog({
+  access,
+  categories,
+  saving,
+  onClose,
+  onSave,
+}: {
+  access: DoorAccessDto | null;
+  categories: readonly CategoryDto[];
+  saving: boolean;
+  onClose: () => void;
+  onSave: (ids: string[]) => void;
+}) {
+  return (
+    <Dialog
+      open={access !== null}
+      onClose={onClose}
+      title={access === null ? "" : t.editCategoriesTitle(access.label)}
+      description={t.editCategoriesBody}
+    >
+      {access !== null && (
+        <CategoriesForm key={access.id} initial={access.categoryIds} categories={categories} saving={saving} onCancel={onClose} onSave={onSave} />
+      )}
+    </Dialog>
+  );
+}
+
+function CategoriesForm(props: {
+  initial: readonly string[];
+  categories: readonly CategoryDto[];
+  saving: boolean;
+  onCancel: () => void;
+  onSave: (ids: string[]) => void;
+}) {
+  const [chosen, setChosen] = useState<string[]>([...props.initial]);
+  return (
+    <form
+      className="flex flex-col gap-4"
+      onSubmit={(event) => {
+        event.preventDefault();
+        props.onSave(chosen);
+      }}
+    >
+      <CategoryChips categories={props.categories} chosen={chosen} onChange={setChosen} />
+      <p className="text-xs leading-relaxed text-fg-muted">{t.categoriesHint}</p>
+      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <Button type="button" variant="secondary" onClick={props.onCancel}>
+          {t.cancel}
+        </Button>
+        <Button type="submit" loading={props.saving}>
+          {t.save}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+/** A printable sheet of sample tickets to rehearse with (ADR 0067). */
+function RehearsalSheet({ eventId }: { eventId: string }) {
+  const download = useMutation({
+    mutationFn: () => fetchBlobUrl(`/api/events/${eventId}/door/rehearsal-sheet`),
+    onSuccess: (url) => {
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = t.sheetFile;
+      link.click();
+      setTimeout(() => {
+        URL.revokeObjectURL(url);
+      }, 60_000);
+    },
+    onError: (error) => {
+      toast.error(errorMessage(error));
+    },
+  });
+  return (
+    <Card>
+      <div className="flex flex-col gap-5 md:flex-row md:items-start md:gap-8">
+        <div className="flex min-w-0 flex-1 flex-col">
+          <CardHeader title={t.sheetTitle} description={t.sheetBody} icon={ClipboardCheck} className="mb-4" />
+          <div className="sm:pl-12">
+            <Button
+              variant="secondary"
+              icon={<Download />}
+              loading={download.isPending}
+              onClick={() => {
+                download.mutate();
+              }}
+            >
+              {t.sheetDownload}
+            </Button>
+          </div>
+        </div>
+        <ol className="flex flex-col gap-2.5 md:w-80 md:shrink-0">
+          {t.sheetSteps.map((step, index) => (
+            <li key={step} className="flex items-start gap-3 text-sm text-fg">
+              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-brand-soft text-xs font-semibold text-brand-soft-fg tabular">
+                {index + 1}
+              </span>
+              <span className="pt-0.5 leading-relaxed">{step}</span>
+            </li>
+          ))}
+        </ol>
+      </div>
+    </Card>
   );
 }

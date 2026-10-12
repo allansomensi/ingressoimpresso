@@ -45,3 +45,15 @@ export function announce(tone: Tone): void {
     navigator.vibrate(tone === "ok" ? 80 : [200, 100, 200]);
   }
 }
+
+/** Rehearsal (ADR 0067): the three results one after the other, to check sound and vibration. */
+export function rehearseFeedback(): void {
+  unlockAudio();
+  announce("ok");
+  setTimeout(() => {
+    announce("bad");
+  }, 700);
+  setTimeout(() => {
+    announce("warn");
+  }, 1600);
+}
