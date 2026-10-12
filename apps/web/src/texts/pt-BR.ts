@@ -2031,6 +2031,7 @@ export const texts = {
       blocked: "Cópias barradas",
       blockedHint: (offline: number) => (offline === 0 ? "nenhuma entrou sem sinal" : offline === 1 ? "1 entrou sem sinal" : `${String(offline)} entraram sem sinal`),
       refusals: "Recusas",
+      refusalsHint: "cópias, inválidos, cancelados e porta errada",
       refusalsTitle: "O que a porta barrou",
       refusalRows: {
         blockedCopies: "Cópias barradas na porta",

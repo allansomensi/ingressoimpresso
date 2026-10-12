@@ -125,7 +125,7 @@ export function LiveTab({ eventId, onSelect }: { eventId: string; onSelect: Sele
           icon={ShieldX}
           tone={data.refusals.offlineDuplicates > 0 ? "warning" : "brand"}
         />
-        <Stat label={t.refusals} value={count(refusals)} icon={AlertTriangle} tone={refusals > 0 ? "warning" : "brand"} />
+        <Stat label={t.refusals} value={count(refusals)} hint={t.refusalsHint} icon={AlertTriangle} tone={refusals > 0 ? "warning" : "brand"} />
       </div>
 
       <div className="grid items-start gap-6 lg:grid-cols-2">
@@ -167,67 +167,41 @@ export function LiveTab({ eventId, onSelect }: { eventId: string; onSelect: Sele
             </ul>
           </Card>
         )}
-        {data.categories.length > 0 ? (
-          <>
+        {/* Without categories the refusals sit beside the doors and the phones take a full row. */}
+        {data.categories.length === 0 && <RefusalsCard refusals={data.refusals} />}
         <Card className={cn(data.categories.length === 0 && "lg:col-span-2")}>
           <CardHeader title={t.devices} icon={Smartphone} />
           <DeviceList devices={data.devices} now={clock} />
         </Card>
-        <Card>
-          <CardHeader title={t.refusalsTitle} icon={ShieldX} />
-          <dl className="flex flex-col divide-y divide-border text-sm">
-            {(
-              [
-                ["blockedCopies", data.refusals.blockedCopies],
-                ["offlineDuplicates", data.refusals.offlineDuplicates],
-                ["invalid", data.refusals.invalid],
-                ["voided", data.refusals.voided],
-                ["voidEntries", data.refusals.voidEntries],
-                ["wrongDoor", data.refusals.wrongDoor],
-                ["wrongDoorAdmitted", data.refusals.wrongDoorAdmitted],
-                ["otherEvent", data.refusals.otherEvent],
-              ] as const
-            ).map(([key, value]) => (
-              <div key={key} className="flex items-center justify-between gap-3 py-2.5">
-                <dt className="text-fg-muted">{t.refusalRows[key]}</dt>
-                <dd className={cn("font-semibold tabular", value > 0 ? "text-fg" : "text-fg-subtle")}>{count(value)}</dd>
-              </div>
-            ))}
-          </dl>
-        </Card>
-          </>
-        ) : (
-          <>
-        <Card>
-          <CardHeader title={t.refusalsTitle} icon={ShieldX} />
-          <dl className="flex flex-col divide-y divide-border text-sm">
-            {(
-              [
-                ["blockedCopies", data.refusals.blockedCopies],
-                ["offlineDuplicates", data.refusals.offlineDuplicates],
-                ["invalid", data.refusals.invalid],
-                ["voided", data.refusals.voided],
-                ["voidEntries", data.refusals.voidEntries],
-                ["wrongDoor", data.refusals.wrongDoor],
-                ["wrongDoorAdmitted", data.refusals.wrongDoorAdmitted],
-                ["otherEvent", data.refusals.otherEvent],
-              ] as const
-            ).map(([key, value]) => (
-              <div key={key} className="flex items-center justify-between gap-3 py-2.5">
-                <dt className="text-fg-muted">{t.refusalRows[key]}</dt>
-                <dd className={cn("font-semibold tabular", value > 0 ? "text-fg" : "text-fg-subtle")}>{count(value)}</dd>
-              </div>
-            ))}
-          </dl>
-        </Card>
-        <Card className={cn(data.categories.length === 0 && "lg:col-span-2")}>
-          <CardHeader title={t.devices} icon={Smartphone} />
-          <DeviceList devices={data.devices} now={clock} />
-        </Card>
-          </>
-        )}
+        {data.categories.length > 0 && <RefusalsCard refusals={data.refusals} />}
       </div>
     </div>
+  );
+}
+
+function RefusalsCard({ refusals }: { refusals: DoorLiveDto["refusals"] }) {
+  const rows = [
+    ["blockedCopies", refusals.blockedCopies],
+    ["offlineDuplicates", refusals.offlineDuplicates],
+    ["invalid", refusals.invalid],
+    ["voided", refusals.voided],
+    ["voidEntries", refusals.voidEntries],
+    ["wrongDoor", refusals.wrongDoor],
+    ["wrongDoorAdmitted", refusals.wrongDoorAdmitted],
+    ["otherEvent", refusals.otherEvent],
+  ] as const;
+  return (
+    <Card>
+      <CardHeader title={t.refusalsTitle} icon={ShieldX} />
+      <dl className="flex flex-col divide-y divide-border text-sm">
+        {rows.map(([key, value]) => (
+          <div key={key} className="flex items-center justify-between gap-3 py-2.5">
+            <dt className="text-fg-muted">{t.refusalRows[key]}</dt>
+            <dd className={cn("font-semibold tabular", value > 0 ? "text-fg" : "text-fg-subtle")}>{count(value)}</dd>
+          </div>
+        ))}
+      </dl>
+    </Card>
   );
 }
 
