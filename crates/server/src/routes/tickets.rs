@@ -12,6 +12,7 @@ use axum::extract::{Path, State};
 use axum::http::header::{CACHE_CONTROL, CONTENT_TYPE};
 use axum::http::{HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
+use sha2::{Digest as _, Sha256};
 use sqlx::{Postgres, Transaction};
 use ticket_core::SignedTicket;
 use ticket_render::{RenderJob, TicketQr, TicketToRender};
@@ -1010,16 +1011,35 @@ pub async fn image(
     crate::moderation::ensure_event_printable(&state.pool, link.event_id).await?;
     // Rendering is the expensive part: one image per link and design version, kept with the
     // other generated files (cleaned after a day), so repeated requests cost a file read.
-    let version = sqlx::query_scalar!(
-        r#"select coalesce(max(version), 0) as "version!" from ticket_designs where event_id = $1"#,
+    // The key also follows what the text blocks print (date, venue, price, organization): a
+    // postponed event (ADR 0065) must not keep showing the old date.
+    let drawn = sqlx::query!(
+        r#"select (select coalesce(max(version), 0) from ticket_designs where event_id = e.id) as "version!",
+                  e.name, e.venue, e.starts_at, e.utc_offset_minutes, e.ticket_price_cents,
+                  o.name as organization
+           from events e join organizations o on o.id = e.organization_id where e.id = $1"#,
         link.event_id
     )
     .fetch_one(&state.pool)
     .await?;
-    let cached = state
-        .config
-        .export_dir
-        .join(format!("ticket-{}-v{version}.jpg", link.id));
+    let details = Sha256::digest(
+        format!(
+            "{}\n{}\n{}\n{}\n{:?}\n{}",
+            drawn.name,
+            drawn.venue.unwrap_or_default(),
+            drawn.starts_at.unix_timestamp(),
+            drawn.utc_offset_minutes,
+            drawn.ticket_price_cents,
+            drawn.organization,
+        )
+        .as_bytes(),
+    );
+    let cached = state.config.export_dir.join(format!(
+        "ticket-{}-v{}-{}.jpg",
+        link.id,
+        drawn.version,
+        hex::encode(details.get(..6).unwrap_or_default()),
+    ));
     let jpeg = if let Ok(bytes) = tokio::fs::read(&cached).await {
         bytes
     } else {
