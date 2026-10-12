@@ -127,9 +127,8 @@ só: `Ingresso Impresso <contato@ingressoimpresso.com.br>`, a constante `DEFAULT
 2. **Domains** → **Add Domain**:
    - **Name:** o domínio do remetente. Para `contato@seudominio.com.br`, é o próprio
      `seudominio.com.br`; os registros do Resend ficam em `send` e `resend._domainkey`, sem mexer
-     no MX do domínio (onde chegam as respostas ao `contato@`). Instalações antigas verificaram
-     `mail.seudominio.com.br`: acrescente o domínio raiz, espere ficar **Verified** e só então
-     apague o `MAIL_FROM` antigo (`login@mail...`) no Render;
+     no MX do domínio (onde chegam as respostas ao `contato@`). Instalações antigas usavam
+     `mail.seudominio.com.br`: veja **Trocar o domínio do remetente**, abaixo;
    - **Region:** **São Paulo (sa-east-1)**. Não dá para mudar depois;
    - mantenha o *Return-Path* padrão (`send`) e clique em **Add**.
 3. Deixe a aba **Records** aberta: os registros dela entram no DNS no passo seguinte.
@@ -137,9 +136,31 @@ só: `Ingresso Impresso <contato@ingressoimpresso.com.br>`, a constante `DEFAULT
    - **Name:** `ingressoimpresso-render`;
    - **Permission:** **Sending access**;
    - **Domain:** **All domains**. Uma chave restrita a um domínio só pode ser criada
-     depois da verificação e não envia pelo remetente de teste do Resend.
+     depois da verificação e não envia pelo remetente de teste do Resend. Com o domínio
+     **Verified** (seção 4), edite a chave e restrinja-a a `seudominio.com.br`: uma chave vazada
+     só envia por ele.
 
    Copie a chave (`re_...`) para o gerenciador de senhas: ela só aparece uma vez.
+
+### Trocar o domínio do remetente
+
+Quem verificou `mail.seudominio.com.br` antes do remetente `contato@` (ADR 0063) passa para o
+domínio raiz assim, sem deixar o login sem e-mail:
+
+1. Acrescente `seudominio.com.br` em **Domains** (passo 2), crie os registros no DNS (seção 4) e
+   espere ficar **Verified**.
+2. Em **API Keys**, confira o **Domain** de cada chave (produção e staging). Uma chave restrita a
+   `mail.seudominio.com.br` recusa o novo remetente: os **Logs** do Render mostram
+   `resend answered 403 Forbidden: This API key is not authorized to send emails from
+   seudominio.com.br` e o código de login não chega. Edite a chave para **All domains** ou para
+   `seudominio.com.br`. O valor de `RESEND_API_KEY` não muda.
+3. No Render, apague `MAIL_FROM` na produção (vale o padrão) e, no staging, ponha
+   `Ingresso Impresso (testes) <contato@seudominio.com.br>` (**Save and deploy**). Teste com um
+   código de login ou **Admin** → **E-mails** → **Enviar teste**: o remetente aparece na lista.
+4. Uns dias depois (para chegarem as devoluções do que saiu pelo domínio antigo), apague
+   `mail.seudominio.com.br` em **Domains** e, no Registro.br, os registros `send.mail`
+   (MX e TXT, ou os CNAME `send.mail` e `rsend.mail`) e `resend._domainkey.mail`. O `_dmarc` fica:
+   ele vale para o domínio raiz.
 
 ## 4. DNS no Registro.br: modo avançado e registros do e-mail
 
@@ -598,7 +619,7 @@ Depois disso, siga o ensaio geral em [`docs/ensaio.md`](ensaio.md).
 | Sintoma | Causa provável | O que fazer |
 |---|---|---|
 | Painel diz "Sem conexão com o servidor", mas há internet | A origem do site não está em `ALLOWED_ORIGINS`, ou `NEXT_PUBLIC_API_URL` está errada | No navegador, abra o console (F12): um erro de CORS confirma. Corrija `ALLOWED_ORIGINS` no Render (**Save and deploy**) ou a variável na Vercel e rode o **Deploy web** de novo |
-| O código de login não chega | Domínio não verificado no Resend, remetente (`MAIL_FROM` ou o padrão `contato@ingressoimpresso.com.br`) num domínio que o Resend não verificou, ou limite diário | Nos **Logs** do Render, procure `resend answered`: a mensagem diz o motivo. Confira o spam |
+| O código de login não chega | Domínio não verificado no Resend, remetente (`MAIL_FROM` ou o padrão `contato@ingressoimpresso.com.br`) num domínio que o Resend não verificou, chave do Resend restrita a outro domínio, ou limite diário | Nos **Logs** do Render, procure `resend answered`: a mensagem diz o motivo. `This API key is not authorized to send emails from …` pede a chave em **All domains** ou no domínio do remetente (seção 3, **Trocar o domínio do remetente**). Confira o spam |
 | Login diz "Os códigos por e-mail acabaram por hoje" | `MAIL_DAILY_LIMIT` atingido em 24 horas | Entre com o Google (passo 5.2). Se for frequente, mude o plano da Resend e suba `MAIL_DAILY_LIMIT` |
 | Organizadores veem "Voltamos em instantes" | O modo manutenção está ligado | **Admin** → **Configurações** → **Modo manutenção** → **Desligado** → **Salvar** |
 | Ninguém consegue criar conta | Cadastros fechados ou domínio bloqueado | **Admin** → **Configurações**: ligue **Aceitar novas contas** e confira os domínios |
