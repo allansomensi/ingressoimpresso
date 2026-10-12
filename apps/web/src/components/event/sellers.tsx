@@ -660,7 +660,8 @@ function SellerCard({
                 </MenuItem>
               </>
             )}
-            {delivery && (
+            {/* The box office changes what the seller owes: the money part's call (ADR 0069). */}
+            {delivery && cash && (
               <MenuItem
                 icon={<Store />}
                 onSelect={() => {
@@ -1021,6 +1022,7 @@ function NoPriceNotice({ onEditEvent }: { onEditEvent: () => void }) {
 
 /** The new-seller form: a card on its own while there are no sellers, a tile in the grid after. */
 function NewSeller({ eventId, onCreated, tile }: { eventId: string; onCreated: () => void; tile: boolean }) {
+  const { can } = useEventAccess();
   const [open, setOpen] = useState(!tile);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -1105,9 +1107,11 @@ function NewSeller({ eventId, onCreated, tile }: { eventId: string; onCreated: (
             {t.create}
           </Button>
         </div>
-        <div className="sm:col-span-full">
-          <Switch checked={boxOffice} onChange={setBoxOffice} label={t.boxOffice.newLabel} description={t.boxOffice.newHint} />
-        </div>
+        {can("money") && (
+          <div className="sm:col-span-full">
+            <Switch checked={boxOffice} onChange={setBoxOffice} label={t.boxOffice.newLabel} description={t.boxOffice.newHint} />
+          </div>
+        )}
       </form>
       {!tile && <p className="mt-3 text-xs text-fg-muted">{t.phoneHint}</p>}
       <ErrorMessage error={create.error} className="mt-4" />

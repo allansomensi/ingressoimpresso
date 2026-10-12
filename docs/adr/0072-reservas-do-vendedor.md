@@ -60,6 +60,9 @@ Opção 3.
 
 ## Consequências
 
+- O id de uma reserva vem do celular do vendedor; ele só pode crescer uma reserva do mesmo
+  vendedor e evento (outro id igual é recusado como inválido), e o painel vende e cancela
+  filtrando por evento e vendedor.
 - O vendedor para de vender duas vezes o mesmo número prometido e lembra a pessoa na hora certa.
 - Uma reserva esquecida não prende o número: o prazo resolve.
 - "Com você" na página do vendedor soma livres e reservados (todos ainda estão na mão dele); o

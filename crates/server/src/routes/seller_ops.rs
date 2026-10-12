@@ -423,6 +423,20 @@ pub(crate) async fn reserve(
     if reservation.expires_at > rules.ends_at || reservation.expires_at > now + MAX_RESERVATION {
         return Ok(Done::rejected(SellerOpProblem::Invalid));
     }
+    // The id comes from the seller's phone: it may only grow a reservation of this same seller
+    // and event, never join one elsewhere (the panel finds a reservation by its id alone).
+    let elsewhere = sqlx::query_scalar!(
+        r#"select exists(select 1 from ticket_reservations
+                         where reservation_id = $1 and (event_id <> $2 or seller_id <> $3)) as "elsewhere!""#,
+        reservation.id,
+        actor.event,
+        actor.seller,
+    )
+    .fetch_one(&mut **tx)
+    .await?;
+    if elsewhere {
+        return Ok(Done::rejected(SellerOpProblem::Invalid));
+    }
     let mut done = Done::default();
     let mut keep = Vec::new();
     for state in states(tx, actor, numbers).await? {

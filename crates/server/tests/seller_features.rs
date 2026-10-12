@@ -191,6 +191,18 @@ async fn sellers_reserve_sell_and_give_up_reservations(pool: PgPool) {
         json!([{ "first": 2, "last": 2 }])
     );
 
+    // A reservation id belongs to its seller: another seller cannot join it with their numbers.
+    let joao = link(&app, &token, &s.joao).await;
+    let (result, _) = one(
+        &app,
+        &joao,
+        Uuid::new_v4(),
+        reserve(ana, 11, 11, "Ana", tomorrow()),
+    )
+    .await;
+    assert_eq!(result["outcome"], "rejected");
+    assert_eq!(result["problems"][0]["reason"], "invalid");
+
     // Selling 2 without knowing it was reserved is a conflict; selling the reservation works.
     let (result, _) = one(&app, &secret, Uuid::new_v4(), mark(2, 2, Some("Caio"))).await;
     assert_eq!(result["outcome"], "rejected");

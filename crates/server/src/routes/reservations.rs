@@ -183,8 +183,10 @@ pub async fn sell(
     let (event, seller_id) = reservation_event(&state, &user, reservation_id).await?;
     let rows = sqlx::query!(
         r#"select ticket_number, holder_name, holder_phone from ticket_reservations
-           where reservation_id = $1 order by ticket_number"#,
-        reservation_id
+           where reservation_id = $1 and event_id = $2 and seller_id = $3 order by ticket_number"#,
+        reservation_id,
+        event.id,
+        seller_id,
     )
     .fetch_all(&state.pool)
     .await?;

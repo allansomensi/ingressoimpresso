@@ -7,8 +7,10 @@ use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use uuid::Uuid;
 
-use super::{authorize_event, bounds, is_issued, one_line, optional_text, range};
-use crate::api::{RangeBody, RangeDto, SellerBody, SellerDto};
+use super::{
+    EventAccess, authorize_event, bounds, event_access, is_issued, one_line, optional_text, range,
+};
+use crate::api::{RangeBody, RangeDto, SellerBody, SellerDto, TeamArea};
 use crate::auth::AuthUser;
 use crate::error::{ApiError, ApiResult, bad_request};
 use crate::state::AppState;
@@ -93,9 +95,12 @@ pub async fn create(
     Path(event_id): Path<Uuid>,
     Json(body): Json<SellerBody>,
 ) -> ApiResult<(StatusCode, Json<SellerDto>)> {
-    authorize_event(&state.pool, &user, event_id).await?;
+    let access = event_access(&state.pool, &user, event_id).await?;
     let (name, phone) = validate(&body)?;
     let box_office = body.box_office.unwrap_or(false);
+    if box_office {
+        need_money(&access)?;
+    }
     let id = Uuid::new_v4();
     sqlx::query!(
         "insert into sellers (id, event_id, name, phone, box_office) values ($1, $2, $3, $4, $5)",
@@ -127,6 +132,19 @@ pub async fn create(
     ))
 }
 
+/// The box office (ADR 0069) changes what a seller owes, so choosing it is the money part's call
+/// on the team, beyond the delivery part that edits sellers.
+fn need_money(access: &EventAccess) -> ApiResult<()> {
+    if access.can(TeamArea::Money) {
+        Ok(())
+    } else {
+        Err(ApiError::Refused(
+            "not_your_area",
+            "another person of the team takes care of this".to_owned(),
+        ))
+    }
+}
+
 async fn seller_event(state: &AppState, user: &AuthUser, seller_id: Uuid) -> ApiResult<Uuid> {
     let event_id = sqlx::query_scalar!("select event_id from sellers where id = $1", seller_id)
         .fetch_optional(&state.pool)
@@ -143,11 +161,28 @@ pub async fn update(
     Path(seller_id): Path<Uuid>,
     Json(body): Json<SellerBody>,
 ) -> ApiResult<StatusCode> {
-    seller_event(&state, &user, seller_id).await?;
+    let event_id = sqlx::query_scalar!("select event_id from sellers where id = $1", seller_id)
+        .fetch_optional(&state.pool)
+        .await?
+        .ok_or(ApiError::NotFound)?;
+    let access = event_access(&state.pool, &user, event_id).await?;
     let (name, phone) = validate(&body)?;
     // A missing `boxOffice` keeps the current choice (ADR 0069). A box office has no goal and no
     // reservations (ADRs 0072, 0073): turning it on drops them.
     let mut tx = state.pool.begin().await?;
+    // Turning the box office on or off changes what the seller owes (their entries instead of the
+    // numbers they kept): money matters, beyond the delivery part that edits the seller.
+    if let Some(wanted) = body.box_office {
+        let current = sqlx::query_scalar!(
+            "select box_office from sellers where id = $1 for update",
+            seller_id
+        )
+        .fetch_one(&mut *tx)
+        .await?;
+        if wanted != current {
+            need_money(&access)?;
+        }
+    }
     let box_office = sqlx::query_scalar!(
         r#"update sellers set name = $2, phone = $3, box_office = coalesce($4, box_office),
                               goal = case when coalesce($4, box_office) then null else goal end
