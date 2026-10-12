@@ -16,7 +16,7 @@ export const LEGAL_ENTITY = {
 } as const;
 
 /** Version of the Terms + Privacy Policy accepted at sign-in (stored with the user). */
-export const TERMS_VERSION = "2026-10-10.2";
+export const TERMS_VERSION = "2026-10-12.1";
 
 export type LegalBlock =
   | { type: "p"; text: string }
@@ -410,7 +410,7 @@ const PRIVACY: LegalDocument = {
   title: "Política de Privacidade",
   description:
     "Como o Ingresso Impresso trata dados pessoais de organizadores, vendedores e participantes, com quem os compartilha e como exercer seus direitos pela LGPD.",
-  updatedAt: "2026-10-10",
+  updatedAt: "2026-10-12",
   summary: [
     "Tratamos o mínimo necessário: o e-mail de quem entra, o nome da organização, os dados dos eventos e a situação dos pagamentos. Não vendemos dados e não usamos cookies de publicidade.",
     "Os dados de vendedores, portadores de ingresso digital e leituras da portaria são cadastrados pelo organizador. Para esses dados, o organizador é o controlador e nós atuamos como operador.",
@@ -460,6 +460,8 @@ const PRIVACY: LegalDocument = {
           "o e-mail, usado para entrar e para comunicações sobre o serviço;",
           "o nome, o identificador da conta Google e a informação de que o e-mail foi verificado pelo Google, se você usar “Entrar com Google”;",
           "o nome da organização;",
+          "o perfil da organização, se você o preencher: logo, cor da marca, WhatsApp, e-mail de contato, site, Instagram e os padrões de evento novo (local, endereço e preço). Logo, nome, cor e contatos aparecem publicamente no ingresso digital, na página dos vendedores e na conferência de ingressos, para que o público fale com a organização; o logo passa pela mesma revisão das artes;",
+          "se você chegou por um convite ou convidou alguém (“Indique e ganhe”): o vínculo entre as duas contas, a situação da indicação, o crédito concedido e uma parte do e-mail da conta convidada (por exemplo, “ma•••@gmail.com”), que quem convidou vê;",
           "a data e a versão dos Termos de Uso e da Política de Privacidade que você aceitou;",
           "os códigos de acesso enviados por e-mail, guardados apenas como hash (um resumo criptográfico que não permite recuperar o código), com a contagem de tentativas;",
           "as sessões abertas, guardadas apenas como hash do token de sessão;",
@@ -497,10 +499,12 @@ const PRIVACY: LegalDocument = {
       blocks: [
         p("Nestes casos, atuamos como operador do organizador:"),
         ul(
-          "vendedores: nome e, se o organizador informar, telefone, além das faixas de números e do acerto de cada um;",
+          "vendedores: nome e, se o organizador informar, telefone, além das faixas de números, da meta de vendas, da posição no ranking (que os outros vendedores veem só como primeiro nome e inicial, e só se o organizador ligar) e do acerto de cada um;",
+          "compradores anotados pelos vendedores: nome e telefone, quando o vendedor os registra ao marcar uma venda ou reservar um número, e o prazo da reserva;",
+          "pessoas da lista de nomes da portaria: nome, número de acompanhantes, observação, categoria e a hora em que chegaram, com o celular que registrou a chegada;",
           "portadores de ingresso digital: nome, quando o organizador o digita, o que é opcional;",
           "celulares da portaria: o nome dado a cada celular e os registros de conexão e sincronização;",
-          "leituras da portaria: número do ingresso lido, data e hora da leitura e celular que a fez.",
+          "leituras da portaria: número do ingresso lido, data e hora da leitura, celular que a fez e, quando o porteiro deixa entrar por exceção, essa marcação.",
         ),
         p(
           "Não usamos esses dados para finalidades próprias, como publicidade, e não entramos em contato com essas pessoas, salvo para cumprir a lei ou atender um pedido delas.",
@@ -513,6 +517,12 @@ const PRIVACY: LegalDocument = {
       blocks: [
         p(
           "Quem abre o link de um ingresso digital vê uma página que carrega o ingresso da nossa API e guarda uma cópia no próprio navegador (localStorage), para que ele funcione mesmo sem internet na entrada do evento. Registramos quando o link foi aberto pela primeira e pela última vez e quantas vezes foi aberto, para que o organizador saiba que o ingresso chegou. A cópia fica apenas naquele navegador e pode ser apagada limpando os dados do site.",
+        ),
+        p(
+          "A página do vendedor (aberta pelo link privado que o organizador envia) guarda no navegador do vendedor (localStorage) uma cópia dos dados da última visita e as alterações ainda não enviadas, para funcionar sem internet. A cópia é identificada por um resumo criptográfico do link, nunca pelo próprio código, e pode ser apagada limpando os dados do site.",
+        ),
+        p(
+          "Na página “Conferir ingresso”, qualquer pessoa pode conferir se um QR é de um ingresso nosso. O texto do QR é enviado ao servidor apenas para conferir a assinatura e não é guardado; a resposta mostra o evento, o número e se ele foi cancelado, nunca quem comprou nem se o ingresso já foi usado. Para impedir abusos, limitamos o número de consultas por endereço IP, sem guardar o endereço. O organizador pode desligar a conferência de um evento.",
         ),
         p(
           "Na portaria, cada celular guarda as leituras no próprio navegador (IndexedDB) antes de mostrar o resultado e as envia ao servidor quando tem internet. Esses dados ficam no celular e podem ser apagados limpando os dados do site no navegador.",
@@ -536,8 +546,8 @@ const PRIVACY: LegalDocument = {
           "Não usamos cookies de publicidade nem acompanhamos você em outros sites. No navegador, usamos:",
         ),
         ul(
-          "localStorage: o token da sua sessão, sua preferência de tema (claro, escuro ou do sistema), a marcação de quais “Novidades” você já viu e as cópias de ingressos digitais abertos;",
-          "IndexedDB: as leituras e os dados da portaria nos celulares da entrada;",
+          "localStorage: o token da sua sessão, sua preferência de tema (claro, escuro ou do sistema), a marcação de quais “Novidades” você já viu, as cópias de ingressos digitais abertos, a cópia e as alterações pendentes da página do vendedor e, por até 30 dias, o código do convite pelo qual você chegou;",
+          "IndexedDB: as leituras, a lista de nomes e os demais dados da portaria nos celulares da entrada;",
           "o cache do navegador: os arquivos do site e da portaria, para carregar mais rápido e funcionar sem internet.",
         ),
         p(
@@ -560,7 +570,7 @@ const PRIVACY: LegalDocument = {
           "execução do contrato (art. 7º, V): criar e manter sua conta, permitir o acesso, gerar arquivos e ingressos digitais, operar a portaria, processar pagamentos e reembolsos e responder pedidos de suporte;",
           "cumprimento de obrigação legal ou regulatória (art. 7º, II): guardar os registros de pagamentos e reembolsos exigidos pela legislação fiscal e atender ordens de autoridades;",
           "exercício regular de direitos (art. 7º, VI): guardar os registros necessários para nossa defesa em processos judiciais, administrativos ou arbitrais;",
-          "legítimo interesse (art. 7º, IX): proteger o serviço contra fraude e abuso, como o limite de pedidos de código por IP e a verificação anti-robô, manter a segurança, registrar as ações de suporte em log de auditoria, medir o uso do site de forma agregada para melhorá-lo e avisar sobre novidades do serviço;",
+          "legítimo interesse (art. 7º, IX): proteger o serviço contra fraude e abuso, como o limite de pedidos de código por IP, a verificação anti-robô e as regras que impedem uma conta de indicar a si mesma, manter a segurança, registrar as ações de suporte em log de auditoria, medir o uso do site de forma agregada para melhorá-lo e avisar sobre novidades do serviço;",
           "consentimento (art. 7º, I): quando alguma função depender dele, pediremos de forma destacada, e você poderá revogá-lo a qualquer momento.",
         ),
         p(
@@ -623,6 +633,8 @@ const PRIVACY: LegalDocument = {
           "chave da verificação em duas etapas e códigos de recuperação: até você desligar a verificação ou excluir a conta;",
           "registro dos e-mails enviados (destinatário, assunto sem o código e situação da entrega), para suporte e prevenção de abuso: 30 dias;",
           "avisos do painel para a sua conta: 180 dias;",
+          "reservas de números feitas pelos vendedores: apagadas 7 dias depois de vencerem; alterações enviadas pela página do vendedor sem internet (para não aplicar a mesma duas vezes): 30 dias;",
+          "indicações: enquanto a conta existir; depois da exclusão da conta convidada, apagamos a parte do e-mail que quem convidou via e guardamos apenas um resumo criptográfico do e-mail, feito com uma chave secreta, que não permite recuperar o endereço e serve só para impedir que o mesmo e-mail seja convidado de novo (legítimo interesse, prevenção de fraude);",
           "cópias de segurança cifradas do banco de dados: 30 dias;",
           "registros de pagamentos e reembolsos: 5 anos, para cumprir obrigações fiscais e legais, mesmo depois da exclusão da conta;",
           "registros técnicos dos provedores de hospedagem: períodos curtos, definidos por eles.",

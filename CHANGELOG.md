@@ -68,6 +68,14 @@ e não acompanha estes números.
   chega pelo convite vê na entrada o que vai ganhar; o admin ajusta valores, limite e lote mínimo e
   acompanha as indicações (ADR 0076).
 
+### Alterado
+
+- A Política de Privacidade descreve os dados das novidades desta versão: o perfil público da
+  organização, as indicações, a lista de nomes da portaria, os compradores e as reservas anotados
+  pelos vendedores, a página do vendedor sem internet e a conferência de ingressos. Ao entrar, cada
+  conta aceita a nova versão. Quando uma conta convidada é excluída, quem convidou deixa de ver o
+  e-mail dela.
+
 ### Corrigido
 
 - A imagem do ingresso no celular com a arte passa a mostrar a data, o local e o preço atuais

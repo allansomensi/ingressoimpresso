@@ -45,7 +45,7 @@ const SESSION_TTL: Duration = Duration::days(30);
 const SESSION_REFRESH_EVERY: Duration = Duration::hours(1);
 /// Version of the Terms of Use and Privacy Policy accepted by signing in (ADR 0033). Same value
 /// as `TERMS_VERSION` in apps/web/src/content/legal.ts.
-pub const TERMS_VERSION: &str = "2026-10-10.2";
+pub const TERMS_VERSION: &str = "2026-10-12.1";
 
 /// The authenticated user of a request.
 #[derive(Debug, Clone)]
