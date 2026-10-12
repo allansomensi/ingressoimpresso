@@ -32,7 +32,7 @@ import { texts } from "@/texts/pt-BR";
 
 const t = texts.admin.emails;
 
-/** `login@mail.example.com` out of `Name <login@mail.example.com>` (the name is the site's own); it
+/** `contato@example.com` out of `Name <contato@example.com>` (the name is the site's own); it
  * wraps after the `@` and before each dot, never mid-word. */
 function senderAddress(from: string): string {
   return /<([^>]+)>/.exec(from)?.[1] ?? from;

@@ -19,7 +19,8 @@ pub struct Config {
     pub master_key: MasterKey,
     /// `RESEND_API_KEY`: without it, login codes are only logged (development).
     pub resend_api_key: Option<String>,
-    /// `MAIL_FROM`: sender of login e-mails.
+    /// `MAIL_FROM`: sender of every e-mail (login codes, payments, invitations), default
+    /// [`DEFAULT_MAIL_FROM`].
     pub mail_from: String,
     /// `ADMIN_EMAILS`: comma-separated e-mails allowed to mark batches as paid (MVP, ADR 0014).
     pub admin_emails: Vec<String>,
@@ -63,6 +64,9 @@ const KNOWN_TEST_KEYS: [&str; 2] = [
     "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=",
     "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
 ];
+
+/// Sender of every e-mail when `MAIL_FROM` is not set. Its domain must be verified in Resend.
+pub const DEFAULT_MAIL_FROM: &str = "Ingresso Impresso <contato@ingressoimpresso.com.br>";
 
 /// Default of `MAIL_DAILY_LIMIT`: a little under Resend's free 100 a day.
 pub const DEFAULT_MAIL_DAILY_LIMIT: i64 = 95;
@@ -319,8 +323,7 @@ impl Config {
             allowed_origins,
             master_key,
             resend_api_key,
-            mail_from: get("MAIL_FROM")
-                .unwrap_or_else(|| "Ingresso Impresso <onboarding@resend.dev>".to_owned()),
+            mail_from: get("MAIL_FROM").unwrap_or_else(|| DEFAULT_MAIL_FROM.to_owned()),
             admin_emails,
             public_api_url,
             public_web_url,
@@ -444,6 +447,11 @@ mod tests {
         assert_eq!(config.port, 8080);
         assert!(config.is_admin("eu@exemplo.com"));
         assert!(!config.production);
+        assert_eq!(
+            config.mail_from,
+            "Ingresso Impresso <contato@ingressoimpresso.com.br>"
+        );
+        assert!(!config.uses_test_sender());
     }
 
     #[test]
@@ -512,7 +520,9 @@ mod tests {
             ["https://seudominio.com.br", "https://www.seudominio.com.br"]
         );
         assert_eq!(config.public_api_url, "https://api.seudominio.com.br");
-        assert!(config.uses_test_sender());
+        // Without MAIL_FROM every e-mail comes from the site's own sender.
+        assert!(!config.uses_test_sender());
+        assert_eq!(config.mail_from, DEFAULT_MAIL_FROM);
         for (missing, name) in [
             ("ALLOWED_ORIGINS", "ALLOWED_ORIGINS"),
             ("PUBLIC_API_URL", "PUBLIC_API_URL"),
