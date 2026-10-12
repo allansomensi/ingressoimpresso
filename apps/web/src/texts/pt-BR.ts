@@ -2221,7 +2221,6 @@ export const texts = {
       camera: "Câmera liberada",
       storage: "Armazenamento garantido",
       testScan: "Leitura de teste feita (leia qualquer QR, como o de um ingresso de amostra)",
-      rehearsed: "Ensaio feito (toque em Ensaiar)",
       hint: "Abra este link no dia do evento, com internet, e deixe a tela aberta.",
     },
     result: {
@@ -2271,6 +2270,7 @@ export const texts = {
       noTorch: "Este celular não liga a lanterna pelo navegador. Leve uma lanterna ou use a luz do local.",
       finish: "Terminar ensaio",
       cancel: "Sair sem concluir",
+      wouldAdmit: "ENTRARIA",
       sampleTitle: "AMOSTRA LIDA",
       sampleDetail: "A câmera está boa.",
       otherQrTitle: "NÃO É UM INGRESSO",
@@ -2278,7 +2278,6 @@ export const texts = {
       note: "Ensaio: nada foi registrado",
       done: "Ensaio feito",
       doneAt: (time: string) => `Ensaio feito às ${time}`,
-      checklist: "Ensaio feito (câmera, som e lanterna)",
     },
     boxOffice: {
       title: "Vendidos na porta",

@@ -285,8 +285,19 @@ export function rehearsalView(text: string, decision: DecisionDto, context: Door
     if (wrong !== null) {
       return { ...wrongDoorView(decision.number, wrong, context), override: false, rehearsal: true };
     }
+    // Never the green "PODE ENTRAR" of real work: a volunteer who forgot the rehearsal on could
+    // let people in without an entry.
+    return { ...viewOf(decision, context), tone: "warn", title: r.wouldAdmit, rehearsal: true };
   }
   return { ...viewOf(decision, context), rehearsal: true };
+}
+
+/**
+ * Whether the ⋮ menu offers a rehearsal (ADR 0067): only before the first ticket entered, on any
+ * phone. Once the work begins, the door shows nothing but the work.
+ */
+export function canRehearse(entryCount: number, rehearsing: boolean): boolean {
+  return rehearsing || entryCount === 0;
 }
 
 /** Screen after the server found a copy (the first entry was on another phone). */

@@ -28,9 +28,11 @@ e não acompanha estes números.
 - No ingresso no celular: **Adicionar à agenda** (funciona sem internet, com lembrete), Google
   Agenda, **Como chegar** com o novo campo de endereço do evento e, para quem tem lugar marcado,
   o mapa das mesas com a sua mesa e o seu lugar em destaque (ADR 0066).
-- Modo ensaio na portaria: em **Ensaiar**, o celular lê a folha de ensaio, uma prévia ou um
-  ingresso e mostra o que aconteceria, sem registrar nada, e testa som, vibração e lanterna. O
-  painel mostra quais celulares já ensaiaram e oferece a folha de ensaio em PDF (ADR 0067).
+- Modo ensaio na portaria: antes de o evento começar, **Ensaiar** (no menu ⋮ do celular) lê a
+  folha de ensaio, uma prévia ou um ingresso e mostra o que aconteceria, sem registrar nada, e
+  testa som, vibração e lanterna. A opção some quando o primeiro ingresso entra, para não
+  atrapalhar o trabalho. O painel mostra quais celulares já ensaiaram e oferece a folha de ensaio
+  em PDF (ADR 0067).
 - Porta por categoria: um link da portaria pode aceitar só algumas categorias. Ingresso de outra
   categoria aparece em amarelo com a porta certa, e o porteiro pode deixar entrar mesmo assim,
   com a exceção registrada (ADR 0068).

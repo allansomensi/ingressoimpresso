@@ -25,11 +25,14 @@ foca em papel. O organizador não sabe quais celulares foram testados.
 
 Opção 3.
 
-- **Entrada:** botão **Ensaiar** na lista de prontidão e no menu ⋮ do app. Uma faixa amarela fixa
-  "ENSAIO · nada é registrado" fica no topo enquanto durar.
-- **Leitura:** `DoorCore.evaluate` mostra o que aconteceria (verde, vermelho, amarelo, inclusive
-  porta errada e bilheteria), com o selo "Ensaio: nada foi registrado". Nenhuma linha em `scans`,
-  no IndexedDB ou no servidor.
+- **Entrada discreta:** o ensaio não pode atrapalhar o trabalho de verdade. Fica só como último
+  item, sem destaque, do menu ⋮ do app (nunca na tela principal nem na lista de prontidão), e
+  some assim que o primeiro ingresso do evento entra, em qualquer celular (`canRehearse`). Uma
+  faixa amarela fixa "ENSAIO · nada é registrado" fica no topo enquanto durar.
+- **Leitura:** `DoorCore.evaluate` mostra o que aconteceria, com o selo "Ensaio: nada foi
+  registrado". Um ingresso que entraria aparece em amarelo, "ENTRARIA", nunca no verde "PODE
+  ENTRAR" do trabalho de verdade; recusas aparecem como seriam (vermelho, porta errada). Nenhuma
+  linha em `scans`, no IndexedDB ou no servidor.
 - **Amostra:** o QR das prévias e da folha de ensaio é sempre o mesmo texto,
   `ticket_render::sample_qr_text()` (byte de versão 0, por isso nunca é um ingresso v1 válido).
   O app reconhece esse texto exato (`SAMPLE_QR_TEXT` em `portaria/logic.ts`) e mostra "Amostra

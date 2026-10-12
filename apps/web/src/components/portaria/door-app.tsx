@@ -30,7 +30,7 @@ import { announce, rehearseFeedback, unlockAudio } from "@/portaria/feedback";
 import { accessTokenFromHash, clearHash, noAccessToken, subscribeHash } from "@/portaria/hash";
 import { inkFor } from "@/lib/design-rules";
 import { money } from "@/lib/format";
-import { OFFLINE_WARNING_MS, clockTime, type ResultView } from "@/portaria/logic";
+import { OFFLINE_WARNING_MS, canRehearse, clockTime, type ResultView } from "@/portaria/logic";
 import { cameraGranted, keepOffline, keepScreenOn, persistStorage } from "@/portaria/offline";
 import { texts } from "@/texts/pt-BR";
 
@@ -386,13 +386,6 @@ function Door({ engine, state }: { engine: DoorEngine; state: DoorState }) {
           <>
           <button type="button" aria-hidden tabIndex={-1} className="fixed inset-0 z-20 cursor-default" onClick={() => { setMenuOpen(false); }} />
           <div className="fixed top-[calc(3.75rem+env(safe-area-inset-top))] right-3 z-30 flex w-64 flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#17151f] py-1 shadow-2xl">
-            <button type="button" onClick={startRehearsal} className="flex min-h-12 items-center gap-3 px-4 text-left active:bg-white/10">
-              <ClipboardCheck className="size-5 text-amber-300" aria-hidden />
-              <span className="flex flex-col">
-                <span className="font-semibold">{t.rehearsal.start}</span>
-                <span className="text-xs text-white/60">{t.rehearsal.startHint}</span>
-              </span>
-            </button>
             <button
               type="button"
               onClick={() => {
@@ -404,6 +397,21 @@ function Door({ engine, state }: { engine: DoorEngine; state: DoorState }) {
               <UsersRound className="size-5 text-white/70" aria-hidden />
               <span className="font-semibold">{t.guests.title}</span>
             </button>
+            {/* Rehearsal stays out of the way of the real work (ADR 0067): last, quiet, and gone
+                once the first ticket entered. */}
+            {canRehearse(state.entryCount, rehearsing) && (
+              <button
+                type="button"
+                onClick={startRehearsal}
+                className="mt-1 flex min-h-12 items-center gap-3 border-t border-white/10 px-4 py-2 text-left text-white/70 active:bg-white/10"
+              >
+                <ClipboardCheck className="size-5 shrink-0 text-white/45" aria-hidden />
+                <span className="flex flex-col">
+                  <span className="text-sm font-medium">{t.rehearsal.start}</span>
+                  <span className="text-xs text-white/50">{t.rehearsal.startHint}</span>
+                </span>
+              </button>
+            )}
           </div>
           </>
         )}
@@ -478,8 +486,6 @@ function Door({ engine, state }: { engine: DoorEngine; state: DoorState }) {
               camera={checks.camera}
               storage={checks.storage}
               testScan={state.testScanDone}
-              rehearsed={state.rehearsed}
-              onRehearse={startRehearsal}
             />
           )
         )}
@@ -603,8 +609,6 @@ function Readiness(props: {
   camera: boolean;
   storage: boolean;
   testScan: boolean;
-  rehearsed: boolean;
-  onRehearse: () => void;
 }) {
   const r = t.readiness;
   const items: [boolean, string][] = [
@@ -613,7 +617,6 @@ function Readiness(props: {
     [props.camera, r.camera],
     [props.storage, r.storage],
     [props.testScan, r.testScan],
-    [props.rehearsed, props.rehearsed ? t.rehearsal.done : r.rehearsed],
   ];
   const done = items.filter(([ok]) => ok).length;
   return (
@@ -638,16 +641,6 @@ function Readiness(props: {
           </li>
         ))}
       </ul>
-      {!props.rehearsed && (
-        <button
-          type="button"
-          onClick={props.onRehearse}
-          className="mt-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-amber-300/40 bg-amber-300/10 px-4 font-semibold text-amber-100 transition active:scale-[0.98]"
-        >
-          <ClipboardCheck className="size-5" aria-hidden />
-          {t.rehearsal.start}
-        </button>
-      )}
       <p className="mt-3 border-t border-white/10 pt-3 text-xs leading-relaxed text-white/55">{r.hint}</p>
     </section>
   );

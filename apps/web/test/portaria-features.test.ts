@@ -10,6 +10,7 @@ import {
   guestState,
   isSampleQr,
   normalizeName,
+  canRehearse,
   rehearsalView,
   searchGuests,
   viewOf,
@@ -60,7 +61,8 @@ describe("rehearsal (ADR 0067)", () => {
   });
 
   it("shows what would happen to a real ticket, without the way around the wrong door", () => {
-    expect(rehearsalView("x", { kind: "admit", number: 20 }, context)).toMatchObject({ tone: "ok", title: "PODE ENTRAR", rehearsal: true });
+    // Never the green of real work: the volunteer cannot mistake it for an entry.
+    expect(rehearsalView("x", { kind: "admit", number: 20 }, context)).toMatchObject({ tone: "warn", title: "ENTRARIA", rehearsal: true });
     expect(rehearsalView("x", { kind: "admit", number: 3 }, context)).toMatchObject({ tone: "warn", override: false, rehearsal: true });
     expect(rehearsalView("x", { kind: "invalid", reason: "bad_signature" }, context)).toMatchObject({ tone: "bad", rehearsal: true });
   });
@@ -148,5 +150,14 @@ describe("guest list (ADR 0070)", () => {
     expect(canUndoArrival(mine, own, 10_000 + GUEST_UNDO_MS)).toBe(false);
     expect(canUndoArrival(mine, new Set(), 10_001)).toBe(false);
     expect(canUndoArrival(arrival("a1", 1, 10_000, 10_500), own, 10_600)).toBe(false);
+  });
+});
+
+describe("rehearsal entry (ADR 0067)", () => {
+  it("is offered only before the first ticket entered", () => {
+    expect(canRehearse(0, false)).toBe(true);
+    expect(canRehearse(1, false)).toBe(false);
+    // A rehearsal already open can always be finished.
+    expect(canRehearse(5, true)).toBe(true);
   });
 });
