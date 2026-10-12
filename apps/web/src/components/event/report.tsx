@@ -16,7 +16,7 @@ import { texts } from "@/texts/pt-BR";
 const t = texts.event.report;
 
 /** Settlement columns of a report line, in display and CSV order (money comes after them). */
-const SETTLEMENT_COLUMNS = ["tickets", "unsold", "lost", "revoked", "declaredSold", "markedSold"] as const satisfies readonly (keyof ReportRowDto)[];
+const SETTLEMENT_COLUMNS = ["tickets", "unsold", "lost", "revoked", "declaredSold", "markedSold", "reserved"] as const satisfies readonly (keyof ReportRowDto)[];
 /** Door columns of a report line. */
 const DOOR_COLUMNS = ["entries", "offlineDuplicates", "blockedCopies", "voidEntries"] as const satisfies readonly (keyof ReportRowDto)[];
 
@@ -196,7 +196,13 @@ export function ReportTab({ eventId, onSelect }: { eventId: string; onSelect: Se
           value={data.totals.markedSold.toLocaleString("pt-BR")}
           icon={CheckCircle2}
           tone="success"
-          hint={data.totals.markedSold > 0 ? t.stats.soldHint : t.stats.soldHintNone}
+          hint={
+            data.totals.reserved > 0
+              ? `${data.totals.markedSold > 0 ? t.stats.soldHint : t.stats.soldHintNone} ${t.stats.reservedHint(data.totals.reserved)}`
+              : data.totals.markedSold > 0
+                ? t.stats.soldHint
+                : t.stats.soldHintNone
+          }
         />
         <Stat
           label={t.stats.received}

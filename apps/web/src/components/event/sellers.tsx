@@ -6,6 +6,7 @@ import type {
   RangeBody,
   RangeDto,
   ReportRowDto,
+  ReservationDto,
   SellerBody,
   SellerDto,
   SellerLinkDto,
@@ -18,6 +19,7 @@ import type {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Banknote,
+  BookmarkPlus,
   CheckCircle2,
   ChevronDown,
   CircleDollarSign,
@@ -50,6 +52,7 @@ import { useState, type FormEvent, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { ReadOnlyNotice, useEventAccess } from "@/components/event/access";
+import { GoalDialog, GoalLine, RankingCard, ReserveDialog, SellerReservations } from "@/components/event/seller-extras";
 import { PaymentDialog, ReturnDialog } from "@/components/event/settlement-dialogs";
 import {
   Alert,
@@ -526,6 +529,8 @@ function SellerCard({
   payments,
   voids,
   sales,
+  reservations,
+  allReservations,
   event,
   onChange,
 }: {
@@ -534,6 +539,10 @@ function SellerCard({
   payments: readonly SellerPaymentDto[];
   voids: readonly VoidDto[];
   sales: readonly TicketSaleDto[];
+  /** This seller's reservations (ADR 0072). */
+  reservations: readonly ReservationDto[];
+  /** Every reservation of the event (numbers taken). */
+  allReservations: readonly ReservationDto[];
   event: EventDto;
   onChange: () => void;
 }) {
@@ -542,7 +551,7 @@ function SellerCard({
   const delivery = can("delivery");
   const cash = can("money");
   const [assigning, setAssigning] = useState(false);
-  const [dialog, setDialog] = useState<"payment" | "return" | null>(null);
+  const [dialog, setDialog] = useState<"payment" | "return" | "goal" | "reserve" | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const remove = useMutation({
     mutationFn: (path: string) => api<undefined>(path, { method: "DELETE" }),
@@ -749,6 +758,19 @@ function SellerCard({
                 {t.marked(row.markedSold, row.declaredSold)}
               </p>
             )}
+            {!row.boxOffice && (
+              <GoalLine
+                seller={seller}
+                sold={row.markedSold}
+                editable={delivery}
+                onEdit={() => {
+                  setDialog("goal");
+                }}
+              />
+            )}
+            {!row.boxOffice && (
+              <SellerReservations seller={seller} event={event} reservations={reservations} editable={delivery} onChange={onChange} />
+            )}
             <MoneyBar row={row} />
             <div className="flex flex-wrap items-center gap-2">
               {cash && (
@@ -777,6 +799,19 @@ function SellerCard({
               </Button>
               )}
               </>
+              )}
+              {delivery && !seller.boxOffice && event.change.canceledAt === null && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  icon={<BookmarkPlus />}
+                  className="flex-1 sm:flex-none"
+                  onClick={() => {
+                    setDialog("reserve");
+                  }}
+                >
+                  {t.reservations.new}
+                </Button>
               )}
               <Button
                 variant="ghost"
@@ -822,6 +857,27 @@ function SellerCard({
         seller={seller}
         voids={voids}
         sales={sales}
+        reservations={reservations}
+        onSaved={onChange}
+      />
+      {dialog === "goal" && (
+        <GoalDialog
+          open
+          onClose={() => {
+            setDialog(null);
+          }}
+          seller={seller}
+          onSaved={onChange}
+        />
+      )}
+      <ReserveDialog
+        open={dialog === "reserve"}
+        onClose={() => {
+          setDialog(null);
+        }}
+        seller={seller}
+        event={event}
+        reservations={allReservations}
         onSaved={onChange}
       />
     </Card>
@@ -1063,8 +1119,12 @@ export function SellersTab({ eventId, event, onEditEvent }: { eventId: string; e
     queryKey: ["ticket-sales", eventId],
     queryFn: () => api<TicketSaleDto[]>(`/api/events/${eventId}/ticket-sales`),
   });
+  const reservations = useQuery({
+    queryKey: ["reservations", eventId],
+    queryFn: () => api<ReservationDto[]>(`/api/events/${eventId}/reservations`),
+  });
   const refresh = () => {
-    for (const key of ["sellers", "report", "seller-payments", "voids", "ticket-sales", "analytics"]) {
+    for (const key of ["sellers", "report", "seller-payments", "voids", "ticket-sales", "reservations", "analytics"]) {
       void queryClient.invalidateQueries({ queryKey: [key, eventId] });
     }
   };
@@ -1094,6 +1154,8 @@ export function SellersTab({ eventId, event, onEditEvent }: { eventId: string; e
             row={rows.get(seller.id)}
             payments={(payments.data ?? []).filter((payment) => payment.sellerId === seller.id)}
             sales={(sales.data ?? []).filter((sale) => sale.sellerId === seller.id)}
+            reservations={(reservations.data ?? []).filter((item) => item.sellerId === seller.id)}
+            allReservations={reservations.data ?? []}
             voids={voids.data ?? []}
             event={event}
             onChange={refresh}
@@ -1118,6 +1180,9 @@ export function SellersTab({ eventId, event, onEditEvent }: { eventId: string; e
       {!delivery && !can("money") && <ReadOnlyNotice eventId={eventId} area="delivery" />}
       {holding && event.ticketPriceCents === null && can("manage") && <NoPriceNotice onEditEvent={onEditEvent} />}
       {holding && report.data !== undefined && event.ticketPriceCents !== null && <SettlementSummary rows={report.data.sellers} />}
+      {holding && report.data !== undefined && (
+        <RankingCard eventId={eventId} sellers={list} rows={rows} editable={delivery && event.status !== "closed"} onChange={refresh} />
+      )}
       {content}
     </div>
   );
