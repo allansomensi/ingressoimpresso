@@ -40,7 +40,8 @@ endsAt: string,
 /**
  * The event's UTC offset in minutes (reservation deadlines are in its time).
  */
-utcOffsetMinutes: number, };
+utcOffsetMinutes: number, 
+/**
  * One of several dates (ADR 0077): the page says which session the link is for.
  */
 inSeries: boolean, };
