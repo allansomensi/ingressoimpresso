@@ -510,9 +510,19 @@ pub async fn delete(
         )
         .execute(&mut *tx)
         .await?;
+        // A deleted organization refers nobody any more: its link stops working, and the people
+        // it invited who have not paid yet earn alone, as when the organization is removed whole
+        // (the foreign key sets the referrer to null).
+        sqlx::query!(
+            r#"update referrals set referrer_organization_id = null
+               where referrer_organization_id = $1 and status = 'pending'"#,
+            organization_id
+        )
+        .execute(&mut *tx)
+        .await?;
         sqlx::query!(
             r#"update organizations set name = $2, bonus_free_tickets = 0, suspended_at = null,
-                      suspended_reason = null where id = $1"#,
+                      suspended_reason = null, referral_code = null where id = $1"#,
             organization_id,
             DELETED_ORGANIZATION,
         )

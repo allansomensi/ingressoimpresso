@@ -4333,8 +4333,9 @@ dto! {
     pub struct ReferralInviteDto {
         /// The code, normalized.
         pub code: String,
-        /// The referring organization's name.
-        pub organization_name: String,
+        /// The referring organization's name; `null` while it is still an e-mail address (never
+        /// shown on a public link).
+        pub organization_name: Option<String>,
         /// Credit the new account earns on its first paid batch, in centavos.
         pub referred_cents: i32,
         /// Smallest first batch that counts, in centavos.

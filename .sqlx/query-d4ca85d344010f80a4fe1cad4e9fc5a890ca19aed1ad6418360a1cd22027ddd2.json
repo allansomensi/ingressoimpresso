@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select ticket_number, holder_name, holder_phone from ticket_reservations\n           where reservation_id = $1 order by ticket_number",
+  "query": "select ticket_number, holder_name, holder_phone from ticket_reservations\n           where reservation_id = $1 and event_id = $2 and seller_id = $3 order by ticket_number",
   "describe": {
     "columns": [
       {
@@ -39,6 +39,8 @@
     ],
     "parameters": {
       "Left": [
+        "Uuid",
+        "Uuid",
         "Uuid"
       ]
     },
@@ -48,5 +50,5 @@
       true
     ]
   },
-  "hash": "d7ef887c14481035648b9751b5683aaa8707b24449fb21bb3178b661514ddab6"
+  "hash": "d4ca85d344010f80a4fe1cad4e9fc5a890ca19aed1ad6418360a1cd22027ddd2"
 }

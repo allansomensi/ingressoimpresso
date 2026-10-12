@@ -195,7 +195,8 @@ async fn the_first_paid_batch_rewards_both_once(pool: PgPool) {
         )
         .await;
     assert_eq!(invite.status, StatusCode::OK);
-    assert_eq!(invite.json()["organizationName"], "ana@banda.com.br");
+    // Still named after its owner's e-mail: a public invite never shows it.
+    assert_eq!(invite.json()["organizationName"], Value::Null);
     assert_eq!(invite.json()["referredCents"], 1000);
     let unknown = app
         .request(Method::GET, "/api/referrals/ZZZZZZZZ", None, None)
@@ -211,7 +212,7 @@ async fn the_first_paid_batch_rewards_both_once(pool: PgPool) {
     let invited = referrals(&app, &maria).await["invitedBy"].clone();
     assert_eq!(
         invited,
-        json!({ "organizationName": "ana@banda.com.br", "status": "pending", "referredCents": 1000 })
+        json!({ "organizationName": null, "status": "pending", "referredCents": 1000 })
     );
 
     // A batch under the minimum (10 tickets: R$ 2,90) is paid, but earns nothing.
@@ -273,6 +274,28 @@ async fn the_first_paid_batch_rewards_both_once(pool: PgPool) {
         export["organization"]["referrals"]["referred"][0]["email"],
         "ma•••@gmail.com"
     );
+
+    // A partial refund that leaves less than the minimum paid takes the reward back too.
+    let intent = paid.payment_intent.clone().unwrap();
+    let partial = json!({
+        "id": format!("ch_{intent}"),
+        "object": "charge",
+        "amount": 1500,
+        "amount_refunded": 1000,
+        "refunded": false,
+        "currency": "brl",
+        "payment_intent": intent,
+    });
+    assert_eq!(
+        webhook(&app, "charge.refunded", &partial).await,
+        StatusCode::OK
+    );
+    assert_eq!(
+        referrals(&app, &ana).await["referrals"][0]["status"],
+        "revoked"
+    );
+    assert_eq!(balance(&app, &ana).await, 0);
+    assert_eq!(balance(&app, &maria).await, 0);
 }
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]

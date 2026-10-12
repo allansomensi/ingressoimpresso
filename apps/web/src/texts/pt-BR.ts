@@ -3594,7 +3594,7 @@ export const texts = {
       `${by ?? "Uma organização"} indicou você, e o seu primeiro lote pago rendeu ${amount} de crédito.`,
     invitedRevoked: "A indicação foi cancelada (o lote que valia foi estornado).",
     // The sign-up page (/entrar) and the invite link (/i/<code>).
-    inviteTitle: (organization: string) => `Convite de ${organization}`,
+    inviteTitle: (organization: string | null) => (organization === null ? "Você recebeu um convite" : `Convite de ${organization}`),
     inviteBody: (amount: string, min: string) =>
       `Crie sua conta por aqui e ganhe ${amount} de crédito quando pagar o primeiro lote (a partir de ${min}), além dos ingressos grátis. Vale para contas novas.`,
     welcome: (amount: string) => `Conta criada por indicação: ${amount} de crédito esperam o seu primeiro lote pago.`,
