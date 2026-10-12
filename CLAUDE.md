@@ -67,7 +67,7 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   (`apps/web/src/proxy.ts`, ADR 0048: toda página é dinâmica). Do lado do mantenedor já estão
   feitos: duas etapas na conta admin, rulesets e Environments no GitHub (Production, Staging,
   Preview, Backup), backup com `verify-full` e chave da Resend separada no staging.
-- **Versionamento (ADR 0049): implementado, versão atual 1.3.0.** Uma versão SemVer para o produto
+- **Versionamento (ADR 0049): implementado, versão atual 1.4.0.** Uma versão SemVer para o produto
   inteiro (todos os manifestos, conferidos por `scripts/release.mjs check`), `CHANGELOG.md` em
   português (Keep a Changelog), `just release` no `staging` e tag `vX.Y.Z` + GitHub Release pelo
   job **Release** do CI no `main`; versão em Minha conta, em `/sobre`, em `/status` (site e API) e
@@ -564,7 +564,7 @@ just backup-restore-test <dump.age> <chave-age>   # restaura um backup num banco
 - **Commits:** pequenos, em **Conventional Commits + gitmoji**, no formato
   `tipo(escopo): <gitmoji> assunto`, por exemplo `feat(core): ✨ ...`, `fix(door): 🐛 ...`,
   `docs(adr): 📝 ...`, `test(wasm): ✅ ...`, `ci: 👷 ...`, `chore: 🔧 ...`,
-  `refactor: ♻️ ...`, `chore(release): 🔖 v1.3.0`. Regras:
+  `refactor: ♻️ ...`, `chore(release): 🔖 v1.4.0`. Regras:
   - assunto em inglês, curto e no imperativo;
   - corpo opcional, de uma ou duas linhas, direto ao ponto;
   - cada commit deve compilar e passar em `just check`.
