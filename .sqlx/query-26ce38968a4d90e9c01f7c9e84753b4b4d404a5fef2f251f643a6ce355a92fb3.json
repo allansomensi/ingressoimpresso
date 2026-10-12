@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select count(*) as \"count!\" from payments\n           where status in ('paid', 'refunded') and payment_intent_id is not null\n             and refunded_cents < amount_cents\n             and (refunds_checked_at is null or refunds_checked_at < $1)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "26ce38968a4d90e9c01f7c9e84753b4b4d404a5fef2f251f643a6ce355a92fb3"
+}

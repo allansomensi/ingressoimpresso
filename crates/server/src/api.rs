@@ -457,12 +457,25 @@ dto! {
         /// Tickets given from free allowances.
         #[cfg_attr(feature = "ts", ts(type = "number"))]
         pub free_tickets: i64,
-        /// Money of paid batches, in centavos.
+        /// Money received, in centavos: Stripe payments and batches paid another way, refunded
+        /// ones included.
         #[cfg_attr(feature = "ts", ts(type = "number"))]
-        pub revenue_cents: i64,
-        /// Money of batches paid in the last 30 days.
+        pub gross_cents: i64,
+        /// Money given back (Stripe refunds, partial ones included, and admin refunds).
         #[cfg_attr(feature = "ts", ts(type = "number"))]
-        pub revenue_30d_cents: i64,
+        pub refunds_cents: i64,
+        /// `gross_cents - refunds_cents`.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub net_cents: i64,
+        /// Money received in the last 30 days.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub gross_30d_cents: i64,
+        /// Money given back in the last 30 days.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub refunds_30d_cents: i64,
+        /// `gross_30d_cents - refunds_30d_cents`.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub net_30d_cents: i64,
         /// Batches waiting for payment.
         #[cfg_attr(feature = "ts", ts(type = "number"))]
         pub awaiting_batches: i64,
@@ -480,7 +493,7 @@ dto! {
         /// Tickets of batches paid that day.
         #[cfg_attr(feature = "ts", ts(type = "number"))]
         pub tickets: i64,
-        /// Money of batches paid that day, in centavos.
+        /// Money received that day (before refunds), in centavos.
         #[cfg_attr(feature = "ts", ts(type = "number"))]
         pub revenue_cents: i64,
         /// Organizations created that day.
@@ -645,6 +658,22 @@ dto! {
         pub refund_on_stripe: bool,
         /// Note for the log (up to 200 characters).
         pub note: Option<String>,
+    }
+
+    /// `POST /api/admin/payments/sync-refunds`: refunds read back from Stripe.
+    pub struct RefundSyncDto {
+        /// Payments read back in this round.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub checked: i64,
+        /// Payments with more refunded than recorded.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub updated: i64,
+        /// Batches refunded in full, whose tickets are now blocked.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub refunded_batches: i64,
+        /// Payments still to read (another round).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub remaining: i64,
     }
 
     /// `PUT /api/admin/batches/{id}/price`.

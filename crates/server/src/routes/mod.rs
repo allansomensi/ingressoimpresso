@@ -16,6 +16,7 @@ pub mod mail_admin;
 pub mod moderation;
 pub mod platform;
 pub mod privacy;
+pub mod refunds;
 pub mod report;
 pub mod seller_links;
 pub mod sellers;

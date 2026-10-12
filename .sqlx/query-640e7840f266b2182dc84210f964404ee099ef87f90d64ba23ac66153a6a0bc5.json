@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into audit_log (id, actor_email, action, organization_id, event_id, target_id, detail)\n                   select $1, $2, 'batch_refund_stripe', e.organization_id, e.id, $4, $5\n                   from events e where e.id = $3",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Uuid",
+        "Uuid",
+        "Jsonb"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "640e7840f266b2182dc84210f964404ee099ef87f90d64ba23ac66153a6a0bc5"
+}

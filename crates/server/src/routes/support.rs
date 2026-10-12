@@ -15,11 +15,9 @@ use uuid::Uuid;
 
 use super::admin::{audit, like_pattern, load_organization, require_admin};
 use super::batches::{close_open_checkouts, load_batch};
-use super::bounds;
 use crate::api::{
     AdminBatchPriceBody, AdminEventDto, AdminMemberDto, AdminOrganizationDetailDto,
     AdminRefundBody, AdminRenameBody, AdminSuspensionBody, AuditEntryDto, AuditPageDto, BatchDto,
-    CreditReason,
 };
 use crate::auth::AuthUser;
 use crate::error::{ApiError, ApiResult, bad_request};
@@ -582,34 +580,33 @@ pub async fn refund(
             .map_err(|error| super::batches::provider_error(&error))?;
         stripe_refund = Some(refund);
     }
-    let (first, last) = bounds(&batch.numbers)?;
+    let now = OffsetDateTime::now_utc();
     let mut tx = state.pool.begin().await?;
+    // The whole payment went back (here or by hand): Stripe's `charge.refunded` that follows
+    // finds nothing new.
     sqlx::query!(
-        "update ticket_batches set status = 'refunded', refunded_at = now() where id = $1",
-        batch_id
+        r#"update payments set status = 'refunded', refunded_cents = amount_cents, refunded_at = $2
+           where batch_id = $1 and status = 'paid'"#,
+        batch_id,
+        now,
     )
     .execute(&mut *tx)
     .await?;
-    sqlx::query!(
-        "update payments set status = 'refunded' where batch_id = $1 and status = 'paid'",
-        batch_id
-    )
-    .execute(&mut *tx)
-    .await?;
-    let void_note = format!("Lote estornado ({first} a {last})");
-    sqlx::query!(
-        r#"insert into ticket_voids (id, event_id, numbers, reason, note, created_by)
-           values ($1, $2, $3, 'revoked', $4, $5)"#,
-        Uuid::new_v4(),
-        event_id,
-        batch.numbers,
-        void_note,
+    super::refunds::refund_batch(
+        &mut tx,
+        batch_id,
+        "Lote estornado",
         user.id,
+        Some(user.id),
+        now,
     )
-    .execute(&mut *tx)
-    .await?;
-    // Credit spent on the batch goes back to the organization (ADR 0040).
-    super::billing::give_back(&mut tx, batch_id, CreditReason::BatchRefund, Some(user.id)).await?;
+    .await?
+    .ok_or_else(|| {
+        ApiError::Conflict(
+            "batch_not_refundable",
+            "only paid batches can be refunded".to_owned(),
+        )
+    })?;
     tx.commit().await?;
     audit(
         &state,

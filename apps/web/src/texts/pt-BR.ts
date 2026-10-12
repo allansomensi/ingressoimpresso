@@ -2157,9 +2157,35 @@ export const texts = {
       settings: "Configurações",
       status: "Status e incidentes",
     },
+    revenue: {
+      title: "Receita",
+      description: "Bruta é o que entrou; reembolsos são o que voltou pelo Stripe ou por estorno. A líquida é a diferença.",
+      total: "Desde o início",
+      last30: "Últimos 30 dias",
+      netLabel: "Receita líquida",
+      gross: "Bruta",
+      refunds: "Reembolsos",
+      sync: "Conferir reembolsos no Stripe",
+      synced: (result: { checked: number; updated: number; refundedBatches: number; remaining: number }) => {
+        const checked = result.checked === 1 ? "1 pagamento conferido" : `${result.checked.toLocaleString("pt-BR")} pagamentos conferidos`;
+        const updated =
+          result.updated === 0
+            ? "nenhum reembolso novo"
+            : result.updated === 1
+              ? "1 com reembolso novo"
+              : `${result.updated.toLocaleString("pt-BR")} com reembolso novo`;
+        const batches =
+          result.refundedBatches === 0
+            ? ""
+            : result.refundedBatches === 1
+              ? ", 1 lote cancelado"
+              : `, ${result.refundedBatches.toLocaleString("pt-BR")} lotes cancelados`;
+        const remaining = result.remaining > 0 ? `. Faltam ${result.remaining.toLocaleString("pt-BR")}: clique de novo.` : ".";
+        return `${checked}: ${updated}${batches}${remaining}`;
+      },
+    },
     stats: {
       revenue: "Receita total",
-      revenue30: "Receita em 30 dias",
       paidTickets: "Ingressos emitidos",
       freeLabel: "Ingressos grátis",
       freeHint: "Boas-vindas e cortesias",
@@ -2173,19 +2199,19 @@ export const texts = {
       ticketShare: "Média por ingresso",
     },
     chartTitle: "Últimos 30 dias",
-    chartDescription: "Receita dos lotes pagos por dia (horário de Brasília).",
-    chartRevenue: "Receita",
+    chartDescription: "Receita bruta por dia, antes dos reembolsos (horário de Brasília).",
+    chartRevenue: "Receita bruta",
     chartTickets: "Ingressos",
     chartSignups: "Cadastros",
     chartBar: (date: string, value: string) => `${date}: ${value}`,
     search: "Buscar por nome ou e-mail",
     finance: {
       periods: { 7: "7 dias", 30: "30 dias", 90: "90 dias", 365: "12 meses" } as Record<number, string>,
-      revenue: "Receita do período",
+      revenue: "Receita bruta do período",
       growth: (percent: string) => `${percent} vs. período anterior`,
       noPrevious: "Sem período anterior para comparar",
       net: "Líquido",
-      netHint: (refunds: string) => `Estornos: ${refunds}`,
+      netHint: (refunds: string) => `Reembolsos: ${refunds}`,
       batches: "Lotes cobrados",
       batchesHint: (tickets: string) => `${tickets} ingressos cobrados`,
       average: "Média por lote",
@@ -2295,6 +2321,8 @@ export const texts = {
       actions: {
         support_write: "Alterou em modo suporte",
         batch_refund: "Estornou um lote",
+        batch_refund_stripe: "Lote reembolsado no Stripe (ingressos cancelados)",
+        batch_refunds_sync: "Conferiu os reembolsos no Stripe",
         batch_price: "Mudou o preço de um lote",
         batch_mark_paid: "Marcou um lote como pago",
         organization_bonus: "Mudou a cortesia",
