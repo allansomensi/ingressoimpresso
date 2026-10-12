@@ -523,6 +523,17 @@ function SellerLink({ seller, event, onChange }: { seller: SellerDto; event: Eve
   );
 }
 
+/**
+ * Whether the seller still holds a number to reserve: paid, not given back, lost or canceled, not
+ * sold nor reserved yet (ADR 0072). Before the report loads, having numbers is enough.
+ */
+function canReserve(seller: SellerDto, row: ReportRowDto | undefined): boolean {
+  if (seller.ranges.length === 0) {
+    return false;
+  }
+  return row === undefined || row.tickets - row.unsold - row.lost - row.revoked - row.markedSold - row.reserved > 0;
+}
+
 function SellerCard({
   seller,
   row,
@@ -800,7 +811,7 @@ function SellerCard({
               )}
               </>
               )}
-              {delivery && !seller.boxOffice && event.change.canceledAt === null && (
+              {delivery && !seller.boxOffice && event.change.canceledAt === null && canReserve(seller, row) && (
                 <Button
                   variant="secondary"
                   size="sm"
