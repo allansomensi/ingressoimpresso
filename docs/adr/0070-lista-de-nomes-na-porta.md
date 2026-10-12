@@ -49,6 +49,9 @@ Opção 3.
 
 ## Consequências
 
+- A versão da lista muda também quando a categoria de um convidado é renomeada, recolorida ou
+  apagada (o celular mostra o nome e a cor dela). O limite de nomes por evento é conferido dentro
+  da transação, com o evento travado, para duas listas coladas ao mesmo tempo não passarem dele.
 - A lista é pequena e baixa só quando muda; o sync a cada 3 s continua leve.
 - Desfazer usa atualização em vez de linha nova, mas o cursor continua seguro (ver acima).
 - Quem entra pela lista não é ingresso: não aparece em `entries` nem no acerto.

@@ -368,6 +368,39 @@ async fn box_office_sells_what_enters(pool: PgPool) {
         .json();
     assert_eq!(sellers[0]["boxOffice"], true);
 
+    // Who only delivers tickets edits the seller, but the box office is the money part's call.
+    app.post(
+        &format!("/api/events/{event}/team"),
+        &token,
+        json!({ "email": "entrega@exemplo.com", "name": null, "areas": ["delivery"] }),
+    )
+    .await;
+    let delivery = app.login("entrega@exemplo.com").await;
+    let renamed = app
+        .put(
+            &format!("/api/sellers/{seller}"),
+            &delivery,
+            json!({ "name": "Bilheteria", "phone": "11 90000-0000", "boxOffice": true }),
+        )
+        .await;
+    assert_eq!(renamed.status, StatusCode::NO_CONTENT);
+    let refused = app
+        .put(
+            &format!("/api/sellers/{seller}"),
+            &delivery,
+            json!({ "name": "Bilheteria", "phone": null, "boxOffice": false }),
+        )
+        .await;
+    assert_eq!(refused.error_code(), "not_your_area");
+    let refused = app
+        .post(
+            &format!("/api/events/{event}/sellers"),
+            &delivery,
+            json!({ "name": "Porta 2", "boxOffice": true }),
+        )
+        .await;
+    assert_eq!(refused.error_code(), "not_your_area");
+
     let (_, access) = create_link(&app, &token, &event).await;
     let phone = register(&app, &access, "Caixa").await;
     let start = manifest(&app, &phone, None).await;
@@ -682,6 +715,44 @@ async fn guest_list_converges_across_phones(pool: PgPool) {
     assert_eq!(reply.json()["companions"], 1);
     let changed = manifest(&app, &door_a, Some(&format!("0&guests={version}"))).await;
     assert_eq!(changed["guests"].as_array().unwrap().len(), 2);
+
+    // So does renaming the category a guest is in: the phones show its name and colour.
+    let vip = app
+        .post(
+            &format!("/api/events/{event}/categories"),
+            &token,
+            json!({ "name": "VIP", "color": "#7c3aed", "priceCents": null }),
+        )
+        .await
+        .json();
+    let vip_id = vip["id"].as_str().unwrap().to_owned();
+    app.put(
+        &format!("/api/guests/{maria_id}"),
+        &token,
+        json!({ "name": "Maria S.", "companions": 1, "categoryId": vip_id }),
+    )
+    .await;
+    let before = manifest(&app, &door_a, Some("0&guests=")).await["guestsVersion"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let renamed = app
+        .put(
+            &format!("/api/categories/{vip_id}"),
+            &token,
+            json!({ "name": "Camarote", "color": "#7c3aed", "priceCents": null }),
+        )
+        .await;
+    assert!(renamed.status.is_success(), "{}", renamed.status);
+    let after = manifest(&app, &door_a, Some(&format!("0&guests={before}"))).await;
+    let maria_now = after["guests"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|guest| guest["id"] == maria_id.as_str())
+        .unwrap()
+        .clone();
+    assert_eq!(maria_now["category"]["name"], "Camarote");
 
     let now = live(&app, &token, &event).await;
     assert_eq!(
