@@ -256,6 +256,8 @@ async fn another_date_copies_the_setup_and_never_shares_tickets(pool: PgPool) {
     let phone = register(&app, &access, "Porta 1").await;
     let door = manifest(&app, &phone, None).await;
     assert_eq!(door["event"]["inSeries"], true);
+    // In the event's own offset: the door names the session in its wall-clock time.
+    assert_eq!(door["event"]["startsAt"], "2026-11-20T22:00:00-03:00");
     assert_eq!(
         door["verifier"]["eventTag"],
         json!(qr_tag(&app, &first).await)

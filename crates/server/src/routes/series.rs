@@ -370,6 +370,7 @@ async fn build(state: &AppState, user: &AuthUser, access: SeriesAccess) -> ApiRe
     .await?;
     let all = i32::try_from(rows.len()).unwrap_or(i32::MAX);
     let mut dates = Vec::with_capacity(rows.len());
+    let mut shown = Vec::with_capacity(rows.len());
     let mut totals = SeriesNumbersDto::default();
     let mut priced_totals = true;
     let mut sellers: Vec<(String, SellerSum)> = Vec::new();
@@ -439,6 +440,7 @@ async fn build(state: &AppState, user: &AuthUser, access: SeriesAccess) -> ApiRe
                 sum.add(&line, position);
             }
         }
+        shown.push(event.clone());
         let mut dto = event.into_dto(access.organization_name.clone())?;
         dto.support_access = access.support;
         dto.team = team.map(|areas| EventTeamAccessDto {
@@ -459,6 +461,12 @@ async fn build(state: &AppState, user: &AuthUser, access: SeriesAccess) -> ApiRe
     if dates.is_empty() {
         return Err(ApiError::NotFound);
     }
+    // What each date still misses (ADR 0078), in one query.
+    let missing =
+        super::checklist::missing_counts(&state.pool, &shown.iter().collect::<Vec<_>>()).await?;
+    for date in &mut dates {
+        date.event.checklist_missing = missing.get(&date.event.id).copied();
+    }
     if !priced_totals {
         totals.amount_due_cents = None;
     }
@@ -468,7 +476,7 @@ async fn build(state: &AppState, user: &AuthUser, access: SeriesAccess) -> ApiRe
         .map(|(name, sum)| sum.into_dto(name))
         .collect();
     sellers.sort_by(|a, b| b.sold.cmp(&a.sold).then_with(|| a.name.cmp(&b.name)));
-    let shown = i32::try_from(dates.len()).unwrap_or(i32::MAX);
+    let shown = i32::try_from(shown.len()).unwrap_or(i32::MAX);
     Ok(SeriesDto {
         id: access.id,
         name: access.name,
@@ -504,7 +512,9 @@ struct SellerSum {
 
 impl SellerSum {
     fn add(&mut self, line: &crate::api::ReportRowDto, date: usize) {
-        if !self.dates.contains(&date) {
+        // A date counts when the seller had numbers or handed over money there (sellers are
+        // copied to every new date, used or not).
+        if (line.tickets > 0 || line.received_cents != 0) && !self.dates.contains(&date) {
             self.dates.push(date);
         }
         self.tickets += line.tickets;

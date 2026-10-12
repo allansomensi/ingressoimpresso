@@ -8,7 +8,7 @@ use axum::http::request::Parts;
 use serde::Deserialize;
 use sqlx::postgres::types::PgRange;
 use sqlx::{Postgres, Transaction};
-use time::{Duration, OffsetDateTime};
+use time::{Duration, OffsetDateTime, UtcOffset};
 use uuid::Uuid;
 
 use super::{authorize_event, bounds, one_line};
@@ -435,6 +435,7 @@ pub async fn register(
 async fn event_info(state: &AppState, event_id: Uuid) -> ApiResult<DoorEventInfo> {
     let row = sqlx::query!(
         r#"select e.id, e.name, e.venue, e.starts_at, e.ends_at, e.ticket_price_cents, e.canceled_at,
+                  e.utc_offset_minutes,
                   coalesce((select (spec -> 'number' ->> 'digits')::int from ticket_designs
                             where event_id = e.id order by version desc limit 1), $2) as "digits!"
            from events e where e.id = $1"#,
@@ -443,12 +444,15 @@ async fn event_info(state: &AppState, event_id: Uuid) -> ApiResult<DoorEventInfo
     )
     .fetch_one(&state.pool)
     .await?;
+    // In the event's own offset, so the door shows its wall-clock time (the session, ADR 0077).
+    let offset = UtcOffset::from_whole_seconds(i32::from(row.utc_offset_minutes) * 60)
+        .unwrap_or(UtcOffset::UTC);
     Ok(DoorEventInfo {
         id: row.id,
         name: row.name,
         venue: row.venue,
-        starts_at: row.starts_at,
-        ends_at: row.ends_at,
+        starts_at: row.starts_at.to_offset(offset),
+        ends_at: row.ends_at.to_offset(offset),
         number_digits: u8::try_from(row.digits)
             .map_err(|_| ApiError::Internal(anyhow::anyhow!("invalid digits {}", row.digits)))?,
         ticket_price_cents: row.ticket_price_cents,

@@ -9,7 +9,7 @@ export type SeriesSellerDto = {
  */
 name: string, 
 /**
- * Dates the seller is on.
+ * Dates the seller had numbers or handed over money on.
  */
 dates: number, 
 /**

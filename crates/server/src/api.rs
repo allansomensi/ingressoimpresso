@@ -4366,7 +4366,7 @@ dto! {
     pub struct SeriesSellerDto {
         /// Name, as on the first date it appears.
         pub name: String,
-        /// Dates the seller is on.
+        /// Dates the seller had numbers or handed over money on.
         pub dates: i32,
         /// Tickets handed to the seller.
         #[cfg_attr(feature = "ts", ts(type = "number"))]
