@@ -67,7 +67,7 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   (`apps/web/src/proxy.ts`, ADR 0048: toda página é dinâmica). Do lado do mantenedor já estão
   feitos: duas etapas na conta admin, rulesets e Environments no GitHub (Production, Staging,
   Preview, Backup), backup com `verify-full` e chave da Resend separada no staging.
-- **Versionamento (ADR 0049): implementado, versão atual 1.2.0.** Uma versão SemVer para o produto
+- **Versionamento (ADR 0049): implementado, versão atual 1.3.0.** Uma versão SemVer para o produto
   inteiro (todos os manifestos, conferidos por `scripts/release.mjs check`), `CHANGELOG.md` em
   português (Keep a Changelog), `just release` no `staging` e tag `vX.Y.Z` + GitHub Release pelo
   job **Release** do CI no `main`; versão em Minha conta, em `/sobre`, em `/status` (site e API) e
@@ -120,9 +120,8 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   `revenue_entries` dá bruta, reembolsos e líquida na visão geral do admin (total e 30 dias) e no
   financeiro; **Conferir reembolsos no Stripe** (`POST /api/admin/payments/sync-refunds`) corrige
   os antigos. Remetente único dos e-mails em `config::DEFAULT_MAIL_FROM`
-  (`contato@ingressoimpresso.com.br`), `MAIL_FROM` sobrescreve. Falta o que depende do
-  mantenedor: `charge.refunded` no webhook da Stripe, o domínio raiz verificado no Resend e
-  apagar o `MAIL_FROM` antigo no Render.
+  (`contato@ingressoimpresso.com.br`), `MAIL_FROM` sobrescreve; o domínio raiz já envia nos dois
+  ambientes. Falta o que depende do mantenedor: `charge.refunded` no webhook da Stripe.
 
 Plano completo em `docs/arquitetura.md` §12.
 
@@ -256,8 +255,9 @@ docs/deploy.md       domínio próprio: Neon, Resend, DNS (Registro.br), Render,
 - **Frontend:** Next.js na Vercel, com pnpm. O deploy é pré-compilado pelo GitHub Actions
   (`.github/workflows/deploy-web.yml`, secrets `VERCEL_*`), porque o build da Vercel não tem Rust;
   `apps/web/vercel.json` desliga os builds da integração Git.
-- **Endereços:** site no domínio raiz (`www` redireciona), API em `api.`, e-mail de `mail.`; DNS
-  no Registro.br.
+- **Endereços:** site no domínio raiz (`www` redireciona), API em `api.`, e-mail de
+  `contato@` no domínio raiz (registros do Resend em `send` e `resend._domainkey`; o antigo
+  `mail.` saiu); DNS no Registro.br.
 - **API:** Rust no Render, região Virginia. O Blueprint (`render.yaml`) compila
   `deploy/api.Dockerfile` (cargo-chef) e só implanta com o CI verde; o job `api-image` do CI
   compila e sobe a mesma imagem. `/healthz` não toca no banco (é o health check), `/readyz` toca.
@@ -468,7 +468,7 @@ just backup-restore-test <dump.age> <chave-age>   # restaura um backup num banco
 - **Commits:** pequenos, em **Conventional Commits + gitmoji**, no formato
   `tipo(escopo): <gitmoji> assunto`, por exemplo `feat(core): ✨ ...`, `fix(door): 🐛 ...`,
   `docs(adr): 📝 ...`, `test(wasm): ✅ ...`, `ci: 👷 ...`, `chore: 🔧 ...`,
-  `refactor: ♻️ ...`, `chore(release): 🔖 v1.2.0`. Regras:
+  `refactor: ♻️ ...`, `chore(release): 🔖 v1.3.0`. Regras:
   - assunto em inglês, curto e no imperativo;
   - corpo opcional, de uma ou duas linhas, direto ao ponto;
   - cada commit deve compilar e passar em `just check`.
