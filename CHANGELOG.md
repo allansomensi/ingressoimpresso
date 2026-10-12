@@ -28,6 +28,15 @@ e não acompanha estes números.
 - No ingresso no celular: **Adicionar à agenda** (funciona sem internet, com lembrete), Google
   Agenda, **Como chegar** com o novo campo de endereço do evento e, para quem tem lugar marcado,
   o mapa das mesas com a sua mesa e o seu lugar em destaque (ADR 0066).
+- Página **Conferir ingresso** (`/conferir`): quem vai comprar o ingresso de outra pessoa lê o QR
+  com a câmera, envia uma foto ou cola o texto e vê se ele é nosso, de qual evento, número e
+  categoria, e se o número foi cancelado ou o evento mudou. Nunca mostra quem comprou nem se já
+  entrou, e avisa que uma cópia também aparece como autêntica. O organizador pode desligar a
+  conferência na aba Digitais (ADR 0075).
+- **Indique e ganhe**, em Minha conta: um link para mandar no WhatsApp; quando quem chegou por ele
+  paga o primeiro lote, as duas contas ganham crédito (R$ 10 cada, pelas regras de agora). Quem
+  chega pelo convite vê na entrada o que vai ganhar; o admin ajusta valores, limite e lote mínimo e
+  acompanha as indicações (ADR 0076).
 
 ### Corrigido
 

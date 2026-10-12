@@ -76,3 +76,5 @@ feita e as consequências.
 | [0064](0064-perfil-da-organizacao.md) | Perfil da organização | Aceito |
 | [0065](0065-adiar-ou-cancelar-o-evento.md) | Adiar ou cancelar o evento | Aceito |
 | [0066](0066-agenda-como-chegar-e-mesa-no-ingresso-digital.md) | Agenda, como chegar e "onde fica minha mesa" no ingresso digital | Aceito |
+| [0075](0075-conferir-ingresso-antes-de-comprar.md) | Conferir ingresso antes de comprar | Aceito |
+| [0076](0076-indique-e-ganhe.md) | Indique e ganhe | Aceito |

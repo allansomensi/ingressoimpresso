@@ -134,6 +134,17 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   aviso no sininho. No ingresso digital, `.ics` feito no navegador, rota no mapa e o salão com a
   mesa do portador (`tableMap`, sem ocupação), tudo offline.
 
+- **Conferir ingresso e Indique e ganhe (ADRs 0075, 0076): implementados.** Página pública
+  `/conferir` (câmera, foto ou texto; leitor da portaria sem o service worker dela) e
+  `POST /api/verify` (`routes/verify.rs`): o servidor confere a assinatura com o `ticket-core` e diz
+  evento, número, categoria e o estado (cancelado, evento cancelado/adiado/passado), nunca "já
+  usado" nem quem comprou; `events.public_verify` desliga por evento (aba Digitais). Indicações em
+  `routes/referrals.rs` (`referrals`, `organizations.referral_code`, regras em `platform_settings`):
+  `/i/<código>` guarda o código e abre `/entrar`; a conta nova fica ligada e, no primeiro lote pago
+  em dinheiro a partir do mínimo, as duas ganham crédito na transação que muda o lote para pago
+  (`reward_paid_batch`, uma vez); estorno total revoga o que sobrou (`revoke_for_batch` em
+  `refund_batch`). Cartão em Minha conta e seção Indicações no admin.
+
 Plano completo em `docs/arquitetura.md` §12.
 
 ## Onde está cada coisa
@@ -184,6 +195,9 @@ crates/server        API (pacote `ingressoimpresso-server`, binário `ingressoim
                      perfil da organização e logo público em routes/organization.rs (ADR 0064),
                      adiar/cancelar em routes/event_changes.rs (ADR 0065; links da portaria por
                      door::extend_accesses),
+                     conferir ingresso (público, ADR 0075) em routes/verify.rs, indique e
+                     ganhe (código, vínculo no cadastro, recompensa e revogação) em
+                     routes/referrals.rs (ADR 0076),
                      conta em routes/account.rs + routes/privacy.rs
                      (exportar/excluir), ingresso digital em routes/tickets.rs (também o enviado
                      pelo vendedor e a segunda via, ADR 0061), novidades em
@@ -255,6 +269,12 @@ apps/web             landing em src/app/page.tsx (+ src/components/marketing: si
                      lib/calendar.ts; mapa das mesas no ingresso em components/ticket/seat-map.tsx
                      + lib/seat-map.ts (ADRs 0064–0066);
                      status público em app/status + components/status;
+                     conferir ingresso em app/conferir + components/verify (ticket-checker,
+                     verify-result, verify-settings na aba Digitais) + lib/verify.ts; a câmera e
+                     a foto usam portaria/camera.ts (readQrImage);
+                     indique e ganhe: app/i/[code] (guarda o código, lib/referral.ts), convite em
+                     app/entrar, cartão em components/account/referrals.tsx, admin em
+                     components/admin/referrals.tsx;
                      menus e popovers em components/ui/popover.tsx (portal; folha no celular)
 e2e/                 portaria.e2e.mjs: 5 "celulares" Chromium com câmera falsa (`just e2e`);
                      csp.e2e.mjs: toda página com nonce e nada recusado (ADR 0048)
