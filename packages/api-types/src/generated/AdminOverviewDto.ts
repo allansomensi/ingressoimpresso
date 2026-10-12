@@ -34,13 +34,30 @@ paidTickets: number,
  */
 freeTickets: number, 
 /**
- * Money of paid batches, in centavos.
+ * Money received, in centavos: Stripe payments and batches paid another way, refunded
+ * ones included.
  */
-revenueCents: number, 
+grossCents: number, 
 /**
- * Money of batches paid in the last 30 days.
+ * Money given back (Stripe refunds, partial ones included, and admin refunds).
  */
-revenue30dCents: number, 
+refundsCents: number, 
+/**
+ * `gross_cents - refunds_cents`.
+ */
+netCents: number, 
+/**
+ * Money received in the last 30 days.
+ */
+gross30dCents: number, 
+/**
+ * Money given back in the last 30 days.
+ */
+refunds30dCents: number, 
+/**
+ * `gross_30d_cents - refunds_30d_cents`.
+ */
+net30dCents: number, 
 /**
  * Batches waiting for payment.
  */

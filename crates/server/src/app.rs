@@ -22,8 +22,8 @@ use crate::error::ApiError;
 use crate::routes::events::MAX_ART_BYTES;
 use crate::routes::{
     account, admin, analytics, announcements, batches, billing, categories, changelog, door,
-    events, exports, ledger, mail_admin, moderation, platform, privacy, report, seller_links,
-    sellers, settlement, status, support, tables, team, tickets, two_factor, voids,
+    events, exports, ledger, mail_admin, moderation, platform, privacy, refunds, report,
+    seller_links, sellers, settlement, status, support, tables, team, tickets, two_factor, voids,
 };
 use crate::state::AppState;
 
@@ -116,6 +116,7 @@ pub fn router(state: AppState) -> Router {
         .route("/stripe/webhook", post(batches::stripe_webhook))
         .route("/admin/batches/{id}/mark-paid", post(batches::mark_paid))
         .route("/admin/batches/{id}/refund", post(support::refund))
+        .route("/admin/payments/sync-refunds", post(refunds::sync))
         .route("/admin/batches/{id}/price", put(support::set_price))
         .route("/admin/overview", get(admin::overview))
         .route("/admin/finance", get(analytics::finance))

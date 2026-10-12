@@ -1,0 +1,42 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update payments\n              set refunded_cents = least($2, amount_cents), refunded_at = $3,\n                  status = case when $2 >= amount_cents then 'refunded' else status end\n            where id = $1 and status in ('paid', 'refunded')\n              and refunded_cents < least($2, amount_cents)\n        returning refunded_cents, amount_cents",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "refunded_cents",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "payments",
+            "name": "refunded_cents"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "amount_cents",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "payments",
+            "name": "amount_cents"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "b9179e4f232744d5d766cea3a853c88349c198ed7ebf31933acaad6103e51d63"
+}

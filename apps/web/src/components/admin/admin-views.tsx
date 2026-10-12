@@ -6,7 +6,6 @@ import {
   BadgeCheck,
   Building2,
   CalendarDays,
-  CircleDollarSign,
   ExternalLink,
   Gift,
   Hourglass,
@@ -22,6 +21,7 @@ import { useDeferredValue, useState } from "react";
 import { toast } from "sonner";
 
 import { BarChart } from "@/components/admin/bar-chart";
+import { RevenueCard } from "@/components/admin/revenue";
 import {
   Badge,
   Button,
@@ -64,7 +64,7 @@ export function AdminOverview() {
     return <ErrorMessage error={overview.error} />;
   }
   const o = overview.data;
-  const perTicket = o.paidTickets - o.freeTickets > 0 ? o.revenueCents / (o.paidTickets - o.freeTickets) : 0;
+  const perTicket = o.paidTickets - o.freeTickets > 0 ? o.netCents / (o.paidTickets - o.freeTickets) : 0;
   const metrics: Record<Metric, { label: string; format: (value: number) => string; value: (day: AdminOverviewDto["days"][number]) => number }> = {
     revenue: { label: t.chartRevenue, format: money, value: (day) => day.revenueCents },
     tickets: { label: t.chartTickets, format: integer, value: (day) => day.tickets },
@@ -74,10 +74,9 @@ export function AdminOverview() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        <Stat label={t.stats.revenue} value={money(o.revenueCents)} hint={`${t.stats.ticketShare}: ${money(Math.round(perTicket))}`} icon={CircleDollarSign} tone="success" />
-        <Stat label={t.stats.revenue30} value={money(o.revenue30dCents)} icon={TrendingUp} tone="success" />
-        <Stat label={t.stats.paidTickets} value={integer(o.paidTickets)} icon={Ticket} />
+      <RevenueCard overview={o} />
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
+        <Stat label={t.stats.paidTickets} value={integer(o.paidTickets)} hint={`${t.stats.ticketShare}: ${money(Math.round(perTicket))}`} icon={Ticket} />
         <Stat
           label={t.stats.awaiting}
           value={integer(o.awaitingBatches)}

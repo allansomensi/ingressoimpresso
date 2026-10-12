@@ -13,7 +13,7 @@ date: string,
  */
 tickets: number, 
 /**
- * Money of batches paid that day, in centavos.
+ * Money received that day (before refunds), in centavos.
  */
 revenueCents: number, 
 /**

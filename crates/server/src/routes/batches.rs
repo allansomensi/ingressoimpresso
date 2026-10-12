@@ -25,7 +25,7 @@ use crate::api::{
 use crate::auth::AuthUser;
 use crate::error::{ApiError, ApiResult, bad_request};
 use crate::mail::MailKind;
-use crate::payments::{CheckoutRequest, CheckoutSession, PaymentError};
+use crate::payments::{Charge, CheckoutRequest, CheckoutSession, PaymentError};
 use crate::state::AppState;
 use crate::{emails, pricing, texts};
 
@@ -701,6 +701,24 @@ pub async fn stripe_webhook(
             )
             .execute(&state.pool)
             .await?;
+        }
+        // Every refund, partial ones included; `amount_refunded` is the running total.
+        "charge.refunded" => {
+            let charge: Charge = serde_json::from_value(event.data.object)
+                .map_err(|error| bad_request("invalid_event", error.to_string()))?;
+            match charge.payment_intent {
+                Some(intent) => {
+                    let at = Some(event.created)
+                        .filter(|created| *created > 0)
+                        .and_then(|created| OffsetDateTime::from_unix_timestamp(created).ok())
+                        .unwrap_or_else(OffsetDateTime::now_utc);
+                    super::refunds::record_refund(&state, &intent, charge.amount_refunded, at)
+                        .await?;
+                }
+                None => {
+                    tracing::warn!(charge = %charge.id, "refunded charge without a payment intent; ignored");
+                }
+            }
         }
         other => tracing::debug!(event = %event.id, kind = %other, "stripe event ignored"),
     }

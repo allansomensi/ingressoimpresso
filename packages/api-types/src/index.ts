@@ -152,6 +152,7 @@ export type * from "./generated/RecentArtDto";
 export type * from "./generated/RecoveryCodesDto";
 export type * from "./generated/RedeemBody";
 export type * from "./generated/RedeemResultDto";
+export type * from "./generated/RefundSyncDto";
 export type * from "./generated/ReplaceTicketBody";
 export type * from "./generated/ReportCategoryDto";
 export type * from "./generated/ReportDeviceDto";

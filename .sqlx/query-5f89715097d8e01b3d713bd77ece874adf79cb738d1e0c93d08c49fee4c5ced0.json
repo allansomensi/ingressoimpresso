@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select coalesce(b.paid_via, '') <> 'stripe'\n                      or exists(select 1 from payments p where p.batch_id = b.id and p.status = 'paid')\n                      as \"covered!\"\n               from ticket_batches b where b.id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "covered!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "5f89715097d8e01b3d713bd77ece874adf79cb738d1e0c93d08c49fee4c5ced0"
+}

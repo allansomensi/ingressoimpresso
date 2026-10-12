@@ -103,10 +103,14 @@ pub async fn overview(
               where status = 'paid')::bigint as "paid_tickets!",
              (select coalesce(sum(free_tickets), 0) from ticket_batches
               where status = 'paid')::bigint as "free_tickets!",
-             (select coalesce(sum(price_cents), 0) from ticket_batches
-              where status = 'paid')::bigint as "revenue_cents!",
-             (select coalesce(sum(price_cents), 0) from ticket_batches
-              where status = 'paid' and paid_at > now() - interval '30 days')::bigint as "revenue_30d_cents!",
+             (select coalesce(sum(cents), 0) from revenue_entries
+              where kind = 'gross')::bigint as "gross_cents!",
+             (select coalesce(sum(cents), 0) from revenue_entries
+              where kind = 'refund')::bigint as "refunds_cents!",
+             (select coalesce(sum(cents), 0) from revenue_entries
+              where kind = 'gross' and at > now() - interval '30 days')::bigint as "gross_30d_cents!",
+             (select coalesce(sum(cents), 0) from revenue_entries
+              where kind = 'refund' and at > now() - interval '30 days')::bigint as "refunds_30d_cents!",
              (select count(*) from ticket_batches where status = 'awaiting_payment') as "awaiting_batches!",
              (select count(*) from payments where status = 'processing') as "processing_payments!""#
     )
@@ -122,12 +126,14 @@ pub async fn overview(
            )
            select to_char(d.day, 'YYYY-MM-DD') as "date!",
                   coalesce(sum(upper(b.numbers) - lower(b.numbers)), 0)::bigint as "tickets!",
-                  coalesce(sum(b.price_cents), 0)::bigint as "revenue_cents!",
+                  (select coalesce(sum(r.cents), 0) from revenue_entries r
+                   where r.kind = 'gross'
+                     and (r.at at time zone 'America/Sao_Paulo')::date = d.day)::bigint as "revenue_cents!",
                   (select count(*) from organizations o
                    where (o.created_at at time zone 'America/Sao_Paulo')::date = d.day) as "signups!"
            from days d
            left join ticket_batches b
-             on b.status = 'paid' and (b.paid_at at time zone 'America/Sao_Paulo')::date = d.day
+             on b.status in ('paid', 'refunded') and (b.paid_at at time zone 'America/Sao_Paulo')::date = d.day
            group by d.day
            order by d.day"#
     )
@@ -141,8 +147,12 @@ pub async fn overview(
         upcoming_events: totals.upcoming_events,
         paid_tickets: totals.paid_tickets,
         free_tickets: totals.free_tickets,
-        revenue_cents: totals.revenue_cents,
-        revenue_30d_cents: totals.revenue_30d_cents,
+        gross_cents: totals.gross_cents,
+        refunds_cents: totals.refunds_cents,
+        net_cents: totals.gross_cents - totals.refunds_cents,
+        gross_30d_cents: totals.gross_30d_cents,
+        refunds_30d_cents: totals.refunds_30d_cents,
+        net_30d_cents: totals.gross_30d_cents - totals.refunds_30d_cents,
         awaiting_batches: totals.awaiting_batches,
         processing_payments: totals.processing_payments,
         days: days

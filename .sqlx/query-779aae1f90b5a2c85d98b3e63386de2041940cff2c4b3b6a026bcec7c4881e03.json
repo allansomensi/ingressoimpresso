@@ -1,0 +1,38 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select\n             coalesce(sum(cents) filter (where kind = 'gross' and at >= $1), 0)::bigint as \"revenue!\",\n             coalesce(sum(cents) filter (where kind = 'gross' and at >= $2 and at < $1), 0)::bigint as \"previous!\",\n             coalesce(sum(cents) filter (where kind = 'refund' and at >= $1), 0)::bigint as \"refunds!\"\n           from revenue_entries where at >= $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "revenue!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "previous!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "refunds!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamptz",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "779aae1f90b5a2c85d98b3e63386de2041940cff2c4b3b6a026bcec7c4881e03"
+}

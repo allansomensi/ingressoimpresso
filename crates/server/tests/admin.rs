@@ -74,8 +74,17 @@ async fn admins_see_totals_organizations_and_batches(pool: PgPool) {
     assert_eq!(overview.status, StatusCode::OK);
     let overview = overview.json();
     assert_eq!(overview["paidTickets"], 100);
-    assert_eq!(overview["revenueCents"], 1_500);
-    assert_eq!(overview["revenue30dCents"], 1_500);
+    // Paid by an admin: received at its price, nothing refunded.
+    for (key, cents) in [
+        ("grossCents", 1_500),
+        ("refundsCents", 0),
+        ("netCents", 1_500),
+        ("gross30dCents", 1_500),
+        ("refunds30dCents", 0),
+        ("net30dCents", 1_500),
+    ] {
+        assert_eq!(overview[key], cents, "{key}");
+    }
     assert_eq!(overview["awaitingBatches"], 1);
     assert_eq!(overview["events"], 1);
     // Both sign-ins created an organization.
