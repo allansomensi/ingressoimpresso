@@ -1,20 +1,49 @@
 "use client";
 
 import type { TicketPassDto } from "@ingressoimpresso/api-types";
-import { Armchair, CalendarDays, CheckCircle2, Download, ImageIcon, MapPin, RefreshCw, Sun, Ticket, WifiOff, XCircle } from "lucide-react";
+import {
+  Armchair,
+  CalendarDays,
+  CalendarPlus,
+  CheckCircle2,
+  Download,
+  ExternalLink,
+  ImageIcon,
+  MapPin,
+  Navigation,
+  RefreshCw,
+  Sun,
+  Ticket,
+  WifiOff,
+  XCircle,
+} from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { LogoMark } from "@/components/brand";
+import { EventChangeNotice, OrganizationContact, OrganizationLogo } from "@/components/organization/organization";
 import { QrCode } from "@/components/qr";
+import { SeatMap } from "@/components/ticket/seat-map";
 import { Button, Dialog, Spinner, buttonClass } from "@/components/ui";
 import { ApiError, api, fetchBlobUrl } from "@/lib/api";
+import {
+  calendarSequence,
+  downloadIcs,
+  googleCalendarUrl,
+  icsFile,
+  icsFileName,
+  isApplePhone,
+  mapsUrl,
+  placeLine,
+  type CalendarEntry,
+} from "@/lib/calendar";
 import { cn } from "@/lib/cn";
 import { inkFor } from "@/lib/design-rules";
+import { changeKind } from "@/lib/event-change";
 import { shortDateTime } from "@/lib/format";
 import { SITE_URL } from "@/lib/site";
-import { forgetPass, passBand, passDate, passImage, saveImage, storePass, storedPass, textOn } from "@/lib/ticket-pass";
+import { forgetPass, normalizePass, passBand, passDate, passImage, saveImage, storePass, storedPass, textOn } from "@/lib/ticket-pass";
 import { texts } from "@/texts/pt-BR";
 
 const t = texts.ticket;
@@ -63,6 +92,100 @@ function useWakeLock(active: boolean) {
   }, [active]);
 }
 
+/** The phone's maker never changes while the page is open. */
+function subscribeNothing(): () => void {
+  return () => undefined;
+}
+
+function subscribeOnline(listener: () => void): () => void {
+  window.addEventListener("online", listener);
+  window.addEventListener("offline", listener);
+  return () => {
+    window.removeEventListener("online", listener);
+    window.removeEventListener("offline", listener);
+  };
+}
+
+/** Whether the browser says it is online (the Google Calendar link needs the internet). */
+function useOnline(): boolean {
+  return useSyncExternalStore(
+    subscribeOnline,
+    () => navigator.onLine,
+    () => true,
+  );
+}
+
+/** The calendar entry of a ticket: same `UID` after a postponement, so it updates the old one. */
+function calendarEntry(pass: TicketPassDto): CalendarEntry {
+  const place = placeLine(pass.event.venue, pass.event.address);
+  return {
+    uid: `${pass.event.id === "" ? pass.event.name : pass.event.id}-${String(pass.number)}@ingressoimpresso.com.br`,
+    title: pass.event.name,
+    startsAt: pass.event.startsAt,
+    endsAt: pass.event.endsAt,
+    location: place,
+    description: t.calendarDescription(pass.numberLabel, pass.seat, pass.organization.name),
+    sequence: calendarSequence(pass.event.change.postponedAt),
+    alarmMinutes: 120,
+    alarmText: t.calendarAlarm(pass.event.name),
+  };
+}
+
+/** "Para o dia": add to the calendar (works offline) and directions to the venue. */
+function DayPlan({ pass }: { pass: TicketPassDto }) {
+  const online = useOnline();
+  const apple = useSyncExternalStore(
+    subscribeNothing,
+    () => isApplePhone(navigator.userAgent, navigator.maxTouchPoints),
+    () => false,
+  );
+  const place = placeLine(pass.event.venue, pass.event.address);
+  const entry = calendarEntry(pass);
+  const row = "flex min-h-14 w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-surface-2 active:bg-surface-2";
+  return (
+    <section className="flex flex-col gap-2">
+      <h2 className="px-1 text-sm font-semibold text-fg">{t.plan}</h2>
+      <div className="flex flex-col divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface">
+        <button
+          type="button"
+          className={row}
+          onClick={() => {
+            downloadIcs(icsFile(entry), icsFileName(pass.event.name, t.calendarFile));
+            toast.success(t.calendarSaved);
+          }}
+        >
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-brand-soft-fg">
+            <CalendarPlus aria-hidden className="size-[18px]" />
+          </span>
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span className="text-sm font-semibold text-fg">{t.calendar}</span>
+            <span className="text-xs text-fg-muted">{t.calendarHint}</span>
+          </span>
+        </button>
+        {online && (
+          <a href={googleCalendarUrl(entry)} target="_blank" rel="noopener noreferrer" className={cn(row, "min-h-12 py-2.5")}>
+            <span aria-hidden className="size-9 shrink-0" />
+            <span className="flex-1 text-sm font-medium text-fg-muted">{t.googleCalendar}</span>
+            <ExternalLink aria-hidden className="size-4 text-fg-subtle" />
+          </a>
+        )}
+        {place !== null && (
+          <a href={mapsUrl(place, apple)} target="_blank" rel="noopener noreferrer" className={row}>
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-success-soft text-success-fg">
+              <Navigation aria-hidden className="size-[18px]" />
+            </span>
+            <span className="flex min-w-0 flex-1 flex-col">
+              <span className="text-sm font-semibold text-fg">{t.directions}</span>
+              <span className="truncate text-xs text-fg-muted">{place}</span>
+            </span>
+            <ExternalLink aria-hidden className="size-4 shrink-0 text-fg-subtle" />
+          </a>
+        )}
+      </div>
+    </section>
+  );
+}
+
 function Centered({ children }: { children: ReactNode }) {
   return <div className="m-auto flex max-w-sm flex-col items-center gap-4 px-6 py-16 text-center animate-rise">{children}</div>;
 }
@@ -81,7 +204,7 @@ export function TicketPass() {
       setState({ status: "ready", pass: cached, offline: false });
     }
     try {
-      const pass = await api<TicketPassDto>("/api/ticket", { method: "POST", body: { token: current } });
+      const pass = normalizePass(await api<TicketPassDto>("/api/ticket", { method: "POST", body: { token: current } }));
       storePass(current, pass);
       setState({ status: "ready", pass, offline: false });
     } catch (error) {
@@ -150,7 +273,8 @@ export function TicketPass() {
   }
 
   const pass = state.pass;
-  const band = passBand(pass.backgroundColor);
+  const band = passBand(pass.backgroundColor, pass.organization.brandColor);
+  const canceled = changeKind(pass.event.change, pass.event.startsAt) === "canceled";
   const ink = textOn(band);
   const prefix = pass.numberPrefix.trim() === "" ? "Nº" : pass.numberPrefix.trim();
   const fileName = `ingresso-${pass.numberLabel}.png`;
@@ -197,18 +321,26 @@ export function TicketPass() {
         </p>
       )}
 
+      <EventChangeNotice change={pass.event.change} startsAt={pass.event.startsAt} />
+
       <article className="overflow-hidden rounded-[1.75rem] border border-border bg-surface shadow-lg">
         <header className="flex flex-col gap-2 px-6 pt-6 pb-7" style={{ backgroundColor: band, color: ink }}>
-          <span className="text-xs font-semibold tracking-[0.18em] uppercase opacity-90">{t.by(pass.event.organizer)}</span>
+          <span className="flex items-center gap-3">
+            <OrganizationLogo organization={pass.organization} className="size-10" />
+            <span className="text-xs font-semibold tracking-[0.18em] uppercase opacity-90">{t.by(pass.organization.name)}</span>
+          </span>
           <h1 className="text-2xl leading-tight font-bold tracking-tight text-balance">{pass.event.name}</h1>
           <p className="flex items-start gap-2 text-sm opacity-90">
             <CalendarDays className="mt-0.5 size-4 shrink-0" aria-hidden />
-            <span className="first-letter:uppercase">{passDate(pass.event.startsAt)}</span>
+            <span className={cn("first-letter:uppercase", canceled && "line-through")}>{passDate(pass.event.startsAt)}</span>
           </p>
-          {pass.event.venue !== null && (
+          {(pass.event.venue !== null || pass.event.address !== null) && (
             <p className="flex items-start gap-2 text-sm opacity-90">
               <MapPin className="mt-0.5 size-4 shrink-0" aria-hidden />
-              {pass.event.venue}
+              <span className="flex flex-col">
+                {pass.event.venue !== null && <span>{pass.event.venue}</span>}
+                {pass.event.address !== null && <span className="text-[13px] opacity-85">{pass.event.address}</span>}
+              </span>
             </p>
           )}
         </header>
@@ -258,7 +390,7 @@ export function TicketPass() {
             </div>
           )}
 
-          {pass.state === "valid" && (
+          {pass.state === "valid" && !canceled && (
             <span className="inline-flex items-center gap-1.5 rounded-full bg-success-soft px-3 py-1 text-sm font-semibold text-success-fg">
               <CheckCircle2 className="size-4" aria-hidden />
               {t.valid}
@@ -275,7 +407,7 @@ export function TicketPass() {
           )}
           {pass.state === "voided" && <p className="text-center text-sm leading-relaxed text-fg-muted">{t.voidedNote}</p>}
 
-          {pass.qrText !== null && pass.state === "valid" && (
+          {pass.qrText !== null && pass.state === "valid" && !canceled && (
             <p className="flex items-center gap-2 text-sm font-medium text-fg-muted">
               <Sun className="size-4 text-warning" aria-hidden />
               {t.brightness}
@@ -295,14 +427,33 @@ export function TicketPass() {
         </div>
       )}
 
-      <section className="flex flex-col gap-2 rounded-2xl border border-border bg-surface p-5">
-        <h2 className="text-sm font-semibold text-fg">{t.tipsTitle}</h2>
-        <ul className="flex list-disc flex-col gap-1.5 pl-5 text-sm leading-relaxed text-fg-muted marker:text-fg-subtle">
-          {t.tips.map((tip) => (
-            <li key={tip}>{tip}</li>
-          ))}
-        </ul>
-      </section>
+      {!canceled && <DayPlan pass={pass} />}
+
+      {pass.tableMap !== null && <SeatMap map={pass.tableMap} />}
+
+      {(pass.organization.whatsapp !== null ||
+        pass.organization.email !== null ||
+        pass.organization.website !== null ||
+        pass.organization.instagram !== null) && (
+        <section className="flex flex-col gap-3 rounded-2xl border border-border bg-surface p-5">
+          <h2 className="flex items-center gap-3 text-sm font-semibold text-fg">
+            <OrganizationLogo organization={pass.organization} className="size-9 rounded-lg" />
+            {pass.organization.name}
+          </h2>
+          <OrganizationContact organization={pass.organization} message={t.contactMessage(pass.event.name, pass.numberLabel)} />
+        </section>
+      )}
+
+      {!canceled && (
+        <section className="flex flex-col gap-2 rounded-2xl border border-border bg-surface p-5">
+          <h2 className="text-sm font-semibold text-fg">{t.tipsTitle}</h2>
+          <ul className="flex list-disc flex-col gap-1.5 pl-5 text-sm leading-relaxed text-fg-muted marker:text-fg-subtle">
+            {t.tips.map((tip) => (
+              <li key={tip}>{tip}</li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <Link href="/" className="mx-auto flex items-center gap-2 text-xs text-fg-subtle transition hover:text-fg pointer-coarse:min-h-11">
         {t.poweredBy}

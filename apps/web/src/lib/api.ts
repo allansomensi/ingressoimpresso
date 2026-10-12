@@ -167,3 +167,22 @@ export async function fetchBlobUrl(path: string, body?: unknown): Promise<string
   );
   return URL.createObjectURL(await response.blob());
 }
+
+/** A small image of the API as a `data:` URL, to keep in the browser for offline use (logos). */
+export async function fetchDataUrl(path: string): Promise<string> {
+  const blob = await (await send(path, { method: "GET" })).blob();
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        resolve(reader.result);
+      } else {
+        reject(new Error("unreadable image"));
+      }
+    };
+    reader.onerror = () => {
+      reject(new Error("unreadable image"));
+    };
+    reader.readAsDataURL(blob);
+  });
+}

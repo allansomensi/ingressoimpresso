@@ -23,6 +23,7 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNo
 import { toast } from "sonner";
 
 import { LogoMark } from "@/components/brand";
+import { EventChangeNotice, OrganizationContact, OrganizationLogo } from "@/components/organization/organization";
 import { Button, Dialog, ErrorMessage, Field, Input, Spinner, buttonClass, useConfirm } from "@/components/ui";
 import { ApiError, api } from "@/lib/api";
 import { cn } from "@/lib/cn";
@@ -32,6 +33,8 @@ import { nextAvailable, numberCells, padNumber, type NumberCell, type NumberStat
 import { whatsappLink } from "@/lib/settlement";
 import { copyText } from "@/lib/share";
 import { categoryOf } from "@/lib/categories";
+import { changeKind } from "@/lib/event-change";
+import { textOn } from "@/lib/ticket-pass";
 import { listNames } from "@/lib/team";
 import { texts } from "@/texts/pt-BR";
 
@@ -325,7 +328,8 @@ function SaleSheet({
 }: {
   cell: NumberCell | null;
   onClose: () => void;
-  onEdit: (cell: NumberCell) => void;
+  /** `null` when sales can no longer change (canceled event). */
+  onEdit: ((cell: NumberCell) => void) | null;
   token: string;
   digits: number;
   eventName: string;
@@ -365,17 +369,19 @@ function SaleSheet({
           <Button variant="danger-ghost" icon={<RotateCcw />} loading={busy} onClick={() => void undo()}>
             {t.sale.undo}
           </Button>
-          <Button
-            variant="secondary"
-            icon={<Pencil />}
-            onClick={() => {
-              if (cell !== null) {
-                onEdit(cell);
-              }
-            }}
-          >
-            {t.sale.edit}
-          </Button>
+          {onEdit !== null && (
+            <Button
+              variant="secondary"
+              icon={<Pencil />}
+              onClick={() => {
+                if (cell !== null) {
+                  onEdit(cell);
+                }
+              }}
+            >
+              {t.sale.edit}
+            </Button>
+          )}
         </>
       }
     >
@@ -492,6 +498,11 @@ export function SellerPage() {
   const legend = view.categories.filter((category) => intersect(category.ranges, view.ranges).length > 0);
   const shown = cells.filter((cell) => filter === "all" || cell.state === filter);
   const firstName = view.seller.trim().split(/\s+/)[0] ?? view.seller;
+  // A canceled event takes no more sales (ADR 0065): the page only shows what was done.
+  const canceled = changeKind(view.event.change, view.event.startsAt) === "canceled";
+  // The organization's colour (ADR 0064) when white text reads on it; the site's otherwise.
+  const brand = view.organization.brandColor;
+  const heroColor = brand !== null && textOn(brand) === "#ffffff" ? brand : null;
   const openMark = (numbers = "", name = "", phone = "") => {
     setSelected(null);
     setMarking({ numbers, name, phone });
@@ -509,9 +520,18 @@ export function SellerPage() {
         </Button>
       </header>
 
-      <section className="relative overflow-hidden rounded-3xl bg-brand-solid p-5 text-white shadow-lg shadow-brand/25">
+      <EventChangeNotice change={view.event.change} startsAt={view.event.startsAt} forSeller />
+
+      <section
+        className={cn("relative overflow-hidden rounded-3xl bg-brand-solid p-5 text-white shadow-lg", heroColor === null && "shadow-brand/25")}
+        style={heroColor === null ? undefined : { backgroundColor: heroColor }}
+      >
         <div aria-hidden className="absolute -top-16 -right-16 size-48 rounded-full bg-white/10 blur-2xl" />
         <div className="relative flex flex-col gap-1">
+          <span className="mb-2 flex items-center gap-2.5">
+            <OrganizationLogo organization={view.organization} className="size-9 rounded-lg" />
+            <span className="text-xs font-semibold tracking-[0.14em] text-white/90 uppercase">{t.by(view.organization.name)}</span>
+          </span>
           <span className="text-sm text-white/90">{t.hello(firstName)}</span>
           <h1 className="text-2xl leading-tight font-semibold tracking-tight text-balance">{view.event.name}</h1>
           <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-white/90">
@@ -525,6 +545,7 @@ export function SellerPage() {
                 {view.event.venue}
               </span>
             )}
+            {view.event.address !== null && <span className="basis-full text-white/80">{view.event.address}</span>}
           </span>
         </div>
         <div className="relative mt-5 flex flex-col gap-2">
@@ -649,7 +670,7 @@ export function SellerPage() {
           <p className="rounded-2xl border border-dashed border-border-strong px-4 py-8 text-center text-sm text-fg-muted">{t.emptyAvailable}</p>
         ) : (
           <>
-            <p className="text-xs text-fg-muted">{t.gridHint}</p>
+            <p className={cn("text-xs", canceled ? "font-medium text-danger-fg" : "text-fg-muted")}>{canceled ? t.canceledNoSales : t.gridHint}</p>
             {legend.length > 0 && (
               <ul aria-label={t.categoriesLegend} className="flex flex-wrap gap-1.5">
                 {legend.map((category) => (
@@ -663,7 +684,7 @@ export function SellerPage() {
             )}
             <ul className="grid grid-cols-5 gap-2 sm:grid-cols-8">
               {shown.map((cell) => {
-                const tappable = cell.state === "available" || cell.state === "sold";
+                const tappable = (cell.state === "available" && !canceled) || cell.state === "sold";
                 const category = categoryOf(view.categories, cell.number);
                 return (
                   <li key={cell.number}>
@@ -717,15 +738,17 @@ export function SellerPage() {
         )}
       </section>
 
+      <OrganizationContact organization={view.organization} message={t.contactMessage(view.event.name, view.seller)} />
+
       <footer className="flex flex-col items-center gap-1 pt-2 text-center text-xs text-fg-subtle">
         <span className="flex items-center gap-1.5">
           <ShieldCheck aria-hidden className="size-3.5" />
           {t.privacy}
         </span>
-        <span>{t.by(view.event.organizer)}</span>
+        <span>{t.by(view.organization.name)}</span>
       </footer>
 
-      {s.available > 0 && (
+      {s.available > 0 && !canceled && (
         <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-bg/90 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-xl">
           <div className="mx-auto max-w-xl">
             <Button
@@ -764,13 +787,17 @@ export function SellerPage() {
         onClose={() => {
           setSelected(null);
         }}
-        onEdit={(cell) => {
-          openMark(String(cell.number), cell.sale?.buyerName ?? "", cell.sale?.buyerPhone ?? "");
-        }}
+        onEdit={
+          canceled
+            ? null
+            : (cell) => {
+                openMark(String(cell.number), cell.sale?.buyerName ?? "", cell.sale?.buyerPhone ?? "");
+              }
+        }
         token={token}
         digits={digits}
         eventName={view.event.name}
-        canSendTickets={view.canSendTickets}
+        canSendTickets={view.canSendTickets && !canceled}
         onSaved={(fresh) => {
           setState({ status: "ready", view: fresh });
         }}

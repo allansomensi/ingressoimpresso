@@ -191,9 +191,13 @@ function FlagCard({ flag }: { flag: ModerationFlagDto }) {
           <Link href={`/painel/admin/organizacoes/${flag.organizationId}`} className="font-semibold text-fg hover:underline">
             {flag.organizationName}
           </Link>
-          <Link href={`/painel/eventos/${flag.eventId}?aba=ingresso`} className="text-fg-muted hover:underline">
-            {flag.eventName}
-          </Link>
+          {flag.eventId === null ? (
+            <span className="text-fg-muted">{t.logo}</span>
+          ) : (
+            <Link href={`/painel/eventos/${flag.eventId}?aba=ingresso`} className="text-fg-muted hover:underline">
+              {flag.eventName}
+            </Link>
+          )}
           <span className="text-xs text-fg-subtle">
             {[flag.uploadedBy, shortDateTime(flag.createdAt), `${String(flag.widthPx)}×${String(flag.heightPx)}`].filter(Boolean).join(" · ")}
           </span>
@@ -271,7 +275,7 @@ function RecentCard({ art }: { art: RecentArtDto }) {
           {art.organizationName}
         </Link>
         <span className="text-xs text-fg-subtle">
-          {art.eventName} · {shortDateTime(art.createdAt)}
+          {art.eventName ?? t.logo} · {shortDateTime(art.createdAt)}
         </span>
         {art.moderation !== "flagged" && art.moderation !== "rejected" && (
           <Button variant="ghost" size="sm" icon={<Flag />} className="mt-auto w-fit" loading={flag.isPending} onClick={() => flag.mutate()}>

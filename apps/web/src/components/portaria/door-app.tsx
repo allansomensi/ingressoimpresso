@@ -290,6 +290,13 @@ function Door({ engine, state }: { engine: DoorEngine; state: DoorState }) {
           </p>
         )}
         {state.storageFailed && <p className="rounded-xl bg-red-600 px-3 py-2 text-sm font-semibold">{t.storageError}</p>}
+        {/* Canceled by the organizer (ADR 0065): the door keeps reading, the organizer decides. */}
+        {event?.canceledAt != null && (
+          <p role="status" className="flex items-start gap-2 rounded-xl bg-red-600 px-3 py-2 text-sm font-semibold text-white">
+            <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
+            {t.canceledBanner}
+          </p>
+        )}
       </header>
 
       <div className="relative flex flex-1 flex-col items-center justify-center gap-4 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
