@@ -141,6 +141,20 @@ async function cameraFile(browser, jpeg, name) {
   return path;
 }
 
+/**
+ * Pauses reading with the ticket still in front of the fake camera. The same code seen again
+ * re-shows its result (without a new scan), which keeps covering the pause button, so the click is
+ * dispatched to the button itself; then the last result is dismissed for good.
+ */
+async function pauseReading(page) {
+  await page.getByRole("button", { name: "Pausar" }).dispatchEvent("click");
+  await page.getByRole("button", { name: "Começar a ler" }).waitFor({ timeout: TIMEOUT });
+  const dismiss = page.getByRole("button", { name: "Toque para continuar" });
+  if (await dismiss.isVisible()) {
+    await dismiss.click();
+  }
+}
+
 /** A phone: its own browser, profile and camera. */
 async function phone(camera) {
   const browser = await chromium.launch({
@@ -212,10 +226,27 @@ const camera2 = await cameraFile(helper, ticket(2), "ticket-2");
 const camera4 = await cameraFile(helper, ticket(4), "ticket-4");
 await helper.close();
 
-// 1. A admits ticket 1; B, online, is told it already entered through A.
+// 0. Rehearsal on A before the doors open (ADR 0067): a real ticket shows what would happen and
+// nothing is recorded. The option lives in the ⋮ menu only while nobody has entered yet.
 const a = await phone(camera1);
 await register(a, doorLink, "Porta A");
-let result = await readOnce(a, "a");
+await a.page.getByRole("button", { name: "Mais opções" }).click();
+await a.page.getByRole("button", { name: /^Ensaiar/ }).click();
+await a.page.getByText("ENSAIO · nada é registrado").waitFor({ timeout: TIMEOUT });
+let result = await readOnce(a, "a-rehearsal");
+assert.equal(result.tone, "warn", result.text);
+assert.match(result.text, /Ensaio: nada foi registrado[\s\S]*ENTRARIA[\s\S]*Nº 0001/);
+await pauseReading(a.page);
+await a.page.getByRole("button", { name: "Terminar ensaio" }).click();
+await until("rehearsal on the server", async () => {
+  const devices = (await api(`/api/events/${event.id}/door`, { token })).devices;
+  const phoneA = devices.find((device) => device.name === "Porta A");
+  return phoneA.rehearsedAt !== null && phoneA.scanCount === 0;
+});
+console.log("ok: rehearsal reported, nothing scanned");
+
+// 1. A admits ticket 1; B, online, is told it already entered through A.
+result = await readOnce(a, "a");
 assert.equal(result.tone, "ok", result.text);
 assert.match(result.text, /PODE ENTRAR[\s\S]*Nº 0001[\s\S]*Vendedor: João/);
 
@@ -225,6 +256,9 @@ result = await readOnce(b, "b");
 assert.equal(result.tone, "bad", result.text);
 assert.match(result.text, /JÁ ENTROU[\s\S]*por Porta A/);
 console.log("ok: online copy detected");
+await pauseReading(b.page);
+await b.page.getByRole("button", { name: "Mais opções" }).click();
+assert.equal(await b.page.getByRole("button", { name: /^Ensaiar/ }).count(), 0, "no rehearsal once tickets entered");
 
 // 2. C prepares, loses the network, reopens the app offline and admits ticket 2 on its own.
 const c = await phone(camera2);
@@ -265,30 +299,7 @@ assert.equal(result.tone, "bad", result.text);
 assert.match(result.text, /JÁ ENTROU[\s\S]*por Porta C/);
 console.log("ok: entries converge after sync");
 
-// 5. Rehearsal on E (ADR 0067): a real ticket shows what would happen and nothing is recorded.
-// E has read once (the copy); its scan reaches the server on the next sync.
-const scansBefore = await until("E's scan uploaded", async () =>
-  (await api(`/api/events/${event.id}/door`, { token })).devices.find((device) => device.name === "Porta E").scanCount,
-);
-// The ticket is still in front of the camera: dismiss its result and pause reading first.
-await e.page.getByRole("button", { name: "Toque para continuar" }).click();
-await e.page.getByRole("button", { name: "Pausar" }).click();
-await e.page.getByRole("button", { name: "Mais opções" }).click();
-await e.page.getByRole("button", { name: /^Ensaiar Teste/ }).click();
-await e.page.getByText("ENSAIO · nada é registrado").waitFor({ timeout: TIMEOUT });
-result = await readOnce(e, "e-rehearsal");
-assert.match(result.text, /Ensaio: nada foi registrado[\s\S]*JÁ ENTROU/);
-await e.page.getByRole("button", { name: "Toque para continuar" }).click();
-await e.page.getByRole("button", { name: "Pausar" }).click();
-await e.page.getByRole("button", { name: "Terminar ensaio" }).click();
-await until("rehearsal on the server", async () => {
-  const devices = (await api(`/api/events/${event.id}/door`, { token })).devices;
-  const phoneE = devices.find((device) => device.name === "Porta E");
-  return phoneE.rehearsedAt !== null && phoneE.scanCount === scansBefore;
-});
-console.log("ok: rehearsal reported, nothing scanned");
-
-// 6. A door for the VIP category (ADR 0068): a pista ticket is sent elsewhere, then let in as
+// 5. A door for the VIP category (ADR 0068): a pista ticket is sent elsewhere, then let in as
 // an exception. The guest list (ADR 0070) is checked on the same phone, offline-first.
 const vip = await api(`/api/events/${event.id}/categories`, { token, body: { name: "VIP", color: "#7c3aed", priceCents: null } });
 await api(`/api/categories/${vip.id}/ranges`, { token, body: { first: 3, last: 3 } });
@@ -303,8 +314,7 @@ assert.equal(result.tone, "warn", result.text);
 assert.match(result.text, /OUTRA PORTA[\s\S]*Nº 0004[\s\S]*Pista: entrada pela Ensaio/);
 await f.page.getByRole("button", { name: "Deixar entrar mesmo assim" }).click();
 await f.page.locator('[data-tone="ok"]').waitFor({ timeout: TIMEOUT });
-await f.page.getByRole("button", { name: "Toque para continuar" }).click();
-await f.page.getByRole("button", { name: "Pausar" }).click();
+await pauseReading(f.page);
 await f.page.getByRole("button", { name: "Lista" }).click();
 await f.page.getByRole("searchbox").fill("maria");
 await f.page.getByRole("button", { name: "Chegou" }).click();
@@ -313,13 +323,14 @@ await f.page.getByText("Chegada registrada").waitFor({ timeout: TIMEOUT });
 await f.page.screenshot({ path: join(OUT, "f-guests.png") });
 const live = await until("the live view", async () => {
   const now = await api(`/api/events/${event.id}/door/live`, { token });
-  return now.guests.arrivedPeople === 2 && now.refusals.wrongDoorAdmitted === 1 ? now : null;
+  // The refusal goes up with the next sync; the exception was confirmed online right away.
+  return now.guests.arrivedPeople === 2 && now.refusals.wrongDoorAdmitted === 1 && now.refusals.wrongDoor === 1 ? now : null;
 });
 assert.equal(live.entries, 3);
 assert.equal(live.refusals.wrongDoor, 1);
 console.log("ok: wrong door, exception, guest list and live view");
 
-// 7. The painel report shows the door's work per seller (once E has uploaded its rejection).
+// 6. The painel report shows the door's work per seller (once E has uploaded its rejection).
 await until("E's scan on the server", async () => {
   const report = await api(`/api/events/${event.id}/report`, { token });
   return report.totals.blockedCopies === 2;

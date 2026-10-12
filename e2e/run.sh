@@ -27,14 +27,18 @@ unset RESEND_API_KEY APP_ENV
 cargo build --locked -p ingressoimpresso-server
 pnpm --filter @ingressoimpresso/web run build
 
+# Each server runs in its own session, so stopping it also stops what it spawned (pnpm starts
+# next-server as a grandchild, which would otherwise keep the port after the test).
 cleanup() {
-    kill "${api_pid:-}" "${web_pid:-}" 2>/dev/null || true
+    for pid in "${api_pid:-}" "${web_pid:-}"; do
+        [ -n "$pid" ] && kill -- "-$pid" 2>/dev/null || true
+    done
 }
 trap cleanup EXIT
 
-./target/debug/ingressoimpresso > "$out/api.log" 2>&1 &
+setsid ./target/debug/ingressoimpresso > "$out/api.log" 2>&1 &
 api_pid=$!
-pnpm --filter @ingressoimpresso/web exec next start --port "$web_port" > "$out/web.log" 2>&1 &
+setsid pnpm --filter @ingressoimpresso/web exec next start --port "$web_port" > "$out/web.log" 2>&1 &
 web_pid=$!
 
 for url in "http://localhost:$api_port/healthz" "http://localhost:$web_port/portaria"; do
