@@ -8,7 +8,8 @@ export default function robots(): MetadataRoute.Robots {
   }
   return {
     // Rules are prefixes: "/ingresso$" keeps the digital ticket out without hiding /ingresso-para/.
-    rules: { userAgent: "*", allow: "/", disallow: ["/painel", "/portaria", "/offline", "/vendedor", "/ingresso$"] },
+    // "/i/" are the referral links (ADR 0076).
+    rules: { userAgent: "*", allow: "/", disallow: ["/painel", "/portaria", "/offline", "/vendedor", "/ingresso$", "/i/"] },
     sitemap: `${SITE_URL}/sitemap.xml`,
   };
 }

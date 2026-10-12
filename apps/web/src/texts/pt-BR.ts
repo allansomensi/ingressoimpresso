@@ -382,6 +382,7 @@ export const texts = {
     examples: "Exemplos de uso",
     theme: "Tema",
     eventTypes: "Ingresso para",
+    verify: "Conferir ingresso",
   },
   sellerPage: {
     metaTitle: "Minhas vendas",
@@ -598,6 +599,12 @@ export const texts = {
       eventCanceled: "Evento cancelado",
       eventCanceledBody: (by: string, event: string, reason: string) =>
         `${by === "" ? "A organização" : by} cancelou "${event}".${reason === "" ? "" : ` Motivo: ${reason}.`}`,
+      referralReferrer: "Sua indicação rendeu crédito",
+      referralReferrerBody: (amount: string, who: string) =>
+        `${who === "" ? "Quem você indicou" : who} pagou o primeiro lote: ${amount} de crédito para os seus próximos lotes.`,
+      referralReferred: "Crédito de boas-vindas",
+      referralReferredBody: (amount: string, by: string) =>
+        `Você chegou por indicação${by === "" ? "" : ` de ${by}`} e pagou o primeiro lote: ${amount} de crédito para os próximos.`,
     },
   },
   maintenance: {
@@ -684,6 +691,8 @@ export const texts = {
       batch_payment: "Usado em um lote",
       batch_cancel: "Devolvido (lote cancelado)",
       batch_refund: "Devolvido (lote estornado)",
+      referral: "Indique e ganhe",
+      referral_revoked: "Indicação cancelada (lote estornado ou revisão)",
     },
     more: (count: number) => `Ver mais ${String(count)}`,
     less: "Ver menos",
@@ -2190,6 +2199,7 @@ export const texts = {
       prices: "Preços",
       promotions: "Promoções",
       codes: "Cupons",
+      referrals: "Indicações",
       announcements: "Pronunciamentos",
       changelog: "Novidades",
       emails: "E-mails",
@@ -2342,6 +2352,7 @@ export const texts = {
         price: "Preços",
         promotion: "Promoções",
         promo_code: "Cupons",
+        referral: "Indicações",
         announcement: "Pronunciamentos",
         changelog: "Novidades",
         moderation: "Moderação",
@@ -2388,6 +2399,8 @@ export const texts = {
         promo_code_create: "Criou um cupom",
         promo_code_update: "Editou um cupom",
         credits_adjust: "Ajustou o crédito",
+        referral_settings_update: "Mudou o Indique e ganhe",
+        referral_revoke: "Cancelou uma indicação",
         email_test: "Enviou um e-mail de teste",
         moderation_flag: "Sinalizou uma imagem",
         moderation_approve: "Liberou uma imagem",
@@ -2956,6 +2969,233 @@ export const texts = {
       sellerStillValid: "Os ingressos vendidos continuam valendo para a nova data. Avise quem comprou de você.",
     },
   },
+  // Check a ticket before buying it (ADR 0075).
+  verifyPage: {
+    metaTitle: "Conferir ingresso: veja se o QR code é verdadeiro",
+    metaDescription:
+      "Vai comprar ingresso de outra pessoa? Leia o QR code com a câmera, envie uma foto ou cole o texto e veja se ele é verdadeiro, de qual evento e número.",
+    breadcrumb: "Conferir ingresso",
+    eyebrow: "Conferir ingresso",
+    headline: "Esse ingresso é verdadeiro?",
+    lead: "Leia o QR code com a câmera, envie uma foto ou cole o texto. Em segundos você vê se ele foi emitido pelo Ingresso Impresso, de qual evento e número, e se o evento continua de pé.",
+    privacyNote: "Grátis e sem cadastro. A imagem da câmera não sai do seu aparelho e não guardamos o que você conferiu.",
+    modes: { camera: "Câmera", photo: "Foto", paste: "Colar texto" },
+    modesLabel: "Como ler o QR",
+    openCamera: "Abrir a câmera",
+    cameraHint: "Aponte para o QR code do ingresso, de perto e com boa luz.",
+    cameraStarting: "Abrindo a câmera…",
+    cameraDenied: "A câmera não abriu. Permita o acesso nas configurações do navegador, ou envie uma foto do QR.",
+    cameraUnsupported: "Este navegador não abre a câmera por aqui. Envie uma foto do QR ou cole o texto.",
+    closeCamera: "Fechar a câmera",
+    torchOn: "Ligar a lanterna",
+    torchOff: "Desligar a lanterna",
+    choosePhoto: "Escolher foto do QR",
+    photoHint: "Uma foto ou captura de tela em que o QR apareça inteiro e nítido. Ela é lida no seu aparelho.",
+    photoReading: "Lendo a foto…",
+    photoNoQr: "Não achamos um QR code nessa imagem. Tente uma foto mais de perto, reta e sem reflexo.",
+    pasteLabel: "Texto do QR code",
+    pastePlaceholder: "Cole aqui o texto que um leitor de QR mostrou",
+    pasteHint: "Um leitor de QR comum mostra um texto de letras e números. Cole o texto inteiro.",
+    check: "Conferir",
+    checking: "Conferindo…",
+    ticketLink:
+      "Isso é o link de um ingresso no celular. Abra o link: o QR code que aparece nele pode ser conferido aqui, com a câmera de outro aparelho ou por um print.",
+    otherLink: "Isso é um endereço de site, não o texto de um ingresso. Leia o QR do ingresso com a câmera ou envie uma foto dele.",
+    again: "Conferir outro ingresso",
+    resultLabel: "Resultado da conferência",
+    verdicts: {
+      valid: {
+        title: "Ingresso autêntico",
+        body: "Este QR code foi emitido pelo Ingresso Impresso para o evento abaixo, e o número não foi cancelado.",
+      },
+      event_postponed: {
+        title: "Autêntico, e o evento mudou de data",
+        body: "O ingresso foi emitido para o evento abaixo e continua valendo para a nova data.",
+      },
+      event_over: {
+        title: "Autêntico, mas o evento já aconteceu",
+        body: "O ingresso foi emitido para um evento que já terminou. Ele não serve para outra data.",
+      },
+      event_canceled: {
+        title: "Autêntico, mas o evento foi cancelado",
+        body: "A organização cancelou o evento. Não compre este ingresso; quem já comprou deve falar com a organização.",
+      },
+      ticket_canceled: {
+        title: "Este número foi cancelado",
+        body: "O ingresso é do evento abaixo, mas a organização cancelou este número (perda, segunda via ou estorno). Ele não entra na portaria.",
+      },
+      private: {
+        title: "A organização não permite conferir por aqui",
+        body: "Quem organiza este evento desligou a conferência pública. Para saber se o ingresso vale, pergunte diretamente à organização.",
+      },
+      not_ours: {
+        title: "Não é um ingresso do Ingresso Impresso",
+        body: "Este QR code não foi emitido por nós, ou foi alterado. Se ele veio num ingresso que diz ser do Ingresso Impresso, desconfie e não compre.",
+      },
+    },
+    copyTitle: "Autêntico não quer dizer único",
+    copyBody:
+      "Uma cópia deste QR (foto, xerox, print) também aparece como autêntica, e só a primeira leitura entra na portaria. Por isso não dizemos se o ingresso já foi usado nem quem comprou. Compre de quem você confia.",
+    number: "Número",
+    category: "Categoria",
+    when: "Quando",
+    where: "Onde",
+    organizedBy: "Organização",
+    contactMessage: (number: string, event: string) =>
+      `Olá! Conferi no Ingresso Impresso o ingresso nº ${number} de "${event}" e queria confirmar com vocês antes de comprar.`,
+    howTitle: "Como a conferência funciona",
+    how: [
+      {
+        title: "Cada ingresso tem uma assinatura",
+        body: "O QR code de todo ingresso do Ingresso Impresso leva uma assinatura digital feita com a chave do evento. Ninguém consegue inventar um QR válido nem trocar o número sem quebrar a assinatura.",
+      },
+      {
+        title: "A assinatura é conferida aqui",
+        body: "Lemos o QR, achamos o evento e conferimos a assinatura com a chave pública dele: é a mesma conta que o celular da portaria faz no dia.",
+      },
+      {
+        title: "Você vê o que está impresso",
+        body: "Evento, data, local, número e categoria, e também se o número foi cancelado ou se o evento mudou de data ou foi cancelado.",
+      },
+    ],
+    limitsTitle: "O que a conferência não diz",
+    limits: [
+      "Se o ingresso já entrou ou se existe outra cópia dele: a cópia de um QR verdadeiro também é verdadeira.",
+      "Quem comprou ou para quem foi vendido: esses dados são da organização.",
+      "Se o preço pedido é justo: compare com o valor que a organização anuncia.",
+    ],
+    tipsTitle: "Para comprar com segurança",
+    tips: [
+      "Prefira comprar da organização ou dos vendedores dela.",
+      "Peça o ingresso impresso em mãos ou o link do ingresso no celular, e não só uma foto do QR.",
+      "Desconfie de preço muito baixo e de pressa para fechar o negócio.",
+      "Na dúvida, fale com a organização: o contato aparece no resultado da conferência.",
+    ],
+    faqTitle: "Dúvidas sobre a conferência",
+    faq: [
+      {
+        question: "Que ingressos dá para conferir aqui?",
+        answer:
+          "Os ingressos feitos no Ingresso Impresso: impressos em casa, na gráfica ou enviados para o celular. Todos têm o mesmo QR code assinado. Ingressos de outras empresas aparecem como “não é um ingresso do Ingresso Impresso”.",
+      },
+      {
+        question: "Se aparecer “autêntico”, posso comprar sem medo?",
+        answer:
+          "Quer dizer que o QR é verdadeiro e o número não foi cancelado. Mas uma cópia de um QR verdadeiro também é verdadeira, e só a primeira leitura entra na portaria. Por isso, compre de quem você confia: da organização, dos vendedores dela ou de alguém que você conhece.",
+      },
+      {
+        question: "Por que não aparece se o ingresso já foi usado?",
+        answer:
+          "Porque essa informação ajudaria quem faz cópias a descobrir quais ainda entram. A portaria decide na hora, pela primeira leitura de cada número.",
+      },
+      {
+        question: "Vocês guardam o QR que eu conferi?",
+        answer:
+          "Não. O texto do QR é usado só para responder esta conferência. A imagem da câmera e as fotos são lidas no seu próprio aparelho e não são enviadas.",
+      },
+      {
+        question: "Sou organizador. Dá para desligar a conferência?",
+        answer:
+          "Dá. Na aba Digitais do evento, desligue a conferência pública. Quem tentar conferir verá que a organização não permite e será orientado a falar com vocês.",
+      },
+    ],
+    organizerTitle: "Faz eventos?",
+    organizerBody:
+      "Com o Ingresso Impresso, seus ingressos numerados saem com QR code assinado, que qualquer pessoa confere aqui, e a portaria funciona pelo celular, mesmo sem internet.",
+    settings: {
+      title: "Conferência pública",
+      description: "Quem tem um ingresso deste evento pode conferir no site se ele é verdadeiro, antes de comprar de outra pessoa.",
+      toggle: "Permitir conferir os ingressos no site",
+      on: "Ligada: o site mostra o evento, o número e a categoria de um QR verdadeiro, nunca quem comprou nem se já entrou.",
+      off: "Desligada: quem conferir verá que a organização não permite e será orientado a falar com vocês.",
+      saved: (on: boolean) => (on ? "Conferência pública ligada." : "Conferência pública desligada."),
+      open: "Abrir a página de conferência",
+    },
+  },
+  // Refer and earn (ADR 0076).
+  referrals: {
+    title: "Indique e ganhe",
+    headline: (amount: string) => `Ganhe ${amount} a cada indicação`,
+    hint: (referrer: string, referred: string, min: string) =>
+      `Conhece outra banda, escola, igreja ou produtor? Quando quem você indicar pagar o primeiro lote (a partir de ${min}), você ganha ${referrer} e a pessoa ganha ${referred} de crédito.`,
+    linkLabel: "Seu link de indicação",
+    copy: "Copiar link",
+    copied: "Link copiado.",
+    copyFailed: "Não deu para copiar. Toque no link, selecione e copie.",
+    whatsapp: "Enviar no WhatsApp",
+    share: "Compartilhar",
+    shareTitle: "Ingresso Impresso",
+    message: (url: string, amount: string) =>
+      `Oi! Eu faço os ingressos dos meus eventos no Ingresso Impresso: numerados, com QR code que não dá para copiar e portaria pelo celular, mesmo sem internet. Crie sua conta pelo meu link e ganhe ${amount} de crédito no primeiro lote: ${url}`,
+    howTitle: "Como funciona",
+    steps: (referrer: string, referred: string, min: string) => [
+      { title: "Mande o seu link", body: "Pelo WhatsApp, num grupo ou onde preferir." },
+      { title: "A pessoa cria a conta", body: "Pelo seu link, com um e-mail que ainda não tem conta aqui." },
+      { title: "Vocês dois ganham", body: `Quando ela pagar o primeiro lote (a partir de ${min}): ${referrer} para você e ${referred} para ela.` },
+    ],
+    rules: (limit: number) =>
+      `Até ${limit.toLocaleString("pt-BR")} ${limit === 1 ? "recompensa" : "recompensas"} a cada 30 dias. O crédito é usado sozinho nos próximos lotes e não vira dinheiro. Se o lote que valeu for estornado, o crédito que sobrou sai. Indicar a si mesmo, a outro e-mail seu ou à sua equipe não conta.`,
+    listTitle: "Suas indicações",
+    empty: "Ninguém chegou pelo seu link ainda. Mande para quem também faz eventos!",
+    earned: (amount: string) => `${amount} ganhos`,
+    count: (count: number) => (count === 1 ? "1 indicação" : `${count.toLocaleString("pt-BR")} indicações`),
+    status: {
+      pending: "Aguardando o primeiro lote",
+      rewarded: "Vocês ganharam",
+      revoked: "Cancelada",
+    },
+    capped: "Limite do mês: só a pessoa ganhou",
+    joined: (date: string) => `desde ${date}`,
+    off: "O Indique e ganhe está pausado. Seu link fica guardado aqui para quando voltar.",
+    invitedTitle: "Você chegou por indicação",
+    invitedPending: (by: string | null, amount: string, min: string) =>
+      `${by ?? "Uma organização"} indicou você. Ao pagar o seu primeiro lote (a partir de ${min}), você ganha ${amount} de crédito.`,
+    invitedRewarded: (by: string | null, amount: string) =>
+      `${by ?? "Uma organização"} indicou você, e o seu primeiro lote pago rendeu ${amount} de crédito.`,
+    invitedRevoked: "A indicação foi cancelada (o lote que valia foi estornado).",
+    // The sign-up page (/entrar) and the invite link (/i/<code>).
+    inviteTitle: (organization: string) => `Convite de ${organization}`,
+    inviteBody: (amount: string, min: string) =>
+      `Crie sua conta por aqui e ganhe ${amount} de crédito quando pagar o primeiro lote (a partir de ${min}), além dos ingressos grátis. Vale para contas novas.`,
+    welcome: (amount: string) => `Conta criada por indicação: ${amount} de crédito esperam o seu primeiro lote pago.`,
+    opening: "Abrindo o convite…",
+    linkTitle: "Convite para o Ingresso Impresso",
+    linkDescription: "Crie sua conta pelo convite e ganhe crédito no primeiro lote.",
+    admin: {
+      intro:
+        "Cada organização tem um link. Contas novas criadas por ele ficam ligadas a quem indicou; o primeiro lote pago em dinheiro (Stripe ou marcado como pago), a partir do mínimo, dá crédito às duas, uma vez. Lote estornado tira o crédito que sobrou.",
+      settingsTitle: "Regras do programa",
+      settingsHint: "Valem para as próximas recompensas; as já dadas ficam. Cada mudança vai para a auditoria.",
+      enabled: "Programa ligado",
+      enabledOn: "Os links valem para contas novas e as recompensas são pagas.",
+      enabledOff: "Desligado: os links não ligam contas novas e nenhuma recompensa é paga.",
+      referrer: "Crédito de quem indica",
+      referred: "Crédito de quem chega",
+      limit: "Recompensas por indicador a cada 30 dias",
+      limitHint: "Passou do limite, só quem chegou ganha.",
+      minBatch: "Lote mínimo que vale",
+      minBatchHint: "O que a pessoa paga de fato no lote (sem crédito nem desconto).",
+      save: "Salvar regras",
+      saved: "Regras do Indique e ganhe salvas.",
+      invalid: "Confira os valores: crédito até R$ 1.000,00 e limite de 0 a 1.000.",
+      totals: { pending: "Aguardando", rewarded: "Recompensadas", revoked: "Canceladas", credit: "Crédito dado" },
+      listTitle: "Indicações recentes",
+      empty: "Nenhuma indicação ainda.",
+      emptyHint: "Quando alguém criar conta pelo link de outra organização, ela aparece aqui.",
+      deleted: "Conta excluída",
+      arrow: "indicou",
+      created: (date: string) => `Conta criada em ${date}`,
+      rewarded: (date: string) => `Recompensada em ${date}`,
+      credit: (referrer: string, referred: string) => `${referrer} para quem indicou · ${referred} para quem chegou`,
+      capped: "Indicador no limite do mês",
+      revokedReason: { batch_refunded: "Lote estornado", admin: "Cancelada pela equipe" } as Record<string, string>,
+      revoke: "Cancelar indicação",
+      revokeTitle: "Cancelar esta indicação?",
+      revokeBody: "Ela não rende mais recompensa, e o crédito que ela deu e ainda não foi usado sai das duas contas. Não dá para desfazer.",
+      revoked: "Indicação cancelada.",
+      actions: "Ações da indicação",
+    },
+  },
   errors: {
     generic: "Algo deu errado. Tente de novo.",
     network: "Sem conexão com o servidor. Verifique a internet e tente de novo.",
@@ -3109,5 +3349,7 @@ export const texts = {
     invalid_website: "Site inválido. Use um endereço como suabanda.com.br.",
     invalid_instagram: "Instagram inválido. Use o seu @, como @suabanda.",
     invalid_contact_email: "E-mail de contato inválido.",
+    referral_revoked: "Esta indicação já foi cancelada.",
+    invalid_limit: "Limite inválido (de 0 a 1.000).",
   },
 } as const;
