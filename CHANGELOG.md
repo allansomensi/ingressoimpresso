@@ -12,6 +12,8 @@ e não acompanha estes números.
 
 ## [Não lançado]
 
+## [1.3.0] - 2026-10-12
+
 ### Adicionado
 
 - Reembolsos feitos no Stripe, inclusive parciais, passam a ser registrados em cada pagamento. Um
@@ -20,7 +22,6 @@ e não acompanha estes números.
 - No admin, a visão geral mostra receita bruta, reembolsos e receita líquida, desde o início e
   nos últimos 30 dias, com a líquida em destaque, e o botão **Conferir reembolsos no Stripe**
   corrige os reembolsos feitos antes.
-
 - Galeria pública de modelos em `/modelos`, com uma página para cada um dos 16 modelos: o modelo
   preenchido com um evento de exemplo, as combinações de cores, o que vem nele e o tipo de evento
   em que ele se encaixa (ADR 0062).
@@ -182,7 +183,8 @@ Primeira versão numerada: o produto que já estava em produção, das fases 0 a
 - Política de segurança de conteúdo (CSP) com nonce por requisição em todo o site (ADR 0048).
 - Verificação anti-robô antes do envio do código de login (ADR 0044).
 
-[Não lançado]: https://github.com/allansomensi/ingressoimpresso/compare/v1.2.0...HEAD
+[Não lançado]: https://github.com/allansomensi/ingressoimpresso/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/allansomensi/ingressoimpresso/releases/tag/v1.0.0
