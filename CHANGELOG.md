@@ -12,6 +12,8 @@ e não acompanha estes números.
 
 ## [Não lançado]
 
+## [1.4.0] - 2026-10-12
+
 ### Adicionado
 
 - Perfil da organização, em Minha conta: logo, cor da marca, WhatsApp, e-mail, site e Instagram
@@ -265,7 +267,8 @@ Primeira versão numerada: o produto que já estava em produção, das fases 0 a
 - Política de segurança de conteúdo (CSP) com nonce por requisição em todo o site (ADR 0048).
 - Verificação anti-robô antes do envio do código de login (ADR 0044).
 
-[Não lançado]: https://github.com/allansomensi/ingressoimpresso/compare/v1.3.0...HEAD
+[Não lançado]: https://github.com/allansomensi/ingressoimpresso/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.0.0...v1.1.0
