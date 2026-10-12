@@ -81,3 +81,6 @@ feita e as consequências.
 | [0069](0069-bilheteria-na-porta.md) | Bilheteria na porta | Aceito |
 | [0070](0070-lista-de-nomes-na-porta.md) | Lista de nomes na porta | Aceito |
 | [0071](0071-portaria-ao-vivo.md) | Portaria ao vivo | Aceito |
+| [0072](0072-reservas-do-vendedor.md) | Reservas do vendedor | Aceito |
+| [0073](0073-metas-e-ranking-de-vendedores.md) | Metas e ranking de vendedores | Aceito |
+| [0074](0074-link-do-vendedor-offline.md) | Link do vendedor offline | Aceito |

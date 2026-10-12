@@ -143,6 +143,16 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   aviso no sininho. No ingresso digital, `.ics` feito no navegador, rota no mapa e o salão com a
   mesa do portador (`tableMap`, sem ocupação), tudo offline.
 
+- **Reservas, metas e ranking, link do vendedor offline (ADRs 0072–0074): implementados.**
+  Reservas por número com prazo no horário do evento (`ticket_reservations`, ativa enquanto
+  `expires_at > now()`, `jobs::prune` apaga as vencidas há 7 dias; nunca vão à portaria; a
+  bilheteria não reserva), regras número a número em `routes/seller_ops.rs` (link e painel),
+  painel em `routes/reservations.rs`; metas (`sellers.goal`) e ranking opcional
+  (`events.sellers_ranking`, só "Ana S." para os outros) em `routes/seller_goals.rs`; fila do
+  celular em `POST /api/seller/sync` (`routes/seller_sync.rs`, idempotente por id em
+  `seller_sync_ops`, responde a página e o que ficou de fora); `public/sw.js` guarda `/vendedor`;
+  `e2e/vendedor.e2e.mjs` testa o fluxo sem internet.
+
 Plano completo em `docs/arquitetura.md` §12.
 
 ## Onde está cada coisa
@@ -185,6 +195,9 @@ crates/server        API (pacote `ingressoimpresso-server`, binário `ingressoim
                      routes/refunds.rs (receita pela view revenue_entries),
                      acerto com vendedores (pagamentos e devoluções) em routes/settlement.rs,
                      link do vendedor (página sem conta, marcar vendas) em routes/seller_links.rs,
+                     reservas, metas e fila offline do vendedor (ADRs 0072–0074): regras por número
+                     em routes/seller_ops.rs, painel em routes/reservations.rs, metas e ranking em
+                     routes/seller_goals.rs, POST /api/seller/sync em routes/seller_sync.rs,
                      equipe do evento em routes/team.rs (toda rota nova de evento que altera algo
                      entra em team::need, senão fica só para a organização),
                      categorias em routes/categories.rs (NumberTags: categoria e lugar de cada
@@ -224,7 +237,7 @@ apps/web             landing em src/app/page.tsx (+ src/components/marketing: si
                      tema em src/lib/theme{,-script}.ts (data-theme no <html>, ADR 0022);
                      Analytics em src/components/site-analytics.tsx (fora da portaria);
                      PWA do painel: app/manifest.ts + public/sw.js (escopo /, ignora /portaria;
-                     guarda /ingresso para abrir offline); CSP com nonce em src/proxy.ts (ADR 0048:
+                     guarda /ingresso e /vendedor para abrir offline); CSP com nonce em src/proxy.ts (ADR 0048:
                      o layout raiz lê x-nonce; script inline novo precisa de nonce={nonce});
                      ingresso digital: app/ingresso + components/ticket/ticket-pass.tsx +
                      lib/ticket-pass.ts, aba components/event/digital.tsx (segunda via em
@@ -270,9 +283,19 @@ apps/web             landing em src/app/page.tsx (+ src/components/marketing: si
                      avisos em lib/event-change.ts; agenda (.ics), Google Agenda e mapas em
                      lib/calendar.ts; mapa das mesas no ingresso em components/ticket/seat-map.tsx
                      + lib/seat-map.ts (ADRs 0064–0066);
+                     vendedores (ADRs 0072–0074): na página do vendedor, a fila offline em
+                     components/seller/use-seller-sync.ts (+ lib/seller-offline.ts: aplicar a fila,
+                     explicar conflitos, guardar no aparelho por hash do token), folha de venda e
+                     reserva em components/seller/mark-sheet.tsx (prazo em deadline-picker.tsx,
+                     regras em lib/reservations.ts), reservas em components/seller/reservations.tsx,
+                     meta e ranking em components/seller/goal-card.tsx, aviso "Sem internet" e
+                     conflitos em components/seller/sync-status.tsx; no painel,
+                     components/event/seller-extras.tsx (reservas, metas, Ranking e metas; regras
+                     em lib/seller-goals.ts);
                      status público em app/status + components/status;
                      menus e popovers em components/ui/popover.tsx (portal; folha no celular)
 e2e/                 portaria.e2e.mjs: 5 "celulares" Chromium com câmera falsa (`just e2e`);
+                     vendedor.e2e.mjs: link do vendedor sem internet, fila e conflito (ADR 0074);
                      csp.e2e.mjs: toda página com nonce e nada recusado (ADR 0048)
 packages/ticket-core-wasm  wrapper TS tipado (src/), tipos gerados (src/generated/, NÃO editar),
                      pkg/ gerado por `just wasm` (não versionado), testes Vitest com os vetores
