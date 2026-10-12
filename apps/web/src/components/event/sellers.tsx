@@ -34,6 +34,7 @@ import {
   QrCode,
   RefreshCw,
   RotateCcw,
+  Store,
   Tag,
   Ticket,
   Trash2,
@@ -150,7 +151,7 @@ function stateLabel(state: SettlementState): string {
   }
 }
 
-/** "Levou 40 − Devolveu 5 − Perdeu 1 = Acerta 34", as chips. */
+/** "Levou 40 − Devolveu 5 − Perdeu 1 = Acerta 34", as chips; "Levou 20 → Entraram 8" at the box office. */
 function Equation({ row }: { row: ReportRowDto }) {
   const part = (label: string, value: number, strong = false) => (
     <span
@@ -169,6 +170,21 @@ function Equation({ row }: { row: ReportRowDto }) {
       {text}
     </span>
   );
+  if (row.boxOffice) {
+    return (
+      <div
+        role="img"
+        aria-label={t.boxOffice.equationLabel(row.tickets, row.declaredSold)}
+        className="grid grid-cols-[1fr_auto_1fr_auto_1fr] items-center gap-1 text-center"
+      >
+        {part(t.equation.took, row.tickets)}
+        {sign("→")}
+        {part(t.boxOffice.entered, row.declaredSold)}
+        {sign("=")}
+        {part(t.equation.due, row.declaredSold, true)}
+      </div>
+    );
+  }
   return (
     <div
       role="img"
@@ -534,6 +550,19 @@ function SellerCard({
       toast.error(errorMessage(error));
     },
   });
+  const boxOffice = useMutation({
+    mutationFn: (on: boolean) => {
+      const body: SellerBody = { name: seller.name, phone: seller.phone, boxOffice: on };
+      return api<undefined>(`/api/sellers/${seller.id}`, { method: "PUT", body });
+    },
+    onSuccess: (_, on) => {
+      toast.success(t.boxOffice.saved(on));
+      onChange();
+    },
+    onError: (error) => {
+      toast.error(errorMessage(error));
+    },
+  });
   const total = seller.ranges.reduce((sum, range) => sum + range.last - range.first + 1, 0);
   const historyCount =
     payments.length +
@@ -554,7 +583,15 @@ function SellerCard({
             {initials(seller.name)}
           </span>
           <div className="flex min-w-0 flex-col">
-            <span className="truncate font-semibold text-fg">{seller.name}</span>
+            <span className="flex min-w-0 items-center gap-2">
+              <span className="truncate font-semibold text-fg">{seller.name}</span>
+              {seller.boxOffice && (
+                <Badge tone="brand" className="shrink-0">
+                  <Store className="size-3" aria-hidden />
+                  {t.boxOffice.badge}
+                </Badge>
+              )}
+            </span>
             <span className="flex min-w-0 items-center gap-1.5 text-sm text-fg-muted">
               {seller.phone !== null && (
                 <>
@@ -601,6 +638,16 @@ function SellerCard({
                   {t.copySummary}
                 </MenuItem>
               </>
+            )}
+            {delivery && (
+              <MenuItem
+                icon={<Store />}
+                onSelect={() => {
+                  boxOffice.mutate(!seller.boxOffice);
+                }}
+              >
+                {seller.boxOffice ? t.boxOffice.turnOff : t.boxOffice.turnOn}
+              </MenuItem>
             )}
             {delivery && (
             <MenuItem
@@ -695,7 +742,7 @@ function SellerCard({
         ) : (
           <div className="flex flex-col gap-4 border-t border-border pt-4">
             <Equation row={row} />
-            {(seller.link !== null || row.markedSold > 0) && (
+            {!row.boxOffice && (seller.link !== null || row.markedSold > 0) && (
               <p className="flex items-center gap-2 text-sm text-fg-muted">
                 <CheckCircle2 aria-hidden className="size-4 shrink-0 text-brand" />
                 {t.marked(row.markedSold, row.declaredSold)}
@@ -715,6 +762,7 @@ function SellerCard({
               >
                 {t.pay}
               </Button>
+              {!seller.boxOffice && (
               <Button
                 variant="secondary"
                 size="sm"
@@ -726,6 +774,7 @@ function SellerCard({
               >
                 {t.giveBack}
               </Button>
+              )}
               </>
               )}
               <Button
@@ -744,6 +793,13 @@ function SellerCard({
             {showHistory && <History seller={seller} payments={payments} voids={voids} editable={cash} onChange={onChange} />}
           </div>
         ))}
+
+      {seller.boxOffice && (
+        <p className="flex items-start gap-2.5 rounded-xl bg-brand-soft px-3.5 py-3 text-sm leading-relaxed text-brand-soft-fg">
+          <Store aria-hidden className="mt-0.5 size-4 shrink-0" />
+          {t.boxOffice.toggleOn}
+        </p>
+      )}
 
       {delivery && total > 0 && <SellerLink seller={seller} event={event} onChange={onChange} />}
 
@@ -900,14 +956,16 @@ function NewSeller({ eventId, onCreated, tile }: { eventId: string; onCreated: (
   const [open, setOpen] = useState(!tile);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [boxOffice, setBoxOffice] = useState(false);
   const create = useMutation({
     mutationFn: () => {
-      const body: SellerBody = { name: name.trim(), phone: phone.trim() === "" ? null : phone.trim() };
+      const body: SellerBody = { name: name.trim(), phone: phone.trim() === "" ? null : phone.trim(), boxOffice };
       return api<SellerDto>(`/api/events/${eventId}/sellers`, { method: "POST", body });
     },
     onSuccess: () => {
       setName("");
       setPhone("");
+      setBoxOffice(false);
       toast.success(t.createdToast);
       onCreated();
     },
@@ -978,6 +1036,9 @@ function NewSeller({ eventId, onCreated, tile }: { eventId: string; onCreated: (
           <Button type="submit" loading={create.isPending} icon={<Plus />}>
             {t.create}
           </Button>
+        </div>
+        <div className="sm:col-span-full">
+          <Switch checked={boxOffice} onChange={setBoxOffice} label={t.boxOffice.newLabel} description={t.boxOffice.newHint} />
         </div>
       </form>
       {!tile && <p className="mt-3 text-xs text-fg-muted">{t.phoneHint}</p>}

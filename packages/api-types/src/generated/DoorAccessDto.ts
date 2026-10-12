@@ -23,4 +23,8 @@ revokedAt: string | null,
 /**
  * Created at.
  */
-createdAt: string, };
+createdAt: string, 
+/**
+ * Categories this door admits (ADR 0068); empty: every ticket.
+ */
+categoryIds: string[], };

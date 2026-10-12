@@ -15,4 +15,8 @@ first: number,
 /**
  * Last number (inclusive).
  */
-last: number, };
+last: number, 
+/**
+ * The seller is the box office (ADR 0069): these numbers are sold at the door.
+ */
+boxOffice: boolean, };

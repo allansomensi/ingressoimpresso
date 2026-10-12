@@ -2,6 +2,9 @@
 import type { DoorCategoryRangeDto } from "./DoorCategoryRangeDto";
 import type { DoorEntryDto } from "./DoorEntryDto";
 import type { DoorEventInfo } from "./DoorEventInfo";
+import type { DoorGuestArrivalDto } from "./DoorGuestArrivalDto";
+import type { DoorGuestDto } from "./DoorGuestDto";
+import type { DoorRouteDto } from "./DoorRouteDto";
 import type { DoorSeatDto } from "./DoorSeatDto";
 import type { DoorSellerRangeDto } from "./DoorSellerRangeDto";
 import type { DoorVerifierDto } from "./DoorVerifierDto";
@@ -54,4 +57,24 @@ cursor: string,
 /**
  * Server clock, Unix milliseconds.
  */
-serverTimeMs: number, };
+serverTimeMs: number, 
+/**
+ * Categories this phone's door admits (ADR 0068); empty: every ticket.
+ */
+allowedCategoryIds: string[], 
+/**
+ * The event's other open doors, to send a guest to the right one.
+ */
+doors: Array<DoorRouteDto>, 
+/**
+ * The guest list (ADR 0070), only when it changed since `guests=<version>`.
+ */
+guests: Array<DoorGuestDto> | null, 
+/**
+ * Version of the guest list, for the next call.
+ */
+guestsVersion: string, 
+/**
+ * Guest arrivals (and undos) since `since`, from every phone.
+ */
+guestArrivals: Array<DoorGuestArrivalDto>, };

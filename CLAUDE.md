@@ -122,6 +122,15 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   os antigos. Remetente único dos e-mails em `config::DEFAULT_MAIL_FROM`
   (`contato@ingressoimpresso.com.br`), `MAIL_FROM` sobrescreve; o domínio raiz já envia nos dois
   ambientes. Falta o que depende do mantenedor: `charge.refunded` no webhook da Stripe.
+- **Portaria do dia (ADRs 0067–0071): implementada.** Modo ensaio no app (`DoorCore.evaluate`,
+  nada gravado; a amostra é reconhecida por `SAMPLE_QR_TEXT` = `sample_qr_text()`), `POST
+  /api/door/rehearsal` e folha de ensaio em PDF (`routes/door_rehearsal.rs`); links que aceitam só
+  algumas categorias (`door_access_categories`, desfecho `rejected_wrong_door`, exceção em
+  `scans.door_exception`); bilheteria (`sellers.box_office`: vendido = entrou); lista de nomes
+  (`guest_list`, `guest_arrivals` com o mesmo cursor `xid8`; desfazer dá `txid` novo,
+  `routes/guests.rs`); aba **Ao vivo** (`GET /api/events/{id}/door/live`, `routes/door_live.rs`,
+  `pending_scans`/`last_sync_at` dos celulares). Campos novos do manifesto são opcionais para o
+  app antigo; `just e2e` cobre ensaio, porta errada e lista (`E2E_API_PORT`/`E2E_WEB_PORT`).
 
 - **Perfil da organização, adiar ou cancelar, extras do ingresso digital (ADRs 0064–0066):
   implementados.** Perfil público em `/painel/organizacao` (`organization_profiles`,
@@ -192,6 +201,9 @@ crates/server        API (pacote `ingressoimpresso-server`, binário `ingressoim
                      categorias em routes/categories.rs (NumberTags: categoria e lugar de cada
                      número para os arquivos), mesas em routes/tables.rs, prestação de contas em
                      routes/ledger.rs (resumo, PDF e planilha; report::build é a base),
+                     portaria do dia (ADRs 0067–0071): ensaio e folha de ensaio em
+                     routes/door_rehearsal.rs, lista de nomes em routes/guests.rs (painel e
+                     celulares), ao vivo em routes/door_live.rs; categorias da porta em routes/door.rs,
                      perfil da organização e logo público em routes/organization.rs (ADR 0064),
                      adiar/cancelar em routes/event_changes.rs (ADR 0065; links da portaria por
                      door::extend_accesses),
@@ -247,7 +259,11 @@ apps/web             landing em src/app/page.tsx (+ src/components/marketing: si
                      e regras em lib/categories.ts; prestação de contas em
                      components/event/accountability.tsx (no Relatório);
                      portaria em src/app/portaria + src/portaria (engine, storage, camera, logic) +
-                     public/portaria-sw.js (ADR 0018); Vitest em test/;
+                     public/portaria-sw.js (ADR 0018); Vitest em test/; ensaio, porta por
+                     categoria, bilheteria e lista no app (logic.ts, engine.ts, IndexedDB v2 com
+                     arrivals/meta, components/portaria/guest-list.tsx); no painel, aba Ao vivo em
+                     components/event/live.tsx + live-chart.tsx (regras em lib/door-live.ts) e aba
+                     Lista em components/event/guests.tsx (regras em lib/guest-list.ts);
                      editor do ingresso em src/components/event/design*.tsx + prévia ao vivo em
                      src/components/ticket/ticket-view.tsx (regras espelhadas em lib/design-rules.ts),
                      modelos em src/lib/templates (catálogo + fundos SVG em mm), fontes do ingresso

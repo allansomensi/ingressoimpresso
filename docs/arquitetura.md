@@ -412,6 +412,19 @@ create table scans (                                  -- log só-de-acréscimo (
 create table entries (                                -- primeira entrada de cada ingresso
   event_id uuid references events, ticket_number integer,
   first_scan_id uuid not null references scans, primary key (event_id, ticket_number));
+-- Portaria do dia (ADRs 0067–0071): door_devices ganha rehearsed_at, last_sync_at e
+-- pending_scans; scans ganha door_exception e o desfecho 'rejected_wrong_door'; sellers ganha
+-- box_office (vendido = entrou).
+create table door_access_categories (door_access_id uuid references door_accesses,
+  category_id uuid references ticket_categories, primary key (door_access_id, category_id));
+create table guest_list (id uuid primary key, event_id uuid not null references events,
+  name text not null, companions smallint not null, note text, category_id uuid,
+  created_by uuid, created_at timestamptz not null, updated_at timestamptz not null);
+create table guest_arrivals (                         -- G-Set como scans; desfazer = novo txid
+  id uuid primary key, event_id uuid not null, guest_id uuid not null references guest_list,
+  device_id uuid not null references door_devices, people smallint not null,
+  arrived_at timestamptz not null, undone_at timestamptz, received_at timestamptz not null,
+  txid xid8 not null default pg_current_xact_id());
 
 -- Pagamentos (ADR 0020): uma linha por Checkout Session da Stripe
 create table payments (id uuid primary key, batch_id uuid not null references ticket_batches,
@@ -663,6 +676,21 @@ POST /api/door/scans           { scans: [{ id, number?, keyId?, outcome, scanned
   escrita longa no banco segura a sincronização até terminar.
 - `confirm` classifica uma leitura só, enquanto o celular espera. A classificação é a primeira
   inserção em `entries`, com a mesma precedência da portaria: cancelado > já entrou > entra.
+
+Portaria do dia (ADRs 0067–0071). Campos novos são opcionais para o app antigo:
+
+```
+GET  /api/door/manifest?since=&pending=<n>&guests=<versão>
+     → … + allowedCategoryIds[], doors[{ label, categoryIds }], guests[]|null, guestsVersion,
+       guestArrivals[{ id, guestId, people, atUnixMs, deviceName, undone }]
+POST /api/door/scans           … scans[].exception? (só com outcome admitted); outcome rejected_wrong_door
+POST /api/door/guests          { arrivals: [{ id, guestId, people, arrivedAtMs, undoneAtMs }] } → { results[{ id, kept }] }
+POST /api/door/rehearsal       → 204
+PUT  /api/door-accesses/{id}/categories   { categoryIds }
+GET  /api/events/{id}/door/rehearsal-sheet → PDF com ingressos de amostra
+GET  /api/events/{id}/door/live            → entradas, curva de 5 min, portas, celulares, recusas, lista, bilheteria
+GET|POST /api/events/{id}/guests, POST /api/events/{id}/guests/bulk, PUT|DELETE /api/guests/{id}
+```
 
 Os DTOs são structs Rust com `#[derive(TS)]` (`ts-rs`), e os tipos TS são gerados em
 `packages/api-types`. Um teste do CI falha se os tipos gerados estiverem desatualizados.

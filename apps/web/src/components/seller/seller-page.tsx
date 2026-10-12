@@ -15,6 +15,7 @@ import {
   RotateCcw,
   ShieldCheck,
   Smartphone,
+  Store,
   Ticket,
   UserRound,
   WifiOff,
@@ -563,6 +564,13 @@ export function SellerPage() {
           </span>
         </div>
       </section>
+
+      {view.boxOffice && (
+        <p role="note" className="flex items-start gap-3 rounded-2xl border border-brand/30 bg-brand-soft px-4 py-3 text-sm leading-relaxed text-brand-soft-fg">
+          <Store aria-hidden className="mt-0.5 size-4 shrink-0" />
+          {t.boxOffice}
+        </p>
+      )}
 
       {s.amountDueCents !== null && s.balanceCents !== null && (
         <section className="flex flex-col gap-3 rounded-3xl border border-border bg-surface p-5 shadow-xs">

@@ -23,9 +23,9 @@ use crate::routes::events::MAX_ART_BYTES;
 use crate::routes::organization::MAX_LOGO_BYTES;
 use crate::routes::{
     account, admin, analytics, announcements, batches, billing, categories, changelog, door,
-    event_changes, events, exports, ledger, mail_admin, moderation, organization, platform,
-    privacy, refunds, report, seller_links, sellers, settlement, status, support, tables, team,
-    tickets, two_factor, voids,
+    door_live, door_rehearsal, event_changes, events, exports, guests, ledger, mail_admin,
+    moderation, organization, platform, privacy, refunds, report, seller_links, sellers,
+    settlement, status, support, tables, team, tickets, two_factor, voids,
 };
 use crate::routes::{referrals, verify};
 use crate::state::AppState;
@@ -295,6 +295,24 @@ pub fn router(state: AppState) -> Router {
         .route("/events/{id}/postpone", post(event_changes::postpone))
         .route("/events/{id}/cancel", post(event_changes::cancel))
         .route("/events/{id}/cancel/undo", post(event_changes::undo_cancel))
+        // Door features (ADRs 0067–0071).
+        .route(
+            "/door-accesses/{id}/categories",
+            put(door::update_access_categories),
+        )
+        .route("/door/rehearsal", post(door_rehearsal::done))
+        .route(
+            "/events/{id}/door/rehearsal-sheet",
+            get(door_rehearsal::sheet),
+        )
+        .route("/events/{id}/door/live", get(door_live::live))
+        .route(
+            "/events/{id}/guests",
+            get(guests::list).post(guests::create),
+        )
+        .route("/events/{id}/guests/bulk", post(guests::create_bulk))
+        .route("/guests/{id}", put(guests::update).delete(guests::delete))
+        .route("/door/guests", post(guests::upload))
         // Check a ticket before buying it and refer and earn (ADRs 0075, 0076).
         .route("/verify", post(verify::verify))
         .route(

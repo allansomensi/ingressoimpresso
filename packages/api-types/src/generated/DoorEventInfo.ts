@@ -29,6 +29,10 @@ endsAt: string,
  */
 numberDigits: number, 
 /**
+ * Ticket price, charged by the box office (ADR 0069) when the category has none.
+ */
+ticketPriceCents: number | null, 
+/**
  * When the organizer canceled the event (ADR 0065): the door shows it and keeps
  * reading, the organizer decides.
  */

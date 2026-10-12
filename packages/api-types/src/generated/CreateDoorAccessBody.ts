@@ -7,4 +7,8 @@ export type CreateDoorAccessBody = {
 /**
  * Who the link is for, e.g. "Equipe da porta" (1–60 characters).
  */
-label: string, };
+label: string, 
+/**
+ * Categories this door admits (ADR 0068); empty or missing: every ticket.
+ */
+categoryIds?: Array<string>, };

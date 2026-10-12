@@ -28,6 +28,23 @@ e não acompanha estes números.
 - No ingresso no celular: **Adicionar à agenda** (funciona sem internet, com lembrete), Google
   Agenda, **Como chegar** com o novo campo de endereço do evento e, para quem tem lugar marcado,
   o mapa das mesas com a sua mesa e o seu lugar em destaque (ADR 0066).
+- Modo ensaio na portaria: antes de o evento começar, **Ensaiar** (no menu ⋮ do celular) lê a
+  folha de ensaio, uma prévia ou um ingresso e mostra o que aconteceria, sem registrar nada, e
+  testa som, vibração e lanterna. A opção some quando o primeiro ingresso entra, para não
+  atrapalhar o trabalho. O painel mostra quais celulares já ensaiaram e oferece a folha de ensaio
+  em PDF (ADR 0067).
+- Porta por categoria: um link da portaria pode aceitar só algumas categorias. Ingresso de outra
+  categoria aparece em amarelo com a porta certa, e o porteiro pode deixar entrar mesmo assim,
+  com a exceção registrada (ADR 0068).
+- Bilheteria na porta: um vendedor marcado como bilheteria vende na entrada. O celular diz quanto
+  cobrar e soma os vendidos na porta, e o acerto da bilheteria conta o que entrou (ADR 0069).
+- Lista de nomes: a aba **Lista** guarda convidados e acompanhantes (dá para colar a lista
+  inteira), e na portaria o celular busca o nome mesmo sem internet, marca quem chegou e quantas
+  pessoas, e todos os celulares ficam sabendo (ADR 0070).
+- Portaria ao vivo: a aba **Ao vivo** mostra, atualizando sozinha, as entradas contra os
+  vendidos, a curva da última hora, cada porta, categoria e celular (com alerta de quem está sem
+  sincronizar), as recusas, a lista de nomes e a bilheteria; no dia do evento, a visão geral
+  ganha um resumo (ADR 0071).
 - Página **Conferir ingresso** (`/conferir`): quem vai comprar o ingresso de outra pessoa lê o QR
   com a câmera, envia uma foto ou cola o texto e vê se ele é nosso, de qual evento, número e
   categoria, e se o número foi cancelado ou o evento mudou. Nunca mostra quem comprou nem se já

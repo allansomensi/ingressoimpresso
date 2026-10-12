@@ -1,21 +1,26 @@
 "use client";
 
-import type { BatchDto, DesignResponse, DoorOverviewDto, ExportDto, SellerDto } from "@ingressoimpresso/api-types";
+import type { BatchDto, DesignResponse, DoorOverviewDto, EventDto, ExportDto, SellerDto } from "@ingressoimpresso/api-types";
 import { useQuery } from "@tanstack/react-query";
-import { Check, ChevronRight, LogIn, Smartphone, Ticket, Users } from "lucide-react";
+import { Activity, Check, ChevronRight, LogIn, Smartphone, Ticket, Users } from "lucide-react";
+import { useState } from "react";
 
-import { Card, CardHeader, ErrorMessage, Skeleton, Stat } from "@/components/ui";
+import { Button, Card, CardHeader, ErrorMessage, Skeleton, Stat } from "@/components/ui";
+import { isDoorDay } from "@/lib/door-live";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { texts } from "@/texts/pt-BR";
 
 import { EventResults } from "./event-results";
+import { Occupancy, useDoorLive } from "./live";
 import type { SelectTab, Tab } from "./tabs";
 
 const t = texts.event.overview;
 const STEPS = ["design", "batches", "sellers", "files", "door"] as const satisfies readonly Tab[];
 
-export function OverviewTab({ eventId, onSelect }: { eventId: string; onSelect: SelectTab }) {
+export function OverviewTab({ eventId, onSelect, event }: { eventId: string; onSelect: SelectTab; event?: Pick<EventDto, "startsAt" | "endsAt"> }) {
+  // Judged once, when the tab opens (rendering stays pure).
+  const [doorDay] = useState(() => event !== undefined && isDoorDay(event.startsAt, event.endsAt, Date.now()));
   const design = useQuery({
     queryKey: ["design", eventId],
     queryFn: () => api<DesignResponse>(`/api/events/${eventId}/design`),
@@ -48,6 +53,7 @@ export function OverviewTab({ eventId, onSelect }: { eventId: string; onSelect: 
     {failure !== undefined && (
       <ErrorMessage error={failure} />
     )}
+    {doorDay && <LiveCard eventId={eventId} onSelect={onSelect} />}
     {/* Once everything is done, the results matter most; until then, the next step does. */}
     {paidTickets > 0 && doneCount === STEPS.length && <EventResults eventId={eventId} />}
     <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
@@ -126,5 +132,34 @@ export function OverviewTab({ eventId, onSelect }: { eventId: string; onSelect: 
     </div>
     {paidTickets > 0 && doneCount < STEPS.length && <EventResults eventId={eventId} />}
     </div>
+  );
+}
+
+/** On the event's day, the door at a glance (ADR 0071). */
+function LiveCard({ eventId, onSelect }: { eventId: string; onSelect: SelectTab }) {
+  const live = useDoorLive(eventId);
+  if (live.data === undefined || (live.data.devices.length === 0 && live.data.entries === 0)) {
+    return null;
+  }
+  return (
+    <Card className="border-brand/30">
+      <CardHeader
+        title={texts.event.live.overviewTitle}
+        icon={Activity}
+        className="mb-4"
+        actions={
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              onSelect("live");
+            }}
+          >
+            {texts.event.live.overviewOpen}
+          </Button>
+        }
+      />
+      <Occupancy data={live.data} compact />
+    </Card>
   );
 }

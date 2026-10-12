@@ -1,0 +1,71 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select g.name, g.companions, g.note, g.created_at,\n                  (select min(a.arrived_at) from guest_arrivals a\n                   where a.guest_id = g.id and a.undone_at is null) as arrived_at\n           from guest_list g where g.event_id = $1 order by g.name",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "guest_list",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "companions",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "guest_list",
+            "name": "companions"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "note",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "guest_list",
+            "name": "note"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "guest_list",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "arrived_at",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      null
+    ]
+  },
+  "hash": "9ca6003e2fc44b1090680c033fc019c429540d01f204d7c777a8191d4ed30963"
+}

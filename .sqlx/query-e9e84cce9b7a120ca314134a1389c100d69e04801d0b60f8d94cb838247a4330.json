@@ -1,0 +1,131 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select d.id, d.door_access_id, d.name, d.created_at, d.last_seen_at, d.revoked_at,\n                  (select count(*) from scans s where s.device_id = d.id) as \"scan_count!\",\n                  d.rehearsed_at, d.last_sync_at, d.pending_scans\n           from door_devices d where d.event_id = $1 order by d.created_at desc",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "door_devices",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "door_access_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "door_devices",
+            "name": "door_access_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "door_devices",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "door_devices",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "last_seen_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "door_devices",
+            "name": "last_seen_at"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "revoked_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "door_devices",
+            "name": "revoked_at"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "scan_count!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 7,
+        "name": "rehearsed_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "door_devices",
+            "name": "rehearsed_at"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "last_sync_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "door_devices",
+            "name": "last_sync_at"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "pending_scans",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "door_devices",
+            "name": "pending_scans"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      null,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "e9e84cce9b7a120ca314134a1389c100d69e04801d0b60f8d94cb838247a4330"
+}

@@ -1,0 +1,125 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select e.name, e.venue, e.starts_at, e.utc_offset_minutes, e.ticket_price_cents,\n                  e.sellers_send_tickets, o.name as organizer, s.name as seller, s.box_office\n           from events e join organizations o on o.id = e.organization_id\n                         join sellers s on s.id = $2\n           where e.id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "venue",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "venue"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "starts_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "starts_at"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "utc_offset_minutes",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "utc_offset_minutes"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "ticket_price_cents",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "ticket_price_cents"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "sellers_send_tickets",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "sellers_send_tickets"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "organizer",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "organizations",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "seller",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "sellers",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "box_office",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "sellers",
+            "name": "box_office"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "1d3e1a38d0fae96b19df5fdca7541fb75d8595cddda2bf6fd4bf4fece51cc3f8"
+}

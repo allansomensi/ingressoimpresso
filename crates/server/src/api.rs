@@ -1184,6 +1184,10 @@ dto! {
         pub name: String,
         /// Phone (optional).
         pub phone: Option<String>,
+        /// Box office (ADR 0069); missing keeps the current choice (no on a new seller).
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional))]
+        pub box_office: Option<bool>,
     }
 
     /// A seller with the ranges they hold.
@@ -1199,6 +1203,8 @@ dto! {
         pub ranges: Vec<RangeDto>,
         /// The seller's active private link (ADR 0053), if any.
         pub link: Option<SellerLinkDto>,
+        /// Sells at the door (ADR 0069): sold = numbers that entered.
+        pub box_office: bool,
     }
 
     /// A seller's private link, where they mark what they sold (ADR 0053).
@@ -1438,6 +1444,8 @@ dto! {
         pub categories: Vec<SellerCategoryDto>,
         /// The seller may send digital tickets of what they sold (ADR 0061).
         pub can_send_tickets: bool,
+        /// The seller is the box office (ADR 0069): what entered counts as sold.
+        pub box_office: bool,
     }
 
     /// An inclusive range of ticket numbers.
@@ -1797,6 +1805,10 @@ dto! {
     pub struct CreateDoorAccessBody {
         /// Who the link is for, e.g. "Equipe da porta" (1–60 characters).
         pub label: String,
+        /// Categories this door admits (ADR 0068); empty or missing: every ticket.
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional, as = "Option<Vec<String>>"))]
+        pub category_ids: Option<Vec<Uuid>>,
     }
 
     /// A door access link (ADR 0007). The token itself is shown only once, at creation.
@@ -1818,6 +1830,9 @@ dto! {
         #[serde(with = "time::serde::rfc3339")]
         #[cfg_attr(feature = "ts", ts(type = "string"))]
         pub created_at: OffsetDateTime,
+        /// Categories this door admits (ADR 0068); empty: every ticket.
+        #[cfg_attr(feature = "ts", ts(type = "string[]"))]
+        pub category_ids: Vec<Uuid>,
     }
 
     /// A new access link with its token (never retrievable again).
@@ -1853,6 +1868,16 @@ dto! {
         /// Scans received from it.
         #[cfg_attr(feature = "ts", ts(type = "number"))]
         pub scan_count: i64,
+        /// When it finished a rehearsal (ADR 0067).
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub rehearsed_at: Option<OffsetDateTime>,
+        /// Last manifest it downloaded (ADR 0071).
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub last_sync_at: Option<OffsetDateTime>,
+        /// Scans and arrivals it still had to send at its last sync (`null`: not reported).
+        pub pending_scans: Option<i32>,
     }
 
     /// `GET /api/events/{id}/door`.
@@ -1906,6 +1931,9 @@ dto! {
         pub ends_at: OffsetDateTime,
         /// Digits of printed numbers (zero padded).
         pub number_digits: u8,
+        /// Ticket price, charged by the box office (ADR 0069) when the category has none.
+        #[serde(default)]
+        pub ticket_price_cents: Option<i32>,
         /// When the organizer canceled the event (ADR 0065): the door shows it and keeps
         /// reading, the organizer decides.
         #[serde(default, with = "time::serde::rfc3339::option")]
@@ -1951,10 +1979,16 @@ dto! {
         pub first: u32,
         /// Last number (inclusive).
         pub last: u32,
+        /// The seller is the box office (ADR 0069): these numbers are sold at the door.
+        #[serde(default)]
+        pub box_office: bool,
     }
 
     /// Numbers of one category, for the door.
     pub struct DoorCategoryRangeDto {
+        /// Category id (ADR 0068), to tell whether this door admits it.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
         /// Category name.
         pub name: String,
         /// Band colour (`#rrggbb`).
@@ -1963,6 +1997,9 @@ dto! {
         pub first: u32,
         /// Last number (inclusive).
         pub last: u32,
+        /// The category's own price (`null`: the event's; 0: courtesy), for the box office.
+        #[serde(default)]
+        pub price_cents: Option<i32>,
     }
 
     /// The table and seat of a ticket, for the door.
@@ -2015,6 +2052,22 @@ dto! {
         /// Server clock, Unix milliseconds.
         #[cfg_attr(feature = "ts", ts(type = "number"))]
         pub server_time_ms: i64,
+        /// Categories this phone's door admits (ADR 0068); empty: every ticket.
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(type = "string[]"))]
+        pub allowed_category_ids: Vec<Uuid>,
+        /// The event's other open doors, to send a guest to the right one.
+        #[serde(default)]
+        pub doors: Vec<DoorRouteDto>,
+        /// The guest list (ADR 0070), only when it changed since `guests=<version>`.
+        #[serde(default)]
+        pub guests: Option<Vec<DoorGuestDto>>,
+        /// Version of the guest list, for the next call.
+        #[serde(default)]
+        pub guests_version: String,
+        /// Guest arrivals (and undos) since `since`, from every phone.
+        #[serde(default)]
+        pub guest_arrivals: Vec<DoorGuestArrivalDto>,
     }
 
     /// One scan uploaded by a phone.
@@ -2031,6 +2084,10 @@ dto! {
         /// Unix milliseconds (phone clock corrected by the server offset).
         #[cfg_attr(feature = "ts", ts(type = "number"))]
         pub scanned_at_ms: i64,
+        /// Let in although this door does not take its category (ADR 0068).
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional))]
+        pub exception: Option<bool>,
     }
 
     /// `POST /api/door/scans`.
@@ -2118,6 +2175,8 @@ dto! {
         /// Marked as sold by the seller on their link (ADR 0053), not voided.
         #[cfg_attr(feature = "ts", ts(type = "number"))]
         pub marked_sold: i64,
+        /// A box office seller (ADR 0069): sold = numbers that entered.
+        pub box_office: bool,
     }
 
     /// What one door phone did.
@@ -2276,6 +2335,8 @@ dto_enum! {
         RejectedInvalid,
         /// Yellow: ticket of another event.
         RejectedOtherEvent,
+        /// Yellow: a category this door does not take (ADR 0068); no entry recorded.
+        RejectedWrongDoor,
     }
 
     /// Kind of a changelog note.
@@ -2372,6 +2433,7 @@ db_enum!(ScanOutcome {
     RejectedVoid => "rejected_void",
     RejectedInvalid => "rejected_invalid",
     RejectedOtherEvent => "rejected_other_event",
+    RejectedWrongDoor => "rejected_wrong_door",
 });
 db_enum!(ScanClass { FirstEntry => "first_entry", DuplicateEntry => "duplicate_entry", VoidEntry => "void_entry" });
 
@@ -3465,6 +3527,329 @@ db_enum!(IncidentStatus {
     Monitoring => "monitoring",
     Resolved => "resolved",
 });
+
+// Door features (ADRs 0067–0071) ------------------------------------------------------------
+
+dto! {
+    /// Another open door of the event, as a phone sees it (ADR 0068).
+    pub struct DoorRouteDto {
+        /// The link's label, e.g. "Porta VIP".
+        pub label: String,
+        /// Categories it admits; empty: every ticket.
+        #[cfg_attr(feature = "ts", ts(type = "string[]"))]
+        pub category_ids: Vec<Uuid>,
+    }
+
+    /// `PUT /api/door-accesses/{id}/categories`.
+    pub struct DoorAccessCategoriesBody {
+        /// Categories the door admits; empty: every ticket.
+        #[cfg_attr(feature = "ts", ts(type = "string[]"))]
+        pub category_ids: Vec<Uuid>,
+    }
+
+    /// A guest, as the door phones keep it (ADR 0070).
+    pub struct DoorGuestDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// Name.
+        pub name: String,
+        /// People besides the guest (0–20).
+        pub companions: i16,
+        /// Note for the door, e.g. "camarim".
+        pub note: Option<String>,
+        /// Category, shown in its colour.
+        pub category: Option<DoorCategoryTagDto>,
+    }
+
+    /// An arrival recorded by a door phone (or its undo), for every phone.
+    pub struct DoorGuestArrivalDto {
+        /// Generated on the phone.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// The guest.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub guest_id: Uuid,
+        /// How many people came in (the guest and companions).
+        pub people: i16,
+        /// Unix milliseconds (phone clock corrected by the server offset).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub at_unix_ms: i64,
+        /// Phone that recorded it.
+        pub device_name: String,
+        /// Undone by mistake on that phone.
+        pub undone: bool,
+    }
+
+    /// One arrival uploaded by a phone; uploaded again when undone.
+    pub struct DoorGuestUpload {
+        /// Generated on the phone (uploads are idempotent).
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// The guest.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub guest_id: Uuid,
+        /// People who came in (1–21).
+        pub people: i16,
+        /// Unix milliseconds (phone clock corrected by the server offset).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub arrived_at_ms: i64,
+        /// When it was undone (on the same phone, within 2 minutes), Unix milliseconds.
+        #[cfg_attr(feature = "ts", ts(type = "number | null"))]
+        pub undone_at_ms: Option<i64>,
+    }
+
+    /// `POST /api/door/guests`.
+    pub struct DoorGuestsBody {
+        /// Up to 500 arrivals.
+        pub arrivals: Vec<DoorGuestUpload>,
+    }
+
+    /// `POST /api/door/guests` response, in request order.
+    pub struct DoorGuestsResponse {
+        /// Per arrival: kept, or dropped because the guest left the list.
+        pub results: Vec<DoorGuestResult>,
+    }
+
+    /// Server view of an uploaded arrival.
+    pub struct DoorGuestResult {
+        /// Arrival id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// `false`: the guest was removed from the list meanwhile (nothing to send again).
+        pub kept: bool,
+    }
+
+    /// `POST /api/events/{id}/guests`, `PUT /api/guests/{id}`.
+    pub struct GuestBody {
+        /// Name (1–80 characters).
+        pub name: String,
+        /// People besides the guest (0–20).
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional))]
+        pub companions: Option<i16>,
+        /// Note for the door (up to 120 characters).
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional))]
+        pub note: Option<String>,
+        /// Category of the event.
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional, as = "Option<String>"))]
+        pub category_id: Option<Uuid>,
+    }
+
+    /// `POST /api/events/{id}/guests/bulk`: names pasted one per line.
+    pub struct GuestBulkBody {
+        /// Up to 500 guests.
+        pub guests: Vec<GuestBody>,
+    }
+
+    /// When a guest arrived (the first arrival that was not undone).
+    pub struct GuestArrivalDto {
+        /// When.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub at: OffsetDateTime,
+        /// Which phone.
+        pub device_name: String,
+        /// People in, across every arrival (at most the guest and companions).
+        pub people: i32,
+    }
+
+    /// A guest on the list (ADR 0070).
+    pub struct GuestDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// Name.
+        pub name: String,
+        /// People besides the guest.
+        pub companions: i16,
+        /// Note.
+        pub note: Option<String>,
+        /// Category.
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub category_id: Option<Uuid>,
+        /// Arrival, once they came in.
+        pub arrival: Option<GuestArrivalDto>,
+        /// Added at.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub created_at: OffsetDateTime,
+    }
+
+    /// `GET /api/events/{id}/door/live` (ADR 0071): the door right now.
+    pub struct DoorLiveDto {
+        /// Paid tickets.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub issued: i64,
+        /// Paid tickets not returned unsold nor lost (what may still come in).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub sold: i64,
+        /// Tickets that entered.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub entries: i64,
+        /// First and last entry of the night.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub first_entry_at: Option<OffsetDateTime>,
+        /// Last entry.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub last_entry_at: Option<OffsetDateTime>,
+        /// Entries per 5 minutes over the last hour, oldest first (12 buckets).
+        pub timeline: Vec<DoorLiveBucketDto>,
+        /// Entries per door link.
+        pub doors: Vec<DoorLiveDoorDto>,
+        /// Every phone, with how it is doing.
+        pub devices: Vec<DoorLiveDeviceDto>,
+        /// Entries per category; empty without categories.
+        pub categories: Vec<DoorLiveCategoryDto>,
+        /// What the door stopped or let through by exception.
+        pub refusals: DoorLiveRefusalsDto,
+        /// The guest list (ADR 0070).
+        pub guests: DoorLiveGuestsDto,
+        /// Sales at the door (ADR 0069).
+        pub box_office: DoorLiveBoxOfficeDto,
+        /// Server clock.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub generated_at: OffsetDateTime,
+    }
+
+    /// Entries in a 5-minute window.
+    pub struct DoorLiveBucketDto {
+        /// Window start.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub start: OffsetDateTime,
+        /// First entries in it.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub entries: i64,
+    }
+
+    /// One door link.
+    pub struct DoorLiveDoorDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// Label.
+        pub label: String,
+        /// Category names it admits; empty: every ticket.
+        pub categories: Vec<String>,
+        /// Revoked or expired.
+        pub closed: bool,
+        /// First entries recorded by its phones.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub entries: i64,
+    }
+
+    /// One phone.
+    pub struct DoorLiveDeviceDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// Name.
+        pub name: String,
+        /// Its door link's label.
+        pub door: String,
+        /// First entries it recorded.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub entries: i64,
+        /// Every scan received from it.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub scans: i64,
+        /// Last contact with the server.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub last_seen_at: Option<OffsetDateTime>,
+        /// Last manifest downloaded.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub last_sync_at: Option<OffsetDateTime>,
+        /// Still to send at its last sync (`null`: not reported).
+        pub pending_scans: Option<i32>,
+        /// Rehearsal finished (ADR 0067).
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub rehearsed_at: Option<OffsetDateTime>,
+        /// Disconnected by the organizer (or its link was).
+        pub revoked: bool,
+    }
+
+    /// Entries of one category.
+    pub struct DoorLiveCategoryDto {
+        /// Name; `null`: numbers without a category.
+        pub name: Option<String>,
+        /// Band colour.
+        pub color: Option<String>,
+        /// Paid tickets not returned unsold nor lost.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub sold: i64,
+        /// Entries.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub entries: i64,
+    }
+
+    /// Readings that did not let anyone in, and exceptions.
+    pub struct DoorLiveRefusalsDto {
+        /// Copies stopped (locally or by the online confirmation).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub blocked_copies: i64,
+        /// Copies that entered through phones offline (found on sync).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub offline_duplicates: i64,
+        /// Forged, damaged or foreign QR codes.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub invalid: i64,
+        /// Tickets of other events.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub other_event: i64,
+        /// Canceled tickets stopped at the door.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub voided: i64,
+        /// Canceled tickets that entered (the phone did not know yet).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub void_entries: i64,
+        /// Sent to another door (ADR 0068).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub wrong_door: i64,
+        /// Let in anyway at a door that does not take their category.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub wrong_door_admitted: i64,
+    }
+
+    /// The guest list at the door.
+    pub struct DoorLiveGuestsDto {
+        /// Names on the list.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub guests: i64,
+        /// People on the list (guests and companions).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub people: i64,
+        /// Names that arrived.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub arrived_guests: i64,
+        /// People who came in.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub arrived_people: i64,
+    }
+
+    /// Box office sales: box office numbers that entered.
+    pub struct DoorLiveBoxOfficeDto {
+        /// Whether any seller is the box office.
+        pub enabled: bool,
+        /// Tickets sold at the door.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub sold: i64,
+        /// Their price (the category's, else the event's); `null` when one has no price.
+        #[cfg_attr(feature = "ts", ts(type = "number | null"))]
+        pub amount_cents: Option<i64>,
+        /// Courtesies among them (price 0).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub courtesies: i64,
+    }
+}
 
 // Organization profile, postponing or canceling, the digital ticket's extras (ADRs 0064–0066) --
 

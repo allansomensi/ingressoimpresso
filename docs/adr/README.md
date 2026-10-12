@@ -76,5 +76,10 @@ feita e as consequências.
 | [0064](0064-perfil-da-organizacao.md) | Perfil da organização | Aceito |
 | [0065](0065-adiar-ou-cancelar-o-evento.md) | Adiar ou cancelar o evento | Aceito |
 | [0066](0066-agenda-como-chegar-e-mesa-no-ingresso-digital.md) | Agenda, como chegar e "onde fica minha mesa" no ingresso digital | Aceito |
+| [0067](0067-modo-ensaio-da-portaria.md) | Modo ensaio da portaria | Aceito |
+| [0068](0068-porta-por-categoria.md) | Porta por categoria | Aceito |
+| [0069](0069-bilheteria-na-porta.md) | Bilheteria na porta | Aceito |
+| [0070](0070-lista-de-nomes-na-porta.md) | Lista de nomes na porta | Aceito |
+| [0071](0071-portaria-ao-vivo.md) | Portaria ao vivo | Aceito |
 | [0075](0075-conferir-ingresso-antes-de-comprar.md) | Conferir ingresso antes de comprar | Aceito |
 | [0076](0076-indique-e-ganhe.md) | Indique e ganhe | Aceito |

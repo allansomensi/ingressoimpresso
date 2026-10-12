@@ -4,6 +4,10 @@
  */
 import type {
   DoorCategoryRangeDto,
+  DoorGuestArrivalDto,
+  DoorGuestDto,
+  DoorGuestUpload,
+  DoorRouteDto,
   DoorSeatDto,
   DoorEventInfo,
   DoorScanUpload,
@@ -13,6 +17,8 @@ import type {
   ScanOutcome,
 } from "@ingressoimpresso/api-types";
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
+
+import type { GuestArrival } from "./logic";
 
 /** This phone, as registered. */
 export interface StoredDevice {
@@ -31,6 +37,11 @@ export interface StoredManifest {
   /** Missing in manifests stored before categories and tables (ADR 0056, 0057). */
   categories?: DoorCategoryRangeDto[];
   seats?: DoorSeatDto[];
+  /** Missing in manifests stored before the door features (ADRs 0068, 0070). */
+  allowedCategoryIds?: string[];
+  doors?: DoorRouteDto[];
+  guests?: DoorGuestDto[];
+  guestsVersion?: string;
   cursor: string;
   /** Local time of the last successful sync. */
   syncedAt: number;
@@ -44,6 +55,17 @@ export interface StoredScan {
   number: number | null;
   outcome: ScanOutcome;
   scannedAtMs: number;
+  synced: 0 | 1;
+  /** Let in at a door that does not take its category (ADR 0068). */
+  exception?: boolean;
+}
+
+/**
+ * A guest arrival of any phone (ADR 0070). `own` arrivals were recorded here; `synced` is 0 while
+ * an own arrival (or its undo) has not reached the server.
+ */
+export interface StoredArrival extends GuestArrival {
+  own: 0 | 1;
   synced: 0 | 1;
 }
 
@@ -60,6 +82,9 @@ interface DoorDb extends DBSchema {
   manifest: { key: "self"; value: StoredManifest };
   scans: { key: string; value: StoredScan; indexes: { synced: number } };
   entries: { key: string; value: StoredEntry };
+  arrivals: { key: string; value: StoredArrival; indexes: { synced: number } };
+  /** Small flags, e.g. a finished rehearsal not yet told to the server. */
+  meta: { key: string; value: boolean };
 }
 
 const DB_NAME = "ingressoimpresso-portaria";
@@ -67,12 +92,19 @@ const DB_NAME = "ingressoimpresso-portaria";
 let opening: Promise<IDBPDatabase<DoorDb>> | undefined;
 
 function db(): Promise<IDBPDatabase<DoorDb>> {
-  opening ??= openDB<DoorDb>(DB_NAME, 1, {
-    upgrade(database) {
-      database.createObjectStore("device");
-      database.createObjectStore("manifest");
-      database.createObjectStore("scans", { keyPath: "id" }).createIndex("synced", "synced");
-      database.createObjectStore("entries", { keyPath: "scanId" });
+  opening ??= openDB<DoorDb>(DB_NAME, 2, {
+    upgrade(database, oldVersion) {
+      if (oldVersion < 1) {
+        database.createObjectStore("device");
+        database.createObjectStore("manifest");
+        database.createObjectStore("scans", { keyPath: "id" }).createIndex("synced", "synced");
+        database.createObjectStore("entries", { keyPath: "scanId" });
+      }
+      // Version 2 (ADRs 0067, 0070): guest arrivals and flags; scans and entries stay.
+      if (oldVersion < 2) {
+        database.createObjectStore("arrivals", { keyPath: "id" }).createIndex("synced", "synced");
+        database.createObjectStore("meta");
+      }
     },
   });
   return opening;
@@ -84,23 +116,27 @@ export async function loadDevice(): Promise<StoredDevice | undefined> {
 
 /** Saves a new registration, dropping every trace of a previous one. */
 export async function saveNewDevice(device: StoredDevice): Promise<void> {
-  const tx = (await db()).transaction(["device", "manifest", "scans", "entries"], "readwrite");
+  const tx = (await db()).transaction(["device", "manifest", "scans", "entries", "arrivals", "meta"], "readwrite");
   await Promise.all([
     tx.objectStore("manifest").clear(),
     tx.objectStore("scans").clear(),
     tx.objectStore("entries").clear(),
+    tx.objectStore("arrivals").clear(),
+    tx.objectStore("meta").clear(),
     tx.objectStore("device").put(device, "self"),
     tx.done,
   ]);
 }
 
 export async function forgetEverything(): Promise<void> {
-  const tx = (await db()).transaction(["device", "manifest", "scans", "entries"], "readwrite");
+  const tx = (await db()).transaction(["device", "manifest", "scans", "entries", "arrivals", "meta"], "readwrite");
   await Promise.all([
     tx.objectStore("device").clear(),
     tx.objectStore("manifest").clear(),
     tx.objectStore("scans").clear(),
     tx.objectStore("entries").clear(),
+    tx.objectStore("arrivals").clear(),
+    tx.objectStore("meta").clear(),
     tx.done,
   ]);
 }
@@ -143,6 +179,12 @@ export async function markSynced(ids: readonly string[]): Promise<void> {
   await tx.done;
 }
 
+/** Numbers this phone let in (box office counter, ADR 0069). */
+export async function ownAdmittedNumbers(): Promise<number[]> {
+  const scans = await (await db()).getAll("scans");
+  return scans.flatMap((scan) => (scan.outcome === "admitted" && scan.number !== null ? [scan.number] : []));
+}
+
 export async function allEntries(): Promise<StoredEntry[]> {
   return (await db()).getAll("entries");
 }
@@ -167,5 +209,103 @@ export async function addEntries(entries: readonly StoredEntry[]): Promise<Store
 
 /** The upload form of a stored scan. */
 export function toUpload(scan: StoredScan): DoorScanUpload {
-  return { id: scan.id, number: scan.number, keyId: null, outcome: scan.outcome, scannedAtMs: scan.scannedAtMs };
+  const upload: DoorScanUpload = { id: scan.id, number: scan.number, keyId: null, outcome: scan.outcome, scannedAtMs: scan.scannedAtMs };
+  return scan.exception === true ? { ...upload, exception: true } : upload;
+}
+
+// --- Guest arrivals (ADR 0070) ----------------------------------------------------------
+
+export async function allArrivals(): Promise<StoredArrival[]> {
+  return (await db()).getAll("arrivals");
+}
+
+/** Persists an arrival recorded here (before the screen confirms it). */
+export async function recordArrival(arrival: GuestArrival): Promise<void> {
+  await (await db()).put("arrivals", { ...arrival, own: 1, synced: 0 });
+}
+
+/** Marks an own arrival as undone; returns it, or `undefined` if it is not ours. */
+export async function undoArrival(id: string, at: number): Promise<StoredArrival | undefined> {
+  const tx = (await db()).transaction("arrivals", "readwrite");
+  const arrival = await tx.store.get(id);
+  if (arrival?.own !== 1 || arrival.undoneAtMs !== null) {
+    await tx.done;
+    return undefined;
+  }
+  const undone: StoredArrival = { ...arrival, undoneAtMs: at, synced: 0 };
+  await tx.store.put(undone);
+  await tx.done;
+  return undone;
+}
+
+export async function pendingArrivals(limit: number): Promise<StoredArrival[]> {
+  return (await db()).getAllFromIndex("arrivals", "synced", 0, limit);
+}
+
+export async function pendingArrivalCount(): Promise<number> {
+  return (await db()).countFromIndex("arrivals", "synced", 0);
+}
+
+/** Marks uploaded arrivals as synced, unless they were undone while the upload was on its way. */
+export async function markArrivalsSynced(sent: readonly DoorGuestUpload[]): Promise<void> {
+  const tx = (await db()).transaction("arrivals", "readwrite");
+  for (const upload of sent) {
+    const arrival = await tx.store.get(upload.id);
+    if (arrival !== undefined && arrival.synced === 0 && arrival.undoneAtMs === upload.undoneAtMs) {
+      await tx.store.put({ ...arrival, synced: 1 });
+    }
+  }
+  await tx.done;
+}
+
+/** Stores arrivals heard from the server: new ones, and undos of known ones. */
+export async function mergeArrivals(arrivals: readonly DoorGuestArrivalDto[]): Promise<boolean> {
+  if (arrivals.length === 0) {
+    return false;
+  }
+  const tx = (await db()).transaction("arrivals", "readwrite");
+  let changed = false;
+  for (const arrival of arrivals) {
+    const known = await tx.store.get(arrival.id);
+    if (known === undefined) {
+      await tx.store.put({
+        id: arrival.id,
+        guestId: arrival.guestId,
+        people: arrival.people,
+        atUnixMs: arrival.atUnixMs,
+        deviceName: arrival.deviceName,
+        // The server does not say when: any time marks it as undone.
+        undoneAtMs: arrival.undone ? arrival.atUnixMs : null,
+        own: 0,
+        synced: 1,
+      });
+      changed = true;
+    } else if (arrival.undone && known.undoneAtMs === null) {
+      await tx.store.put({ ...known, undoneAtMs: arrival.atUnixMs });
+      changed = true;
+    }
+  }
+  await tx.done;
+  return changed;
+}
+
+/** The upload form of an arrival. */
+export function toArrivalUpload(arrival: StoredArrival): DoorGuestUpload {
+  return {
+    id: arrival.id,
+    guestId: arrival.guestId,
+    people: arrival.people,
+    arrivedAtMs: arrival.atUnixMs,
+    undoneAtMs: arrival.undoneAtMs,
+  };
+}
+
+// --- Flags -------------------------------------------------------------------------------
+
+export async function readFlag(key: "rehearsalPending"): Promise<boolean> {
+  return (await (await db()).get("meta", key)) ?? false;
+}
+
+export async function writeFlag(key: "rehearsalPending", value: boolean): Promise<void> {
+  await (await db()).put("meta", value, key);
 }

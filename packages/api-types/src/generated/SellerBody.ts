@@ -11,4 +11,8 @@ name: string,
 /**
  * Phone (optional).
  */
-phone: string | null, };
+phone: string | null, 
+/**
+ * Box office (ADR 0069); missing keeps the current choice (no on a new seller).
+ */
+boxOffice?: boolean, };

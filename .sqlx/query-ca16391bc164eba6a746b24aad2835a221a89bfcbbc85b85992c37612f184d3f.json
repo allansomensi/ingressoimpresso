@@ -1,0 +1,64 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select id, name, phone, box_office from sellers where event_id = $1 order by name",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "sellers",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "sellers",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "phone",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "sellers",
+            "name": "phone"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "box_office",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "sellers",
+            "name": "box_office"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "ca16391bc164eba6a746b24aad2835a221a89bfcbbc85b85992c37612f184d3f"
+}

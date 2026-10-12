@@ -63,4 +63,8 @@ categories: Array<SellerCategoryDto>,
 /**
  * The seller may send digital tickets of what they sold (ADR 0061).
  */
-canSendTickets: boolean, };
+canSendTickets: boolean, 
+/**
+ * The seller is the box office (ADR 0069): what entered counts as sold.
+ */
+boxOffice: boolean, };

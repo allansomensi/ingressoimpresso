@@ -25,4 +25,8 @@ ranges: Array<RangeDto>,
 /**
  * The seller's active private link (ADR 0053), if any.
  */
-link: SellerLinkDto | null, };
+link: SellerLinkDto | null, 
+/**
+ * Sells at the door (ADR 0069): sold = numbers that entered.
+ */
+boxOffice: boolean, };
