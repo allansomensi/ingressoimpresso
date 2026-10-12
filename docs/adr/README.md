@@ -73,3 +73,8 @@ feita e as consequências.
 | [0061](0061-ingresso-do-vendedor-e-segunda-via.md) | Ingresso no celular pelo vendedor e segunda via | Aceito |
 | [0062](0062-paginas-publicas-para-busca.md) | Páginas públicas para busca: tipos de evento e galeria de modelos | Aceito |
 | [0063](0063-reembolsos-do-stripe-e-receita-liquida.md) | Reembolsos do Stripe e receita líquida | Aceito |
+| [0067](0067-modo-ensaio-da-portaria.md) | Modo ensaio da portaria | Aceito |
+| [0068](0068-porta-por-categoria.md) | Porta por categoria | Aceito |
+| [0069](0069-bilheteria-na-porta.md) | Bilheteria na porta | Aceito |
+| [0070](0070-lista-de-nomes-na-porta.md) | Lista de nomes na porta | Aceito |
+| [0071](0071-portaria-ao-vivo.md) | Portaria ao vivo | Aceito |
