@@ -406,6 +406,16 @@ pub async fn duplicate(
     .await?;
     super::team::copy(&mut tx, event_id, copy.id, user.id).await?;
     copy_categories_and_tables(&mut tx, event_id, copy.id).await?;
+    // The event's switches are setup too: sellers sending tickets (ADR 0061) and the public
+    // check (ADR 0075).
+    sqlx::query!(
+        r#"update events c set sellers_send_tickets = s.sellers_send_tickets, public_verify = s.public_verify
+           from events s where s.id = $1 and c.id = $2"#,
+        event_id,
+        copy.id,
+    )
+    .execute(&mut *tx)
+    .await?;
     tx.commit().await?;
     // A copy of art nobody has looked at yet is classified like a new upload (ADR 0042).
     for art_id in copied_art.into_iter().chain(unchecked_logos) {

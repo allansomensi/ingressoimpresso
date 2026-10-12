@@ -77,12 +77,36 @@ async fn duplicating_copies_details_design_art_and_sellers(pool: PgPool) {
     )
     .await;
 
+    // The event's switches are setup too.
+    app.put(
+        &format!("/api/events/{event}/seller-settings"),
+        &token,
+        json!({ "sendTickets": false }),
+    )
+    .await;
+    app.put(
+        &format!("/api/events/{event}/verify-settings"),
+        &token,
+        json!({ "publicVerify": false }),
+    )
+    .await;
+
     let copy = app
         .post(&format!("/api/events/{event}/duplicate"), &token, json!({}))
         .await;
     assert_eq!(copy.status, StatusCode::CREATED);
     let copy = copy.json();
     let id = copy["id"].as_str().unwrap();
+    let seller_settings = app
+        .get(&format!("/api/events/{id}/seller-settings"), &token)
+        .await
+        .json();
+    assert_eq!(seller_settings["sendTickets"], false);
+    let verify_settings = app
+        .get(&format!("/api/events/{id}/verify-settings"), &token)
+        .await
+        .json();
+    assert_eq!(verify_settings["publicVerify"], false);
     assert_ne!(id, event);
     assert_eq!(copy["name"], "Turnê de Inverno (cópia)");
     assert_eq!(copy["venue"], "Bar do Zé");
