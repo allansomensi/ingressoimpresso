@@ -122,7 +122,7 @@ export function useSellerSync() {
           storeQueue(queueRef.current.filter((item) => !ids.has(item.id)));
           keep(answer.view);
           addNotices(syncNotices(answer.results, batch, answer.view.numberDigits, previous?.reservations ?? []));
-          sent += batch.length;
+          sent += answer.results.filter((result) => result.outcome !== "rejected").length;
         }
       } while (queueRef.current.length > 0 || again.current);
       setOnline(true);

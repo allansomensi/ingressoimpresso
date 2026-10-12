@@ -152,6 +152,20 @@ describe("settlement", () => {
     ]);
   });
 
+  it("reminds the seller of the reserved numbers (not money yet)", () => {
+    const message = settlementMessage({
+      seller: "Maria Souza",
+      eventName: "Show da Banda",
+      ranges: [{ first: 1, last: 40 }],
+      row: row({ reserved: 3 }),
+      priceCents: 2000,
+    });
+    expect(message).toContain("📌 Reservados (ainda não pagos): 3");
+    expect(settlementMessage({ seller: "Caio", eventName: "Show", ranges: [], row: row({ reserved: 3, boxOffice: true }), priceCents: 2000 })).not.toContain(
+      "Reservados",
+    );
+  });
+
   it("links to the seller's WhatsApp with the country code", () => {
     expect(whatsappLink("(11) 98888-7777", "oi")).toBe("https://wa.me/5511988887777?text=oi");
     expect(whatsappLink("011 3333-4444", "oi")).toBe("https://wa.me/551133334444?text=oi");
