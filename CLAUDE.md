@@ -154,6 +154,19 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   (`reward_paid_batch`, uma vez); estorno total revoga o que sobrou (`revoke_for_batch` em
   `refund_batch`). Cartão em Minha conta e seção Indicações no admin.
 
+- **Várias datas e lista do que falta (ADRs 0077, 0078): implementados.** Cada data é um evento
+  inteiro (chave, `qr_tag`, lotes, portaria e acerto próprios) ligado por `event_series`
+  (`events.series_id`; série tem 2+ datas, 60 no máximo): `POST /api/events/{id}/dates` copia a
+  configuração como duplicar (`events::copy_event`), `POST /api/events/{id}/series/leave`,
+  `GET|PUT /api/series/{id}` (datas lado a lado pelo `report::build` de cada uma, vendedores
+  somados por nome; renomear leva junto as datas com o nome antigo), tudo em `routes/series.rs`
+  e só da organização. Lista de eventos agrupa as datas (`groupSeries`), página
+  `/painel/series/[id]`, "Sessão de 12/11 às 20h" no ingresso, vendedor, `/conferir` e portaria
+  (manifesto com `sessions`: a outra data é "INGRESSO DE OUTRA DATA"). O card **O que falta**
+  (`GET /api/events/{id}/checklist`, `routes/checklist.rs`) substitui o passo a passo: fatos de N
+  eventos numa consulta (`checklist::facts`), `checklistMissing` na lista ("Faltam 3"),
+  `canAct` pela parte da equipe.
+
 Plano completo em `docs/arquitetura.md` §12.
 
 ## Onde está cada coisa
@@ -209,7 +222,9 @@ crates/server        API (pacote `ingressoimpresso-server`, binário `ingressoim
                      door::extend_accesses),
                      conferir ingresso (público, ADR 0075) em routes/verify.rs, indique e
                      ganhe (código, vínculo no cadastro, recompensa e revogação) em
-                     routes/referrals.rs (ADR 0076),
+                     routes/referrals.rs (ADR 0076), várias datas em routes/series.rs
+                     (ADR 0077; a cópia em events::copy_event) e o que falta em
+                     routes/checklist.rs (ADR 0078),
                      conta em routes/account.rs + routes/privacy.rs
                      (exportar/excluir), ingresso digital em routes/tickets.rs (também o enviado
                      pelo vendedor e a segunda via, ADR 0061), novidades em
@@ -272,7 +287,11 @@ apps/web             landing em src/app/page.tsx (+ src/components/marketing: si
                      cupons em billing.tsx, pronunciamentos, e-mails, moderação, auditoria,
                      configurações, incidentes); conta em src/app/painel/conta (+ components/account);
                      sininho e avisos em components/panel/{inbox,platform-notices}.tsx + lib/platform.ts;
-                     lista de eventos em app/painel/page.tsx (ordem em lib/event-list.ts); folha
+                     lista de eventos em app/painel/page.tsx (ordem e séries em lib/event-list.ts,
+                     selos em components/panel/event-phase.tsx); página da série em
+                     app/painel/series/[id] + components/series/series-view.tsx, outra data em
+                     components/event/add-date.tsx, "Sessão de …" em lib/series.ts; card O que
+                     falta em components/event/checklist.tsx (destinos em lib/checklist.ts); folha
                      Seções do evento em components/event/sections-sheet.tsx (grupos em tabs.ts);
                      folhas arrastáveis e trava de rolagem em components/ui/sheet.ts;
                      duas etapas: cartão em components/account/two-factor.tsx e segundo passo do

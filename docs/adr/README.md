@@ -83,3 +83,5 @@ feita e as consequências.
 | [0071](0071-portaria-ao-vivo.md) | Portaria ao vivo | Aceito |
 | [0075](0075-conferir-ingresso-antes-de-comprar.md) | Conferir ingresso antes de comprar | Aceito |
 | [0076](0076-indique-e-ganhe.md) | Indique e ganhe | Aceito |
+| [0077](0077-evento-com-varias-datas.md) | Evento com várias datas | Aceito |
+| [0078](0078-lista-do-que-falta.md) | Lista do que falta | Aceito |

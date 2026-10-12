@@ -54,8 +54,21 @@ e não acompanha estes números.
   paga o primeiro lote, as duas contas ganham crédito (R$ 10 cada, pelas regras de agora). Quem
   chega pelo convite vê na entrada o que vai ganhar; o admin ajusta valores, limite e lote mínimo e
   acompanha as indicações (ADR 0076).
+- Evento com várias datas: **Adicionar outra data**, no menu do evento, cria uma nova sessão com o
+  mesmo ingresso, categorias, mesas, vendedores e equipe. Cada data tem os seus números, lotes,
+  portaria e acerto, e um ingresso de uma data nunca entra na outra. Na lista, as datas aparecem
+  juntas; a página da série mostra as datas lado a lado, os totais e os vendedores somados. O
+  ingresso no celular, a página do vendedor, a conferência e a portaria dizem "Sessão de 12/11 às
+  20h", e a portaria avisa quando o ingresso é de outra data (ADR 0077).
+- **O que falta**, na visão geral do evento: a lista do que deixa o evento pronto (endereço,
+  ingresso, arte liberada, lote pago, links dos vendedores, ingressos entregues, portaria, ensaio,
+  contato da organização e os opcionais), cada item levando à aba certa, para cada pessoa da
+  equipe o que é dela. A lista de eventos mostra "Faltam 3" (ADR 0078).
 
 ### Corrigido
+
+- Duplicar um evento passa a manter se os vendedores mandam ingressos no celular e se a
+  conferência pública está ligada.
 
 - A imagem do ingresso no celular com a arte passa a mostrar a data, o local e o preço atuais
   depois de uma mudança no evento (antes ficava a versão antiga por até um dia).

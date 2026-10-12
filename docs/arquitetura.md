@@ -476,6 +476,11 @@ create table ticket_links (id uuid primary key, event_id uuid not null reference
 --   qualifying_batch_id, referrer_cents, referred_cents, referrer_capped, revoked_at, revoke_reason
 -- credit_ledger.reason + 'referral' | 'referral_revoked' (único por referência, organização e motivo)
 
+-- Várias datas e lista do que falta (ADRs 0077, 0078); 20261101000001.
+-- event_series (id, organization_id, name); events.series_id (set null; série tem 2+ datas)
+--   Cada data é um evento inteiro: chave, qr_tag, lotes, portaria e acerto próprios.
+--   A lista do que falta não tem tabela: é calculada do que o evento tem (checklist::facts).
+
 -- Duas etapas (ADR 0045); detalhes em 20261017000001_two_factor.sql.
 -- users: totp_secret (selada), totp_enabled_at, totp_last_step; recovery_codes (hash com chave, used_at)
 
@@ -543,6 +548,16 @@ GET|POST /api/events/{id}/team   PUT|DELETE /api/team-members/{id}   POST /api/e
 GET|POST /api/events/{id}/exports              GET /api/exports/{id}
 POST /api/exports/{id}/link    → link de 10 min  GET /api/downloads/{token} (sem login)
 GET /healthz (sem banco)                       GET /readyz (consulta o banco)
+```
+
+Várias datas e lista do que falta (ADRs 0077, 0078):
+
+```
+POST /api/events/{id}/dates          { startsAt, endsAt } → a nova data (cópia da configuração, chave e QR próprios)
+POST /api/events/{id}/series/leave   → a data, fora da série (a série de uma data só é desfeita)
+GET|PUT /api/series/{id}             datas lado a lado, totais e vendedores somados; PUT { name }
+GET /api/events/{id}/checklist       { applies, missing, required, items[{ key, state, optional, area, canAct, progress, hint }] }
+GET /api/events                      … + series { id, name, dates, position }, checklistMissing (uma consulta)
 ```
 
 Pagamento, fase 6 (ADR 0020):
@@ -682,7 +697,8 @@ Portaria do dia (ADRs 0067–0071). Campos novos são opcionais para o app antig
 ```
 GET  /api/door/manifest?since=&pending=<n>&guests=<versão>
      → … + allowedCategoryIds[], doors[{ label, categoryIds }], guests[]|null, guestsVersion,
-       guestArrivals[{ id, guestId, people, atUnixMs, deviceName, undone }]
+       guestArrivals[{ id, guestId, people, atUnixMs, deviceName, undone }],
+       sessions[{ eventTag, startsAt }] (as outras datas da série, ADR 0077)
 POST /api/door/scans           … scans[].exception? (só com outcome admitted); outcome rejected_wrong_door
 POST /api/door/guests          { arrivals: [{ id, guestId, people, arrivedAtMs, undoneAtMs }] } → { results[{ id, kept }] }
 POST /api/door/rehearsal       → 204
