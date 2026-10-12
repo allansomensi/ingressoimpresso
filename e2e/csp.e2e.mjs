@@ -11,6 +11,7 @@ const PAGES = [
   "/painel/conta",
   "/painel/admin",
   "/painel/resultados",
+  "/painel/series/00000000-0000-4000-8000-000000000000",
   "/portaria",
   "/ingresso#token",
   "/vendedor#token",
