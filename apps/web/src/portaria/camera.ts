@@ -118,3 +118,13 @@ export class Scanner {
     }
   }
 }
+
+/**
+ * Reads the QR codes of a photo or screenshot, on this device (the public check of a ticket, ADR
+ * 0075, uses the door's reader without the door's service worker).
+ */
+export async function readQrImage(image: Blob): Promise<string[]> {
+  prepare();
+  const results = await readBarcodes(image, { formats: ["QRCode"], tryHarder: true, maxNumberOfSymbols: 4 });
+  return results.filter((result) => result.isValid && result.text !== "").map((result) => result.text);
+}

@@ -95,7 +95,9 @@ pub fn need(method: &Method, path: &str) -> Need {
             | "tables/{id}"
             | "events/{id}/tables/layout"
             | "events/{id}/seller-settings"
-            | "sellers/{id}/goal",
+            | "sellers/{id}/goal"
+            // The public check of the event's tickets (ADR 0075) goes with the digital tickets.
+            | "events/{id}/verify-settings",
         )
         | (
             "DELETE",

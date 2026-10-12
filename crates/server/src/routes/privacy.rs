@@ -27,11 +27,11 @@ const DELETED_ORGANIZATION: &str = "Conta excluída";
 /// Name kept on the events of an anonymized organization.
 const DELETED_EVENT: &str = "Evento excluído";
 
-fn rfc3339(at: OffsetDateTime) -> Value {
+pub(crate) fn rfc3339(at: OffsetDateTime) -> Value {
     at.format(&Rfc3339).map_or(Value::Null, Value::String)
 }
 
-fn optional_rfc3339(at: Option<OffsetDateTime>) -> Value {
+pub(crate) fn optional_rfc3339(at: Option<OffsetDateTime>) -> Value {
     at.map_or(Value::Null, rfc3339)
 }
 
@@ -113,6 +113,7 @@ pub async fn export(State(state): State<AppState>, user: AuthUser) -> ApiResult<
             "name": account.organization_name,
             "createdAt": rfc3339(account.organization_created_at),
             "profile": profile,
+            "referrals": super::referrals::export(&state.pool, account.organization_id).await?,
         },
         "events": exported,
         "teams": teams,

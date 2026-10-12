@@ -20,6 +20,7 @@ import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
 import { CreditsCard } from "@/components/account/credits";
+import { ReferralsCard } from "@/components/account/referrals";
 import { TwoFactorCard } from "@/components/account/two-factor";
 import {
   Alert,
@@ -314,6 +315,8 @@ export default function AccountPage() {
               <ChevronRight aria-hidden className="size-4 shrink-0 text-fg-subtle" />
             </Link>
           </Card>
+          {/* Refer and earn (ADR 0076). */}
+          <ReferralsCard />
           <div className="grid grid-cols-2 gap-3 sm:gap-4">
             <Stat label={t.events} value={a.eventCount.toLocaleString("pt-BR")} icon={CalendarDays} />
             <Stat label={t.paidTickets} value={a.paidTickets.toLocaleString("pt-BR")} icon={Ticket} tone="success" />

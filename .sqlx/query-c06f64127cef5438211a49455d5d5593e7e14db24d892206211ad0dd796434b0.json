@@ -1,0 +1,65 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update referrals set status = 'revoked', revoked_at = now(), revoke_reason = $2\n           where id = $1 and status in ('pending', 'rewarded')\n           returning referrer_organization_id, referred_organization_id, referrer_cents, referred_cents",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "referrer_organization_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "referrals",
+            "name": "referrer_organization_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "referred_organization_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "referrals",
+            "name": "referred_organization_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "referrer_cents",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "referrals",
+            "name": "referrer_cents"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "referred_cents",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "referrals",
+            "name": "referred_cents"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": [
+      true,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "c06f64127cef5438211a49455d5d5593e7e14db24d892206211ad0dd796434b0"
+}

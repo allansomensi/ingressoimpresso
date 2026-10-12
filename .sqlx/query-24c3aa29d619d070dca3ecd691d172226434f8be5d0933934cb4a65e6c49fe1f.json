@@ -1,0 +1,35 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select name, suspended_at is not null as \"suspended!\" from organizations\n               where id = $1 for update",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "organizations",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "suspended!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      null
+    ]
+  },
+  "hash": "24c3aa29d619d070dca3ecd691d172226434f8be5d0933934cb4a65e6c49fe1f"
+}

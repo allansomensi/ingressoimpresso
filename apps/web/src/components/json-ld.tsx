@@ -176,3 +176,48 @@ export function templatePageJsonLd(page: TemplateSeoPage) {
     ],
   };
 }
+
+/** The public check of a ticket (/conferir, ADR 0075): the page, its trail and its questions. */
+export function verifyPageJsonLd({
+  title,
+  description,
+  name,
+  faq,
+}: {
+  title: string;
+  description: string;
+  name: string;
+  faq: readonly { question: string; answer: string }[];
+}) {
+  const url = `${SITE}/conferir`;
+  return {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebPage",
+        "@id": url,
+        url,
+        name: title,
+        description,
+        inLanguage: "pt-BR",
+        isPartOf: { "@id": `${SITE}/#website` },
+        about: { "@id": `${SITE}/#app` },
+      },
+      {
+        "@type": "BreadcrumbList",
+        itemListElement: [
+          { "@type": "ListItem", position: 1, name: "Início", item: SITE },
+          { "@type": "ListItem", position: 2, name, item: url },
+        ],
+      },
+      {
+        "@type": "FAQPage",
+        mainEntity: faq.map((item) => ({
+          "@type": "Question",
+          name: item.question,
+          acceptedAnswer: { "@type": "Answer", text: item.answer },
+        })),
+      },
+    ],
+  };
+}

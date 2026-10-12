@@ -1,0 +1,184 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select r.id, r.referrer_organization_id, a.name as \"referrer_name?\",\n                  r.referred_organization_id, b.name as \"referred_name?\", r.referred_email_hint,\n                  r.status, r.created_at, r.rewarded_at, r.referrer_cents, r.referred_cents,\n                  r.referrer_capped, r.revoked_at, r.revoke_reason\n           from referrals r\n           left join organizations a on a.id = r.referrer_organization_id\n           left join organizations b on b.id = r.referred_organization_id\n           order by r.created_at desc limit $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "referrals",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "referrer_organization_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "referrals",
+            "name": "referrer_organization_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "referrer_name?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "organizations",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "referred_organization_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "referrals",
+            "name": "referred_organization_id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "referred_name?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "organizations",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "referred_email_hint",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "referrals",
+            "name": "referred_email_hint"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "referrals",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "referrals",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "rewarded_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "referrals",
+            "name": "rewarded_at"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "referrer_cents",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "referrals",
+            "name": "referrer_cents"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "referred_cents",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "referrals",
+            "name": "referred_cents"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "referrer_capped",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "referrals",
+            "name": "referrer_capped"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "revoked_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "referrals",
+            "name": "revoked_at"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "revoke_reason",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "referrals",
+            "name": "revoke_reason"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "f7831c78f4981418eeb80cb9e44ddb864162a9371d1621c284febd75450ffc4c"
+}

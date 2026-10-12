@@ -68,6 +68,8 @@ pub(crate) async fn refund_batch(
     .execute(&mut **tx)
     .await?;
     billing::give_back(tx, batch_id, CreditReason::BatchRefund, actor).await?;
+    // A referral rewarded for this batch is taken back (ADR 0076).
+    super::referrals::revoke_for_batch(tx, batch_id).await?;
     Ok(Some(batch.event_id))
 }
 

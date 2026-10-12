@@ -1,11 +1,11 @@
 "use client";
 
-import type { AuthOptionsDto, RequestCodeBody, SessionResponse } from "@ingressoimpresso/api-types";
+import type { AuthOptionsDto, ReferralInviteDto, RequestCodeBody, SessionResponse } from "@ingressoimpresso/api-types";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Check, Mail } from "lucide-react";
+import { ArrowLeft, Check, Gift, Mail } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useRef, useState, type FormEvent } from "react";
+import { Suspense, useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
 import { toast } from "sonner";
 
 import { Logo, LogoMark } from "@/components/brand";
@@ -15,7 +15,9 @@ import { Turnstile, type TurnstileHandle } from "@/components/turnstile";
 import { TwoFactorStep } from "@/components/two-factor-step";
 import { Alert, Button, ErrorMessage, Field, Input, Spinner } from "@/components/ui";
 import { ApiError, api } from "@/lib/api";
+import { money } from "@/lib/format";
 import { usePlatform } from "@/lib/platform";
+import { clearReferral, normalizeReferralCode, readReferral, saveReferral } from "@/lib/referral";
 import { useSession } from "@/lib/session";
 import { texts } from "@/texts/pt-BR";
 
@@ -28,6 +30,40 @@ function needsSecondStep(error: unknown): boolean {
 
 function isQuotaError(error: unknown): boolean {
   return error instanceof ApiError && error.code === "mail_quota";
+}
+
+/** Who invites (ADR 0076): shown above the sign-in when the visitor came through a referral link. */
+function ReferralInvite({ invite }: { invite: ReferralInviteDto }) {
+  return (
+    <div className="flex items-start gap-3.5 rounded-2xl border border-brand/25 bg-brand-soft px-4 py-3.5 animate-fade-in">
+      <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand-solid text-brand-fg shadow-sm shadow-brand/25">
+        <Gift className="size-5" aria-hidden />
+      </span>
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <p className="text-sm font-semibold text-fg">{texts.referrals.inviteTitle(invite.organizationName)}</p>
+        <p className="text-sm leading-relaxed text-fg-muted">
+          {texts.referrals.inviteBody(money(invite.referredCents), money(invite.minBatchCents))}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+const noSubscription = () => () => undefined;
+
+/**
+ * The referral code this visitor brought (ADR 0076): from `?indicacao=` (kept for a later visit)
+ * or from an earlier visit. The stored one is read on the client only: the server has no storage.
+ */
+function useReferralCode(param: string | null): string | null {
+  const fromLink = normalizeReferralCode(param);
+  const stored = useSyncExternalStore(noSubscription, readReferral, () => null);
+  useEffect(() => {
+    if (fromLink !== null) {
+      saveReferral(fromLink);
+    }
+  }, [fromLink]);
+  return fromLink ?? stored;
 }
 
 function Terms() {
@@ -78,6 +114,14 @@ function SignIn() {
   const turnstile = useRef<TurnstileHandle>(null);
   const [captchaBlocked, setCaptchaBlocked] = useState(false);
   const platform = usePlatform();
+  const referralCode = useReferralCode(search.get("indicacao"));
+  const invite = useQuery({
+    queryKey: ["referral-invite", referralCode],
+    queryFn: () => api<ReferralInviteDto>(`/api/referrals/${referralCode ?? ""}`),
+    enabled: referralCode !== null,
+    staleTime: 10 * 60_000,
+    retry: false,
+  });
   const mode = platform.data?.maintenance.mode ?? "off";
   const notice =
     mode === "full"
@@ -108,9 +152,18 @@ function SignIn() {
   }, [codeSent]);
 
   const finish = (response: SessionResponse) => {
+    if (response.referred) {
+      toast.success(texts.referrals.welcome(money(invite.data?.referredCents ?? 0)));
+    }
+    // Used, or this e-mail already had an account: either way the code has done its job.
+    if (referralCode !== null) {
+      clearReferral();
+    }
     signIn(response);
     router.replace("/painel");
   };
+  // Only a new account uses it; the server ignores it otherwise.
+  const referral = referralCode === null ? {} : { referralCode };
   const requestCode = useMutation({
     mutationFn: async () => {
       const body: RequestCodeBody = { email: email.trim() };
@@ -136,7 +189,7 @@ function SignIn() {
   const [secondStep, setSecondStep] = useState<{ via: "code"; code: string } | { via: "google"; credential: string } | null>(null);
   const verify = useMutation({
     mutationFn: (value: string) =>
-      api<SessionResponse>("/api/auth/verify", { method: "POST", body: { email: email.trim(), code: value } }),
+      api<SessionResponse>("/api/auth/verify", { method: "POST", body: { email: email.trim(), code: value, ...referral } }),
     onSuccess: finish,
     onError: (error, value) => {
       if (needsSecondStep(error)) {
@@ -145,7 +198,7 @@ function SignIn() {
     },
   });
   const google = useMutation({
-    mutationFn: (credential: string) => api<SessionResponse>("/api/auth/google", { method: "POST", body: { credential } }),
+    mutationFn: (credential: string) => api<SessionResponse>("/api/auth/google", { method: "POST", body: { credential, ...referral } }),
     onSuccess: finish,
     onError: (error, credential) => {
       if (needsSecondStep(error)) {
@@ -156,10 +209,10 @@ function SignIn() {
   const second = useMutation({
     mutationFn: (twoFactorCode: string) =>
       secondStep?.via === "google"
-        ? api<SessionResponse>("/api/auth/google", { method: "POST", body: { credential: secondStep.credential, twoFactorCode } })
+        ? api<SessionResponse>("/api/auth/google", { method: "POST", body: { credential: secondStep.credential, twoFactorCode, ...referral } })
         : api<SessionResponse>("/api/auth/verify", {
             method: "POST",
-            body: { email: email.trim(), code: secondStep?.code ?? code, twoFactorCode },
+            body: { email: email.trim(), code: secondStep?.code ?? code, twoFactorCode, ...referral },
           }),
     onSuccess: finish,
   });
@@ -321,6 +374,7 @@ function SignIn() {
                 </form>
               ) : (
                 <div className="flex flex-col gap-6">
+                  {invite.data !== undefined && <ReferralInvite invite={invite.data} />}
                   {notice !== null && (
                     <Alert tone={mode === "off" ? "brand" : "warning"}>{notice}</Alert>
                   )}

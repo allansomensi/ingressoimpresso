@@ -479,6 +479,16 @@ create table ticket_links (id uuid primary key, event_id uuid not null reference
 -- events: address, postponed_from_starts_at (data original da 1ª vez), postponed_at, postpone_reason,
 --   canceled_at, cancel_reason (cancelar ≠ arquivar: status continua 'active')
 
+-- Conferir ingresso e Indique e ganhe (ADRs 0075, 0076); 20261031000001.
+-- events.public_verify (conferência pública em /conferir, ligada por padrão)
+-- organizations.referral_code (único, criado na primeira vez que o cartão aparece)
+-- platform_settings: referrals_enabled, referral_referrer_cents, referral_referred_cents,
+--   referral_monthly_limit (por 30 dias), referral_min_batch_cents
+-- referrals: referrer/referred_organization_id (set null), code, referred_email_hash (único, hash
+--   com chave do e-mail normalizado), referred_email_hint, status pending|rewarded|revoked,
+--   qualifying_batch_id, referrer_cents, referred_cents, referrer_capped, revoked_at, revoke_reason
+-- credit_ledger.reason + 'referral' | 'referral_revoked' (único por referência, organização e motivo)
+
 -- Duas etapas (ADR 0045); detalhes em 20261017000001_two_factor.sql.
 -- users: totp_secret (selada), totp_enabled_at, totp_last_step; recovery_codes (hash com chave, used_at)
 
@@ -636,6 +646,22 @@ POST /api/events/{id}/cancel { reason? }   POST /api/events/{id}/cancel/undo   (
 lugar do portador); `POST /api/seller` traz `organization` e `event.change`; o manifesto da portaria
 traz `event.canceledAt`. Evento cancelado recusa lote novo, checkout e as vendas e envios do link do
 vendedor (`event_canceled`).
+
+Conferir ingresso e Indique e ganhe (ADRs 0075, 0076):
+
+```
+POST /api/verify { text }  (sem login, 30/10 min por endereço)
+     → { verdict: valid|event_postponed|event_over|event_canceled|ticket_canceled|private|not_ours,
+         ticket?: { event, organization, number, numberLabel, numberPrefix, category } }
+GET|PUT /api/events/{id}/verify-settings { publicVerify }        (parte "delivery" da equipe)
+GET  /api/referrals/{code}  (sem login) → { organizationName, referredCents, minBatchCents }
+GET  /api/account/referrals → { code, valores, referrals[] (e-mail mascarado), invitedBy? }
+GET  /api/admin/referrals   PUT /api/admin/referrals/settings   POST /api/admin/referrals/{id}/revoke
+```
+
+`POST /api/auth/verify` e `/api/auth/google` aceitam `referralCode` (só para conta nova) e
+respondem `referred`. A recompensa sai na transação que muda o lote para pago (webhook, retorno do
+pagador ou `mark-paid`); `refund_batch` revoga a do lote estornado.
 
 Em manutenção `read_only`, organizadores só fazem GET; em `full`, recebem 503 `maintenance`. Admins,
 portaria, ingresso digital e Stripe nunca param.

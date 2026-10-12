@@ -84,3 +84,5 @@ feita e as consequências.
 | [0072](0072-reservas-do-vendedor.md) | Reservas do vendedor | Aceito |
 | [0073](0073-metas-e-ranking-de-vendedores.md) | Metas e ranking de vendedores | Aceito |
 | [0074](0074-link-do-vendedor-offline.md) | Link do vendedor offline | Aceito |
+| [0075](0075-conferir-ingresso-antes-de-comprar.md) | Conferir ingresso antes de comprar | Aceito |
+| [0076](0076-indique-e-ganhe.md) | Indique e ganhe | Aceito |

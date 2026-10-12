@@ -114,6 +114,13 @@ export function describeNotification(item: NotificationDto): { title: string; bo
         icon: CalendarX,
         href: eventLink,
       };
+    // Refer and earn (ADR 0076): the referrer, or the account that came through the link.
+    case "referral_rewarded": {
+      const amount = money(number(item.data, "amountCents"));
+      return item.data["role"] === "referrer"
+        ? { title: t.kinds.referralReferrer, body: t.kinds.referralReferrerBody(amount, text(item.data, "who")), icon: Gift, href: "/painel/conta#indique" }
+        : { title: t.kinds.referralReferred, body: t.kinds.referralReferredBody(amount, text(item.data, "organization")), icon: Gift, href: "/painel/conta" };
+    }
   }
 }
 

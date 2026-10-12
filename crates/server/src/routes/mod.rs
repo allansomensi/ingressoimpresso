@@ -21,6 +21,7 @@ pub mod moderation;
 pub mod organization;
 pub mod platform;
 pub mod privacy;
+pub mod referrals;
 pub mod refunds;
 pub mod report;
 pub mod reservations;
@@ -36,6 +37,7 @@ pub mod tables;
 pub mod team;
 pub mod tickets;
 pub mod two_factor;
+pub mod verify;
 pub mod voids;
 
 use std::ops::Bound;

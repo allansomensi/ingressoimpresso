@@ -448,6 +448,10 @@ pub async fn apply_session(state: &AppState, session: &CheckoutSession) -> ApiRe
     )
     .fetch_optional(&mut *tx)
     .await?;
+    if paid.is_some() {
+        // Only the call that flipped the batch gets here: a referral's reward is given once.
+        super::referrals::reward_paid_batch(&mut tx, payment.batch_id).await?;
+    }
     tx.commit().await?;
     if paid.is_some() {
         tracing::info!(batch_id = %payment.batch_id, session = %session.id, "batch paid online");
@@ -641,14 +645,18 @@ pub async fn mark_paid(
         // Paid online in the meantime: nothing left to mark.
         return Ok(Json(load_batch(&state, batch_id).await?));
     }
+    let mut tx = state.pool.begin().await?;
     sqlx::query_scalar!(
         r#"update ticket_batches set status = 'paid', paid_at = now(), paid_via = 'admin'
            where id = $1 and status = 'awaiting_payment' returning id"#,
         batch_id
     )
-    .fetch_optional(&state.pool)
+    .fetch_optional(&mut *tx)
     .await?
     .ok_or_else(not_payable)?;
+    // Money confirmed by an admin counts for a referral's reward too (ADR 0076).
+    super::referrals::reward_paid_batch(&mut tx, batch_id).await?;
+    tx.commit().await?;
     tracing::info!(%batch_id, admin = %user.email, "batch marked as paid");
     let organization_id =
         sqlx::query_scalar!("select organization_id from events where id = $1", event_id)
