@@ -12,4 +12,8 @@ token: string,
 /**
  * The signed-in user.
  */
-user: MeUser, };
+user: MeUser, 
+/**
+ * The account was just created through a referral link (ADR 0076).
+ */
+referred: boolean, };

@@ -90,7 +90,9 @@ pub fn need(method: &Method, path: &str) -> Need {
             | "ticket-links/{id}"
             | "tables/{id}"
             | "events/{id}/tables/layout"
-            | "events/{id}/seller-settings",
+            | "events/{id}/seller-settings"
+            // The public check of the event's tickets (ADR 0075) goes with the digital tickets.
+            | "events/{id}/verify-settings",
         )
         | ("DELETE", "sellers/{id}" | "sellers/{id}/link" | "ranges/{id}" | "tables/{id}") => {
             Need::Area(TeamArea::Delivery)

@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update platform_settings set referrals_enabled = $1, referral_referrer_cents = $2,\n                  referral_referred_cents = $3, referral_monthly_limit = $4,\n                  referral_min_batch_cents = $5, updated_at = now(), updated_by = $6\n           where id",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Bool",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "602c6dd8ec3680220be02fb152457abe44d8d9b87826523f8fcc9b6cf2ebea16"
+}

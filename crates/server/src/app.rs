@@ -27,6 +27,7 @@ use crate::routes::{
     privacy, refunds, report, seller_links, sellers, settlement, status, support, tables, team,
     tickets, two_factor, voids,
 };
+use crate::routes::{referrals, verify};
 use crate::state::AppState;
 
 /// JSON bodies are small; only art uploads get a bigger limit.
@@ -294,6 +295,20 @@ pub fn router(state: AppState) -> Router {
         .route("/events/{id}/postpone", post(event_changes::postpone))
         .route("/events/{id}/cancel", post(event_changes::cancel))
         .route("/events/{id}/cancel/undo", post(event_changes::undo_cancel))
+        // Check a ticket before buying it and refer and earn (ADRs 0075, 0076).
+        .route("/verify", post(verify::verify))
+        .route(
+            "/events/{id}/verify-settings",
+            get(verify::settings).put(verify::update_settings),
+        )
+        .route("/referrals/{code}", get(referrals::invite))
+        .route("/account/referrals", get(referrals::mine))
+        .route("/admin/referrals", get(referrals::admin_list))
+        .route("/admin/referrals/settings", put(referrals::update_settings))
+        .route(
+            "/admin/referrals/{id}/revoke",
+            post(referrals::admin_revoke),
+        )
         .fallback(not_found)
         .layer(DefaultBodyLimit::max(JSON_BODY_LIMIT))
         // Axum's own rejections (bad JSON, a malformed id, a body too large) answer plain text;

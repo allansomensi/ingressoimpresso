@@ -51,6 +51,11 @@ dto! {
         #[serde(default)]
         #[cfg_attr(feature = "ts", ts(optional))]
         pub two_factor_code: Option<String>,
+        /// Code of the organization that referred a new account (ADR 0076); ignored for an
+        /// existing one.
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional))]
+        pub referral_code: Option<String>,
     }
 
     /// A new session.
@@ -59,6 +64,8 @@ dto! {
         pub token: String,
         /// The signed-in user.
         pub user: MeUser,
+        /// The account was just created through a referral link (ADR 0076).
+        pub referred: bool,
     }
 
     /// The signed-in user.
@@ -103,6 +110,10 @@ dto! {
         #[serde(default)]
         #[cfg_attr(feature = "ts", ts(optional))]
         pub two_factor_code: Option<String>,
+        /// Code of the organization that referred a new account (ADR 0076).
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional))]
+        pub referral_code: Option<String>,
     }
 
     /// `GET /api/account/two-factor`: the account's two-step verification (ADR 0045).
@@ -3289,6 +3300,8 @@ dto_enum! {
         EventPostponed,
         /// An event the user works on was canceled (ADR 0065).
         EventCanceled,
+        /// A referral earned credit (ADR 0076).
+        ReferralRewarded,
     }
 
     /// What a promo code gives.
@@ -3313,6 +3326,10 @@ dto_enum! {
         BatchCancel,
         /// Back from a refunded batch.
         BatchRefund,
+        /// A referral's reward (ADR 0076).
+        Referral,
+        /// A referral's reward taken back (its batch was refunded).
+        ReferralRevoked,
     }
 
     /// Delivery status of an e-mail.
@@ -3413,6 +3430,7 @@ db_enum!(NotificationKind {
     TeamAdded => "team_added",
     EventPostponed => "event_postponed",
     EventCanceled => "event_canceled",
+    ReferralRewarded => "referral_rewarded",
 });
 db_enum!(LedgerKind { Expense => "expense", Income => "income" });
 db_enum!(TableShape { Round => "round", Rect => "rect" });
@@ -3424,6 +3442,8 @@ db_enum!(CreditReason {
     BatchPayment => "batch_payment",
     BatchCancel => "batch_cancel",
     BatchRefund => "batch_refund",
+    Referral => "referral",
+    ReferralRevoked => "referral_revoked",
 });
 db_enum!(MailStatus {
     Sending => "sending",
@@ -3588,3 +3608,250 @@ dto! {
         pub y: f32,
     }
 }
+
+// Check a ticket before buying it (ADR 0075) ------------------------------------------------
+
+dto! {
+    /// `POST /api/verify` (no login): the text read from a ticket's QR.
+    pub struct VerifyTicketBody {
+        /// QR text, as read by the camera or pasted.
+        pub text: String,
+    }
+
+    /// What the public check says. Never whether the ticket already entered, nor who has it.
+    pub struct VerifyResultDto {
+        /// The answer.
+        pub verdict: VerifyVerdict,
+        /// The ticket, when the QR is an authentic ticket of an event that allows the check.
+        pub ticket: Option<VerifiedTicketDto>,
+    }
+
+    /// An authentic ticket, as printed.
+    pub struct VerifiedTicketDto {
+        /// The event.
+        pub event: VerifiedEventDto,
+        /// Who runs it: name, logo and contact (ADR 0064).
+        pub organization: PublicOrganizationDto,
+        /// Ticket number.
+        pub number: i32,
+        /// Number as printed.
+        pub number_label: String,
+        /// Text before the number on paper, e.g. "Nº ".
+        pub number_prefix: String,
+        /// Category (ADR 0056).
+        pub category: Option<DoorCategoryTagDto>,
+    }
+
+    /// The event of a checked ticket.
+    pub struct VerifiedEventDto {
+        /// Name.
+        pub name: String,
+        /// Venue.
+        pub venue: Option<String>,
+        /// Street address.
+        pub address: Option<String>,
+        /// Start, with the event's offset.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub starts_at: OffsetDateTime,
+        /// End.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub ends_at: OffsetDateTime,
+        /// Postponement and cancellation (ADR 0065).
+        pub change: EventChangeDto,
+    }
+
+    /// `GET|PUT /api/events/{id}/verify-settings`.
+    pub struct VerifySettingsDto {
+        /// Whether anyone with the ticket may check it on the site.
+        pub public_verify: bool,
+    }
+}
+
+dto_enum! {
+    /// The answer of the public check.
+    pub enum VerifyVerdict {
+        /// Authentic, not canceled, the event is on.
+        Valid,
+        /// Authentic, but the event changed date.
+        EventPostponed,
+        /// Authentic, but the event already happened.
+        EventOver,
+        /// Authentic, but the event was canceled.
+        EventCanceled,
+        /// Authentic, but this number was canceled by the organizer.
+        TicketCanceled,
+        /// The organizer turned the public check off for this event.
+        Private,
+        /// Not a ticket we issued (or tampered with).
+        NotOurs,
+    }
+}
+
+// Refer and earn (ADR 0076) -----------------------------------------------------------------
+
+dto! {
+    /// `GET /api/referrals/{code}` (no login): who invites, and what a new account earns.
+    pub struct ReferralInviteDto {
+        /// The code, normalized.
+        pub code: String,
+        /// The referring organization's name.
+        pub organization_name: String,
+        /// Credit the new account earns on its first paid batch, in centavos.
+        pub referred_cents: i32,
+        /// Smallest first batch that counts, in centavos.
+        pub min_batch_cents: i32,
+    }
+
+    /// `GET /api/account/referrals`: the organization's link and the people it referred.
+    pub struct ReferralsDto {
+        /// Whether the program is on.
+        pub enabled: bool,
+        /// The organization's code (`/i/<code>`).
+        pub code: String,
+        /// What the referrer earns per referral, in centavos.
+        pub referrer_cents: i32,
+        /// What the referred organization earns, in centavos.
+        pub referred_cents: i32,
+        /// Smallest first batch that counts, in centavos.
+        pub min_batch_cents: i32,
+        /// Rewards the referrer may earn in any 30 days.
+        pub monthly_limit: i32,
+        /// Credit earned by referring, revoked rewards left out, in centavos.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub earned_cents: i64,
+        /// People referred, newest first.
+        pub referrals: Vec<ReferralDto>,
+        /// The organization itself came through a referral.
+        pub invited_by: Option<InvitedByDto>,
+    }
+
+    /// A referred account, as its referrer sees it (never the whole e-mail).
+    pub struct ReferralDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// Masked e-mail, e.g. `ma•••@gmail.com`.
+        pub email_hint: String,
+        /// Where it is.
+        pub status: ReferralStatus,
+        /// When the account was created.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub created_at: OffsetDateTime,
+        /// When the reward came.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub rewarded_at: Option<OffsetDateTime>,
+        /// What the referrer earned, in centavos.
+        pub earned_cents: i32,
+        /// The monthly limit was reached: only the referred account earned.
+        pub capped: bool,
+    }
+
+    /// The referral that brought the organization in.
+    pub struct InvitedByDto {
+        /// Who referred it; `null` if that account was deleted.
+        pub organization_name: Option<String>,
+        /// Where it is.
+        pub status: ReferralStatus,
+        /// Credit earned, or to earn on the first paid batch, in centavos.
+        pub referred_cents: i32,
+    }
+
+    /// `GET|PUT /api/admin/referrals/settings`.
+    pub struct ReferralSettingsDto {
+        /// Whether new referrals are taken and rewards paid.
+        pub enabled: bool,
+        /// Credit for the referrer, in centavos (0–100000).
+        pub referrer_cents: i32,
+        /// Credit for the referred organization, in centavos (0–100000).
+        pub referred_cents: i32,
+        /// Rewards one referrer may earn in any 30 days (0–1000).
+        pub monthly_limit: i32,
+        /// Smallest batch, actually paid, that earns the reward, in centavos.
+        pub min_batch_cents: i32,
+    }
+
+    /// `GET /api/admin/referrals`.
+    pub struct AdminReferralsDto {
+        /// The program's switches.
+        pub settings: ReferralSettingsDto,
+        /// Referrals by status.
+        pub totals: ReferralTotalsDto,
+        /// The latest referrals.
+        pub referrals: Vec<AdminReferralDto>,
+    }
+
+    /// Sums of the program.
+    pub struct ReferralTotalsDto {
+        /// Waiting for the first paid batch.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub pending: i64,
+        /// Rewarded.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub rewarded: i64,
+        /// Revoked.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub revoked: i64,
+        /// Credit given and not revoked, in centavos.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub credit_cents: i64,
+    }
+
+    /// A referral in the admin panel.
+    pub struct AdminReferralDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// Referrer; `null` once deleted.
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub referrer_id: Option<Uuid>,
+        /// Referrer's name.
+        pub referrer_name: Option<String>,
+        /// Referred organization; `null` once deleted.
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub referred_id: Option<Uuid>,
+        /// Referred organization's name.
+        pub referred_name: Option<String>,
+        /// Masked e-mail of the referred account.
+        pub email_hint: String,
+        /// Where it is.
+        pub status: ReferralStatus,
+        /// When the account was created.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub created_at: OffsetDateTime,
+        /// When the reward came.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub rewarded_at: Option<OffsetDateTime>,
+        /// Credit given to the referrer, in centavos.
+        pub referrer_cents: i32,
+        /// Credit given to the referred organization, in centavos.
+        pub referred_cents: i32,
+        /// The referrer was over the monthly limit.
+        pub referrer_capped: bool,
+        /// When it was revoked.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub revoked_at: Option<OffsetDateTime>,
+        /// Why: `batch_refunded` or `admin`.
+        pub revoke_reason: Option<String>,
+    }
+}
+
+dto_enum! {
+    /// Where a referral is.
+    pub enum ReferralStatus {
+        /// The account exists; its first paid batch is awaited.
+        Pending,
+        /// Both sides got their credit.
+        Rewarded,
+        /// Taken back (refunded batch, or an admin).
+        Revoked,
+    }
+}
+
+db_enum!(ReferralStatus { Pending => "pending", Rewarded => "rewarded", Revoked => "revoked" });
