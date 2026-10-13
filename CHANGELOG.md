@@ -12,6 +12,11 @@ e não acompanha estes números.
 
 ## [Não lançado]
 
+### Corrigido
+
+- **Conferir ingresso** não reconhecia, quando o texto era colado com espaços em volta, os
+  ingressos de alguns eventos (cerca de 2 em 100) cujo código começa com um espaço.
+
 ## [1.4.0] - 2026-10-12
 
 ### Adicionado
