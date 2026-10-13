@@ -12,7 +12,7 @@ use axum::Json;
 use axum::extract::{Path, State};
 use axum::http::HeaderMap;
 use ticket_core::{
-    EventId, EventKey, EventPublicKey, EventTag, EventVerifier, KeyId, SignedTicket,
+    EventId, EventKey, EventPublicKey, EventTag, EventVerifier, KeyId, QR_TEXT_LEN, SignedTicket,
 };
 use time::OffsetDateTime;
 use uuid::Uuid;
@@ -68,15 +68,25 @@ async fn verifier(state: &AppState, event_id: Uuid, tag: u32) -> ApiResult<Optio
 }
 
 /// The ticket in a text as read or pasted. A space is a base45 character, so the text is tried
-/// as it came first; then without line breaks and tabs, then trimmed (a paste picks up extra
-/// blanks around it).
+/// as it came first; then without line breaks and tabs, then without the blanks a paste picks up
+/// around it. A v1 text may start with a space but never ends with one, and has a fixed length:
+/// so the blanks at the end go, and the ticket is the last [`QR_TEXT_LEN`] characters when only
+/// blanks come before them (a plain `trim` would also eat a leading space of the ticket).
 fn decode(text: &str) -> Option<SignedTicket> {
     let without_breaks: String = text
         .chars()
         .filter(|c| !matches!(c, '\r' | '\n' | '\t'))
         .collect();
-    [text, without_breaks.as_str(), without_breaks.trim()]
+    let end_trimmed = without_breaks.trim_end();
+    let padded = end_trimmed
+        .len()
+        .checked_sub(QR_TEXT_LEN)
+        .and_then(|start| end_trimmed.split_at_checked(start))
+        .filter(|(blanks, _)| blanks.trim().is_empty())
+        .map(|(_, ticket)| ticket);
+    [Some(text), Some(without_breaks.as_str()), padded]
         .into_iter()
+        .flatten()
         .find_map(|candidate| SignedTicket::from_qr_text(candidate).ok())
 }
 
@@ -226,6 +236,28 @@ mod tests {
     use time::Duration;
 
     use super::*;
+
+    #[test]
+    fn a_ticket_starting_with_a_space_survives_the_blanks_of_a_paste() {
+        // Version 1 then a tag whose first byte is 5: the base45 text starts with a space.
+        let mut bytes = [0u8; ticket_core::PAYLOAD_LEN];
+        bytes[0] = ticket_core::FORMAT_VERSION_V1;
+        bytes[1] = 5;
+        bytes[9] = 7;
+        let qr = SignedTicket::from_bytes(&bytes).unwrap().to_qr_text();
+        assert!(qr.starts_with(' '), "{qr:?}");
+        for text in [
+            qr.clone(),
+            format!("  {qr}\n"),
+            format!("\t{qr}  \r\n"),
+            format!("{}\n{}", &qr[..50], &qr[50..]),
+        ] {
+            let ticket = decode(&text).unwrap_or_else(|| panic!("{text:?}"));
+            assert_eq!(ticket.to_qr_text(), qr);
+        }
+        assert!(decode(&format!("x{qr}")).is_none());
+        assert!(decode(&qr[1..]).is_none());
+    }
 
     #[test]
     fn the_most_important_state_wins() {
