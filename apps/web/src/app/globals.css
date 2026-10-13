@@ -307,6 +307,15 @@
 }
 
 /* A strip that scrolls sideways with a finger, without a scrollbar. */
+/*
+ * A long section below the fold: the browser skips laying it out (and fetching the fonts of its
+ * ticket samples) until it nears the screen. `auto` keeps the real height once it has been seen.
+ */
+@utility defer-render {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 900px;
+}
+
 @utility scrollbar-none {
   scrollbar-width: none;
   &::-webkit-scrollbar {

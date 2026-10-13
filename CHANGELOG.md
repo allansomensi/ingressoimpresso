@@ -12,6 +12,11 @@ e não acompanha estes números.
 
 ## [Não lançado]
 
+### Alterado
+
+- O site abre mais rápido no celular: as fontes dos ingressos ficaram três vezes menores e a
+  galeria de modelos da página inicial só é desenhada quando chega perto da tela.
+
 ## [1.5.0] - 2026-10-13
 
 ### Adicionado
