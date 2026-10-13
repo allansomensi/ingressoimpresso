@@ -35,7 +35,8 @@ export function sampleEvent(id: TemplateId, index: number): EventFields {
 
 /**
  * A template filled with its sample event, sized by its container's width (`height` sets a fixed
- * height instead). `capture` marks it for `just template-images` (ADR 0062).
+ * height instead). `capture` marks it for `just template-images` (ADR 0062). `placeholder` keeps
+ * only the empty box, the same size, until the sample is about to be seen.
  */
 export function TemplateSample({
   id,
@@ -44,6 +45,7 @@ export function TemplateSample({
   height,
   className,
   capture = false,
+  placeholder = false,
 }: {
   id: TemplateId;
   palette?: number;
@@ -51,6 +53,7 @@ export function TemplateSample({
   height?: string;
   className?: string;
   capture?: boolean;
+  placeholder?: boolean;
 }) {
   const template = templateById(id);
   const built = useMemo(() => {
@@ -72,7 +75,7 @@ export function TemplateSample({
       className={cn("overflow-hidden", height === undefined && "w-full", className)}
       style={{ aspectRatio: `${String(total)} / ${String(design.heightMm)}`, ...(height === undefined ? {} : { height }) }}
     >
-      <TicketView design={design} event={sampleEvent(id, index)} artUrl={art} number={17 + index * 23} />
+      {!placeholder && <TicketView design={design} event={sampleEvent(id, index)} artUrl={art} number={17 + index * 23} />}
     </div>
   );
 }

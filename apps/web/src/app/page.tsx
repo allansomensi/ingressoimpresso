@@ -146,7 +146,7 @@ export default function LandingPage() {
         </section>
 
         {/* Use cases */}
-        <section id="exemplos" className="scroll-mt-16 border-t border-border bg-surface">
+        <section id="exemplos" className="defer-render scroll-mt-16 border-t border-border bg-surface">
           <div className="mx-auto flex max-w-6xl flex-col gap-12 px-4 py-20 sm:px-6 lg:py-28">
             <SectionHeading eyebrow={t.cases.eyebrow} title={t.cases.title} lead={t.cases.lead} />
             <UseCases />
@@ -154,7 +154,7 @@ export default function LandingPage() {
         </section>
 
         {/* Templates */}
-        <section id="modelos" className="scroll-mt-16 overflow-hidden border-y border-border bg-bg">
+        <section id="modelos" className="defer-render scroll-mt-16 overflow-hidden border-y border-border bg-bg">
           <div className="flex flex-col gap-12 py-20 lg:py-28">
             <div className="px-4 sm:px-6">
               <SectionHeading eyebrow={texts.nav.templates} title={t.templatesTitle} lead={t.templatesLead} />
@@ -195,7 +195,7 @@ export default function LandingPage() {
         </section>
 
         {/* Digital tickets */}
-        <section id="no-celular" className="scroll-mt-16 border-t border-border bg-bg">
+        <section id="no-celular" className="defer-render scroll-mt-16 border-t border-border bg-bg">
           <div className="mx-auto grid max-w-6xl items-center gap-12 px-4 py-20 sm:px-6 lg:grid-cols-2 lg:py-28">
             <div aria-hidden className="order-2 flex justify-center lg:order-1">
               <div className="relative">
@@ -252,7 +252,7 @@ export default function LandingPage() {
         </section>
 
         {/* Pricing */}
-        <section id="precos" className="scroll-mt-16">
+        <section id="precos" className="defer-render scroll-mt-16">
           <div className="mx-auto flex max-w-5xl flex-col gap-12 px-4 py-20 sm:px-6 lg:py-28">
             <SectionHeading eyebrow={texts.nav.pricing} title={t.pricingTitle} lead={t.pricingLead} />
             <PricingSection />
