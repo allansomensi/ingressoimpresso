@@ -181,3 +181,56 @@ async fn logos_travel_with_the_design(pool: PgPool) {
     assert_eq!(copied["sponsors"].as_array().unwrap().len(), 2);
     assert_ne!(copied["sponsors"][0]["id"], logos[1].as_str());
 }
+
+/// One image used as the art and twice as a sponsor is a single blob of the event; another date
+/// (and a duplicate) copies it once instead of tripping over `unique (event_id, sha256)`.
+#[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
+async fn an_image_used_twice_is_copied_once(pool: PgPool) {
+    let app = TestApp::new(pool).await;
+    let token = app.login("banda@exemplo.com").await;
+    let event = app.create_event(&token, "Show").await;
+    let image = upload(&app, &token, &event, 10).await;
+    let current = app
+        .get(&format!("/api/events/{event}/design"), &token)
+        .await
+        .json();
+    let design = with_strip(&current["design"]);
+    let saved = app
+        .put(
+            &format!("/api/events/{event}/design"),
+            &token,
+            json!({ "design": design, "artId": image, "sponsorIds": [image, image] }),
+        )
+        .await;
+    assert_eq!(saved.status, StatusCode::OK);
+
+    let date = app
+        .post(
+            &format!("/api/events/{event}/dates"),
+            &token,
+            json!({ "startsAt": "2030-11-20T19:00:00-03:00", "endsAt": "2030-11-20T23:00:00-03:00" }),
+        )
+        .await;
+    assert_eq!(
+        date.status,
+        StatusCode::CREATED,
+        "{}",
+        String::from_utf8_lossy(&date.bytes)
+    );
+    let copied = app
+        .get(
+            &format!("/api/events/{}/design", date.json()["id"].as_str().unwrap()),
+            &token,
+        )
+        .await
+        .json();
+    let art = copied["art"]["id"].as_str().unwrap();
+    assert_ne!(art, image);
+    assert_eq!(copied["sponsors"][0]["id"], art);
+    assert_eq!(copied["sponsors"][1]["id"], art);
+
+    let copy = app
+        .post(&format!("/api/events/{event}/duplicate"), &token, json!({}))
+        .await;
+    assert_eq!(copy.status, StatusCode::CREATED);
+}

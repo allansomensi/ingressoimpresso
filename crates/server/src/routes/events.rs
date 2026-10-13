@@ -602,6 +602,18 @@ async fn copy_art(
             "the art was refused by the team".to_owned(),
         ));
     }
+    // Uploads are one blob per image and event, so the same image used twice (the art also as a
+    // sponsor, or one logo in two slots) is copied once and shared, like in the source.
+    if let Some(existing) = sqlx::query_scalar!(
+        "select id from blobs where event_id = $1 and sha256 = $2",
+        to_event,
+        source.sha256
+    )
+    .fetch_optional(&mut **tx)
+    .await?
+    {
+        return Ok((existing, false));
+    }
     let stored = sqlx::query_scalar!(
         r#"select coalesce(sum(b.byte_size), 0)::bigint as "stored!" from blobs b
            join events e on e.id = b.event_id where e.organization_id = $1"#,
