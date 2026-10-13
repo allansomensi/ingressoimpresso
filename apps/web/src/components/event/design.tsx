@@ -30,6 +30,7 @@ import {
   RefreshCw,
   Ruler,
   Save,
+  SquareMousePointer,
   Scissors,
   Tags,
   Trash2,
@@ -44,8 +45,9 @@ import { toast } from "sonner";
 import { ReadOnlyNotice } from "@/components/event/access";
 import { ArtPicker } from "@/components/event/art-picker";
 import { NumberInspector, QrInspector, TextInspector } from "@/components/event/design-inspectors";
+import { AlignBar, SelectionInspector, ShortcutsHelp, useMarquee } from "@/components/event/design-tools";
 import { TemplateGallery } from "@/components/event/template-gallery";
-import { TicketView, elementBox, sameElement, type Box, type TicketElement } from "@/components/ticket/ticket-view";
+import { TicketView, type ElementChange } from "@/components/ticket/ticket-view";
 import {
   Alert,
   Badge,
@@ -79,6 +81,25 @@ import {
   effectiveBand,
   type IssueTarget,
 } from "@/lib/design-rules";
+import {
+  NUDGE_MM,
+  alignBoxes,
+  boundsOf,
+  clampDelta,
+  designElements,
+  distributeBoxes,
+  elementBox,
+  elementKey,
+  existingSelection,
+  moveBoxes,
+  sameElement,
+  toggleElement,
+  withBox,
+  type AlignEdge,
+  type Axis,
+  type Box,
+  type TicketElement,
+} from "@/lib/design-selection";
 import { rasterizeBackground } from "@/lib/rasterize";
 import type { Palette, TicketTemplate } from "@/lib/templates/catalog";
 import { canDo } from "@/lib/team";
@@ -206,7 +227,8 @@ function useDraftHistory(initial: Draft) {
   const change = useCallback((next: (draft: Draft) => Draft, key: string | null = null) => {
     setHistory((state) => {
       const now = Date.now();
-      const merge = key !== null && key === state.key && now - state.at < MERGE_MS;
+      // A drag (`drag-…`, one key per gesture) is one step however long it takes.
+      const merge = key !== null && key === state.key && (key.startsWith("drag-") || now - state.at < MERGE_MS);
       return {
         past: merge ? state.past : [...state.past.slice(-HISTORY_LIMIT), state.present],
         present: next(state.present),
@@ -231,29 +253,6 @@ function useDraftHistory(initial: Draft) {
     });
   }, []);
   return { draft: history.present, change, undo, redo, canUndo: history.past.length > 0, canRedo: history.future.length > 0 };
-}
-
-function withBox(design: TicketDesign, element: TicketElement, box: Box): TicketDesign {
-  if (element.kind === "number") {
-    return { ...design, number: { ...design.number, xMm: box.x, yMm: box.y, widthMm: box.width, heightMm: box.height } };
-  }
-  if (element.kind === "qr") {
-    return { ...design, qr: { xMm: box.x, yMm: box.y, sizeMm: box.width } };
-  }
-  if (element.kind === "sponsors") {
-    const strip = design.sponsors ?? null;
-    return strip === null ? design : { ...design, sponsors: { ...strip, xMm: box.x, yMm: box.y, widthMm: box.width, heightMm: box.height } };
-  }
-  return {
-    ...design,
-    texts: design.texts.map((block, index) =>
-      index === element.index ? { ...block, xMm: box.x, yMm: box.y, widthMm: box.width, heightMm: box.height } : block,
-    ),
-  };
-}
-
-function elementKey(element: TicketElement): string {
-  return element.kind === "text" ? `text-${String(element.index)}` : element.kind;
 }
 
 function issueElement(target: IssueTarget): TicketElement | null {
@@ -334,8 +333,16 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
     .map((query) => query.data)
     .filter((url): url is string => url !== undefined);
   const [saved, setSaved] = useState<{ version: number; draft: Draft }>({ version: initial.version, draft: initialDraft });
-  const [selected, setSelected] = useState<TicketElement | null>(null);
-  const inspectorRef = useRevealInspector(selected === null ? null : elementKey(selected), design);
+  const [chosen, setSelected] = useState<TicketElement[]>([]);
+  // What is selected and still exists (an undo can take a text away).
+  const selection = useMemo(() => existingSelection(design, chosen), [design, chosen]);
+  const selected = selection.length === 1 ? (selection[0] ?? null) : null;
+  // Touch screens: taps add to the selection instead of replacing it ("Selecionar vários").
+  const [additive, setAdditive] = useState(false);
+  const inspectorRef = useRevealInspector(selection.length === 0 ? null : selected === null ? "group" : elementKey(selected), design);
+  const editorRef = useRef<HTMLDivElement>(null);
+  const pasteboardRef = useRef<HTMLDivElement>(null);
+  const marquee = useMarquee({ ref: pasteboardRef, design, selection, additive, onSelect: setSelected });
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
@@ -422,7 +429,7 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
         sponsors: current.sponsors,
       }));
       setStubText(next.stub?.fields.join("\n") ?? "");
-      setSelected(null);
+      setSelected([]);
       setGalleryOpen(false);
       toast.success(texts.templates.applied(texts.templates.items[template.id].name));
     },
@@ -451,31 +458,6 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
     }
   };
 
-  // Ctrl+Z / Ctrl+Shift+Z (Ctrl+Y) undo and redo; Ctrl+S saves. Fields keep their own undo.
-  useEffect(() => {
-    const keyDown = (key: KeyboardEvent) => {
-      if (!(key.ctrlKey || key.metaKey)) {
-        return;
-      }
-      const letter = key.key.toLowerCase();
-      if (letter === "s") {
-        key.preventDefault();
-        doSave();
-      } else if (!typingIn(key.target) && (letter === "z" || letter === "y")) {
-        key.preventDefault();
-        if (letter === "y" || key.shiftKey) {
-          redo();
-        } else {
-          undo();
-        }
-      }
-    };
-    window.addEventListener("keydown", keyDown);
-    return () => {
-      window.removeEventListener("keydown", keyDown);
-    };
-  });
-
   const addText = () => {
     const width = Math.min(80, design.widthMm - 8);
     const height = Math.min(10, design.heightMm - 4);
@@ -495,12 +477,166 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
       letterSpacing: 0,
     };
     update((d) => ({ ...d, texts: [...d.texts, block] }));
-    setSelected({ kind: "text", index: design.texts.length });
+    setSelected([{ kind: "text", index: design.texts.length }]);
   };
+
+  /** Places several elements at once: one undo step under `key`. */
+  const placeAll = (changes: readonly ElementChange[], key: string | null = null) => {
+    if (changes.length > 0) {
+      update((d) => changes.reduce((next, { element, box }) => withBox(next, element, box), d), key);
+    }
+  };
+
+  const selectedTexts = selection.flatMap((element) => (element.kind === "text" ? [element.index] : []));
+
+  /** Removes the selected texts (number, QR and sponsors stay: they are not removed this way). */
+  const removeSelection = () => {
+    if (selectedTexts.length === 0) {
+      toast(t.selection.cannotRemove);
+      return;
+    }
+    const gone = new Set(selectedTexts);
+    update((d) => ({ ...d, texts: d.texts.filter((_, index) => !gone.has(index)) }));
+    setSelected([]);
+    toast(t.selection.removed(gone.size), { action: { label: t.toolbar.undo, onClick: undo } });
+  };
+
+  /** Copies the selected texts 2 mm down and right, and selects the copies. */
+  const duplicateSelection = () => {
+    const blocks = selectedTexts.flatMap((index) => design.texts[index] ?? []);
+    if (blocks.length === 0) {
+      toast(t.selection.cannotDuplicate);
+      return;
+    }
+    if (design.texts.length + blocks.length > MAX_TEXT_BLOCKS) {
+      toast.error(t.selection.duplicateLimit(MAX_TEXT_BLOCKS));
+      return;
+    }
+    const copies = blocks.map((block) => ({
+      ...block,
+      xMm: Math.min(block.xMm + 2, Math.max(0, design.widthMm - block.widthMm)),
+      yMm: Math.min(block.yMm + 2, Math.max(0, design.heightMm - block.heightMm)),
+    }));
+    update((d) => ({ ...d, texts: [...d.texts, ...copies] }));
+    setSelected(copies.map((_, offset): TicketElement => ({ kind: "text", index: design.texts.length + offset })));
+  };
+
+  const selectionItems = () =>
+    selection.flatMap((element) => {
+      const box = elementBox(design, element);
+      return box === null ? [] : [{ element, box }];
+    });
+
+  /** Aligns a group to its own bounds, or a single element to the ticket. */
+  const alignSelection = (edge: AlignEdge) => {
+    const items = selectionItems();
+    const boxes = items.map((item) => item.box);
+    const frame: Box | null = items.length > 1 ? boundsOf(boxes) : { x: 0, y: 0, width: design.widthMm, height: design.heightMm };
+    if (frame === null) {
+      return;
+    }
+    const placed = alignBoxes(boxes, edge, frame);
+    placeAll(items.map((item, index) => ({ element: item.element, box: placed[index] ?? item.box })));
+  };
+
+  const distributeSelection = (axis: Axis) => {
+    const items = selectionItems();
+    const placed = distributeBoxes(
+      items.map((item) => item.box),
+      axis,
+    );
+    placeAll(items.map((item, index) => ({ element: item.element, box: placed[index] ?? item.box })));
+  };
+
+  /** Moves the selection by `(dx, dy)` mm as a group, kept inside the body. */
+  const nudge = (dx: number, dy: number) => {
+    const items = selection.flatMap((element) => {
+      const box = elementBox(design, element);
+      return box === null ? [] : [{ element, box }];
+    });
+    const delta = clampDelta(
+      items.map((item) => item.box),
+      dx,
+      dy,
+      { width: design.widthMm, height: design.heightMm },
+    );
+    if (delta.dx === 0 && delta.dy === 0) {
+      return;
+    }
+    const moved = moveBoxes(
+      items.map((item) => item.box),
+      delta.dx,
+      delta.dy,
+    );
+    placeAll(
+      items.map((item, index) => ({ element: item.element, box: moved[index] ?? item.box })),
+      `nudge-${selection.map(elementKey).join(",")}`,
+    );
+  };
+
+  // Ctrl+Z / Ctrl+Shift+Z (Ctrl+Y) undo and redo; Ctrl+S saves. Fields keep their own undo and
+  // keys. Selection shortcuts (Ctrl+A, Ctrl+D, Delete, arrows, Esc) act when the focus is on the
+  // editor or on nothing, so they never fight a dialog or another part of the page.
+  useEffect(() => {
+    const keyDown = (key: KeyboardEvent) => {
+      const mod = key.ctrlKey || key.metaKey;
+      const letter = key.key.toLowerCase();
+      if (mod && letter === "s") {
+        key.preventDefault();
+        doSave();
+        return;
+      }
+      if (key.defaultPrevented || typingIn(key.target)) {
+        return;
+      }
+      if (mod && (letter === "z" || letter === "y")) {
+        key.preventDefault();
+        if (letter === "y" || key.shiftKey) {
+          redo();
+        } else {
+          undo();
+        }
+        return;
+      }
+      const target = key.target;
+      const inEditor = target === document.body || (target instanceof Node && editorRef.current?.contains(target) === true);
+      if (!inEditor) {
+        return;
+      }
+      if (mod && letter === "a") {
+        key.preventDefault();
+        setSelected(designElements(design));
+        return;
+      }
+      if (selection.length === 0) {
+        return;
+      }
+      const arrows: Partial<Record<string, [number, number]>> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+      const arrow = arrows[key.key];
+      if (arrow !== undefined && !mod) {
+        key.preventDefault();
+        const step = key.shiftKey ? NUDGE_MM.large : key.altKey ? NUDGE_MM.fine : NUDGE_MM.normal;
+        nudge(arrow[0] * step, arrow[1] * step);
+      } else if (mod && letter === "d") {
+        key.preventDefault();
+        duplicateSelection();
+      } else if (!mod && (key.key === "Delete" || key.key === "Backspace")) {
+        key.preventDefault();
+        removeSelection();
+      } else if (key.key === "Escape") {
+        key.preventDefault();
+        setSelected([]);
+      }
+    };
+    window.addEventListener("keydown", keyDown);
+    return () => {
+      window.removeEventListener("keydown", keyDown);
+    };
+  });
 
   const removeText = (index: number) => {
     update((d) => ({ ...d, texts: d.texts.filter((_, i) => i !== index) }));
-    setSelected(null);
+    setSelected([]);
     toast(t.removedText, { action: { label: t.toolbar.undo, onClick: undo } });
   };
 
@@ -515,7 +651,7 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
       yMm: Math.min(block.yMm + 2, Math.max(0, design.heightMm - block.heightMm)),
     };
     update((d) => ({ ...d, texts: [...d.texts.slice(0, index + 1), copy, ...d.texts.slice(index + 1)] }));
-    setSelected({ kind: "text", index: index + 1 });
+    setSelected([{ kind: "text", index: index + 1 }]);
   };
 
   const reorderText = (index: number, direction: -1 | 1) => {
@@ -534,7 +670,7 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
       next[target] = a;
       return { ...d, texts: next };
     });
-    setSelected({ kind: "text", index: target });
+    setSelected([{ kind: "text", index: target }]);
   };
 
   const openGallery = () => {
@@ -571,6 +707,14 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
   const ratio = total / Math.max(design.heightMm, 1);
   const selectedText = selected?.kind === "text" ? design.texts[selected.index] : undefined;
 
+  const elementLabel = (element: TicketElement): string => {
+    if (element.kind === "text") {
+      const block = design.texts[element.index];
+      return block === undefined ? t.text : (blockValue(block, event) ?? block.text);
+    }
+    return element.kind === "number" ? t.number : element.kind === "qr" ? t.qr : t.sponsors.title;
+  };
+
   const elementRows: { element: TicketElement; icon: LucideIcon; label: string; muted?: boolean }[] = [
     ...design.texts.map((block, index) => {
       const value = blockValue(block, event);
@@ -589,7 +733,7 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
   return (
     <div className="flex flex-col gap-6">
       <Lead>{t.intro}</Lead>
-      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_400px]">
+      <div ref={editorRef} className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_400px]">
         <div className="flex min-w-0 flex-col gap-4 xl:sticky xl:top-36">
           <Card padded={false} className="overflow-hidden">
             {/* Phones: tools on the first row (undo and redo on the right), state and saving on
@@ -617,6 +761,22 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
                 <Button variant="ghost" size="icon-sm" aria-label={t.toolbar.redo} title={`${t.toolbar.redo} (Ctrl+Shift+Z)`} disabled={!canRedo} onClick={redo}>
                   <Redo2 />
                 </Button>
+                <span className="hidden pointer-coarse:contents">
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={t.selection.multiTouch}
+                    title={t.selection.multiTouchHint}
+                    aria-pressed={additive}
+                    className={cn(additive && "bg-brand-soft text-brand-soft-fg ring-1 ring-brand/30 hover:bg-brand-soft active:bg-brand-soft")}
+                    onClick={() => {
+                      setAdditive(!additive);
+                    }}
+                  >
+                    <SquareMousePointer />
+                  </Button>
+                </span>
+                <ShortcutsHelp />
               </div>
               <div className="flex flex-wrap items-center gap-2 max-sm:justify-between">
                 {status}
@@ -640,7 +800,8 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
                 </div>
               </div>
             </div>
-            <div className="flex items-center justify-center bg-surface-2 bg-dots px-4 py-8 sm:px-8 sm:py-12">
+            <div ref={pasteboardRef} {...marquee.handlers} className="relative flex items-center justify-center bg-surface-2 bg-dots px-4 py-8 sm:px-8 sm:py-12">
+              {marquee.overlay}
               <div
                 aria-label={t.canvas.label}
                 role="group"
@@ -653,24 +814,18 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
                   artUrl={artUrl.data ?? null}
                   tag={tag}
                   sponsorUrls={sponsorUrls}
-                  selected={selected}
+                  selected={selection}
+                  additive={additive}
                   problems={problems}
                   onSelect={setSelected}
-                  onChange={(element, box) => {
-                    update((d) => withBox(d, element, box), `move-${elementKey(element)}`);
-                  }}
-                  onRemove={(element) => {
-                    if (element.kind === "text") {
-                      removeText(element.index);
-                    }
-                  }}
+                  onChange={placeAll}
                 />
               </div>
             </div>
             <p className="flex items-center gap-2 border-t border-border px-4 py-2.5 text-xs text-fg-muted">
               <MousePointerClick className="size-3.5 shrink-0" aria-hidden />
               <span className="pointer-coarse:hidden">{t.canvas.hint}</span>
-              <span className="hidden pointer-coarse:inline">{t.canvas.hintTouch}</span>
+              <span className="hidden pointer-coarse:inline">{additive ? t.selection.multiTouchHint : t.canvas.hintTouch}</span>
             </p>
           </Card>
           {saved.version === 0 && art === null && design.texts.length === 0 && (
@@ -712,15 +867,19 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
             {design.texts.length === 0 && <p className="mb-3 text-sm text-fg-muted">{t.noTexts}</p>}
             <ul className="flex flex-col gap-1">
               {elementRows.map(({ element, icon: Icon, label, muted }) => {
-                const isSelected = sameElement(selected, element);
+                const isSelected = selection.some((item) => sameElement(item, element));
                 const invalid = problems.some((problem) => sameElement(problem, element));
                 return (
                   <li key={elementKey(element)}>
                     <button
                       type="button"
                       aria-pressed={isSelected}
-                      onClick={() => {
-                        setSelected(isSelected ? null : element);
+                      onClick={(click) => {
+                        if (additive || click.shiftKey || click.ctrlKey || click.metaKey) {
+                          setSelected(toggleElement(selection, element));
+                        } else {
+                          setSelected(isSelected && selection.length === 1 ? [] : [element]);
+                        }
                       }}
                       className={cn(
                         "flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm transition pointer-coarse:py-3",
@@ -737,7 +896,25 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
             </ul>
           </Section>
 
-          {selected !== null && elementBox(design, selected) !== null && (
+          {selection.length > 1 && (
+            <div ref={inspectorRef} className="scroll-mt-36 scroll-mb-28 max-xl:order-first">
+              <Card className="animate-fade-in ring-1 ring-brand/30">
+                <SelectionInspector
+                  labels={selection.map((element) => elementLabel(element))}
+                  textCount={selectedTexts.length}
+                  onAlign={alignSelection}
+                  onDistribute={distributeSelection}
+                  onDuplicate={duplicateSelection}
+                  onRemove={removeSelection}
+                  onClear={() => {
+                    setSelected([]);
+                  }}
+                />
+              </Card>
+            </div>
+          )}
+
+          {selected !== null && (
             // Below xl the columns stack: the inspector comes right after the ticket, so what was
             // just tapped is edited without hunting for it further down.
             <div ref={inspectorRef} className="scroll-mt-36 scroll-mb-28 max-xl:order-first">
@@ -752,13 +929,16 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
                     aria-label={t.deselect}
                     title={t.deselect}
                     onClick={() => {
-                      setSelected(null);
+                      setSelected([]);
                     }}
                   >
                     <X />
                   </Button>
                 }
               />
+              <div className="mb-5 border-b border-border pb-4">
+                <AlignBar label={t.selection.alignToTicket} onAlign={alignSelection} />
+              </div>
               {selected.kind === "text" && selectedText !== undefined && (
                 <TextInspector
                   key={selected.index}
@@ -901,9 +1081,7 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
                 onChange={(checked) => {
                   update((d) => ({ ...d, sponsors: checked ? defaultSponsorStrip(d, t.sponsors.defaultLabel) : null }));
                   if (checked) {
-                    setSelected({ kind: "sponsors" });
-                  } else if (selected?.kind === "sponsors") {
-                    setSelected(null);
+                    setSelected([{ kind: "sponsors" }]);
                   }
                 }}
               />

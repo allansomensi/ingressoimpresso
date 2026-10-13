@@ -16,7 +16,9 @@ import type {
   DoorVerifierDto,
   DoorVoidDto,
   ScanOutcome,
+  VoidReason,
 } from "@ingressoimpresso/api-types";
+import type { InvalidReasonDto } from "@ingressoimpresso/ticket-core-wasm";
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
 
 import type { GuestArrival } from "./logic";
@@ -61,7 +63,21 @@ export interface StoredScan {
   synced: 0 | 1;
   /** Let in at a door that does not take its category (ADR 0068). */
   exception?: boolean;
+  /**
+   * Why it was refused, for this phone's history only (never uploaded): the void or invalid
+   * reason. Missing on scans stored by older apps.
+   */
+  reason?: VoidReason | InvalidReasonDto;
+  /** The QR's event tag of a ticket of another event or date (history only). */
+  eventTag?: number;
+  /** A stricter answer of the online confirmation (history only): the screen said this. */
+  verdict?: ScanVerdict;
 }
+
+/** What the online confirmation said about a scan admitted on this phone. */
+export type ScanVerdict =
+  | { kind: "already_entered"; atUnixMs: number; deviceName: string }
+  | { kind: "voided"; reason: VoidReason };
 
 /**
  * A guest arrival of any phone (ADR 0070). `own` arrivals were recorded here; `synced` is 0 while
@@ -178,6 +194,21 @@ export async function markSynced(ids: readonly string[]): Promise<void> {
     if (scan !== undefined && scan.synced === 0) {
       await store.put({ ...scan, synced: 1 });
     }
+  }
+  await tx.done;
+}
+
+/** Every scan of this phone (its history); the caller sorts and trims. */
+export async function allScans(): Promise<StoredScan[]> {
+  return (await db()).getAll("scans");
+}
+
+/** Keeps what the online confirmation said with the scan, for this phone's history. */
+export async function saveVerdict(id: string, verdict: ScanVerdict): Promise<void> {
+  const tx = (await db()).transaction("scans", "readwrite");
+  const scan = await tx.store.get(id);
+  if (scan !== undefined) {
+    await tx.store.put({ ...scan, verdict });
   }
   await tx.done;
 }

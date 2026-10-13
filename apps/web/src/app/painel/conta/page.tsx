@@ -1,6 +1,6 @@
 "use client";
 
-import type { AccountDto, DeleteAccountBody, PricingDto, TwoFactorStatusDto } from "@ingressoimpresso/api-types";
+import type { AccountDto, DeleteAccountBody, TwoFactorStatusDto } from "@ingressoimpresso/api-types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Building2,
@@ -8,7 +8,6 @@ import {
   ChevronRight,
   Download,
   Gift,
-  Receipt,
   Save,
   ShieldCheck,
   Ticket,
@@ -37,15 +36,13 @@ import {
   errorMessage,
 } from "@/components/ui";
 import { api, fetchBlobUrl, writeToken } from "@/lib/api";
-import { dateTime, money } from "@/lib/format";
-import { discounted, quote } from "@/lib/pricing";
+import { dateTime } from "@/lib/format";
 import { useSession } from "@/lib/session";
 import { VERSION_LABEL } from "@/lib/version";
 import { useUnsavedChanges } from "@/lib/unsaved";
 import { texts } from "@/texts/pt-BR";
 
 const t = texts.account;
-const EXAMPLES = [100, 300, 1_000] as const;
 
 function OrganizationForm({ account }: { account: AccountDto }) {
   const queryClient = useQueryClient();
@@ -81,47 +78,6 @@ function OrganizationForm({ account }: { account: AccountDto }) {
       </Button>
       <ErrorMessage error={save.error} />
     </form>
-  );
-}
-
-function PricingTable({ pricing }: { pricing: PricingDto }) {
-  const promotion = pricing.promotion;
-  return (
-    <div className="flex flex-col gap-4">
-      {promotion !== null && (
-        <Alert tone="success" title={t.promotionTitle(promotion.discountPercent)}>
-          {t.promotionBody(promotion.headline ?? promotion.name, dateTime(promotion.endsAt))}
-        </Alert>
-      )}
-      {pricing.upcoming !== null && <Alert tone="warning">{t.upcoming(dateTime(pricing.upcoming.effectiveAt))}</Alert>}
-      <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border">
-        {pricing.tiers.map((tier, index) => (
-          <li key={tier.upTo} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
-            <span className="text-fg-muted">{t.tier((pricing.tiers[index - 1]?.upTo ?? 0) + 1, tier.upTo)}</span>
-            <span className="font-semibold text-fg tabular">{t.perTicket(money(tier.unitCents))}</span>
-          </li>
-        ))}
-      </ul>
-      <p className="text-xs text-fg-muted">{t.minimum(money(pricing.minimumCents))}</p>
-      <div className="flex flex-col gap-2">
-        <span className="text-xs font-semibold tracking-wide text-fg-subtle uppercase">{t.examples}</span>
-        <div className="grid grid-cols-3 gap-2">
-          {EXAMPLES.map((quantity) => (
-            <div key={quantity} className="flex flex-col gap-0.5 rounded-xl bg-surface-2 px-3 py-2.5">
-              <span className="text-xs text-fg-muted">{t.example(quantity)}</span>
-              {promotion === null ? (
-                <span className="font-semibold text-fg tabular">{money(quote(pricing, quantity))}</span>
-              ) : (
-                <span className="flex flex-col">
-                  <span className="text-xs text-fg-subtle line-through tabular">{money(quote(pricing, quantity))}</span>
-                  <span className="font-semibold text-success-fg tabular">{money(discounted(quote(pricing, quantity), promotion.discountPercent))}</span>
-                </span>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
   );
 }
 
@@ -278,7 +234,6 @@ function PrivacyCard({ account, email }: { account: AccountDto; email: string })
 export default function AccountPage() {
   const { session } = useSession();
   const account = useQuery({ queryKey: ["account"], queryFn: () => api<AccountDto>("/api/account") });
-  const pricing = useQuery({ queryKey: ["pricing"], queryFn: () => api<PricingDto>("/api/pricing"), staleTime: 60 * 60_000 });
 
   if (account.isPending) {
     return <LoadingBlock rows={4} />;
@@ -321,10 +276,6 @@ export default function AccountPage() {
             <Stat label={t.events} value={a.eventCount.toLocaleString("pt-BR")} icon={CalendarDays} />
             <Stat label={t.paidTickets} value={a.paidTickets.toLocaleString("pt-BR")} icon={Ticket} tone="success" />
           </div>
-          <Card>
-            <CardHeader icon={Receipt} title={t.pricing} description={t.pricingHint} />
-            {pricing.data === undefined ? <LoadingBlock rows={2} /> : <PricingTable pricing={pricing.data} />}
-          </Card>
         </div>
         <div className="flex min-w-0 flex-col gap-6">
           {a.freeTicketsTotal > 0 && (

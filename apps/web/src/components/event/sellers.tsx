@@ -1,6 +1,9 @@
 "use client";
 
 import type {
+  AssignRemainingBody,
+  AvailableNumbersDto,
+  CategoryDto,
   EventDto,
   EventReportDto,
   RangeBody,
@@ -67,7 +70,7 @@ import {
   LoadingBlock,
   Menu,
   MenuItem,
-  NumberInput,
+  Select,
   Skeleton,
   Stat,
   Switch,
@@ -76,61 +79,192 @@ import {
   useConfirm,
   type Tone,
 } from "@/components/ui";
-import { api } from "@/lib/api";
+import { api, isUuid } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { initials, money, shortDateTime, ticketNumber } from "@/lib/format";
-import { countNumbers, formatRanges, intersect, type NumberRange } from "@/lib/number-list";
+import { NUMBER_LIST_INPUT, countNumbers, formatRanges, intersect, parseNumberList, type NumberRange } from "@/lib/number-list";
 import { receivedPercent, settlementMessage, settlementState, settlementTotals, shortDay, whatsappLink, type SettlementState } from "@/lib/settlement";
 import { texts } from "@/texts/pt-BR";
 
 const t = texts.event.sellers;
 
-function AssignForm({ seller, onDone, onCancel }: { seller: SellerDto; onDone: () => void; onCancel: () => void }) {
-  const last = seller.ranges.at(-1)?.last;
-  const [first, setFirst] = useState(last === undefined ? 1 : last + 1);
-  const [lastNumber, setLastNumber] = useState(last === undefined ? 50 : last + 50);
-  const assign = useMutation({
-    mutationFn: () => {
-      const body: RangeBody = { first, last: lastNumber };
-      return api<RangeDto>(`/api/sellers/${seller.id}/ranges`, { method: "POST", body });
-    },
-    onSuccess: () => {
-      toast.success(t.assignedToast);
-      onDone();
+type AssignMode = "pick" | "rest";
+
+/**
+ * Gives a seller numbers: a list typed or picked from the free ranges ("12, 15, 40-50"), or
+ * every number still free at once, optionally of one category (the usual for the box office,
+ * which sells whatever the sellers did not take).
+ */
+function AssignForm({ seller, event, onDone, onCancel }: { seller: SellerDto; event: EventDto; onDone: () => void; onCancel: () => void }) {
+  const [mode, setMode] = useState<AssignMode>(seller.boxOffice ? "rest" : "pick");
+  const [text, setText] = useState("");
+  const [category, setCategory] = useState("");
+  const categories = useQuery({
+    queryKey: ["categories", event.id],
+    queryFn: () => api<CategoryDto[]>(`/api/events/${event.id}/categories`),
+  });
+  const available = useQuery({
+    queryKey: ["available-numbers", event.id, mode === "rest" ? category : ""],
+    queryFn: () => {
+      const query = mode === "rest" && category !== "" && isUuid(category) ? `?category=${category}` : "";
+      return api<AvailableNumbersDto>(`/api/events/${event.id}/available-numbers${query}`);
     },
   });
-  const valid = Number.isInteger(first) && Number.isInteger(lastNumber) && first >= 1 && lastNumber >= first;
-  const submit = (event: FormEvent) => {
-    event.preventDefault();
+  const parsed = parseNumberList(text);
+  const assign = useMutation({
+    mutationFn: async () => {
+      if (mode === "rest") {
+        const body: AssignRemainingBody = { categoryId: category === "" ? null : category };
+        const created = await api<RangeDto[]>(`/api/sellers/${seller.id}/ranges/remaining`, { method: "POST", body });
+        return countNumbers(created);
+      }
+      if (!parsed.ok) {
+        return 0;
+      }
+      for (const range of parsed.ranges) {
+        const body: RangeBody = range;
+        await api<RangeDto>(`/api/sellers/${seller.id}/ranges`, { method: "POST", body });
+      }
+      return parsed.count;
+    },
+    onSuccess: (count) => {
+      toast.success(t.assignedCount(count));
+      onDone();
+    },
+    // A list stops at the first taken number: what went through is shown.
+    onError: onDone,
+  });
+  const free = available.data;
+  const restCount = free?.count ?? 0;
+  const valid = mode === "rest" ? restCount > 0 : parsed.ok && parsed.count > 0;
+  const submit = (formEvent: FormEvent) => {
+    formEvent.preventDefault();
     if (valid) {
       assign.mutate();
     }
   };
+  const append = (range: NumberRange) => {
+    const piece = range.first === range.last ? String(range.first) : `${String(range.first)}-${String(range.last)}`;
+    setText((current) => (current.trim() === "" ? piece : `${current.trim().replace(/,$/, "")}, ${piece}`));
+  };
+  const modes: { value: AssignMode; label: string }[] = [
+    { value: "pick", label: t.assignPick },
+    { value: "rest", label: t.assignRest },
+  ];
+
   return (
     <form onSubmit={submit} className="flex flex-col gap-3 rounded-xl bg-surface-2 p-3 animate-fade-in sm:p-4">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-[1fr_1fr_auto_auto] sm:items-end">
-        <Field label={texts.common.first}>
-          <NumberInput value={first} step={1} min={1} onChange={setFirst} required />
-        </Field>
-        <Field label={texts.common.last}>
-          <NumberInput value={lastNumber} step={1} min={1} onChange={setLastNumber} required />
-        </Field>
+      <div role="radiogroup" aria-label={t.assign} className="grid grid-cols-2 gap-1 rounded-xl border border-border bg-surface p-1">
+        {modes.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            role="radio"
+            aria-checked={mode === option.value}
+            onClick={() => {
+              setMode(option.value);
+            }}
+            className={cn(
+              "min-h-9 rounded-lg px-3 text-sm font-medium transition pointer-coarse:min-h-11",
+              mode === option.value ? "bg-brand-soft text-brand-soft-fg" : "text-fg-muted hover:bg-surface-2 hover:text-fg active:bg-surface-2",
+            )}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+
+      {mode === "pick" ? (
+        <>
+          <Field label={t.assignNumbers} hint={t.assignNumbersHint}>
+            <Input
+              value={text}
+              placeholder={free?.ranges[0] === undefined ? "1-50" : `${String(free.ranges[0].first)}-${String(free.ranges[0].last)}`}
+              autoFocus
+              {...NUMBER_LIST_INPUT}
+              onChange={(changeEvent) => {
+                setText(changeEvent.target.value);
+              }}
+            />
+          </Field>
+          {free !== undefined && free.ranges.length > 0 && (
+            <div className="flex flex-col gap-1.5">
+              <span className="text-xs font-medium text-fg-muted">{t.assignFree(free.count)}</span>
+              <div className="flex flex-wrap gap-1.5">
+                {free.ranges.slice(0, FREE_CHIPS).map((range) => (
+                  <button
+                    key={range.first}
+                    type="button"
+                    aria-label={t.assignAdd(formatRanges([range]))}
+                    onClick={() => {
+                      append(range);
+                    }}
+                    className="relative inline-flex items-center gap-1 rounded-lg border border-border bg-surface px-2 py-1 font-mono text-xs text-fg tabular transition touch-target hover:border-brand hover:text-brand active:bg-brand-soft"
+                  >
+                    <Plus className="size-3" aria-hidden />
+                    {formatRanges([range])}
+                  </button>
+                ))}
+                {free.ranges.length > FREE_CHIPS && (
+                  <span className="self-center text-xs text-fg-subtle">{t.assignMoreRanges(free.ranges.length - FREE_CHIPS)}</span>
+                )}
+              </div>
+            </div>
+          )}
+          {text.trim() !== "" && !parsed.ok && <p className="text-xs text-danger-fg">{texts.errors.invalid_range}</p>}
+          {parsed.ok && parsed.count > 0 && <p className="text-xs text-fg-muted">{texts.common.tickets(parsed.count)}</p>}
+        </>
+      ) : (
+        <>
+          {(categories.data ?? []).length > 0 && (
+            <Field label={t.assignCategory}>
+              <Select
+                value={category}
+                onChange={(changeEvent) => {
+                  setCategory(changeEvent.target.value);
+                }}
+              >
+                <option value="">{t.assignAllCategories}</option>
+                {(categories.data ?? []).map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          )}
+          {available.isPending ? (
+            <Skeleton className="h-12" />
+          ) : restCount === 0 ? (
+            <p className="text-sm text-fg-muted">{t.assignNoneFree}</p>
+          ) : (
+            <div className="flex flex-col gap-1 rounded-xl border border-border bg-surface px-3 py-2.5">
+              <span className="text-sm font-semibold text-fg">{t.assignRestSummary(restCount)}</span>
+              <span className="text-xs leading-relaxed break-words text-fg-muted tabular">
+                {formatRanges((free?.ranges ?? []).slice(0, 8))}
+                {(free?.ranges.length ?? 0) > 8 && " …"}
+              </span>
+            </div>
+          )}
+          <p className="text-xs leading-relaxed text-fg-muted">{t.assignRestHint}</p>
+        </>
+      )}
+
+      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
         <Button variant="ghost" onClick={onCancel}>
           {texts.common.cancel}
         </Button>
         <Button type="submit" loading={assign.isPending} disabled={!valid}>
-          {t.assign}
+          {mode === "rest" && restCount > 0 ? t.assignRestButton(restCount) : t.assign}
         </Button>
       </div>
-      {valid ? (
-        <p className="text-xs text-fg-muted">{texts.common.tickets(lastNumber - first + 1)}</p>
-      ) : (
-        <p className="text-xs text-danger-fg">{texts.errors.invalid_range}</p>
-      )}
       <ErrorMessage error={assign.error} />
     </form>
   );
 }
+
+/** Free ranges offered as shortcuts in the assign form. */
+const FREE_CHIPS = 12;
 
 const STATE_TONE: Record<SettlementState["kind"], Tone> = {
   empty: "neutral",
@@ -748,6 +882,7 @@ function SellerCard({
       {assigning && (
         <AssignForm
           seller={seller}
+          event={event}
           onDone={() => {
             setAssigning(false);
             onChange();

@@ -263,7 +263,7 @@ impl NumberTags {
     pub(crate) async fn load(pool: &PgPool, event_id: Uuid) -> ApiResult<Self> {
         let mut categories = Vec::new();
         for row in sqlx::query!(
-            r#"select r.numbers, c.name, c.color from category_ranges r
+            r#"select r.numbers, c.name, c.color, c.price_cents from category_ranges r
                join ticket_categories c on c.id = r.category_id where r.event_id = $1"#,
             event_id
         )
@@ -277,6 +277,7 @@ impl NumberTags {
                 ticket_render::TicketCategory {
                     name: row.name,
                     color: row.color,
+                    price_cents: row.price_cents.map(i64::from),
                 },
             ));
         }

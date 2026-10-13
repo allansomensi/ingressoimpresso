@@ -72,6 +72,7 @@ pub fn need(method: &Method, path: &str) -> Need {
             "POST",
             "events/{id}/sellers"
             | "sellers/{id}/ranges"
+            | "sellers/{id}/ranges/remaining"
             | "sellers/{id}/link"
             | "events/{id}/tickets"
             | "events/{id}/tickets/bulk"
@@ -114,6 +115,7 @@ pub fn need(method: &Method, path: &str) -> Need {
             "POST",
             "events/{id}/door/accesses"
             | "door-accesses/{id}/revoke"
+            | "door-accesses/{id}/link"
             | "door-devices/{id}/revoke"
             | "events/{id}/guests"
             | "events/{id}/guests/bulk",
@@ -687,6 +689,16 @@ mod tests {
                 Method::POST,
                 "events/{id}/guests/bulk",
                 Need::Area(TeamArea::Door),
+            ),
+            (
+                Method::POST,
+                "door-accesses/{id}/link",
+                Need::Area(TeamArea::Door),
+            ),
+            (
+                Method::POST,
+                "sellers/{id}/ranges/remaining",
+                Need::Area(TeamArea::Delivery),
             ),
             (Method::DELETE, "guests/{id}", Need::Area(TeamArea::Door)),
             (Method::GET, "events/{id}/door/live", Need::Read),

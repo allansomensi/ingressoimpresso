@@ -131,6 +131,18 @@ pub fn router(state: AppState) -> Router {
             get(support::organization).put(support::rename),
         )
         .route("/admin/organizations/{id}/bonus", put(admin::set_bonus))
+        // Admins reach any event and fix any public profile (ADR 0079).
+        .route("/admin/events", get(admin::events))
+        .route(
+            "/admin/organizations/{id}/profile",
+            get(organization::admin_profile).put(organization::admin_update),
+        )
+        .route(
+            "/admin/organizations/{id}/profile/logo",
+            post(organization::admin_upload_logo)
+                .delete(organization::admin_delete_logo)
+                .layer(DefaultBodyLimit::max(MAX_LOGO_BYTES)),
+        )
         .route(
             "/admin/organizations/{id}/suspension",
             put(support::set_suspension),
@@ -218,6 +230,11 @@ pub fn router(state: AppState) -> Router {
         )
         .route("/sellers/{id}/ranges", post(sellers::assign))
         .route(
+            "/sellers/{id}/ranges/remaining",
+            post(sellers::assign_remaining),
+        )
+        .route("/events/{id}/available-numbers", get(sellers::available))
+        .route(
             "/sellers/{id}/link",
             post(seller_links::create).delete(seller_links::revoke),
         )
@@ -278,6 +295,7 @@ pub fn router(state: AppState) -> Router {
         .route("/events/{id}/door", get(door::overview))
         .route("/events/{id}/door/accesses", post(door::create_access))
         .route("/door-accesses/{id}/revoke", post(door::revoke_access))
+        .route("/door-accesses/{id}/link", post(door::new_link))
         .route("/door-devices/{id}/revoke", post(door::revoke_device))
         .route("/door/register", post(door::register))
         .route("/door/manifest", get(door::manifest))

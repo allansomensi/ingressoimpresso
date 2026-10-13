@@ -6,3 +6,4 @@ export { Card, CardHeader, Lead, List, ListItem, PageHeader, Stat, TableScroll }
 export { Menu, MenuItem, Popover, useIsPhone } from "./popover";
 export { useScrollLock, useSheetDrag } from "./sheet";
 export { Spinner } from "./spinner";
+export { useScrollEdges, type ScrollEdges } from "./scroll-edges";

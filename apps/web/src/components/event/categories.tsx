@@ -11,7 +11,7 @@ import { TablesSection } from "@/components/event/tables";
 import type { SelectTab } from "@/components/event/tabs";
 import { Alert, Button, Card, Dialog, ErrorMessage, Field, Input, Lead, LoadingBlock, Menu, MenuItem, buttonClass, errorMessage, useConfirm } from "@/components/ui";
 import { api } from "@/lib/api";
-import { CATEGORY_COLORS, nextColor, uncategorized } from "@/lib/categories";
+import { CATEGORY_COLORS, nextColor, presetPriceText, uncategorized } from "@/lib/categories";
 import { cn } from "@/lib/cn";
 import { money, parseMoney, ticketNumber } from "@/lib/format";
 import { NUMBER_LIST_INPUT, formatRanges, parseNumberList } from "@/lib/number-list";
@@ -42,31 +42,13 @@ function CategoriesSection({ eventId, event, editable, onSelect }: { eventId: st
   const queryClient = useQueryClient();
   const categories = useQuery({ queryKey: ["categories", eventId], queryFn: () => api<CategoryDto[]>(`/api/events/${eventId}/categories`) });
   const batches = useQuery({ queryKey: ["batches", eventId], queryFn: () => api<BatchDto[]>(`/api/events/${eventId}/batches`) });
-  const [dialog, setDialog] = useState<{ category: CategoryDto | null } | null>(null);
+  const [dialog, setDialog] = useState<{ category: CategoryDto | null; focusPrice?: boolean } | null>(null);
+  const [suggesting, setSuggesting] = useState(false);
   const refresh = () => {
     for (const key of ["categories", "report", "sellers"]) {
       void queryClient.invalidateQueries({ queryKey: [key, eventId] });
     }
   };
-  const suggest = useMutation({
-    mutationFn: async () => {
-      for (const preset of t.presets) {
-        const priceCents =
-          preset.price === "free" ? 0 : preset.price === "half" && event.ticketPriceCents !== null ? Math.round(event.ticketPriceCents / 2) : null;
-        const body: CategoryBody = { name: preset.name, color: preset.color, priceCents };
-        await api<CategoryDto>(`/api/events/${eventId}/categories`, { method: "POST", body });
-      }
-    },
-    onSuccess: () => {
-      toast.success(t.suggested);
-      refresh();
-    },
-    onError: (error) => {
-      toast.error(errorMessage(error));
-      refresh();
-    },
-  });
-
   if (categories.isPending) {
     return <LoadingBlock rows={2} />;
   }
@@ -115,7 +97,7 @@ function CategoriesSection({ eventId, event, editable, onSelect }: { eventId: st
           </div>
           {editable && (
             <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-              <Button icon={<Sparkles />} loading={suggest.isPending} onClick={() => { suggest.mutate(); }}>
+              <Button icon={<Sparkles />} onClick={() => { setSuggesting(true); }}>
                 {t.suggest}
               </Button>
               <Button variant="secondary" icon={<Plus />} onClick={() => { setDialog({ category: null }); }}>
@@ -134,8 +116,8 @@ function CategoriesSection({ eventId, event, editable, onSelect }: { eventId: st
                 category={category}
                 eventPrice={event.ticketPriceCents}
                 editable={editable}
-                onEdit={() => {
-                  setDialog({ category });
+                onEdit={(focusPrice) => {
+                  setDialog({ category, focusPrice });
                 }}
                 onChange={refresh}
               />
@@ -161,9 +143,20 @@ function CategoriesSection({ eventId, event, editable, onSelect }: { eventId: st
           eventId={eventId}
           eventPrice={event.ticketPriceCents}
           category={dialog.category}
+          focusPrice={dialog.focusPrice ?? false}
           used={list}
           onClose={() => {
             setDialog(null);
+          }}
+          onSaved={refresh}
+        />
+      )}
+      {suggesting && (
+        <SuggestDialog
+          eventId={eventId}
+          eventPrice={event.ticketPriceCents}
+          onClose={() => {
+            setSuggesting(false);
           }}
           onSaved={refresh}
         />
@@ -182,7 +175,7 @@ function CategoryCard({
   category: CategoryDto;
   eventPrice: number | null;
   editable: boolean;
-  onEdit: () => void;
+  onEdit: (focusPrice: boolean) => void;
   onChange: () => void;
 }) {
   const confirm = useConfirm();
@@ -230,13 +223,39 @@ function CategoryCard({
               <span className="size-3 shrink-0 rounded-full" style={{ backgroundColor: category.color }} aria-hidden />
               {category.name}
             </span>
-            <span className="text-sm text-fg-muted">
-              {priceLabel(category, eventPrice)} · {t.count(count)}
-            </span>
+            <span className="text-sm text-fg-muted">{t.count(count)}</span>
           </div>
-          {editable && (
+          <div className="flex shrink-0 items-center gap-1">
+            {/* The price is what people come to change (VIP, meia): one tap away. */}
+            {editable ? (
+              <button
+                type="button"
+                aria-label={t.changePrice(category.name)}
+                onClick={() => {
+                  onEdit(true);
+                }}
+                className="group relative flex flex-col items-end rounded-xl px-2.5 py-1 text-right transition touch-target hover:bg-surface-2 active:bg-surface-2"
+              >
+                <span className="text-[11px] font-medium tracking-wide text-fg-subtle uppercase">{t.priceOf}</span>
+                <span className="flex items-center gap-1.5 text-sm font-semibold text-fg tabular">
+                  {priceLabel(category, eventPrice)}
+                  <Pencil className="size-3.5 text-fg-subtle transition group-hover:text-fg" aria-hidden />
+                </span>
+              </button>
+            ) : (
+              <span className="flex flex-col items-end px-2.5 py-1 text-right">
+                <span className="text-[11px] font-medium tracking-wide text-fg-subtle uppercase">{t.priceOf}</span>
+                <span className="text-sm font-semibold text-fg tabular">{priceLabel(category, eventPrice)}</span>
+              </span>
+            )}
+            {editable && (
             <Menu label={t.menu(category.name)} trigger={<MoreHorizontal />} triggerClassName={buttonClass({ variant: "ghost", size: "icon-sm" })}>
-              <MenuItem icon={<Pencil />} onSelect={onEdit}>
+              <MenuItem
+                icon={<Pencil />}
+                onSelect={() => {
+                  onEdit(false);
+                }}
+              >
                 {t.edit}
               </MenuItem>
               <MenuItem
@@ -253,7 +272,8 @@ function CategoryCard({
                 {t.remove}
               </MenuItem>
             </Menu>
-          )}
+            )}
+          </div>
         </div>
         <div className="flex flex-wrap gap-2">
           {category.ranges.length === 0 && <span className="text-sm text-fg-subtle">{t.noNumbers}</span>}
@@ -309,6 +329,7 @@ function CategoryDialog({
   eventId,
   eventPrice,
   category,
+  focusPrice,
   used,
   onClose,
   onSaved,
@@ -316,6 +337,7 @@ function CategoryDialog({
   eventId: string;
   eventPrice: number | null;
   category: CategoryDto | null;
+  focusPrice: boolean;
   used: readonly CategoryDto[];
   onClose: () => void;
   onSaved: () => void;
@@ -375,6 +397,7 @@ function CategoryDialog({
             value={name}
             maxLength={30}
             required
+            autoFocus={!focusPrice}
             placeholder={t.namePlaceholder}
             onChange={(changeEvent) => {
               setName(changeEvent.target.value);
@@ -412,7 +435,7 @@ function CategoryDialog({
           <legend className="text-sm font-medium text-fg">{t.price}</legend>
           <p className="mb-1 text-xs leading-relaxed text-fg-muted">{t.priceHint}</p>
           <div className="grid gap-2">
-            {modes.map((option) => (
+            {modes.map((option, index) => (
               <label
                 key={option.value}
                 className={cn(
@@ -423,6 +446,8 @@ function CategoryDialog({
                 <input
                   type="radio"
                   name="price-mode"
+                  // Opened from the price: the price choice takes the focus.
+                  autoFocus={focusPrice && (option.value === mode || (index === 0 && !modes.some((item) => item.value === mode)))}
                   className="size-4 accent-brand"
                   checked={mode === option.value}
                   onChange={() => {
@@ -447,6 +472,120 @@ function CategoryDialog({
           )}
         </fieldset>
         <ErrorMessage error={save.error} />
+      </form>
+    </Dialog>
+  );
+}
+
+type SuggestRow = { name: string; color: string; use: boolean; priceText: string };
+
+/**
+ * The usual categories in one go, each with its price checked before it is created: VIP is
+ * rarely the event's price, and meia starts at half of it.
+ */
+function SuggestDialog({
+  eventId,
+  eventPrice,
+  onClose,
+  onSaved,
+}: {
+  eventId: string;
+  eventPrice: number | null;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [rows, setRows] = useState<SuggestRow[]>(() =>
+    t.presets.map((preset) => ({ name: preset.name, color: preset.color, use: true, priceText: presetPriceText(preset.price, eventPrice) })),
+  );
+  const chosen = rows.filter((row) => row.use);
+  const parsed = chosen.map((row) => ({ row, price: parseMoney(row.priceText) }));
+  const valid = chosen.length > 0 && parsed.every(({ price }) => price.ok);
+  const create = useMutation({
+    mutationFn: async () => {
+      for (const { row, price } of parsed) {
+        const body: CategoryBody = { name: row.name, color: row.color, priceCents: price.ok ? price.cents : null };
+        await api<CategoryDto>(`/api/events/${eventId}/categories`, { method: "POST", body });
+      }
+    },
+    onSuccess: () => {
+      toast.success(t.suggested);
+      onSaved();
+      onClose();
+    },
+    // Some may have been created before the error: show what is there.
+    onError: onSaved,
+  });
+  const update = (index: number, change: Partial<SuggestRow>) => {
+    setRows((current) => current.map((row, position) => (position === index ? { ...row, ...change } : row)));
+  };
+  const placeholder = eventPrice === null ? t.priceEventNone : money(eventPrice);
+
+  return (
+    <Dialog
+      open
+      onClose={onClose}
+      title={t.suggestTitle}
+      description={t.suggestBody}
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>
+            {texts.common.cancel}
+          </Button>
+          <Button type="submit" form="suggest-categories" loading={create.isPending} disabled={!valid}>
+            {t.suggestCreate(chosen.length)}
+          </Button>
+        </>
+      }
+    >
+      <form
+        id="suggest-categories"
+        className="flex flex-col gap-4"
+        onSubmit={(formEvent) => {
+          formEvent.preventDefault();
+          if (valid) {
+            create.mutate();
+          }
+        }}
+      >
+        <ul className="flex flex-col divide-y divide-border rounded-xl border border-border">
+          {rows.map((row, index) => {
+            const price = parseMoney(row.priceText);
+            return (
+              <li key={row.name} className={cn("flex items-center gap-3 px-3 py-2.5", !row.use && "opacity-60")}>
+                <input
+                  type="checkbox"
+                  className="size-5 shrink-0 accent-brand"
+                  checked={row.use}
+                  aria-label={t.suggestUse(row.name)}
+                  onChange={(changeEvent) => {
+                    update(index, { use: changeEvent.target.checked });
+                  }}
+                />
+                <span className="flex min-w-0 flex-1 items-center gap-2 text-sm font-medium text-fg">
+                  <span className="size-3 shrink-0 rounded-full" style={{ backgroundColor: row.color }} aria-hidden />
+                  <span className="truncate">{row.name}</span>
+                </span>
+                <div className="flex w-36 shrink-0 flex-col items-end gap-0.5">
+                  <Input
+                    aria-label={t.suggestPrice(row.name)}
+                    value={row.priceText}
+                    inputMode="decimal"
+                    placeholder={placeholder}
+                    disabled={!row.use}
+                    aria-invalid={!price.ok}
+                    className="text-right tabular"
+                    onChange={(changeEvent) => {
+                      update(index, { priceText: changeEvent.target.value });
+                    }}
+                  />
+                  {price.ok && price.cents === 0 && <span className="text-xs text-success-fg">{t.freeShort}</span>}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+        <p className="text-xs leading-relaxed text-fg-muted">{t.priceHint}</p>
+        <ErrorMessage error={create.error} />
       </form>
     </Dialog>
   );

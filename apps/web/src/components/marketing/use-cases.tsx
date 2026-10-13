@@ -349,11 +349,11 @@ export function UseCases() {
                 keyDown(event, index);
               }}
               className={cn(
-                "flex flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-[13px] leading-tight font-semibold transition sm:flex-1 sm:flex-row sm:gap-2 sm:px-4 sm:py-2.5 sm:text-sm sm:whitespace-nowrap",
+                "flex flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-[13px] leading-tight font-semibold transition sm:flex-auto sm:flex-row sm:gap-2 sm:px-4 sm:py-2.5 sm:text-sm sm:whitespace-nowrap",
                 active ? "bg-brand-solid text-brand-fg shadow-sm shadow-brand/25" : "text-fg-muted hover:bg-surface-2 active:bg-surface-2 hover:text-fg",
               )}
             >
-              <Icon aria-hidden className="size-4" />
+              <Icon aria-hidden className="size-4 shrink-0" />
               {item.tab}
             </button>
           );

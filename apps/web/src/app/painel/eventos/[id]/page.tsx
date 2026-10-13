@@ -10,6 +10,7 @@ import {
   CalendarDays,
   CalendarRange,
   ChevronLeft,
+  ChevronRight,
   FileDown,
   LayoutDashboard,
   MapPin,
@@ -38,7 +39,7 @@ import { STRIP_TABS, tabFromSlug, tabSlug, type Tab } from "@/components/event/t
 import { EventActions } from "@/components/event/event-actions";
 import { EventChangeBanner } from "@/components/event/event-change";
 import { EventFormDialog } from "@/components/panel/event-form";
-import { Badge, Button, ButtonLink, EmptyState, ErrorMessage, LoadingBlock, Skeleton, useConfirm } from "@/components/ui";
+import { Badge, Button, ButtonLink, EmptyState, ErrorMessage, LoadingBlock, Skeleton, useConfirm, useScrollEdges } from "@/components/ui";
 import { ApiError, api, isUuid } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { eventDateTime, money } from "@/lib/format";
@@ -109,6 +110,7 @@ function EventView() {
   const tab = tabFromSlug(search.get("aba"));
   const [editing, setEditing] = useState(false);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const { attach: attachStrip, ...strip } = useScrollEdges();
   const event = useQuery({
     queryKey: ["event", eventId],
     queryFn: () => (eventId === "" ? Promise.reject(new ApiError(404, "not_found")) : api<EventDto>(`/api/events/${eventId}`)),
@@ -207,7 +209,7 @@ function EventView() {
         <div role="status" className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-warning/30 bg-warning-soft px-4 py-3 text-sm text-warning-fg">
           <LifeBuoy className="size-4 shrink-0" aria-hidden />
           <span className="flex-1">{texts.admin.support.banner}</span>
-          <Link href="/painel/admin?aba=organizacoes" className="font-semibold underline-offset-2 hover:underline">
+          <Link href="/painel/admin?aba=eventos" className="font-semibold underline-offset-2 hover:underline">
             {texts.admin.support.backToAdmin}
           </Link>
         </div>
@@ -324,57 +326,88 @@ function EventView() {
       <EventChangeBanner event={data} />
 
       {/* Under the panel header, which is taller by the safe area in an installed iPhone app. */}
-      <div className="sticky top-[calc(4rem+env(safe-area-inset-top))] z-30 -mx-4 border-b border-border bg-bg/85 backdrop-blur-xl sm:-mx-6 sm:px-6">
-        <nav
-          role="tablist"
-          aria-label={data.name}
-          // Until the strip fits (xl), it fades under the sections button: there are more tabs.
-          className="-mb-px flex scroll-pl-4 gap-0.5 overflow-x-auto pl-4 scrollbar-none max-xl:scroll-pr-20 max-xl:pr-20 max-xl:[mask-image:linear-gradient(to_right,black_calc(100%-5rem),transparent_calc(100%-2.75rem))] sm:scroll-pl-0 sm:pl-0"
-        >
-          {STRIP_TABS.map((item, index) => {
-            const Icon = ICONS[item];
-            const selected = tab === item;
-            return (
-              <button
-                key={item}
-                ref={(element) => {
-                  tabRefs.current[index] = element;
-                }}
-                type="button"
-                role="tab"
-                id={`tab-${item}`}
-                aria-selected={selected}
-                aria-controls={selected ? `panel-${item}` : undefined}
-                // The team opens from the header: the strip still needs one tab to Tab into.
-                tabIndex={selected || (tab === "team" && index === 0) ? 0 : -1}
-                onClick={() => {
-                  void select(item);
-                }}
-                onKeyDown={(keyEvent) => {
-                  keyDown(keyEvent, index);
-                }}
-                className={cn(
-                  "flex shrink-0 items-center gap-2 border-b-2 px-2.5 py-3 text-sm font-medium whitespace-nowrap transition pointer-coarse:py-3.5",
-                  selected
-                    ? "border-brand text-fg"
-                    : "border-transparent text-fg-muted hover:border-border-strong hover:text-fg active:text-fg",
-                )}
-              >
-                <Icon aria-hidden className={cn("size-4", selected ? "text-brand" : "text-fg-subtle")} />
-                {texts.event.tabs[item]}
-              </button>
-            );
-          })}
-        </nav>
-        <div className="absolute inset-y-0 right-2 flex items-center sm:right-4 xl:hidden">
-          <SectionsSheet
-            current={tab}
-            icons={ICONS}
-            onSelect={(next) => {
-              void select(next);
-            }}
-          />
+      <div className="sticky top-[calc(4rem+env(safe-area-inset-top))] z-30 -mx-4 flex items-center border-b border-border bg-bg/85 backdrop-blur-xl sm:-mx-6 sm:px-6">
+        <div className="relative min-w-0 flex-1">
+          <nav
+            ref={attachStrip}
+            role="tablist"
+            aria-label={data.name}
+            // The edges that hide tabs fade out, so there is visibly more to scroll to.
+            className={cn(
+              "-mb-px flex scroll-px-12 gap-0.5 overflow-x-auto pl-4 scrollbar-none sm:pl-0",
+              strip.before && strip.after
+                ? "[mask-image:linear-gradient(to_right,transparent,black_3rem,black_calc(100%-3rem),transparent)]"
+                : strip.before
+                  ? "[mask-image:linear-gradient(to_right,transparent,black_3rem)]"
+                  : strip.after
+                    ? "[mask-image:linear-gradient(to_left,transparent,black_3rem)]"
+                    : undefined,
+            )}
+          >
+            {STRIP_TABS.map((item, index) => {
+              const Icon = ICONS[item];
+              const selected = tab === item;
+              return (
+                <button
+                  key={item}
+                  ref={(element) => {
+                    tabRefs.current[index] = element;
+                  }}
+                  type="button"
+                  role="tab"
+                  id={`tab-${item}`}
+                  aria-selected={selected}
+                  aria-controls={selected ? `panel-${item}` : undefined}
+                  // The team opens from the header: the strip still needs one tab to Tab into.
+                  tabIndex={selected || (tab === "team" && index === 0) ? 0 : -1}
+                  onClick={() => {
+                    void select(item);
+                  }}
+                  onKeyDown={(keyEvent) => {
+                    keyDown(keyEvent, index);
+                  }}
+                  className={cn(
+                    "flex shrink-0 items-center gap-2 border-b-2 px-2.5 py-3 text-sm font-medium whitespace-nowrap transition pointer-coarse:py-3.5",
+                    selected
+                      ? "border-brand text-fg"
+                      : "border-transparent text-fg-muted hover:border-border-strong hover:text-fg active:text-fg",
+                  )}
+                >
+                  <Icon aria-hidden className={cn("size-4 shrink-0", selected ? "text-brand" : "text-fg-subtle")} />
+                  {texts.event.tabs[item]}
+                </button>
+              );
+            })}
+          </nav>
+          {/* A mouse has no sideways swipe: arrows page the strip (touch screens swipe it). */}
+          {strip.before && (
+            <StripArrow
+              side="before"
+              onClick={() => {
+                strip.page(-1);
+              }}
+            />
+          )}
+          {strip.after && (
+            <StripArrow
+              side="after"
+              onClick={() => {
+                strip.page(1);
+              }}
+            />
+          )}
         </div>
+        {strip.overflow && (
+          <div className="shrink-0 pr-2 pl-1 sm:pr-0">
+            <SectionsSheet
+              current={tab}
+              icons={ICONS}
+              onSelect={(next) => {
+                void select(next);
+              }}
+            />
+          </div>
+        )}
       </div>
 
       <section
@@ -446,5 +479,25 @@ function EventView() {
       />
     </main>
     </EventAccessProvider>
+  );
+}
+
+/** Pages the tab strip on computers; hidden on touch screens, where the strip is swiped. */
+function StripArrow({ side, onClick }: { side: "before" | "after"; onClick: () => void }) {
+  const Icon = side === "before" ? ChevronLeft : ChevronRight;
+  return (
+    <button
+      type="button"
+      // The tabs stay reachable by keyboard (arrow keys); this only helps the pointer.
+      tabIndex={-1}
+      aria-label={side === "before" ? texts.event.tabsBefore : texts.event.tabsAfter}
+      onClick={onClick}
+      className={cn(
+        "absolute top-1/2 hidden size-8 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-surface text-fg-muted shadow-sm transition hover:border-border-strong hover:text-fg active:bg-surface-2 pointer-fine:flex",
+        side === "before" ? "left-0" : "right-0",
+      )}
+    >
+      <Icon className="size-4" aria-hidden />
+    </button>
   );
 }

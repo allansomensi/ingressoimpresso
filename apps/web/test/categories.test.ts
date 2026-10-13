@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { bandText, categoryOf, clampPosition, compareTables, findSeat, nextColor, seatLabel, uncategorized } from "@/lib/categories";
+import { bandText, categoryOf, clampPosition, compareTables, findSeat, nextColor, presetPriceText, seatLabel, uncategorized } from "@/lib/categories";
 
 const categories = [
   { name: "Inteira", color: "#2563eb", ranges: [{ first: 1, last: 5 }] },
@@ -43,5 +43,15 @@ describe("tables", () => {
     expect([...tables].sort(compareTables).map((table) => table.name)).toEqual(["Mesa 2", "Mesa 10"]);
     expect(clampPosition(1.4)).toBe(1);
     expect(clampPosition(Number.NaN)).toBe(0.5);
+  });
+});
+
+describe("presetPriceText", () => {
+  it("starts meia at half the event price, courtesy free and the rest blank (the event's)", () => {
+    expect(presetPriceText("half", 3_000)).toBe("15,00");
+    expect(presetPriceText("half", 2_999)).toBe("15,00");
+    expect(presetPriceText("half", null)).toBe("");
+    expect(presetPriceText("free", 3_000)).toBe("0,00");
+    expect(presetPriceText("event", 3_000)).toBe("");
   });
 });

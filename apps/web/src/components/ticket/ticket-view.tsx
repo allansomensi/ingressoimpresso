@@ -8,12 +8,31 @@ import {
   useRef,
   useState,
   type CSSProperties,
-  type KeyboardEvent,
   type PointerEvent,
   type ReactNode,
 } from "react";
 
 import { cn } from "@/lib/cn";
+import {
+  DRAG_THRESHOLD_PX,
+  GRID_MM,
+  SNAP_PX,
+  boundsOf,
+  clampDelta,
+  designElements,
+  elementBox,
+  elementKey,
+  guidesFor,
+  moveBoxes,
+  roundMm,
+  roundTo,
+  sameElement,
+  snapMove,
+  snapResize,
+  type Box,
+  type Guide,
+  type TicketElement,
+} from "@/lib/design-selection";
 import { BLEED_MM, FONT_FAMILIES, FONTS_WITH_BOLD, MIN_QR_SIZE_MM, MM_PER_PT, bandRect, effectiveBand, inkFor } from "@/lib/design-rules";
 import { ticketNumber } from "@/lib/format";
 import { random } from "@/lib/templates/svg";
@@ -22,39 +41,10 @@ import { texts } from "@/texts/pt-BR";
 
 const t = texts.event.design.canvas;
 
-/** An element of the body the editor can select, move and resize. */
-export type TicketElement = { kind: "number" } | { kind: "qr" } | { kind: "sponsors" } | { kind: "text"; index: number };
-
-/** A box in millimetres, relative to the body. */
-export interface Box {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-export function sameElement(a: TicketElement | null, b: TicketElement | null): boolean {
-  if (a === null || b === null) {
-    return a === b;
-  }
-  return a.kind === b.kind && (a.kind !== "text" || (b.kind === "text" && a.index === b.index));
-}
-
-export function elementBox(design: TicketDesign, element: TicketElement): Box | null {
-  if (element.kind === "number") {
-    const n = design.number;
-    return { x: n.xMm, y: n.yMm, width: n.widthMm, height: n.heightMm };
-  }
-  if (element.kind === "qr") {
-    const q = design.qr;
-    return { x: q.xMm, y: q.yMm, width: q.sizeMm, height: q.sizeMm };
-  }
-  if (element.kind === "sponsors") {
-    const strip = design.sponsors ?? null;
-    return strip === null ? null : { x: strip.xMm, y: strip.yMm, width: strip.widthMm, height: strip.heightMm };
-  }
-  const block = design.texts[element.index];
-  return block === undefined ? null : { x: block.xMm, y: block.yMm, width: block.widthMm, height: block.heightMm };
+/** One element placed in a new box, as the canvas reports moves and resizes. */
+export interface ElementChange {
+  element: TicketElement;
+  box: Box;
 }
 
 /** Counts font loads, so text is measured again once a typeface arrives. */
@@ -179,15 +169,38 @@ function numberLabel(number: NumberStyle, value: number): string {
   return `${number.prefix}${ticketNumber(value, Math.max(1, Math.min(10, Math.trunc(number.digits) || 1)))}`;
 }
 
-type Drag = { element: TicketElement; mode: "move" | "resize"; x: number; y: number; start: Box; mmPerPx: number };
+type Drag =
+  | {
+      mode: "move";
+      /** Undo key of this gesture: the whole drag is one step. */
+      gesture: string;
+      items: ElementChange[];
+      bounds: Box;
+      targets: Box[];
+      x: number;
+      y: number;
+      mmPerPx: number;
+      moved: boolean;
+      /** A press on an element of a group, without moving, selects just that element. */
+      collapseTo: TicketElement | null;
+    }
+  | { mode: "resize"; gesture: string; element: TicketElement; start: Box; targets: Box[]; x: number; y: number; mmPerPx: number; moved: boolean };
 
-const snap = (value: number) => Math.round(value * 2) / 2;
+/** What the canvas shows while dragging: smart guides and the position or size. */
+interface DragView {
+  guides: Guide[];
+  box: Box;
+  mode: Drag["mode"];
+}
+
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), Math.max(min, max));
+const mmText = (value: number) => value.toLocaleString("pt-BR", { maximumFractionDigits: 1 });
 
 /**
  * A ticket drawn in the browser from its design: background, art, texts with their fields
  * replaced, number, a stand-in QR and the stub. With `onChange` it becomes the editor's canvas:
- * elements are selected, dragged and resized with the pointer or moved with the arrow keys.
+ * elements are selected (Shift, Ctrl or ⌘ add to the selection), dragged together with smart
+ * guides (Alt turns them off) and resized one at a time.
  */
 export function TicketView({
   design,
@@ -195,11 +208,11 @@ export function TicketView({
   artUrl,
   number = 1,
   className,
-  selected = null,
+  selected = [],
+  additive = false,
   problems = [],
   onSelect,
   onChange,
-  onRemove,
   tag = null,
   sponsorUrls = [],
 }: {
@@ -209,12 +222,14 @@ export function TicketView({
   artUrl: string | null;
   number?: number;
   className?: string | undefined;
-  selected?: TicketElement | null;
+  selected?: readonly TicketElement[];
+  /** Presses add to or remove from the selection, as with Shift (the touch "select several" mode). */
+  additive?: boolean;
   /** Elements to outline as invalid. */
   problems?: readonly TicketElement[];
-  onSelect?: (element: TicketElement | null) => void;
-  onChange?: (element: TicketElement, box: Box) => void;
-  onRemove?: (element: TicketElement) => void;
+  onSelect?: (elements: TicketElement[]) => void;
+  /** Moves and resizes; every change of one gesture carries the same `gesture` key. */
+  onChange?: (changes: ElementChange[], gesture: string) => void;
   /** Category and seat of the ticket, drawn on its band (ADR 0056): `{ text: "Meia · Mesa 5…", color }`. */
   tag?: { text: string; color: string } | null;
   /** Object URLs of the sponsors' logos, in order (ADR 0059). */
@@ -222,6 +237,8 @@ export function TicketView({
 }) {
   const root = useRef<HTMLDivElement>(null);
   const drag = useRef<Drag | null>(null);
+  const [dragView, setDragView] = useState<DragView | null>(null);
+  const gestures = useRef(0);
   const editable = onChange !== undefined;
   const stubWidth = design.stub?.widthMm ?? 0;
   const total = design.widthMm + stubWidth;
@@ -230,18 +247,86 @@ export function TicketView({
   const pt = (size: number) => u(size * MM_PER_PT);
   const label = numberLabel(design.number, number);
   const band = tag === null ? null : effectiveBand(design);
+  const area = { width: design.widthMm, height: design.heightMm };
+  const isSelected = (element: TicketElement) => selected.some((item) => sameElement(item, element));
+  const boxesOutside = (inside: readonly TicketElement[]) =>
+    designElements(design)
+      .filter((element) => !inside.some((item) => sameElement(item, element)))
+      .map((element) => elementBox(design, element))
+      .filter((box): box is Box => box !== null);
 
-  const startDrag = (pointer: PointerEvent, element: TicketElement, mode: Drag["mode"]) => {
-    const box = elementBox(design, element);
+  const begin = (pointer: PointerEvent): number | null => {
     const width = root.current?.getBoundingClientRect().width ?? 0;
-    if (!editable || box === null || width === 0) {
-      return;
+    if (!editable || width === 0 || pointer.button !== 0) {
+      return null;
     }
     pointer.preventDefault();
     pointer.stopPropagation();
+    // Keyboard shortcuts act on the canvas: a field left focused would keep the arrow keys.
+    const active = document.activeElement;
+    if (active instanceof HTMLElement && root.current?.contains(active) !== true) {
+      active.blur();
+    }
     (pointer.currentTarget as HTMLElement).setPointerCapture(pointer.pointerId);
-    onSelect?.(element);
-    drag.current = { element, mode, x: pointer.clientX, y: pointer.clientY, start: box, mmPerPx: total / width };
+    // A key of its own for this gesture: the whole drag becomes one undo step.
+    gestures.current += 1;
+    return total / width;
+  };
+
+  const startMove = (pointer: PointerEvent, element: TicketElement) => {
+    const mmPerPx = begin(pointer);
+    if (mmPerPx === null) {
+      return;
+    }
+    const toggle = additive || pointer.shiftKey || pointer.ctrlKey || pointer.metaKey;
+    const already = isSelected(element);
+    if (toggle && already) {
+      onSelect?.(selected.filter((item) => !sameElement(item, element)));
+      return;
+    }
+    const group = toggle ? [...selected, element] : already ? [...selected] : [element];
+    if (!already || toggle) {
+      onSelect?.(group);
+    }
+    const items = group.flatMap((item) => {
+      const box = elementBox(design, item);
+      return box === null ? [] : [{ element: item, box }];
+    });
+    const bounds = boundsOf(items.map((item) => item.box));
+    if (bounds === null) {
+      return;
+    }
+    drag.current = {
+      mode: "move",
+      gesture: `drag-${String(gestures.current)}`,
+      items,
+      bounds,
+      targets: boxesOutside(group),
+      x: pointer.clientX,
+      y: pointer.clientY,
+      mmPerPx,
+      moved: false,
+      collapseTo: already && !toggle && group.length > 1 ? element : null,
+    };
+  };
+
+  const startResize = (pointer: PointerEvent, element: TicketElement) => {
+    const box = elementBox(design, element);
+    const mmPerPx = box === null ? null : begin(pointer);
+    if (box === null || mmPerPx === null) {
+      return;
+    }
+    drag.current = {
+      mode: "resize",
+      gesture: `drag-${String(gestures.current)}`,
+      element,
+      start: box,
+      targets: boxesOutside([element]),
+      x: pointer.clientX,
+      y: pointer.clientY,
+      mmPerPx,
+      moved: false,
+    };
   };
 
   const moveDrag = (pointer: PointerEvent) => {
@@ -249,109 +334,148 @@ export function TicketView({
     if (current === null || onChange === undefined) {
       return;
     }
-    const dx = (pointer.clientX - current.x) * current.mmPerPx;
-    const dy = (pointer.clientY - current.y) * current.mmPerPx;
-    const { start } = current;
-    if (current.mode === "move") {
-      onChange(current.element, {
-        ...start,
-        x: clamp(snap(start.x + dx), 0, design.widthMm - start.width),
-        y: clamp(snap(start.y + dy), 0, design.heightMm - start.height),
-      });
-    } else if (current.element.kind === "qr") {
-      const size = clamp(snap(start.width + Math.max(dx, dy)), MIN_QR_SIZE_MM, Math.min(design.widthMm - start.x, design.heightMm - start.y));
-      onChange(current.element, { ...start, width: size, height: size });
-    } else {
-      onChange(current.element, {
-        ...start,
-        width: clamp(snap(start.width + dx), 2, design.widthMm - start.x),
-        height: clamp(snap(start.height + dy), 2, design.heightMm - start.y),
-      });
+    const px = pointer.clientX - current.x;
+    const py = pointer.clientY - current.y;
+    if (!current.moved) {
+      if (Math.hypot(px, py) < DRAG_THRESHOLD_PX) {
+        return;
+      }
+      current.moved = true;
     }
+    const dx = px * current.mmPerPx;
+    const dy = py * current.mmPerPx;
+    const threshold = SNAP_PX * current.mmPerPx;
+    const guides = !pointer.altKey;
+    if (current.mode === "move") {
+      const { bounds } = current;
+      let x = roundTo(bounds.x + dx, GRID_MM);
+      let y = roundTo(bounds.y + dy, GRID_MM);
+      if (guides) {
+        const shift = snapMove({ ...bounds, x, y }, current.targets, area, threshold);
+        x += shift.dx;
+        y += shift.dy;
+      }
+      const delta = clampDelta([bounds], x - bounds.x, y - bounds.y, area);
+      const [box] = moveBoxes([bounds], delta.dx, delta.dy);
+      if (box !== undefined) {
+        setDragView({ mode: "move", box, guides: guides ? guidesFor(box, current.targets, area) : [] });
+      }
+      onChange(
+        current.items.map(({ element, box: start }) => ({ element, box: { ...start, x: roundMm(start.x + delta.dx), y: roundMm(start.y + delta.dy) } })),
+        current.gesture,
+      );
+      return;
+    }
+    const { start, element } = current;
+    let box: Box;
+    if (element.kind === "qr") {
+      const size = clamp(roundTo(start.width + Math.max(dx, dy), GRID_MM), MIN_QR_SIZE_MM, Math.min(design.widthMm - start.x, design.heightMm - start.y));
+      box = { ...start, width: size, height: size };
+    } else {
+      let width = roundTo(start.width + dx, GRID_MM);
+      let height = roundTo(start.height + dy, GRID_MM);
+      if (guides) {
+        ({ width, height } = snapResize({ ...start, width, height }, current.targets, area, threshold));
+      }
+      box = { ...start, width: roundMm(clamp(width, 2, design.widthMm - start.x)), height: roundMm(clamp(height, 2, design.heightMm - start.y)) };
+    }
+    setDragView({ mode: "resize", box, guides: guides && element.kind !== "qr" ? guidesFor(box, current.targets, area, "end") : [] });
+    onChange([{ element, box }], current.gesture);
   };
 
   const endDrag = () => {
+    const current = drag.current;
     drag.current = null;
-  };
-
-  const keyDown = (key: KeyboardEvent, element: TicketElement) => {
-    const box = elementBox(design, element);
-    if (onChange === undefined || box === null) {
-      return;
-    }
-    const step = key.shiftKey ? 5 : 0.5;
-    const moves: Partial<Record<string, [number, number]>> = {
-      ArrowLeft: [-step, 0],
-      ArrowRight: [step, 0],
-      ArrowUp: [0, -step],
-      ArrowDown: [0, step],
-    };
-    const move = moves[key.key];
-    if (move !== undefined) {
-      key.preventDefault();
-      onChange(element, {
-        ...box,
-        x: clamp(snap(box.x + move[0]), 0, design.widthMm - box.width),
-        y: clamp(snap(box.y + move[1]), 0, design.heightMm - box.height),
-      });
-    } else if ((key.key === "Delete" || key.key === "Backspace") && element.kind === "text" && onRemove !== undefined) {
-      key.preventDefault();
-      onRemove(element);
-    } else if (key.key === "Escape") {
-      onSelect?.(null);
+    setDragView(null);
+    if (current?.mode === "move" && !current.moved && current.collapseTo !== null) {
+      onSelect?.([current.collapseTo]);
     }
   };
 
+  const single = selected.length === 1;
   const frame = (element: TicketElement, box: Box, children: ReactNode, name: string, extra?: ReactNode) => {
-    const isSelected = sameElement(selected, element);
+    const chosen = isSelected(element);
     const invalid = problems.some((problem) => sameElement(problem, element));
     return (
       <div
-        key={element.kind === "text" ? `text-${String(element.index)}` : element.kind}
+        key={elementKey(element)}
         role={editable ? "button" : undefined}
         tabIndex={editable ? 0 : undefined}
         aria-label={editable ? name : undefined}
-        aria-pressed={editable ? isSelected : undefined}
+        aria-pressed={editable ? chosen : undefined}
         onPointerDown={(pointer) => {
-          startDrag(pointer, element, "move");
+          startMove(pointer, element);
         }}
         onPointerMove={moveDrag}
         onPointerUp={endDrag}
         onPointerCancel={endDrag}
-        onKeyDown={(key) => {
-          keyDown(key, element);
-        }}
         onFocus={() => {
-          if (editable && !isSelected) {
-            onSelect?.(element);
+          // Presses do not focus elements, so this is the keyboard (Tab) reaching one.
+          if (editable && !chosen) {
+            onSelect?.([element]);
           }
         }}
         className={cn(
           "absolute",
           editable && "cursor-move touch-none outline-offset-0 select-none focus-visible:outline-2 focus-visible:outline-brand",
-          editable && !isSelected && "hover:outline-1 hover:outline-brand/70 hover:outline-dashed",
-          isSelected && "z-20 outline-2 outline-brand outline-solid",
-          invalid && !isSelected && "outline-2 outline-danger outline-dashed",
+          editable && !chosen && "hover:outline-1 hover:outline-brand/70 hover:outline-dashed",
+          chosen && "z-20 outline-brand outline-solid",
+          chosen && (single ? "outline-2" : "outline-1"),
+          invalid && !chosen && "outline-2 outline-danger outline-dashed",
         )}
         style={{ left: u(box.x), top: u(box.y), width: u(box.width), height: u(box.height) }}
       >
         {children}
         {extra}
-        {editable && isSelected && (
+        {editable && chosen && single && (
           <span
             role="presentation"
+            title={t.resize}
             onPointerDown={(pointer) => {
-              startDrag(pointer, element, "resize");
+              startResize(pointer, element);
             }}
-            onPointerMove={moveDrag}
-            onPointerUp={endDrag}
-            onPointerCancel={endDrag}
-            className="absolute -right-1.5 -bottom-1.5 size-3 cursor-nwse-resize touch-none rounded-[3px] border-2 border-white bg-brand shadow"
+            className="touch-target absolute -right-1.5 -bottom-1.5 size-3 cursor-nwse-resize touch-none rounded-[3px] border-2 border-surface bg-brand-solid shadow-sm ring-1 ring-brand/40 pointer-coarse:-right-2 pointer-coarse:-bottom-2 pointer-coarse:size-4"
           />
         )}
       </div>
     );
   };
+
+  const groupBounds = editable && selected.length > 1 ? boundsOf(selected.map((element) => elementBox(design, element)).filter((box): box is Box => box !== null)) : null;
+  const overlays = editable && (
+    <>
+      {groupBounds !== null && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute z-30 rounded-[2px] outline-2 outline-offset-2 outline-brand outline-dashed"
+          style={{ left: u(groupBounds.x), top: u(groupBounds.y), width: u(groupBounds.width), height: u(groupBounds.height) }}
+        />
+      )}
+      {dragView?.guides.map((guide) => (
+        <span
+          key={`${guide.axis}-${String(guide.at)}`}
+          aria-hidden
+          className="pointer-events-none absolute z-30 bg-accent"
+          style={
+            guide.axis === "x"
+              ? { left: u(guide.at), top: u(guide.from), height: u(guide.to - guide.from), width: 1, transform: "translateX(-0.5px)" }
+              : { top: u(guide.at), left: u(guide.from), width: u(guide.to - guide.from), height: 1, transform: "translateY(-0.5px)" }
+          }
+        />
+      ))}
+      {dragView !== null && (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute z-30 mt-1.5 -translate-x-1/2 rounded-md bg-fg px-1.5 py-0.5 text-[11px] leading-tight font-medium whitespace-nowrap text-bg tabular-nums shadow-sm"
+          style={{ left: u(dragView.box.x + dragView.box.width / 2), top: u(dragView.box.y + dragView.box.height) }}
+        >
+          {dragView.mode === "move"
+            ? t.readoutPosition(mmText(dragView.box.x), mmText(dragView.box.y))
+            : t.readoutSize(mmText(dragView.box.width), mmText(dragView.box.height))}
+        </span>
+      )}
+    </>
+  );
 
   const textStyle = (block: Pick<TextBlock, "font" | "sizePt" | "color" | "bold" | "letterSpacing">): CSSProperties => ({
     fontFamily: FONT_FAMILIES[block.font],
@@ -387,16 +511,8 @@ export function TicketView({
           />
         )}
       </div>
-      <div
-        className="absolute inset-y-0"
-        style={{ left: u(bodyX), width: u(design.widthMm) }}
-        onPointerDown={() => {
-          // A press on the background (elements stop their own presses) clears the selection.
-          if (editable) {
-            onSelect?.(null);
-          }
-        }}
-      >
+      {/* The editor finds the body by this attribute to turn marquee pixels into millimetres. */}
+      <div className="absolute inset-y-0" style={{ left: u(bodyX), width: u(design.widthMm) }} data-ticket-body={editable ? "" : undefined}>
         {design.texts.map((block, index) => {
           const value = blockValue(block, event);
           const element: TicketElement = { kind: "text", index };
@@ -432,6 +548,7 @@ export function TicketView({
           )}
         {band !== null && tag !== null && <Band design={design} band={band} tag={tag} u={u} />}
         {frame({ kind: "qr" }, { x: q.xMm, y: q.yMm, width: q.sizeMm, height: q.sizeMm }, <FakeQr />, t.qrElement)}
+        {overlays}
       </div>
       {stub !== null && (
         <>
