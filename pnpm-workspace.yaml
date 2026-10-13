@@ -4,7 +4,7 @@ packages:
 
 # Shared versions: reference with "catalog:" in package.json files.
 catalog:
-  "@eslint/js": 9.39.5
+  "@eslint/js": 10.0.1
   "@types/node": 22.20.5
   eslint: 9.39.5
   typescript: 6.0.3
