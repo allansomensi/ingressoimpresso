@@ -278,3 +278,65 @@ async fn scans_are_classified_once_across_phones(pool: PgPool) {
         assert_eq!(reply.error_code(), "invalid_scans");
     }
 }
+
+/// The link is shown once (only its hash is stored): asking for it again replaces the token,
+/// keeps the phones already registered and stops the old link from registering new ones.
+#[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
+async fn a_new_link_replaces_the_token_and_keeps_the_phones(pool: PgPool) {
+    let app = TestApp::new(pool).await;
+    let token = app.login("banda@exemplo.com").await;
+    let event = app.create_event(&token, "Show").await;
+    let (access_id, old_token) = create_link(&app, &token, &event).await;
+    let phone = register(&app, &old_token, "Porta 1").await;
+
+    let reply = app
+        .post(
+            &format!("/api/door-accesses/{access_id}/link"),
+            &token,
+            json!({}),
+        )
+        .await;
+    assert_eq!(reply.status, StatusCode::OK);
+    let body = reply.json();
+    let new_token = body["token"].as_str().unwrap().to_owned();
+    assert_ne!(new_token, old_token);
+    assert_eq!(body["access"]["id"], access_id.as_str());
+
+    // The registered phone still syncs; the old link no longer registers phones.
+    assert_eq!(manifest(&app, &phone, None).await["deviceName"], "Porta 1");
+    let old = app
+        .request(
+            Method::POST,
+            "/api/door/register",
+            None,
+            Some(json!({ "accessToken": old_token, "deviceName": "Porta 2" })),
+        )
+        .await;
+    assert_eq!(old.status, StatusCode::UNAUTHORIZED);
+    register(&app, &new_token, "Porta 2").await;
+
+    // Someone else's link is not found; a revoked link has no new token.
+    let other = app.login("outra@exemplo.com").await;
+    let foreign = app
+        .post(
+            &format!("/api/door-accesses/{access_id}/link"),
+            &other,
+            json!({}),
+        )
+        .await;
+    assert_eq!(foreign.status, StatusCode::NOT_FOUND);
+    app.post(
+        &format!("/api/door-accesses/{access_id}/revoke"),
+        &token,
+        json!({}),
+    )
+    .await;
+    let revoked = app
+        .post(
+            &format!("/api/door-accesses/{access_id}/link"),
+            &token,
+            json!({}),
+        )
+        .await;
+    assert_eq!(revoked.error_code(), "door_link_inactive");
+}

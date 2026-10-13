@@ -252,11 +252,12 @@ pub(crate) fn items(
             total: facts.link_sellers,
         });
     }
+    // A nice-to-have: the door works without it, so it never counts as missing.
     let mut rehearsal = item(
         Key::Rehearsal,
         Some(TeamArea::Door),
-        false,
-        required(facts.rehearsed),
+        true,
+        optional(facts.rehearsed),
         &can,
     );
     if !facts.rehearsed && !facts.devices {
@@ -435,9 +436,13 @@ mod tests {
     #[test]
     fn a_new_event_misses_the_required_items() {
         let items = items(&Facts::default(), |_| true);
-        // Details, design, batch, delivery, door link, rehearsal and the contact; no images and
-        // no sellers: art and links do not apply.
-        assert_eq!(missing(&items), 7);
+        // Details, design, batch, delivery, door link and the contact (the rehearsal is
+        // optional); no images and no sellers: art and links do not apply.
+        assert_eq!(missing(&items), 6);
+        assert_eq!(
+            state_of(&items, ChecklistKey::Rehearsal),
+            ChecklistState::Optional
+        );
         assert_eq!(
             state_of(&items, ChecklistKey::Art),
             ChecklistState::NotApplicable

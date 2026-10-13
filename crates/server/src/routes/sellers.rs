@@ -3,14 +3,17 @@
 use std::collections::HashMap;
 
 use axum::Json;
-use axum::extract::{Path, State};
+use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use uuid::Uuid;
 
 use super::{
     EventAccess, authorize_event, bounds, event_access, is_issued, one_line, optional_text, range,
 };
-use crate::api::{RangeBody, RangeDto, SellerBody, SellerDto, TeamArea};
+use crate::api::{
+    AssignRemainingBody, AvailableNumbersDto, NumberRangeDto, RangeBody, RangeDto, SellerBody,
+    SellerDto, TeamArea,
+};
 use crate::auth::AuthUser;
 use crate::error::{ApiError, ApiResult, bad_request};
 use crate::state::AppState;
@@ -252,6 +255,120 @@ pub async fn assign(
             last: body.last,
         }),
     ))
+}
+
+/// Most ranges one "the rest" assignment creates: a very scattered rest is split by hand.
+const MAX_REMAINING_RANGES: usize = 500;
+
+/// Issued numbers that are still free: in a batch that was not canceled, held by no seller, not
+/// cancelled (an active void) and not sent by the organization as a digital ticket. With
+/// `category`, only its numbers (ADR 0056). In order, as inclusive bounds.
+async fn free_numbers(
+    executor: impl sqlx::PgExecutor<'_>,
+    event_id: Uuid,
+    category: Option<Uuid>,
+) -> ApiResult<Vec<(i32, i32)>> {
+    // Multiranges (Postgres 14+) do the set arithmetic without walking every number.
+    let rows = sqlx::query_scalar!(
+        r#"with
+             issued as (select coalesce(range_agg(numbers), '{}') as m from ticket_batches
+                        where event_id = $1 and status <> 'canceled'),
+             held as (select coalesce(range_agg(numbers), '{}') as m from seller_assignments
+                      where event_id = $1),
+             voided as (select coalesce(range_agg(numbers), '{}') as m from ticket_voids
+                        where event_id = $1 and undone_at is null),
+             sent as (select coalesce(range_agg(int4range(ticket_number, ticket_number + 1)), '{}') as m
+                      from ticket_links where event_id = $1 and revoked_at is null),
+             scope as (select case when $2::uuid is null then '{(,)}'::int4multirange
+                              else coalesce((select range_agg(numbers) from category_ranges
+                                             where event_id = $1 and category_id = $2), '{}')
+                              end as m)
+           select free as "free!" from unnest(
+             ((select m from issued) - (select m from held) - (select m from voided)
+              - (select m from sent)) * (select m from scope)
+           ) as free"#,
+        event_id,
+        category,
+    )
+    .fetch_all(executor)
+    .await?;
+    rows.iter().map(bounds).collect()
+}
+
+#[derive(Debug, serde::Deserialize)]
+pub struct AvailableQuery {
+    category: Option<Uuid>,
+}
+
+/// `GET /api/events/{id}/available-numbers[?category=]`: what "the rest" would give a seller.
+pub async fn available(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(event_id): Path<Uuid>,
+    Query(query): Query<AvailableQuery>,
+) -> ApiResult<Json<AvailableNumbersDto>> {
+    authorize_event(&state.pool, &user, event_id).await?;
+    let ranges = free_numbers(&state.pool, event_id, query.category).await?;
+    let count = ranges.iter().map(|(first, last)| last - first + 1).sum();
+    Ok(Json(AvailableNumbersDto {
+        ranges: ranges
+            .into_iter()
+            .map(|(first, last)| NumberRangeDto { first, last })
+            .collect(),
+        count,
+    }))
+}
+
+/// `POST /api/sellers/{id}/ranges/remaining`: every free number (of a category, optionally)
+/// goes to the seller in one go, typically the box office (ADR 0069) taking what the sellers
+/// did not. The exclusion constraint still guards against a concurrent assignment.
+pub async fn assign_remaining(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(seller_id): Path<Uuid>,
+    Json(body): Json<AssignRemainingBody>,
+) -> ApiResult<(StatusCode, Json<Vec<RangeDto>>)> {
+    let event_id = seller_event(&state, &user, seller_id).await?;
+    if let Some(category) = body.category_id {
+        sqlx::query_scalar!(
+            "select id from ticket_categories where id = $1 and event_id = $2",
+            category,
+            event_id
+        )
+        .fetch_optional(&state.pool)
+        .await?
+        .ok_or_else(|| bad_request("unknown_category", "unknown category"))?;
+    }
+    let mut tx = state.pool.begin().await?;
+    let free = free_numbers(&mut *tx, event_id, body.category_id).await?;
+    if free.is_empty() {
+        return Err(ApiError::Conflict(
+            "no_free_numbers",
+            "every issued number already has a destination".to_owned(),
+        ));
+    }
+    if free.len() > MAX_REMAINING_RANGES {
+        return Err(ApiError::Conflict(
+            "too_scattered",
+            format!("the free numbers form more than {MAX_REMAINING_RANGES} ranges"),
+        ));
+    }
+    let mut created = Vec::with_capacity(free.len());
+    for (first, last) in free {
+        let id = Uuid::new_v4();
+        sqlx::query!(
+            "insert into seller_assignments (id, event_id, seller_id, numbers) values ($1, $2, $3, $4)",
+            id,
+            event_id,
+            seller_id,
+            range(first, last)?,
+        )
+        .execute(&mut *tx)
+        .await?;
+        created.push(RangeDto { id, first, last });
+    }
+    tx.commit().await?;
+    Ok((StatusCode::CREATED, Json(created)))
 }
 
 /// `DELETE /api/ranges/{id}`.

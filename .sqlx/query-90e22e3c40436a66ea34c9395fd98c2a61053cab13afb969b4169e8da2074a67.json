@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select logo_blob_id as \"logo_blob_id!\" from organization_profiles\n           where organization_id = $1 and logo_blob_id is not null",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "logo_blob_id!",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "organization_profiles",
+            "name": "logo_blob_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "90e22e3c40436a66ea34c9395fd98c2a61053cab13afb969b4169e8da2074a67"
+}

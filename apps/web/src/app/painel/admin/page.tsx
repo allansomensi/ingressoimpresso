@@ -6,6 +6,7 @@ import {
   Activity,
   BadgePercent,
   Building2,
+  CalendarDays,
   ChevronDown,
   Coins,
   Gift,
@@ -40,6 +41,8 @@ const SECTIONS = {
   overview: { slug: "visao-geral", icon: LayoutDashboard, view: AdminOverview },
   finance: { slug: "financeiro", icon: Wallet, view: load(() => import("@/components/admin/finance").then((m) => m.AdminFinance)) },
   organizations: { slug: "organizacoes", icon: Building2, view: AdminOrganizations },
+  // Any event of any organization, opened in support mode (ADR 0079).
+  events: { slug: "eventos", icon: CalendarDays, view: load(() => import("@/components/admin/admin-events").then((m) => m.AdminEvents)) },
   batches: { slug: "lotes", icon: Ticket, view: AdminBatches },
   prices: { slug: "precos", icon: Coins, view: load(() => import("@/components/admin/billing").then((m) => m.AdminPrices)) },
   promotions: { slug: "promocoes", icon: BadgePercent, view: load(() => import("@/components/admin/billing").then((m) => m.AdminPromotions)) },
@@ -62,7 +65,7 @@ type Section = keyof typeof SECTIONS;
 
 const GROUPS: readonly { key: keyof typeof t.groups; sections: readonly Section[] }[] = [
   { key: "overview", sections: ["overview", "finance"] },
-  { key: "customers", sections: ["organizations", "batches"] },
+  { key: "customers", sections: ["organizations", "events", "batches"] },
   { key: "sales", sections: ["prices", "promotions", "codes", "referrals"] },
   { key: "communication", sections: ["announcements", "changelog", "emails"] },
   { key: "safety", sections: ["moderation", "audit"] },

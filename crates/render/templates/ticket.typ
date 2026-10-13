@@ -112,7 +112,9 @@
       place(top + left, dx: -b, dy: -b,
         image(data.art, width: w + 2 * b, height: h + 2 * b, fit: "cover"))
     }
-    for (block, value) in d.texts.zip(data.textValues) {
+    // A category with its own price brings its own texts (the `{preco}` field).
+    let values = if t.textValues != none { t.textValues } else { data.textValues }
+    for (block, value) in d.texts.zip(values) {
       if value != none {
         place(top + left, dx: mm(block.xMm), dy: mm(block.yMm), text-block(block, value))
       }

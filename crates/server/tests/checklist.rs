@@ -93,12 +93,13 @@ async fn the_checklist_follows_the_event_until_nothing_is_missing(pool: PgPool) 
             "batch",
             "delivery",
             "door_link",
-            "rehearsal",
             "organization_contact"
         ]
     );
-    assert_eq!(list["missing"], 7);
+    assert_eq!(list["missing"], 6);
     assert_eq!(item(&list, "details")["hint"], "no_address");
+    // The rehearsal is optional: suggested, never missing.
+    assert_eq!(item(&list, "rehearsal")["state"], "optional");
     assert_eq!(item(&list, "rehearsal")["hint"], "no_devices");
     assert_eq!(item(&list, "art")["state"], "not_applicable");
     assert_eq!(item(&list, "seller_links")["state"], "not_applicable");
@@ -114,7 +115,7 @@ async fn the_checklist_follows_the_event_until_nothing_is_missing(pool: PgPool) 
             .all(|item| item["canAct"] == true)
     );
     let events = app.get("/api/events", &token).await.json();
-    assert_eq!(listed_missing(&events, &event), 7);
+    assert_eq!(listed_missing(&events, &event), 6);
 
     // The address.
     let mut body = app
@@ -162,7 +163,6 @@ async fn the_checklist_follows_the_event_until_nothing_is_missing(pool: PgPool) 
             "seller_links",
             "delivery",
             "door_link",
-            "rehearsal",
             "organization_contact"
         ]
     );
@@ -185,7 +185,7 @@ async fn the_checklist_follows_the_event_until_nothing_is_missing(pool: PgPool) 
     assert_eq!(ticket.status, StatusCode::CREATED);
     let (_, access) = create_link(&app, &token, &event).await;
     let list = checklist(&app, &token, &event).await;
-    assert_eq!(missing_keys(&list), ["rehearsal", "organization_contact"]);
+    assert_eq!(missing_keys(&list), ["organization_contact"]);
     assert_eq!(item(&list, "rehearsal")["hint"], "no_devices");
     let phone = register(&app, &access, "Porta 1").await;
     let list = checklist(&app, &token, &event).await;
@@ -233,7 +233,7 @@ async fn the_team_sees_the_state_and_acts_on_its_areas(pool: PgPool) {
     assert_eq!(added.status, StatusCode::CREATED);
     let door = app.login("porta@exemplo.com").await;
     let list = checklist(&app, &door, &event).await;
-    assert_eq!(list["missing"], 7);
+    assert_eq!(list["missing"], 6);
     for item in list["items"].as_array().unwrap() {
         assert_eq!(
             item["canAct"] == true,
@@ -247,7 +247,7 @@ async fn the_team_sees_the_state_and_acts_on_its_areas(pool: PgPool) {
     assert_eq!(item(&list, "organization_contact")["canAct"], false);
     // The team's list counts too.
     let events = app.get("/api/events", &door).await.json();
-    assert_eq!(listed_missing(&events, &event), 7);
+    assert_eq!(listed_missing(&events, &event), 6);
     // Another organization does not see it.
     let other = app.login("outra@exemplo.com").await;
     let hidden = app

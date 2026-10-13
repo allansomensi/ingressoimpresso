@@ -219,6 +219,44 @@ pub async fn revoke_access(
     Ok(Json(access_row(&state, access_id).await?.into()))
 }
 
+/// `POST /api/door-accesses/{id}/link`: the link again, to hand it to another phone. Only the
+/// hash of a token is stored (invariant 7), so the old link cannot be shown: a new token replaces
+/// it, with the same name, categories and end. Phones already registered keep working; the old
+/// link stops registering new ones.
+pub async fn new_link(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(access_id): Path<Uuid>,
+) -> ApiResult<Json<CreatedDoorAccess>> {
+    let event_id = sqlx::query_scalar!(
+        "select event_id from door_accesses where id = $1",
+        access_id
+    )
+    .fetch_optional(&state.pool)
+    .await?
+    .ok_or(ApiError::NotFound)?;
+    authorize_event(&state.pool, &user, event_id).await?;
+    let (token, hash) = new_token()?;
+    let replaced = sqlx::query!(
+        r#"update door_accesses set token_hash = $2
+           where id = $1 and revoked_at is null and expires_at > now()"#,
+        access_id,
+        hash,
+    )
+    .execute(&state.pool)
+    .await?;
+    if replaced.rows_affected() == 0 {
+        return Err(ApiError::Conflict(
+            "door_link_inactive",
+            "the link was revoked or has expired".to_owned(),
+        ));
+    }
+    Ok(Json(CreatedDoorAccess {
+        access: access_row(&state, access_id).await?.into(),
+        token,
+    }))
+}
+
 /// `PUT /api/door-accesses/{id}/categories` (ADR 0068): which categories the door admits. Phones
 /// already registered with the link pick the change up on their next sync.
 pub async fn update_access_categories(

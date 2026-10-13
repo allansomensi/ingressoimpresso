@@ -633,6 +633,31 @@ dto! {
         pub entries: i64,
     }
 
+    /// An event of any organization found by the admin search (ADR 0079).
+    pub struct AdminEventSearchDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// Name.
+        pub name: String,
+        /// Start, in the event's local time.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub starts_at: OffsetDateTime,
+        /// `active` or `closed`.
+        pub status: String,
+        /// Canceled by the organization (ADR 0065).
+        pub canceled: bool,
+        /// Its organization.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub organization_id: Uuid,
+        /// The organization's name.
+        pub organization_name: String,
+        /// Tickets of paid batches.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub paid_tickets: i64,
+    }
+
     /// One line of the audit log (ADR 0032).
     pub struct AuditEntryDto {
         /// Id.
@@ -1626,6 +1651,23 @@ dto! {
         pub first: i32,
         /// Last number (inclusive).
         pub last: i32,
+    }
+
+    /// `POST /api/sellers/{id}/ranges/remaining`: every number still free goes to the seller.
+    pub struct AssignRemainingBody {
+        /// Only the numbers of this category (ADR 0056); all of them when absent.
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(type = "string | null", optional))]
+        pub category_id: Option<Uuid>,
+    }
+
+    /// Numbers issued and still free: no seller holds them, not cancelled, not sent as a digital
+    /// ticket by the organization (`GET /api/events/{id}/available-numbers`).
+    pub struct AvailableNumbersDto {
+        /// Free numbers, in order.
+        pub ranges: Vec<NumberRangeDto>,
+        /// How many numbers.
+        pub count: i32,
     }
 
     /// An expense or other income of the event (ADR 0058).

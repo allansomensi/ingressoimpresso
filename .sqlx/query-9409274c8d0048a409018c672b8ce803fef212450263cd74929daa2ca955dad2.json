@@ -1,0 +1,116 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select e.id, e.name, e.starts_at, e.utc_offset_minutes, e.status,\n                  e.canceled_at is not null as \"canceled!\",\n                  e.organization_id, o.name as organization_name,\n                  coalesce((select sum(upper(b.numbers) - lower(b.numbers)) from ticket_batches b\n                            where b.event_id = e.id and b.status = 'paid'), 0)::bigint as \"paid_tickets!\"\n           from events e join organizations o on o.id = e.organization_id\n           where ($1::uuid is not null and e.id = $1)\n              or ($1::uuid is null and ($2::text is null\n                  or e.name ilike $2\n                  or o.name ilike $2\n                  or exists (select 1 from memberships m join users u on u.id = m.user_id\n                             where m.organization_id = o.id and u.email::text ilike $2)))\n           order by e.starts_at desc\n           limit $3",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "starts_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "starts_at"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "utc_offset_minutes",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "utc_offset_minutes"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "canceled!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "organization_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "organization_id"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "organization_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "organizations",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "paid_tickets!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      null,
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "9409274c8d0048a409018c672b8ce803fef212450263cd74929daa2ca955dad2"
+}

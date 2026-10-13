@@ -170,6 +170,8 @@ pub struct TicketCategory {
     pub name: String,
     /// Band colour (`#rrggbb`).
     pub color: String,
+    /// Its own price in cents (`None`: the event's), printed by the `{preco}` field.
+    pub price_cents: Option<i64>,
 }
 
 /// One ticket to render.
@@ -619,20 +621,7 @@ impl<'a> TemplateData<'a> {
             design: &job.design,
             bleed_mm: BLEED_MM,
             art: job.art.as_ref().map(|art| art.path),
-            text_values: job
-                .design
-                .texts
-                .iter()
-                .map(|block| {
-                    let value = fields::resolve(&block.text, &job.event_name, &job.details)?;
-                    let value = value.trim();
-                    match (value.is_empty(), block.uppercase) {
-                        (true, _) => None,
-                        (false, true) => Some(value.to_uppercase()),
-                        (false, false) => Some(value.to_owned()),
-                    }
-                })
-                .collect(),
+            text_values: text_values(job, &job.details),
             tickets: tickets
                 .iter()
                 .enumerate()
@@ -641,6 +630,7 @@ impl<'a> TemplateData<'a> {
                     qr: qr_path(index),
                     sample: matches!(ticket.qr, TicketQr::Sample { .. }),
                     tag: band_tag(ticket),
+                    text_values: category_texts(job, ticket),
                 })
                 .collect(),
             band: job.design.effective_band(),
@@ -668,6 +658,46 @@ struct TemplateTicket {
     qr: String,
     sample: bool,
     tag: Option<TemplateTag>,
+    /// The texts of this ticket when they differ from the job's (a category with its own price
+    /// and a `{preco}` field); `None` uses [`TemplateData::text_values`].
+    #[serde(rename = "textValues")]
+    text_values: Option<Vec<Option<String>>>,
+}
+
+/// Each text block of the design with its fields replaced; `None` hides it.
+fn text_values(job: &RenderJob, details: &EventDetails) -> Vec<Option<String>> {
+    job.design
+        .texts
+        .iter()
+        .map(|block| {
+            let value = fields::resolve(&block.text, &job.event_name, details)?;
+            let value = value.trim();
+            match (value.is_empty(), block.uppercase) {
+                (true, _) => None,
+                (false, true) => Some(value.to_uppercase()),
+                (false, false) => Some(value.to_owned()),
+            }
+        })
+        .collect()
+}
+
+/// The texts of a ticket whose category has its own price, when the design prints the price
+/// (ADR 0056: a VIP ticket shows the VIP price).
+fn category_texts(job: &RenderJob, ticket: &TicketToRender) -> Option<Vec<Option<String>>> {
+    let price = ticket.category.as_ref()?.price_cents?;
+    let prints_price = job
+        .design
+        .texts
+        .iter()
+        .any(|block| block.text.contains("{preco}"));
+    if !prints_price || job.details.price_cents == Some(price) {
+        return None;
+    }
+    let details = EventDetails {
+        price_cents: Some(price),
+        ..job.details.clone()
+    };
+    Some(text_values(job, &details))
 }
 
 #[derive(Serialize)]
@@ -894,6 +924,47 @@ mod tests {
                 })
                 .collect(),
         }
+    }
+
+    #[test]
+    fn a_category_with_its_own_price_prints_it() {
+        let block = |text: &str| crate::design::TextBlock {
+            text: text.to_owned(),
+            x_mm: 5.0,
+            y_mm: 5.0,
+            width_mm: 40.0,
+            height_mm: 8.0,
+            font: crate::design::FontChoice::Mono,
+            size_pt: 10.0,
+            color: "#111111".to_owned(),
+            align: crate::design::TextAlign::Left,
+            lines: 1,
+            bold: false,
+            uppercase: false,
+            letter_spacing: 0.0,
+        };
+        let mut job = signed_job(3);
+        job.design.texts = vec![block("{evento}"), block("Valor: {preco}")];
+        job.details.price_cents = Some(4_000);
+        let category = |price_cents| TicketCategory {
+            name: "VIP".to_owned(),
+            color: "#ca8a04".to_owned(),
+            price_cents,
+        };
+        let tickets = &mut job.tickets;
+        tickets[0].category = Some(category(Some(8_000)));
+        tickets[1].category = Some(category(None));
+        tickets[2].category = Some(category(Some(4_000)));
+        let data = TemplateData::new(&job, &job.tickets);
+        assert_eq!(data.text_values[1].as_deref(), Some("Valor: R$ 40,00"));
+        let own = data.tickets[0].text_values.as_ref().unwrap();
+        assert_eq!(own[0].as_deref(), Some("Evento"));
+        assert_eq!(own[1].as_deref(), Some("Valor: R$ 80,00"));
+        // The event's price, stated or inherited, keeps the job's texts.
+        assert!(data.tickets[1].text_values.is_none());
+        assert!(data.tickets[2].text_values.is_none());
+        // Printing it works too.
+        assert!(home_pdf(&job).is_ok());
     }
 
     fn page_boxes(pdf: &[u8]) -> Vec<(Vec<f32>, Vec<f32>)> {

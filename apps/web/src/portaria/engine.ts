@@ -13,6 +13,7 @@ import { DoorApiError, fetchManifest, registerDevice, reportRehearsal, uploadArr
 import {
   CONFIRM_BUDGET_MS,
   ConfirmGate,
+  canReplaceResult,
   errorView,
   RESCAN_WINDOW_MS,
   SYNC_INTERVAL_MS,
@@ -30,6 +31,7 @@ import {
   type DoorContext,
   type ResultView,
 } from "./logic";
+import { RECENT_LIMIT, recentScans, recentSummary, type RecentScan, type RecentSummary } from "./recent";
 import * as storage from "./storage";
 
 const UPLOAD_BATCH = 500;
@@ -109,8 +111,13 @@ export class DoorEngine {
   #scanning = false;
   /** Bumped by `start` and `stop`: a sync loop of an older generation ends by itself. */
   #generation = 0;
-  /** The last scanned QR and when it was last seen by the camera. */
-  #last: { text: string; seenAt: number; view: ResultView } | null = null;
+  /**
+   * The last scanned QR and when it was last seen by the camera. `dismissed`: the doorkeeper
+   * tapped its result away, so the same code still in view does not bring it back.
+   */
+  #last: { text: string; seenAt: number; view: ResultView; dismissed?: boolean } | null = null;
+  /** When the result on screen appeared. */
+  #shownAt = 0;
   readonly #gate = new ConfirmGate();
   /** The ticket on the "wrong door" screen, which may be let in anyway (ADR 0068). */
   #wrongDoor: { text: string; number: number } | null = null;
@@ -129,6 +136,9 @@ export class DoorEngine {
   readonly getSnapshot = (): DoorState => this.#state;
 
   #set(patch: Partial<DoorState>): void {
+    if (patch.result !== undefined && patch.result !== null && patch.result !== this.#state.result) {
+      this.#shownAt = Date.now();
+    }
     this.#state = { ...this.#state, ...patch };
     for (const listener of this.#listeners) {
       listener();
@@ -221,13 +231,14 @@ export class DoorEngine {
   }
 
   /**
-   * Handles the texts of one camera frame. Ignored while a result is on screen or a scan is
-   * being processed. Among several codes, the first that is one of our tickets wins.
+   * Handles the texts of one camera frame. Ignored while a scan is being processed or a result
+   * is on screen, except a green one seen for a moment, which a different ticket replaces (a busy
+   * door does not wait). Among several codes, the first that is one of our tickets wins.
    */
   async scan(texts: readonly string[]): Promise<void> {
     const core = this.#core;
     const device = this.#state.device;
-    if (core === null || device === null || texts.length === 0 || this.#scanning || this.#state.result !== null) {
+    if (core === null || device === null || texts.length === 0 || this.#scanning) {
       return;
     }
     const text = texts.find((candidate) => core.evaluate(candidate).kind !== "invalid") ?? texts[0];
@@ -235,11 +246,27 @@ export class DoorEngine {
       return;
     }
     const now = Date.now();
-    if (this.#last !== null && this.#last.text === text && now - this.#last.seenAt < RESCAN_WINDOW_MS) {
+    const same = this.#last !== null && this.#last.text === text && now - this.#last.seenAt < RESCAN_WINDOW_MS;
+    const shown = this.#state.result;
+    if (shown !== null) {
+      if (same && this.#last !== null) {
+        // The code is still in view: keep the window sliding.
+        this.#last = { ...this.#last, seenAt: now };
+        return;
+      }
+      if (!canReplaceResult(shown, now - this.#shownAt)) {
+        return;
+      }
+      // A new ticket: its own screen (or "checking") takes over.
+      this.#set({ result: null });
+    }
+    if (same && this.#last !== null) {
       // Still in front of the camera: the same answer again, silently, and no new scan. The
-      // window slides while the code stays in view.
+      // window slides while the code stays in view. Once tapped away, it stays away.
       this.#last = { ...this.#last, seenAt: now };
-      this.#set({ result: { ...this.#last.view, repeat: true } });
+      if (this.#last.dismissed !== true) {
+        this.#set({ result: { ...this.#last.view, repeat: true } });
+      }
       return;
     }
     this.#scanning = true;
@@ -317,6 +344,9 @@ export class DoorEngine {
         scannedAtMs: at,
         synced: 0,
         ...(exception && decision.kind === "admit" ? { exception: true } : {}),
+        // For this phone's history only (never uploaded).
+        ...(decision.kind === "voided" || decision.kind === "invalid" ? { reason: decision.reason } : {}),
+        ...(decision.kind === "other_event" ? { eventTag: decision.eventTag } : {}),
       },
       decision.kind === "admit" ? { number: decision.number, atUnixMs: at, deviceName } : null,
     );
@@ -333,9 +363,25 @@ export class DoorEngine {
     return view;
   }
 
-  dismissResult(): void {
+  /**
+   * Takes the result off the screen. `byUser`: tapped away, so the same code still in front of
+   * the camera does not bring it back; a green screen that left by itself may come back silently.
+   */
+  dismissResult(byUser = true): void {
     this.#wrongDoor = null;
+    if (byUser && this.#last !== null) {
+      this.#last = { ...this.#last, dismissed: true };
+    }
     this.#set({ result: null });
+  }
+
+  /** This phone's latest scans and its totals, from the local database (works offline). */
+  async recent(limit = RECENT_LIMIT): Promise<{ scans: RecentScan[]; summary: RecentSummary }> {
+    const [scans, entries] = await Promise.all([storage.allScans(), storage.allEntries()]);
+    return {
+      scans: recentScans(scans, entries, this.#context(), this.#state.manifest?.voids ?? [], limit),
+      summary: recentSummary(scans),
+    };
   }
 
   // --- Rehearsal (ADR 0067) ------------------------------------------------------------
@@ -547,9 +593,11 @@ export class DoorEngine {
     if (result?.class === "duplicate_entry" && result.firstEntry !== null) {
       // The copy entered elsewhere first: remember that entry so later scans agree.
       this.#core?.recordEntries([{ number, ...result.firstEntry }]);
+      void storage.saveVerdict(scan.id, { kind: "already_entered", ...result.firstEntry }).catch(() => undefined);
       return alreadyEnteredView(number, result.firstEntry, this.#context());
     }
     if (result?.class === "void_entry" && result.voidReason !== null) {
+      void storage.saveVerdict(scan.id, { kind: "voided", reason: result.voidReason }).catch(() => undefined);
       return voidedView(number, result.voidReason, this.#context());
     }
     return null;

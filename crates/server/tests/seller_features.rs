@@ -702,3 +702,135 @@ async fn goals_and_the_ranking(pool: PgPool) {
     let view = sync(&app, &caio, json!([])).await.json()["view"].clone();
     assert_eq!(view["ranking"], Value::Null);
 }
+
+/// "The rest" gives a seller every free number at once: not held by another seller, not
+/// cancelled, not sent as a digital ticket by the organization; optionally of one category.
+#[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
+async fn the_box_office_takes_the_remaining_numbers(pool: PgPool) {
+    let app = TestApp::new(pool).await;
+    let admin = app.login(ADMIN).await;
+    let token = app.login("banda@exemplo.com").await;
+    let event = app.create_event(&token, "Show").await;
+    let batch = app.create_batch(&token, &event, 40).await;
+    if batch["status"] != "paid" {
+        app.request(
+            Method::POST,
+            &format!(
+                "/api/admin/batches/{}/mark-paid",
+                batch["id"].as_str().unwrap()
+            ),
+            Some(&admin),
+            None,
+        )
+        .await;
+    }
+    let seller = |name: &'static str, box_office: bool| {
+        let (app, token, event) = (&app, &token, &event);
+        async move {
+            app.post(
+                &format!("/api/events/{event}/sellers"),
+                token,
+                json!({ "name": name, "boxOffice": box_office }),
+            )
+            .await
+            .json()["id"]
+                .as_str()
+                .unwrap()
+                .to_owned()
+        }
+    };
+    let maria = seller("Maria", false).await;
+    let caixa = seller("Bilheteria", true).await;
+    app.post(
+        &format!("/api/sellers/{maria}/ranges"),
+        &token,
+        json!({ "first": 1, "last": 10 }),
+    )
+    .await;
+    let void = app
+        .post(
+            &format!("/api/events/{event}/voids"),
+            &token,
+            json!({ "first": 15, "last": 16, "reason": "lost", "note": null }),
+        )
+        .await;
+    assert_eq!(void.status, StatusCode::CREATED);
+    let ticket = app
+        .post(
+            &format!("/api/events/{event}/tickets"),
+            &token,
+            json!({ "number": 20, "holderName": "Bia" }),
+        )
+        .await;
+    assert_eq!(ticket.status, StatusCode::CREATED);
+    let vip = app
+        .post(
+            &format!("/api/events/{event}/categories"),
+            &token,
+            json!({ "name": "VIP", "color": "#ca8a04", "priceCents": 8000 }),
+        )
+        .await
+        .json()["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    app.post(
+        &format!("/api/categories/{vip}/ranges"),
+        &token,
+        json!({ "first": 31, "last": 40 }),
+    )
+    .await;
+
+    let available = app
+        .get(&format!("/api/events/{event}/available-numbers"), &token)
+        .await
+        .json();
+    assert_eq!(
+        available["ranges"],
+        json!([
+            { "first": 11, "last": 14 },
+            { "first": 17, "last": 19 },
+            { "first": 21, "last": 40 }
+        ])
+    );
+    assert_eq!(available["count"], 27);
+
+    // The VIP numbers first, then the rest.
+    let only_vip = app
+        .post(
+            &format!("/api/sellers/{caixa}/ranges/remaining"),
+            &token,
+            json!({ "categoryId": vip }),
+        )
+        .await;
+    assert_eq!(only_vip.status, StatusCode::CREATED);
+    assert_eq!(only_vip.json()[0]["first"], 31);
+    let rest = app
+        .post(
+            &format!("/api/sellers/{caixa}/ranges/remaining"),
+            &token,
+            json!({}),
+        )
+        .await;
+    assert_eq!(rest.status, StatusCode::CREATED);
+    assert_eq!(rest.json().as_array().unwrap().len(), 3);
+    let again = app
+        .post(
+            &format!("/api/sellers/{caixa}/ranges/remaining"),
+            &token,
+            json!({}),
+        )
+        .await;
+    assert_eq!(again.error_code(), "no_free_numbers");
+
+    // Another organization sees nothing.
+    let other = app.login("outra@exemplo.com").await;
+    let foreign = app
+        .post(
+            &format!("/api/sellers/{caixa}/ranges/remaining"),
+            &other,
+            json!({}),
+        )
+        .await;
+    assert_eq!(foreign.status, StatusCode::NOT_FOUND);
+}

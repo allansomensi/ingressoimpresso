@@ -1,15 +1,30 @@
 "use client";
 
-import type { DoorLiveDeviceDto, DoorLiveDto } from "@ingressoimpresso/api-types";
+import type { DoorLiveDeviceDto, DoorLiveDto, EventDto } from "@ingressoimpresso/api-types";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, CheckCircle2, CloudOff, DoorOpen, ListChecks, LogIn, ShieldX, Smartphone, Store, Tags } from "lucide-react";
-import { useSyncExternalStore } from "react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  CloudOff,
+  DoorOpen,
+  ListChecks,
+  LogIn,
+  Maximize2,
+  Minimize2,
+  ShieldX,
+  Smartphone,
+  Store,
+  Tags,
+} from "lucide-react";
+import { useEffect, useEffectEvent, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 
-import { Badge, Button, Card, CardHeader, EmptyState, ErrorMessage, LoadingBlock, Stat } from "@/components/ui";
+import { Badge, Button, Card, CardHeader, EmptyState, ErrorMessage, LoadingBlock, Stat, useScrollLock } from "@/components/ui";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { agoLabel, deviceHealth, LIVE_REFRESH_MS, occupancy, refusalCount } from "@/lib/door-live";
 import { money } from "@/lib/format";
+import { useWakeLock } from "@/lib/wake-lock";
 import { clockNow, serverClockNow, subscribeClock } from "@/portaria/clock";
 import { texts } from "@/texts/pt-BR";
 
@@ -42,6 +57,7 @@ export function useDoorLive(eventId: string, enabled = true) {
 export function LiveTab({ eventId, onSelect }: { eventId: string; onSelect: SelectTab }) {
   const live = useDoorLive(eventId);
   const now = useSyncExternalStore(subscribeClock, clockNow, serverClockNow);
+  const [fullscreen, setFullscreen] = useState(false);
 
   if (live.isPending) {
     return <LoadingBlock rows={4} />;
@@ -74,15 +90,33 @@ export function LiveTab({ eventId, onSelect }: { eventId: string; onSelect: Sele
   const stale = data.devices.filter((device) => deviceHealth(device, clock) === "stale");
   const refusals = refusalCount(data.refusals);
 
-  return (
+  const updated = (
+    <p className="flex items-center gap-2 text-sm text-fg-muted" aria-live="polite">
+      <span className="relative flex size-2.5">
+        <span className="absolute inline-flex size-full animate-ping rounded-full bg-success opacity-60" />
+        <span className="relative inline-flex size-2.5 rounded-full bg-success" />
+      </span>
+      {t.updated(agoLabel(clock - live.dataUpdatedAt))}
+    </p>
+  );
+
+  const board = (
     <div className="flex flex-col gap-6">
-      <p className="flex items-center gap-2 text-sm text-fg-muted" aria-live="polite">
-        <span className="relative flex size-2.5">
-          <span className="absolute inline-flex size-full animate-ping rounded-full bg-success opacity-60" />
-          <span className="relative inline-flex size-2.5 rounded-full bg-success" />
-        </span>
-        {t.updated(agoLabel(clock - live.dataUpdatedAt))}
-      </p>
+      {!fullscreen && (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          {updated}
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={<Maximize2 />}
+            onClick={() => {
+              setFullscreen(true);
+            }}
+          >
+            {t.fullscreen}
+          </Button>
+        </div>
+      )}
 
       {stale.length > 0 && (
         <div role="alert" className="flex items-start gap-3 rounded-xl border border-warning/30 bg-warning-soft px-4 py-3 text-sm text-warning-fg">
@@ -176,6 +210,113 @@ export function LiveTab({ eventId, onSelect }: { eventId: string; onSelect: Sele
         {data.categories.length > 0 && <RefusalsCard refusals={data.refusals} />}
       </div>
     </div>
+  );
+
+  if (fullscreen) {
+    return (
+      <LiveFullscreen
+        eventId={eventId}
+        clock={clock}
+        updated={updated}
+        onExit={() => {
+          setFullscreen(false);
+        }}
+      >
+        {board}
+      </LiveFullscreen>
+    );
+  }
+  return board;
+}
+
+/**
+ * The live board on the whole screen, for a TV or a laptop at the entrance (ADR 0071): the
+ * browser's full screen where it exists (not on iPhones), a cover over the panel always, the
+ * screen kept on, and Esc or the button to leave.
+ */
+function LiveFullscreen({
+  eventId,
+  clock,
+  updated,
+  onExit,
+  children,
+}: {
+  eventId: string;
+  clock: number;
+  updated: ReactNode;
+  onExit: () => void;
+  children: ReactNode;
+}) {
+  const shell = useRef<HTMLDivElement | null>(null);
+  // The page above already loaded the event: this reads the same cache.
+  const event = useQuery({ queryKey: ["event", eventId], queryFn: () => api<EventDto>(`/api/events/${eventId}`) });
+  useWakeLock(true);
+  useScrollLock(true);
+  // The parent re-renders on every clock tick: leaving must not restart the full screen.
+  const exit = useEffectEvent(onExit);
+
+  useEffect(() => {
+    const element = shell.current;
+    let native = false;
+    const onChange = () => {
+      if (document.fullscreenElement === null && native) {
+        exit();
+      }
+    };
+    const onKey = (keyEvent: globalThis.KeyboardEvent) => {
+      if (keyEvent.key === "Escape" && !native) {
+        exit();
+      }
+    };
+    document.addEventListener("fullscreenchange", onChange);
+    document.addEventListener("keydown", onKey);
+    if (element !== null && typeof element.requestFullscreen === "function" && document.fullscreenEnabled) {
+      element.requestFullscreen().then(
+        () => {
+          native = true;
+        },
+        () => {
+          // Refused (no gesture, iframe): the cover alone does the job.
+        },
+      );
+    }
+    element?.focus();
+    return () => {
+      document.removeEventListener("fullscreenchange", onChange);
+      document.removeEventListener("keydown", onKey);
+      if (document.fullscreenElement !== null) {
+        void document.exitFullscreen().catch(() => undefined);
+      }
+    };
+  }, []);
+
+  const time = clock === 0 ? "" : new Date(clock).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  return createPortal(
+    <div
+      ref={shell}
+      role="dialog"
+      aria-modal="true"
+      aria-label={t.fullscreenLabel}
+      tabIndex={-1}
+      className="fixed inset-0 z-[70] overflow-y-auto overscroll-contain bg-bg px-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-[calc(1.5rem+env(safe-area-inset-bottom))] outline-none sm:px-8"
+    >
+      <div className="mx-auto flex max-w-[1600px] flex-col gap-6">
+        <header className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-b border-border pb-4">
+          <div className="flex min-w-0 flex-col gap-1">
+            <h2 className="truncate text-2xl font-semibold tracking-tight text-fg sm:text-3xl">{event.data?.name ?? t.fullscreenLabel}</h2>
+            {updated}
+          </div>
+          <div className="flex items-center gap-4">
+            {time !== "" && <span className="text-3xl font-semibold text-fg tabular sm:text-4xl">{time}</span>}
+            <Button variant="secondary" icon={<Minimize2 />} onClick={onExit}>
+              {t.exitFullscreen}
+            </Button>
+          </div>
+        </header>
+        {children}
+      </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -325,13 +466,11 @@ function DeviceList({ devices, now }: { devices: readonly DoorLiveDeviceDto[]; n
                       : t.seen(ago)}
               </span>
               <span className="flex flex-wrap gap-1">
-                {device.rehearsedAt !== null ? (
+                {device.rehearsedAt !== null && (
                   <Badge tone="success">
                     <CheckCircle2 className="size-3" aria-hidden />
                     {t.rehearsed}
                   </Badge>
-                ) : (
-                  <Badge tone="neutral">{t.notRehearsed}</Badge>
                 )}
                 {(device.pendingScans ?? 0) > 0 && health !== "revoked" && <Badge tone="warning">{t.pending(device.pendingScans ?? 0)}</Badge>}
               </span>

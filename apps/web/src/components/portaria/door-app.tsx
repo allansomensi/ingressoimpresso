@@ -7,6 +7,7 @@ import {
   ClipboardCheck,
   Flashlight,
   FlashlightOff,
+  History,
   MoreVertical,
   Pause,
   ScanLine,
@@ -21,6 +22,7 @@ import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent, type
 
 import { LogoMark } from "@/components/brand";
 import { GuestList } from "@/components/portaria/guest-list";
+import { RecentScans } from "@/components/portaria/recent-scans";
 
 import { Scanner } from "@/portaria/camera";
 import { clockNow, serverClockNow, subscribeClock } from "@/portaria/clock";
@@ -31,24 +33,23 @@ import { accessTokenFromHash, clearHash, noAccessToken, subscribeHash } from "@/
 import { inkFor } from "@/lib/design-rules";
 import { money } from "@/lib/format";
 import { sessionLabel } from "@/lib/series";
-import { OFFLINE_WARNING_MS, canRehearse, clockTime, type ResultView } from "@/portaria/logic";
+import { HOLD_MS, OFFLINE_WARNING_MS, canRehearse, clockTime, dismissPolicy, type ResultView } from "@/portaria/logic";
 import { cameraGranted, keepOffline, keepScreenOn, persistStorage } from "@/portaria/offline";
 import { texts } from "@/texts/pt-BR";
 
 const t = texts.portaria;
 
-/** How long a result stays on screen: short for "enter", longer for anything to look at. */
-const RESULT_MS = { ok: 1600, bad: 4000, warn: 4000 } as const;
-
-/** A box office charge or a wrong-door choice needs time to act on (ADRs 0068, 0069). */
-function resultMs(view: ResultView): number {
-  if (view.override === true) {
-    return 8000;
+/** Each result object gets its own key, so a new (or repeated) result restarts its timer. */
+const resultKeys = new WeakMap<ResultView, number>();
+let nextResultKey = 0;
+function resultKey(view: ResultView): number {
+  let key = resultKeys.get(view);
+  if (key === undefined) {
+    nextResultKey += 1;
+    key = nextResultKey;
+    resultKeys.set(view, key);
   }
-  if (view.charge !== undefined && view.charge !== null) {
-    return 5000;
-  }
-  return view.rehearsal === true ? Math.max(RESULT_MS[view.tone], 3000) : RESULT_MS[view.tone];
+  return key;
 }
 
 export function DoorApp() {
@@ -220,6 +221,7 @@ function Door({ engine, state }: { engine: DoorEngine; state: DoorState }) {
   const [cameraFailed, setCameraFailed] = useState(false);
   const [checks, setChecks] = useState({ app: false, camera: false, storage: false });
   const [showGuests, setShowGuests] = useState(false);
+  const [showRecent, setShowRecent] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [rehearsal, setRehearsal] = useState({ sound: false, torch: false });
   const now = useSyncExternalStore(subscribeClock, clockNow, serverClockNow);
@@ -233,22 +235,13 @@ function Door({ engine, state }: { engine: DoorEngine; state: DoorState }) {
     );
   }, []);
 
-  // Results: sound, vibration and an automatic dismissal.
+  // Results: sound and vibration (the result screen itself decides when it leaves).
   useEffect(() => {
     const result = state.result;
-    if (result === null) {
-      return;
-    }
-    if (result.repeat !== true) {
+    if (result !== null && result.repeat !== true) {
       announce(result.tone);
     }
-    const timer = setTimeout(() => {
-      engine.dismissResult();
-    }, resultMs(result));
-    return () => {
-      clearTimeout(timer);
-    };
-  }, [engine, state.result]);
+  }, [state.result]);
 
   // Camera and screen lock live as long as reading is on.
   useEffect(() => {
@@ -327,9 +320,20 @@ function Door({ engine, state }: { engine: DoorEngine; state: DoorState }) {
             <h1 className="truncate text-lg font-bold tracking-tight">{event?.name ?? t.title}</h1>
           </div>
           <div className="flex shrink-0 items-center gap-1">
-            <span className="rounded-full bg-white/10 px-3 py-1 text-sm font-semibold whitespace-nowrap tabular-nums">
+            {/* This phone's latest scans, to look back at a result that went by. */}
+            <button
+              type="button"
+              aria-label={t.entriesButton(t.entries(state.entryCount))}
+              aria-haspopup="dialog"
+              onClick={() => {
+                setMenuOpen(false);
+                setShowRecent(true);
+              }}
+              className="flex min-h-11 items-center gap-1.5 rounded-full bg-white/10 px-3 text-sm font-semibold whitespace-nowrap tabular-nums transition active:scale-[0.97] active:bg-white/20"
+            >
+              <History className="size-4 text-white/70" aria-hidden />
               {t.entries(state.entryCount)}
-            </span>
+            </button>
             {!rehearsing && (
               <button
                 type="button"
@@ -494,6 +498,15 @@ function Door({ engine, state }: { engine: DoorEngine; state: DoorState }) {
         )}
       </div>
 
+      {showRecent && (
+        <RecentScans
+          engine={engine}
+          state={state}
+          onClose={() => {
+            setShowRecent(false);
+          }}
+        />
+      )}
       {state.checking && state.result === null && (
         <div className="fixed inset-0 z-20 flex flex-col items-center justify-center gap-4 bg-neutral-800 text-4xl font-bold">
           <span className="size-12 animate-spin rounded-full border-4 border-white/20 border-t-white" aria-hidden />
@@ -502,9 +515,10 @@ function Door({ engine, state }: { engine: DoorEngine; state: DoorState }) {
       )}
       {state.result !== null && (
         <Result
+          key={resultKey(state.result)}
           view={state.result}
-          onDismiss={() => {
-            engine.dismissResult();
+          onDismiss={(byUser) => {
+            engine.dismissResult(byUser);
           }}
           onOverride={() => {
             void engine.admitAnyway();
@@ -657,16 +671,90 @@ const TONE_CLASS = {
 
 const TONE_ICON = { ok: CheckCircle2, bad: XCircle, warn: AlertTriangle } as const;
 
-function Result({ view, onDismiss, onOverride }: { view: ResultView; onDismiss: () => void; onOverride: () => void }) {
+/** How often the countdown of a result that leaves by itself moves. */
+const TICK_MS = 100;
+
+/**
+ * A result. A plain "enter" goes back to the camera by itself, with a visible countdown that
+ * stops while the screen is held (and, after a long press, until the next tap); anything else
+ * stays until tapped (`dismissPolicy`).
+ */
+function Result({ view, onDismiss, onOverride }: { view: ResultView; onDismiss: (byUser: boolean) => void; onOverride: () => void }) {
   const Icon = TONE_ICON[view.tone];
+  const policy = dismissPolicy(view);
+  const autoMs = policy.auto ? policy.ms : null;
+  const [held, setHeld] = useState(false);
+  const [pinned, setPinned] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+  const pressedAt = useRef<number | null>(null);
+  const skipClick = useRef(false);
+  const dismissed = useRef(false);
+  const counting = autoMs !== null && !held && !pinned;
+
+  useEffect(() => {
+    if (!counting) {
+      return;
+    }
+    const timer = setInterval(() => {
+      setElapsed((current) => current + TICK_MS);
+    }, TICK_MS);
+    return () => {
+      clearInterval(timer);
+    };
+  }, [counting]);
+
+  useEffect(() => {
+    if (autoMs !== null && counting && elapsed >= autoMs && !dismissed.current) {
+      dismissed.current = true;
+      onDismiss(false);
+    }
+  }, [autoMs, counting, elapsed, onDismiss]);
+
+  const release = () => {
+    if (pressedAt.current !== null && performance.now() - pressedAt.current >= HOLD_MS && autoMs !== null) {
+      // A long press means "let me read": keep it until the next tap.
+      setPinned(true);
+      skipClick.current = true;
+    }
+    pressedAt.current = null;
+    setHeld(false);
+  };
+  const left = autoMs === null ? 0 : Math.max(0, 1 - elapsed / autoMs);
+  const hint = autoMs === null ? t.tapToContinue : held || pinned ? t.result.held : t.result.autoHint;
+
   return (
     <div
       className={`fixed inset-0 z-30 flex flex-col items-center justify-center gap-4 overflow-x-hidden overflow-y-auto p-6 pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))] text-center [&>*]:max-w-full ${TONE_CLASS[view.tone]}`}
       role="alert"
       data-tone={view.tone}
     >
-      {/* The whole screen dismisses; the override button sits above it. */}
-      <button type="button" onClick={onDismiss} aria-label={t.tapToContinue} className="absolute inset-0 cursor-default" />
+      {/* The whole screen dismisses (holding it stops the countdown); the override button sits above it. */}
+      <button
+        type="button"
+        onPointerDown={() => {
+          pressedAt.current = performance.now();
+          setHeld(true);
+        }}
+        onPointerUp={release}
+        onPointerCancel={release}
+        onPointerLeave={release}
+        onContextMenu={(event) => {
+          event.preventDefault();
+        }}
+        onClick={() => {
+          if (skipClick.current) {
+            skipClick.current = false;
+            return;
+          }
+          dismissed.current = true;
+          onDismiss(true);
+        }}
+        aria-label={t.tapToContinue}
+        className="absolute inset-0 cursor-default touch-manipulation select-none [-webkit-touch-callout:none]"
+      />
+      {view.repeat === true && (
+        <span className="pointer-events-none relative rounded-full bg-black/25 px-3 py-1 text-sm font-semibold">{t.result.repeat}</span>
+      )}
       {view.rehearsal === true && (
         <span className="pointer-events-none relative rounded-full bg-black/80 px-4 py-1.5 text-sm font-black tracking-wide text-amber-300">
           {t.rehearsal.note}
@@ -707,7 +795,19 @@ function Result({ view, onDismiss, onOverride }: { view: ResultView; onDismiss: 
           <span className="text-sm font-medium opacity-80">{t.result.letInAnywayHint}</span>
         </span>
       )}
-      <span className="pointer-events-none relative mt-6 rounded-full bg-black/15 px-4 py-1.5 text-sm font-medium opacity-90">{t.tapToContinue}</span>
+      <span
+        className={`pointer-events-none relative mt-6 overflow-hidden rounded-full px-5 py-2 font-semibold ${autoMs === null ? "bg-black/25 text-base" : "bg-black/15 text-sm"}`}
+      >
+        {/* The countdown: the bar empties as the screen goes back to the camera. */}
+        {autoMs !== null && (
+          <span
+            aria-hidden
+            className="absolute inset-y-0 left-0 bg-black/25 transition-[width] duration-100 ease-linear"
+            style={{ width: `${String(left * 100)}%` }}
+          />
+        )}
+        <span className="relative">{hint}</span>
+      </span>
     </div>
   );
 }

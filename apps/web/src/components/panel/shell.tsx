@@ -12,7 +12,6 @@ import { AnnouncementHost, MaintenanceBanner, MaintenanceScreen } from "@/compon
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { Badge, Button, EmptyState, Popover, Skeleton, errorMessage, useConfirm } from "@/components/ui";
 import { cn } from "@/lib/cn";
-import { LEGAL_ENTITY } from "@/content/legal";
 import { initials } from "@/lib/format";
 import { usePlatform } from "@/lib/platform";
 import { useRequiredSession, useSession } from "@/lib/session";
@@ -61,10 +60,10 @@ function UserMenu({ email, isAdmin, onSignOut }: { email: string; isAdmin: boole
         <Megaphone className="size-4" aria-hidden />
         {t.news}
       </Link>
-      <a href={`mailto:${LEGAL_ENTITY.email}`} className={menuLink}>
+      <Link href="/suporte" className={menuLink}>
         <LifeBuoy className="size-4" aria-hidden />
         {t.support}
-      </a>
+      </Link>
       <div className="my-1 h-px bg-border" />
       <div className="flex items-center justify-between gap-3 px-3 py-1.5">
         <span className="text-sm font-medium text-fg-muted">{texts.theme.label}</span>

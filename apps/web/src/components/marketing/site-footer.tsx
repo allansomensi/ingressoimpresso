@@ -29,6 +29,7 @@ const COLUMNS = [
       { href: ABOUT_HREF, label: t.about },
       { href: "/novidades", label: t.news },
       { href: "/status", label: t.status },
+      { href: "/suporte", label: t.support },
     ],
   },
   {
