@@ -111,7 +111,9 @@ guardada: recarregar resolve.
 ## Branches
 
 - **`main`**: produção. Só recebe PRs do `staging` (e hotfixes).
-- **`staging`**: ambiente de testes. Recebe os PRs dos branches de trabalho.
+- **`staging`**: ambiente de testes. Recebe os PRs dos branches de trabalho, inclusive os de
+  atualização do Dependabot (`target-branch: staging` em `.github/dependabot.yml`; os de segurança
+  ele abre sempre para o `main`).
 - **Branches de trabalho** (`feat/...`, `fix/...`, os do Dependabot e os das sessões do Claude):
   vivem só enquanto o PR está aberto. O workflow **Branches** apaga o branch assim que o PR é
   integrado. Ele nunca toca em `main`, `staging`, num branch de fork ou num branch que ainda tem

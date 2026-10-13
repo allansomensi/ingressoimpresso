@@ -1,9 +1,12 @@
 # Dependency updates as pull requests (one batch a week each), so a locked version that gains an
-# advisory is noticed and fixed, and the actions the workflows run stay current.
+# advisory is noticed and fixed, and the actions the workflows run stay current. Version updates
+# go to staging like any other change (docs/versionamento.md); Dependabot still reads this file
+# from main, and security updates always target main.
 version: 2
 updates:
   - package-ecosystem: github-actions
     directory: /
+    target-branch: staging
     schedule:
       interval: weekly
       day: monday
@@ -15,6 +18,7 @@ updates:
 
   - package-ecosystem: cargo
     directory: /
+    target-branch: staging
     schedule:
       interval: weekly
       day: monday
@@ -30,6 +34,7 @@ updates:
 
   - package-ecosystem: npm
     directory: /
+    target-branch: staging
     schedule:
       interval: weekly
       day: monday
@@ -54,6 +59,7 @@ updates:
 
   - package-ecosystem: docker
     directory: /deploy
+    target-branch: staging
     schedule:
       interval: weekly
       day: monday
