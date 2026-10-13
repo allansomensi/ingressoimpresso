@@ -40,10 +40,16 @@ updates:
       npm-minor:
         update-types: ["minor", "patch"]
     ignore:
-      # TypeScript 7 and ESLint 10 wait for typescript-eslint and eslint-config-next (CLAUDE.md).
+      # TypeScript 7 and ESLint 10 wait for typescript-eslint and eslint-config-next (CLAUDE.md);
+      # @eslint/js moves together with eslint.
       - dependency-name: typescript
         update-types: ["version-update:semver-major"]
       - dependency-name: eslint
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@eslint/js"
+        update-types: ["version-update:semver-major"]
+      # @types/node follows the Node major in .node-version, by hand.
+      - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
 
   - package-ecosystem: docker
