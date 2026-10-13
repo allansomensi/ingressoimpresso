@@ -441,6 +441,7 @@ just release minor    # no staging: corta "Não lançado" na versão nova (major
 just release-notes    # notas de uma versão do CHANGELOG.md (as mesmas da GitHub Release)
 just api-types-index  # reexporta os tipos gerados em packages/api-types/src/index.ts
 just template-images  # imagens dos modelos em apps/web/public/modelos (com o site rodando em WEB)
+just ticket-fonts     # fontes do ingresso do site (WOFF2 só com o alfabeto latino) a partir de crates/render/fonts (precisa do fonttools)
 
 # Testar a impressão sem a API (só para testes locais; a semente é uma chave privada):
 cargo run -p ii-cli -- job init --name "Meu Show"            # cria job.json + event.seed (0600)
@@ -522,7 +523,9 @@ just backup-restore-test <dump.age> <chave-age>   # restaura um backup num banco
   `test/templates.test.ts` valida todo modelo em toda paleta; ele também ganha uma entrada em
   `content/seo-templates.ts` e a imagem por `just template-images` (`test/seo-content.test.ts`
   cobra as duas). Fonte nova entra nos dois lados
-  (`crates/render/fonts` + `world.rs` + `ticket.typ` e `public/fonts/ticket` em WOFF2).
+  (`crates/render/fonts` + `world.rs` + `ticket.typ` e `public/fonts/ticket` em WOFF2, gerado por
+  `just ticket-fonts`: o papel usa a fonte inteira, o site só o alfabeto latino). Conteúdo pesado
+  abaixo da dobra da landing espera a tela (`defer-render`, `useNearScreen`).
 - **Textos de interface centralizados:** `apps/web/src/texts/pt-BR.ts` no web e módulos `texts.rs`
   no Rust; e-mails em `emails.rs` (todo texto do usuário passa por `escape`); documentos legais
   em `apps/web/src/content/legal.ts`. Mudou Termos ou Privacidade: mude a data e o

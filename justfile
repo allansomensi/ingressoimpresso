@@ -114,6 +114,15 @@ web-dev:
 template-images:
     node scripts/template-images.mjs
 
+# Web copies of the ticket fonts (public/fonts/ticket), cut to the Latin glyphs from the full ones
+# in crates/render/fonts: the editor and the landing load all of them. Needs fonttools + brotli.
+ticket-fonts:
+    for f in crates/render/fonts/*.ttf; do \
+        pyftsubset "$f" --flavor=woff2 \
+            --unicodes="U+0000-017F,U+0192,U+0218-021B,U+02BB-02BC,U+02C6-02C7,U+02D8-02DD,U+2000-206F,U+20A0-20C0,U+2113,U+2122,U+2190-2193,U+2212,U+2215,U+FEFF,U+FFFD" \
+            --output-file="apps/web/public/fonts/ticket/$(basename "$f" .ttf).woff2"; \
+    done
+
 # Restore test of an encrypted backup into an EMPTY database (RESTORE_DATABASE_URL); monthly.
 backup-restore-test dump identity:
     ./deploy/restore-test.sh {{dump}} {{identity}}

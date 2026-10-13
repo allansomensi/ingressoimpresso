@@ -80,7 +80,7 @@ export function DigitalTicketMock({ className }: { className?: string | undefine
         <div aria-hidden className="absolute top-2 left-1/2 z-10 h-5 w-20 -translate-x-1/2 rounded-full bg-black" />
         <div className="m-3 mt-9 flex flex-1 flex-col overflow-hidden rounded-[20px] bg-white shadow-md ring-1 ring-black/5">
           <div className="flex flex-col gap-1 bg-[#5b3df5] px-4 pt-4 pb-5 text-white">
-            <span className="text-[9px] font-semibold tracking-[0.16em] uppercase opacity-80">{d.organizer}</span>
+            <span className="text-[9px] font-semibold tracking-[0.16em] uppercase opacity-90">{d.organizer}</span>
             <span className="text-base leading-tight font-bold">{m.event}</span>
             <span className="text-[10px] opacity-85">{d.when}</span>
           </div>
