@@ -8,6 +8,7 @@ import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
+  Contact,
   Gift,
   History,
   LogOut,
@@ -40,6 +41,7 @@ import {
   LoadingBlock,
   Stat,
   Textarea,
+  buttonClass,
   errorMessage,
   useConfirm,
 } from "@/components/ui";
@@ -282,6 +284,13 @@ export function OrganizationDetail({ organizationId }: { organizationId: string 
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <Link
+              href={`/painel/admin/organizacoes/${organizationId}/perfil`}
+              className={buttonClass({ variant: "secondary", size: "sm" })}
+            >
+              <Contact />
+              {t.profile}
+            </Link>
             <Button
               variant="secondary"
               size="sm"

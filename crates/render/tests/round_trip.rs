@@ -82,6 +82,7 @@ fn job(numbers: &[u32], design: TicketDesign) -> RenderJob {
                 category: (number % 2 == 0).then(|| TicketCategory {
                     name: "Meia".to_owned(),
                     color: "#e11d48".to_owned(),
+                    price_cents: Some(1_500),
                 }),
                 seat: (number % 3 == 0).then(|| format!("Mesa {number} · Lugar 1")),
             })

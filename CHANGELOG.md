@@ -12,8 +12,50 @@ e não acompanha estes números.
 
 ## [Não lançado]
 
+### Adicionado
+
+- Admin: seção **Eventos** para achar qualquer evento de qualquer organização (por nome,
+  organização, e-mail ou código) e abri-lo em modo suporte, e o **Perfil público** de cada
+  organização, para corrigir contato e cor, enviar o logo por quem não conseguiu ou tirar do ar
+  (e recusar) um logo impróprio, tudo registrado na auditoria (ADR 0079).
+- Portaria no painel: **Link e QR** ao lado de cada link ativo gera um link novo para a mesma
+  porta (mesmo nome e categorias), para passar de novo a quem perdeu; os celulares já conectados
+  continuam funcionando (ADR 0080).
+- Vendedores: **Todos os livres** entrega de uma vez todos os números que ainda não estão com
+  ninguém (de todas as categorias ou de uma só), o jeito mais simples de abastecer a bilheteria; e
+  **Escolher números** aceita vários soltos (`1-50, 75, 80-90`), com as faixas livres a um toque.
+- Aba **Ao vivo** em **Tela cheia**, para deixar o painel da porta numa TV ou num notebook, com a
+  tela sempre acesa.
+- Página **Suporte** com respostas rápidas, status, como escrever para a gente e o que contar; o
+  item Suporte do menu leva para ela em vez de abrir o programa de e-mail.
+- Editor do ingresso: selecione vários elementos com Shift-clique ou arrastando um retângulo no
+  fundo (no celular, com **Selecionar vários**) e mova todos juntos, com o mouse ou as setas;
+  alinhe entre si ou ao ingresso, distribua o espaço por igual, duplique e exclua os textos de uma
+  vez. Ao arrastar, guias mostram quando um elemento se alinha às bordas, ao centro ou a outro
+  elemento (segure Alt para soltar), e o botão **Atalhos** lista os atalhos do teclado.
+
+### Alterado
+
+- Categorias: o preço aparece em destaque e muda com um toque; **Usar Inteira, Meia, VIP e
+  Cortesia** abre uma lista para conferir o preço de cada uma antes de criar. O campo `{preco}`
+  impresso no ingresso passa a mostrar o preço da categoria (um VIP sai com o preço do VIP).
+- O ensaio da portaria virou opcional: não conta mais em **O que falta**, os celulares não mostram
+  "sem ensaio" e a folha de ensaio fica recolhida no fim da aba Portaria.
+- Minha conta não mostra mais a tabela de preços (ela segue na página inicial e na compra do lote).
+- Abas do evento no computador: setas nas pontas e a rodinha do mouse passeiam pelas abas, e o
+  botão **Seções** aparece sempre que nem todas cabem.
+- Portaria: a tela de resultado não some mais antes de você ler. Só o verde **PODE ENTRAR** volta
+  sozinho para a câmera, com uma barra que mostra o tempo e para enquanto você segura a tela; recusas
+  e avisos ficam até você tocar. Tocar no número de entradas, no topo, mostra as últimas leituras
+  deste celular (hora, número, categoria, lugar, motivo da recusa e se já foi enviada), mesmo sem
+  internet.
+
 ### Corrigido
 
+- **Criar mesas** mostrava "Algo deu errado" mesmo criando as mesas.
+- **Adicionar outra data** dizia "Já existe" quando a mesma imagem era usada duas vezes no
+  ingresso (arte e patrocinador, ou dois patrocinadores iguais).
+- O ícone de **Baile de formatura** sumia nos exemplos da página inicial no computador.
 - **Conferir ingresso** não reconhecia, quando o texto era colado com espaços em volta, os
   ingressos de alguns eventos (cerca de 2 em 100) cujo código começa com um espaço.
 

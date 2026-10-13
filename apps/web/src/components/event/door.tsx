@@ -10,8 +10,22 @@ import type {
   DoorOverviewDto,
 } from "@ingressoimpresso/api-types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, ClipboardCheck, Copy, Download, Link2, LogIn, MessageCircle, Plus, Smartphone, Tags, X } from "lucide-react";
-import { useState, type FormEvent } from "react";
+import {
+  Check,
+  ChevronDown,
+  ClipboardCheck,
+  Copy,
+  Download,
+  Link2,
+  LogIn,
+  MessageCircle,
+  Plus,
+  QrCode as QrCodeIcon,
+  Smartphone,
+  Tags,
+  X,
+} from "lucide-react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
 import { QrCode } from "@/components/qr";
@@ -69,7 +83,8 @@ export function DoorTab({ eventId }: { eventId: string }) {
   const [label, setLabel] = useState<string>(t.defaultLabel);
   const [chosen, setChosen] = useState<string[]>([]);
   const [editing, setEditing] = useState<DoorAccessDto | null>(null);
-  const [created, setCreated] = useState<{ url: string; label: string } | null>(null);
+  const [created, setCreated] = useState<{ url: string; label: string; renewed: boolean } | null>(null);
+  const createdRef = useRef<HTMLDivElement | null>(null);
   const [copied, setCopied] = useState(false);
   const refresh = () => queryClient.invalidateQueries({ queryKey: key });
   const onError = (error: unknown) => {
@@ -82,12 +97,28 @@ export function DoorTab({ eventId }: { eventId: string }) {
       return api<CreatedDoorAccess>(`/api/events/${eventId}/door/accesses`, { method: "POST", body });
     },
     onSuccess: (result) => {
-      setCreated({ url: doorUrl(result.token), label: result.access.label });
+      setCreated({ url: doorUrl(result.token), label: result.access.label, renewed: false });
       setCopied(false);
       setChosen([]);
       void refresh();
     },
   });
+  // Only the hash of a link is stored (ADR 0007): showing it again means issuing a new one.
+  const renewLink = useMutation({
+    mutationFn: (id: string) => api<CreatedDoorAccess>(`/api/door-accesses/${id}/link`, { method: "POST" }),
+    onSuccess: (result) => {
+      setCreated({ url: doorUrl(result.token), label: result.access.label, renewed: true });
+      setCopied(false);
+      void refresh();
+    },
+    onError,
+  });
+  // The link card opens above the lists: bring it into view when asked from a row below.
+  useEffect(() => {
+    if (created !== null) {
+      createdRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
+  }, [created]);
   const saveCategories = useMutation({
     mutationFn: ({ id, categoryIds }: { id: string; categoryIds: string[] }) => {
       const body: DoorAccessCategoriesBody = { categoryIds };
@@ -156,40 +187,42 @@ export function DoorTab({ eventId }: { eventId: string }) {
       </div>
 
       {created !== null && (
-        <Card className="border-brand/40 ring-4 ring-brand/10 animate-pop">
-          <div className="flex flex-col gap-6 md:flex-row md:items-center">
-            <div className="flex flex-col items-center gap-2">
-              <div className="rounded-2xl border border-border bg-white p-3 shadow-sm">
-                <QrCode text={created.url} size={184} label={t.qrLabel} className="bg-white" />
+        <div ref={createdRef} className="scroll-mt-32">
+          <Card className="border-brand/40 ring-4 ring-brand/10 animate-pop">
+            <div className="flex flex-col gap-6 md:flex-row md:items-center">
+              <div className="flex flex-col items-center gap-2">
+                <div className="rounded-2xl border border-border bg-white p-3 shadow-sm">
+                  <QrCode text={created.url} size={184} label={t.qrLabel} className="bg-white" />
+                </div>
+                <span className="text-xs text-fg-muted">{t.qrHint}</span>
               </div>
-              <span className="text-xs text-fg-muted">{t.qrHint}</span>
+              <div className="flex min-w-0 flex-1 flex-col gap-3">
+                <div className="flex items-start justify-between gap-3">
+                  <h3 className="text-lg font-semibold tracking-tight text-fg">{created.renewed ? t.newLinkTitle(created.label) : t.createdTitle(created.label)}</h3>
+                  <Button variant="ghost" size="icon" aria-label={t.hide} onClick={() => { setCreated(null); }}>
+                    <X />
+                  </Button>
+                </div>
+                <p className="text-sm leading-relaxed text-warning-fg">{t.createdHint}</p>
+                <code className="rounded-xl border border-border bg-surface-2 p-3 font-mono text-xs break-all text-fg-muted">{created.url}</code>
+                <div className="flex flex-wrap gap-2">
+                  <Button icon={copied ? <Check /> : <Copy />} onClick={() => { void copy(created.url); }}>
+                    {copied ? t.copied : t.copy}
+                  </Button>
+                  <a
+                    className={buttonClass({ variant: "secondary" })}
+                    href={`https://wa.me/?text=${encodeURIComponent(`${t.whatsappMessage}\n${created.url}`)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <MessageCircle />
+                    {t.whatsapp}
+                  </a>
+                </div>
+              </div>
             </div>
-            <div className="flex min-w-0 flex-1 flex-col gap-3">
-              <div className="flex items-start justify-between gap-3">
-                <h3 className="text-lg font-semibold tracking-tight text-fg">{t.createdTitle(created.label)}</h3>
-                <Button variant="ghost" size="icon" aria-label={t.hide} onClick={() => { setCreated(null); }}>
-                  <X />
-                </Button>
-              </div>
-              <p className="text-sm leading-relaxed text-warning-fg">{t.createdHint}</p>
-              <code className="rounded-xl border border-border bg-surface-2 p-3 font-mono text-xs break-all text-fg-muted">{created.url}</code>
-              <div className="flex flex-wrap gap-2">
-                <Button icon={copied ? <Check /> : <Copy />} onClick={() => { void copy(created.url); }}>
-                  {copied ? t.copied : t.copy}
-                </Button>
-                <a
-                  className={buttonClass({ variant: "secondary" })}
-                  href={`https://wa.me/?text=${encodeURIComponent(`${t.whatsappMessage}\n${created.url}`)}`}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  <MessageCircle />
-                  {t.whatsapp}
-                </a>
-              </div>
-            </div>
-          </div>
-        </Card>
+          </Card>
+        </div>
       )}
 
       <div className="grid items-start gap-6 lg:grid-cols-2">
@@ -242,6 +275,27 @@ export function DoorTab({ eventId }: { eventId: string }) {
                         </span>
                       )}
                     </span>
+                    {state === "active" && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        icon={<QrCodeIcon />}
+                        loading={renewLink.isPending && renewLink.variables === access.id}
+                        onClick={() => {
+                          void confirm({
+                            title: t.showLinkConfirmTitle(access.label),
+                            description: t.showLinkConfirmBody,
+                            confirmLabel: t.showLinkConfirm,
+                          }).then((ok) => {
+                            if (ok) {
+                              renewLink.mutate(access.id);
+                            }
+                          });
+                        }}
+                      >
+                        {t.showLink}
+                      </Button>
+                    )}
                     {state === "active" && eventCategories.length > 0 && (
                       <Button
                         variant="ghost"
@@ -310,11 +364,7 @@ export function DoorTab({ eventId }: { eventId: string }) {
                               : t.lastSeen(shortDateTime(device.lastSeenAt))}
                       </span>
                       <span className="mt-1 flex flex-wrap gap-1">
-                        {device.rehearsedAt !== null ? (
-                          <Badge tone="success">{t.rehearsedAt(shortDateTime(device.rehearsedAt))}</Badge>
-                        ) : (
-                          <Badge tone="warning">{t.notRehearsed}</Badge>
-                        )}
+                        {device.rehearsedAt !== null && <Badge tone="success">{t.rehearsedAt(shortDateTime(device.rehearsedAt))}</Badge>}
                         {!revoked && (device.pendingScans ?? 0) > 0 && <Badge tone="warning">{t.pendingScans(device.pendingScans ?? 0)}</Badge>}
                       </span>
                     </span>
@@ -477,14 +527,24 @@ function RehearsalSheet({ eventId }: { eventId: string }) {
       toast.error(errorMessage(error));
     },
   });
+  // Optional (ADR 0067): folded away at the end of the tab, open for whoever wants to test.
   return (
-    <Card>
-      <div className="flex flex-col gap-5 md:flex-row md:items-start md:gap-8">
-        <div className="flex min-w-0 flex-1 flex-col">
-          <CardHeader title={t.sheetTitle} description={t.sheetBody} icon={ClipboardCheck} className="mb-4" />
-          <div className="sm:pl-12">
+    <details className="group rounded-2xl border border-border bg-surface">
+      <summary className="flex min-h-11 cursor-pointer list-none items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium text-fg-muted transition hover:text-fg active:bg-surface-2 [&::-webkit-details-marker]:hidden">
+        <ClipboardCheck className="size-4 shrink-0 text-fg-subtle" aria-hidden />
+        <span className="flex-1">{t.sheetSummary}</span>
+        <ChevronDown className="size-4 shrink-0 text-fg-subtle transition group-open:rotate-180" aria-hidden />
+      </summary>
+      <div className="flex flex-col gap-5 border-t border-border px-4 py-4 md:flex-row md:items-start md:gap-8">
+        <div className="flex min-w-0 flex-1 flex-col gap-4">
+          <div className="flex flex-col gap-1">
+            <h3 className="text-sm font-semibold text-fg">{t.sheetTitle}</h3>
+            <p className="text-sm leading-relaxed text-fg-muted">{t.sheetBody}</p>
+          </div>
+          <div>
             <Button
               variant="secondary"
+              size="sm"
               icon={<Download />}
               loading={download.isPending}
               onClick={() => {
@@ -498,7 +558,7 @@ function RehearsalSheet({ eventId }: { eventId: string }) {
         <ol className="flex flex-col gap-2.5 md:w-80 md:shrink-0">
           {t.sheetSteps.map((step, index) => (
             <li key={step} className="flex items-start gap-3 text-sm text-fg">
-              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-brand-soft text-xs font-semibold text-brand-soft-fg tabular">
+              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-surface-2 text-xs font-semibold text-fg-muted tabular">
                 {index + 1}
               </span>
               <span className="pt-0.5 leading-relaxed">{step}</span>
@@ -506,6 +566,6 @@ function RehearsalSheet({ eventId }: { eventId: string }) {
           ))}
         </ol>
       </div>
-    </Card>
+    </details>
   );
 }

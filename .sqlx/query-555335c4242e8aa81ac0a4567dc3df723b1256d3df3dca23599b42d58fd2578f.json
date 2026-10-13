@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select r.numbers, c.name, c.color from category_ranges r\n               join ticket_categories c on c.id = r.category_id where r.event_id = $1",
+  "query": "select r.numbers, c.name, c.color, c.price_cents from category_ranges r\n               join ticket_categories c on c.id = r.category_id where r.event_id = $1",
   "describe": {
     "columns": [
       {
@@ -35,6 +35,17 @@
             "name": "color"
           }
         }
+      },
+      {
+        "ordinal": 3,
+        "name": "price_cents",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "ticket_categories",
+            "name": "price_cents"
+          }
+        }
       }
     ],
     "parameters": {
@@ -45,8 +56,9 @@
     "nullable": [
       false,
       false,
-      false
+      false,
+      true
     ]
   },
-  "hash": "fe734e4db2b5065c50b1eb0203ecd2e47cb3774dbfc7ff6fe20fed072e1c3b90"
+  "hash": "555335c4242e8aa81ac0a4567dc3df723b1256d3df3dca23599b42d58fd2578f"
 }

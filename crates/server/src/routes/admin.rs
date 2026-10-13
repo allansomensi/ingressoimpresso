@@ -12,7 +12,8 @@ use uuid::Uuid;
 
 use super::batches::BatchRow;
 use crate::api::{
-    AdminBatchDto, AdminBonusBody, AdminDayDto, AdminOrganizationDto, AdminOverviewDto,
+    AdminBatchDto, AdminBonusBody, AdminDayDto, AdminEventSearchDto, AdminOrganizationDto,
+    AdminOverviewDto,
 };
 use crate::auth::AuthUser;
 use crate::error::{ApiError, ApiResult, bad_request};
@@ -272,6 +273,61 @@ pub async fn organizations(
     Ok(Json(
         rows.into_iter()
             .map(|row| row.into_dto(base_free))
+            .collect(),
+    ))
+}
+
+/// `GET /api/admin/events?q=`: events of every organization (ADR 0079), searched by the event's
+/// or the organization's name, a member's e-mail or the event's id; newest start first, at most
+/// 200. Opening one is support mode (ADR 0032).
+pub async fn events(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Query(query): Query<SearchQuery>,
+) -> ApiResult<Json<Vec<AdminEventSearchDto>>> {
+    require_admin(&user)?;
+    let id = query
+        .q
+        .as_deref()
+        .and_then(|text| Uuid::parse_str(text.trim()).ok());
+    let pattern = like_pattern(query.q.as_deref());
+    let rows = sqlx::query!(
+        r#"select e.id, e.name, e.starts_at, e.utc_offset_minutes, e.status,
+                  e.canceled_at is not null as "canceled!",
+                  e.organization_id, o.name as organization_name,
+                  coalesce((select sum(upper(b.numbers) - lower(b.numbers)) from ticket_batches b
+                            where b.event_id = e.id and b.status = 'paid'), 0)::bigint as "paid_tickets!"
+           from events e join organizations o on o.id = e.organization_id
+           where ($1::uuid is not null and e.id = $1)
+              or ($1::uuid is null and ($2::text is null
+                  or e.name ilike $2
+                  or o.name ilike $2
+                  or exists (select 1 from memberships m join users u on u.id = m.user_id
+                             where m.organization_id = o.id and u.email::text ilike $2)))
+           order by e.starts_at desc
+           limit $3"#,
+        id,
+        pattern,
+        LIST_LIMIT,
+    )
+    .fetch_all(&state.pool)
+    .await?;
+    Ok(Json(
+        rows.into_iter()
+            .map(|row| AdminEventSearchDto {
+                id: row.id,
+                name: row.name,
+                // The event's wall-clock time, as the organizer typed it.
+                starts_at: row.starts_at.to_offset(
+                    time::UtcOffset::from_whole_seconds(i32::from(row.utc_offset_minutes) * 60)
+                        .unwrap_or(time::UtcOffset::UTC),
+                ),
+                status: row.status,
+                canceled: row.canceled,
+                organization_id: row.organization_id,
+                organization_name: row.organization_name,
+                paid_tickets: row.paid_tickets,
+            })
             .collect(),
     ))
 }

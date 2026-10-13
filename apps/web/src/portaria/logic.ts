@@ -315,6 +315,39 @@ export function canRehearse(entryCount: number, rehearsing: boolean): boolean {
   return rehearsing || entryCount === 0;
 }
 
+// --- Result screen timing ---------------------------------------------------------------
+
+/** A green "enter" goes back to the camera by itself after this long (unless held). */
+export const RESULT_AUTO_MS = 2_000;
+/** The green rehearsal sample stays a little longer: there is no queue yet. */
+export const REHEARSAL_AUTO_MS = 3_000;
+/** A press this long on the result screen keeps it until the next tap. */
+export const HOLD_MS = 450;
+/** A green screen stays at least this long before another ticket may replace it. */
+export const MIN_RESULT_MS = 900;
+
+/** How a result leaves the screen: by itself after `ms`, or only when tapped. */
+export type DismissPolicy = { auto: true; ms: number } | { auto: false };
+
+/**
+ * Only a plain "enter" leaves by itself, so the queue keeps moving. Anything to read or act on
+ * (a refusal, a warning, a box office charge, a wrong door) stays until the doorkeeper taps.
+ */
+export function dismissPolicy(view: ResultView): DismissPolicy {
+  if (view.tone !== "ok" || view.override === true || (view.charge !== undefined && view.charge !== null)) {
+    return { auto: false };
+  }
+  return { auto: true, ms: view.rehearsal === true ? REHEARSAL_AUTO_MS : RESULT_AUTO_MS };
+}
+
+/**
+ * Whether a newly read, different ticket may replace the result on screen: only a green screen
+ * that leaves by itself, and only after it was seen for a moment (a busy door does not wait).
+ */
+export function canReplaceResult(view: ResultView, shownForMs: number): boolean {
+  return dismissPolicy(view).auto && shownForMs >= MIN_RESULT_MS;
+}
+
 /** Screen after the server found a copy (the first entry was on another phone). */
 export function alreadyEnteredView(
   number: number,

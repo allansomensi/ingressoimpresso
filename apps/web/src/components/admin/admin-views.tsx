@@ -127,15 +127,15 @@ export function AdminOverview() {
   );
 }
 
-function SearchBox({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+export function SearchBox({ value, onChange, label = t.search }: { value: string; onChange: (value: string) => void; label?: string }) {
   return (
     <span className="relative flex w-full sm:max-w-sm">
       <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-fg-subtle" aria-hidden />
       <Input
         type="search"
         value={value}
-        placeholder={t.search}
-        aria-label={t.search}
+        placeholder={label}
+        aria-label={label}
         onChange={(event) => {
           onChange(event.target.value);
         }}

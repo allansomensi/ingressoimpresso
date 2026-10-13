@@ -88,3 +88,5 @@ feita e as consequências.
 | [0076](0076-indique-e-ganhe.md) | Indique e ganhe | Aceito |
 | [0077](0077-evento-com-varias-datas.md) | Evento com várias datas | Aceito |
 | [0078](0078-lista-do-que-falta.md) | Lista do que falta | Aceito |
+| [0079](0079-admin-alcanca-todos-os-recursos.md) | O admin alcança todos os recursos | Aceito |
+| [0080](0080-ajustes-da-porta-dos-vendedores-e-das-categorias.md) | Link da porta de novo, ensaio opcional, "todos os livres" e preço da categoria no papel | Aceito |

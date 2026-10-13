@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with\n             issued as (select coalesce(range_agg(numbers), '{}') as m from ticket_batches\n                        where event_id = $1 and status <> 'canceled'),\n             held as (select coalesce(range_agg(numbers), '{}') as m from seller_assignments\n                      where event_id = $1),\n             voided as (select coalesce(range_agg(numbers), '{}') as m from ticket_voids\n                        where event_id = $1 and undone_at is null),\n             sent as (select coalesce(range_agg(int4range(ticket_number, ticket_number + 1)), '{}') as m\n                      from ticket_links where event_id = $1 and revoked_at is null),\n             scope as (select case when $2::uuid is null then '{(,)}'::int4multirange\n                              else coalesce((select range_agg(numbers) from category_ranges\n                                             where event_id = $1 and category_id = $2), '{}')\n                              end as m)\n           select free as \"free!\" from unnest(\n             ((select m from issued) - (select m from held) - (select m from voided)\n              - (select m from sent)) * (select m from scope)\n           ) as free",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "free!",
+        "type_info": "Int4Range",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "6f7964c68560179c0f50840828a95676b7d44506f16424de2b178a509f8822b8"
+}

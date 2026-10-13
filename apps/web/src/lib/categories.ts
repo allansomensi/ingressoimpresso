@@ -34,6 +34,23 @@ export function uncategorized(paid: readonly NumberRange[], categories: readonly
   return count;
 }
 
+/** How a suggested category is priced: the event's price, half of it, or free. */
+export type PresetPrice = "event" | "half" | "free";
+
+/**
+ * The price field of a suggested category, in reais (`""` means the event's price): half of the
+ * event's for meia, zero for courtesy. Without an event price, meia starts blank too.
+ */
+export function presetPriceText(price: PresetPrice, eventPrice: number | null): string {
+  if (price === "free") {
+    return "0,00";
+  }
+  if (price === "half" && eventPrice !== null) {
+    return (Math.round(eventPrice / 2) / 100).toFixed(2).replace(".", ",");
+  }
+  return "";
+}
+
 /** The text printed on a ticket's band: `Meia · Mesa 5 · Lugar 3` (render.rs `band_tag`). */
 export function bandText(category: string | null, seat: string | null): string | null {
   const parts = [category, seat].map((part) => part?.trim() ?? "").filter((part) => part !== "");

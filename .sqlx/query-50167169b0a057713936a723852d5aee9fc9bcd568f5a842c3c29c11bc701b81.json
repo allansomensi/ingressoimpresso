@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update moderation_flags set status = 'rejected', resolved_by = $2, resolved_at = now()\n               where blob_id = $1 and status = 'open'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "50167169b0a057713936a723852d5aee9fc9bcd568f5a842c3c29c11bc701b81"
+}

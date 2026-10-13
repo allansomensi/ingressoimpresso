@@ -45,6 +45,7 @@ import { shortDateTime } from "@/lib/format";
 import { sessionLabel } from "@/lib/series";
 import { SITE_URL } from "@/lib/site";
 import { forgetPass, normalizePass, passBand, passDate, passImage, saveImage, storePass, storedPass, textOn } from "@/lib/ticket-pass";
+import { useWakeLock } from "@/lib/wake-lock";
 import { texts } from "@/texts/pt-BR";
 
 const t = texts.ticket;
@@ -60,37 +61,6 @@ type State =
 function readToken(): string | null {
   const token = window.location.hash.replace(/^#/, "").trim();
   return token === "" ? null : token;
-}
-
-/** Keeps the screen on while the ticket is shown (Screen Wake Lock, where supported). */
-function useWakeLock(active: boolean) {
-  useEffect(() => {
-    if (!active || !("wakeLock" in navigator)) {
-      return;
-    }
-    let lock: WakeLockSentinel | null = null;
-    let released = false;
-    const request = async () => {
-      if (document.visibilityState !== "visible" || released) {
-        return;
-      }
-      try {
-        lock = await navigator.wakeLock.request("screen");
-      } catch {
-        // Battery saver or no permission: the screen just follows the phone's settings.
-      }
-    };
-    void request();
-    const onVisible = () => {
-      void request();
-    };
-    document.addEventListener("visibilitychange", onVisible);
-    return () => {
-      released = true;
-      document.removeEventListener("visibilitychange", onVisible);
-      void lock?.release();
-    };
-  }, [active]);
 }
 
 /** The phone's maker never changes while the page is open. */

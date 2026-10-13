@@ -11,14 +11,16 @@ use std::io::Cursor;
 
 use axum::Json;
 use axum::body::Bytes;
-use axum::extract::{Path, State};
+use axum::extract::{Path, Query, State};
 use axum::http::header::{CACHE_CONTROL, CONTENT_TYPE, HeaderMap};
 use axum::http::{HeaderValue, StatusCode};
 use axum::response::{IntoResponse as _, Response};
+use serde::Deserialize;
 use sha2::{Digest as _, Sha256};
 use sqlx::PgPool;
 use uuid::Uuid;
 
+use super::admin::{audit, require_admin};
 use super::events::{
     MAX_ART_PIXELS, MAX_ART_SIDE_PX, MAX_DECODE_BYTES, known_moderation, short_text,
 };
@@ -244,6 +246,16 @@ pub async fn update(
     Json(body): Json<OrganizationProfileBody>,
 ) -> ApiResult<Json<OrganizationProfileDto>> {
     let organization_id = own_organization(&state.pool, &user).await?;
+    save_profile(&state.pool, organization_id, body).await?;
+    Ok(Json(load(&state.pool, organization_id).await?))
+}
+
+/// Validates and stores every field of the profile (a blank one is cleared).
+async fn save_profile(
+    pool: &PgPool,
+    organization_id: Uuid,
+    body: OrganizationProfileBody,
+) -> ApiResult<()> {
     let brand_color = normalize_color(body.brand_color)?;
     let whatsapp = normalize_whatsapp(body.whatsapp)?;
     let contact_email = normalize_email(body.contact_email)?;
@@ -279,9 +291,9 @@ pub async fn update(
         default_address,
         body.default_ticket_price_cents,
     )
-    .execute(&state.pool)
+    .execute(pool)
     .await?;
-    Ok(Json(load(&state.pool, organization_id).await?))
+    Ok(())
 }
 
 /// Decodes an image within the art's limits and stores it at most [`LOGO_SIDE_PX`] per side, as
@@ -371,7 +383,22 @@ pub async fn upload_logo(
     body: Bytes,
 ) -> ApiResult<(StatusCode, Json<OrganizationProfileDto>)> {
     let organization_id = own_organization(&state.pool, &user).await?;
-    check_upload(&headers, &body)?;
+    store_logo(&state, &user, organization_id, &headers, body).await?;
+    Ok((
+        StatusCode::CREATED,
+        Json(load(&state.pool, organization_id).await?),
+    ))
+}
+
+/// Checks, shrinks and stores a logo as the organization's; returns the blob's id.
+async fn store_logo(
+    state: &AppState,
+    user: &AuthUser,
+    organization_id: Uuid,
+    headers: &HeaderMap,
+    body: Bytes,
+) -> ApiResult<Uuid> {
+    check_upload(headers, &body)?;
     if !state
         .attempt(
             &format!("logo:{}", user.id),
@@ -402,7 +429,7 @@ pub async fn upload_logo(
             .map_err(|_| bad_request("unsupported_art", "unreadable image"))?
     };
     let digest = Sha256::digest(&png).to_vec();
-    let inherited = known_moderation(&state, &digest).await?;
+    let inherited = known_moderation(state, &digest).await?;
     let image = image::ImageReader::new(Cursor::new(&png))
         .with_guessed_format()
         .map_err(anyhow::Error::from)?
@@ -453,12 +480,9 @@ pub async fn upload_logo(
     .await?;
     tx.commit().await?;
     if blob.moderation_status == "unchecked" {
-        crate::moderation::spawn_check(&state, blob.id);
+        crate::moderation::spawn_check(state, blob.id);
     }
-    Ok((
-        StatusCode::CREATED,
-        Json(load(&state.pool, organization_id).await?),
-    ))
+    Ok(blob.id)
 }
 
 /// `DELETE /api/account/profile/logo`: the pages show the name only.
@@ -467,7 +491,14 @@ pub async fn delete_logo(
     user: AuthUser,
 ) -> ApiResult<Json<OrganizationProfileDto>> {
     let organization_id = own_organization(&state.pool, &user).await?;
-    let mut tx = state.pool.begin().await?;
+    remove_logo(&state.pool, organization_id).await?;
+    Ok(Json(load(&state.pool, organization_id).await?))
+}
+
+/// Clears the logo and drops the organization's images, except the ones an admin still has to
+/// look at or refused.
+async fn remove_logo(pool: &PgPool, organization_id: Uuid) -> ApiResult<()> {
+    let mut tx = pool.begin().await?;
     sqlx::query!(
         "update organization_profiles set logo_blob_id = null, updated_at = now() where organization_id = $1",
         organization_id
@@ -482,6 +513,179 @@ pub async fn delete_logo(
     .execute(&mut *tx)
     .await?;
     tx.commit().await?;
+    Ok(())
+}
+
+/// 404 unless the organization exists.
+async fn existing_organization(pool: &PgPool, organization_id: Uuid) -> ApiResult<()> {
+    sqlx::query_scalar!(
+        "select id from organizations where id = $1",
+        organization_id
+    )
+    .fetch_optional(pool)
+    .await?
+    .ok_or(ApiError::NotFound)?;
+    Ok(())
+}
+
+/// `GET /api/admin/organizations/{id}/profile` (ADR 0079): any organization's profile, with the
+/// logo's review state.
+pub async fn admin_profile(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(organization_id): Path<Uuid>,
+) -> ApiResult<Json<OrganizationProfileDto>> {
+    require_admin(&user)?;
+    existing_organization(&state.pool, organization_id).await?;
+    Ok(Json(load(&state.pool, organization_id).await?))
+}
+
+/// The fields of a profile that differ, by their API name (what the audit log records).
+fn changed_fields(
+    before: &OrganizationProfileDto,
+    after: &OrganizationProfileDto,
+) -> Vec<&'static str> {
+    [
+        ("brandColor", before.brand_color != after.brand_color),
+        ("whatsapp", before.whatsapp != after.whatsapp),
+        ("contactEmail", before.contact_email != after.contact_email),
+        ("website", before.website != after.website),
+        ("instagram", before.instagram != after.instagram),
+        ("defaultVenue", before.default_venue != after.default_venue),
+        (
+            "defaultAddress",
+            before.default_address != after.default_address,
+        ),
+        (
+            "defaultTicketPriceCents",
+            before.default_ticket_price_cents != after.default_ticket_price_cents,
+        ),
+    ]
+    .into_iter()
+    .filter_map(|(field, changed)| changed.then_some(field))
+    .collect()
+}
+
+/// `PUT /api/admin/organizations/{id}/profile` (ADR 0079): an admin fixes a profile (an improper
+/// contact, a wrong site), with the same rules as the organization; audited.
+pub async fn admin_update(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(organization_id): Path<Uuid>,
+    Json(body): Json<OrganizationProfileBody>,
+) -> ApiResult<Json<OrganizationProfileDto>> {
+    require_admin(&user)?;
+    existing_organization(&state.pool, organization_id).await?;
+    let before = load(&state.pool, organization_id).await?;
+    save_profile(&state.pool, organization_id, body).await?;
+    let after = load(&state.pool, organization_id).await?;
+    audit(
+        &state,
+        &user,
+        "organization_profile_update",
+        Some(organization_id),
+        None,
+        None,
+        serde_json::json!({ "fields": changed_fields(&before, &after) }),
+    )
+    .await?;
+    Ok(Json(after))
+}
+
+/// `POST /api/admin/organizations/{id}/profile/logo` (ADR 0079): an admin sends the logo for
+/// someone who could not; moderated like any other; audited.
+pub async fn admin_upload_logo(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(organization_id): Path<Uuid>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> ApiResult<(StatusCode, Json<OrganizationProfileDto>)> {
+    require_admin(&user)?;
+    existing_organization(&state.pool, organization_id).await?;
+    let blob_id = store_logo(&state, &user, organization_id, &headers, body).await?;
+    audit(
+        &state,
+        &user,
+        "organization_logo_upload",
+        Some(organization_id),
+        None,
+        Some(blob_id),
+        serde_json::json!({}),
+    )
+    .await?;
+    Ok((
+        StatusCode::CREATED,
+        Json(load(&state.pool, organization_id).await?),
+    ))
+}
+
+/// `?reject=` of [`admin_delete_logo`].
+#[derive(Debug, Default, Deserialize)]
+pub struct RemoveLogoQuery {
+    /// Also refuse the image (ADR 0042): remembered by hash, it never comes back.
+    #[serde(default)]
+    reject: bool,
+}
+
+/// `DELETE /api/admin/organizations/{id}/profile/logo?reject=` (ADR 0079): an admin takes an
+/// improper logo down at once; with `reject` the image is refused like in the review (open
+/// flags of it are closed as refused). Audited.
+pub async fn admin_delete_logo(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(organization_id): Path<Uuid>,
+    Query(query): Query<RemoveLogoQuery>,
+) -> ApiResult<Json<OrganizationProfileDto>> {
+    require_admin(&user)?;
+    existing_organization(&state.pool, organization_id).await?;
+    let blob_id = sqlx::query_scalar!(
+        r#"select logo_blob_id as "logo_blob_id!" from organization_profiles
+           where organization_id = $1 and logo_blob_id is not null"#,
+        organization_id
+    )
+    .fetch_optional(&state.pool)
+    .await?;
+    if query.reject
+        && let Some(blob_id) = blob_id
+    {
+        let mut tx = state.pool.begin().await?;
+        sqlx::query!(
+            "update blobs set moderation_status = 'rejected' where id = $1",
+            blob_id
+        )
+        .execute(&mut *tx)
+        .await?;
+        // Remembered by hash, so the decision outlives the upload and the account (ADR 0047).
+        sqlx::query!(
+            r#"insert into rejected_art (sha256, rejected_by)
+               select sha256, $2 from blobs where id = $1 on conflict do nothing"#,
+            blob_id,
+            user.id,
+        )
+        .execute(&mut *tx)
+        .await?;
+        sqlx::query!(
+            r#"update moderation_flags set status = 'rejected', resolved_by = $2, resolved_at = now()
+               where blob_id = $1 and status = 'open'"#,
+            blob_id,
+            user.id,
+        )
+        .execute(&mut *tx)
+        .await?;
+        tx.commit().await?;
+    }
+    remove_logo(&state.pool, organization_id).await?;
+    audit(
+        &state,
+        &user,
+        "organization_logo_remove",
+        Some(organization_id),
+        None,
+        blob_id,
+        serde_json::json!({ "reject": query.reject }),
+    )
+    .await?;
     Ok(Json(load(&state.pool, organization_id).await?))
 }
 

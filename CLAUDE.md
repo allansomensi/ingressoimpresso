@@ -173,6 +173,18 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   (`GET /api/events/{id}/checklist`, `routes/checklist.rs`) substitui o passo a passo: fatos de N
   eventos numa consulta (`checklist::facts`), `checklistMissing` na lista ("Faltam 3"),
   `canAct` pela parte da equipe.
+- **Ajustes de uso e alcance do admin (ADRs 0079, 0080): implementados.** O admin acha qualquer
+  evento (`GET /api/admin/events?q=`, seção Eventos) e corrige o perfil público e o logo de
+  qualquer organização (`/api/admin/organizations/{id}/profile*`, auditado; "Tirar e recusar" vai
+  para `rejected_art`). **Link e QR** gera um token novo para um link da portaria
+  (`POST /api/door-accesses/{id}/link`); o ensaio virou item opcional; "todos os livres" entrega
+  os números sem destino (`GET /api/events/{id}/available-numbers`,
+  `POST /api/sellers/{id}/ranges/remaining`, multiranges); `{preco}` imprime o preço da categoria
+  (`TicketCategory.price_cents`, `TemplateTicket.textValues`). No painel: abas do evento com setas
+  e rodinha (`useScrollEdges`), Ao vivo em tela cheia, página `/suporte`, editor do ingresso com
+  seleção múltipla, guias e atalhos (`lib/design-selection.ts`, `event/design-tools.tsx`) e a
+  portaria com resultado que espera a leitura e as últimas leituras do celular
+  (`portaria/recent.ts`, `components/portaria/recent-scans.tsx`).
 
 Plano completo em `docs/arquitetura.md` §12.
 
@@ -322,7 +334,8 @@ apps/web             landing em src/app/page.tsx (+ src/components/marketing: si
                      conflitos em components/seller/sync-status.tsx; no painel,
                      components/event/seller-extras.tsx (reservas, metas, Ranking e metas; regras
                      em lib/seller-goals.ts);
-                     status público em app/status + components/status;
+                     status público em app/status + components/status; suporte em app/suporte +
+                     components/support;
                      conferir ingresso em app/conferir + components/verify (ticket-checker,
                      verify-result, verify-settings na aba Digitais) + lib/verify.ts; a câmera e
                      a foto usam portaria/camera.ts (readQrImage);
