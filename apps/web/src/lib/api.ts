@@ -144,11 +144,13 @@ export async function api<T>(path: string, options: { method?: string; body?: un
     init.headers = { "Content-Type": "application/json" };
   }
   const response = await send(path, init);
-  if (response.status === 204) {
+  // No content (204, or a 201 without a body like the bulk tables): nothing to parse.
+  const text = response.status === 204 ? "" : await response.text();
+  if (text === "") {
     return undefined as T;
   }
   // The API is ours and typed from the same Rust structs; this is the trust boundary.
-  return (await response.json()) as T;
+  return JSON.parse(text) as T;
 }
 
 /** Binary upload (art). */
