@@ -281,7 +281,7 @@ fn home_pdf_chunked(job: &RenderJob, chunk_tickets: usize) -> Result<Vec<u8>, Re
     merger.finish()
 }
 
-/// The first `max_sheets` home A4 sheets rasterized as PNG at `dpi` (editor preview, tests).
+/// The first `max_sheets` home A4 sheets rasterized as PNG at `dpi` (tests, lossless).
 ///
 /// # Errors
 ///
@@ -290,6 +290,35 @@ pub fn home_sheet_pngs(
     job: &RenderJob,
     dpi: u32,
     max_sheets: usize,
+) -> Result<Vec<Vec<u8>>, RenderError> {
+    home_sheets(job, dpi, max_sheets, SheetFormat::Png)
+}
+
+/// The first `max_sheets` home A4 sheets as JPEG at `dpi` (the editor's preview): a tenth of
+/// the bytes of the PNG and encoded several times faster, for a picture on a screen.
+///
+/// # Errors
+///
+/// See [`RenderError`]; `dpi` must be 30–600.
+pub fn home_sheet_jpegs(
+    job: &RenderJob,
+    dpi: u32,
+    max_sheets: usize,
+) -> Result<Vec<Vec<u8>>, RenderError> {
+    home_sheets(job, dpi, max_sheets, SheetFormat::Jpeg)
+}
+
+#[derive(Clone, Copy)]
+enum SheetFormat {
+    Png,
+    Jpeg,
+}
+
+fn home_sheets(
+    job: &RenderJob,
+    dpi: u32,
+    max_sheets: usize,
+    format: SheetFormat,
 ) -> Result<Vec<Vec<u8>>, RenderError> {
     validate(job)?;
     if !(30..=600).contains(&dpi) {
@@ -321,9 +350,13 @@ pub fn home_sheet_pngs(
         .pages()
         .iter()
         .map(|page| {
-            typst_render::render(page, &options)
-                .encode_png()
-                .map_err(|error| RenderError::Image(error.to_string()))
+            let pixmap = typst_render::render(page, &options);
+            match format {
+                SheetFormat::Png => pixmap
+                    .encode_png()
+                    .map_err(|error| RenderError::Image(error.to_string())),
+                SheetFormat::Jpeg => encode_jpeg(pixmap.width(), pixmap.height(), pixmap.data()),
+            }
         })
         .collect()
 }
