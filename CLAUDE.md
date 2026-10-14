@@ -533,9 +533,10 @@ just backup-restore-test <dump.age> <chave-age>   # restaura um backup num banco
   (`crates/render/fonts` + `world.rs` + `ticket.typ` e `public/fonts/ticket` em WOFF2, gerado por
   `just ticket-fonts`: o papel usa a fonte inteira, o site só o alfabeto latino). Conteúdo pesado
   abaixo da dobra da landing espera a tela (`defer-render`, `useNearScreen`).
-- **Textos de interface centralizados:** `apps/web/src/texts/pt-BR.ts` no web (um `export const`
-  por seção, importado como `import { event as eventTexts }`: cada página leva só as seções que
-  usa, nunca um objeto com tudo) e módulos `texts.rs`
+- **Textos de interface centralizados:** `apps/web/src/texts/pt-BR/<seção>.ts` no web (um módulo
+  por seção, importado como `import { event as eventTexts } from "@/texts/pt-BR/event"`: cada
+  página leva só as seções que usa; `pt-BR.ts` só lista as seções e importá-lo traz tudo) e
+  módulos `texts.rs`
   no Rust; e-mails em `emails.rs` (todo texto do usuário passa por `escape`); documentos legais
   em `apps/web/src/content/legal.ts`. Mudou Termos ou Privacidade: mude a data e o
   `TERMS_VERSION` nos dois lados (`legal.ts` e `auth.rs`). Sem framework de i18n.
