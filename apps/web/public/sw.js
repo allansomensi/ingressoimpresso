@@ -8,24 +8,27 @@
 //
 // The digital ticket (/ingresso, ADR 0030) and the seller's page (/vendedor, ADR 0074) are the
 // exceptions: the holder opens the ticket at the door and the seller marks sales on the street,
-// often without signal. Their pages and build files are kept (refreshed on every online visit),
-// and the data is in the page's localStorage (the link's token stays in the fragment, which never
-// reaches a request).
+// often without signal. Their pages and build files are kept from the first online visit on
+// (refreshed on every online visit), and the data is in the page's localStorage (the link's
+// token stays in the fragment, which never reaches a request). The install precaches only the
+// offline page, the icon and the logo: the worker is registered from the panel and from those
+// pages, never from the landing, and a kept page is stored when it is opened.
 
-const CACHE = "app-v4";
+const CACHE = "app-v5";
 const OFFLINE = "/offline";
 const TICKET = "/ingresso";
 const SELLER = "/vendedor";
-/** Pages that open without network, from their last copy. */
+/** Pages that open without network, from their last copy (stored on their first online visit). */
 const KEPT = [TICKET, SELLER];
-const PRECACHE = [OFFLINE, ...KEPT, "/icons/icon-192.png", "/brand/logo-mark.svg"];
+const PRECACHE = [OFFLINE, "/icons/icon-192.png", "/brand/logo-mark.svg"];
 const PAGE_TIMEOUT_MS = 8000;
 const MAX_ENTRIES = 250;
+const TRIM_INTERVAL_MS = 60_000;
 
-/** Build files the offline and kept pages need (styles, fonts, scripts), read from their HTML. */
-async function offlineAssets(cache) {
+/** Build files the given pages need (styles, fonts, scripts), read from their cached HTML. */
+async function pageAssets(cache, paths) {
   const assets = new Set();
-  for (const path of [OFFLINE, ...KEPT]) {
+  for (const path of paths) {
     const page = await cache.match(path);
     const html = page === undefined ? "" : await page.text();
     for (const asset of html.match(/\/_next\/static\/[^"'\s)]+/g) ?? []) {
@@ -38,7 +41,7 @@ async function offlineAssets(cache) {
 async function precache() {
   const cache = await caches.open(CACHE);
   await cache.addAll(PRECACHE);
-  await cache.addAll([...(await offlineAssets(cache))]);
+  await cache.addAll([...(await pageAssets(cache, [OFFLINE]))]);
 }
 
 self.addEventListener("install", (event) => {
@@ -67,17 +70,27 @@ function isDoor(url) {
   return url.pathname === "/portaria" || url.pathname.startsWith("/portaria/") || url.pathname.startsWith("/portaria-");
 }
 
-/** Keeps the cache bounded: every deploy brings new build files; the oldest ones go first. */
+let lastTrimAt = 0;
+
+/**
+ * Keeps the cache bounded: every deploy brings new build files; the oldest ones go first. Runs at
+ * most once a minute: listing the cache on every miss would cost more than the miss itself.
+ */
 async function trim(cache) {
+  const now = Date.now();
+  if (now - lastTrimAt < TRIM_INTERVAL_MS) {
+    return;
+  }
+  lastTrimAt = now;
   const keys = await cache.keys();
   const extra = keys.length - MAX_ENTRIES;
   if (extra <= 0) {
     return;
   }
-  const keep = await offlineAssets(cache);
+  const keep = await pageAssets(cache, [OFFLINE, ...KEPT]);
   const removable = keys.filter((request) => {
     const path = new URL(request.url).pathname;
-    return !PRECACHE.includes(path) && !keep.has(path);
+    return !PRECACHE.includes(path) && !KEPT.includes(path) && !keep.has(path);
   });
   for (const request of removable.slice(0, extra)) {
     await cache.delete(request);

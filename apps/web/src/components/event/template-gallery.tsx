@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 
 import { TicketView } from "@/components/ticket/ticket-view";
 import { Badge, Button, Dialog } from "@/components/ui";
+import { useNearScreen } from "@/components/ui/near-screen";
 import { cn } from "@/lib/cn";
 import { svgDataUrl } from "@/lib/rasterize";
 import { TEMPLATES, type Palette, type TemplateCategory, type TicketTemplate } from "@/lib/templates/catalog";
@@ -29,6 +30,9 @@ function TemplateCard({
   onApply: (palette: Palette) => void;
 }) {
   const [paletteIndex, setPaletteIndex] = useState(0);
+  // Sixteen live previews at once are heavy (fitted texts, layout reads): each one waits until
+  // its card is near the dialog's visible part.
+  const { attach, near } = useNearScreen("300px", "scroll-parent");
   const palette = template.palettes[paletteIndex] ?? template.palettes[0];
   const built = useMemo(() => (palette === undefined ? null : template.build(palette)), [template, palette]);
   const art = useMemo(() => (built === null ? null : svgDataUrl(built.background)), [built]);
@@ -42,12 +46,16 @@ function TemplateCard({
 
   return (
     <article className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-xs transition hover:border-brand/40 hover:shadow-md">
-      <div className="flex items-center justify-center bg-surface-2 bg-dots p-4" style={{ aspectRatio: String(FRAME_RATIO) }}>
+      <div ref={attach} className="flex items-center justify-center bg-surface-2 bg-dots p-4" style={{ aspectRatio: String(FRAME_RATIO) }}>
         <div
           className="overflow-hidden rounded-[3px] shadow-md ring-1 ring-black/10 transition group-hover:-translate-y-0.5"
           style={wide ? { width: "100%" } : { height: "100%", aspectRatio: `${String(total)} / ${String(design.heightMm)}` }}
         >
-          <TicketView design={design} event={event} artUrl={art} number={42} />
+          {near ? (
+            <TicketView design={design} event={event} artUrl={art} number={42} />
+          ) : (
+            <div aria-hidden className="size-full" style={{ aspectRatio: `${String(total)} / ${String(design.heightMm)}`, background: design.backgroundColor }} />
+          )}
         </div>
       </div>
       <div className="flex flex-1 flex-col gap-3 p-4">

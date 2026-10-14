@@ -50,6 +50,8 @@ import { cn } from "@/lib/cn";
 import { shortDateTime } from "@/lib/format";
 import { event as eventTexts } from "@/texts/pt-BR";
 
+import { useLivePolling } from "./live-polling";
+
 const t = eventTexts.door;
 /** A phone that synced this recently is shown as online (it syncs every few seconds). */
 const ONLINE_MS = 60_000;
@@ -74,7 +76,7 @@ export function DoorTab({ eventId }: { eventId: string }) {
     queryKey: key,
     queryFn: () => api<DoorOverviewDto>(`/api/events/${eventId}/door`),
     // Last contact of each phone changes while the door is working.
-    refetchInterval: 15_000,
+    refetchInterval: useLivePolling(eventId, 15_000),
   });
   const categories = useQuery({
     queryKey: ["categories", eventId],

@@ -10,6 +10,7 @@ import { cn } from "@/lib/cn";
 import { money as formatMoney } from "@/lib/format";
 import { settlementTotals } from "@/lib/settlement";
 import { Accountability } from "@/components/event/accountability";
+import { useLivePolling } from "@/components/event/live-polling";
 import type { SelectTab } from "@/components/event/tabs";
 import { event as eventTexts } from "@/texts/pt-BR";
 
@@ -151,7 +152,7 @@ export function ReportTab({ eventId, onSelect }: { eventId: string; onSelect: Se
     queryKey: ["report", eventId],
     queryFn: () => api<EventReportDto>(`/api/events/${eventId}/report`),
     // Entries keep arriving while the door works.
-    refetchInterval: 30_000,
+    refetchInterval: useLivePolling(eventId, 30_000),
   });
 
   if (report.isPending) {

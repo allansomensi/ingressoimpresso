@@ -8,6 +8,14 @@ import { useSyncExternalStore } from "react";
 
 const SW_URL = "/sw.js";
 
+/**
+ * Where the worker is worth registering: the panel and the login (installable app), the pages
+ * that open offline (/ingresso, /vendedor, /offline) and the referral link, which leads to the
+ * login. A visitor of the landing or of the public pages never pays for the install (three page
+ * renders and their build files).
+ */
+const WORKER_PATHS = ["/painel", "/entrar", "/ingresso", "/vendedor", "/offline", "/i/"];
+
 /** The deferred `beforeinstallprompt` event (Chromium only; not in TypeScript's DOM lib). */
 interface InstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -45,12 +53,13 @@ function subscribe(listener: () => void): () => void {
   };
 }
 
-/** Registers the panel's service worker (production builds only). */
+/** Registers the panel's service worker (production builds only, and only where it is useful). */
 export async function registerAppWorker(): Promise<void> {
   if (process.env.NODE_ENV !== "production" || !("serviceWorker" in navigator)) {
     return;
   }
-  if (window.location.pathname.startsWith("/portaria")) {
+  const path = window.location.pathname;
+  if (path.startsWith("/portaria") || !WORKER_PATHS.some((prefix) => path.startsWith(prefix))) {
     return;
   }
   try {

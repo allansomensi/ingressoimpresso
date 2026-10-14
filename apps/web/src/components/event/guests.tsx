@@ -44,6 +44,7 @@ import { useUnsavedChanges } from "@/lib/unsaved";
 import { event as eventTexts } from "@/texts/pt-BR";
 
 import { useEventAccess } from "./access";
+import { useLivePolling } from "./live-polling";
 
 const t = eventTexts.guests;
 const FILTERS: readonly GuestFilter[] = ["all", "arrived", "missing"];
@@ -63,7 +64,7 @@ export function GuestsTab({ eventId }: { eventId: string }) {
     queryKey: key,
     queryFn: () => api<GuestDto[]>(`/api/events/${eventId}/guests`),
     // Arrivals come in from the door phones.
-    refetchInterval: 15_000,
+    refetchInterval: useLivePolling(eventId, 15_000),
   });
   const categories = useQuery({
     queryKey: ["categories", eventId],
