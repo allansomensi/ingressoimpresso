@@ -27,6 +27,8 @@ ts-rs = { workspace = true, optional = true }
 uuid.workspace = true
 
 [dev-dependencies]
+# Small-order points for the weak-key tests (tests/audit.rs).
+curve25519-dalek.workspace = true
 hex.workspace = true
 proptest.workspace = true
 serde.workspace = true
@@ -38,6 +40,10 @@ required-features = ["signing"]
 
 [[test]]
 name = "vectors"
+required-features = ["signing", "serde"]
+
+[[test]]
+name = "audit"
 required-features = ["signing", "serde"]
 
 [lints]
