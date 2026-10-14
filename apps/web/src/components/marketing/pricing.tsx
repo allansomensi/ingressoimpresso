@@ -8,7 +8,7 @@ import { useId, useState } from "react";
 import { ButtonLink, Skeleton, Switch } from "@/components/ui";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
-import { dateTime, money, parseMoney } from "@/lib/format";
+import { brasiliaDateTime, money, parseMoney } from "@/lib/format";
 import { LARGEST_BATCH, discounted, quoteBreakdown, sliderPosition, sliderQuantity } from "@/lib/pricing";
 import { common as commonTexts } from "@/texts/pt-BR/common";
 import { landing as landingTexts } from "@/texts/pt-BR/landing";
@@ -237,8 +237,18 @@ function PriceTable({ pricing }: { pricing: PricingDto }) {
   );
 }
 
-export function PricingSection() {
-  const pricing = useQuery({ queryKey: ["pricing"], queryFn: () => api<PricingDto>("/api/pricing"), staleTime: 60 * 60_000 });
+/**
+ * The simulator, the price table and what every batch includes. `initial` is the table the server
+ * read (lib/pricing-server.ts): the prices are in the HTML from the start, for search engines and
+ * without a placeholder that shifts the page. Without it, the browser loads the table.
+ */
+export function PricingSection({ initial = null }: { initial?: PricingDto | null }) {
+  const pricing = useQuery({
+    queryKey: ["pricing"],
+    queryFn: () => api<PricingDto>("/api/pricing"),
+    staleTime: 60 * 60_000,
+    ...(initial === null ? {} : { initialData: initial }),
+  });
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
@@ -258,13 +268,13 @@ export function PricingSection() {
                 <BadgePercent className="size-5 shrink-0" aria-hidden />
                 <span className="flex min-w-0 flex-col">
                   <span className="font-semibold">{pricing.data.promotion.headline ?? t.pricingPromotion(pricing.data.promotion.discountPercent)}</span>
-                  <span className="text-xs opacity-90">{t.pricingPromotionUntil(dateTime(pricing.data.promotion.endsAt))}</span>
+                  <span className="text-xs opacity-90">{t.pricingPromotionUntil(brasiliaDateTime(pricing.data.promotion.endsAt))}</span>
                 </span>
               </div>
             )}
             <Simulator pricing={pricing.data} />
             <PriceTable pricing={pricing.data} />
-            {pricing.data.upcoming !== null && <p className="text-xs text-fg-muted">{t.pricingUpcoming(dateTime(pricing.data.upcoming.effectiveAt))}</p>}
+            {pricing.data.upcoming !== null && <p className="text-xs text-fg-muted">{t.pricingUpcoming(brasiliaDateTime(pricing.data.upcoming.effectiveAt))}</p>}
           </div>
         )}
       </div>

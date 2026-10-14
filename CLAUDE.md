@@ -107,8 +107,8 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   (`POST /api/events/{id}/tickets/replace`, `tickets::replace`) cancela o número perdido, manda um
   número livre da mesma categoria para a mesma pessoa, leva o lugar na mesa e grava
   `ticket_replacements`.
-- **Páginas públicas para busca (ADR 0062): implementadas.** Oito tipos de evento em
-  `/ingresso-para/[slug]` e a galeria de modelos em `/modelos` (uma página por modelo, com o
+- **Páginas públicas para busca (ADR 0062): implementadas.** Tipos de evento em
+  `/ingresso-para/[slug]` (13 desde o ADR 0081) e a galeria de modelos em `/modelos` (uma página por modelo, com o
   modelo ao vivo e as cores); imagens dos modelos em `public/modelos` (`just template-images`),
   imagem de compartilhamento por página (`opengraph-image.tsx`, `lib/share-image.tsx`, gerada no
   build), JSON-LD em `components/json-ld.tsx`, sitemap com imagens e `robots` bloqueando só as
@@ -186,6 +186,19 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   portaria com resultado que espera a leitura e as últimas leituras do celular
   (`portaria/recent.ts`, `components/portaria/recent-scans.tsx`).
 
+- **Guias, preços e SEO técnico (ADR 0081): implementado.** Metadados de toda página pública por
+  `lib/seo.ts` (`pageMetadata`: título, descrição, canônico, Open Graph e X com as mesmas palavras)
+  e um `opengraph-image` por página (o Next.js troca, não mescla, o `openGraph` do layout, e a
+  imagem raiz some); guias em `/guias` (`content/seo-guides.ts`, links `[texto](/caminho)` por
+  `components/marketing/rich-text.tsx`, `Article` + `FAQPage`); página `/precos` com a tabela lida
+  no servidor (`lib/pricing-server.ts`, cache de 10 min, 2,5 s no máximo; `PricingSection
+  initial`, datas por `brasiliaDateTime`); 13 tipos de evento com passo a passo (`passos`) e o hub
+  `/ingresso-para`; JSON-LD completo em `components/json-ld.tsx`; `robots` bloqueia só `/painel`,
+  `/portaria` e `/offline` (os links privados mostram o `noindex`); sitemap com `lastmod`
+  verdadeiro; `/llms.txt` (`content/llms.ts`); tags de verificação por
+  `NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION`/`NEXT_PUBLIC_BING_SITE_VERIFICATION`. Falta o que depende
+  do mantenedor: Search Console e Bing (`docs/deploy.md`, "Buscadores").
+
 Plano completo em `docs/arquitetura.md` §12.
 
 ## Onde está cada coisa
@@ -261,13 +274,20 @@ apps/web             landing em src/app/page.tsx (+ src/components/marketing: si
                      compartilhados); páginas por tipo de evento em app/ingresso-para/[slug]
                      (conteúdo em src/content/seo-event-pages.ts, que também alimenta o sitemap e o
                      rodapé; JSON-LD em components/json-ld.tsx, na home e em cada página; robots
-                     bloqueia só "/ingresso$"); galeria de modelos em app/modelos (+ [slug];
+                     bloqueia só /painel, /portaria e /offline); galeria de modelos em app/modelos (+ [slug];
                      conteúdo em src/content/seo-templates.ts, modelos de cada tipo de evento em
                      EVENT_TEMPLATES, cartão em marketing/template-card.tsx, modelo ao vivo em
                      marketing/template-sample.tsx); imagens em public/modelos (just
                      template-images, scripts/template-images.mjs) e de compartilhamento em
                      opengraph-image.tsx + lib/share-image.tsx (next/og, estáticas, ADR 0062);
-                     conteúdo conferido por test/seo-content.test.ts, página Sobre em app/sobre +
+                     conteúdo conferido por test/seo-content.test.ts (títulos, descrições, links
+                     internos, sitemap × robots, imagem de compartilhamento de cada página);
+                     metadados das páginas públicas por lib/seo.ts (pageMetadata); hub dos tipos
+                     de evento em app/ingresso-para/page.tsx; guias em app/guias (+ [slug];
+                     conteúdo em src/content/seo-guides.ts, cartão em marketing/guide-card.tsx,
+                     links internos por marketing/rich-text.tsx + lib/rich-text.ts); preços em
+                     app/precos (tabela lida no servidor por lib/pricing-server.ts); /llms.txt
+                     em app/llms.txt/route.ts (texto em src/content/llms.ts); página Sobre em app/sobre +
                      components/about, painel em
                      src/app/{entrar,painel}, abas do evento em src/components/event (aba na URL,
                      ?aba=); sistema de design em src/components/ui + tokens em globals.css (ADR 0021);

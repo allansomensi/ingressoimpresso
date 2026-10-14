@@ -16,9 +16,27 @@ e não acompanha estes números.
 
 - Medição de velocidade do site nos aparelhos de quem visita (Vercel Speed Insights), fora da
   portaria, para acompanhar o efeito das melhorias de desempenho.
+- Guias para quem organiza evento, em `/guias`: como fazer ingresso para festa, evitar ingresso
+  falso, controlar a entrada pelo celular, vender com vendedores, imprimir rifa numerada, vender
+  sem taxa sobre a venda, imprimir em casa ou na gráfica, organizar convites de formatura e mandar
+  ingresso pelo WhatsApp.
+- Página de preços própria, em `/precos`, com o simulador, como a cobrança funciona e as dúvidas
+  sobre pagamento.
+- Páginas de ingresso para festa, campeonato, palestra e curso, carnaval e Réveillon, e uma página
+  com todos os tipos de evento. Todas as páginas por tipo de evento ganharam um passo a passo e
+  mais perguntas frequentes.
 
 ### Alterado
 
+- Links do site mandados no WhatsApp, no Facebook ou no X mostram o título, a descrição e a
+  imagem da própria página, e não mais os da página inicial.
+- Os preços aparecem assim que a página inicial e a de preços abrem, sem o bloco de carregamento
+  que empurrava a página; o fim de uma promoção aparece no horário de Brasília.
+- Na página inicial, cada tipo de evento leva à sua página; o menu ganhou Guias, e Preços abre a
+  página de preços.
+- O site ficou mais fácil de entender para buscadores e assistentes de IA: dados estruturados
+  completos (organização, perguntas, preços, artigos e trilhas), imagens grandes nos resultados
+  do Google, `/llms.txt` com o resumo do produto e sitemap com as datas das páginas.
 - O site abre mais rápido no celular: as fontes dos ingressos ficaram três vezes menores e a
   galeria de modelos da página inicial só é desenhada quando chega perto da tela.
 - Todas as páginas carregam menos código: cada uma leva só os textos que usa (antes, o catálogo

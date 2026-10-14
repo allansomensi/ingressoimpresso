@@ -14,6 +14,14 @@ export function dateTime(iso: string): string {
   return new Date(iso).toLocaleString("pt-BR", { dateStyle: "medium", timeStyle: "short" });
 }
 
+/**
+ * A date and time in Brasília time, the same on the server and in any browser: for public pages
+ * rendered on the server (a promotion's end), where the visitor's time zone would not match.
+ */
+export function brasiliaDateTime(iso: string): string {
+  return new Date(iso).toLocaleString("pt-BR", { dateStyle: "medium", timeStyle: "short", timeZone: "America/Sao_Paulo" });
+}
+
 /** `20/11/26 22:00`. */
 export function shortDateTime(iso: string): string {
   return new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });

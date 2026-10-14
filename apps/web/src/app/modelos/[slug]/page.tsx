@@ -6,6 +6,7 @@ import { notFound } from "next/navigation";
 import { JsonLd, templatePageJsonLd } from "@/components/json-ld";
 import { Breadcrumb } from "@/components/marketing/breadcrumb";
 import { FinalCta } from "@/components/marketing/final-cta";
+import { GuideCard } from "@/components/marketing/guide-card";
 import { MobileCta } from "@/components/marketing/mobile-cta";
 import { SectionHeading } from "@/components/marketing/section-heading";
 import { SiteFooter } from "@/components/marketing/site-footer";
@@ -14,10 +15,12 @@ import { TemplateCard } from "@/components/marketing/template-card";
 import { TemplateSample } from "@/components/marketing/template-sample";
 import { ButtonLink } from "@/components/ui";
 import { eventSeoPage } from "@/content/seo-event-pages";
+import { guidesForTemplate } from "@/content/seo-guides";
 import { eventSlugForTemplate, templateSeoBySlug, templateSeoPages } from "@/content/seo-templates";
+import { pageMetadata } from "@/lib/seo";
 import { templateById } from "@/lib/templates/catalog";
 import { eventPages as eventPagesTexts } from "@/texts/pt-BR/event-pages";
-import { meta as metaTexts } from "@/texts/pt-BR/meta";
+import { guides as guidesTexts } from "@/texts/pt-BR/guides";
 import { templateGallery as templateGalleryTexts } from "@/texts/pt-BR/template-gallery";
 import { templates as templatesTexts } from "@/texts/pt-BR/templates";
 
@@ -37,15 +40,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (page === undefined) {
     return {};
   }
-  const path = `/modelos/${page.slug}`;
-  return {
-    title: { absolute: page.title },
-    description: page.description,
-    alternates: { canonical: path },
-    // The share image is ./opengraph-image.tsx (and ./twitter-image.tsx).
-    openGraph: { type: "website", locale: "pt_BR", siteName: metaTexts.title, url: path, title: page.title, description: page.description },
-    twitter: { card: "summary_large_image", title: page.title, description: page.description },
-  };
+  // The share image is ./opengraph-image.tsx.
+  return pageMetadata({ title: page.title, description: page.description, path: `/modelos/${page.slug}` });
 }
 
 /** One template: a large sample, its colours, what it brings and the templates next to it. */
@@ -65,6 +61,7 @@ export default async function TemplatePage({ params }: Props) {
   const others = [1, 2, 3].map((step) => templateSeoPages[(position + step) % templateSeoPages.length]).filter((other) => other !== undefined);
   // A tall template (the graduation invitation) gets a narrower preview.
   const tall = design !== null && design.heightMm > design.widthMm;
+  const guides = guidesForTemplate(page.id);
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -156,8 +153,24 @@ export default async function TemplatePage({ params }: Props) {
           </div>
         </section>
 
+        {/* Guides that suggest this template */}
+        {guides.length > 0 && (
+          <section className="border-t border-border bg-surface">
+            <div className="mx-auto flex max-w-6xl flex-col gap-10 px-4 py-16 sm:px-6 lg:py-20">
+              <SectionHeading title={guidesTexts.forEventTitle} />
+              <ul className="grid gap-4 sm:grid-cols-3">
+                {guides.slice(0, 3).map((guide) => (
+                  <li key={guide.slug}>
+                    <GuideCard guide={guide} headingLevel="h3" />
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </section>
+        )}
+
         {/* Other templates */}
-        <section className="border-t border-border bg-surface">
+        <section className="border-t border-border bg-bg">
           <div className="mx-auto flex max-w-6xl flex-col gap-10 px-4 py-16 sm:px-6 lg:py-20">
             <SectionHeading title={t.othersTitle} />
             <ul className="grid gap-4 sm:grid-cols-3">

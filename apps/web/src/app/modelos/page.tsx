@@ -10,20 +10,14 @@ import { SiteHeader } from "@/components/marketing/site-header";
 import { TemplateCard } from "@/components/marketing/template-card";
 import { ButtonLink } from "@/components/ui";
 import { templateSeoPages } from "@/content/seo-templates";
+import { pageMetadata } from "@/lib/seo";
 import { eventPages as eventPagesTexts } from "@/texts/pt-BR/event-pages";
 import { landing as landingTexts } from "@/texts/pt-BR/landing";
-import { meta as metaTexts } from "@/texts/pt-BR/meta";
 import { templateGallery as templateGalleryTexts } from "@/texts/pt-BR/template-gallery";
 
 const t = templateGalleryTexts;
 
-export const metadata: Metadata = {
-  title: { absolute: `${t.title} · ${metaTexts.title}` },
-  description: t.metaDescription,
-  alternates: { canonical: "/modelos" },
-  openGraph: { type: "website", locale: "pt_BR", siteName: metaTexts.title, url: "/modelos", title: t.title, description: t.metaDescription },
-  twitter: { card: "summary_large_image", title: t.title, description: t.metaDescription },
-};
+export const metadata: Metadata = pageMetadata({ title: t.metaTitle, shareTitle: t.title, description: t.metaDescription, path: "/modelos" });
 
 /** Every ticket template, each linking to its own page (ADR 0062). */
 export default function TemplateGalleryPage() {

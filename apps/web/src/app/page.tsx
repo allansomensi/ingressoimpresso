@@ -17,6 +17,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import { JsonLd, homeJsonLd } from "@/components/json-ld";
 import { FaqList } from "@/components/marketing/faq-list";
@@ -29,15 +30,20 @@ import { SiteHeader } from "@/components/marketing/site-header";
 import { TemplateShowcase } from "@/components/marketing/template-showcase";
 import { UseCases } from "@/components/marketing/use-cases";
 import { ButtonLink } from "@/components/ui";
+import { fetchPricing } from "@/lib/pricing-server";
+import { pageMetadata } from "@/lib/seo";
 import { landing as landingTexts } from "@/texts/pt-BR/landing";
 import { nav as navTexts } from "@/texts/pt-BR/nav";
 import { templateGallery as templateGalleryTexts } from "@/texts/pt-BR/template-gallery";
 
-export const metadata: Metadata = {
-  // The words people search for first, the brand after (the layout's default puts the brand first).
-  title: { absolute: landingTexts.metaTitle },
-  alternates: { canonical: "/" },
-};
+// The words people search for first, the brand after (the layout's default puts the brand first).
+// Link previews keep the headline, which reads better in a chat than a search title.
+export const metadata: Metadata = pageMetadata({
+  title: landingTexts.metaTitle,
+  shareTitle: landingTexts.headline,
+  description: landingTexts.metaDescription,
+  path: "/",
+});
 
 const t = landingTexts;
 const FEATURE_ICONS: readonly LucideIcon[] = [
@@ -53,10 +59,18 @@ const FEATURE_ICONS: readonly LucideIcon[] = [
 ];
 const STEP_ICONS: readonly LucideIcon[] = [FileText, Ticket, Printer, Smartphone];
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  const pricing = await fetchPricing();
   return (
     <div className="flex min-h-dvh flex-col">
-      <JsonLd data={homeJsonLd} />
+      <JsonLd
+        data={homeJsonLd({
+          title: landingTexts.metaTitle,
+          description: landingTexts.metaDescription,
+          faq: t.faq.map((item) => ({ question: item.q, answer: item.a })),
+          pricing,
+        })}
+      />
       <SiteHeader />
       <main className="flex-1">
         {/* Hero */}
@@ -107,13 +121,26 @@ export default function LandingPage() {
         <section className="border-y border-border bg-surface">
           <div className="mx-auto flex max-w-6xl flex-col items-center gap-5 px-4 py-10 sm:px-6">
             <p className="text-sm font-medium text-fg-subtle">{t.audienceTitle}</p>
+            {/* Each kind of event links to its own page: the words people search for, one tap away. */}
             <ul className="flex flex-wrap justify-center gap-2.5">
               {t.audience.map((item) => (
-                <li key={item} className="rounded-full border border-border bg-bg px-4 py-1.5 text-sm font-medium text-fg-muted">
-                  {item}
+                <li key={item.slug}>
+                  <Link
+                    href={`/ingresso-para/${item.slug}`}
+                    className="inline-flex min-h-9 items-center rounded-full border border-border bg-bg px-4 text-sm font-medium text-fg-muted transition hover:border-brand/40 hover:text-fg active:bg-surface-2 pointer-coarse:min-h-11"
+                  >
+                    {item.label}
+                  </Link>
                 </li>
               ))}
             </ul>
+            <Link
+              href="/ingresso-para"
+              className="relative inline-flex items-center gap-1.5 text-sm font-semibold text-brand-soft-fg touch-target hover:underline"
+            >
+              {t.audienceMore}
+              <ArrowRight className="size-4" aria-hidden />
+            </Link>
           </div>
         </section>
 
@@ -257,7 +284,7 @@ export default function LandingPage() {
         <section id="precos" className="defer-render scroll-mt-16">
           <div className="mx-auto flex max-w-5xl flex-col gap-12 px-4 py-20 sm:px-6 lg:py-28">
             <SectionHeading eyebrow={navTexts.pricing} title={t.pricingTitle} lead={t.pricingLead} />
-            <PricingSection />
+            <PricingSection initial={pricing} />
           </div>
         </section>
 

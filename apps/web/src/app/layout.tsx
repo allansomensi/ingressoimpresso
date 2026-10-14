@@ -29,9 +29,32 @@ export const metadata: Metadata = {
     description: metaTexts.description,
   },
   twitter: { card: "summary_large_image", title: landingTexts.headline, description: metaTexts.description },
-  // The staging site (ADR 0046) never shows up in search results.
-  ...(IS_STAGING ? { robots: { index: false, follow: false } } : {}),
+  category: "business",
+  // The staging site (ADR 0046) never shows up in search results. In production, results may show
+  // large images (the templates) and full snippets; private pages set their own `noindex`.
+  robots: IS_STAGING
+    ? { index: false, follow: false }
+    : { index: true, follow: true, googleBot: { index: true, follow: true, "max-image-preview": "large", "max-snippet": -1, "max-video-preview": -1 } },
+  ...siteVerification(),
 };
+
+/**
+ * Ownership tags for Google Search Console and Bing Webmaster Tools, when the site is verified by
+ * a meta tag instead of DNS (docs/deploy.md). Read at build time, like every NEXT_PUBLIC_ variable.
+ */
+function siteVerification(): Pick<Metadata, "verification"> {
+  const google = process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION?.trim() ?? "";
+  const bing = process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION?.trim() ?? "";
+  if (IS_STAGING || (google === "" && bing === "")) {
+    return {};
+  }
+  return {
+    verification: {
+      ...(google === "" ? {} : { google }),
+      ...(bing === "" ? {} : { other: { "msvalidate.01": bing } }),
+    },
+  };
+}
 
 export const viewport: Viewport = {
   width: "device-width",

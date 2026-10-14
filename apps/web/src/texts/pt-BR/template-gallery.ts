@@ -1,5 +1,6 @@
 export const templateGallery = {
   title: "Modelos de ingresso prontos para imprimir",
+  metaTitle: "Modelos de ingresso para imprimir, com número e QR code",
   metaDescription:
     "16 modelos de ingresso numerados e com QR code: festa junina, formatura, show, teatro, rifa e mais. Personalize e imprima em casa ou na gráfica.",
   breadcrumb: "Modelos",
