@@ -38,8 +38,9 @@ for (const path of PAGES) {
   const refused = [];
   page.on("console", (message) => {
     const text = message.text();
-    // The analytics script only exists on Vercel: locally it is a 404 served as text, not CSP.
-    if (/Content Security Policy|Refused to/.test(text) && !text.includes("_vercel/insights")) {
+    // The analytics and speed insights scripts only exist on Vercel: locally each is a 404
+    // served as text, not CSP.
+    if (/Content Security Policy|Refused to/.test(text) && !/_vercel\/(insights|speed-insights)/.test(text)) {
       refused.push(text);
     }
   });

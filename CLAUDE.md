@@ -407,7 +407,8 @@ docs/deploy.md       domínio próprio: Neon, Resend, DNS (Registro.br), Render,
   fixo (`VERCEL_STAGING_ALIAS`, padrão `staging.ingressoimpresso.com.br`).
   `NEXT_PUBLIC_ENVIRONMENT=staging` mostra o selo "Ambiente de testes" e bloqueia a indexação.
   Novidades passam por `staging` antes do `main`; variável nova da API vai para os dois serviços.
-- **Métricas:** Vercel Web Analytics (ADR 0022), ligado no painel da Vercel; nada a configurar no
+- **Métricas:** Vercel Web Analytics (ADR 0022) e Speed Insights (Core Web Vitals de usuários
+  reais, `SpeedInsights` em `site-analytics.tsx`), ligados no painel da Vercel; nada a configurar no
   código além de `NEXT_PUBLIC_SITE_URL` (opcional, padrão `https://ingressoimpresso.com.br`).
 - **Produção recusa (ADR 0047):** a chave mestra do CI, `sk_test_` sem `STRIPE_ALLOW_TEST_MODE=true`
   (só o staging tem), `PUBLIC_WEB_URL` sem https; a conexão com o Neon é forçada a `verify-full`.
