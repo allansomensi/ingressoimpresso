@@ -25,7 +25,7 @@ import { GuestList } from "@/components/portaria/guest-list";
 import { RecentScans } from "@/components/portaria/recent-scans";
 
 import { Scanner } from "@/portaria/camera";
-import { clockNow, serverClockNow, subscribeClock } from "@/portaria/clock";
+import { useClock } from "@/portaria/clock";
 import { DoorApiError } from "@/portaria/client";
 import { DoorEngine, type DoorState } from "@/portaria/engine";
 import { announce, rehearseFeedback, unlockAudio } from "@/portaria/feedback";
@@ -34,7 +34,7 @@ import { inkFor } from "@/lib/design-rules";
 import { money } from "@/lib/format";
 import { sessionLabel } from "@/lib/series";
 import { HOLD_MS, OFFLINE_WARNING_MS, canRehearse, clockTime, dismissPolicy, type ResultView } from "@/portaria/logic";
-import { cameraGranted, keepOffline, keepScreenOn, persistStorage } from "@/portaria/offline";
+import { cameraGranted, keepOffline, keepScreenOn, persistStorage, whenIdle } from "@/portaria/offline";
 import { errors as errorsTexts, portaria as portariaTexts } from "@/texts/pt-BR";
 
 const t = portariaTexts;
@@ -224,15 +224,23 @@ function Door({ engine, state }: { engine: DoorEngine; state: DoorState }) {
   const [showRecent, setShowRecent] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [rehearsal, setRehearsal] = useState({ sound: false, torch: false });
-  const now = useSyncExternalStore(subscribeClock, clockNow, serverClockNow);
+  /** The worker reported every resource of the page cached (no need to ask again). */
+  const appKept = useRef(false);
 
-  // Readiness checks that need no user gesture.
+  // Readiness checks that need no user gesture. The worker's precache (invariant 8) waits for an
+  // idle moment: it must happen before the phone goes offline, not before the first manifest.
   useEffect(() => {
-    void Promise.all([keepOffline().catch(() => false), cameraGranted(), persistStorage()]).then(
-      ([app, camera, storage]) => {
-        setChecks({ app, camera, storage });
-      },
-    );
+    void Promise.all([cameraGranted(), persistStorage()]).then(([camera, storage]) => {
+      setChecks((current) => ({ ...current, camera, storage }));
+    });
+    return whenIdle(() => {
+      void keepOffline()
+        .catch(() => false)
+        .then((app) => {
+          appKept.current = app;
+          setChecks((current) => ({ ...current, app }));
+        });
+    });
   }, []);
 
   // Results: sound and vibration (the result screen itself decides when it leaves).
@@ -264,8 +272,10 @@ function Door({ engine, state }: { engine: DoorEngine; state: DoorState }) {
         setTorch(scanner.torchSupported ? false : null);
         setCameraFailed(false);
         release = await keepScreenOn();
-        // The scanner's own chunks are loaded now: keep them for offline use too.
-        const app = await keepOffline().catch(() => false);
+        // The scanner's own chunks are loaded now: keep them for offline use too, unless the
+        // worker already had everything.
+        const app = appKept.current || (await keepOffline().catch(() => false));
+        appKept.current = app;
         setChecks((current) => ({ ...current, camera: true, app }));
       })
       .catch(() => {
@@ -280,11 +290,15 @@ function Door({ engine, state }: { engine: DoorEngine; state: DoorState }) {
     };
   }, [engine, running]);
 
+  // A result that waits for a tap holds the screen: the camera reads at a slower pace meanwhile.
+  const result = state.result;
+  const idle = result !== null && !dismissPolicy(result).auto;
+  useEffect(() => {
+    scannerRef.current?.setIdle(idle);
+  }, [idle, running]);
+
   const manifest = state.manifest;
   const event = manifest?.event ?? state.device?.event;
-  const offlineFor = state.offlineSince === null ? 0 : now - state.offlineSince;
-
-  const synced = state.offlineSince === null && state.lastSyncOkAt !== null;
   const hasGuests = (manifest?.guests?.length ?? 0) > 0;
   const rehearsing = state.rehearsing;
 
@@ -350,10 +364,7 @@ function Door({ engine, state }: { engine: DoorEngine; state: DoorState }) {
           </div>
         </div>
         <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-white/70" aria-live="polite">
-          <span className={`inline-flex items-center gap-1.5 ${synced ? "text-emerald-300" : "text-amber-300"}`}>
-            {synced ? <Wifi className="size-3.5" aria-hidden /> : <WifiOff className="size-3.5" aria-hidden />}
-            {syncLabel(state, now)}
-          </span>
+          <SyncStatus offlineSince={state.offlineSince} lastSyncOkAt={state.lastSyncOkAt} />
           <span aria-hidden>·</span>
           <span>{state.device?.deviceName}</span>
           {/* One of several dates (ADR 0077): which session this phone lets in. */}
@@ -362,12 +373,7 @@ function Door({ engine, state }: { engine: DoorEngine; state: DoorState }) {
             <span className="rounded-full bg-amber-400/15 px-2 py-0.5 text-xs font-semibold text-amber-200">{t.pending(state.pending)}</span>
           )}
         </p>
-        {state.offlineSince !== null && offlineFor > OFFLINE_WARNING_MS && (
-          <p className="flex items-start gap-2 rounded-xl bg-amber-400 px-3 py-2 text-sm font-semibold text-black">
-            <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
-            {t.oneLineOffline}
-          </p>
-        )}
+        {state.offlineSince !== null && <OfflineWarning offlineSince={state.offlineSince} />}
         {state.storageFailed && <p className="rounded-xl bg-red-600 px-3 py-2 text-sm font-semibold">{t.storageError}</p>}
         {/* Canceled by the organizer (ADR 0065): the door keeps reading, the organizer decides. */}
         {event?.canceledAt != null && (
@@ -529,7 +535,6 @@ function Door({ engine, state }: { engine: DoorEngine; state: DoorState }) {
         <GuestList
           engine={engine}
           state={state}
-          now={now}
           onClose={() => {
             setShowGuests(false);
           }}
@@ -610,7 +615,7 @@ function RehearsalPanel(props: {
   );
 }
 
-function syncLabel(state: DoorState, now: number): string {
+function syncLabel(state: Pick<DoorState, "offlineSince" | "lastSyncOkAt">, now: number): string {
   if (state.offlineSince !== null) {
     return t.offlineFor(Math.floor((now - state.offlineSince) / 60_000));
   }
@@ -618,6 +623,32 @@ function syncLabel(state: DoorState, now: number): string {
     return t.neverSynced;
   }
   return t.syncedAgo(Math.max(0, Math.floor((now - state.lastSyncOkAt) / 1000)));
+}
+
+/** "Synced 5 s ago": the only parts of the header that follow the clock, so only they re-render. */
+function SyncStatus(props: Pick<DoorState, "offlineSince" | "lastSyncOkAt">) {
+  const now = useClock();
+  const synced = props.offlineSince === null && props.lastSyncOkAt !== null;
+  return (
+    <span className={`inline-flex items-center gap-1.5 ${synced ? "text-emerald-300" : "text-amber-300"}`}>
+      {synced ? <Wifi className="size-3.5" aria-hidden /> : <WifiOff className="size-3.5" aria-hidden />}
+      {syncLabel(props, now)}
+    </span>
+  );
+}
+
+/** Offline for a while: one phone per line, so no copy slips through two phones. */
+function OfflineWarning({ offlineSince }: { offlineSince: number }) {
+  const now = useClock();
+  if (now - offlineSince <= OFFLINE_WARNING_MS) {
+    return null;
+  }
+  return (
+    <p className="flex items-start gap-2 rounded-xl bg-amber-400 px-3 py-2 text-sm font-semibold text-black">
+      <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
+      {t.oneLineOffline}
+    </p>
+  );
 }
 
 function Readiness(props: {

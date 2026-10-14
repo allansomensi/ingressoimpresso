@@ -1,4 +1,9 @@
-/** A once-per-second clock for "synced 5 s ago" labels, readable with `useSyncExternalStore`. */
+/**
+ * A once-per-second clock for "synced 5 s ago" labels, readable with `useSyncExternalStore`.
+ * Subscribe from the smallest component that shows the time: every tick re-renders its subscriber.
+ */
+import { useSyncExternalStore } from "react";
+
 let now = 0;
 const listeners = new Set<() => void>();
 let timer: ReturnType<typeof setInterval> | undefined;
@@ -29,4 +34,9 @@ export function clockNow(): number {
 
 export function serverClockNow(): number {
   return 0;
+}
+
+/** The clock, for a leaf component (it re-renders once a second while mounted). */
+export function useClock(): number {
+  return useSyncExternalStore(subscribeClock, clockNow, serverClockNow);
 }

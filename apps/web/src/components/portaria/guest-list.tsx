@@ -5,6 +5,7 @@ import { ArrowLeft, Check, CloudOff, RotateCcw, Search, UserRound, X } from "luc
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
 
 import { inkFor } from "@/lib/design-rules";
+import { useClock } from "@/portaria/clock";
 import type { DoorEngine, DoorState } from "@/portaria/engine";
 import { canUndoArrival, clockTime, guestState, searchGuests, type GuestState } from "@/portaria/logic";
 import { portaria as portariaTexts } from "@/texts/pt-BR";
@@ -20,7 +21,8 @@ const SNACK_MS = 8_000;
  * people, undo by mistake on this phone for 2 minutes. Every tap is saved on the phone before
  * the screen changes, then sent like the scans.
  */
-export function GuestList({ engine, state, now, onClose }: { engine: DoorEngine; state: DoorState; now: number; onClose: () => void }) {
+export function GuestList({ engine, state, onClose }: { engine: DoorEngine; state: DoorState; onClose: () => void }) {
+  const now = useClock();
   const [query, setQuery] = useState("");
   const deferred = useDeferredValue(query);
   const [choosing, setChoosing] = useState<{ guest: DoorGuestDto; missing: number } | null>(null);

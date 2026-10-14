@@ -186,16 +186,21 @@ export async function pendingCount(): Promise<number> {
   return (await db()).countFromIndex("scans", "synced", 0);
 }
 
+/** Marks uploaded scans as synced (only those still pending). One round trip per batch, not per row. */
 export async function markSynced(ids: readonly string[]): Promise<void> {
+  if (ids.length === 0) {
+    return;
+  }
   const tx = (await db()).transaction("scans", "readwrite");
   const store = tx.objectStore("scans");
-  for (const id of ids) {
-    const scan = await store.get(id);
+  const scans = await Promise.all(ids.map((id) => store.get(id)));
+  const writes: Promise<unknown>[] = [];
+  for (const scan of scans) {
     if (scan !== undefined && scan.synced === 0) {
-      await store.put({ ...scan, synced: 1 });
+      writes.push(store.put({ ...scan, synced: 1 }));
     }
   }
-  await tx.done;
+  await Promise.all([...writes, tx.done]);
 }
 
 /** Every scan of this phone (its history); the caller sorts and trims. */
@@ -230,14 +235,18 @@ export async function addEntries(entries: readonly StoredEntry[]): Promise<Store
   }
   const tx = (await db()).transaction("entries", "readwrite");
   const store = tx.objectStore("entries");
+  // The keys once, then every write at once: a first manifest brings thousands of entries.
+  const known = new Set<string>(await store.getAllKeys());
   const added: StoredEntry[] = [];
+  const writes: Promise<unknown>[] = [];
   for (const entry of entries) {
-    if ((await store.getKey(entry.scanId)) === undefined) {
-      await store.put(entry);
+    if (!known.has(entry.scanId)) {
+      known.add(entry.scanId);
+      writes.push(store.put(entry));
       added.push(entry);
     }
   }
-  await tx.done;
+  await Promise.all([...writes, tx.done]);
   return added;
 }
 
@@ -282,14 +291,19 @@ export async function pendingArrivalCount(): Promise<number> {
 
 /** Marks uploaded arrivals as synced, unless they were undone while the upload was on its way. */
 export async function markArrivalsSynced(sent: readonly DoorGuestUpload[]): Promise<void> {
-  const tx = (await db()).transaction("arrivals", "readwrite");
-  for (const upload of sent) {
-    const arrival = await tx.store.get(upload.id);
-    if (arrival !== undefined && arrival.synced === 0 && arrival.undoneAtMs === upload.undoneAtMs) {
-      await tx.store.put({ ...arrival, synced: 1 });
-    }
+  if (sent.length === 0) {
+    return;
   }
-  await tx.done;
+  const tx = (await db()).transaction("arrivals", "readwrite");
+  const arrivals = await Promise.all(sent.map((upload) => tx.store.get(upload.id)));
+  const writes: Promise<unknown>[] = [];
+  sent.forEach((upload, index) => {
+    const arrival = arrivals[index];
+    if (arrival !== undefined && arrival.synced === 0 && arrival.undoneAtMs === upload.undoneAtMs) {
+      writes.push(tx.store.put({ ...arrival, synced: 1 }));
+    }
+  });
+  await Promise.all([...writes, tx.done]);
 }
 
 /** Stores arrivals heard from the server: new ones, and undos of known ones. */
@@ -298,11 +312,14 @@ export async function mergeArrivals(arrivals: readonly DoorGuestArrivalDto[]): P
     return false;
   }
   const tx = (await db()).transaction("arrivals", "readwrite");
-  let changed = false;
+  // Everything known once (the list is the size of the guest list), then every write at once.
+  const known = new Map((await tx.store.getAll()).map((item) => [item.id, item]));
+  const writes: Promise<unknown>[] = [];
   for (const arrival of arrivals) {
-    const known = await tx.store.get(arrival.id);
-    if (known === undefined) {
-      await tx.store.put({
+    const stored = known.get(arrival.id);
+    let next: StoredArrival | undefined;
+    if (stored === undefined) {
+      next = {
         id: arrival.id,
         guestId: arrival.guestId,
         people: arrival.people,
@@ -312,15 +329,17 @@ export async function mergeArrivals(arrivals: readonly DoorGuestArrivalDto[]): P
         undoneAtMs: arrival.undone ? arrival.atUnixMs : null,
         own: 0,
         synced: 1,
-      });
-      changed = true;
-    } else if (arrival.undone && known.undoneAtMs === null) {
-      await tx.store.put({ ...known, undoneAtMs: arrival.atUnixMs });
-      changed = true;
+      };
+    } else if (arrival.undone && stored.undoneAtMs === null) {
+      next = { ...stored, undoneAtMs: arrival.atUnixMs };
+    }
+    if (next !== undefined) {
+      known.set(next.id, next);
+      writes.push(tx.store.put(next));
     }
   }
-  await tx.done;
-  return changed;
+  await Promise.all([...writes, tx.done]);
+  return writes.length > 0;
 }
 
 /** The upload form of an arrival. */
