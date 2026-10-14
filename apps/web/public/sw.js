@@ -12,7 +12,8 @@
 // (refreshed on every online visit), and the data is in the page's localStorage (the link's
 // token stays in the fragment, which never reaches a request). The install precaches only the
 // offline page, the icon and the logo: the worker is registered from the panel and from those
-// pages, never from the landing, and a kept page is stored when it is opened.
+// pages, never from the landing, and a kept page is stored when it is opened (the page the worker
+// was installed from included, as soon as it takes control).
 
 const CACHE = "app-v5";
 const OFFLINE = "/offline";
@@ -62,9 +63,30 @@ self.addEventListener("activate", (event) => {
         }
       }
       await self.clients.claim();
+      await keepOpenPages();
     })(),
   );
 });
+
+/**
+ * A kept page the worker was installed from (the holder's first visit to the ticket, the seller's
+ * first visit to the link) was answered before the worker took control: it is fetched and kept
+ * now, so one online visit is enough to open it later without signal.
+ */
+async function keepOpenPages() {
+  const clients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+  const paths = new Set(clients.map((client) => new URL(client.url).pathname).filter((path) => KEPT.includes(path)));
+  for (const path of paths) {
+    try {
+      const response = await fetch(path, { signal: AbortSignal.timeout(PAGE_TIMEOUT_MS) });
+      if (response.ok) {
+        await keepPage(path, response);
+      }
+    } catch {
+      // Without network now, the next online visit keeps it.
+    }
+  }
+}
 
 function isDoor(url) {
   return url.pathname === "/portaria" || url.pathname.startsWith("/portaria/") || url.pathname.startsWith("/portaria-");
