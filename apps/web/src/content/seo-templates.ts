@@ -13,6 +13,9 @@ export type TemplateSeoPage = {
   intro: string;
 };
 
+/** Last change to the template pages (the sitemap's `lastmod`): update it with the content. */
+export const TEMPLATE_PAGES_UPDATED_AT = "2026-10-14";
+
 export const templateSeoPages: readonly TemplateSeoPage[] = [
   {
     id: "show",
@@ -178,6 +181,7 @@ export const templateSeoPages: readonly TemplateSeoPage[] = [
 
 /** The templates shown on each event page (src/content/seo-event-pages.ts), the closest first. */
 export const EVENT_TEMPLATES: Readonly<Record<string, readonly TemplateId[]>> = {
+  festa: ["party", "newYear", "carnival"],
   "festa-junina": ["arraia", "kids", "classic"],
   formatura: ["graduation", "wedding", "party"],
   "show-de-banda": ["show", "party", "carnival"],
@@ -185,7 +189,11 @@ export const EVENT_TEMPLATES: Readonly<Record<string, readonly TemplateId[]>> = 
   "evento-de-igreja": ["church", "charity", "talk"],
   "jantar-beneficente": ["charity", "wedding", "classic"],
   "teatro-e-danca": ["theater", "cinema", "classic"],
-  baile: ["party", "carnival", "newYear"],
+  baile: ["wedding", "party", "carnival"],
+  campeonato: ["sports", "classic", "party"],
+  "palestra-e-curso": ["talk", "classic", "church"],
+  carnaval: ["carnival", "party", "kids"],
+  reveillon: ["newYear", "party", "wedding"],
 };
 
 export function templateSeoBySlug(slug: string): TemplateSeoPage | undefined {
