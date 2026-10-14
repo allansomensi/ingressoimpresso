@@ -470,6 +470,27 @@ No projeto da Vercel → **Analytics** → **Enable**. O site já carrega o scri
 O endereço canônico do site (sitemap, Open Graph) é `https://ingressoimpresso.com.br`; para outro
 domínio, crie a variável `NEXT_PUBLIC_SITE_URL` (Config) na Vercel.
 
+### Buscadores: Google Search Console e Bing (ADR 0081)
+
+O site já publica `robots.txt`, `sitemap.xml` (com as imagens dos modelos), dados estruturados em
+todas as páginas públicas e `/llms.txt`. Falta dizer aos buscadores que o domínio é seu:
+
+1. **Google:** em [search.google.com/search-console](https://search.google.com/search-console),
+   **Adicionar propriedade** → **Domínio** → `ingressoimpresso.com.br`. O Google pede um registro
+   TXT: no Registro.br, modo avançado, crie um TXT no nome vazio (raiz) com o valor mostrado e
+   clique em **Verificar** (pode levar algumas horas).
+   - Se preferir verificar por tag (propriedade **Prefixo do URL**), copie só o código do
+     `content` da tag `google-site-verification` para a variável `NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION`
+     na Vercel (Production) e publique de novo.
+2. Em **Sitemaps**, envie `https://ingressoimpresso.com.br/sitemap.xml`.
+3. **Bing** (também alimenta o Copilot e outros assistentes): em
+   [bing.com/webmasters](https://www.bing.com/webmasters), **Importar do Google Search Console**.
+   Sem o Google, verifique por tag: o código de `msvalidate.01` vai em
+   `NEXT_PUBLIC_BING_SITE_VERIFICATION`.
+4. Para acompanhar: no Search Console, **Desempenho** filtrado por página (`/guias/`,
+   `/ingresso-para/`, `/modelos/`, `/precos`) e **Melhorias** (trilhas e perguntas frequentes).
+   No staging nada disso se aplica: ele é `noindex` e o `robots.txt` bloqueia tudo.
+
 ## 7. Backup (ADR 0019)
 
 O Neon gratuito só volta 6 horas no tempo. Além disso, o workflow **Backup** grava todo dia, às
