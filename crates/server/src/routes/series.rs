@@ -29,6 +29,8 @@ use crate::state::AppState;
 
 /// Most dates in one series (a weekly event for a year, with room to spare).
 pub const MAX_DATES: i64 = 60;
+/// Dates whose reports are built at the same time (each one is several reads).
+const REPORTS_AT_ONCE: usize = 5;
 
 /// The series of an event, for its DTO; `None` when it has a single date.
 pub(crate) async fn of_event(
@@ -375,6 +377,7 @@ async fn build(state: &AppState, user: &AuthUser, access: SeriesAccess) -> ApiRe
     let mut priced_totals = true;
     let mut sellers: Vec<(String, SellerSum)> = Vec::new();
     let mut seller_index: HashMap<String, usize> = HashMap::new();
+    let mut visible = Vec::with_capacity(rows.len());
     for (position, row) in rows.into_iter().enumerate() {
         let team = row.areas.map(|areas| {
             areas
@@ -403,19 +406,30 @@ async fn build(state: &AppState, user: &AuthUser, access: SeriesAccess) -> ApiRe
             canceled_at: row.canceled_at,
             cancel_reason: row.cancel_reason,
         };
-        // The same numbers as each date's report (ADR 0056 prices, ADR 0069 box office).
-        let report = report::build(state, &event).await?;
+        visible.push((position, row.cost_cents, team, event));
+    }
+    // The same numbers as each date's report (ADR 0056 prices, ADR 0069 box office): a few
+    // dates at a time, side by side, instead of one date after the other.
+    let mut reports = Vec::with_capacity(visible.len());
+    for chunk in visible.chunks(REPORTS_AT_ONCE) {
+        reports.extend(
+            futures_util::future::try_join_all(
+                chunk
+                    .iter()
+                    .map(|(_, _, _, event)| report::build(state, event)),
+            )
+            .await?,
+        );
+    }
+    for ((position, cost_cents, team, event), report) in visible.into_iter().zip(reports) {
         let numbers = SeriesNumbersDto {
             tickets: report.totals.tickets,
             sold: report.totals.declared_sold,
             entries: report.totals.entries,
             amount_due_cents: report.totals.amount_due_cents,
             received_cents: report.totals.received_cents,
-            cost_cents: row.cost_cents,
-            net_cents: report
-                .totals
-                .amount_due_cents
-                .map(|due| due - row.cost_cents),
+            cost_cents,
+            net_cents: report.totals.amount_due_cents.map(|due| due - cost_cents),
         };
         totals.tickets += numbers.tickets;
         totals.sold += numbers.sold;

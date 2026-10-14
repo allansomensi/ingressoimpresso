@@ -1,5 +1,6 @@
 //! Events, signing keys, designs, art and previews.
 
+use std::collections::HashMap;
 use std::io::Cursor;
 
 use axum::Json;
@@ -759,6 +760,7 @@ pub async fn update(
     Ok(Json(access.dto(&state.pool, row).await?))
 }
 
+#[derive(Clone)]
 struct ArtRow {
     id: Uuid,
     content_type: String,
@@ -791,6 +793,30 @@ async fn art_of_event(state: &AppState, event_id: Uuid, art_id: Uuid) -> ApiResu
     .ok_or_else(|| bad_request("unknown_art", "art does not belong to this event"))
 }
 
+/// Several arts of the event in one read, in the order given; any unknown id is an error.
+async fn arts_of_event(state: &AppState, event_id: Uuid, ids: &[Uuid]) -> ApiResult<Vec<ArtRow>> {
+    if ids.is_empty() {
+        return Ok(Vec::new());
+    }
+    let rows = sqlx::query_as!(
+        ArtRow,
+        "select id, content_type, width_px, height_px, moderation_status from blobs where event_id = $1 and id = any($2)",
+        event_id,
+        ids
+    )
+    .fetch_all(&state.pool)
+    .await?;
+    let by_id: HashMap<Uuid, ArtRow> = rows.into_iter().map(|row| (row.id, row)).collect();
+    ids.iter()
+        .map(|id| {
+            by_id
+                .get(id)
+                .cloned()
+                .ok_or_else(|| bad_request("unknown_art", "art does not belong to this event"))
+        })
+        .collect()
+}
+
 /// `GET /api/events/{id}/design`: the latest version, or the default design (version 0).
 pub async fn get_design(
     State(state): State<AppState>,
@@ -817,10 +843,11 @@ pub async fn get_design(
         Some(art_id) => Some(art_of_event(&state, event_id, art_id).await?.into()),
         None => None,
     };
-    let mut sponsors = Vec::with_capacity(latest.sponsor_blob_ids.len());
-    for id in latest.sponsor_blob_ids {
-        sponsors.push(art_of_event(&state, event_id, id).await?.into());
-    }
+    let sponsors = arts_of_event(&state, event_id, &latest.sponsor_blob_ids)
+        .await?
+        .into_iter()
+        .map(Into::into)
+        .collect();
     Ok(Json(DesignResponse {
         version: latest.version,
         design,
@@ -894,16 +921,15 @@ async fn sponsors_of(state: &AppState, event_id: Uuid, ids: &[Uuid]) -> ApiResul
             format!("up to {} logos", ticket_render::MAX_SPONSORS),
         ));
     }
-    let mut logos = Vec::with_capacity(ids.len());
-    for id in ids {
-        let logo = art_of_event(state, event_id, *id).await?;
-        if logo.moderation_status == "rejected" {
-            return Err(ApiError::Conflict(
-                "art_rejected",
-                "the art was refused by the team".to_owned(),
-            ));
-        }
-        logos.push(logo);
+    let logos = arts_of_event(state, event_id, ids).await?;
+    if logos
+        .iter()
+        .any(|logo| logo.moderation_status == "rejected")
+    {
+        return Err(ApiError::Conflict(
+            "art_rejected",
+            "the art was refused by the team".to_owned(),
+        ));
     }
     Ok(logos)
 }
@@ -1075,8 +1101,39 @@ pub async fn load_art(state: &AppState, event_id: Uuid, art_id: Uuid) -> ApiResu
     Art::from_bytes(data).map_err(|error| ApiError::Internal(error.into()))
 }
 
+/// Loads the bytes of several arts of the event in one read, in the order given.
+pub async fn load_arts(state: &AppState, event_id: Uuid, ids: &[Uuid]) -> ApiResult<Vec<Art>> {
+    if ids.is_empty() {
+        return Ok(Vec::new());
+    }
+    let rows = sqlx::query!(
+        "select id, data from blobs where event_id = $1 and id = any($2)",
+        event_id,
+        ids
+    )
+    .fetch_all(&state.pool)
+    .await?;
+    // The same image may be used more than once (a sponsor twice): decoded once, cloned after.
+    let by_id: HashMap<Uuid, Art> = rows
+        .into_iter()
+        .map(|row| {
+            Art::from_bytes(row.data)
+                .map(|art| (row.id, art))
+                .map_err(|error| ApiError::Internal(error.into()))
+        })
+        .collect::<ApiResult<_>>()?;
+    ids.iter()
+        .map(|id| {
+            by_id
+                .get(id)
+                .cloned()
+                .ok_or_else(|| bad_request("unknown_art", "art does not belong to this event"))
+        })
+        .collect()
+}
+
 /// `POST /api/events/{id}/design/preview`: first home A4 sheet with SAMPLE tickets (watermark,
-/// invalid QR), as PNG. Never signs anything.
+/// invalid QR), as JPEG. Never signs anything.
 pub async fn preview(
     State(state): State<AppState>,
     user: AuthUser,
@@ -1111,10 +1168,7 @@ pub async fn preview(
         None => None,
     };
     sponsors_of(&state, event_id, &body.sponsor_ids).await?;
-    let mut sponsors = Vec::with_capacity(body.sponsor_ids.len());
-    for id in &body.sponsor_ids {
-        sponsors.push(load_art(&state, event_id, *id).await?);
-    }
+    let sponsors = load_arts(&state, event_id, &body.sponsor_ids).await?;
     // Samples show the band of the event's categories and seats, as printed (ADR 0056).
     let tags = super::categories::NumberTags::load(&state.pool, event_id).await?;
     let job = RenderJob {
@@ -1139,7 +1193,7 @@ pub async fn preview(
         .await
         .map_err(anyhow::Error::from)?;
     let sheets =
-        tokio::task::spawn_blocking(move || ticket_render::home_sheet_pngs(&job, PREVIEW_DPI, 1))
+        tokio::task::spawn_blocking(move || ticket_render::home_sheet_jpegs(&job, PREVIEW_DPI, 1))
             .await
             .map_err(anyhow::Error::from)?
             .map_err(|error| match error {
@@ -1148,11 +1202,15 @@ pub async fn preview(
                 }
                 other => ApiError::Internal(other.into()),
             })?;
-    let png = sheets
+    let jpeg = sheets
         .into_iter()
         .next()
         .ok_or_else(|| anyhow::anyhow!("no preview sheet"))?;
-    Ok(([(CONTENT_TYPE, HeaderValue::from_static("image/png"))], png).into_response())
+    Ok((
+        [(CONTENT_TYPE, HeaderValue::from_static("image/jpeg"))],
+        jpeg,
+    )
+        .into_response())
 }
 
 /// `GET /api/events/{id}/art/{art_id}`: the art as a JPEG at most 1600 px wide, for the editor's

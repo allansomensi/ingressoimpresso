@@ -318,15 +318,40 @@ pub async fn ensure_event_printable(pool: &sqlx::PgPool, event_id: Uuid) -> ApiR
     else {
         return Ok(());
     };
-    // The sponsors' logos are printed too (ADR 0059): the same rule as the art.
-    for blob in design
+    // The sponsors' logos are printed too (ADR 0059): the same rule as the art, all in one read.
+    let blobs: Vec<Uuid> = design
         .art_blob_id
         .into_iter()
         .chain(design.sponsor_blob_ids)
-    {
-        ensure_printable(pool, Some(blob)).await?;
+        .collect();
+    if blobs.is_empty() {
+        return Ok(());
+    }
+    let statuses = sqlx::query_scalar!(
+        "select moderation_status from blobs where id = any($1)",
+        &blobs
+    )
+    .fetch_all(pool)
+    .await?;
+    for status in &statuses {
+        check_printable(Some(status))?;
     }
     Ok(())
+}
+
+/// The rule of [`ensure_printable`] on a status already read.
+fn check_printable(status: Option<&str>) -> ApiResult<()> {
+    match status {
+        Some("flagged") => Err(ApiError::Conflict(
+            "art_under_review",
+            "the art is being reviewed by the team".to_owned(),
+        )),
+        Some("rejected") => Err(ApiError::Conflict(
+            "art_rejected",
+            "the art was refused by the team".to_owned(),
+        )),
+        _ => Ok(()),
+    }
 }
 
 /// Refuses to print art under review (`art_under_review`) or refused (`art_rejected`).
@@ -344,17 +369,7 @@ pub async fn ensure_printable<'e, E: sqlx::PgExecutor<'e>>(
     let status = sqlx::query_scalar!("select moderation_status from blobs where id = $1", blob_id)
         .fetch_optional(executor)
         .await?;
-    match status.as_deref() {
-        Some("flagged") => Err(ApiError::Conflict(
-            "art_under_review",
-            "the art is being reviewed by the team".to_owned(),
-        )),
-        Some("rejected") => Err(ApiError::Conflict(
-            "art_rejected",
-            "the art was refused by the team".to_owned(),
-        )),
-        _ => Ok(()),
-    }
+    check_printable(status.as_deref())
 }
 
 #[cfg(test)]

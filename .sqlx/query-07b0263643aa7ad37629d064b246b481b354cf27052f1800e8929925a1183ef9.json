@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "update exports set status = 'running', attempts = attempts + 1, locked_at = now()\n           where id = (\n               select id from exports\n               where status = 'queued' or (status = 'running' and locked_at < now() - interval '15 minutes')\n               order by created_at for update skip locked limit 1)\n           returning id, event_id, kind, scope, crop_marks, status, ticket_count, file_name, byte_size, error, created_at",
+  "query": "update exports set status = 'running', attempts = attempts + 1, locked_at = now()\n           where id = (\n               select id from exports\n               where status = 'queued' or (status = 'running' and locked_at < now() - interval '15 minutes')\n               order by created_at for update skip locked limit 1)\n           returning id, event_id, kind, scope, crop_marks, status, ticket_count, file_name, byte_size, error, created_at, attempts",
   "describe": {
     "columns": [
       {
@@ -123,6 +123,17 @@
             "name": "created_at"
           }
         }
+      },
+      {
+        "ordinal": 11,
+        "name": "attempts",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "exports",
+            "name": "attempts"
+          }
+        }
       }
     ],
     "parameters": {
@@ -139,8 +150,9 @@
       true,
       true,
       true,
+      false,
       false
     ]
   },
-  "hash": "3b3f5751bd37b34725631fb6169c43894edab9a43c661243bfcadc9694b5a68b"
+  "hash": "07b0263643aa7ad37629d064b246b481b354cf27052f1800e8929925a1183ef9"
 }

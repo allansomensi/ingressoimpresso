@@ -34,6 +34,10 @@ const IDLE_POLL: Duration = Duration::from_hours(1);
 const STALE_AFTER: Duration = Duration::from_mins(15);
 /// Generated files are a cache: older ones are deleted and regenerated on demand.
 const FILE_MAX_AGE: Duration = Duration::from_hours(24);
+/// Digital ticket images (`ticket-*.jpg`, ADR 0030) are small and asked again on the day of the
+/// event by everyone who opened the link weeks before: they stay, so that day is file reads, not
+/// renders. Their name changes with the design and the event details (`routes::tickets::image`).
+const TICKET_IMAGE_MAX_AGE: Duration = Duration::from_hours(30 * 24);
 
 /// Where an export's file lives.
 pub fn export_path(dir: &Path, export_id: Uuid, kind: ExportKind) -> PathBuf {
@@ -115,23 +119,33 @@ pub async fn run_pending(state: &AppState) -> ApiResult<usize> {
 /// Claims and processes one export. Returns whether there was one.
 async fn process_next(state: &AppState) -> ApiResult<bool> {
     // Stale `running` rows (crash mid-job) are retried; SKIP LOCKED lets several workers coexist.
-    let Some(export) = sqlx::query_as!(
-        ExportRow,
+    let Some(claimed) = sqlx::query!(
         r#"update exports set status = 'running', attempts = attempts + 1, locked_at = now()
            where id = (
                select id from exports
                where status = 'queued' or (status = 'running' and locked_at < now() - interval '15 minutes')
                order by created_at for update skip locked limit 1)
-           returning id, event_id, kind, scope, crop_marks, status, ticket_count, file_name, byte_size, error, created_at"#
+           returning id, event_id, kind, scope, crop_marks, status, ticket_count, file_name, byte_size, error, created_at, attempts"#
     )
     .fetch_optional(&state.pool)
     .await?
     else {
         return Ok(false);
     };
-    let attempts = sqlx::query_scalar!("select attempts from exports where id = $1", export.id)
-        .fetch_one(&state.pool)
-        .await?;
+    let attempts = claimed.attempts;
+    let export = ExportRow {
+        id: claimed.id,
+        event_id: claimed.event_id,
+        kind: claimed.kind,
+        scope: claimed.scope,
+        crop_marks: claimed.crop_marks,
+        status: claimed.status,
+        ticket_count: claimed.ticket_count,
+        file_name: claimed.file_name,
+        byte_size: claimed.byte_size,
+        error: claimed.error,
+        created_at: claimed.created_at,
+    };
     if attempts > MAX_ATTEMPTS {
         fail(&state.pool, export.id, "too_many_attempts").await?;
         return Ok(true);
@@ -267,49 +281,34 @@ async fn generate(state: &AppState, export: &ExportRow) -> Result<(i32, String, 
 
     let issuers = issuers(state, export.event_id, event.qr_tag, &tickets).await?;
     let tags = ticket_tags(state, export.event_id).await?;
-    let rendered: Vec<TicketToRender> = tickets
-        .iter()
-        .map(|ticket| {
-            let number = u32::try_from(ticket.number)
-                .ok()
-                .and_then(TicketNumber::new)
-                .ok_or(JobError::Final("invalid_number"))?;
-            let issuer = issuers
-                .get(&ticket.key_id)
-                .ok_or(JobError::Final("missing_key"))?;
-            Ok(TicketToRender {
-                qr: TicketQr::Signed(issuer.issue(number)),
-                seller: ticket.seller.clone(),
-                category: tags.category(ticket.number),
-                seat: tags.seat(ticket.number),
-            })
-        })
-        .collect::<Result<_, JobError>>()?;
     let ticket_count =
-        i32::try_from(rendered.len()).map_err(|error| JobError::Retry(error.into()))?;
-    let job = RenderJob {
-        details: crate::routes::event_details(&state.pool, &event).await?,
-        design,
-        art,
-        sponsors,
-        event_name: event.name.clone(),
-        tickets: rendered,
-    };
+        i32::try_from(tickets.len()).map_err(|error| JobError::Retry(error.into()))?;
+    let details = crate::routes::event_details(&state.pool, &event).await?;
+    let event_name = event.name.clone();
+    let first_seller = tickets.first().and_then(|ticket| ticket.seller.clone());
     let path = export_path(&state.config.export_dir, export.id, kind);
     let crop_marks = export.crop_marks;
     let write_path = path.clone();
-    tokio::task::spawn_blocking(move || render_to_file(&job, kind, crop_marks, &write_path))
-        .await
-        .map_err(|error| JobError::Retry(error.into()))??;
+    // Signing thousands of tickets is CPU work like the rendering: both stay off the runtime.
+    tokio::task::spawn_blocking(move || {
+        let rendered = sign_tickets(&tickets, &issuers, &tags)?;
+        let job = RenderJob {
+            details,
+            design,
+            art,
+            sponsors,
+            event_name,
+            tickets: rendered,
+        };
+        render_to_file(&job, kind, crop_marks, &write_path)
+    })
+    .await
+    .map_err(|error| JobError::Retry(error.into()))??;
     let byte_size = tokio::fs::metadata(&path)
         .await
         .map_err(|error| JobError::Retry(error.into()))?
         .len();
-    let file_name = file_name(
-        &event.name,
-        kind,
-        seller_id.and(tickets.first().and_then(|t| t.seller.as_deref())),
-    );
+    let file_name = file_name(&event.name, kind, seller_id.and(first_seller.as_deref()));
     Ok((
         ticket_count,
         file_name,
@@ -341,10 +340,7 @@ pub(crate) async fn current_design(
         Some(art_id) => Some(load_art(state, event_id, art_id).await?),
         None => None,
     };
-    let mut sponsors = Vec::with_capacity(row.sponsor_blob_ids.len());
-    for id in row.sponsor_blob_ids {
-        sponsors.push(load_art(state, event_id, id).await?);
-    }
+    let sponsors = crate::routes::events::load_arts(state, event_id, &row.sponsor_blob_ids).await?;
     Ok((design, art, sponsors))
 }
 
@@ -424,6 +420,32 @@ async fn issuers(
         );
     }
     Ok(issuers)
+}
+
+/// The QR of every ticket, signed with the key of its batch, with its category and seat.
+fn sign_tickets(
+    tickets: &[TicketRow],
+    issuers: &HashMap<i16, TicketIssuer>,
+    tags: &crate::routes::categories::NumberTags,
+) -> Result<Vec<TicketToRender>, JobError> {
+    tickets
+        .iter()
+        .map(|ticket| {
+            let number = u32::try_from(ticket.number)
+                .ok()
+                .and_then(TicketNumber::new)
+                .ok_or(JobError::Final("invalid_number"))?;
+            let issuer = issuers
+                .get(&ticket.key_id)
+                .ok_or(JobError::Final("missing_key"))?;
+            Ok(TicketToRender {
+                qr: TicketQr::Signed(issuer.issue(number)),
+                seller: ticket.seller.clone(),
+                category: tags.category(ticket.number),
+                seat: tags.seat(ticket.number),
+            })
+        })
+        .collect()
 }
 
 fn render_to_file(
@@ -557,19 +579,24 @@ async fn prune(pool: &PgPool) -> ApiResult<()> {
     Ok(())
 }
 
-/// Deletes cached files older than [`FILE_MAX_AGE`].
+/// Deletes cached files older than [`FILE_MAX_AGE`] ([`TICKET_IMAGE_MAX_AGE`] for ticket images).
 async fn cleanup(dir: &Path) {
     let Ok(mut entries) = tokio::fs::read_dir(dir).await else {
         return;
     };
     while let Ok(Some(entry)) = entries.next_entry().await {
+        let max_age = if entry.file_name().to_string_lossy().starts_with("ticket-") {
+            TICKET_IMAGE_MAX_AGE
+        } else {
+            FILE_MAX_AGE
+        };
         let expired = entry
             .metadata()
             .await
             .ok()
             .and_then(|meta| meta.modified().ok())
             .and_then(|modified| modified.elapsed().ok())
-            .is_some_and(|age| age > FILE_MAX_AGE);
+            .is_some_and(|age| age > max_age);
         if expired {
             let _ = tokio::fs::remove_file(entry.path()).await;
         }

@@ -7,6 +7,8 @@
 //! a database dump alone reveals neither. Revoking a link stops the page; only a void blocks the
 //! number at the door.
 
+use std::collections::HashSet;
+
 use axum::Json;
 use axum::extract::{Path, State};
 use axum::http::header::{CACHE_CONTROL, CONTENT_TYPE};
@@ -339,13 +341,38 @@ async fn create_links(
     sender: Sender,
 ) -> ApiResult<Vec<Uuid>> {
     let prepared = prepare_links(state, event, numbers).await?;
-    let mut created = Vec::with_capacity(prepared.len());
-    let mut tx = state.pool.begin().await?;
-    for link in &prepared {
-        created.extend(insert_link(&mut tx, event.id, link, holder, sender).await?);
+    if prepared.is_empty() {
+        return Ok(Vec::new());
     }
-    tx.commit().await?;
-    Ok(created)
+    let (user, seller) = match sender {
+        Sender::User(id) => (Some(id), None),
+        Sender::Seller(id) => (None, Some(id)),
+    };
+    let ids: Vec<Uuid> = prepared.iter().map(|link| link.id).collect();
+    let numbers: Vec<i32> = prepared.iter().map(|link| link.number).collect();
+    let hashes: Vec<Vec<u8>> = prepared.iter().map(|link| link.hash.clone()).collect();
+    let sealed: Vec<Vec<u8>> = prepared.iter().map(|link| link.sealed.clone()).collect();
+    // One statement for the whole bulk (up to MAX_BULK links), instead of one round trip each.
+    let inserted: HashSet<Uuid> = sqlx::query_scalar!(
+        r#"insert into ticket_links (id, event_id, ticket_number, holder_name, token_hash, sealed, created_by, seller_id)
+           select t.id, $2, t.number, $3, t.hash, t.sealed, $4, $5
+           from unnest($1::uuid[], $6::int4[], $7::bytea[], $8::bytea[]) as t(id, number, hash, sealed)
+           on conflict (event_id, ticket_number) where revoked_at is null do nothing
+           returning id"#,
+        &ids,
+        event.id,
+        holder,
+        user,
+        seller,
+        &numbers,
+        &hashes,
+        &sealed,
+    )
+    .fetch_all(&state.pool)
+    .await?
+    .into_iter()
+    .collect();
+    Ok(ids.into_iter().filter(|id| inserted.contains(id)).collect())
 }
 
 pub(crate) fn ensure_open(event: &EventRow) -> ApiResult<()> {
