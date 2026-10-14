@@ -359,7 +359,7 @@ export function guideJsonLd(guide: SeoGuide) {
         inLanguage: "pt-BR",
         articleSection: "Guias",
         wordCount: guideWordCount(guide),
-        about: guide.sections.map((section) => section.heading),
+        about: { "@id": APP },
       },
       breadcrumb(url, [
         { name: "Guias", url: `${SITE}/guias` },
