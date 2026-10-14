@@ -10,9 +10,9 @@ import { Button, Dialog, ErrorMessage, Field, Input, LoadingBlock } from "@/comp
 import { api } from "@/lib/api";
 import { browserOffset, offsetMinutes, wallClockInput, withOffset } from "@/lib/event-time";
 import { parseMoney } from "@/lib/format";
-import { texts } from "@/texts/pt-BR";
+import { common as commonTexts, panel as panelTexts } from "@/texts/pt-BR";
 
-const t = texts.panel;
+const t = panelTexts;
 
 /** A `datetime-local` value `hours` later (plain calendar arithmetic, no time zone). */
 function addHours(local: string, hours: number): string | null {
@@ -196,7 +196,7 @@ function EventForm({
       <p className="-mt-2 text-xs text-fg-muted">{timeZone}</p>
       <Field label={t.price} optional hint={parsedPrice.ok ? t.priceHint : <span className="text-danger-fg">{t.priceInvalid}</span>}>
         <span className="relative flex">
-          <span className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-sm text-fg-muted">{texts.common.currency}</span>
+          <span className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-sm text-fg-muted">{commonTexts.currency}</span>
           <Input
             inputMode="decimal"
             value={price}
@@ -219,10 +219,10 @@ function EventForm({
       <ErrorMessage error={save.error} />
       <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
         <Button variant="secondary" onClick={onClose}>
-          {texts.common.cancel}
+          {commonTexts.cancel}
         </Button>
         <Button type="submit" loading={save.isPending} disabled={!parsedPrice.ok}>
-          {event === undefined ? t.create : texts.common.save}
+          {event === undefined ? t.create : commonTexts.save}
         </Button>
       </div>
     </form>

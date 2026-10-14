@@ -12,9 +12,9 @@ import { cn } from "@/lib/cn";
 import { dateTime } from "@/lib/format";
 import { fromLocalInput, toLocalInput } from "@/lib/local-time";
 import { useUnsavedChanges } from "@/lib/unsaved";
-import { texts } from "@/texts/pt-BR";
+import { admin as adminTexts, common as commonTexts } from "@/texts/pt-BR";
 
-const t = texts.admin.settings;
+const t = adminTexts.settings;
 const MODES: readonly MaintenanceMode[] = ["off", "read_only", "full"];
 
 /** One domain per line, the way the server reads it (it normalizes and validates). */
@@ -157,7 +157,7 @@ function Editor({ settings }: { settings: PlatformSettingsDto }) {
           {dirty ? t.unsaved : settings.updatedBy !== null ? t.updatedBy(settings.updatedBy, dateTime(settings.updatedAt)) : t.noChanges}
         </span>
         <Button type="submit" icon={<Save />} loading={save.isPending} disabled={!dirty}>
-          {texts.common.save}
+          {commonTexts.save}
         </Button>
       </div>
     </form>

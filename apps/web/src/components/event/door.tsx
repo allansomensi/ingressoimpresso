@@ -48,9 +48,9 @@ import {
 import { api, fetchBlobUrl } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { shortDateTime } from "@/lib/format";
-import { texts } from "@/texts/pt-BR";
+import { event as eventTexts } from "@/texts/pt-BR";
 
-const t = texts.event.door;
+const t = eventTexts.door;
 /** A phone that synced this recently is shown as online (it syncs every few seconds). */
 const ONLINE_MS = 60_000;
 

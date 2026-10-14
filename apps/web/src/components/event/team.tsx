@@ -44,9 +44,9 @@ import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { whatsappLink } from "@/lib/settlement";
 import { PART_AREAS, TEAM_AREAS, areaList, displayName, personInitials, normalizeAreas, responsibleFor } from "@/lib/team";
-import { texts } from "@/texts/pt-BR";
+import { common as commonTexts, event as eventTexts } from "@/texts/pt-BR";
 
-const t = texts.event.team;
+const t = eventTexts.team;
 
 export const AREA_ICONS: Record<TeamArea, LucideIcon> = {
   manage: Crown,
@@ -417,7 +417,7 @@ function MemberDialog({
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
-            {texts.common.cancel}
+            {commonTexts.cancel}
           </Button>
           <Button type="submit" form="team-member" loading={save.isPending} disabled={!valid}>
             {editing === null ? t.submit : t.save}

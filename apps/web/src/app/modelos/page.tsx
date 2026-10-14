@@ -10,15 +10,15 @@ import { SiteHeader } from "@/components/marketing/site-header";
 import { TemplateCard } from "@/components/marketing/template-card";
 import { ButtonLink } from "@/components/ui";
 import { templateSeoPages } from "@/content/seo-templates";
-import { texts } from "@/texts/pt-BR";
+import { eventPages as eventPagesTexts, landing as landingTexts, meta as metaTexts, templateGallery as templateGalleryTexts } from "@/texts/pt-BR";
 
-const t = texts.templateGallery;
+const t = templateGalleryTexts;
 
 export const metadata: Metadata = {
-  title: { absolute: `${t.title} · ${texts.meta.title}` },
+  title: { absolute: `${t.title} · ${metaTexts.title}` },
   description: t.metaDescription,
   alternates: { canonical: "/modelos" },
-  openGraph: { type: "website", locale: "pt_BR", siteName: texts.meta.title, url: "/modelos", title: t.title, description: t.metaDescription },
+  openGraph: { type: "website", locale: "pt_BR", siteName: metaTexts.title, url: "/modelos", title: t.title, description: t.metaDescription },
   twitter: { card: "summary_large_image", title: t.title, description: t.metaDescription },
 };
 
@@ -32,12 +32,12 @@ export default function TemplateGalleryPage() {
         <section className="relative overflow-hidden bg-glow">
           <div aria-hidden className="absolute inset-0 bg-dots [mask-image:radial-gradient(ellipse_at_top,black,transparent_70%)] opacity-60" />
           <div className="relative mx-auto flex max-w-3xl flex-col items-start gap-6 px-4 pt-10 pb-14 sm:items-center sm:px-6 sm:text-center lg:pt-16">
-            <Breadcrumb items={[{ label: texts.eventPages.home, href: "/" }, { label: t.breadcrumb }]} />
+            <Breadcrumb items={[{ label: eventPagesTexts.home, href: "/" }, { label: t.breadcrumb }]} />
             <h1 className="text-4xl leading-[1.05] font-semibold tracking-tight text-balance text-fg sm:text-5xl">{t.title}</h1>
             <p className="text-lg leading-relaxed text-pretty text-fg-muted">{t.lead}</p>
             <div id="comecar">
               <ButtonLink href="/entrar" size="lg" icon={<ArrowRight />} className="flex-row-reverse">
-                {texts.landing.primaryCta}
+                {landingTexts.primaryCta}
               </ButtonLink>
             </div>
           </div>
@@ -51,7 +51,7 @@ export default function TemplateGalleryPage() {
             ))}
           </ul>
         </section>
-        <FinalCta title={texts.landing.finalTitle} />
+        <FinalCta title={landingTexts.finalTitle} />
       </main>
       <SiteFooter />
       <MobileCta />

@@ -7,9 +7,9 @@ import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { inkFor } from "@/lib/design-rules";
 import type { DoorEngine, DoorState } from "@/portaria/engine";
 import { canUndoArrival, clockTime, guestState, searchGuests, type GuestState } from "@/portaria/logic";
-import { texts } from "@/texts/pt-BR";
+import { portaria as portariaTexts } from "@/texts/pt-BR";
 
-const t = texts.portaria.guests;
+const t = portariaTexts.guests;
 /** Results drawn at once; the search narrows the rest. */
 const MAX_SHOWN = 80;
 /** How long the "recorded · undo" bar stays. */

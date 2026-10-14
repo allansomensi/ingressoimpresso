@@ -7,7 +7,7 @@ import type { ReservationDto } from "@ingressoimpresso/api-types";
 
 import { offsetMinutes, wallClock, withOffset } from "@/lib/event-time";
 import { formatRanges } from "@/lib/number-list";
-import { texts } from "@/texts/pt-BR";
+import { reservations as reservationsTexts } from "@/texts/pt-BR";
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
@@ -91,7 +91,7 @@ export function isActive(reservation: Pick<ReservationDto, "expiresAt" | "active
  * the point of view of the event's today.
  */
 export function deadlineLabel(iso: string, now: Date): string {
-  const r = texts.reservations;
+  const r = reservationsTexts;
   const offset = offsetMinutes(iso);
   const clock = wallClock(iso);
   const pad = (value: number) => String(value).padStart(2, "0");
@@ -108,7 +108,7 @@ export function deadlineLabel(iso: string, now: Date): string {
 
 /** "faltam 3 h", "faltam 25 min" or "venceu": how long the person still has. */
 export function timeLeft(iso: string, now: Date): string {
-  const r = texts.reservations;
+  const r = reservationsTexts;
   const left = new Date(iso).getTime() - now.getTime();
   if (left <= 0) {
     return r.expired;
@@ -138,7 +138,7 @@ export function reminderMessage({
 }): string {
   const firstName = (name: string) => name.trim().split(/\s+/)[0] ?? name;
   const count = reservation.numbers.reduce((sum, range) => sum + range.last - range.first + 1, 0);
-  return texts.reservations.reminder({
+  return reservationsTexts.reminder({
     holder: firstName(reservation.holderName),
     seller: firstName(seller),
     eventName,

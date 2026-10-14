@@ -6,7 +6,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { ButtonLink } from "@/components/ui";
 import { readToken, subscribeToken } from "@/lib/api";
 import { cn } from "@/lib/cn";
-import { texts } from "@/texts/pt-BR";
+import { landing as landingTexts, nav as navTexts } from "@/texts/pt-BR";
 
 /** Sections that already carry the call to action: the bar steps aside while they are on screen. */
 const OWN_CTA = ["comecar", "criar"] as const;
@@ -68,9 +68,9 @@ export function MobileCta() {
     >
       <div className="mx-auto flex max-w-md flex-col items-stretch gap-1.5">
         <ButtonLink href={signedIn ? "/painel" : "/entrar"} size="lg" icon={<ArrowRight />} className="flex-row-reverse">
-          {signedIn ? texts.nav.panel : texts.landing.primaryCta}
+          {signedIn ? navTexts.panel : landingTexts.primaryCta}
         </ButtonLink>
-        {!signedIn && <p className="text-center text-xs text-fg-muted">{texts.landing.trust[0]}</p>}
+        {!signedIn && <p className="text-center text-xs text-fg-muted">{landingTexts.trust[0]}</p>}
       </div>
     </div>
   );

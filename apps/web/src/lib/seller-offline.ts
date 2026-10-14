@@ -21,7 +21,7 @@ import type {
 import { countNumbers, formatRanges, mergeRanges, subtract, type NumberRange } from "@/lib/number-list";
 import { isActive } from "@/lib/reservations";
 import { countCells } from "@/lib/seller-page";
-import { texts } from "@/texts/pt-BR";
+import { sellerPage as sellerPageTexts } from "@/texts/pt-BR";
 
 /** A change waiting to be sent, with when it was made on the phone. */
 export type QueuedOp = SellerOpItem & { createdAt: string };
@@ -169,13 +169,13 @@ export type SyncNotice = { id: string; title: string; lines: string[] };
 
 /** "o 0042" or "os números 0042, 0045–0047". */
 function numbersPhrase(ranges: readonly NumberRange[], digits: number): string {
-  const c = texts.sellerPage.conflicts;
+  const c = sellerPageTexts.conflicts;
   return countNumbers(ranges) === 1 ? c.one(formatRanges(ranges, digits)) : c.many(formatRanges(ranges, digits));
 }
 
 /** What a change was, in a few words ("Venda do 0042 para Ana"). */
 export function opLabel(op: SellerOp, digits: number, reservations: readonly ReservationDto[] = []): string {
-  const c = texts.sellerPage.conflicts.ops;
+  const c = sellerPageTexts.conflicts.ops;
   switch (op.kind) {
     case "mark":
       return op.edit ? c.edit(formatRanges(op.ranges, digits)) : c.mark(formatRanges(op.ranges, digits), op.buyerName);
@@ -190,7 +190,7 @@ export function opLabel(op: SellerOp, digits: number, reservations: readonly Res
 
 /** One problem in plain words: what happened and what stayed. */
 export function problemText(problem: SellerOpProblemDto, op: SellerOp, digits: number): string {
-  const c = texts.sellerPage.conflicts;
+  const c = sellerPageTexts.conflicts;
   const numbers = numbersPhrase(problem.numbers, digits);
   const plural = countNumbers(problem.numbers) > 1;
   const reserving = op.kind === "reserve";

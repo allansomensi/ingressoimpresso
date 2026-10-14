@@ -18,7 +18,7 @@ import {
 import { createPortal } from "react-dom";
 
 import { cn } from "@/lib/cn";
-import { texts } from "@/texts/pt-BR";
+import { common as commonTexts } from "@/texts/pt-BR";
 
 import { useScrollLock, useSheetDrag } from "./sheet";
 
@@ -224,7 +224,7 @@ function FloatingPanel({
             }}
             className="mt-2 rounded-full px-3 py-2 text-sm font-medium text-fg-muted transition hover:bg-surface-2 hover:text-fg active:bg-surface-2"
           >
-            {texts.common.close}
+            {commonTexts.close}
           </button>
         </div>
         {children}

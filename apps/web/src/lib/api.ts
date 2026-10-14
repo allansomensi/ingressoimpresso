@@ -4,7 +4,7 @@
  * Every request and response type comes from `@ingressoimpresso/api-types`, generated from the
  * Rust DTOs, so a contract change breaks the build instead of the user.
  */
-import { texts } from "@/texts/pt-BR";
+import { errors as errorsTexts } from "@/texts/pt-BR";
 
 const TOKEN_KEY = "ingressoimpresso.session";
 
@@ -27,8 +27,8 @@ export class ApiError extends Error {
 
   /** Portuguese message for the user. */
   get userMessage(): string {
-    const messages: Readonly<Record<string, string>> = texts.errors;
-    return messages[this.code] ?? texts.errors.generic;
+    const messages: Readonly<Record<string, string>> = errorsTexts;
+    return messages[this.code] ?? errorsTexts.generic;
   }
 }
 

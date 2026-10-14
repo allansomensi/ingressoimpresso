@@ -6,7 +6,7 @@
 import type { EventDto, TeamArea, TeamMemberDto } from "@ingressoimpresso/api-types";
 
 import { initials } from "@/lib/format";
-import { texts } from "@/texts/pt-BR";
+import { event as eventTexts } from "@/texts/pt-BR";
 
 /** The parts of an event, in the order the panel shows them (coordination first). */
 export const TEAM_AREAS = ["manage", "money", "delivery", "art", "door"] as const satisfies readonly TeamArea[];
@@ -61,7 +61,7 @@ export function listNames(names: readonly string[]): string {
 
 /** "Recebimentos, Arte do ingresso e Portaria". */
 export function areaList(areas: readonly TeamArea[]): string {
-  return listNames(TEAM_AREAS.filter((area) => areas.includes(area)).map((area) => texts.event.team.areas[area]));
+  return listNames(TEAM_AREAS.filter((area) => areas.includes(area)).map((area) => eventTexts.team.areas[area]));
 }
 
 /** Areas read from a notification (unknown values are skipped). */

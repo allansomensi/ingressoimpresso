@@ -1,14 +1,14 @@
 import type { Metadata, Viewport } from "next";
 
 import { TicketPass } from "@/components/ticket/ticket-pass";
-import { texts } from "@/texts/pt-BR";
+import { ticket as ticketTexts } from "@/texts/pt-BR";
 
 // The link carries the ticket in its fragment: never indexed, never cached by search engines.
 export const metadata: Metadata = {
-  title: texts.ticket.metaTitle,
-  description: texts.ticket.metaDescription,
+  title: ticketTexts.metaTitle,
+  description: ticketTexts.metaDescription,
   robots: { index: false, follow: false },
-  openGraph: { title: texts.ticket.metaTitle, description: texts.ticket.metaDescription },
+  openGraph: { title: ticketTexts.metaTitle, description: ticketTexts.metaDescription },
 };
 
 export const viewport: Viewport = { themeColor: [{ color: "#0a0910" }] };

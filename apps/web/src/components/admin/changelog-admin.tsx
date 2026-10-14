@@ -31,9 +31,9 @@ import { api } from "@/lib/api";
 import { CHANGELOG_KINDS, paragraphs } from "@/lib/changelog";
 import { dateTime } from "@/lib/format";
 import { APP_VERSION, isVersion } from "@/lib/version";
-import { texts } from "@/texts/pt-BR";
+import { changelog as changelogTexts, common as commonTexts, event as eventTexts } from "@/texts/pt-BR";
 
-const t = texts.changelog.admin;
+const t = changelogTexts.admin;
 
 function EntryEditor({ entry, open, onClose }: { entry: ChangelogEntryDto | null; open: boolean; onClose: () => void }) {
   const queryClient = useQueryClient();
@@ -67,10 +67,10 @@ function EntryEditor({ entry, open, onClose }: { entry: ChangelogEntryDto | null
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
-            {texts.common.cancel}
+            {commonTexts.cancel}
           </Button>
           <Button loading={save.isPending} disabled={title.trim() === "" || !versionValid} onClick={() => save.mutate()}>
-            {texts.common.save}
+            {commonTexts.save}
           </Button>
         </>
       }
@@ -94,7 +94,7 @@ function EntryEditor({ entry, open, onClose }: { entry: ChangelogEntryDto | null
             >
               {CHANGELOG_KINDS.map((option) => (
                 <option key={option} value={option}>
-                  {texts.changelog.kinds[option]}
+                  {changelogTexts.kinds[option]}
                 </option>
               ))}
             </Select>
@@ -139,7 +139,7 @@ function EntryEditor({ entry, open, onClose }: { entry: ChangelogEntryDto | null
         <div className="flex flex-col gap-3 rounded-2xl border border-dashed border-border-strong bg-bg p-5">
           <span className="flex flex-wrap items-center gap-2">
             <KindBadge kind={kind} />
-            {version.trim() !== "" && <span className="text-xs text-fg-subtle tabular">{texts.changelog.release(version.trim())}</span>}
+            {version.trim() !== "" && <span className="text-xs text-fg-subtle tabular">{changelogTexts.release(version.trim())}</span>}
           </span>
           <p className="text-lg font-semibold tracking-tight text-fg">{title.trim() === "" ? t.titlePlaceholder : title}</p>
           {paragraphs(body).map((paragraph, index) => (
@@ -211,7 +211,7 @@ export function AdminChangelog() {
                 {entry.body !== "" && <span className="line-clamp-2 text-sm text-fg-muted">{entry.body}</span>}
               </div>
               <Menu
-                label={texts.event.batches.moreActions}
+                label={eventTexts.batches.moreActions}
                 trigger={<MoreHorizontal className="size-4" aria-hidden />}
                 triggerClassName="flex size-9 items-center justify-center rounded-lg text-fg-muted transition hover:bg-surface-2 active:bg-surface-2 hover:text-fg"
               >
@@ -221,18 +221,18 @@ export function AdminChangelog() {
                     setEditing(entry);
                   }}
                 >
-                  {texts.common.edit}
+                  {commonTexts.edit}
                 </MenuItem>
                 <MenuItem
                   tone="danger"
                   icon={<Trash2 />}
                   onSelect={async () => {
-                    if (await confirm({ title: t.deleteTitle, description: t.deleteBody, confirmLabel: texts.common.remove })) {
+                    if (await confirm({ title: t.deleteTitle, description: t.deleteBody, confirmLabel: commonTexts.remove })) {
                       remove.mutate(entry.id);
                     }
                   }}
                 >
-                  {texts.common.remove}
+                  {commonTexts.remove}
                 </MenuItem>
               </Menu>
             </ListItem>

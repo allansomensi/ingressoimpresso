@@ -2,9 +2,9 @@ import { CheckCircle2, WifiOff } from "lucide-react";
 
 import { QrCode } from "@/components/qr";
 import { cn } from "@/lib/cn";
-import { texts } from "@/texts/pt-BR";
+import { landing as landingTexts } from "@/texts/pt-BR";
 
-const m = texts.landing.mock;
+const m = landingTexts.mock;
 // A sample text: the QR is decorative here (it is not a real ticket).
 const SAMPLE_QR = "AMOSTRA-INGRESSO-IMPRESSO-0042";
 
@@ -73,7 +73,7 @@ export function PhoneMock({ className }: { className?: string | undefined }) {
 
 /** A phone showing a digital ticket, as the buyer opens it from WhatsApp (ADR 0030). */
 export function DigitalTicketMock({ className }: { className?: string | undefined }) {
-  const d = texts.landing.digitalMock;
+  const d = landingTexts.digitalMock;
   return (
     <div className={cn("relative w-[230px] rounded-[38px] bg-[#0e0d14] p-2.5 shadow-lg ring-1 ring-white/10", className)}>
       <div className="relative flex h-[440px] flex-col overflow-hidden rounded-[30px] bg-[#f4f3f8] text-[#0e0d14]">

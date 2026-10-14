@@ -34,11 +34,11 @@ import { cn } from "@/lib/cn";
 import { money, shortDateTime, ticketNumber } from "@/lib/format";
 import { quote } from "@/lib/pricing";
 import { useSession } from "@/lib/session";
-import { texts } from "@/texts/pt-BR";
+import { common as commonTexts, errors as errorsTexts, event as eventTexts, landing as landingTexts } from "@/texts/pt-BR";
 
 import type { SelectTab } from "./tabs";
 
-const t = texts.event.batches;
+const t = eventTexts.batches;
 const MAX_BATCH = 5_000;
 /** How long to keep asking after the payer comes back (Pix may confirm a bit later). */
 const RETURN_POLL_MS = 3_000;
@@ -107,7 +107,7 @@ function NewBatch({ eventId, pricing, nextNumber }: { eventId: string; pricing: 
       )}
       <form onSubmit={submit} className="grid gap-6 md:grid-cols-[1fr_auto] md:items-end">
         <div className="flex flex-col gap-3">
-          <Field label={t.quantity} hint={valid ? t.numbering(nextNumber, nextNumber + quantity - 1) : texts.errors.invalid_quantity}>
+          <Field label={t.quantity} hint={valid ? t.numbering(nextNumber, nextNumber + quantity - 1) : errorsTexts.invalid_quantity}>
             <NumberInput value={quantity} step={1} min={1} max={MAX_BATCH} onChange={setQuantity} />
           </Field>
           <div className="flex flex-wrap gap-2">
@@ -202,7 +202,7 @@ function NewBatch({ eventId, pricing, nextNumber }: { eventId: string; pricing: 
                   {t.tier(index === 0 ? 1 : (pricing.tiers[index - 1]?.upTo ?? 0) + 1, tier.upTo, money(tier.unitCents))}
                 </li>
               ))}
-              <li className="rounded-lg bg-surface-2 px-3 py-2">{texts.landing.pricingMinimum(money(pricing.minimumCents))}</li>
+              <li className="rounded-lg bg-surface-2 px-3 py-2">{landingTexts.pricingMinimum(money(pricing.minimumCents))}</li>
             </ul>
           )}
         </div>
@@ -298,7 +298,7 @@ function BatchRow({
             {ticketNumber(batch.first, digits)} – {ticketNumber(batch.last, digits)}
           </span>
           <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-fg-muted">
-            {texts.common.tickets(quantityOf(batch))}
+            {commonTexts.tickets(quantityOf(batch))}
             <span aria-hidden>·</span>
             <span className="tabular">{money(batch.priceCents)}</span>
             {(batch.discountCents > 0 || batch.creditCents > 0) && (
@@ -524,7 +524,7 @@ export function BatchesTab({ eventId, onSelect }: { eventId: string; onSelect: S
       <Lead>{t.intro}</Lead>
       <PaymentReturn batches={list} eventId={eventId} onSelect={onSelect} />
       {closed ? (
-        <Alert tone="warning">{texts.event.actions.archivedNote}</Alert>
+        <Alert tone="warning">{eventTexts.actions.archivedNote}</Alert>
       ) : (
         <NewBatch eventId={eventId} pricing={pricing.data} nextNumber={nextNumber} />
       )}

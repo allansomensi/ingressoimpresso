@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
-import { texts } from "@/texts/pt-BR";
+import { login as loginTexts } from "@/texts/pt-BR";
 
 export const metadata: Metadata = {
-  title: texts.login.title,
-  description: texts.login.metaDescription,
+  title: loginTexts.title,
+  description: loginTexts.metaDescription,
   alternates: { canonical: "/entrar" },
 };
 

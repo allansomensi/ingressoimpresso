@@ -11,9 +11,9 @@ import { money as formatMoney } from "@/lib/format";
 import { settlementTotals } from "@/lib/settlement";
 import { Accountability } from "@/components/event/accountability";
 import type { SelectTab } from "@/components/event/tabs";
-import { texts } from "@/texts/pt-BR";
+import { event as eventTexts } from "@/texts/pt-BR";
 
-const t = texts.event.report;
+const t = eventTexts.report;
 
 /** Settlement columns of a report line, in display and CSV order (money comes after them). */
 const SETTLEMENT_COLUMNS = ["tickets", "unsold", "lost", "revoked", "declaredSold", "markedSold", "reserved"] as const satisfies readonly (keyof ReportRowDto)[];

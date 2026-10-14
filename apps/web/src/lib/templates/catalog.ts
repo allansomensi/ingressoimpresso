@@ -7,14 +7,14 @@
 
 import type { FontChoice, NumberStyle, StubStyle, TextBlock, TicketDesign } from "@ingressoimpresso/api-types";
 
-import { texts } from "@/texts/pt-BR";
+import { event as eventTexts, templates as templatesTexts } from "@/texts/pt-BR";
 
 import { bokeh, branch, bunting, burst, canvas, confetti, glow, heart, linear, qrCard, r, random, star } from "./svg";
 
-const c = texts.templates.content;
+const c = templatesTexts.content;
 
-export type TemplateCategory = keyof typeof texts.templates.categories;
-export type TemplateId = keyof typeof texts.templates.items;
+export type TemplateCategory = keyof typeof templatesTexts.categories;
+export type TemplateId = keyof typeof templatesTexts.items;
 
 export interface Palette {
   id: string;
@@ -61,7 +61,7 @@ function number(x: number, y: number, width: number, height: number, font: FontC
   return { xMm: x, yMm: y, widthMm: width, heightMm: height, font, sizePt, color, align, prefix: "Nº ", digits: 4 };
 }
 
-const STUB: StubStyle = { side: "left", widthMm: 40, fields: [...texts.event.design.defaultStubFields] };
+const STUB: StubStyle = { side: "left", widthMm: 40, fields: [...eventTexts.design.defaultStubFields] };
 
 function design(
   width: number,
@@ -458,7 +458,7 @@ const raffle: TicketTemplate = {
       design: design(w, h, p.bg, {
         number: number(4, 2.5, 48, 10.5, "slab", 26, p.ink, "left"),
         qr: [45, 20, 22],
-        stub: { side: "left", widthMm: 25, fields: [...texts.event.design.defaultStubFields] },
+        stub: { side: "left", widthMm: 25, fields: [...eventTexts.design.defaultStubFields] },
         texts: [
           block("{evento}", 4, 17, 38, 10, { sizePt: 9.5, bold: true, color: p.ink, lines: 2 }),
           block(c.drawDate, 4, 28.5, 38, 4, { sizePt: 7, color: p.muted }),

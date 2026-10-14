@@ -2,7 +2,7 @@ import type { ChecklistDto, ChecklistItemDto } from "@ingressoimpresso/api-types
 import { describe, expect, it } from "vitest";
 
 import { checklistTarget, isComplete, requiredDone, splitItems } from "@/lib/checklist";
-import { texts } from "@/texts/pt-BR";
+import { checklist as checklistTexts } from "@/texts/pt-BR";
 
 function item(key: ChecklistItemDto["key"], state: ChecklistItemDto["state"], optional = false): ChecklistItemDto {
   return { key, state, optional, area: "manage", canAct: true, progress: null, hint: null };
@@ -36,7 +36,7 @@ describe("checklist (ADR 0078)", () => {
     expect(checklistTarget("details")).toEqual({ kind: "edit" });
     expect(checklistTarget("rehearsal")).toEqual({ kind: "tab", tab: "door" });
     expect(checklistTarget("organization_contact")).toEqual({ kind: "profile" });
-    for (const key of Object.keys(texts.checklist.items) as ChecklistItemDto["key"][]) {
+    for (const key of Object.keys(checklistTexts.items) as ChecklistItemDto["key"][]) {
       expect(checklistTarget(key)).toBeDefined();
     }
   });

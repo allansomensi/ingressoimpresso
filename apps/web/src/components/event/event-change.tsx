@@ -13,9 +13,9 @@ import { offsetMinutes, wallClockInput, withOffset } from "@/lib/event-time";
 import { eventDateTime, shortDateTime } from "@/lib/format";
 import { copyText, whatsappUrl } from "@/lib/share";
 import { canDo } from "@/lib/team";
-import { texts } from "@/texts/pt-BR";
+import { eventChange as eventChangeTexts, panel as panelTexts } from "@/texts/pt-BR";
 
-const t = texts.eventChange;
+const t = eventChangeTexts;
 const MAX_REASON = 200;
 
 /** Minutes between two `datetime-local` values (plain calendar arithmetic). */
@@ -110,7 +110,7 @@ function PostponeForm({ event, onClose, onDone }: { event: EventDto; onClose: ()
           />
         </Field>
       </div>
-      <p className="-mt-2 text-xs text-fg-muted">{texts.panel.eventTimeZoneHint(offset)}</p>
+      <p className="-mt-2 text-xs text-fg-muted">{panelTexts.eventTimeZoneHint(offset)}</p>
       <Field label={t.reason} optional hint={t.reasonHint}>
         <Input
           value={reason}
@@ -317,7 +317,7 @@ export function EventChangeBanner({ event }: { event: EventDto }) {
           </>
         }
       >
-        {!canceled && <p>{texts.eventChange.notice.now(spokenDate(event.startsAt))}</p>}
+        {!canceled && <p>{eventChangeTexts.notice.now(spokenDate(event.startsAt))}</p>}
         {reason !== null && <p>{t.reasonLine(reason)}</p>}
       </Alert>
       <ChangeMessageDialog

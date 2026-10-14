@@ -26,11 +26,11 @@ import {
 import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { shortDateTime, ticketNumber } from "@/lib/format";
-import { texts } from "@/texts/pt-BR";
+import { common as commonTexts, errors as errorsTexts, event as eventTexts } from "@/texts/pt-BR";
 
 import type { SelectTab } from "./tabs";
 
-const t = texts.event.voids;
+const t = eventTexts.voids;
 const REASON_TONE: Record<VoidReason, Tone> = { unsold: "neutral", lost: "danger", revoked: "warning" };
 
 export function VoidsTab({ eventId, onSelect }: { eventId: string; onSelect: SelectTab }) {
@@ -76,7 +76,7 @@ export function VoidsTab({ eventId, onSelect }: { eventId: string; onSelect: Sel
     if (!valid) {
       return;
     }
-    const range = texts.common.range(first, last);
+    const range = commonTexts.range(first, last);
     if (await confirm({ title: t.createConfirmTitle(range), description: t.createConfirmBody, confirmLabel: t.create })) {
       create.mutate();
     }
@@ -101,10 +101,10 @@ export function VoidsTab({ eventId, onSelect }: { eventId: string; onSelect: Sel
         <CardHeader title={t.newVoid} icon={Ban} />
         {/* First and last number side by side even on phones: two short numbers, one range. */}
         <form onSubmit={(event) => void submit(event)} className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <Field label={texts.common.first}>
+          <Field label={commonTexts.first}>
             <NumberInput value={first} step={1} min={1} onChange={setFirst} required />
           </Field>
-          <Field label={texts.common.last}>
+          <Field label={commonTexts.last}>
             <NumberInput value={last} step={1} min={1} onChange={setLast} required />
           </Field>
           <Field label={t.reason} className="max-sm:col-span-2">
@@ -118,7 +118,7 @@ export function VoidsTab({ eventId, onSelect }: { eventId: string; onSelect: Sel
             <Input value={note} onChange={(e) => { setNote(e.target.value); }} placeholder={t.notePlaceholder} maxLength={200} />
           </Field>
           <div className="col-span-2 lg:col-span-4">
-            {!valid && <p className="mb-3 text-xs text-danger-fg">{texts.errors.invalid_range}</p>}
+            {!valid && <p className="mb-3 text-xs text-danger-fg">{errorsTexts.invalid_range}</p>}
             <Button type="submit" variant="danger" icon={<Ban />} loading={create.isPending} disabled={!valid}>
               {t.create}
             </Button>

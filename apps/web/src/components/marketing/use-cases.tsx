@@ -12,9 +12,9 @@ import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { initials, money } from "@/lib/format";
 import { quote } from "@/lib/pricing";
-import { texts } from "@/texts/pt-BR";
+import { eventPages as eventPagesTexts, landing as landingTexts, templateGallery as templateGalleryTexts } from "@/texts/pt-BR";
 
-const c = texts.landing.cases;
+const c = landingTexts.cases;
 const [band, raffle, graduation] = c.items;
 // Decorative QR codes: these are drawings, not tickets.
 const SAMPLE_QR = "AMOSTRA-INGRESSO-IMPRESSO";
@@ -267,7 +267,7 @@ const CASES: readonly Case[] = [
   {
     ...band,
     icon: Guitar,
-    more: { href: "/ingresso-para/show-de-banda", label: texts.eventPages.eyebrow("Show de banda") },
+    more: { href: "/ingresso-para/show-de-banda", label: eventPagesTexts.eyebrow("Show de banda") },
     scenes: [
       <SceneTicket key="1" title={band.scene.event} subtitle={band.scene.venue} number={band.scene.number} palette="violet" />,
       <ScenePrint key="2" title={band.scene.event} subtitle={band.scene.venue} label={band.scene.print} palette="violet" />,
@@ -278,7 +278,7 @@ const CASES: readonly Case[] = [
   {
     ...raffle,
     icon: Ticket,
-    more: { href: "/modelos/rifa", label: texts.templateGallery.raffleLink },
+    more: { href: "/modelos/rifa", label: templateGalleryTexts.raffleLink },
     scenes: [
       <SceneTicket key="1" title={raffle.scene.event} subtitle={raffle.scene.venue} number={raffle.scene.number} palette="sunset" />,
       <SceneSheet key="2" label={raffle.scene.print} />,
@@ -289,7 +289,7 @@ const CASES: readonly Case[] = [
   {
     ...graduation,
     icon: GraduationCap,
-    more: { href: "/ingresso-para/formatura", label: texts.eventPages.eyebrow("Formatura") },
+    more: { href: "/ingresso-para/formatura", label: eventPagesTexts.eyebrow("Formatura") },
     scenes: [
       <SceneTicket key="1" title={graduation.scene.event} subtitle={graduation.scene.venue} number={graduation.scene.number} palette="gold" />,
       <SceneChat key="2" name={graduation.scene.chatName} message={graduation.scene.chat} title={graduation.scene.event} subtitle={graduation.scene.venue} />,

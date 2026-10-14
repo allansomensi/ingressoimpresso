@@ -8,9 +8,9 @@ import { BarChart } from "@/components/admin/bar-chart";
 import { Card, CardHeader, Skeleton, Stat } from "@/components/ui";
 import { api } from "@/lib/api";
 import { money } from "@/lib/format";
-import { texts } from "@/texts/pt-BR";
+import { event as eventTexts } from "@/texts/pt-BR";
 
-const t = texts.event.results;
+const t = eventTexts.results;
 
 /** `22:15` of an RFC 3339 instant, in its own offset (the event's local time). */
 function clock(iso: string): string {

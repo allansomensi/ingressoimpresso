@@ -6,10 +6,10 @@ import type { DoorVoidDto } from "@ingressoimpresso/api-types";
 
 import type { StoredEntry, StoredScan } from "./storage";
 import { categoryOf, clockTime, otherSession, padNumber, sellerOf, seatOf, type DoorContext, type Tone } from "./logic";
-import { texts } from "@/texts/pt-BR";
+import { portaria as portariaTexts } from "@/texts/pt-BR";
 
-const t = texts.portaria.history;
-const r = texts.portaria.result;
+const t = portariaTexts.history;
+const r = portariaTexts.result;
 
 /** How many scans the history shows. */
 export const RECENT_LIMIT = 50;

@@ -8,9 +8,9 @@ import { toast } from "sonner";
 
 import { Card, CardHeader, Switch, errorMessage } from "@/components/ui";
 import { api } from "@/lib/api";
-import { texts } from "@/texts/pt-BR";
+import { verifyPage as verifyPageTexts } from "@/texts/pt-BR";
 
-const t = texts.verifyPage.settings;
+const t = verifyPageTexts.settings;
 
 /** Whether anyone holding a ticket of the event may check it on /conferir (ADR 0075). */
 export function PublicVerifyCard({ eventId }: { eventId: string }) {

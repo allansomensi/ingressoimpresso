@@ -9,9 +9,9 @@ import { cn } from "@/lib/cn";
 import { svgDataUrl } from "@/lib/rasterize";
 import { TEMPLATES, type Palette, type TemplateCategory, type TicketTemplate } from "@/lib/templates/catalog";
 import type { EventFields } from "@/lib/ticket-fields";
-import { texts } from "@/texts/pt-BR";
+import { templates as templatesTexts } from "@/texts/pt-BR";
 
-const t = texts.templates;
+const t = templatesTexts;
 /** Thumbnail frame proportions (width / height). */
 const FRAME_RATIO = 1.75;
 

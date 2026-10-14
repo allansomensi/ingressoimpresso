@@ -11,9 +11,9 @@ import { Card, CardHeader, EmptyState, ErrorMessage, LoadingBlock, Stat } from "
 import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { money } from "@/lib/format";
-import { texts } from "@/texts/pt-BR";
+import { admin as adminTexts } from "@/texts/pt-BR";
 
-const t = texts.admin.finance;
+const t = adminTexts.finance;
 const PERIODS = [7, 30, 90, 365] as const;
 type Period = (typeof PERIODS)[number];
 const integer = (value: number) => value.toLocaleString("pt-BR");
@@ -116,7 +116,7 @@ export function AdminFinance() {
           label={t.chartTitle}
           bars={f.series.map((point) => ({ date: point.label, value: point.revenueCents }))}
           format={money}
-          describe={texts.admin.chartBar}
+          describe={adminTexts.chartBar}
           formatLabel={seriesLabel}
         />
       </Card>
@@ -199,7 +199,7 @@ export function AdminFinance() {
                   <span className="w-5 text-sm font-semibold text-fg-subtle tabular">{index + 1}</span>
                   <span className="flex min-w-0 flex-1 flex-col">
                     <span className="truncate text-sm font-medium text-fg">{organization.name}</span>
-                    <span className="text-xs text-fg-muted">{texts.admin.organizations.tickets(organization.tickets)}</span>
+                    <span className="text-xs text-fg-muted">{adminTexts.organizations.tickets(organization.tickets)}</span>
                   </span>
                   <span className="text-sm font-semibold text-fg tabular">{money(organization.revenueCents)}</span>
                 </Link>

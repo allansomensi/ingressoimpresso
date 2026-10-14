@@ -30,10 +30,10 @@ import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { shortDateTime } from "@/lib/format";
 import { fromLocalInput, localInputIn, toLocalInput } from "@/lib/local-time";
-import { texts } from "@/texts/pt-BR";
+import { admin as adminTexts, common as commonTexts, event as eventTexts, status as statusTexts } from "@/texts/pt-BR";
 
-const t = texts.admin.incidents;
-const s = texts.status;
+const t = adminTexts.incidents;
+const s = statusTexts;
 export const COMPONENTS = ["site", "panel", "door", "files", "email", "payments"] as const;
 const IMPACTS: readonly IncidentImpact[] = ["none", "minor", "major", "critical"];
 const STATUSES: readonly IncidentStatus[] = ["scheduled", "investigating", "identified", "monitoring", "resolved"];
@@ -84,10 +84,10 @@ function Editor({ incident, onClose }: { incident: IncidentDto | null; onClose: 
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
-            {texts.common.cancel}
+            {commonTexts.cancel}
           </Button>
           <Button loading={save.isPending} disabled={!valid} onClick={() => save.mutate()}>
-            {incident === null ? t.publish : texts.common.save}
+            {incident === null ? t.publish : commonTexts.save}
           </Button>
         </>
       }
@@ -222,7 +222,7 @@ function UpdateDialog({ incident, onClose }: { incident: IncidentDto; onClose: (
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
-            {texts.common.cancel}
+            {commonTexts.cancel}
           </Button>
           <Button loading={post.isPending} disabled={body.trim() === ""} onClick={() => post.mutate()}>
             {t.post}
@@ -327,7 +327,7 @@ export function AdminIncidents() {
                   </span>
                 </div>
                 <Menu
-                  label={texts.event.batches.moreActions}
+                  label={eventTexts.batches.moreActions}
                   trigger={<MoreHorizontal className="size-4" aria-hidden />}
                   triggerClassName="flex size-9 items-center justify-center rounded-lg text-fg-muted transition hover:bg-surface-2 active:bg-surface-2 hover:text-fg"
                 >
@@ -345,18 +345,18 @@ export function AdminIncidents() {
                       setEditing(incident);
                     }}
                   >
-                    {texts.common.edit}
+                    {commonTexts.edit}
                   </MenuItem>
                   <MenuItem
                     tone="danger"
                     icon={<Trash2 />}
                     onSelect={async () => {
-                      if (await confirm({ title: t.deleteTitle, description: t.deleteBody, confirmLabel: texts.common.remove })) {
+                      if (await confirm({ title: t.deleteTitle, description: t.deleteBody, confirmLabel: commonTexts.remove })) {
                         remove.mutate(incident.id);
                       }
                     }}
                   >
-                    {texts.common.remove}
+                    {commonTexts.remove}
                   </MenuItem>
                 </Menu>
               </div>

@@ -29,15 +29,15 @@ import { SiteHeader } from "@/components/marketing/site-header";
 import { TemplateShowcase } from "@/components/marketing/template-showcase";
 import { UseCases } from "@/components/marketing/use-cases";
 import { ButtonLink } from "@/components/ui";
-import { texts } from "@/texts/pt-BR";
+import { landing as landingTexts, nav as navTexts, templateGallery as templateGalleryTexts } from "@/texts/pt-BR";
 
 export const metadata: Metadata = {
   // The words people search for first, the brand after (the layout's default puts the brand first).
-  title: { absolute: texts.landing.metaTitle },
+  title: { absolute: landingTexts.metaTitle },
   alternates: { canonical: "/" },
 };
 
-const t = texts.landing;
+const t = landingTexts;
 const FEATURE_ICONS: readonly LucideIcon[] = [
   ShieldCheck,
   Printer,
@@ -157,7 +157,7 @@ export default function LandingPage() {
         <section id="modelos" className="defer-render scroll-mt-16 overflow-hidden border-y border-border bg-bg">
           <div className="flex flex-col gap-12 py-20 lg:py-28">
             <div className="px-4 sm:px-6">
-              <SectionHeading eyebrow={texts.nav.templates} title={t.templatesTitle} lead={t.templatesLead} />
+              <SectionHeading eyebrow={navTexts.templates} title={t.templatesTitle} lead={t.templatesLead} />
             </div>
             <TemplateShowcase />
             <div className="flex flex-col justify-center gap-3 px-4 sm:flex-row">
@@ -165,7 +165,7 @@ export default function LandingPage() {
                 {t.templatesCta}
               </ButtonLink>
               <ButtonLink href="/modelos" size="lg" variant="secondary">
-                {texts.templateGallery.all}
+                {templateGalleryTexts.all}
               </ButtonLink>
             </div>
           </div>
@@ -254,7 +254,7 @@ export default function LandingPage() {
         {/* Pricing */}
         <section id="precos" className="defer-render scroll-mt-16">
           <div className="mx-auto flex max-w-5xl flex-col gap-12 px-4 py-20 sm:px-6 lg:py-28">
-            <SectionHeading eyebrow={texts.nav.pricing} title={t.pricingTitle} lead={t.pricingLead} />
+            <SectionHeading eyebrow={navTexts.pricing} title={t.pricingTitle} lead={t.pricingLead} />
             <PricingSection />
           </div>
         </section>

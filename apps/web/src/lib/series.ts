@@ -6,7 +6,7 @@
 import type { EventSeriesRefDto } from "@ingressoimpresso/api-types";
 
 import { wallClock, wallClockInput } from "@/lib/event-time";
-import { texts } from "@/texts/pt-BR";
+import { series as seriesTexts } from "@/texts/pt-BR";
 
 const pad = (value: number) => String(value).padStart(2, "0");
 
@@ -24,12 +24,12 @@ export function dayLabel(iso: string): string {
 
 /** "Sessão de 12/11 às 20h". */
 export function sessionLabel(startsAt: string): string {
-  return texts.series.session(dayLabel(startsAt), hourLabel(startsAt));
+  return seriesTexts.session(dayLabel(startsAt), hourLabel(startsAt));
 }
 
 /** "Data 2 de 3". */
 export function positionLabel(series: Pick<EventSeriesRefDto, "dates" | "position">): string {
-  return texts.series.position(series.position, series.dates);
+  return seriesTexts.position(series.position, series.dates);
 }
 
 /** A `datetime-local` value `days` later (plain calendar arithmetic, no time zone). */

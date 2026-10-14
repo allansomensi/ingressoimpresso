@@ -8,9 +8,9 @@ import { Button, Field, Input, NumberInput, Select, Switch } from "@/components/
 import { cn } from "@/lib/cn";
 import { FONTS_WITH_BOLD, MAX_PREFIX_CHARS, MAX_TEXT_CHARS, MAX_TEXT_LINES, MIN_QR_SIZE_MM } from "@/lib/design-rules";
 import { FIELDS } from "@/lib/ticket-fields";
-import { texts } from "@/texts/pt-BR";
+import { common as commonTexts, event as eventTexts } from "@/texts/pt-BR";
 
-const t = texts.event.design;
+const t = eventTexts.design;
 const ALIGNS: readonly { value: TextAlign; icon: LucideIcon }[] = [
   { value: "left", icon: AlignLeft },
   { value: "center", icon: AlignCenter },
@@ -165,7 +165,7 @@ export function TextInspector({
           <FontPicker value={block.font} onChange={(font) => { onChange({ font }, "font"); }} />
         </Field>
         <Field label={t.fontSize}>
-          <NumberInput value={block.sizePt} step={1} onChange={(sizePt) => { onChange({ sizePt }, `size-${String(index)}`); }} suffix={texts.common.pt} />
+          <NumberInput value={block.sizePt} step={1} onChange={(sizePt) => { onChange({ sizePt }, `size-${String(index)}`); }} suffix={commonTexts.pt} />
         </Field>
         <Field label={t.color}>
           <Input type="color" value={block.color} onChange={(e) => { onChange({ color: e.target.value }, `color-${String(index)}`); }} />
@@ -252,7 +252,7 @@ export function NumberInspector({ number, onChange }: { number: NumberStyle; onC
           <FontPicker value={number.font} onChange={(font) => { onChange({ font }, "number-font"); }} />
         </Field>
         <Field label={t.fontSize}>
-          <NumberInput value={number.sizePt} step={1} onChange={(sizePt) => { onChange({ sizePt }, "number-size"); }} suffix={texts.common.pt} />
+          <NumberInput value={number.sizePt} step={1} onChange={(sizePt) => { onChange({ sizePt }, "number-size"); }} suffix={commonTexts.pt} />
         </Field>
         <Field label={t.color}>
           <Input type="color" value={number.color} onChange={(e) => { onChange({ color: e.target.value }, "number-color"); }} />
@@ -292,7 +292,7 @@ export function QrInspector({ qr, onChange }: { qr: QrPlacement; onChange: (chan
           <NumberInput value={qr.yMm} onChange={(yMm) => { onChange({ yMm }, "qr-box"); }} />
         </Field>
         <Field label={t.qrSize}>
-          <NumberInput value={qr.sizeMm} min={MIN_QR_SIZE_MM} onChange={(sizeMm) => { onChange({ sizeMm }, "qr-box"); }} suffix={texts.common.mm} />
+          <NumberInput value={qr.sizeMm} min={MIN_QR_SIZE_MM} onChange={(sizeMm) => { onChange({ sizeMm }, "qr-box"); }} suffix={commonTexts.mm} />
         </Field>
       </div>
     </div>

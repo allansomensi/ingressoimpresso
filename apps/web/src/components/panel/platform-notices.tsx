@@ -12,11 +12,11 @@ import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { shortDateTime } from "@/lib/format";
 import { safeLink, useInbox } from "@/lib/platform";
-import { texts } from "@/texts/pt-BR";
+import { inbox as inboxTexts, maintenance as maintenanceTexts, panel as panelTexts } from "@/texts/pt-BR";
 
 import { LEVEL_ICON, LEVEL_TONE } from "./inbox";
 
-const t = texts.maintenance;
+const t = maintenanceTexts;
 
 /** Announcements shown as a dialog when the panel opens (ADR 0038), one at a time. */
 export function AnnouncementHost() {
@@ -58,7 +58,7 @@ export function AnnouncementHost() {
               {next.ctaLabel}
             </ButtonLink>
           )}
-          <Button onClick={close}>{texts.inbox.gotIt}</Button>
+          <Button onClick={close}>{inboxTexts.gotIt}</Button>
         </>
       }
     >
@@ -120,7 +120,7 @@ export function MaintenanceScreen({ maintenance, onSignOut }: { maintenance: Mai
           <ArrowRight className="size-4" aria-hidden />
         </ButtonLink>
         <Button variant="ghost" icon={<LogOut />} onClick={onSignOut}>
-          {texts.panel.signOut}
+          {panelTexts.signOut}
         </Button>
       </div>
     </main>

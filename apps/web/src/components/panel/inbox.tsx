@@ -30,9 +30,9 @@ import { money, shortDateTime } from "@/lib/format";
 import { isUuid } from "@/lib/api";
 import { markInboxRead, safeLink, useInbox } from "@/lib/platform";
 import { areaList, parseAreas } from "@/lib/team";
-import { texts } from "@/texts/pt-BR";
+import { changelog as changelogTexts, inbox as inboxTexts } from "@/texts/pt-BR";
 
-const t = texts.inbox;
+const t = inboxTexts;
 const NEWS_SHOWN = 4;
 
 export const LEVEL_ICON: Record<AnnouncementLevel, LucideIcon> = {
@@ -260,10 +260,10 @@ export function Inbox() {
                     <ChangelogEntry entry={entry} compact />
                   </div>
                 ))}
-                {news.length === 0 && <p className="px-3 py-8 text-center text-sm text-fg-muted">{texts.changelog.empty}</p>}
+                {news.length === 0 && <p className="px-3 py-8 text-center text-sm text-fg-muted">{changelogTexts.empty}</p>}
               </div>
               <Link href="/novidades" className="mt-1 rounded-xl px-3 py-2.5 text-center text-sm font-medium text-brand transition hover:bg-surface-2 active:bg-surface-2">
-                {texts.changelog.seeAll}
+                {changelogTexts.seeAll}
               </Link>
             </>
           )}

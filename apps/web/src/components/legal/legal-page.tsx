@@ -6,9 +6,9 @@ import { PrintButton } from "@/components/legal/print-button";
 import { SiteFooter } from "@/components/marketing/site-footer";
 import { SiteHeader } from "@/components/marketing/site-header";
 import { LEGAL_DOCUMENTS, LEGAL_ENTITY, type LegalBlock, type LegalDocument, type LegalSlug } from "@/content/legal";
-import { texts } from "@/texts/pt-BR";
+import { legal as legalTexts } from "@/texts/pt-BR";
 
-const t = texts.legal;
+const t = legalTexts;
 
 const ICONS: Record<LegalSlug, LucideIcon> = { termos: Scale, privacidade: ShieldCheck, reembolso: Undo2 };
 

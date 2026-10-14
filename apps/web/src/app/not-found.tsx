@@ -3,9 +3,9 @@ import { ArrowLeft, SearchX } from "lucide-react";
 
 import { Logo } from "@/components/brand";
 import { ButtonLink } from "@/components/ui";
-import { texts } from "@/texts/pt-BR";
+import { notFound as notFoundTexts } from "@/texts/pt-BR";
 
-const t = texts.notFound;
+const t = notFoundTexts;
 
 export const metadata: Metadata = { title: t.title, robots: { index: false, follow: false } };
 

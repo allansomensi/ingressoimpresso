@@ -31,9 +31,9 @@ import {
 import { api } from "@/lib/api";
 import { money, parseMoney, shortDateTime } from "@/lib/format";
 import { useUnsavedChanges } from "@/lib/unsaved";
-import { texts } from "@/texts/pt-BR";
+import { referrals as referralsTexts } from "@/texts/pt-BR";
 
-const t = texts.referrals.admin;
+const t = referralsTexts.admin;
 const KEY = ["admin", "referrals"];
 
 const cents = (value: number) => (value / 100).toFixed(2).replace(".", ",");
@@ -132,11 +132,11 @@ function Settings({ settings }: { settings: ReferralSettingsDto }) {
 function state(referral: AdminReferralDto): { tone: Tone; label: string } {
   switch (referral.status) {
     case "pending":
-      return { tone: "neutral", label: texts.referrals.status.pending };
+      return { tone: "neutral", label: referralsTexts.status.pending };
     case "rewarded":
-      return { tone: "success", label: texts.referrals.status.rewarded };
+      return { tone: "success", label: referralsTexts.status.rewarded };
     case "revoked":
-      return { tone: "danger", label: t.revokedReason[referral.revokeReason ?? ""] ?? texts.referrals.status.revoked };
+      return { tone: "danger", label: t.revokedReason[referral.revokeReason ?? ""] ?? referralsTexts.status.revoked };
   }
 }
 

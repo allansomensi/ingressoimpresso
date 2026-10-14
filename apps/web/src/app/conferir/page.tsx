@@ -9,9 +9,9 @@ import { SectionHeading } from "@/components/marketing/section-heading";
 import { SiteFooter } from "@/components/marketing/site-footer";
 import { SiteHeader } from "@/components/marketing/site-header";
 import { TicketChecker } from "@/components/verify/ticket-checker";
-import { texts } from "@/texts/pt-BR";
+import { eventPages as eventPagesTexts, meta as metaTexts, verifyPage as verifyPageTexts } from "@/texts/pt-BR";
 
-const t = texts.verifyPage;
+const t = verifyPageTexts;
 const HOW_ICONS: readonly LucideIcon[] = [Fingerprint, ScanSearch, BadgeCheck];
 
 export const metadata: Metadata = {
@@ -20,7 +20,7 @@ export const metadata: Metadata = {
   description: t.metaDescription,
   alternates: { canonical: "/conferir" },
   // The share image is ./opengraph-image.tsx.
-  openGraph: { type: "website", locale: "pt_BR", siteName: texts.meta.title, url: "/conferir", title: t.metaTitle, description: t.metaDescription },
+  openGraph: { type: "website", locale: "pt_BR", siteName: metaTexts.title, url: "/conferir", title: t.metaTitle, description: t.metaDescription },
   twitter: { card: "summary_large_image", title: t.metaTitle, description: t.metaDescription },
 };
 
@@ -38,7 +38,7 @@ export default function VerifyPage() {
           <div aria-hidden className="absolute inset-0 bg-dots [mask-image:radial-gradient(ellipse_at_top,black,transparent_70%)] opacity-60" />
           <div className="relative mx-auto grid max-w-6xl items-start gap-8 px-4 pt-8 pb-16 sm:px-6 lg:grid-cols-[1fr_minmax(0,30rem)] lg:gap-14 lg:pt-14 lg:pb-24">
             <div className="flex flex-col items-start gap-5 animate-rise lg:pt-6">
-              <Breadcrumb items={[{ label: texts.eventPages.home, href: "/" }, { label: t.breadcrumb }]} />
+              <Breadcrumb items={[{ label: eventPagesTexts.home, href: "/" }, { label: t.breadcrumb }]} />
               <h1 className="text-4xl leading-[1.05] font-semibold tracking-tight text-balance text-fg sm:text-5xl">{t.headline}</h1>
               <p className="max-w-xl text-base leading-relaxed text-pretty text-fg-muted sm:text-lg">{t.lead}</p>
               <ul className="hidden flex-col gap-2.5 pt-2 lg:flex">

@@ -16,9 +16,9 @@ import { eventPhase, groupSeries, sortEvents, type ListEntry } from "@/lib/event
 import { dateParts, money } from "@/lib/format";
 import { dayLabel, hourLabel } from "@/lib/series";
 import { areaList } from "@/lib/team";
-import { texts } from "@/texts/pt-BR";
+import { event as eventTexts, eventChange as eventChangeTexts, panel as panelTexts, series as seriesTexts } from "@/texts/pt-BR";
 
-const t = texts.panel;
+const t = panelTexts;
 
 /** Phase, postponement and what the checklist still misses (ADR 0078). */
 function EventBadges({ event, now }: { event: EventDto; now: number }) {
@@ -28,7 +28,7 @@ function EventBadges({ event, now }: { event: EventDto; now: number }) {
   return (
     <span className="flex flex-wrap items-center justify-end gap-1.5">
       <PhaseBadge phase={phase} />
-      {postponed && <Badge tone="warning">{texts.eventChange.postponedBadge}</Badge>}
+      {postponed && <Badge tone="warning">{eventChangeTexts.postponedBadge}</Badge>}
       <MissingBadge count={event.checklistMissing} />
     </span>
   );
@@ -41,7 +41,7 @@ function TeamLine({ event }: { event: EventDto }) {
   return (
     <span className="inline-flex items-center gap-1 text-xs font-medium text-fg-muted">
       <UsersRound className="size-3.5 text-brand" aria-hidden />
-      {texts.event.team.listBadge}
+      {eventTexts.team.listBadge}
     </span>
   );
 }
@@ -98,14 +98,14 @@ function EventCard({ event, now }: { event: EventDto; now: number }) {
           </span>
           {event.team !== null && (
             <span className="truncate text-xs text-fg-subtle max-sm:hidden">
-              {texts.event.team.listLine(event.team.organization, areaList(event.team.areas))}
+              {eventTexts.team.listLine(event.team.organization, areaList(event.team.areas))}
             </span>
           )}
         </div>
       </div>
       <ChevronRight className="size-5 shrink-0 text-fg-subtle sm:hidden" aria-hidden />
       <span className="mt-auto flex items-center gap-1 text-sm font-medium text-brand max-sm:hidden">
-        {texts.event.overview.go}
+        {eventTexts.overview.go}
         <ChevronRight className="size-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
       </span>
     </Link>
@@ -122,7 +122,7 @@ function SeriesCard({ entry, now }: { entry: Extract<ListEntry<EventDto>, { kind
   const lead = entry.lead;
   const leadPhase = eventPhase(lead, now);
   const when = `${dayLabel(lead.startsAt)} ${hourLabel(lead.startsAt)}`;
-  const s = texts.series;
+  const s = seriesTexts;
   const badges = (
     <span className="flex flex-wrap items-center justify-end gap-1.5">
       <PhaseBadge phase={leadPhase} />

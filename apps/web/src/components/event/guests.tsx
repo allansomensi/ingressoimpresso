@@ -41,11 +41,11 @@ import {
 } from "@/lib/guest-list";
 import { inkFor } from "@/lib/design-rules";
 import { useUnsavedChanges } from "@/lib/unsaved";
-import { texts } from "@/texts/pt-BR";
+import { event as eventTexts } from "@/texts/pt-BR";
 
 import { useEventAccess } from "./access";
 
-const t = texts.event.guests;
+const t = eventTexts.guests;
 const FILTERS: readonly GuestFilter[] = ["all", "arrived", "missing"];
 
 function time(iso: string): string {

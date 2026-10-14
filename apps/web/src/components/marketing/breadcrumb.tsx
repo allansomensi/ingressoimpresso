@@ -2,12 +2,12 @@ import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { Fragment } from "react";
 
-import { texts } from "@/texts/pt-BR";
+import { eventPages as eventPagesTexts } from "@/texts/pt-BR";
 
 /** The trail above a public page's title: links up to the current page, which is not a link. */
 export function Breadcrumb({ items }: { items: readonly { label: string; href?: string }[] }) {
   return (
-    <nav aria-label={texts.eventPages.breadcrumb}>
+    <nav aria-label={eventPagesTexts.breadcrumb}>
       <ol className="flex flex-wrap items-center gap-1.5 text-sm text-fg-subtle">
         {items.map((item, index) => (
           <Fragment key={item.label}>

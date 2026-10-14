@@ -31,9 +31,9 @@ import {
   type Axis,
   type TicketElement,
 } from "@/lib/design-selection";
-import { texts } from "@/texts/pt-BR";
+import { event as eventTexts } from "@/texts/pt-BR";
 
-const t = texts.event.design;
+const t = eventTexts.design;
 
 const noSubscription = () => () => undefined;
 

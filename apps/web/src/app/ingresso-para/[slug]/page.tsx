@@ -16,9 +16,9 @@ import { TemplateCard } from "@/components/marketing/template-card";
 import { ButtonLink } from "@/components/ui";
 import { eventSeoPage, eventSeoPages } from "@/content/seo-event-pages";
 import { EVENT_TEMPLATES, templateSeoById } from "@/content/seo-templates";
-import { texts } from "@/texts/pt-BR";
+import { eventPages as eventPagesTexts, landing as landingTexts, meta as metaTexts, templateGallery as templateGalleryTexts } from "@/texts/pt-BR";
 
-const t = texts.eventPages;
+const t = eventPagesTexts;
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -41,7 +41,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     description: page.description,
     alternates: { canonical: path },
     // The share image is ./opengraph-image.tsx (and ./twitter-image.tsx).
-    openGraph: { type: "website", locale: "pt_BR", siteName: texts.meta.title, url: path, title: page.title, description: page.description },
+    openGraph: { type: "website", locale: "pt_BR", siteName: metaTexts.title, url: path, title: page.title, description: page.description },
     twitter: { card: "summary_large_image", title: page.title, description: page.description },
   };
 }
@@ -80,7 +80,7 @@ export default async function EventTypePage({ params }: Props) {
                 </ButtonLink>
               </div>
               <ul className="grid grid-cols-2 gap-x-4 gap-y-2 pt-2 sm:flex sm:flex-wrap sm:gap-x-5">
-                {texts.landing.trust.map((item) => (
+                {landingTexts.trust.map((item) => (
                   <li key={item} className="flex items-start gap-1.5 text-sm leading-snug text-fg-muted">
                     <Check className="mt-0.5 size-4 shrink-0 text-success" aria-hidden />
                     {item}
@@ -138,7 +138,7 @@ export default async function EventTypePage({ params }: Props) {
         {/* FAQ */}
         <section id="duvidas" className="scroll-mt-16 border-t border-border bg-surface">
           <div className="mx-auto flex max-w-3xl flex-col gap-10 px-4 py-20 sm:px-6 lg:py-28">
-            <SectionHeading title={texts.landing.faqTitle} />
+            <SectionHeading title={landingTexts.faqTitle} />
             <FaqList items={page.faq.map((item) => ({ question: item.pergunta, answer: item.resposta }))} />
           </div>
         </section>
@@ -157,7 +157,7 @@ export default async function EventTypePage({ params }: Props) {
               </ul>
               <div className="flex justify-center">
                 <ButtonLink href="/modelos" variant="secondary">
-                  {texts.templateGallery.all}
+                  {templateGalleryTexts.all}
                 </ButtonLink>
               </div>
             </div>

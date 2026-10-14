@@ -63,11 +63,11 @@ import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { shortDateTime } from "@/lib/format";
 import { copyText, downloadCsv, whatsappUrl } from "@/lib/share";
-import { texts } from "@/texts/pt-BR";
+import { common as commonTexts, event as eventTexts } from "@/texts/pt-BR";
 
 import type { SelectTab } from "./tabs";
 
-const t = texts.event.digital;
+const t = eventTexts.digital;
 const MAX_BULK = 500;
 
 /** Status line of a link: revoked, voided, entered or how often it was opened. */
@@ -126,7 +126,7 @@ function ShareLink({
               <h3 className="text-lg font-semibold tracking-tight text-fg">{title}</h3>
               <p className="text-sm leading-relaxed text-fg-muted">{t.createdHint}</p>
             </div>
-            <Button variant="ghost" size="icon" aria-label={texts.common.close} onClick={onClose}>
+            <Button variant="ghost" size="icon" aria-label={commonTexts.close} onClick={onClose}>
               <X />
             </Button>
           </div>
@@ -191,10 +191,10 @@ function RenameDialog({ link, onClose, eventId }: { link: TicketLinkDto | null; 
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
-            {texts.common.cancel}
+            {commonTexts.cancel}
           </Button>
           <Button loading={save.isPending} onClick={() => save.mutate()}>
-            {texts.common.save}
+            {commonTexts.save}
           </Button>
         </>
       }
@@ -299,7 +299,7 @@ function ReplaceDialog({
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
-            {texts.common.cancel}
+            {commonTexts.cancel}
           </Button>
           <Button type="submit" form="replace-ticket" variant="danger" icon={<TicketX />} loading={replace.isPending} disabled={lostNumber === null}>
             {r.submit}
@@ -430,7 +430,7 @@ function BulkLinks({ eventId, eventName }: { eventId: string; eventName: string 
             }
           }}
         >
-          <Field label={texts.common.first} className="sm:w-36">
+          <Field label={commonTexts.first} className="sm:w-36">
             <Input
               inputMode="numeric"
               value={first}
@@ -439,7 +439,7 @@ function BulkLinks({ eventId, eventName }: { eventId: string; eventName: string 
               }}
             />
           </Field>
-          <Field label={texts.common.last} className="sm:w-36">
+          <Field label={commonTexts.last} className="sm:w-36">
             <Input
               inputMode="numeric"
               value={last}
@@ -568,7 +568,7 @@ export function DigitalTab({ eventId, onSelect }: { eventId: string; onSelect: S
       )}
 
       {closed ? (
-        <Alert tone="warning">{texts.event.actions.archivedNote}</Alert>
+        <Alert tone="warning">{eventTexts.actions.archivedNote}</Alert>
       ) : (
         <Card>
           <CardHeader icon={Send} title={t.sendTitle} description={t.sendHint} />

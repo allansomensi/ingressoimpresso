@@ -47,9 +47,9 @@ import { NUMBER_LIST_INPUT, firstOutside, formatRanges, parseNumberList } from "
 import { deadlineLabel, isActive, isDueSoon, reminderMessage, timeLeft } from "@/lib/reservations";
 import { goalPercent, goalTotals, rankSellers } from "@/lib/seller-goals";
 import { whatsappLink } from "@/lib/settlement";
-import { texts } from "@/texts/pt-BR";
+import { common as commonTexts, event as eventTexts, sellerPage as sellerPageTexts } from "@/texts/pt-BR";
 
-const t = texts.event.sellers;
+const t = eventTexts.sellers;
 
 // Goals ------------------------------------------------------------------------------------------
 
@@ -139,7 +139,7 @@ function GoalsAllDialog({ open, onClose, eventId, onSaved }: { open: boolean; on
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
-            {texts.common.cancel}
+            {commonTexts.cancel}
           </Button>
           <Button type="submit" form="sellers-goal" loading={save.isPending} disabled={!valid} icon={<Target />}>
             {g.submit(goal)}
@@ -185,7 +185,7 @@ export function GoalLine({ seller, sold, editable, onEdit }: { seller: SellerDto
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <span className="flex items-center justify-between gap-2 text-sm">
           <span className="text-fg-muted">
-            <span className="font-medium text-fg">{g.label}</span> · <span className="tabular">{texts.sellerPage.goal.progress(sold, seller.goal)}</span>
+            <span className="font-medium text-fg">{g.label}</span> · <span className="tabular">{sellerPageTexts.goal.progress(sold, seller.goal)}</span>
           </span>
           {reached && <Badge tone="success">{g.reached}</Badge>}
         </span>
@@ -369,7 +369,7 @@ export function ReserveDialog({
       outside !== null
         ? t.giveBackDialog.errors.outside(ticketNumber(outside))
         : taken !== undefined
-          ? texts.sellerPage.sheet.errors.reservedOther(formatRanges(taken.numbers), taken.holderName)
+          ? sellerPageTexts.sheet.errors.reservedOther(formatRanges(taken.numbers), taken.holderName)
           : null;
   }
   const valid = parsed.ok && problem === null && name.trim() !== "" && picker.error === null && picker.deadline !== null;
@@ -403,7 +403,7 @@ export function ReserveDialog({
       footer={
         <>
           <Button variant="secondary" onClick={close}>
-            {texts.common.cancel}
+            {commonTexts.cancel}
           </Button>
           <Button type="submit" form="seller-reserve" loading={save.isPending} disabled={!valid} icon={<BookmarkPlus />}>
             {parsed.ok && valid ? r.submit(parsed.count) : r.submitEmpty}
@@ -418,7 +418,7 @@ export function ReserveDialog({
             problem !== null ? (
               <span className="text-danger-fg">{problem}</span>
             ) : parsed.ok ? (
-              <span className="font-medium text-fg">{texts.sellerPage.sheet.preview(parsed.count, formatRanges(parsed.ranges))}</span>
+              <span className="font-medium text-fg">{sellerPageTexts.sheet.preview(parsed.count, formatRanges(parsed.ranges))}</span>
             ) : (
               r.numbersHint
             )
@@ -533,7 +533,7 @@ export function SellerReservations({
                   <span className="shrink-0 font-mono text-xs text-fg-muted tabular">{formatRanges(item.numbers)}</span>
                 </span>
                 <span className={cn("truncate text-xs", soon ? "font-medium text-warning-fg" : "text-fg-muted")}>
-                  {texts.sellerPage.reservations.until(deadlineLabel(item.expiresAt, now))} · {timeLeft(item.expiresAt, now)}
+                  {sellerPageTexts.reservations.until(deadlineLabel(item.expiresAt, now))} · {timeLeft(item.expiresAt, now)}
                   {item.byOrganizer && ` · ${r.byOrganizer}`}
                 </span>
               </span>

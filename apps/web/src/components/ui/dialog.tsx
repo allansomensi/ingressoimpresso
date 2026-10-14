@@ -4,7 +4,7 @@ import { AlertTriangle, X } from "lucide-react";
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 
 import { cn } from "@/lib/cn";
-import { texts } from "@/texts/pt-BR";
+import { common as commonTexts } from "@/texts/pt-BR";
 
 import { Button } from "./button";
 import { useIsPhone } from "./popover";
@@ -90,7 +90,7 @@ export function Dialog({
                 <h2 className="text-lg font-semibold tracking-tight text-balance">{title}</h2>
                 {description !== undefined && <p className="text-sm leading-relaxed text-fg-muted">{description}</p>}
               </div>
-              <Button variant="ghost" size="icon" aria-label={texts.common.close} onClick={onClose} className="-mt-1 -mr-2">
+              <Button variant="ghost" size="icon" aria-label={commonTexts.close} onClick={onClose} className="-mt-1 -mr-2">
                 <X />
               </Button>
             </header>
@@ -168,7 +168,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
                 finish(false);
               }}
             >
-              {texts.common.cancel}
+              {commonTexts.cancel}
             </Button>
             <Button
               variant={danger ? "danger" : "primary"}
@@ -177,7 +177,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
                 finish(true);
               }}
             >
-              {pending?.confirmLabel ?? texts.common.confirm}
+              {pending?.confirmLabel ?? commonTexts.confirm}
             </Button>
           </>
         }

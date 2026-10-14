@@ -3,9 +3,9 @@ import { WifiOff } from "lucide-react";
 
 import { Logo } from "@/components/brand";
 import { ButtonLink } from "@/components/ui";
-import { texts } from "@/texts/pt-BR";
+import { pwa as pwaTexts } from "@/texts/pt-BR";
 
-const t = texts.pwa;
+const t = pwaTexts;
 
 export const metadata: Metadata = { title: t.offlineTitle, robots: { index: false, follow: false } };
 

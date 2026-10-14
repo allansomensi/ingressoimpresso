@@ -5,9 +5,9 @@ import { useState, type FormEvent } from "react";
 
 import { OtpInput } from "@/components/otp-input";
 import { Button, ErrorMessage, Field, Input } from "@/components/ui";
-import { texts } from "@/texts/pt-BR";
+import { twoFactor as twoFactorTexts } from "@/texts/pt-BR";
 
-const t = texts.twoFactor;
+const t = twoFactorTexts;
 
 /**
  * The second step of a sign-in (ADR 0045): a code of the authenticator app, or a recovery code.

@@ -12,11 +12,11 @@ import { CancelDialog, ChangeMessageDialog, PostponeDialog } from "@/components/
 import { Menu, MenuItem, buttonClass, errorMessage, useConfirm } from "@/components/ui";
 import { api } from "@/lib/api";
 import { canDo, isOwner } from "@/lib/team";
-import { texts } from "@/texts/pt-BR";
+import { event as eventTexts, eventChange as eventChangeTexts, series as seriesTexts } from "@/texts/pt-BR";
 
-const t = texts.event.actions;
-const c = texts.eventChange;
-const s = texts.series;
+const t = eventTexts.actions;
+const c = eventChangeTexts;
+const s = seriesTexts;
 
 /**
  * Postpone or cancel (coordination, ADR 0065); add another date or leave the series (ADR 0077),

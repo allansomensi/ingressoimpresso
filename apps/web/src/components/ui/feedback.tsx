@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 
 import { ApiError } from "@/lib/api";
 import { cn } from "@/lib/cn";
-import { texts } from "@/texts/pt-BR";
+import { common as commonTexts, errors as errorsTexts } from "@/texts/pt-BR";
 
 export type Tone = "neutral" | "brand" | "success" | "warning" | "danger";
 
@@ -96,7 +96,7 @@ export function Alert({
       {onDismiss !== undefined && (
         <button
           type="button"
-          aria-label={texts.common.close}
+          aria-label={commonTexts.close}
           onClick={onDismiss}
           className="absolute top-2.5 right-2.5 flex size-6 items-center justify-center rounded-md opacity-75 transition touch-target hover:opacity-100 active:opacity-100"
         >
@@ -109,7 +109,7 @@ export function Alert({
 
 /** The Portuguese message of an API (or unexpected) error. */
 export function errorMessage(error: unknown): string {
-  return error instanceof ApiError ? error.userMessage : texts.errors.generic;
+  return error instanceof ApiError ? error.userMessage : errorsTexts.generic;
 }
 
 export function ErrorMessage({ error, className }: { error: unknown; className?: string | undefined }) {
@@ -130,7 +130,7 @@ export function Skeleton({ className }: { className?: string | undefined }) {
 /** Placeholder while a tab loads. */
 export function LoadingBlock({ rows = 3 }: { rows?: number }) {
   return (
-    <div className="flex flex-col gap-3" aria-busy="true" aria-label={texts.common.loading}>
+    <div className="flex flex-col gap-3" aria-busy="true" aria-label={commonTexts.loading}>
       <Skeleton className="h-28 w-full rounded-2xl" />
       {Array.from({ length: rows }, (_, index) => (
         <Skeleton key={index} className="h-16 w-full rounded-2xl" />

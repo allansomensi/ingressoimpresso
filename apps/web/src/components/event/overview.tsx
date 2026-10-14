@@ -9,14 +9,14 @@ import { Button, Card, CardHeader, ErrorMessage, Skeleton, Stat } from "@/compon
 import { isDoorDay } from "@/lib/door-live";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
-import { texts } from "@/texts/pt-BR";
+import { event as eventTexts } from "@/texts/pt-BR";
 
 import { ChecklistCard } from "./checklist";
 import { EventResults } from "./event-results";
 import { Occupancy, useDoorLive } from "./live";
 import type { SelectTab } from "./tabs";
 
-const t = texts.event.overview;
+const t = eventTexts.overview;
 
 export function OverviewTab({
   eventId,
@@ -102,7 +102,7 @@ function LiveCard({ eventId, onSelect }: { eventId: string; onSelect: SelectTab 
   return (
     <Card className="border-brand/30">
       <CardHeader
-        title={texts.event.live.overviewTitle}
+        title={eventTexts.live.overviewTitle}
         icon={Activity}
         className="mb-4"
         actions={
@@ -113,7 +113,7 @@ function LiveCard({ eventId, onSelect }: { eventId: string; onSelect: SelectTab 
               onSelect("live");
             }}
           >
-            {texts.event.live.overviewOpen}
+            {eventTexts.live.overviewOpen}
           </Button>
         }
       />

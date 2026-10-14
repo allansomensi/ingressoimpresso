@@ -40,9 +40,9 @@ import { dateTime } from "@/lib/format";
 import { useSession } from "@/lib/session";
 import { VERSION_LABEL } from "@/lib/version";
 import { useUnsavedChanges } from "@/lib/unsaved";
-import { texts } from "@/texts/pt-BR";
+import { account as accountTexts, common as commonTexts, panel as panelTexts, profile as profileTexts } from "@/texts/pt-BR";
 
-const t = texts.account;
+const t = accountTexts;
 
 function OrganizationForm({ account }: { account: AccountDto }) {
   const queryClient = useQueryClient();
@@ -74,7 +74,7 @@ function OrganizationForm({ account }: { account: AccountDto }) {
         />
       </Field>
       <Button type="submit" icon={<Save />} loading={save.isPending} disabled={!dirty || name.trim() === ""}>
-        {texts.common.save}
+        {commonTexts.save}
       </Button>
       <ErrorMessage error={save.error} />
     </form>
@@ -132,7 +132,7 @@ function DeleteAccount({ email, twoFactor }: { email: string; twoFactor: boolean
                 setOpen(false);
               }}
             >
-              {texts.common.cancel}
+              {commonTexts.cancel}
             </Button>
             <Button variant="danger" icon={<Trash2 />} disabled={!matches} loading={remove.isPending} onClick={() => remove.mutate()}>
               {t.deleteConfirm}
@@ -264,8 +264,8 @@ export default function AccountPage() {
               className="mt-5 flex items-center gap-3 rounded-xl border border-border bg-surface-2 px-4 py-3 transition hover:border-border-strong active:bg-surface-3"
             >
               <span className="flex min-w-0 flex-1 flex-col">
-                <span className="text-sm font-semibold text-fg">{texts.profile.open}</span>
-                <span className="text-xs text-fg-muted">{texts.profile.openHint}</span>
+                <span className="text-sm font-semibold text-fg">{profileTexts.open}</span>
+                <span className="text-xs text-fg-muted">{profileTexts.openHint}</span>
               </span>
               <ChevronRight aria-hidden className="size-4 shrink-0 text-fg-subtle" />
             </Link>
@@ -304,7 +304,7 @@ export default function AccountPage() {
         </div>
       </div>
       {/* The version, for support: plain text, at the very end of the account page (ADR 0054). */}
-      <p className="text-center text-xs text-fg-subtle tabular">{texts.panel.version(VERSION_LABEL)}</p>
+      <p className="text-center text-xs text-fg-subtle tabular">{panelTexts.version(VERSION_LABEL)}</p>
     </main>
   );
 }

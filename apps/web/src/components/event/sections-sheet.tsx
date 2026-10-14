@@ -4,11 +4,11 @@ import { LayoutGrid, type LucideIcon } from "lucide-react";
 
 import { Popover } from "@/components/ui";
 import { cn } from "@/lib/cn";
-import { texts } from "@/texts/pt-BR";
+import { event as eventTexts } from "@/texts/pt-BR";
 
 import { TAB_GROUPS, type Tab } from "./tabs";
 
-const t = texts.event.sections;
+const t = eventTexts.sections;
 
 /**
  * Phones see three or four tabs of the strip at a time, and narrower computers miss the last ones:
@@ -64,7 +64,7 @@ export function SectionsSheet({
                         <Icon className="size-[18px]" aria-hidden />
                       </span>
                       <span className="flex min-w-0 flex-col">
-                        <span className="text-[15px] leading-snug font-medium">{texts.event.tabs[tab]}</span>
+                        <span className="text-[15px] leading-snug font-medium">{eventTexts.tabs[tab]}</span>
                         <span className={cn("truncate text-[13px]", selected ? "text-brand-soft-fg" : "text-fg-muted")}>{t.hints[tab]}</span>
                       </span>
                     </button>

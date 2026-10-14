@@ -10,9 +10,9 @@ import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { dateTime, shortDateTime } from "@/lib/format";
 import { APP_COMMIT, RELEASE_NOTES_HREF, VERSION_LABEL } from "@/lib/version";
-import { texts } from "@/texts/pt-BR";
+import { maintenance as maintenanceTexts, status as statusTexts } from "@/texts/pt-BR";
 
-const t = texts.status;
+const t = statusTexts;
 const DAYS = 90;
 const DAY_MS = 86_400_000;
 
@@ -136,7 +136,7 @@ export function StatusPage() {
           <Wrench className="mt-0.5 size-4 shrink-0" aria-hidden />
           <span>
             {data.maintenance.message ?? t.maintenanceNow}
-            {data.maintenance.endsAt !== null && ` ${texts.maintenance.expected(dateTime(data.maintenance.endsAt))}`}
+            {data.maintenance.endsAt !== null && ` ${maintenanceTexts.expected(dateTime(data.maintenance.endsAt))}`}
           </span>
         </p>
       )}

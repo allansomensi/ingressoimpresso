@@ -12,9 +12,9 @@ import { api, fetchBlobUrl } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { money, parseMoney } from "@/lib/format";
 import { shortDay, todayIso } from "@/lib/settlement";
-import { texts } from "@/texts/pt-BR";
+import { common as commonTexts, errors as errorsTexts, event as eventTexts } from "@/texts/pt-BR";
 
-const t = texts.event.accountability;
+const t = eventTexts.accountability;
 
 /** Saves a file the API generates (an anchor, so the link never lands in the history). */
 async function saveFile(path: string, name: string) {
@@ -272,7 +272,7 @@ function EntryDialog({
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
-            {texts.common.cancel}
+            {commonTexts.cancel}
           </Button>
           <Button type="submit" form="ledger-entry" loading={save.isPending} disabled={!valid} icon={entry === null ? <Plus /> : undefined}>
             {entry === null ? t.add : t.save}
@@ -351,7 +351,7 @@ function EntryDialog({
             ))}
           </datalist>
         </Field>
-        {amount.trim() !== "" && !parsed.ok && <p className="text-xs text-danger-fg">{texts.errors.invalid_amount}</p>}
+        {amount.trim() !== "" && !parsed.ok && <p className="text-xs text-danger-fg">{errorsTexts.invalid_amount}</p>}
         <ErrorMessage error={save.error} />
       </form>
     </Dialog>

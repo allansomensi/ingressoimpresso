@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 
 import { SellerPage } from "@/components/seller/seller-page";
-import { texts } from "@/texts/pt-BR";
+import { sellerPage as sellerPageTexts } from "@/texts/pt-BR";
 
 // A seller's private link (ADR 0053): the token is in the fragment, so the page is never indexed.
 export const metadata: Metadata = {
-  title: texts.sellerPage.metaTitle,
-  description: texts.sellerPage.metaDescription,
+  title: sellerPageTexts.metaTitle,
+  description: sellerPageTexts.metaDescription,
   robots: { index: false, follow: false },
 };
 

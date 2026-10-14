@@ -26,9 +26,9 @@ import {
   type QueuedOp,
   type SyncNotice,
 } from "@/lib/seller-offline";
-import { texts } from "@/texts/pt-BR";
+import { sellerPage as sellerPageTexts } from "@/texts/pt-BR";
 
-const t = texts.sellerPage;
+const t = sellerPageTexts;
 
 /** How often a waiting queue is tried again while the page is open. */
 const RETRY_MS = 20_000;

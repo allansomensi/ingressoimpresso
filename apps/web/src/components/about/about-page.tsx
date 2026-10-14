@@ -5,9 +5,9 @@ import { TicketMock } from "@/components/marketing/mockups";
 import { ButtonLink } from "@/components/ui";
 import { LEGAL_ENTITY } from "@/content/legal";
 import { APP_COMMIT, RELEASE_NOTES_HREF, VERSION_LABEL } from "@/lib/version";
-import { texts } from "@/texts/pt-BR";
+import { about as aboutTexts, landing as landingTexts } from "@/texts/pt-BR";
 
-const t = texts.about;
+const t = aboutTexts;
 const PRINCIPLE_ICONS: readonly LucideIcon[] = [ShieldCheck, WifiOff, Scale, HeartHandshake];
 
 const linkClass = "inline-flex items-center gap-1.5 text-sm font-medium text-brand transition hover:text-brand-hover pointer-coarse:min-h-10";
@@ -107,7 +107,7 @@ export function AboutPage() {
           <h2 className="relative max-w-2xl text-3xl font-semibold tracking-tight text-balance">{t.ctaTitle}</h2>
           <p className="relative max-w-xl text-lg text-white/80">{t.ctaBody}</p>
           <ButtonLink href="/entrar" size="lg" variant="inverse" icon={<ArrowRight />} className="relative flex-row-reverse">
-            {texts.landing.primaryCta}
+            {landingTexts.primaryCta}
           </ButtonLink>
         </div>
       </section>

@@ -84,9 +84,9 @@ import { cn } from "@/lib/cn";
 import { initials, money, shortDateTime, ticketNumber } from "@/lib/format";
 import { NUMBER_LIST_INPUT, countNumbers, formatRanges, intersect, parseNumberList, type NumberRange } from "@/lib/number-list";
 import { receivedPercent, settlementMessage, settlementState, settlementTotals, shortDay, whatsappLink, type SettlementState } from "@/lib/settlement";
-import { texts } from "@/texts/pt-BR";
+import { common as commonTexts, errors as errorsTexts, event as eventTexts } from "@/texts/pt-BR";
 
-const t = texts.event.sellers;
+const t = eventTexts.sellers;
 
 type AssignMode = "pick" | "rest";
 
@@ -211,8 +211,8 @@ function AssignForm({ seller, event, onDone, onCancel }: { seller: SellerDto; ev
               </div>
             </div>
           )}
-          {text.trim() !== "" && !parsed.ok && <p className="text-xs text-danger-fg">{texts.errors.invalid_range}</p>}
-          {parsed.ok && parsed.count > 0 && <p className="text-xs text-fg-muted">{texts.common.tickets(parsed.count)}</p>}
+          {text.trim() !== "" && !parsed.ok && <p className="text-xs text-danger-fg">{errorsTexts.invalid_range}</p>}
+          {parsed.ok && parsed.count > 0 && <p className="text-xs text-fg-muted">{commonTexts.tickets(parsed.count)}</p>}
         </>
       ) : (
         <>
@@ -252,7 +252,7 @@ function AssignForm({ seller, event, onDone, onCancel }: { seller: SellerDto; ev
 
       <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
         <Button variant="ghost" onClick={onCancel}>
-          {texts.common.cancel}
+          {commonTexts.cancel}
         </Button>
         <Button type="submit" loading={assign.isPending} disabled={!valid}>
           {mode === "rest" && restCount > 0 ? t.assignRestButton(restCount) : t.assign}
@@ -504,7 +504,7 @@ function History({
             </span>
             <span className="flex min-w-0 flex-1 flex-col">
               <span className="text-sm font-medium [overflow-wrap:anywhere] text-fg">
-                {t.historyReturn(reason, label)} <span className="font-normal text-fg-muted">· {texts.common.tickets(countNumbers(numbers))}</span>
+                {t.historyReturn(reason, label)} <span className="font-normal text-fg-muted">· {commonTexts.tickets(countNumbers(numbers))}</span>
               </span>
               <span className="truncate text-xs text-fg-muted">
                 {shortDay(item.createdAt.slice(0, 10))}
@@ -606,7 +606,7 @@ function SellerLink({ seller, event, onChange }: { seller: SellerDto; event: Eve
             onClick={() => {
               void navigator.clipboard.writeText(link.url).then(
                 () => toast.success(l.copied),
-                () => toast.error(texts.errors.generic),
+                () => toast.error(errorsTexts.generic),
               );
             }}
           >
@@ -786,7 +786,7 @@ function SellerCard({
                   onSelect={() => {
                     void navigator.clipboard.writeText(message).then(
                       () => toast.success(t.summaryCopied),
-                      () => toast.error(texts.errors.generic),
+                      () => toast.error(errorsTexts.generic),
                     );
                   }}
                 >
@@ -810,7 +810,7 @@ function SellerCard({
               icon={<Trash2 />}
               tone="danger"
               onSelect={() => {
-                void confirm({ title: t.removeConfirmTitle(seller.name), description: t.removeConfirmBody, confirmLabel: texts.common.remove }).then(
+                void confirm({ title: t.removeConfirmTitle(seller.name), description: t.removeConfirmBody, confirmLabel: commonTexts.remove }).then(
                   (ok) => {
                     if (ok) {
                       remove.mutate(`/api/sellers/${seller.id}`, {
@@ -847,7 +847,7 @@ function SellerCard({
                 aria-label={t.removeRange(label)}
                 className="relative flex size-5 items-center justify-center rounded-md text-fg-subtle transition touch-target hover:bg-danger-soft hover:text-danger-fg active:bg-danger-soft active:text-danger-fg"
                 onClick={() => {
-                  void confirm({ title: t.removeRangeConfirmTitle(label), description: t.removeRangeConfirmBody, confirmLabel: texts.common.remove }).then(
+                  void confirm({ title: t.removeRangeConfirmTitle(label), description: t.removeRangeConfirmBody, confirmLabel: commonTexts.remove }).then(
                     (ok) => {
                       if (ok) {
                         remove.mutate(`/api/ranges/${range.id}`, {
@@ -1235,7 +1235,7 @@ function NewSeller({ eventId, onCreated, tile }: { eventId: string; onCreated: (
                 create.reset();
               }}
             >
-              {texts.common.cancel}
+              {commonTexts.cancel}
             </Button>
           )}
           <Button type="submit" loading={create.isPending} icon={<Plus />}>

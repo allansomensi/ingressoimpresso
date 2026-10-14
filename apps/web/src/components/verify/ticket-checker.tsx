@@ -10,11 +10,11 @@ import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { MAX_QR_TEXT, classifyPasted, pastedQr, pickScanned } from "@/lib/verify";
 import type { Scanner } from "@/portaria/camera";
-import { texts } from "@/texts/pt-BR";
+import { verifyPage as verifyPageTexts } from "@/texts/pt-BR";
 
 import { VerifyResult } from "./verify-result";
 
-const t = texts.verifyPage;
+const t = verifyPageTexts;
 type Mode = "camera" | "photo" | "paste";
 const MODES: readonly { mode: Mode; icon: typeof Camera }[] = [
   { mode: "camera", icon: Camera },

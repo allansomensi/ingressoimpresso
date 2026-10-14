@@ -105,9 +105,9 @@ import type { Palette, TicketTemplate } from "@/lib/templates/catalog";
 import { canDo } from "@/lib/team";
 import { blockValue } from "@/lib/ticket-fields";
 import { useUnsavedChanges } from "@/lib/unsaved";
-import { texts } from "@/texts/pt-BR";
+import { common as commonTexts, event as eventTexts, templates as templatesTexts } from "@/texts/pt-BR";
 
-const t = texts.event.design;
+const t = eventTexts.design;
 
 export function DesignTab({ eventId }: { eventId: string }) {
   const current = useQuery({
@@ -431,7 +431,7 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
       setStubText(next.stub?.fields.join("\n") ?? "");
       setSelected([]);
       setGalleryOpen(false);
-      toast.success(texts.templates.applied(texts.templates.items[template.id].name));
+      toast.success(templatesTexts.applied(templatesTexts.items[template.id].name));
     },
   });
   const save = useMutation({
@@ -682,7 +682,7 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
     const customized = saved.version > 0 || dirty;
     if (
       customized &&
-      !(await confirm({ title: texts.templates.replaceTitle, description: texts.templates.replaceBody, confirmLabel: texts.templates.replaceConfirm, danger: false }))
+      !(await confirm({ title: templatesTexts.replaceTitle, description: templatesTexts.replaceBody, confirmLabel: templatesTexts.replaceConfirm, danger: false }))
     ) {
       return;
     }
@@ -795,7 +795,7 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
                     <span className="sm:hidden">{t.toolbar.previewShort}</span>
                   </Button>
                   <Button size="sm" icon={<Save />} loading={save.isPending} disabled={!canSave} onClick={doSave}>
-                    {save.isPending ? texts.common.saving : texts.common.save}
+                    {save.isPending ? commonTexts.saving : commonTexts.save}
                   </Button>
                 </div>
               </div>
@@ -1007,10 +1007,10 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
           <Section icon={Ruler} title={t.size} description={t.sizeHint}>
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-2">
               <Field label={t.width}>
-                <NumberInput value={design.widthMm} onChange={(widthMm) => { update((d) => ({ ...d, widthMm }), "width"); }} suffix={texts.common.mm} />
+                <NumberInput value={design.widthMm} onChange={(widthMm) => { update((d) => ({ ...d, widthMm }), "width"); }} suffix={commonTexts.mm} />
               </Field>
               <Field label={t.height}>
-                <NumberInput value={design.heightMm} onChange={(heightMm) => { update((d) => ({ ...d, heightMm }), "height"); }} suffix={texts.common.mm} />
+                <NumberInput value={design.heightMm} onChange={(heightMm) => { update((d) => ({ ...d, heightMm }), "height"); }} suffix={commonTexts.mm} />
               </Field>
               <Field label={t.background} className="max-sm:col-span-2 xl:col-span-2">
                 <Input type="color" value={design.backgroundColor} onChange={(e) => { update((d) => ({ ...d, backgroundColor: e.target.value }), "background"); }} />
@@ -1051,7 +1051,7 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
                       onChange={(widthMm) => {
                         update((d) => (d.stub === null ? d : { ...d, stub: { ...d.stub, widthMm } }), "stub-width");
                       }}
-                      suffix={texts.common.mm}
+                      suffix={commonTexts.mm}
                     />
                   </Field>
                   <Field label={t.stubFields} hint={t.stubFieldsHint} className="sm:col-span-2">
@@ -1188,7 +1188,7 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
                       onChange={(sizeMm) => {
                         update((d) => (d.band === null ? d : { ...d, band: { ...d.band, sizeMm } }), "band-size");
                       }}
-                      suffix={texts.common.mm}
+                      suffix={commonTexts.mm}
                     />
                   </Field>
                 )}
@@ -1265,7 +1265,7 @@ function swap<T>(items: readonly T[], a: number, b: number): T[] {
 
 /** Label, its colour and the white panel of the sponsor strip. */
 function SponsorStyle({ strip, onChange }: { strip: SponsorStrip; onChange: (changes: Partial<SponsorStrip>, key: string | null) => void }) {
-  const s = texts.event.design.sponsors;
+  const s = eventTexts.design.sponsors;
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       <Field label={s.label} optional>

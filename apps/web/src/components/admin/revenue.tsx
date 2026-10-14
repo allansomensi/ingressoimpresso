@@ -8,9 +8,9 @@ import { toast } from "sonner";
 import { Button, Card, CardHeader, errorMessage } from "@/components/ui";
 import { api } from "@/lib/api";
 import { money } from "@/lib/format";
-import { texts } from "@/texts/pt-BR";
+import { admin as adminTexts } from "@/texts/pt-BR";
 
-const t = texts.admin.revenue;
+const t = adminTexts.revenue;
 
 /** Net revenue in large type, with the gross and the refunds that make it. */
 function Period({ label, gross, refunds, net }: { label: string; gross: number; refunds: number; net: number }) {

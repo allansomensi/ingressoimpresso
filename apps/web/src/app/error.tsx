@@ -4,9 +4,9 @@ import { AlertTriangle, RefreshCw } from "lucide-react";
 import { useEffect } from "react";
 
 import { Button, ButtonLink } from "@/components/ui";
-import { texts } from "@/texts/pt-BR";
+import { common as commonTexts, crash as crashTexts, notFound as notFoundTexts } from "@/texts/pt-BR";
 
-const t = texts.crash;
+const t = crashTexts;
 
 /** Unexpected error inside a page: the layout stays, the page offers a retry. */
 export default function PageError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
@@ -23,10 +23,10 @@ export default function PageError({ error, reset }: { error: Error & { digest?: 
       <p className="max-w-md leading-relaxed text-fg-muted">{t.body}</p>
       <div className="flex flex-col gap-2 sm:flex-row">
         <Button icon={<RefreshCw />} onClick={reset}>
-          {texts.common.retry}
+          {commonTexts.retry}
         </Button>
         <ButtonLink href="/" variant="secondary">
-          {texts.notFound.home}
+          {notFoundTexts.home}
         </ButtonLink>
       </div>
     </main>

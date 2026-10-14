@@ -35,9 +35,9 @@ import { money } from "@/lib/format";
 import { sessionLabel } from "@/lib/series";
 import { HOLD_MS, OFFLINE_WARNING_MS, canRehearse, clockTime, dismissPolicy, type ResultView } from "@/portaria/logic";
 import { cameraGranted, keepOffline, keepScreenOn, persistStorage } from "@/portaria/offline";
-import { texts } from "@/texts/pt-BR";
+import { errors as errorsTexts, portaria as portariaTexts } from "@/texts/pt-BR";
 
-const t = texts.portaria;
+const t = portariaTexts;
 
 /** Each result object gets its own key, so a new (or repeated) result restarts its timer. */
 const resultKeys = new WeakMap<ResultView, number>();
@@ -67,7 +67,7 @@ export function DoorApp() {
   return (
     <main className="flex min-h-dvh flex-col bg-[#0b0a12] bg-[radial-gradient(80%_50%_at_50%_0%,rgba(91,61,245,0.18),transparent)] text-neutral-50">
       {state.phase === "loading" && <Centered>{t.loading}</Centered>}
-      {state.phase === "failed" && <Centered>{texts.errors.generic}</Centered>}
+      {state.phase === "failed" && <Centered>{errorsTexts.generic}</Centered>}
       {state.phase === "revoked" && <Revoked engine={engine} />}
       {state.phase === "unregistered" &&
         (accessToken === "" ? <Centered>{t.noAccess}</Centered> : <Register engine={engine} accessToken={accessToken} />)}
@@ -102,10 +102,10 @@ function errorText(error: unknown): string {
     if (error.revoked) {
       return t.revoked;
     }
-    const messages: Readonly<Record<string, string>> = texts.errors;
-    return error.offline ? texts.errors.network : (messages[error.code] ?? texts.errors.generic);
+    const messages: Readonly<Record<string, string>> = errorsTexts;
+    return error.offline ? errorsTexts.network : (messages[error.code] ?? errorsTexts.generic);
   }
-  return texts.errors.generic;
+  return errorsTexts.generic;
 }
 
 function Register({ engine, accessToken }: { engine: DoorEngine; accessToken: string }) {

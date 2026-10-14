@@ -3,9 +3,9 @@
 import { TemplateSample } from "@/components/marketing/template-sample";
 import { useNearScreen } from "@/components/ui/near-screen";
 import { TEMPLATES, type TicketTemplate } from "@/lib/templates/catalog";
-import { texts } from "@/texts/pt-BR";
+import { landing as landingTexts } from "@/texts/pt-BR";
 
-const t = texts.landing;
+const t = landingTexts;
 
 function Sample({ template, index, placeholder }: { template: TicketTemplate; index: number; placeholder: boolean }) {
   return (

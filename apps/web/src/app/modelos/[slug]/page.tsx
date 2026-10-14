@@ -16,9 +16,9 @@ import { ButtonLink } from "@/components/ui";
 import { eventSeoPage } from "@/content/seo-event-pages";
 import { eventSlugForTemplate, templateSeoBySlug, templateSeoPages } from "@/content/seo-templates";
 import { templateById } from "@/lib/templates/catalog";
-import { texts } from "@/texts/pt-BR";
+import { eventPages as eventPagesTexts, meta as metaTexts, templateGallery as templateGalleryTexts, templates as templatesTexts } from "@/texts/pt-BR";
 
-const t = texts.templateGallery;
+const t = templateGalleryTexts;
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -40,7 +40,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     description: page.description,
     alternates: { canonical: path },
     // The share image is ./opengraph-image.tsx (and ./twitter-image.tsx).
-    openGraph: { type: "website", locale: "pt_BR", siteName: texts.meta.title, url: path, title: page.title, description: page.description },
+    openGraph: { type: "website", locale: "pt_BR", siteName: metaTexts.title, url: path, title: page.title, description: page.description },
     twitter: { card: "summary_large_image", title: page.title, description: page.description },
   };
 }
@@ -52,10 +52,10 @@ export default async function TemplatePage({ params }: Props) {
   if (page === undefined || template === undefined) {
     notFound();
   }
-  const item = texts.templates.items[page.id];
+  const item = templatesTexts.items[page.id];
   const first = template.palettes[0];
   const design = first === undefined ? null : template.build(first).design;
-  const format = design === null ? "" : texts.templates.format(design.widthMm, design.heightMm, design.stub !== null);
+  const format = design === null ? "" : templatesTexts.format(design.widthMm, design.heightMm, design.stub !== null);
   const eventSlug = eventSlugForTemplate(page.id);
   const event = eventSlug === undefined ? undefined : eventSeoPage(eventSlug);
   const position = templateSeoPages.findIndex((other) => other.id === page.id);
@@ -74,7 +74,7 @@ export default async function TemplatePage({ params }: Props) {
           <div className="relative mx-auto grid max-w-6xl items-center gap-10 px-4 pt-10 pb-16 sm:px-6 lg:grid-cols-[1fr_1.15fr] lg:pt-16 lg:pb-24">
             <div className="flex flex-col items-start gap-6">
               <Breadcrumb
-                items={[{ label: texts.eventPages.home, href: "/" }, { label: t.breadcrumb, href: "/modelos" }, { label: item.name }]}
+                items={[{ label: eventPagesTexts.home, href: "/" }, { label: t.breadcrumb, href: "/modelos" }, { label: item.name }]}
               />
               <span className="inline-flex items-center gap-2 rounded-full border border-brand/20 bg-brand-soft px-3 py-1 text-[13px] font-medium text-brand-soft-fg">
                 <span className="size-1.5 rounded-full bg-brand" />
@@ -114,7 +114,7 @@ export default async function TemplatePage({ params }: Props) {
                     </div>
                     <span className="flex items-center gap-2 text-sm font-medium text-fg-muted">
                       <span aria-hidden className="size-3 rounded-full ring-1 ring-black/10" style={{ backgroundColor: palette.bg }} />
-                      {texts.templates.palettes[palette.id as keyof typeof texts.templates.palettes] ?? palette.id}
+                      {templatesTexts.palettes[palette.id as keyof typeof templatesTexts.palettes] ?? palette.id}
                     </span>
                   </li>
                 ))}

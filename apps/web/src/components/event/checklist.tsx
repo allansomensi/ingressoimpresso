@@ -8,11 +8,11 @@ import { useState, type ReactNode } from "react";
 import { Badge, Card, CardHeader } from "@/components/ui";
 import { checklistTarget, requiredDone, splitItems } from "@/lib/checklist";
 import { cn } from "@/lib/cn";
-import { texts } from "@/texts/pt-BR";
+import { checklist as checklistTexts } from "@/texts/pt-BR";
 
 import type { SelectTab } from "./tabs";
 
-const t = texts.checklist;
+const t = checklistTexts;
 
 /**
  * "O que falta" (ADR 0078): what the event still needs, worked out by the API, in the order the

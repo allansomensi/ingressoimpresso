@@ -28,9 +28,9 @@ import {
 import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { shortDateTime } from "@/lib/format";
-import { texts } from "@/texts/pt-BR";
+import { admin as adminTexts } from "@/texts/pt-BR";
 
-const t = texts.admin.emails;
+const t = adminTexts.emails;
 
 /** `contato@example.com` out of `Name <contato@example.com>` (the name is the site's own); it
  * wraps after the `@` and before each dot, never mid-word. */
