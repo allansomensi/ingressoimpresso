@@ -8,9 +8,9 @@ import { Logo } from "@/components/brand";
 import { ButtonLink, useScrollLock } from "@/components/ui";
 import { readToken, subscribeToken } from "@/lib/api";
 import { cn } from "@/lib/cn";
-import { texts } from "@/texts/pt-BR";
+import { nav as navTexts } from "@/texts/pt-BR/nav";
 
-const t = texts.nav;
+const t = navTexts;
 // Absolute anchors: the header also sits on the legal pages and the changelog.
 const LINKS = [
   { href: "/#como-funciona", label: t.howItWorks },

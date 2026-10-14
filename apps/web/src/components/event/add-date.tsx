@@ -11,9 +11,11 @@ import { Button, Dialog, ErrorMessage, Field, Input, LoadingBlock } from "@/comp
 import { api } from "@/lib/api";
 import { offsetMinutes, wallClockInput, withOffset } from "@/lib/event-time";
 import { addDays, nextDateStart } from "@/lib/series";
-import { texts } from "@/texts/pt-BR";
+import { common as commonTexts } from "@/texts/pt-BR/common";
+import { panel as panelTexts } from "@/texts/pt-BR/panel";
+import { series as seriesTexts } from "@/texts/pt-BR/series";
 
-const t = texts.series;
+const t = seriesTexts;
 
 /** Minutes between two `datetime-local` values (plain calendar arithmetic). */
 function minutesBetween(start: string, end: string): number {
@@ -107,7 +109,7 @@ function AddDateForm({ event, siblings, onClose }: { event: EventDto; siblings: 
           />
         </Field>
       </div>
-      <p className="-mt-2 text-xs text-fg-muted">{texts.panel.eventTimeZoneHint(offset)}</p>
+      <p className="-mt-2 text-xs text-fg-muted">{panelTexts.eventTimeZoneHint(offset)}</p>
       <div className="grid gap-3 rounded-xl border border-border bg-surface-2 p-4 text-sm sm:grid-cols-2 sm:gap-5">
         <div className="flex flex-col gap-2">
           <p className="flex items-center gap-2 font-medium text-fg">
@@ -142,7 +144,7 @@ function AddDateForm({ event, siblings, onClose }: { event: EventDto; siblings: 
       <ErrorMessage error={save.error} />
       <div className="flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:justify-end">
         <Button variant="secondary" onClick={onClose}>
-          {texts.common.cancel}
+          {commonTexts.cancel}
         </Button>
         <Button type="submit" icon={<CalendarPlus />} loading={save.isPending}>
           {t.add}

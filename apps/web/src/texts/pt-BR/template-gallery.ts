@@ -1,0 +1,33 @@
+export const templateGallery = {
+  title: "Modelos de ingresso prontos para imprimir",
+  metaDescription:
+    "16 modelos de ingresso numerados e com QR code: festa junina, formatura, show, teatro, rifa e mais. Personalize e imprima em casa ou na gráfica.",
+  breadcrumb: "Modelos",
+  eyebrow: "Modelos de ingresso",
+  lead: "Escolha o modelo do seu tipo de evento. O nome, a data, o local e o preço entram sozinhos, cada ingresso sai com o seu número e um QR que não dá para copiar, e tudo pode ser editado.",
+  see: "Ver modelo",
+  colors: (count: number) => (count === 1 ? "1 combinação de cores" : `${String(count)} combinações de cores`),
+  imageAlt: (h1: string) => `${h1}, preenchido com um evento de exemplo`,
+  // Template page.
+  templateEyebrow: "Modelo de ingresso",
+  use: "Usar este modelo",
+  all: "Ver todos os modelos",
+  sample: "Exemplo com dados fictícios: o seu ingresso sai com os dados do seu evento.",
+  colorsTitle: "Cores do modelo",
+  colorsLead: "Comece por uma das combinações prontas ou use as cores do seu evento no editor.",
+  includesTitle: "O que vem no modelo",
+  includes: (format: string) => [
+    `Formato ${format}, pronto para imprimir`,
+    "Nome, data, local e preço do evento preenchidos sozinhos",
+    "Um número e um QR code que não se repetem em cada ingresso",
+    "Textos, fontes, cores e posições editáveis, arrastando",
+    "PDF A4 com marcas de corte para casa ou PDF com sangria para a gráfica",
+    "O mesmo ingresso no celular, para mandar pelo WhatsApp",
+  ],
+  eventTitle: (label: string) => `Organizando ${label.toLowerCase()}?`,
+  eventBody: "Veja como vender na mão, acertar com os vendedores e conferir a entrada pelo celular.",
+  eventLink: (label: string) => `Ingresso para ${label.toLowerCase()}`,
+  othersTitle: "Outros modelos",
+  finalTitle: "Crie os seus ingressos com este modelo",
+  raffleLink: "Modelo de rifa numerada com canhoto",
+} as const;

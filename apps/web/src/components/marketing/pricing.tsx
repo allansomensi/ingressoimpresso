@@ -10,9 +10,10 @@ import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { dateTime, money, parseMoney } from "@/lib/format";
 import { LARGEST_BATCH, discounted, quoteBreakdown, sliderPosition, sliderQuantity } from "@/lib/pricing";
-import { texts } from "@/texts/pt-BR";
+import { common as commonTexts } from "@/texts/pt-BR/common";
+import { landing as landingTexts } from "@/texts/pt-BR/landing";
 
-const t = texts.landing;
+const t = landingTexts;
 const s = t.sim;
 const START_QUANTITY = 200;
 
@@ -176,11 +177,11 @@ function Simulator({ pricing }: { pricing: PricingDto }) {
 
       <div className="flex flex-col gap-1.5">
         <label htmlFor={priceId} className="text-sm font-medium text-fg">
-          {s.price} <span className="text-xs font-normal text-fg-subtle">({texts.common.optional})</span>
+          {s.price} <span className="text-xs font-normal text-fg-subtle">({commonTexts.optional})</span>
         </label>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <span className="relative flex sm:w-40 sm:shrink-0">
-            <span className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-fg-subtle">{texts.common.currency}</span>
+            <span className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-fg-subtle">{commonTexts.currency}</span>
             <input
               id={priceId}
               value={price}

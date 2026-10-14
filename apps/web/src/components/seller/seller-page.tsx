@@ -46,9 +46,12 @@ import { copyText } from "@/lib/share";
 import { sessionLabel } from "@/lib/series";
 import { listNames } from "@/lib/team";
 import { textOn } from "@/lib/ticket-pass";
-import { texts } from "@/texts/pt-BR";
+import { brand as brandTexts } from "@/texts/pt-BR/brand";
+import { errors as errorsTexts } from "@/texts/pt-BR/errors";
+import { event as eventTexts } from "@/texts/pt-BR/event";
+import { sellerPage as sellerPageTexts } from "@/texts/pt-BR/seller-page";
 
-const t = texts.sellerPage;
+const t = sellerPageTexts;
 
 type Filter = "available" | "sold" | "all";
 
@@ -96,7 +99,7 @@ function SaleTicket({
       onSaved(await api<SellerViewDto>("/api/seller/tickets", { method: "POST", body }));
       toast.success(t.sale.ticketReady);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.userMessage : texts.errors.generic);
+      toast.error(error instanceof ApiError ? error.userMessage : errorsTexts.generic);
     } finally {
       setBusy(false);
     }
@@ -341,7 +344,7 @@ export function SellerPage() {
       <header className="flex items-center justify-between">
         <span className="flex items-center gap-2 text-sm font-semibold text-fg-muted">
           <LogoMark className="size-6" />
-          {texts.brand.name}
+          {brandTexts.name}
         </span>
         <Button variant="ghost" size="sm" icon={<RefreshCw />} loading={sync.syncing} disabled={!sync.online} onClick={() => void sync.sync()}>
           {t.refresh}
@@ -595,7 +598,7 @@ export function SellerPage() {
             {view.payments.map((payment, index) => (
               <li key={`${payment.receivedOn}-${String(index)}`} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
                 <span className="text-fg-muted">
-                  {texts.event.sellers.methods[payment.method]} · {payment.receivedOn.split("-").reverse().slice(0, 2).join("/")}
+                  {eventTexts.sellers.methods[payment.method]} · {payment.receivedOn.split("-").reverse().slice(0, 2).join("/")}
                 </span>
                 <span className="font-semibold text-fg tabular">{money(payment.amountCents)}</span>
               </li>

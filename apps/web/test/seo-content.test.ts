@@ -6,7 +6,8 @@ import { describe, expect, it } from "vitest";
 import { eventSeoPages } from "@/content/seo-event-pages";
 import { EVENT_TEMPLATES, templateImagePath, templateSeoPages } from "@/content/seo-templates";
 import { TEMPLATES } from "@/lib/templates/catalog";
-import { texts } from "@/texts/pt-BR";
+import { landing as landingTexts } from "@/texts/pt-BR/landing";
+import { templateGallery as templateGalleryTexts } from "@/texts/pt-BR/template-gallery";
 
 const PUBLIC = fileURLToPath(new URL("../public", import.meta.url));
 
@@ -62,7 +63,7 @@ describe("template pages (/modelos)", () => {
   });
 
   it("have the gallery's description within the snippet", () => {
-    expect(texts.templateGallery.metaDescription.length).toBeLessThanOrEqual(160);
-    expect(texts.landing.metaTitle.length).toBeLessThanOrEqual(70);
+    expect(templateGalleryTexts.metaDescription.length).toBeLessThanOrEqual(160);
+    expect(landingTexts.metaTitle.length).toBeLessThanOrEqual(70);
   });
 });

@@ -19,9 +19,9 @@ import {
   shortcutDeadline,
   type DeadlineShortcut,
 } from "@/lib/reservations";
-import { texts } from "@/texts/pt-BR";
+import { sellerPage as sellerPageTexts } from "@/texts/pt-BR/seller-page";
 
-const s = texts.sellerPage.sheet;
+const s = sellerPageTexts.sheet;
 
 type Choice = DeadlineShortcut | "custom";
 

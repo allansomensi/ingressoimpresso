@@ -61,9 +61,12 @@ import { dateTime, money, parseMoney, shortDateTime } from "@/lib/format";
 import { fromLocalInput, localInputIn, toLocalInput } from "@/lib/local-time";
 import { quote, type PriceTable } from "@/lib/pricing";
 import { copyText } from "@/lib/share";
-import { texts } from "@/texts/pt-BR";
+import { account as accountTexts } from "@/texts/pt-BR/account";
+import { admin as adminTexts } from "@/texts/pt-BR/admin";
+import { common as commonTexts } from "@/texts/pt-BR/common";
+import { event as eventTexts } from "@/texts/pt-BR/event";
 
-const t = texts.admin.billing;
+const t = adminTexts.billing;
 const EXAMPLES = [50, 100, 300, 1000] as const;
 const LARGEST_BATCH = 5000;
 
@@ -80,8 +83,8 @@ function TierTable({ table }: { table: PriceTableDto }) {
           const from = (table.tiers[index - 1]?.upTo ?? 0) + 1;
           return (
             <li key={tier.upTo} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
-              <span className="text-fg-muted">{texts.account.tier(from, tier.upTo)}</span>
-              <span className="font-semibold text-fg tabular">{texts.account.perTicket(money(tier.unitCents))}</span>
+              <span className="text-fg-muted">{accountTexts.tier(from, tier.upTo)}</span>
+              <span className="font-semibold text-fg tabular">{accountTexts.perTicket(money(tier.unitCents))}</span>
             </li>
           );
         })}
@@ -163,7 +166,7 @@ function PriceEditor({ current, onClose }: { current: PriceTableDto; onClose: ()
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
-            {texts.common.cancel}
+            {commonTexts.cancel}
           </Button>
           <Button loading={save.isPending} disabled={!valid} onClick={() => save.mutate()}>
             {when === "now" ? t.applyNow : t.schedule}
@@ -281,15 +284,15 @@ function PriceEditor({ current, onClose }: { current: PriceTableDto; onClose: ()
             )}
             <Switch checked={announce} onChange={setAnnounce} label={t.announce} description={t.announceHint} />
             {announce && (
-              <Field label={texts.admin.announcements.display}>
+              <Field label={adminTexts.announcements.display}>
                 <Select
                   value={display}
                   onChange={(event) => {
                     setDisplay(event.target.value as AnnouncementDisplay);
                   }}
                 >
-                  <option value="modal">{texts.admin.announcements.displays.modal}</option>
-                  <option value="notification">{texts.admin.announcements.displays.notification}</option>
+                  <option value="modal">{adminTexts.announcements.displays.modal}</option>
+                  <option value="notification">{adminTexts.announcements.displays.notification}</option>
                 </Select>
               </Field>
             )}
@@ -315,7 +318,7 @@ function PriceEditor({ current, onClose }: { current: PriceTableDto; onClose: ()
               const change = after === null || before === 0 ? null : Math.round(((after - before) / before) * 100);
               return (
                 <li key={quantity} className="flex flex-col gap-0.5 rounded-xl bg-surface-2 px-3.5 py-2.5">
-                  <span className="text-xs text-fg-muted">{texts.account.example(quantity)}</span>
+                  <span className="text-xs text-fg-muted">{accountTexts.example(quantity)}</span>
                   <span className="flex items-baseline justify-between gap-2">
                     <span className="font-semibold text-fg tabular">{after === null ? "—" : money(after)}</span>
                     {change !== null && change !== 0 && (
@@ -506,10 +509,10 @@ function PromotionEditor({ promotion, onClose }: { promotion: PromotionDto | nul
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
-            {texts.common.cancel}
+            {commonTexts.cancel}
           </Button>
           <Button loading={save.isPending} disabled={!valid} onClick={() => save.mutate()}>
-            {texts.common.save}
+            {commonTexts.save}
           </Button>
         </>
       }
@@ -635,7 +638,7 @@ export function AdminPromotions() {
                   </span>
                 </div>
                 <Menu
-                  label={texts.event.batches.moreActions}
+                  label={eventTexts.batches.moreActions}
                   trigger={<MoreHorizontal className="size-4" aria-hidden />}
                   triggerClassName="flex size-9 items-center justify-center rounded-lg text-fg-muted transition hover:bg-surface-2 active:bg-surface-2 hover:text-fg"
                 >
@@ -645,18 +648,18 @@ export function AdminPromotions() {
                       setEditing(promotion);
                     }}
                   >
-                    {texts.common.edit}
+                    {commonTexts.edit}
                   </MenuItem>
                   <MenuItem
                     tone="danger"
                     icon={<Trash2 />}
                     onSelect={async () => {
-                      if (await confirm({ title: t.promoDeleteTitle, description: t.promoDeleteBody, confirmLabel: texts.common.remove })) {
+                      if (await confirm({ title: t.promoDeleteTitle, description: t.promoDeleteBody, confirmLabel: commonTexts.remove })) {
                         remove.mutate(promotion.id);
                       }
                     }}
                   >
-                    {texts.common.remove}
+                    {commonTexts.remove}
                   </MenuItem>
                 </Menu>
               </ListItem>
@@ -749,7 +752,7 @@ function CodeCreator({ onClose }: { onClose: () => void }) {
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
-            {texts.common.cancel}
+            {commonTexts.cancel}
           </Button>
           <Button loading={create.isPending} disabled={!valid} onClick={() => create.mutate()}>
             {t.createCode}
@@ -950,7 +953,7 @@ export function AdminCodes() {
                       onClick={() => {
                         void copyText(code.code).then((ok) => {
                           if (ok) {
-                            toast.success(texts.common.copied);
+                            toast.success(commonTexts.copied);
                           }
                         });
                       }}
@@ -973,7 +976,7 @@ export function AdminCodes() {
                   </span>
                 </div>
                 <Menu
-                  label={texts.event.batches.moreActions}
+                  label={eventTexts.batches.moreActions}
                   trigger={<MoreHorizontal className="size-4" aria-hidden />}
                   triggerClassName="flex size-9 items-center justify-center rounded-lg text-fg-muted transition hover:bg-surface-2 active:bg-surface-2 hover:text-fg"
                 >

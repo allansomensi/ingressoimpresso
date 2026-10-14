@@ -13,9 +13,10 @@ import { clampPosition, compareTables, findSeat } from "@/lib/categories";
 import { cn } from "@/lib/cn";
 import { ticketNumber } from "@/lib/format";
 import { NUMBER_LIST_INPUT, formatRanges, parseNumberList } from "@/lib/number-list";
-import { texts } from "@/texts/pt-BR";
+import { common as commonTexts } from "@/texts/pt-BR/common";
+import { event as eventTexts } from "@/texts/pt-BR/event";
 
-const t = texts.event.tables;
+const t = eventTexts.tables;
 
 /** Diameter (round) or width (long) of a table on the map, in % of the map's width. */
 function tableSize(table: Pick<TableDto, "seats" | "shape">): { width: number; height: number } {
@@ -589,7 +590,7 @@ function BulkDialog({ eventId, onClose, onSaved }: { eventId: string; onClose: (
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
-            {texts.common.cancel}
+            {commonTexts.cancel}
           </Button>
           <Button type="submit" form="tables-bulk" loading={save.isPending} disabled={!valid}>
             {t.create(count)}
@@ -654,7 +655,7 @@ function TableFormDialog({ eventId, table, onClose, onSaved }: { eventId: string
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
-            {texts.common.cancel}
+            {commonTexts.cancel}
           </Button>
           <Button type="submit" form="table-form" loading={save.isPending} disabled={!valid}>
             {t.save}

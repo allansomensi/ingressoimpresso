@@ -11,9 +11,9 @@ import { QrCode } from "@/components/qr";
 import { Alert, Badge, Button, Card, CardHeader, Dialog, ErrorMessage, Field, Input, Skeleton } from "@/components/ui";
 import { api } from "@/lib/api";
 import { dateTime } from "@/lib/format";
-import { texts } from "@/texts/pt-BR";
+import { twoFactor as twoFactorTexts } from "@/texts/pt-BR/two-factor";
 
-const t = texts.twoFactor;
+const t = twoFactorTexts;
 const STATUS_KEY = ["two-factor"];
 
 type Step = null | "setup" | "disable" | "regenerate";

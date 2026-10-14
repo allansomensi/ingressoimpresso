@@ -19,9 +19,12 @@ import { money } from "@/lib/format";
 import { usePlatform } from "@/lib/platform";
 import { clearReferral, normalizeReferralCode, readReferral, saveReferral } from "@/lib/referral";
 import { useSession } from "@/lib/session";
-import { texts } from "@/texts/pt-BR";
+import { login as loginTexts } from "@/texts/pt-BR/login";
+import { maintenance as maintenanceTexts } from "@/texts/pt-BR/maintenance";
+import { meta as metaTexts } from "@/texts/pt-BR/meta";
+import { referrals as referralsTexts } from "@/texts/pt-BR/referrals";
 
-const t = texts.login;
+const t = loginTexts;
 const RESEND_AFTER_S = 30;
 
 function needsSecondStep(error: unknown): boolean {
@@ -40,9 +43,9 @@ function ReferralInvite({ invite }: { invite: ReferralInviteDto }) {
         <Gift className="size-5" aria-hidden />
       </span>
       <div className="flex min-w-0 flex-col gap-0.5">
-        <p className="text-sm font-semibold text-fg">{texts.referrals.inviteTitle(invite.organizationName)}</p>
+        <p className="text-sm font-semibold text-fg">{referralsTexts.inviteTitle(invite.organizationName)}</p>
         <p className="text-sm leading-relaxed text-fg-muted">
-          {texts.referrals.inviteBody(money(invite.referredCents), money(invite.minBatchCents))}
+          {referralsTexts.inviteBody(money(invite.referredCents), money(invite.minBatchCents))}
         </p>
       </div>
     </div>
@@ -125,11 +128,11 @@ function SignIn() {
   const mode = platform.data?.maintenance.mode ?? "off";
   const notice =
     mode === "full"
-      ? texts.maintenance.signInClosed
+      ? maintenanceTexts.signInClosed
       : mode === "read_only"
-        ? texts.maintenance.signInNotice
+        ? maintenanceTexts.signInNotice
         : platform.data?.registrationsOpen === false
-          ? texts.maintenance.registrationsClosed
+          ? maintenanceTexts.registrationsClosed
           : null;
 
   useEffect(() => {
@@ -153,7 +156,7 @@ function SignIn() {
 
   const finish = (response: SessionResponse) => {
     if (response.referred) {
-      toast.success(texts.referrals.welcome(money(invite.data?.referredCents ?? 0)));
+      toast.success(referralsTexts.welcome(money(invite.data?.referredCents ?? 0)));
     }
     // Used, or this e-mail already had an account: either way the code has done its job.
     if (referralCode !== null) {
@@ -285,7 +288,7 @@ function SignIn() {
             ))}
           </ul>
         </div>
-        <p className="relative text-sm text-white/50">{texts.meta.description}</p>
+        <p className="relative text-sm text-white/50">{metaTexts.description}</p>
       </aside>
 
       <main className="flex flex-col bg-glow px-4 py-6 sm:px-8">

@@ -16,9 +16,13 @@ import { cn } from "@/lib/cn";
 import { eventPhase } from "@/lib/event-list";
 import { dateParts, money } from "@/lib/format";
 import { dayLabel, hourLabel } from "@/lib/series";
-import { texts } from "@/texts/pt-BR";
+import { admin as adminTexts } from "@/texts/pt-BR/admin";
+import { common as commonTexts } from "@/texts/pt-BR/common";
+import { event as eventTexts } from "@/texts/pt-BR/event";
+import { meta as metaTexts } from "@/texts/pt-BR/meta";
+import { series as seriesTexts } from "@/texts/pt-BR/series";
 
-const t = texts.series;
+const t = seriesTexts;
 const count = (value: number) => value.toLocaleString("pt-BR");
 const cents = (value: number | null) => (value === null ? t.none : money(value));
 const percent = (part: number, whole: number) => (whole === 0 ? 0 : Math.round((part / whole) * 100));
@@ -34,7 +38,7 @@ export function SeriesView({ seriesId }: { seriesId: string }) {
   const name = series.data?.name;
   useEffect(() => {
     if (name !== undefined) {
-      document.title = `${name} · ${texts.meta.title}`;
+      document.title = `${name} · ${metaTexts.title}`;
     }
   }, [name]);
 
@@ -50,7 +54,7 @@ export function SeriesView({ seriesId }: { seriesId: string }) {
 
   if (series.isPending) {
     return (
-      <div className="flex flex-col gap-4" aria-busy="true" aria-label={texts.common.loading}>
+      <div className="flex flex-col gap-4" aria-busy="true" aria-label={commonTexts.loading}>
         <Skeleton className="h-4 w-24" />
         <Skeleton className="h-9 w-72 max-w-full" />
         <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
@@ -71,7 +75,7 @@ export function SeriesView({ seriesId }: { seriesId: string }) {
           description={t.notFound}
           action={
             <ButtonLink href="/painel" variant="secondary" icon={<ArrowLeft />}>
-              {texts.event.backToEvents}
+              {eventTexts.backToEvents}
             </ButtonLink>
           }
         />
@@ -96,7 +100,7 @@ function SeriesContent({ data, now, back }: { data: SeriesDto; now: number; back
       {data.supportAccess && (
         <div role="status" className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-warning/30 bg-warning-soft px-4 py-3 text-sm text-warning-fg">
           <LifeBuoy className="size-4 shrink-0" aria-hidden />
-          <span className="flex-1">{texts.admin.support.banner}</span>
+          <span className="flex-1">{adminTexts.support.banner}</span>
         </div>
       )}
       <div className="flex flex-col gap-2">
@@ -344,9 +348,9 @@ function Balance({ value }: { value: number | null }) {
     return <span className="font-semibold text-warning-fg">{money(value)}</span>;
   }
   if (value < 0) {
-    return <span className="text-brand">{texts.event.report.overpaid(money(-value))}</span>;
+    return <span className="text-brand">{eventTexts.report.overpaid(money(-value))}</span>;
   }
-  return <span className="font-medium text-success-fg">{texts.event.report.settled}</span>;
+  return <span className="font-medium text-success-fg">{eventTexts.report.settled}</span>;
 }
 
 /** Sellers of every date, one line per name. */
@@ -438,10 +442,10 @@ function RenameForm({ series, onClose }: { series: SeriesDto; onClose: () => voi
       <ErrorMessage error={save.error} />
       <div className="flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:justify-end">
         <Button variant="secondary" onClick={onClose}>
-          {texts.common.cancel}
+          {commonTexts.cancel}
         </Button>
         <Button type="submit" loading={save.isPending} disabled={name.trim() === "" || name.trim() === series.name}>
-          {texts.common.save}
+          {commonTexts.save}
         </Button>
       </div>
     </form>

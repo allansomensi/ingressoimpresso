@@ -48,13 +48,16 @@ import {
 import { api } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { dateTime, eventDateTime, money, shortDateTime } from "@/lib/format";
-import { texts } from "@/texts/pt-BR";
+import { account as accountTexts } from "@/texts/pt-BR/account";
+import { admin as adminTexts } from "@/texts/pt-BR/admin";
+import { common as commonTexts } from "@/texts/pt-BR/common";
+import { event as eventTexts } from "@/texts/pt-BR/event";
 
-const t = texts.admin.organization;
+const t = adminTexts.organization;
 
 /** One line of the audit log: who did what, when. */
 export function AuditLine({ entry, showOrganization = true }: { entry: AuditEntryDto; showOrganization?: boolean }) {
-  const action = texts.admin.audit.actions[entry.action] ?? entry.action;
+  const action = adminTexts.audit.actions[entry.action] ?? entry.action;
   const detail = entry.detail;
   const path = typeof detail["path"] === "string" ? `${String(detail["method"] ?? "")} ${detail["path"]}` : null;
   // A few details of the action (amounts, names, switches), never the request path twice.
@@ -122,10 +125,10 @@ function RenameDialog({ detail, open, onClose }: { detail: AdminOrganizationDeta
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
-            {texts.common.cancel}
+            {commonTexts.cancel}
           </Button>
           <Button loading={save.isPending} disabled={name.trim() === ""} onClick={() => save.mutate()}>
-            {texts.common.save}
+            {commonTexts.save}
           </Button>
         </>
       }
@@ -137,7 +140,7 @@ function RenameDialog({ detail, open, onClose }: { detail: AdminOrganizationDeta
           save.mutate();
         }}
       >
-        <Field label={texts.account.organizationName}>
+        <Field label={accountTexts.organizationName}>
           <Input
             value={name}
             maxLength={100}
@@ -178,7 +181,7 @@ function SuspendDialog({ detail, open, onClose }: { detail: AdminOrganizationDet
       footer={
         <>
           <Button variant="secondary" autoFocus onClick={onClose}>
-            {texts.common.cancel}
+            {commonTexts.cancel}
           </Button>
           <Button variant="danger" icon={<ShieldAlert />} loading={suspend.isPending} onClick={() => suspend.mutate()}>
             {t.suspend}
@@ -309,7 +312,7 @@ export function OrganizationDetail({ organizationId }: { organizationId: string 
                 setDialog("bonus");
               }}
             >
-              {texts.admin.organizations.bonus}
+              {adminTexts.organizations.bonus}
             </Button>
             {o.suspended ? (
               <Button size="sm" icon={<ShieldCheck />} loading={unsuspend.isPending} onClick={() => unsuspend.mutate()}>
@@ -338,13 +341,13 @@ export function OrganizationDetail({ organizationId }: { organizationId: string 
       )}
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        <Stat label={texts.admin.stats.revenue} value={money(o.revenueCents)} icon={Building2} tone="success" />
-        <Stat label={texts.admin.stats.paidTickets} value={o.paidTickets.toLocaleString("pt-BR")} icon={Ticket} />
-        <Stat label={texts.admin.stats.events} value={o.eventCount.toLocaleString("pt-BR")} icon={CalendarDays} />
+        <Stat label={adminTexts.stats.revenue} value={money(o.revenueCents)} icon={Building2} tone="success" />
+        <Stat label={adminTexts.stats.paidTickets} value={o.paidTickets.toLocaleString("pt-BR")} icon={Ticket} />
+        <Stat label={adminTexts.stats.events} value={o.eventCount.toLocaleString("pt-BR")} icon={CalendarDays} />
         <Stat
-          label={texts.admin.stats.freeLabel}
-          value={texts.account.freeOf(o.freeUsed, o.freeTotal)}
-          hint={o.bonusFreeTickets > 0 ? texts.admin.organizations.bonusBadge(o.bonusFreeTickets) : undefined}
+          label={adminTexts.stats.freeLabel}
+          value={accountTexts.freeOf(o.freeUsed, o.freeTotal)}
+          hint={o.bonusFreeTickets > 0 ? adminTexts.organizations.bonusBadge(o.bonusFreeTickets) : undefined}
           icon={Gift}
         />
       </div>
@@ -368,7 +371,7 @@ export function OrganizationDetail({ organizationId }: { organizationId: string 
                     <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                       <span className="flex items-center gap-2">
                         <span className="truncate text-sm font-medium text-fg">{event.name}</span>
-                        {event.status === "closed" && <Badge>{texts.event.actions.archivedBadge}</Badge>}
+                        {event.status === "closed" && <Badge>{eventTexts.actions.archivedBadge}</Badge>}
                       </span>
                       <span className="text-xs text-fg-muted">
                         {eventDateTime(event.startsAt)} · {t.eventLine(event.paidTickets, event.entries)}

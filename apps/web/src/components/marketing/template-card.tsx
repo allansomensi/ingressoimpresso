@@ -4,13 +4,14 @@ import Link from "next/link";
 import { templateImagePath, type TemplateSeoPage } from "@/content/seo-templates";
 import { templateById } from "@/lib/templates/catalog";
 import { templateImageSize } from "@/lib/templates/images";
-import { texts } from "@/texts/pt-BR";
+import { templateGallery as templateGalleryTexts } from "@/texts/pt-BR/template-gallery";
+import { templates as templatesTexts } from "@/texts/pt-BR/templates";
 
-const t = texts.templateGallery;
+const t = templateGalleryTexts;
 
 /** A template in a grid: its picture, name and what it is for, linking to its page. */
 export function TemplateCard({ page, headingLevel = "h2" }: { page: TemplateSeoPage; headingLevel?: "h2" | "h3" }) {
-  const item = texts.templates.items[page.id];
+  const item = templatesTexts.items[page.id];
   const palettes = templateById(page.id)?.palettes.length ?? 1;
   const size = templateImageSize(page.id);
   const Heading = headingLevel;

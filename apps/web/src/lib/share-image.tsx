@@ -12,7 +12,7 @@ import { ImageResponse } from "next/og";
 import { templateImagePath, type TemplateSeoPage } from "@/content/seo-templates";
 import { templateImageSize } from "@/lib/templates/images";
 import { SITE_URL } from "@/lib/site";
-import { texts } from "@/texts/pt-BR";
+import { brand as brandTexts } from "@/texts/pt-BR/brand";
 
 export const SHARE_SIZE = { width: 1200, height: 630 };
 export const SHARE_CONTENT_TYPE = "image/png";
@@ -72,7 +72,7 @@ export async function shareImage({ eyebrow, title, templates }: { eyebrow: strin
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
           {/* eslint-disable-next-line @next/next/no-img-element -- next/og draws plain <img> */}
           <img src={mark} width={52} height={52} alt="" />
-          <span style={{ fontSize: 30, fontWeight: 600 }}>{texts.brand.name}</span>
+          <span style={{ fontSize: 30, fontWeight: 600 }}>{brandTexts.name}</span>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
           <span

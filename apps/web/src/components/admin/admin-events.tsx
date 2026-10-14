@@ -11,9 +11,10 @@ import { Badge, EmptyState, ErrorMessage, LoadingBlock } from "@/components/ui";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { eventDateTime } from "@/lib/format";
-import { texts } from "@/texts/pt-BR";
+import { admin as adminTexts } from "@/texts/pt-BR/admin";
+import { event as eventTexts } from "@/texts/pt-BR/event";
 
-const t = texts.admin.events;
+const t = adminTexts.events;
 
 /**
  * Events of every organization (ADR 0079): opening one is support mode (ADR 0032), with the
@@ -51,7 +52,7 @@ export function AdminEvents() {
                 <span className="flex flex-wrap items-center gap-2">
                   <Link
                     href={`/painel/eventos/${event.id}`}
-                    title={texts.admin.organization.openEvent}
+                    title={adminTexts.organization.openEvent}
                     className="truncate font-semibold text-fg underline-offset-2 hover:text-brand hover:underline"
                   >
                     {event.name}
@@ -61,7 +62,7 @@ export function AdminEvents() {
                       {t.canceled}
                     </Badge>
                   )}
-                  {event.status === "closed" && <Badge>{texts.event.actions.archivedBadge}</Badge>}
+                  {event.status === "closed" && <Badge>{eventTexts.actions.archivedBadge}</Badge>}
                 </span>
                 <Link
                   href={`/painel/admin/organizacoes/${event.organizationId}`}
@@ -75,7 +76,7 @@ export function AdminEvents() {
               </div>
               <Link
                 href={`/painel/eventos/${event.id}`}
-                aria-label={`${texts.admin.organization.openEvent}: ${event.name}`}
+                aria-label={`${adminTexts.organization.openEvent}: ${event.name}`}
                 className="relative flex size-9 shrink-0 items-center justify-center rounded-xl text-fg-subtle transition touch-target hover:bg-surface-2 hover:text-fg active:bg-surface-2"
               >
                 <ChevronRight className="size-4" aria-hidden />

@@ -3,11 +3,11 @@ import type { Metadata } from "next";
 import { AboutPage } from "@/components/about/about-page";
 import { SiteFooter } from "@/components/marketing/site-footer";
 import { SiteHeader } from "@/components/marketing/site-header";
-import { texts } from "@/texts/pt-BR";
+import { about as aboutTexts } from "@/texts/pt-BR/about";
 
 export const metadata: Metadata = {
-  title: texts.about.title,
-  description: texts.about.metaDescription,
+  title: aboutTexts.title,
+  description: aboutTexts.metaDescription,
   alternates: { canonical: "/sobre" },
 };
 

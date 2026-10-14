@@ -7,9 +7,9 @@ import { inkFor } from "@/lib/design-rules";
 import type { DoorEngine, DoorState } from "@/portaria/engine";
 import { clockTime } from "@/portaria/logic";
 import { scanTime, type RecentScan, type RecentSummary } from "@/portaria/recent";
-import { texts } from "@/texts/pt-BR";
+import { portaria as portariaTexts } from "@/texts/pt-BR/portaria";
 
-const t = texts.portaria.history;
+const t = portariaTexts.history;
 
 const TONE_ICON = { ok: CheckCircle2, bad: XCircle, warn: AlertTriangle } as const;
 const TONE_TEXT = { ok: "text-emerald-300", bad: "text-red-300", warn: "text-amber-300" } as const;

@@ -1,0 +1,31 @@
+export const about = {
+  title: "Sobre",
+  metaDescription:
+    "O Ingresso Impresso nasceu para quem vende ingresso na mão: bandas, escolas, igrejas e pequenos produtores. Conheça a ideia, os princípios e quem faz.",
+  eyebrow: "Sobre o Ingresso Impresso",
+  headline: "Para quem vende ingresso na mão",
+  lead: "Banda que divide os ingressos entre os membros, escola que faz a festa junina, igreja que organiza o jantar, turma que vende rifa para a formatura. O Ingresso Impresso existe para que esses eventos tenham a mesma segurança de uma grande bilheteria, sem mensalidade e sem complicação.",
+  storyTitle: "Por que existe",
+  story: [
+    "Quem organiza evento pequeno costuma mandar imprimir os ingressos na gráfica, carimbar no verso e dividir entre os vendedores. Funciona, até aparecer a cópia na porta, o bloco perdido ou a dúvida de quem vendeu quantos.",
+    "A gente juntou o que já funciona no papel com o que o celular faz bem: cada ingresso tem um número e um QR que não dá para falsificar, cada vendedor tem a sua faixa e o seu acerto, e a portaria confere tudo com qualquer celular, mesmo sem internet.",
+  ],
+  principlesTitle: "No que a gente acredita",
+  principles: [
+    { title: "Cada número entra uma vez", body: "O QR é assinado digitalmente. Cópia, foto ou ingresso de outro evento são barrados na porta." },
+    { title: "A porta não espera a internet", body: "Os celulares da portaria decidem sozinhos e se acertam entre si quando a rede volta." },
+    { title: "Preço justo e claro", body: "Sem mensalidade: você paga por lote, só quando precisa, e os primeiros ingressos são grátis." },
+    { title: "Seus dados são seus", body: "Exporte tudo quando quiser e exclua a conta sem pedir para ninguém." },
+  ],
+  versionTitle: "Versão do site",
+  versionValue: (label: string) => `Você está usando a versão ${label}.`,
+  versionBody: "O site se atualiza sozinho: não há nada para instalar. Cada versão tem as suas novidades anotadas.",
+  releaseNotes: "O que mudou nesta versão",
+  status: "Status do sistema",
+  makerTitle: "Quem faz",
+  makerBody: (name: string, kind: string) => `O Ingresso Impresso é um serviço oferecido por ${name} (${kind}), no Brasil.`,
+  contact: "Fale com a gente",
+  legal: "Termos, privacidade e reembolso",
+  ctaTitle: "Vamos fazer o seu próximo evento?",
+  ctaBody: "Crie a conta em um minuto e teste com ingressos grátis.",
+} as const;

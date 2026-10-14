@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select moderation_status from blobs where id = any($1)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "moderation_status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "blobs",
+            "name": "moderation_status"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "be4150e7762644dcb9584d9b6f7c80a6cf245320dcf19f6373fd6e2c5c1c26c6"
+}

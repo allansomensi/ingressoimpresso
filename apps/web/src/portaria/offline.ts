@@ -60,6 +60,23 @@ export async function keepOffline(): Promise<boolean> {
   return result.missing === 0 && navigator.serviceWorker.controller !== null;
 }
 
+/**
+ * Runs `task` when the browser is idle (or after a short wait where `requestIdleCallback` does
+ * not exist, as on iPhone), out of the way of the first manifest and the core. Returns a cancel.
+ */
+export function whenIdle(task: () => void): () => void {
+  if (typeof requestIdleCallback === "function") {
+    const handle = requestIdleCallback(task, { timeout: 5_000 });
+    return () => {
+      cancelIdleCallback(handle);
+    };
+  }
+  const timer = setTimeout(task, 1_000);
+  return () => {
+    clearTimeout(timer);
+  };
+}
+
 /** Asks the browser not to evict the door's data under storage pressure. */
 export async function persistStorage(): Promise<boolean> {
   try {

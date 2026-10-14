@@ -46,9 +46,11 @@ import { sessionLabel } from "@/lib/series";
 import { SITE_URL } from "@/lib/site";
 import { forgetPass, normalizePass, passBand, passDate, passImage, saveImage, storePass, storedPass, textOn } from "@/lib/ticket-pass";
 import { useWakeLock } from "@/lib/wake-lock";
-import { texts } from "@/texts/pt-BR";
+import { brand as brandTexts } from "@/texts/pt-BR/brand";
+import { errors as errorsTexts } from "@/texts/pt-BR/errors";
+import { ticket as ticketTexts } from "@/texts/pt-BR/ticket";
 
-const t = texts.ticket;
+const t = ticketTexts;
 
 type State =
   | { status: "loading" }
@@ -260,7 +262,7 @@ export function TicketPass() {
       await saveImage(blob, fileName);
       toast.success(t.saved);
     } catch {
-      toast.error(texts.errors.generic);
+      toast.error(errorsTexts.generic);
     } finally {
       setSaving(false);
     }
@@ -435,7 +437,7 @@ export function TicketPass() {
       <Link href="/" className="mx-auto flex items-center gap-2 text-xs text-fg-subtle transition hover:text-fg pointer-coarse:min-h-11">
         {t.poweredBy}
         <LogoMark className="size-4" />
-        <span className="font-semibold">{texts.brand.name}</span>
+        <span className="font-semibold">{brandTexts.name}</span>
       </Link>
 
       <Dialog open={art.status === "ready" || art.status === "error"} onClose={closeArt} size="md" title={t.artTitle}>

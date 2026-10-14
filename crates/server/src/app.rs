@@ -13,6 +13,8 @@ use axum::middleware;
 use axum::response::{IntoResponse as _, Response};
 use axum::routing::{delete, get, post, put};
 use tower_http::catch_panic::CatchPanicLayer;
+use tower_http::compression::CompressionLayer;
+use tower_http::compression::predicate::{DefaultPredicate, NotForContentType, Predicate as _};
 use tower_http::cors::{AllowOrigin, CorsLayer};
 use tower_http::timeout::TimeoutLayer;
 use tower_http::trace::TraceLayer;
@@ -379,6 +381,17 @@ pub fn router(state: AppState) -> Router {
         .expose_headers([CONTENT_DISPOSITION])
         .max_age(Duration::from_hours(1));
 
+    // JSON answers (the door manifest, the event list, reports) shrink 5-10x; PDFs, ZIPs and
+    // spreadsheets are already compressed and would only lose their Content-Length.
+    let compression = CompressionLayer::new().compress_when(
+        DefaultPredicate::new()
+            .and(NotForContentType::new("application/pdf"))
+            .and(NotForContentType::new("application/zip"))
+            .and(NotForContentType::new(
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )),
+    );
+
     let production = state.config.production;
     Router::new()
         .route("/healthz", get(alive))
@@ -388,6 +401,7 @@ pub fn router(state: AppState) -> Router {
         .layer(middleware::map_response(move |response| async move {
             security_headers(response, production)
         }))
+        .layer(compression)
         .layer(cors)
         .layer(TraceLayer::new_for_http())
         .layer(TimeoutLayer::with_status_code(

@@ -12,7 +12,9 @@ import { initials } from "@/lib/format";
 import { instagramUrl } from "@/lib/organization";
 import { whatsappUrl } from "@/lib/share";
 import { storeLogo, storedLogo } from "@/lib/ticket-pass";
-import { texts } from "@/texts/pt-BR";
+import { eventChange as eventChangeTexts } from "@/texts/pt-BR/event-change";
+import { profile as profileTexts } from "@/texts/pt-BR/profile";
+import { ticket as ticketTexts } from "@/texts/pt-BR/ticket";
 
 const LOGOS_EVENT = "ingressoimpresso:logos";
 
@@ -71,7 +73,7 @@ export function OrganizationLogo({
       ) : (
         // A data: URL kept in the browser: next/image cannot optimize it.
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={logo} alt={texts.profile.logoAlt(organization.name)} className="size-full object-contain" />
+        <img src={logo} alt={profileTexts.logoAlt(organization.name)} className="size-full object-contain" />
       )}
     </span>
   );
@@ -79,7 +81,7 @@ export function OrganizationLogo({
 
 /** "Falar com a organização" (WhatsApp) and the other public contacts, when there are any. */
 export function OrganizationContact({ organization, message }: { organization: PublicOrganizationDto; message: string }) {
-  const t = texts.ticket;
+  const t = ticketTexts;
   const others = [
     organization.email === null ? null : { href: `mailto:${organization.email}`, icon: Mail, label: t.contactEmail, value: organization.email },
     organization.website === null
@@ -140,7 +142,7 @@ export function EventChangeNotice({
   forSeller?: boolean;
   className?: string | undefined;
 }) {
-  const t = texts.eventChange.notice;
+  const t = eventChangeTexts.notice;
   const kind = changeKind(change, startsAt);
   if (kind === null) {
     return null;
@@ -166,7 +168,7 @@ export function EventChangeNotice({
             <p className="line-through opacity-80">{t.was(spokenDate(change.postponedFromStartsAt))}</p>
           </>
         )}
-        {reason !== null && <p>{texts.eventChange.reasonLine(reason)}</p>}
+        {reason !== null && <p>{eventChangeTexts.reasonLine(reason)}</p>}
         <p className="opacity-90">
           {forSeller ? (canceled ? t.sellerCanceledBody : t.sellerStillValid) : canceled ? t.canceledBody : t.stillValid}
         </p>

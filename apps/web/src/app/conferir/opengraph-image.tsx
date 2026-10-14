@@ -1,11 +1,11 @@
 import { SHARE_CONTENT_TYPE, SHARE_SIZE, shareImage } from "@/lib/share-image";
-import { texts } from "@/texts/pt-BR";
+import { verifyPage as verifyPageTexts } from "@/texts/pt-BR/verify-page";
 
 export const dynamic = "force-static";
 export const size = SHARE_SIZE;
 export const contentType = SHARE_CONTENT_TYPE;
-export const alt = texts.verifyPage.metaTitle;
+export const alt = verifyPageTexts.metaTitle;
 
 export default function Image() {
-  return shareImage({ eyebrow: texts.verifyPage.eyebrow, title: texts.verifyPage.headline, templates: [] });
+  return shareImage({ eyebrow: verifyPageTexts.eyebrow, title: verifyPageTexts.headline, templates: [] });
 }

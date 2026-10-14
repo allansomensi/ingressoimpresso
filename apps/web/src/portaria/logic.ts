@@ -17,7 +17,8 @@ import type { DecisionDto } from "@ingressoimpresso/ticket-core-wasm";
 
 import { money } from "@/lib/format";
 import { sessionLabel } from "@/lib/series";
-import { texts } from "@/texts/pt-BR";
+import { errors as errorsTexts } from "@/texts/pt-BR/errors";
+import { portaria as portariaTexts } from "@/texts/pt-BR/portaria";
 
 /** Sync period while the door screen is open. */
 export const SYNC_INTERVAL_MS = 3_000;
@@ -48,7 +49,7 @@ export function isSampleQr(text: string): boolean {
   return text.trim() === SAMPLE_QR_TEXT;
 }
 
-const t = texts.portaria.result;
+const t = portariaTexts.result;
 
 export type Tone = "ok" | "bad" | "warn";
 
@@ -287,7 +288,7 @@ export function wrongDoorView(number: number, wrong: { category: string; doors: 
  * code is explained.
  */
 export function rehearsalView(text: string, decision: DecisionDto, context: DoorContext): ResultView {
-  const r = texts.portaria.rehearsal;
+  const r = portariaTexts.rehearsal;
   const base = { seller: null, category: null, seat: null, number: null, rehearsal: true } as const;
   if (isSampleQr(text)) {
     return { ...base, tone: "ok", title: r.sampleTitle, detail: r.sampleDetail };
@@ -368,7 +369,7 @@ export function voidedView(
 
 /** Screen for an unexpected failure while handling a scan. */
 export function errorView(): ResultView {
-  return { tone: "bad", title: t.error, number: null, detail: texts.errors.generic, seller: null, category: null, seat: null };
+  return { tone: "bad", title: t.error, number: null, detail: errorsTexts.generic, seller: null, category: null, seat: null };
 }
 
 /**

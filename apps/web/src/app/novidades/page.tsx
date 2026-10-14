@@ -3,11 +3,11 @@ import type { Metadata } from "next";
 import { ChangelogPage } from "@/components/changelog/changelog-page";
 import { SiteFooter } from "@/components/marketing/site-footer";
 import { SiteHeader } from "@/components/marketing/site-header";
-import { texts } from "@/texts/pt-BR";
+import { changelog as changelogTexts } from "@/texts/pt-BR/changelog";
 
 export const metadata: Metadata = {
-  title: texts.changelog.title,
-  description: texts.changelog.metaDescription,
+  title: changelogTexts.title,
+  description: changelogTexts.metaDescription,
   alternates: { canonical: "/novidades" },
 };
 

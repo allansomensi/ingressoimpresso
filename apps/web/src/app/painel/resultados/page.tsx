@@ -11,9 +11,11 @@ import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { eventDateTime, money } from "@/lib/format";
 import { downloadCsv } from "@/lib/share";
-import { texts } from "@/texts/pt-BR";
+import { admin as adminTexts } from "@/texts/pt-BR/admin";
+import { event as eventTexts } from "@/texts/pt-BR/event";
+import { results as resultsTexts } from "@/texts/pt-BR/results";
 
-const t = texts.results;
+const t = resultsTexts;
 
 function monthLabel(key: string): string {
   const [year = "", month = ""] = key.split("-");
@@ -102,7 +104,7 @@ export default function ResultsPage() {
               label={t.chartTitle}
               bars={months.map((month) => ({ date: month.month, value: month.grossCents }))}
               format={money}
-              describe={texts.admin.chartBar}
+              describe={adminTexts.chartBar}
               formatLabel={monthLabel}
             />
           </Card>
@@ -130,7 +132,7 @@ export default function ResultsPage() {
                           <Link href={`/painel/eventos/${event.id}`} className="flex flex-col gap-0.5">
                             <span className="flex items-center gap-2 font-medium text-fg">
                               {event.name}
-                              {event.status === "closed" && <Badge>{texts.event.actions.archivedBadge}</Badge>}
+                              {event.status === "closed" && <Badge>{eventTexts.actions.archivedBadge}</Badge>}
                             </span>
                             <span className="text-xs text-fg-muted">{eventDateTime(event.startsAt)}</span>
                           </Link>

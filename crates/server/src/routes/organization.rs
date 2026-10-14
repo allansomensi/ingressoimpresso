@@ -12,7 +12,7 @@ use std::io::Cursor;
 use axum::Json;
 use axum::body::Bytes;
 use axum::extract::{Path, Query, State};
-use axum::http::header::{CACHE_CONTROL, CONTENT_TYPE, HeaderMap};
+use axum::http::header::{CACHE_CONTROL, CONTENT_TYPE, ETAG, HeaderMap, IF_NONE_MATCH};
 use axum::http::{HeaderValue, StatusCode};
 use axum::response::{IntoResponse as _, Response};
 use serde::Deserialize;
@@ -697,8 +697,8 @@ pub async fn logo(
     Path(blob_id): Path<Uuid>,
 ) -> ApiResult<Response> {
     crate::ratelimit::by_ip(&state, &headers, crate::ratelimit::LOGO).await?;
-    let data = sqlx::query_scalar!(
-        r#"select b.data from blobs b
+    let blob = sqlx::query!(
+        r#"select b.data, b.sha256 from blobs b
            join organization_profiles p on p.logo_blob_id = b.id
            where b.id = $1 and b.moderation_status not in ('flagged', 'rejected')
              and not exists (select 1 from rejected_art r where r.sha256 = b.sha256)"#,
@@ -707,15 +707,30 @@ pub async fn logo(
     .fetch_optional(&state.pool)
     .await?
     .ok_or(ApiError::NotFound)?;
+    // After the hour, a browser that still has the logo asks with its tag and gets a 304
+    // instead of the bytes again.
+    let etag = format!("\"{}\"", hex::encode(&blob.sha256));
+    let cache = [
+        (
+            CACHE_CONTROL,
+            HeaderValue::from_static("public, max-age=3600"),
+        ),
+        (
+            ETAG,
+            HeaderValue::from_str(&etag).map_err(anyhow::Error::from)?,
+        ),
+    ];
+    let fresh = headers
+        .get(IF_NONE_MATCH)
+        .and_then(|value| value.to_str().ok())
+        .is_some_and(|value| value.split(',').any(|tag| tag.trim() == etag));
+    if fresh {
+        return Ok((StatusCode::NOT_MODIFIED, cache).into_response());
+    }
     Ok((
-        [
-            (CONTENT_TYPE, HeaderValue::from_static("image/png")),
-            (
-                CACHE_CONTROL,
-                HeaderValue::from_static("public, max-age=3600"),
-            ),
-        ],
-        data,
+        cache,
+        [(CONTENT_TYPE, HeaderValue::from_static("image/png"))],
+        blob.data,
     )
         .into_response())
 }

@@ -47,9 +47,11 @@ import {
 import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { money, parseMoney, shortDateTime } from "@/lib/format";
-import { texts } from "@/texts/pt-BR";
+import { admin as adminTexts } from "@/texts/pt-BR/admin";
+import { common as commonTexts } from "@/texts/pt-BR/common";
+import { event as eventTexts } from "@/texts/pt-BR/event";
 
-const t = texts.admin;
+const t = adminTexts;
 const integer = (value: number) => value.toLocaleString("pt-BR");
 
 type Metric = "revenue" | "tickets" | "signups";
@@ -168,7 +170,7 @@ export function BonusDialog({ organization, onClose }: { organization: AdminOrga
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
-            {texts.common.cancel}
+            {commonTexts.cancel}
           </Button>
           <Button
             icon={<Gift />}
@@ -178,7 +180,7 @@ export function BonusDialog({ organization, onClose }: { organization: AdminOrga
               save.mutate(bonus);
             }}
           >
-            {texts.common.save}
+            {commonTexts.save}
           </Button>
         </>
       }
@@ -309,7 +311,7 @@ function PriceDialog({ batch, onClose }: { batch: BatchDto | null; onClose: () =
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
-            {texts.common.cancel}
+            {commonTexts.cancel}
           </Button>
           <Button
             icon={<Tag />}
@@ -321,7 +323,7 @@ function PriceDialog({ batch, onClose }: { batch: BatchDto | null; onClose: () =
               }
             }}
           >
-            {texts.common.save}
+            {commonTexts.save}
           </Button>
         </>
       }
@@ -377,7 +379,7 @@ function RefundDialog({ batch, onClose }: { batch: BatchDto | null; onClose: () 
       footer={
         <>
           <Button variant="secondary" autoFocus onClick={onClose}>
-            {texts.common.cancel}
+            {commonTexts.cancel}
           </Button>
           <Button variant="danger" icon={<Undo2 />} loading={refund.isPending} onClick={() => refund.mutate()}>
             {t.batches.refund}
@@ -433,7 +435,7 @@ export function AdminBatches() {
       toast.error(errorMessage(error));
     },
   });
-  const b = texts.event.batches;
+  const b = eventTexts.batches;
   const [pricing, setPricing] = useState<BatchDto | null>(null);
   const [refunding, setRefunding] = useState<BatchDto | null>(null);
 
@@ -454,7 +456,7 @@ export function AdminBatches() {
         }}
       />
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div role="radiogroup" aria-label={texts.admin.tabs.batches} className="flex w-fit max-w-full overflow-x-auto rounded-full border border-border bg-surface-2 p-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div role="radiogroup" aria-label={adminTexts.tabs.batches} className="flex w-fit max-w-full overflow-x-auto rounded-full border border-border bg-surface-2 p-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {(Object.keys(t.batches.filters) as BatchFilter[]).map((option) => (
             <button
               key={option}

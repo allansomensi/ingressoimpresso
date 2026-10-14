@@ -23,9 +23,10 @@ import { cn } from "@/lib/cn";
 import { money, parseMoney, ticketNumber } from "@/lib/format";
 import { NUMBER_LIST_INPUT, countNumbers, firstOutside, firstShared, formatRanges, intersect, mergeRanges, parseNumberList, subtract, type NumberRange } from "@/lib/number-list";
 import { todayIso } from "@/lib/settlement";
-import { texts } from "@/texts/pt-BR";
+import { common as commonTexts } from "@/texts/pt-BR/common";
+import { event as eventTexts } from "@/texts/pt-BR/event";
 
-const t = texts.event.sellers;
+const t = eventTexts.sellers;
 const MAX_AMOUNT_CENTS = 100_000_000;
 
 /** A row of mutually exclusive choices, as big touch targets. */
@@ -160,7 +161,7 @@ export function PaymentDialog({
       footer={
         <>
           <Button variant="secondary" onClick={close}>
-            {texts.common.cancel}
+            {commonTexts.cancel}
           </Button>
           <Button type="submit" form="seller-payment" loading={save.isPending} disabled={!valid}>
             {valid ? p.submit(money(cents)) : p.submitEmpty}
@@ -182,7 +183,7 @@ export function PaymentDialog({
           >
             <span className="relative flex">
               <span className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-base font-medium text-fg-subtle sm:text-[15px]">
-                {texts.common.currency}
+                {commonTexts.currency}
               </span>
               <Input
                 value={amount}
@@ -331,7 +332,7 @@ export function ReturnDialog({
       footer={
         <>
           <Button variant="secondary" onClick={close}>
-            {texts.common.cancel}
+            {commonTexts.cancel}
           </Button>
           <Button type="submit" form="seller-return" loading={save.isPending} disabled={!valid}>
             {parsed.ok && valid ? g.submit(parsed.count) : g.submitEmpty}
@@ -350,7 +351,7 @@ export function ReturnDialog({
                 {g.preview(parsed.count, formatRanges(parsed.ranges))}
                 {clearing > 0 && <span className="block font-normal text-warning-fg">{g.clearsMarks(clearing)}</span>}
                 {clearingReserved > 0 && (
-                  <span className="block font-normal text-warning-fg">{texts.event.sellers.reservations.returnClears(clearingReserved)}</span>
+                  <span className="block font-normal text-warning-fg">{eventTexts.sellers.reservations.returnClears(clearingReserved)}</span>
                 )}
               </span>
             ) : (
@@ -384,7 +385,7 @@ export function ReturnDialog({
           </button>
         )}
         {unsold.length > 0 && keptReserved > 0 && (
-          <p className="-mt-3 text-xs text-fg-muted">{texts.event.sellers.reservations.returnKeeps(keptReserved)}</p>
+          <p className="-mt-3 text-xs text-fg-muted">{eventTexts.sellers.reservations.returnKeeps(keptReserved)}</p>
         )}
         {remaining.length > 0 && (
           <div className="flex flex-col gap-2">

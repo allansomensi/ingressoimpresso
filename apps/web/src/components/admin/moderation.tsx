@@ -27,9 +27,10 @@ import {
 import { api, fetchBlobUrl } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { shortDateTime } from "@/lib/format";
-import { texts } from "@/texts/pt-BR";
+import { admin as adminTexts } from "@/texts/pt-BR/admin";
+import { common as commonTexts } from "@/texts/pt-BR/common";
 
-const t = texts.admin.moderation;
+const t = adminTexts.moderation;
 type View = "open" | "approved" | "rejected" | "recent";
 const VIEWS: readonly View[] = ["open", "recent", "approved", "rejected"];
 const ART_TONE: Readonly<Record<string, Tone>> = {
@@ -125,7 +126,7 @@ function ResolveDialog({ flag, action, onClose }: { flag: ModerationFlagDto; act
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
-            {texts.common.cancel}
+            {commonTexts.cancel}
           </Button>
           <Button variant={action === "reject" ? "danger" : "primary"} loading={resolve.isPending} onClick={() => resolve.mutate()}>
             {action === "approve" ? t.approve : t.reject}

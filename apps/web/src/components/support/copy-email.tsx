@@ -5,9 +5,9 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui";
-import { texts } from "@/texts/pt-BR";
+import { helpCenter as helpCenterTexts } from "@/texts/pt-BR/help-center";
 
-const t = texts.helpCenter;
+const t = helpCenterTexts;
 
 /** Copies the support address: many people write from a webmail that `mailto:` does not open. */
 export function CopyEmail({ email }: { email: string }) {

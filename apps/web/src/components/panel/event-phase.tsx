@@ -2,16 +2,19 @@ import { ListTodo } from "lucide-react";
 
 import { Badge, type Tone } from "@/components/ui";
 import type { EventPhase } from "@/lib/event-list";
-import { texts } from "@/texts/pt-BR";
+import { checklist as checklistTexts } from "@/texts/pt-BR/checklist";
+import { event as eventTexts } from "@/texts/pt-BR/event";
+import { eventChange as eventChangeTexts } from "@/texts/pt-BR/event-change";
+import { panel as panelTexts } from "@/texts/pt-BR/panel";
 
 /** How each phase of an event shows in the lists (ADR 0060). */
 export const PHASE: Record<EventPhase, { label: string; tone: Tone }> = {
-  happening: { label: texts.panel.happening, tone: "success" },
-  today: { label: texts.panel.today, tone: "warning" },
-  upcoming: { label: texts.panel.upcoming, tone: "brand" },
-  past: { label: texts.panel.past, tone: "neutral" },
-  canceled: { label: texts.eventChange.canceledBadge, tone: "danger" },
-  archived: { label: texts.event.actions.archivedBadge, tone: "neutral" },
+  happening: { label: panelTexts.happening, tone: "success" },
+  today: { label: panelTexts.today, tone: "warning" },
+  upcoming: { label: panelTexts.upcoming, tone: "brand" },
+  past: { label: panelTexts.past, tone: "neutral" },
+  canceled: { label: eventChangeTexts.canceledBadge, tone: "danger" },
+  archived: { label: eventTexts.actions.archivedBadge, tone: "neutral" },
 };
 
 export function PhaseBadge({ phase, dot = true }: { phase: EventPhase; dot?: boolean }) {
@@ -31,7 +34,7 @@ export function MissingBadge({ count }: { count: number | null }) {
   return (
     <Badge tone="warning" className="gap-1">
       <ListTodo className="size-3" aria-hidden />
-      {texts.checklist.missing(count)}
+      {checklistTexts.missing(count)}
     </Badge>
   );
 }

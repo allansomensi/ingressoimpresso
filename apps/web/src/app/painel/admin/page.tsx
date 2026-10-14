@@ -31,9 +31,9 @@ import { EmptyState, LoadingBlock, PageHeader, Popover } from "@/components/ui";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { useSession } from "@/lib/session";
-import { texts } from "@/texts/pt-BR";
+import { admin as adminTexts } from "@/texts/pt-BR/admin";
 
-const t = texts.admin;
+const t = adminTexts;
 
 const loading = () => <LoadingBlock rows={4} />;
 const load = (loader: () => Promise<ComponentType>) => dynamic(loader, { loading });

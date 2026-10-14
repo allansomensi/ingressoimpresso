@@ -64,9 +64,67 @@ jobs:
       - name: just check
         run: just check
 
-      # Phase 4 criterion: phones decide offline, then sync and converge (e2e/portaria.e2e.mjs).
+  # Phase 4 criterion: phones decide offline, then sync and converge (e2e/portaria.e2e.mjs), the
+  # seller's page without network (vendedor.e2e.mjs) and the CSP (csp.e2e.mjs). Its own job, next
+  # to `just check` instead of after it: the two no longer add up on the critical path.
+  e2e:
+    name: End-to-end
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Rust toolchain
+        run: rustup toolchain install
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install just and wasm-bindgen-cli
+        uses: taiki-e/install-action@v2
+        with:
+          tool: just,wasm-bindgen@0.2.129
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: Install JavaScript dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build the door WASM
+        run: just wasm
+
+      # The browser download (~150 MB) is kept between runs; only its system libraries are
+      # installed each time.
+      - name: Cache Playwright Chromium
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
       - name: Playwright Chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: pnpm exec playwright install --with-deps chromium
+
+      - name: Playwright system libraries
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: pnpm exec playwright install-deps chromium
 
       - name: Door end-to-end test
         run: just e2e
@@ -119,7 +177,7 @@ jobs:
   # main is production, staging the test environment (ADR 0047; deploy-web.yml).
   deploy-web:
     name: Deploy web
-    needs: [check, audit, api-image]
+    needs: [check, e2e, audit, api-image]
     if: github.event_name == 'push'
     uses: ./.github/workflows/deploy-web.yml
     secrets: inherit

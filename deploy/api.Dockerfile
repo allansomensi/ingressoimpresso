@@ -3,10 +3,10 @@
 #
 # The Rust version matches rust-toolchain.toml, which .dockerignore leaves out so rustup does not
 # download extra components during the build: bump both together. Dependencies are compiled in
-# their own layer (cargo-chef), so a change to our code does not rebuild ~600 crates.
+# their own layer (cargo-chef, prebuilt in its official image: compiling it from source cost a
+# couple of minutes on every cold build), so a change to our code does not rebuild ~600 crates.
 
-FROM rust:1.99.0-bookworm AS chef
-RUN cargo install cargo-chef --version 0.1.78 --locked
+FROM lukemathwalker/cargo-chef:latest-rust-1.99.0-bookworm AS chef
 WORKDIR /src
 
 FROM chef AS planner

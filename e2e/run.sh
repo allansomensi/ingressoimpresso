@@ -24,7 +24,9 @@ export EXPORT_DIR="$out/exports"
 export TICKET_KEY_ENCRYPTION_KEY=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
 unset RESEND_API_KEY APP_ENV
 
-cargo build --locked -p ingressoimpresso-server
+# `--all-features` (`ts`, `test-util`) is what `just test-rust` already built: no second build of
+# the server. Nothing here uses the fake Google verifier of `test-util`.
+cargo build --locked -p ingressoimpresso-server --all-features
 pnpm --filter @ingressoimpresso/web run build
 
 # Each server runs in its own session, so stopping it also stops what it spawned (pnpm starts

@@ -454,25 +454,46 @@ pub(crate) async fn view(state: &AppState, link: &LinkRow) -> ApiResult<SellerVi
     )
     .fetch_one(&state.pool)
     .await?;
-    let ranges = held_ranges(state, link).await?;
-    let voids = seller_voids(state, link).await?;
-    let sales = sales(state, link).await?;
-    let payments = seller_payments(state, link.seller_id).await?;
-    let counts = counts(state, link).await?;
+    let offset = time::UtcOffset::from_whole_seconds(i32::from(event.utc_offset_minutes) * 60)
+        .unwrap_or(time::UtcOffset::UTC);
+    // The page is rebuilt after every action of the seller: its dozen independent reads go out
+    // together instead of one after the other.
+    let (
+        ranges,
+        voids,
+        sales,
+        payments,
+        counts,
+        due_lines,
+        (number_prefix, number_digits),
+        row,
+        reservations,
+        in_series,
+        organization,
+        categories,
+        receivers,
+    ) = tokio::try_join!(
+        held_ranges(state, link),
+        seller_voids(state, link),
+        sales(state, link),
+        seller_payments(state, link.seller_id),
+        counts(state, link),
+        due_lines(state, link, event.ticket_price_cents, event.box_office),
+        super::tickets::number_style(state, link.event_id),
+        event_row(state, link.event_id),
+        super::reservations::load(&state.pool, link.event_id, Some(link.seller_id), offset),
+        super::series::in_series(&state.pool, link.event_id),
+        super::organization::event_organization(&state.pool, link.event_id),
+        categories(state, link.event_id, event.ticket_price_cents),
+        super::team::receivers(state, link.event_id),
+    )?;
     let received_cents: i64 = payments.iter().map(|p| i64::from(p.amount_cents)).sum();
-    let due_lines = due_lines(state, link, event.ticket_price_cents, event.box_office).await?;
     let due_tickets = if event.box_office {
         due_lines.iter().map(|line| line.tickets).sum()
     } else {
         counts.tickets - counts.unsold - counts.lost
     };
     let amount_due_cents = amount_due(&due_lines, event.ticket_price_cents);
-    let offset = time::UtcOffset::from_whole_seconds(i32::from(event.utc_offset_minutes) * 60)
-        .unwrap_or(time::UtcOffset::UTC);
-    let (number_prefix, number_digits) = super::tickets::number_style(state, link.event_id).await?;
-    let row = event_row(state, link.event_id).await?;
-    let reservations =
-        super::reservations::load(&state.pool, link.event_id, Some(link.seller_id), offset).await?;
     // A box office sells at the door: no goal, no ranking (ADR 0073).
     let ranking = if event.sellers_ranking && !event.box_office {
         let standings = super::seller_goals::standings(&state.pool, link.event_id).await?;
@@ -491,9 +512,9 @@ pub(crate) async fn view(state: &AppState, link: &LinkRow) -> ApiResult<SellerVi
             change: row.change(),
             ends_at: event.ends_at.to_offset(offset),
             utc_offset_minutes: event.utc_offset_minutes,
-            in_series: super::series::in_series(&state.pool, link.event_id).await?,
+            in_series,
         },
-        organization: super::organization::event_organization(&state.pool, link.event_id).await?,
+        organization,
         seller: event.seller,
         number_prefix,
         number_digits,
@@ -514,8 +535,8 @@ pub(crate) async fn view(state: &AppState, link: &LinkRow) -> ApiResult<SellerVi
             balance_cents: amount_due_cents.map(|due| due - received_cents),
             due_lines,
         },
-        categories: categories(state, link.event_id, event.ticket_price_cents).await?,
-        receivers: super::team::receivers(state, link.event_id).await?,
+        categories,
+        receivers,
         can_send_tickets: event.sellers_send_tickets,
         box_office: event.box_office,
         reservations,
