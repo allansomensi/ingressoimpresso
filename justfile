@@ -51,19 +51,22 @@ db-migrate:
 vectors:
     cargo run --locked -q -p ii-cli -- vectors generate --out testdata/vectors/ticket-v1.json
 
-# Fails if generated files (TS bindings, vectors) are not committed up to date.
+# Fails if generated files (TS bindings, vectors) are not committed up to date. `--all-features`
+# reuses the build of `test-rust` instead of compiling the crates a second way.
 generated-check:
-    cargo run --locked -q -p ii-cli -- vectors check --path testdata/vectors/ticket-v1.json
+    cargo run --locked -q -p ii-cli --all-features -- vectors check --path testdata/vectors/ticket-v1.json
     git diff --exit-code -- packages/ticket-core-wasm/src/generated packages/api-types/src testdata/vectors .sqlx
     untracked="$(git ls-files --others --exclude-standard -- packages/ticket-core-wasm/src/generated packages/api-types/src .sqlx)"; \
         if [ -n "$untracked" ]; then echo "untracked generated files:"; echo "$untracked"; exit 1; fi
 
 # --- WebAssembly ------------------------------------------------------------
 
-# Builds ticket-wasm and generates the JS glue into packages/ticket-core-wasm/pkg.
+# Builds ticket-wasm and generates the JS glue into packages/ticket-core-wasm/pkg. The debug
+# names section (a quarter of the file) stays out: the door only needs the code.
 wasm:
     cargo build --locked -p ticket-wasm --target {{wasm_target}} --profile release-wasm
     wasm-bindgen --target web --out-dir {{wasm_out}} --out-name ticket_core \
+        --remove-name-section --remove-producers-section \
         target/{{wasm_target}}/release-wasm/ticket_wasm.wasm
     @ls -l {{wasm_out}}/ticket_core_bg.wasm | awk '{print "ticket_core_bg.wasm: " $5 " bytes"}'
 
