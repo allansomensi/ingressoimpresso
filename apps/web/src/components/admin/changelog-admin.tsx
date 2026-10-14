@@ -31,7 +31,9 @@ import { api } from "@/lib/api";
 import { CHANGELOG_KINDS, paragraphs } from "@/lib/changelog";
 import { dateTime } from "@/lib/format";
 import { APP_VERSION, isVersion } from "@/lib/version";
-import { changelog as changelogTexts, common as commonTexts, event as eventTexts } from "@/texts/pt-BR";
+import { changelog as changelogTexts } from "@/texts/pt-BR/changelog";
+import { common as commonTexts } from "@/texts/pt-BR/common";
+import { event as eventTexts } from "@/texts/pt-BR/event";
 
 const t = changelogTexts.admin;
 

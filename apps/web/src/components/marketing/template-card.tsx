@@ -4,7 +4,8 @@ import Link from "next/link";
 import { templateImagePath, type TemplateSeoPage } from "@/content/seo-templates";
 import { templateById } from "@/lib/templates/catalog";
 import { templateImageSize } from "@/lib/templates/images";
-import { templateGallery as templateGalleryTexts, templates as templatesTexts } from "@/texts/pt-BR";
+import { templateGallery as templateGalleryTexts } from "@/texts/pt-BR/template-gallery";
+import { templates as templatesTexts } from "@/texts/pt-BR/templates";
 
 const t = templateGalleryTexts;
 

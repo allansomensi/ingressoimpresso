@@ -5,7 +5,7 @@ import { useState, type FormEvent } from "react";
 
 import { OtpInput } from "@/components/otp-input";
 import { Button, ErrorMessage, Field, Input } from "@/components/ui";
-import { twoFactor as twoFactorTexts } from "@/texts/pt-BR";
+import { twoFactor as twoFactorTexts } from "@/texts/pt-BR/two-factor";
 
 const t = twoFactorTexts;
 

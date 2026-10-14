@@ -4,7 +4,7 @@
  * Every request and response type comes from `@ingressoimpresso/api-types`, generated from the
  * Rust DTOs, so a contract change breaks the build instead of the user.
  */
-import { errors as errorsTexts } from "@/texts/pt-BR";
+import { errors as errorsTexts } from "@/texts/pt-BR/errors";
 
 const TOKEN_KEY = "ingressoimpresso.session";
 

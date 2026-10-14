@@ -26,7 +26,7 @@ import { agoLabel, deviceHealth, LIVE_REFRESH_MS, occupancy, refusalCount } from
 import { money } from "@/lib/format";
 import { useWakeLock } from "@/lib/wake-lock";
 import { clockNow, serverClockNow, subscribeClock } from "@/portaria/clock";
-import { event as eventTexts } from "@/texts/pt-BR";
+import { event as eventTexts } from "@/texts/pt-BR/event";
 
 import { EntriesCurve, Meter } from "./live-chart";
 import type { SelectTab } from "./tabs";

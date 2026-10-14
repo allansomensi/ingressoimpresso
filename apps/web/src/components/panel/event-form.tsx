@@ -10,7 +10,8 @@ import { Button, Dialog, ErrorMessage, Field, Input, LoadingBlock } from "@/comp
 import { api } from "@/lib/api";
 import { browserOffset, offsetMinutes, wallClockInput, withOffset } from "@/lib/event-time";
 import { parseMoney } from "@/lib/format";
-import { common as commonTexts, panel as panelTexts } from "@/texts/pt-BR";
+import { common as commonTexts } from "@/texts/pt-BR/common";
+import { panel as panelTexts } from "@/texts/pt-BR/panel";
 
 const t = panelTexts;
 

@@ -6,7 +6,7 @@
 import type { EventSeriesRefDto } from "@ingressoimpresso/api-types";
 
 import { wallClock, wallClockInput } from "@/lib/event-time";
-import { series as seriesTexts } from "@/texts/pt-BR";
+import { series as seriesTexts } from "@/texts/pt-BR/series";
 
 const pad = (value: number) => String(value).padStart(2, "0");
 

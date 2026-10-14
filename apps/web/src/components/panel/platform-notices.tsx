@@ -12,7 +12,9 @@ import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { shortDateTime } from "@/lib/format";
 import { safeLink, useInbox } from "@/lib/platform";
-import { inbox as inboxTexts, maintenance as maintenanceTexts, panel as panelTexts } from "@/texts/pt-BR";
+import { inbox as inboxTexts } from "@/texts/pt-BR/inbox";
+import { maintenance as maintenanceTexts } from "@/texts/pt-BR/maintenance";
+import { panel as panelTexts } from "@/texts/pt-BR/panel";
 
 import { LEVEL_ICON, LEVEL_TONE } from "./inbox";
 

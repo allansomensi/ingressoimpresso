@@ -18,7 +18,7 @@ import {
 import { createPortal } from "react-dom";
 
 import { cn } from "@/lib/cn";
-import { common as commonTexts } from "@/texts/pt-BR";
+import { common as commonTexts } from "@/texts/pt-BR/common";
 
 import { useScrollLock, useSheetDrag } from "./sheet";
 

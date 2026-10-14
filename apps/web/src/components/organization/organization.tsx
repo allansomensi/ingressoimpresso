@@ -12,7 +12,9 @@ import { initials } from "@/lib/format";
 import { instagramUrl } from "@/lib/organization";
 import { whatsappUrl } from "@/lib/share";
 import { storeLogo, storedLogo } from "@/lib/ticket-pass";
-import { eventChange as eventChangeTexts, profile as profileTexts, ticket as ticketTexts } from "@/texts/pt-BR";
+import { eventChange as eventChangeTexts } from "@/texts/pt-BR/event-change";
+import { profile as profileTexts } from "@/texts/pt-BR/profile";
+import { ticket as ticketTexts } from "@/texts/pt-BR/ticket";
 
 const LOGOS_EVENT = "ingressoimpresso:logos";
 

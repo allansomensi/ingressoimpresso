@@ -16,7 +16,11 @@ import { cn } from "@/lib/cn";
 import { eventPhase } from "@/lib/event-list";
 import { dateParts, money } from "@/lib/format";
 import { dayLabel, hourLabel } from "@/lib/series";
-import { admin as adminTexts, common as commonTexts, event as eventTexts, meta as metaTexts, series as seriesTexts } from "@/texts/pt-BR";
+import { admin as adminTexts } from "@/texts/pt-BR/admin";
+import { common as commonTexts } from "@/texts/pt-BR/common";
+import { event as eventTexts } from "@/texts/pt-BR/event";
+import { meta as metaTexts } from "@/texts/pt-BR/meta";
+import { series as seriesTexts } from "@/texts/pt-BR/series";
 
 const t = seriesTexts;
 const count = (value: number) => value.toLocaleString("pt-BR");

@@ -9,7 +9,7 @@ import { CheckCircle2, Target, Trophy } from "lucide-react";
 
 import { cn } from "@/lib/cn";
 import { goalPercent } from "@/lib/seller-goals";
-import { sellerPage as sellerPageTexts } from "@/texts/pt-BR";
+import { sellerPage as sellerPageTexts } from "@/texts/pt-BR/seller-page";
 
 const t = sellerPageTexts;
 

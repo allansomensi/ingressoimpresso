@@ -19,7 +19,10 @@ import { money } from "@/lib/format";
 import { usePlatform } from "@/lib/platform";
 import { clearReferral, normalizeReferralCode, readReferral, saveReferral } from "@/lib/referral";
 import { useSession } from "@/lib/session";
-import { login as loginTexts, maintenance as maintenanceTexts, meta as metaTexts, referrals as referralsTexts } from "@/texts/pt-BR";
+import { login as loginTexts } from "@/texts/pt-BR/login";
+import { maintenance as maintenanceTexts } from "@/texts/pt-BR/maintenance";
+import { meta as metaTexts } from "@/texts/pt-BR/meta";
+import { referrals as referralsTexts } from "@/texts/pt-BR/referrals";
 
 const t = loginTexts;
 const RESEND_AFTER_S = 30;

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { useId } from "react";
 
 import { cn } from "@/lib/cn";
-import { brand as brandTexts } from "@/texts/pt-BR";
+import { brand as brandTexts } from "@/texts/pt-BR/brand";
 
 /** The logo mark: an admission ticket, tilted, with its tear-off line and a check (ADR 0021). */
 export function LogoMark({ className }: { className?: string | undefined }) {

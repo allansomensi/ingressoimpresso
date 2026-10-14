@@ -8,7 +8,8 @@ import Link from "next/link";
 import { ProfileEditor, type ProfileTarget } from "@/components/organization/profile-editor";
 import { ErrorMessage, LoadingBlock, PageHeader } from "@/components/ui";
 import { api } from "@/lib/api";
-import { panel as panelTexts, profile as profileTexts } from "@/texts/pt-BR";
+import { panel as panelTexts } from "@/texts/pt-BR/panel";
+import { profile as profileTexts } from "@/texts/pt-BR/profile";
 
 const t = profileTexts;
 const KEY = ["organization-profile"];

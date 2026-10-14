@@ -4,7 +4,7 @@ import { LayoutGrid, type LucideIcon } from "lucide-react";
 
 import { Popover } from "@/components/ui";
 import { cn } from "@/lib/cn";
-import { event as eventTexts } from "@/texts/pt-BR";
+import { event as eventTexts } from "@/texts/pt-BR/event";
 
 import { TAB_GROUPS, type Tab } from "./tabs";
 

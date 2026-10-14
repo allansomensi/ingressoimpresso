@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { Button, Card, CardHeader, errorMessage } from "@/components/ui";
 import { api } from "@/lib/api";
 import { money } from "@/lib/format";
-import { admin as adminTexts } from "@/texts/pt-BR";
+import { admin as adminTexts } from "@/texts/pt-BR/admin";
 
 const t = adminTexts.revenue;
 

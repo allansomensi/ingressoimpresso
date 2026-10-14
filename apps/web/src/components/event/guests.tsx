@@ -41,7 +41,7 @@ import {
 } from "@/lib/guest-list";
 import { inkFor } from "@/lib/design-rules";
 import { useUnsavedChanges } from "@/lib/unsaved";
-import { event as eventTexts } from "@/texts/pt-BR";
+import { event as eventTexts } from "@/texts/pt-BR/event";
 
 import { useEventAccess } from "./access";
 import { useLivePolling } from "./live-polling";

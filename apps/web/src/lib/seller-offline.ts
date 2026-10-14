@@ -21,7 +21,7 @@ import type {
 import { countNumbers, formatRanges, mergeRanges, subtract, type NumberRange } from "@/lib/number-list";
 import { isActive } from "@/lib/reservations";
 import { countCells } from "@/lib/seller-page";
-import { sellerPage as sellerPageTexts } from "@/texts/pt-BR";
+import { sellerPage as sellerPageTexts } from "@/texts/pt-BR/seller-page";
 
 /** A change waiting to be sent, with when it was made on the phone. */
 export type QueuedOp = SellerOpItem & { createdAt: string };

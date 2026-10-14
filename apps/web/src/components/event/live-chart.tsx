@@ -5,7 +5,7 @@ import { useState } from "react";
 
 import { cn } from "@/lib/cn";
 import { niceMax } from "@/lib/door-live";
-import { event as eventTexts } from "@/texts/pt-BR";
+import { event as eventTexts } from "@/texts/pt-BR/event";
 
 const t = eventTexts.live;
 /** Plot height in px (the columns grow from the baseline). */

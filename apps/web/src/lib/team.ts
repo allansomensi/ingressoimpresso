@@ -6,7 +6,7 @@
 import type { EventDto, TeamArea, TeamMemberDto } from "@ingressoimpresso/api-types";
 
 import { initials } from "@/lib/format";
-import { event as eventTexts } from "@/texts/pt-BR";
+import { event as eventTexts } from "@/texts/pt-BR/event";
 
 /** The parts of an event, in the order the panel shows them (coordination first). */
 export const TEAM_AREAS = ["manage", "money", "delivery", "art", "door"] as const satisfies readonly TeamArea[];

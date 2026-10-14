@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 import { ReferralRedirect } from "@/components/account/referral-redirect";
-import { referrals as referralsTexts } from "@/texts/pt-BR";
+import { referrals as referralsTexts } from "@/texts/pt-BR/referrals";
 
 const t = referralsTexts;
 

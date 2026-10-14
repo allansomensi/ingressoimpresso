@@ -31,7 +31,7 @@ import { EmptyState, LoadingBlock, PageHeader, Popover } from "@/components/ui";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { useSession } from "@/lib/session";
-import { admin as adminTexts } from "@/texts/pt-BR";
+import { admin as adminTexts } from "@/texts/pt-BR/admin";
 
 const t = adminTexts;
 

@@ -2,7 +2,10 @@ import { ListTodo } from "lucide-react";
 
 import { Badge, type Tone } from "@/components/ui";
 import type { EventPhase } from "@/lib/event-list";
-import { checklist as checklistTexts, event as eventTexts, eventChange as eventChangeTexts, panel as panelTexts } from "@/texts/pt-BR";
+import { checklist as checklistTexts } from "@/texts/pt-BR/checklist";
+import { event as eventTexts } from "@/texts/pt-BR/event";
+import { eventChange as eventChangeTexts } from "@/texts/pt-BR/event-change";
+import { panel as panelTexts } from "@/texts/pt-BR/panel";
 
 /** How each phase of an event shows in the lists (ADR 0060). */
 export const PHASE: Record<EventPhase, { label: string; tone: Tone }> = {

@@ -29,7 +29,9 @@ import { SiteHeader } from "@/components/marketing/site-header";
 import { TemplateShowcase } from "@/components/marketing/template-showcase";
 import { UseCases } from "@/components/marketing/use-cases";
 import { ButtonLink } from "@/components/ui";
-import { landing as landingTexts, nav as navTexts, templateGallery as templateGalleryTexts } from "@/texts/pt-BR";
+import { landing as landingTexts } from "@/texts/pt-BR/landing";
+import { nav as navTexts } from "@/texts/pt-BR/nav";
+import { templateGallery as templateGalleryTexts } from "@/texts/pt-BR/template-gallery";
 
 export const metadata: Metadata = {
   // The words people search for first, the brand after (the layout's default puts the brand first).

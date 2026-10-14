@@ -1,7 +1,8 @@
 import { eventSeoPage, eventSeoPages } from "@/content/seo-event-pages";
 import { EVENT_TEMPLATES, templateSeoById } from "@/content/seo-templates";
 import { SHARE_CONTENT_TYPE, SHARE_SIZE, shareImage } from "@/lib/share-image";
-import { eventPages as eventPagesTexts, meta as metaTexts } from "@/texts/pt-BR";
+import { eventPages as eventPagesTexts } from "@/texts/pt-BR/event-pages";
+import { meta as metaTexts } from "@/texts/pt-BR/meta";
 
 // Built with the site (fonts and pictures are read from disk), one per page.
 export const dynamic = "force-static";

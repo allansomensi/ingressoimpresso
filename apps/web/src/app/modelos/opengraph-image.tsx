@@ -1,6 +1,7 @@
 import { templateSeoById } from "@/content/seo-templates";
 import { SHARE_CONTENT_TYPE, SHARE_SIZE, shareImage } from "@/lib/share-image";
-import { meta as metaTexts, templateGallery as templateGalleryTexts } from "@/texts/pt-BR";
+import { meta as metaTexts } from "@/texts/pt-BR/meta";
+import { templateGallery as templateGalleryTexts } from "@/texts/pt-BR/template-gallery";
 
 export const dynamic = "force-static";
 export const size = SHARE_SIZE;

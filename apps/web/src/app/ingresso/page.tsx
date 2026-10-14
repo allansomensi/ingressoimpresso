@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 
 import { TicketPass } from "@/components/ticket/ticket-pass";
-import { ticket as ticketTexts } from "@/texts/pt-BR";
+import { ticket as ticketTexts } from "@/texts/pt-BR/ticket";
 
 // The link carries the ticket in its fragment: never indexed, never cached by search engines.
 export const metadata: Metadata = {

@@ -44,7 +44,8 @@ import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { whatsappLink } from "@/lib/settlement";
 import { PART_AREAS, TEAM_AREAS, areaList, displayName, personInitials, normalizeAreas, responsibleFor } from "@/lib/team";
-import { common as commonTexts, event as eventTexts } from "@/texts/pt-BR";
+import { common as commonTexts } from "@/texts/pt-BR/common";
+import { event as eventTexts } from "@/texts/pt-BR/event";
 
 const t = eventTexts.team;
 

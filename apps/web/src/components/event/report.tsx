@@ -12,7 +12,7 @@ import { settlementTotals } from "@/lib/settlement";
 import { Accountability } from "@/components/event/accountability";
 import { useLivePolling } from "@/components/event/live-polling";
 import type { SelectTab } from "@/components/event/tabs";
-import { event as eventTexts } from "@/texts/pt-BR";
+import { event as eventTexts } from "@/texts/pt-BR/event";
 
 const t = eventTexts.report;
 

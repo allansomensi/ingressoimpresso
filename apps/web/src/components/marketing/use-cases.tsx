@@ -12,7 +12,9 @@ import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { initials, money } from "@/lib/format";
 import { quote } from "@/lib/pricing";
-import { eventPages as eventPagesTexts, landing as landingTexts, templateGallery as templateGalleryTexts } from "@/texts/pt-BR";
+import { eventPages as eventPagesTexts } from "@/texts/pt-BR/event-pages";
+import { landing as landingTexts } from "@/texts/pt-BR/landing";
+import { templateGallery as templateGalleryTexts } from "@/texts/pt-BR/template-gallery";
 
 const c = landingTexts.cases;
 const [band, raffle, graduation] = c.items;

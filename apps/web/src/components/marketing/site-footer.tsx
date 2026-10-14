@@ -7,7 +7,7 @@ import { ButtonLink } from "@/components/ui";
 import { LEGAL_ENTITY } from "@/content/legal";
 import { eventSeoPages } from "@/content/seo-event-pages";
 import { ABOUT_HREF } from "@/lib/version";
-import { footer as footerTexts } from "@/texts/pt-BR";
+import { footer as footerTexts } from "@/texts/pt-BR/footer";
 
 const t = footerTexts;
 

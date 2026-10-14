@@ -11,7 +11,9 @@ import { Button, Dialog, ErrorMessage, Field, Input, LoadingBlock } from "@/comp
 import { api } from "@/lib/api";
 import { offsetMinutes, wallClockInput, withOffset } from "@/lib/event-time";
 import { addDays, nextDateStart } from "@/lib/series";
-import { common as commonTexts, panel as panelTexts, series as seriesTexts } from "@/texts/pt-BR";
+import { common as commonTexts } from "@/texts/pt-BR/common";
+import { panel as panelTexts } from "@/texts/pt-BR/panel";
+import { series as seriesTexts } from "@/texts/pt-BR/series";
 
 const t = seriesTexts;
 

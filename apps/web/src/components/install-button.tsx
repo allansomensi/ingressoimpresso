@@ -7,7 +7,7 @@ import { toast } from "sonner";
 
 import { Button, Dialog } from "@/components/ui";
 import { promptInstall, useInstallState } from "@/lib/pwa";
-import { pwa as pwaTexts } from "@/texts/pt-BR";
+import { pwa as pwaTexts } from "@/texts/pt-BR/pwa";
 
 const t = pwaTexts;
 const IOS_ICONS = [Share, PlusSquare, Download] as const;

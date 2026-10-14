@@ -16,7 +16,12 @@ import { initials } from "@/lib/format";
 import { usePlatform } from "@/lib/platform";
 import { useRequiredSession, useSession } from "@/lib/session";
 import { hasUnsavedChanges } from "@/lib/unsaved";
-import { admin as adminTexts, common as commonTexts, event as eventTexts, panel as panelTexts, profile as profileTexts, theme as themeTexts } from "@/texts/pt-BR";
+import { admin as adminTexts } from "@/texts/pt-BR/admin";
+import { common as commonTexts } from "@/texts/pt-BR/common";
+import { event as eventTexts } from "@/texts/pt-BR/event";
+import { panel as panelTexts } from "@/texts/pt-BR/panel";
+import { profile as profileTexts } from "@/texts/pt-BR/profile";
+import { theme as themeTexts } from "@/texts/pt-BR/theme";
 
 const t = panelTexts;
 

@@ -31,7 +31,7 @@ import {
   type Axis,
   type TicketElement,
 } from "@/lib/design-selection";
-import { event as eventTexts } from "@/texts/pt-BR";
+import { event as eventTexts } from "@/texts/pt-BR/event";
 
 const t = eventTexts.design;
 

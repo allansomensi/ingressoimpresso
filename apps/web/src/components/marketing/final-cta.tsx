@@ -1,7 +1,7 @@
 import { ArrowRight } from "lucide-react";
 
 import { ButtonLink } from "@/components/ui";
-import { landing as landingTexts } from "@/texts/pt-BR";
+import { landing as landingTexts } from "@/texts/pt-BR/landing";
 
 /** The closing call to action of a public page: a brand panel with the sign-up button. */
 export function FinalCta({ title, body = landingTexts.finalBody }: { title: string; body?: string }) {

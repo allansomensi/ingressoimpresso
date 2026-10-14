@@ -16,7 +16,10 @@ import { eventPhase, groupSeries, sortEvents, type ListEntry } from "@/lib/event
 import { dateParts, money } from "@/lib/format";
 import { dayLabel, hourLabel } from "@/lib/series";
 import { areaList } from "@/lib/team";
-import { event as eventTexts, eventChange as eventChangeTexts, panel as panelTexts, series as seriesTexts } from "@/texts/pt-BR";
+import { event as eventTexts } from "@/texts/pt-BR/event";
+import { eventChange as eventChangeTexts } from "@/texts/pt-BR/event-change";
+import { panel as panelTexts } from "@/texts/pt-BR/panel";
+import { series as seriesTexts } from "@/texts/pt-BR/series";
 
 const t = panelTexts;
 

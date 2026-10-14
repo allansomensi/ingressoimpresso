@@ -11,7 +11,8 @@ import { Badge, EmptyState, ErrorMessage, LoadingBlock } from "@/components/ui";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { eventDateTime } from "@/lib/format";
-import { admin as adminTexts, event as eventTexts } from "@/texts/pt-BR";
+import { admin as adminTexts } from "@/texts/pt-BR/admin";
+import { event as eventTexts } from "@/texts/pt-BR/event";
 
 const t = adminTexts.events;
 

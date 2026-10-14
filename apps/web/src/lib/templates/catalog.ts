@@ -7,7 +7,8 @@
 
 import type { FontChoice, NumberStyle, StubStyle, TextBlock, TicketDesign } from "@ingressoimpresso/api-types";
 
-import { event as eventTexts, templates as templatesTexts } from "@/texts/pt-BR";
+import { ticketCanvas as ticketCanvasTexts } from "@/texts/pt-BR/ticket-canvas";
+import { templates as templatesTexts } from "@/texts/pt-BR/templates";
 
 import { bokeh, branch, bunting, burst, canvas, confetti, glow, heart, linear, qrCard, r, random, star } from "./svg";
 
@@ -61,7 +62,7 @@ function number(x: number, y: number, width: number, height: number, font: FontC
   return { xMm: x, yMm: y, widthMm: width, heightMm: height, font, sizePt, color, align, prefix: "Nº ", digits: 4 };
 }
 
-const STUB: StubStyle = { side: "left", widthMm: 40, fields: [...eventTexts.design.defaultStubFields] };
+const STUB: StubStyle = { side: "left", widthMm: 40, fields: [...ticketCanvasTexts.defaultStubFields] };
 
 function design(
   width: number,
@@ -458,7 +459,7 @@ const raffle: TicketTemplate = {
       design: design(w, h, p.bg, {
         number: number(4, 2.5, 48, 10.5, "slab", 26, p.ink, "left"),
         qr: [45, 20, 22],
-        stub: { side: "left", widthMm: 25, fields: [...eventTexts.design.defaultStubFields] },
+        stub: { side: "left", widthMm: 25, fields: [...ticketCanvasTexts.defaultStubFields] },
         texts: [
           block("{evento}", 4, 17, 38, 10, { sizePt: 9.5, bold: true, color: p.ink, lines: 2 }),
           block(c.drawDate, 4, 28.5, 38, 4, { sizePt: 7, color: p.muted }),

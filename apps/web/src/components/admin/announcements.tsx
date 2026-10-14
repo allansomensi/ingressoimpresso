@@ -37,7 +37,10 @@ import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { shortDateTime } from "@/lib/format";
 import { fromLocalInput, toLocalInput } from "@/lib/local-time";
-import { admin as adminTexts, common as commonTexts, event as eventTexts, inbox as inboxTexts } from "@/texts/pt-BR";
+import { admin as adminTexts } from "@/texts/pt-BR/admin";
+import { common as commonTexts } from "@/texts/pt-BR/common";
+import { event as eventTexts } from "@/texts/pt-BR/event";
+import { inbox as inboxTexts } from "@/texts/pt-BR/inbox";
 
 const t = adminTexts.announcements;
 const LEVELS: readonly AnnouncementLevel[] = ["info", "success", "warning", "critical"];

@@ -40,7 +40,10 @@ import { dateTime } from "@/lib/format";
 import { useSession } from "@/lib/session";
 import { VERSION_LABEL } from "@/lib/version";
 import { useUnsavedChanges } from "@/lib/unsaved";
-import { account as accountTexts, common as commonTexts, panel as panelTexts, profile as profileTexts } from "@/texts/pt-BR";
+import { account as accountTexts } from "@/texts/pt-BR/account";
+import { common as commonTexts } from "@/texts/pt-BR/common";
+import { panel as panelTexts } from "@/texts/pt-BR/panel";
+import { profile as profileTexts } from "@/texts/pt-BR/profile";
 
 const t = accountTexts;
 

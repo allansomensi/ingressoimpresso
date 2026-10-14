@@ -47,7 +47,13 @@ import { changeKind } from "@/lib/event-change";
 import { positionLabel } from "@/lib/series";
 import { areaList, canDo } from "@/lib/team";
 import { hasUnsavedChanges } from "@/lib/unsaved";
-import { admin as adminTexts, common as commonTexts, event as eventTexts, eventChange as eventChangeTexts, meta as metaTexts, panel as panelTexts, series as seriesTexts } from "@/texts/pt-BR";
+import { admin as adminTexts } from "@/texts/pt-BR/admin";
+import { common as commonTexts } from "@/texts/pt-BR/common";
+import { event as eventTexts } from "@/texts/pt-BR/event";
+import { eventChange as eventChangeTexts } from "@/texts/pt-BR/event-change";
+import { meta as metaTexts } from "@/texts/pt-BR/meta";
+import { panel as panelTexts } from "@/texts/pt-BR/panel";
+import { series as seriesTexts } from "@/texts/pt-BR/series";
 
 // Each tab is its own chunk: opening an event loads only the tab on screen.
 const tabLoading = () => <LoadingBlock rows={3} />;

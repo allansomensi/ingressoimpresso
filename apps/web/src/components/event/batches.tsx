@@ -34,7 +34,10 @@ import { cn } from "@/lib/cn";
 import { money, shortDateTime, ticketNumber } from "@/lib/format";
 import { quote } from "@/lib/pricing";
 import { useSession } from "@/lib/session";
-import { common as commonTexts, errors as errorsTexts, event as eventTexts, landing as landingTexts } from "@/texts/pt-BR";
+import { common as commonTexts } from "@/texts/pt-BR/common";
+import { errors as errorsTexts } from "@/texts/pt-BR/errors";
+import { event as eventTexts } from "@/texts/pt-BR/event";
+import { landing as landingTexts } from "@/texts/pt-BR/landing";
 
 import type { SelectTab } from "./tabs";
 

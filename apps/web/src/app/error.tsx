@@ -4,7 +4,9 @@ import { AlertTriangle, RefreshCw } from "lucide-react";
 import { useEffect } from "react";
 
 import { Button, ButtonLink } from "@/components/ui";
-import { common as commonTexts, crash as crashTexts, notFound as notFoundTexts } from "@/texts/pt-BR";
+import { common as commonTexts } from "@/texts/pt-BR/common";
+import { crash as crashTexts } from "@/texts/pt-BR/crash";
+import { notFound as notFoundTexts } from "@/texts/pt-BR/not-found";
 
 const t = crashTexts;
 

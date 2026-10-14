@@ -7,7 +7,7 @@ import type { ReservationDto } from "@ingressoimpresso/api-types";
 
 import { offsetMinutes, wallClock, withOffset } from "@/lib/event-time";
 import { formatRanges } from "@/lib/number-list";
-import { reservations as reservationsTexts } from "@/texts/pt-BR";
+import { reservations as reservationsTexts } from "@/texts/pt-BR/reservations";
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;

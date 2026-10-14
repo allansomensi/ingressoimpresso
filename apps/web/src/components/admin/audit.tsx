@@ -10,7 +10,7 @@ import { AuditLine } from "@/components/admin/organization-detail";
 import { Button, EmptyState, ErrorMessage, Field, Input, Lead, List, LoadingBlock, Select, errorMessage } from "@/components/ui";
 import { API_URL, ApiError, api, readToken } from "@/lib/api";
 import { cn } from "@/lib/cn";
-import { admin as adminTexts } from "@/texts/pt-BR";
+import { admin as adminTexts } from "@/texts/pt-BR/admin";
 
 const t = adminTexts.audit;
 /** Action families (the server's `AUDIT_CATEGORIES`). */

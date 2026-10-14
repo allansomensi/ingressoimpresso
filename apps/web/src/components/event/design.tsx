@@ -105,7 +105,10 @@ import type { Palette, TicketTemplate } from "@/lib/templates/catalog";
 import { canDo } from "@/lib/team";
 import { blockValue } from "@/lib/ticket-fields";
 import { useUnsavedChanges } from "@/lib/unsaved";
-import { common as commonTexts, event as eventTexts, templates as templatesTexts } from "@/texts/pt-BR";
+import { common as commonTexts } from "@/texts/pt-BR/common";
+import { ticketCanvas as ticketCanvasTexts } from "@/texts/pt-BR/ticket-canvas";
+import { event as eventTexts } from "@/texts/pt-BR/event";
+import { templates as templatesTexts } from "@/texts/pt-BR/templates";
 
 const t = eventTexts.design;
 
@@ -1024,7 +1027,7 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
                 label={t.hasStub}
                 checked={design.stub !== null}
                 onChange={(checked) => {
-                  const fields = [...t.defaultStubFields];
+                  const fields = [...ticketCanvasTexts.defaultStubFields];
                   setStubText(fields.join("\n"));
                   update((d) => ({ ...d, stub: checked ? { side: "left", widthMm: 40, fields } : null }));
                 }}

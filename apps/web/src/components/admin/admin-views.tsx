@@ -47,7 +47,9 @@ import {
 import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { money, parseMoney, shortDateTime } from "@/lib/format";
-import { admin as adminTexts, common as commonTexts, event as eventTexts } from "@/texts/pt-BR";
+import { admin as adminTexts } from "@/texts/pt-BR/admin";
+import { common as commonTexts } from "@/texts/pt-BR/common";
+import { event as eventTexts } from "@/texts/pt-BR/event";
 
 const t = adminTexts;
 const integer = (value: number) => value.toLocaleString("pt-BR");

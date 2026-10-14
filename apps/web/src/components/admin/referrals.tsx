@@ -31,7 +31,7 @@ import {
 import { api } from "@/lib/api";
 import { money, parseMoney, shortDateTime } from "@/lib/format";
 import { useUnsavedChanges } from "@/lib/unsaved";
-import { referrals as referralsTexts } from "@/texts/pt-BR";
+import { referrals as referralsTexts } from "@/texts/pt-BR/referrals";
 
 const t = referralsTexts.admin;
 const KEY = ["admin", "referrals"];

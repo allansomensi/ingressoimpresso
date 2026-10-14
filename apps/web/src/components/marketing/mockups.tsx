@@ -2,7 +2,7 @@ import { CheckCircle2, WifiOff } from "lucide-react";
 
 import { QrCode } from "@/components/qr";
 import { cn } from "@/lib/cn";
-import { landing as landingTexts } from "@/texts/pt-BR";
+import { landing as landingTexts } from "@/texts/pt-BR/landing";
 
 const m = landingTexts.mock;
 // A sample text: the QR is decorative here (it is not a real ticket).

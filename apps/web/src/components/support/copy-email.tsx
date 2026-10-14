@@ -5,7 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui";
-import { helpCenter as helpCenterTexts } from "@/texts/pt-BR";
+import { helpCenter as helpCenterTexts } from "@/texts/pt-BR/help-center";
 
 const t = helpCenterTexts;
 

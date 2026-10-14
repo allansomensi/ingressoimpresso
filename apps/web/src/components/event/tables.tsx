@@ -13,7 +13,8 @@ import { clampPosition, compareTables, findSeat } from "@/lib/categories";
 import { cn } from "@/lib/cn";
 import { ticketNumber } from "@/lib/format";
 import { NUMBER_LIST_INPUT, formatRanges, parseNumberList } from "@/lib/number-list";
-import { common as commonTexts, event as eventTexts } from "@/texts/pt-BR";
+import { common as commonTexts } from "@/texts/pt-BR/common";
+import { event as eventTexts } from "@/texts/pt-BR/event";
 
 const t = eventTexts.tables;
 

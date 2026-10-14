@@ -1,6 +1,7 @@
 import { templateSeoBySlug, templateSeoPages } from "@/content/seo-templates";
 import { SHARE_CONTENT_TYPE, SHARE_SIZE, shareImage } from "@/lib/share-image";
-import { meta as metaTexts, templateGallery as templateGalleryTexts } from "@/texts/pt-BR";
+import { meta as metaTexts } from "@/texts/pt-BR/meta";
+import { templateGallery as templateGalleryTexts } from "@/texts/pt-BR/template-gallery";
 
 // Built with the site (fonts and pictures are read from disk), one per template.
 export const dynamic = "force-static";

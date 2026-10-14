@@ -35,7 +35,8 @@ import {
 import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { shortDateTime } from "@/lib/format";
-import { errors as errorsTexts, event as eventTexts } from "@/texts/pt-BR";
+import { errors as errorsTexts } from "@/texts/pt-BR/errors";
+import { event as eventTexts } from "@/texts/pt-BR/event";
 
 import type { SelectTab } from "./tabs";
 

@@ -8,7 +8,7 @@ import { BarChart } from "@/components/admin/bar-chart";
 import { Card, CardHeader, Skeleton, Stat } from "@/components/ui";
 import { api } from "@/lib/api";
 import { money } from "@/lib/format";
-import { event as eventTexts } from "@/texts/pt-BR";
+import { event as eventTexts } from "@/texts/pt-BR/event";
 
 import { useLivePolling } from "./live-polling";
 

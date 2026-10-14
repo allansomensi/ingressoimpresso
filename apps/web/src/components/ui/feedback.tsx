@@ -3,7 +3,8 @@ import type { ReactNode } from "react";
 
 import { ApiError } from "@/lib/api";
 import { cn } from "@/lib/cn";
-import { common as commonTexts, errors as errorsTexts } from "@/texts/pt-BR";
+import { common as commonTexts } from "@/texts/pt-BR/common";
+import { errors as errorsTexts } from "@/texts/pt-BR/errors";
 
 export type Tone = "neutral" | "brand" | "success" | "warning" | "danger";
 

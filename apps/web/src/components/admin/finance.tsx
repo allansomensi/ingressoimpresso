@@ -11,7 +11,7 @@ import { Card, CardHeader, EmptyState, ErrorMessage, LoadingBlock, Stat } from "
 import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { money } from "@/lib/format";
-import { admin as adminTexts } from "@/texts/pt-BR";
+import { admin as adminTexts } from "@/texts/pt-BR/admin";
 
 const t = adminTexts.finance;
 const PERIODS = [7, 30, 90, 365] as const;

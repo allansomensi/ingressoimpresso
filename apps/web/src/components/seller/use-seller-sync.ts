@@ -26,7 +26,7 @@ import {
   type QueuedOp,
   type SyncNotice,
 } from "@/lib/seller-offline";
-import { sellerPage as sellerPageTexts } from "@/texts/pt-BR";
+import { sellerPage as sellerPageTexts } from "@/texts/pt-BR/seller-page";
 
 const t = sellerPageTexts;
 

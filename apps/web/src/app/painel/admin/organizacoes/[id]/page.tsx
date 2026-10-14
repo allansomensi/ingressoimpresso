@@ -7,7 +7,7 @@ import { OrganizationDetail } from "@/components/admin/organization-detail";
 import { EmptyState } from "@/components/ui";
 import { isUuid } from "@/lib/api";
 import { useSession } from "@/lib/session";
-import { admin as adminTexts } from "@/texts/pt-BR";
+import { admin as adminTexts } from "@/texts/pt-BR/admin";
 
 export default function AdminOrganizationPage() {
   const { session } = useSession();

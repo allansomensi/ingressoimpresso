@@ -3,7 +3,7 @@ import Link from "next/link";
 
 import { buttonClass } from "@/components/ui";
 import { LEGAL_ENTITY } from "@/content/legal";
-import { helpCenter as helpCenterTexts } from "@/texts/pt-BR";
+import { helpCenter as helpCenterTexts } from "@/texts/pt-BR/help-center";
 
 import { CopyEmail } from "./copy-email";
 

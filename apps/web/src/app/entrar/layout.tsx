@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
-import { login as loginTexts } from "@/texts/pt-BR";
+import { login as loginTexts } from "@/texts/pt-BR/login";
 
 export const metadata: Metadata = {
   title: loginTexts.title,

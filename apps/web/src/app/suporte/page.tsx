@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { SiteFooter } from "@/components/marketing/site-footer";
 import { SiteHeader } from "@/components/marketing/site-header";
 import { SupportPage } from "@/components/support/support-page";
-import { helpCenter as helpCenterTexts } from "@/texts/pt-BR";
+import { helpCenter as helpCenterTexts } from "@/texts/pt-BR/help-center";
 
 export const metadata: Metadata = {
   title: helpCenterTexts.title,

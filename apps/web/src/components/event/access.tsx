@@ -7,7 +7,7 @@ import { createContext, useContext, type ReactNode } from "react";
 
 import { api } from "@/lib/api";
 import { canDo, displayName, isOwner, responsibleFor } from "@/lib/team";
-import { event as eventTexts } from "@/texts/pt-BR";
+import { event as eventTexts } from "@/texts/pt-BR/event";
 
 const t = eventTexts.team;
 

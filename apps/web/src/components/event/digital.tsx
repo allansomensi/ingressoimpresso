@@ -63,7 +63,8 @@ import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { shortDateTime } from "@/lib/format";
 import { copyText, downloadCsv, whatsappUrl } from "@/lib/share";
-import { common as commonTexts, event as eventTexts } from "@/texts/pt-BR";
+import { common as commonTexts } from "@/texts/pt-BR/common";
+import { event as eventTexts } from "@/texts/pt-BR/event";
 
 import type { SelectTab } from "./tabs";
 

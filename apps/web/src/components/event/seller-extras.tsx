@@ -47,7 +47,9 @@ import { NUMBER_LIST_INPUT, firstOutside, formatRanges, parseNumberList } from "
 import { deadlineLabel, isActive, isDueSoon, reminderMessage, timeLeft } from "@/lib/reservations";
 import { goalPercent, goalTotals, rankSellers } from "@/lib/seller-goals";
 import { whatsappLink } from "@/lib/settlement";
-import { common as commonTexts, event as eventTexts, sellerPage as sellerPageTexts } from "@/texts/pt-BR";
+import { common as commonTexts } from "@/texts/pt-BR/common";
+import { event as eventTexts } from "@/texts/pt-BR/event";
+import { sellerPage as sellerPageTexts } from "@/texts/pt-BR/seller-page";
 
 const t = eventTexts.sellers;
 

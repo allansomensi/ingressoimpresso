@@ -3,7 +3,7 @@ import { ArrowLeft, SearchX } from "lucide-react";
 
 import { Logo } from "@/components/brand";
 import { ButtonLink } from "@/components/ui";
-import { notFound as notFoundTexts } from "@/texts/pt-BR";
+import { notFound as notFoundTexts } from "@/texts/pt-BR/not-found";
 
 const t = notFoundTexts;
 

@@ -27,7 +27,8 @@ import {
 import { api, fetchBlobUrl } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { shortDateTime } from "@/lib/format";
-import { admin as adminTexts, common as commonTexts } from "@/texts/pt-BR";
+import { admin as adminTexts } from "@/texts/pt-BR/admin";
+import { common as commonTexts } from "@/texts/pt-BR/common";
 
 const t = adminTexts.moderation;
 type View = "open" | "approved" | "rejected" | "recent";

@@ -10,7 +10,8 @@ import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { dateTime, shortDateTime } from "@/lib/format";
 import { APP_COMMIT, RELEASE_NOTES_HREF, VERSION_LABEL } from "@/lib/version";
-import { maintenance as maintenanceTexts, status as statusTexts } from "@/texts/pt-BR";
+import { maintenance as maintenanceTexts } from "@/texts/pt-BR/maintenance";
+import { status as statusTexts } from "@/texts/pt-BR/status";
 
 const t = statusTexts;
 const DAYS = 90;

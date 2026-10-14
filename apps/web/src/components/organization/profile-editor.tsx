@@ -14,7 +14,13 @@ import { parseMoney } from "@/lib/format";
 import { profileBody, profileForm, type ProfileForm } from "@/lib/organization";
 import { textOn } from "@/lib/ticket-pass";
 import { useUnsavedChanges } from "@/lib/unsaved";
-import { admin as adminTexts, common as commonTexts, errors as errorsTexts, landing as landingTexts, panel as panelTexts, profile as profileTexts, ticket as ticketTexts } from "@/texts/pt-BR";
+import { admin as adminTexts } from "@/texts/pt-BR/admin";
+import { common as commonTexts } from "@/texts/pt-BR/common";
+import { errors as errorsTexts } from "@/texts/pt-BR/errors";
+import { landing as landingTexts } from "@/texts/pt-BR/landing";
+import { panel as panelTexts } from "@/texts/pt-BR/panel";
+import { profile as profileTexts } from "@/texts/pt-BR/profile";
+import { ticket as ticketTexts } from "@/texts/pt-BR/ticket";
 
 const t = profileTexts;
 const DEFAULT_COLOR = "#5b3df5";

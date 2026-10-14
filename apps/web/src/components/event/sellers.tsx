@@ -84,7 +84,9 @@ import { cn } from "@/lib/cn";
 import { initials, money, shortDateTime, ticketNumber } from "@/lib/format";
 import { NUMBER_LIST_INPUT, countNumbers, formatRanges, intersect, parseNumberList, type NumberRange } from "@/lib/number-list";
 import { receivedPercent, settlementMessage, settlementState, settlementTotals, shortDay, whatsappLink, type SettlementState } from "@/lib/settlement";
-import { common as commonTexts, errors as errorsTexts, event as eventTexts } from "@/texts/pt-BR";
+import { common as commonTexts } from "@/texts/pt-BR/common";
+import { errors as errorsTexts } from "@/texts/pt-BR/errors";
+import { event as eventTexts } from "@/texts/pt-BR/event";
 
 const t = eventTexts.sellers;
 

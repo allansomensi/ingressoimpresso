@@ -8,7 +8,7 @@ import { toast } from "sonner";
 
 import { Card, CardHeader, Switch, errorMessage } from "@/components/ui";
 import { api } from "@/lib/api";
-import { verifyPage as verifyPageTexts } from "@/texts/pt-BR";
+import { verifyPage as verifyPageTexts } from "@/texts/pt-BR/verify-page";
 
 const t = verifyPageTexts.settings;
 

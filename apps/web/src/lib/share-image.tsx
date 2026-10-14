@@ -12,7 +12,7 @@ import { ImageResponse } from "next/og";
 import { templateImagePath, type TemplateSeoPage } from "@/content/seo-templates";
 import { templateImageSize } from "@/lib/templates/images";
 import { SITE_URL } from "@/lib/site";
-import { brand as brandTexts } from "@/texts/pt-BR";
+import { brand as brandTexts } from "@/texts/pt-BR/brand";
 
 export const SHARE_SIZE = { width: 1200, height: 630 };
 export const SHARE_CONTENT_TYPE = "image/png";

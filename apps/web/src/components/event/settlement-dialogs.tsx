@@ -23,7 +23,8 @@ import { cn } from "@/lib/cn";
 import { money, parseMoney, ticketNumber } from "@/lib/format";
 import { NUMBER_LIST_INPUT, countNumbers, firstOutside, firstShared, formatRanges, intersect, mergeRanges, parseNumberList, subtract, type NumberRange } from "@/lib/number-list";
 import { todayIso } from "@/lib/settlement";
-import { common as commonTexts, event as eventTexts } from "@/texts/pt-BR";
+import { common as commonTexts } from "@/texts/pt-BR/common";
+import { event as eventTexts } from "@/texts/pt-BR/event";
 
 const t = eventTexts.sellers;
 const MAX_AMOUNT_CENTS = 100_000_000;

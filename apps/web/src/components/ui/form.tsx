@@ -10,7 +10,7 @@ import {
 } from "react";
 
 import { cn } from "@/lib/cn";
-import { common as commonTexts } from "@/texts/pt-BR";
+import { common as commonTexts } from "@/texts/pt-BR/common";
 
 export const controlClass = cn(
   // 16px on phones: iOS zooms into any field with smaller text.

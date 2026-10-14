@@ -48,7 +48,10 @@ import {
 import { api } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { dateTime, eventDateTime, money, shortDateTime } from "@/lib/format";
-import { account as accountTexts, admin as adminTexts, common as commonTexts, event as eventTexts } from "@/texts/pt-BR";
+import { account as accountTexts } from "@/texts/pt-BR/account";
+import { admin as adminTexts } from "@/texts/pt-BR/admin";
+import { common as commonTexts } from "@/texts/pt-BR/common";
+import { event as eventTexts } from "@/texts/pt-BR/event";
 
 const t = adminTexts.organization;
 

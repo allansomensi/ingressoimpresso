@@ -12,7 +12,9 @@ import { api, fetchBlobUrl } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { money, parseMoney } from "@/lib/format";
 import { shortDay, todayIso } from "@/lib/settlement";
-import { common as commonTexts, errors as errorsTexts, event as eventTexts } from "@/texts/pt-BR";
+import { common as commonTexts } from "@/texts/pt-BR/common";
+import { errors as errorsTexts } from "@/texts/pt-BR/errors";
+import { event as eventTexts } from "@/texts/pt-BR/event";
 
 const t = eventTexts.accountability;
 

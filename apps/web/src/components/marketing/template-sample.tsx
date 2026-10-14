@@ -7,7 +7,7 @@ import { cn } from "@/lib/cn";
 import { svgDataUrl } from "@/lib/rasterize";
 import { templateById, type TemplateId } from "@/lib/templates/catalog";
 import type { EventFields } from "@/lib/ticket-fields";
-import { landing as landingTexts } from "@/texts/pt-BR";
+import { landing as landingTexts } from "@/texts/pt-BR/landing";
 
 /** Sample dates and prices, in the events' wall-clock time. */
 const SAMPLE_START = ["2026-11-21T21:00:00-03:00", "2026-06-20T18:30:00-03:00", "2026-12-12T20:00:00-03:00", "2026-09-05T19:30:00-03:00"];

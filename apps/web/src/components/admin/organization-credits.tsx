@@ -10,7 +10,8 @@ import { Button, Card, CardHeader, ErrorMessage, Field, Input, Skeleton } from "
 import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { money, parseMoney, shortDateTime } from "@/lib/format";
-import { admin as adminTexts, credits as creditsTexts } from "@/texts/pt-BR";
+import { admin as adminTexts } from "@/texts/pt-BR/admin";
+import { credits as creditsTexts } from "@/texts/pt-BR/credits";
 
 const t = adminTexts.organization;
 

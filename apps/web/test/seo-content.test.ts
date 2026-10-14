@@ -6,7 +6,8 @@ import { describe, expect, it } from "vitest";
 import { eventSeoPages } from "@/content/seo-event-pages";
 import { EVENT_TEMPLATES, templateImagePath, templateSeoPages } from "@/content/seo-templates";
 import { TEMPLATES } from "@/lib/templates/catalog";
-import { landing as landingTexts, templateGallery as templateGalleryTexts } from "@/texts/pt-BR";
+import { landing as landingTexts } from "@/texts/pt-BR/landing";
+import { templateGallery as templateGalleryTexts } from "@/texts/pt-BR/template-gallery";
 
 const PUBLIC = fileURLToPath(new URL("../public", import.meta.url));
 

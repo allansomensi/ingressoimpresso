@@ -9,7 +9,9 @@ import { SectionHeading } from "@/components/marketing/section-heading";
 import { SiteFooter } from "@/components/marketing/site-footer";
 import { SiteHeader } from "@/components/marketing/site-header";
 import { TicketChecker } from "@/components/verify/ticket-checker";
-import { eventPages as eventPagesTexts, meta as metaTexts, verifyPage as verifyPageTexts } from "@/texts/pt-BR";
+import { eventPages as eventPagesTexts } from "@/texts/pt-BR/event-pages";
+import { meta as metaTexts } from "@/texts/pt-BR/meta";
+import { verifyPage as verifyPageTexts } from "@/texts/pt-BR/verify-page";
 
 const t = verifyPageTexts;
 const HOW_ICONS: readonly LucideIcon[] = [Fingerprint, ScanSearch, BadgeCheck];

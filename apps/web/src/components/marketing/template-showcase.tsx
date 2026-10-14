@@ -3,7 +3,7 @@
 import { TemplateSample } from "@/components/marketing/template-sample";
 import { useNearScreen } from "@/components/ui/near-screen";
 import { TEMPLATES, type TicketTemplate } from "@/lib/templates/catalog";
-import { landing as landingTexts } from "@/texts/pt-BR";
+import { landing as landingTexts } from "@/texts/pt-BR/landing";
 
 const t = landingTexts;
 

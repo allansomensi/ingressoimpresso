@@ -19,7 +19,7 @@ import {
   shortcutDeadline,
   type DeadlineShortcut,
 } from "@/lib/reservations";
-import { sellerPage as sellerPageTexts } from "@/texts/pt-BR";
+import { sellerPage as sellerPageTexts } from "@/texts/pt-BR/seller-page";
 
 const s = sellerPageTexts.sheet;
 

@@ -46,7 +46,9 @@ import { sessionLabel } from "@/lib/series";
 import { SITE_URL } from "@/lib/site";
 import { forgetPass, normalizePass, passBand, passDate, passImage, saveImage, storePass, storedPass, textOn } from "@/lib/ticket-pass";
 import { useWakeLock } from "@/lib/wake-lock";
-import { brand as brandTexts, errors as errorsTexts, ticket as ticketTexts } from "@/texts/pt-BR";
+import { brand as brandTexts } from "@/texts/pt-BR/brand";
+import { errors as errorsTexts } from "@/texts/pt-BR/errors";
+import { ticket as ticketTexts } from "@/texts/pt-BR/ticket";
 
 const t = ticketTexts;
 

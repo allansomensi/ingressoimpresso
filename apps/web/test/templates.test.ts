@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { designIssues, fitsA4 } from "@/lib/design-rules";
 import { TEMPLATES } from "@/lib/templates/catalog";
-import { templates as templatesTexts } from "@/texts/pt-BR";
+import { templates as templatesTexts } from "@/texts/pt-BR/templates";
 
 describe("template catalog", () => {
   it("has unique ids, names and categories for every template", () => {

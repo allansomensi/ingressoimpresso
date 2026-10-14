@@ -37,9 +37,9 @@ import { BLEED_MM, FONT_FAMILIES, FONTS_WITH_BOLD, MIN_QR_SIZE_MM, MM_PER_PT, ba
 import { ticketNumber } from "@/lib/format";
 import { random } from "@/lib/templates/svg";
 import { blockValue, type EventFields } from "@/lib/ticket-fields";
-import { event as eventTexts } from "@/texts/pt-BR";
+import { ticketCanvas as ticketCanvasTexts } from "@/texts/pt-BR/ticket-canvas";
 
-const t = eventTexts.design.canvas;
+const t = ticketCanvasTexts.labels;
 
 /** One element placed in a new box, as the canvas reports moves and resizes. */
 export interface ElementChange {
@@ -635,7 +635,7 @@ function Sponsors({ strip, urls, u }: { strip: SponsorStrip; urls: readonly stri
       <div className="flex min-h-0 flex-1 items-stretch" style={{ gap: u(gap) }}>
         {urls.length === 0 ? (
           <span className="flex flex-1 items-center justify-center border border-dashed border-black/30 bg-white/60 text-[10px] font-medium text-black/60 italic">
-            {eventTexts.design.sponsors.empty}
+            {ticketCanvasTexts.sponsorsEmpty}
           </span>
         ) : (
           urls.map((url, index) => (

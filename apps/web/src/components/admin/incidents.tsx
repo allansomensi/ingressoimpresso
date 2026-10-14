@@ -30,7 +30,10 @@ import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { shortDateTime } from "@/lib/format";
 import { fromLocalInput, localInputIn, toLocalInput } from "@/lib/local-time";
-import { admin as adminTexts, common as commonTexts, event as eventTexts, status as statusTexts } from "@/texts/pt-BR";
+import { admin as adminTexts } from "@/texts/pt-BR/admin";
+import { common as commonTexts } from "@/texts/pt-BR/common";
+import { event as eventTexts } from "@/texts/pt-BR/event";
+import { status as statusTexts } from "@/texts/pt-BR/status";
 
 const t = adminTexts.incidents;
 const s = statusTexts;

@@ -10,7 +10,8 @@ import { ProfileEditor } from "@/components/organization/profile-editor";
 import { EmptyState, ErrorMessage, LoadingBlock, PageHeader } from "@/components/ui";
 import { api, isUuid } from "@/lib/api";
 import { useSession } from "@/lib/session";
-import { admin as adminTexts, profile as profileTexts } from "@/texts/pt-BR";
+import { admin as adminTexts } from "@/texts/pt-BR/admin";
+import { profile as profileTexts } from "@/texts/pt-BR/profile";
 
 /** Any organization's public profile, with the organizer's own editor, in support mode (ADR 0079). */
 export default function AdminOrganizationProfilePage() {

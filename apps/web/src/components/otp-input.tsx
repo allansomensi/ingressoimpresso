@@ -3,7 +3,7 @@
 import { useRef, type ClipboardEvent, type KeyboardEvent } from "react";
 
 import { cn } from "@/lib/cn";
-import { login as loginTexts } from "@/texts/pt-BR";
+import { login as loginTexts } from "@/texts/pt-BR/login";
 
 /**
  * Six boxes for the login code: typing advances, Backspace goes back, pasting fills them all.

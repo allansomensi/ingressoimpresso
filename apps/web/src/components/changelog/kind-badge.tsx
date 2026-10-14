@@ -2,7 +2,7 @@ import type { ChangelogKind } from "@ingressoimpresso/api-types";
 import { Bug, Rocket, ShieldCheck, Sparkles, type LucideIcon } from "lucide-react";
 
 import { cn } from "@/lib/cn";
-import { changelog as changelogTexts } from "@/texts/pt-BR";
+import { changelog as changelogTexts } from "@/texts/pt-BR/changelog";
 
 const KINDS: Record<ChangelogKind, { icon: LucideIcon; className: string }> = {
   new: { icon: Rocket, className: "bg-brand-soft text-brand-soft-fg ring-brand/20" },

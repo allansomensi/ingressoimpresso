@@ -8,7 +8,7 @@ import { useState, type ReactNode } from "react";
 import { Badge, Card, CardHeader } from "@/components/ui";
 import { checklistTarget, requiredDone, splitItems } from "@/lib/checklist";
 import { cn } from "@/lib/cn";
-import { checklist as checklistTexts } from "@/texts/pt-BR";
+import { checklist as checklistTexts } from "@/texts/pt-BR/checklist";
 
 import type { SelectTab } from "./tabs";
 

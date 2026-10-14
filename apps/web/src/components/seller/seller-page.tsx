@@ -46,7 +46,10 @@ import { copyText } from "@/lib/share";
 import { sessionLabel } from "@/lib/series";
 import { listNames } from "@/lib/team";
 import { textOn } from "@/lib/ticket-pass";
-import { brand as brandTexts, errors as errorsTexts, event as eventTexts, sellerPage as sellerPageTexts } from "@/texts/pt-BR";
+import { brand as brandTexts } from "@/texts/pt-BR/brand";
+import { errors as errorsTexts } from "@/texts/pt-BR/errors";
+import { event as eventTexts } from "@/texts/pt-BR/event";
+import { sellerPage as sellerPageTexts } from "@/texts/pt-BR/seller-page";
 
 const t = sellerPageTexts;
 

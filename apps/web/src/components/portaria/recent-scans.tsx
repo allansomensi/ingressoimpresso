@@ -7,7 +7,7 @@ import { inkFor } from "@/lib/design-rules";
 import type { DoorEngine, DoorState } from "@/portaria/engine";
 import { clockTime } from "@/portaria/logic";
 import { scanTime, type RecentScan, type RecentSummary } from "@/portaria/recent";
-import { portaria as portariaTexts } from "@/texts/pt-BR";
+import { portaria as portariaTexts } from "@/texts/pt-BR/portaria";
 
 const t = portariaTexts.history;
 

@@ -9,7 +9,8 @@ import { cn } from "@/lib/cn";
 import { spokenDate } from "@/lib/event-change";
 import { sessionLabel } from "@/lib/series";
 import { verdictTone, type VerdictTone } from "@/lib/verify";
-import { series as seriesTexts, verifyPage as verifyPageTexts } from "@/texts/pt-BR";
+import { series as seriesTexts } from "@/texts/pt-BR/series";
+import { verifyPage as verifyPageTexts } from "@/texts/pt-BR/verify-page";
 
 const t = verifyPageTexts;
 

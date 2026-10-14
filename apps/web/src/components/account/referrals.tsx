@@ -13,7 +13,7 @@ import { money } from "@/lib/format";
 import { referralState, referralUrl, type ReferralState } from "@/lib/referral";
 import { copyText, whatsappUrl } from "@/lib/share";
 import { SITE_URL } from "@/lib/site";
-import { referrals as referralsTexts } from "@/texts/pt-BR";
+import { referrals as referralsTexts } from "@/texts/pt-BR/referrals";
 
 const t = referralsTexts;
 

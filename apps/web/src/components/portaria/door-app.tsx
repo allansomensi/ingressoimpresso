@@ -35,7 +35,8 @@ import { money } from "@/lib/format";
 import { sessionLabel } from "@/lib/series";
 import { HOLD_MS, OFFLINE_WARNING_MS, canRehearse, clockTime, dismissPolicy, type ResultView } from "@/portaria/logic";
 import { cameraGranted, keepOffline, keepScreenOn, persistStorage, whenIdle } from "@/portaria/offline";
-import { errors as errorsTexts, portaria as portariaTexts } from "@/texts/pt-BR";
+import { errors as errorsTexts } from "@/texts/pt-BR/errors";
+import { portaria as portariaTexts } from "@/texts/pt-BR/portaria";
 
 const t = portariaTexts;
 

@@ -9,7 +9,7 @@ import { Button, Card, CardHeader, ErrorMessage, Skeleton, Stat } from "@/compon
 import { isDoorDay } from "@/lib/door-live";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
-import { event as eventTexts } from "@/texts/pt-BR";
+import { event as eventTexts } from "@/texts/pt-BR/event";
 
 import { ChecklistCard } from "./checklist";
 import { EventResults } from "./event-results";

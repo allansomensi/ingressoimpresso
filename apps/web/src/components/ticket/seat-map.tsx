@@ -5,7 +5,7 @@ import { Armchair } from "lucide-react";
 import { useMemo } from "react";
 
 import { MAP_HEIGHT, MAP_WIDTH, chairPositions, seatMapLayout, tableLabels } from "@/lib/seat-map";
-import { ticket as ticketTexts } from "@/texts/pt-BR";
+import { ticket as ticketTexts } from "@/texts/pt-BR/ticket";
 
 const t = ticketTexts;
 /** With more tables than this, only the holder's table is named (the others would be unreadable). */

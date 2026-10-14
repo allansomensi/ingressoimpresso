@@ -13,7 +13,8 @@ import { cn } from "@/lib/cn";
 import { formatRanges } from "@/lib/number-list";
 import { deadlineLabel, isActive, isDueSoon, reminderMessage, timeLeft } from "@/lib/reservations";
 import { whatsappLink } from "@/lib/settlement";
-import { reservations as reservationsTexts, sellerPage as sellerPageTexts } from "@/texts/pt-BR";
+import { reservations as reservationsTexts } from "@/texts/pt-BR/reservations";
+import { sellerPage as sellerPageTexts } from "@/texts/pt-BR/seller-page";
 
 const t = sellerPageTexts.reservations;
 

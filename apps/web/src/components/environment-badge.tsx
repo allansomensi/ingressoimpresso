@@ -1,5 +1,5 @@
 import { IS_STAGING } from "@/lib/site";
-import { meta as metaTexts } from "@/texts/pt-BR";
+import { meta as metaTexts } from "@/texts/pt-BR/meta";
 
 /**
  * A pill on every page of the staging site (ADR 0046), so a test is never mistaken for the real

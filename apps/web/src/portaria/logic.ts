@@ -17,7 +17,8 @@ import type { DecisionDto } from "@ingressoimpresso/ticket-core-wasm";
 
 import { money } from "@/lib/format";
 import { sessionLabel } from "@/lib/series";
-import { errors as errorsTexts, portaria as portariaTexts } from "@/texts/pt-BR";
+import { errors as errorsTexts } from "@/texts/pt-BR/errors";
+import { portaria as portariaTexts } from "@/texts/pt-BR/portaria";
 
 /** Sync period while the door screen is open. */
 export const SYNC_INTERVAL_MS = 3_000;

@@ -3,7 +3,7 @@ import { WifiOff } from "lucide-react";
 
 import { Logo } from "@/components/brand";
 import { ButtonLink } from "@/components/ui";
-import { pwa as pwaTexts } from "@/texts/pt-BR";
+import { pwa as pwaTexts } from "@/texts/pt-BR/pwa";
 
 const t = pwaTexts;
 

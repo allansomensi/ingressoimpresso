@@ -12,7 +12,9 @@ import { CancelDialog, ChangeMessageDialog, PostponeDialog } from "@/components/
 import { Menu, MenuItem, buttonClass, errorMessage, useConfirm } from "@/components/ui";
 import { api } from "@/lib/api";
 import { canDo, isOwner } from "@/lib/team";
-import { event as eventTexts, eventChange as eventChangeTexts, series as seriesTexts } from "@/texts/pt-BR";
+import { event as eventTexts } from "@/texts/pt-BR/event";
+import { eventChange as eventChangeTexts } from "@/texts/pt-BR/event-change";
+import { series as seriesTexts } from "@/texts/pt-BR/series";
 
 const t = eventTexts.actions;
 const c = eventChangeTexts;

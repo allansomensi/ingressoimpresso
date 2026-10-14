@@ -6,7 +6,7 @@ import type { ReportRowDto } from "@ingressoimpresso/api-types";
 
 import { money } from "@/lib/format";
 import { formatRanges, type NumberRange } from "@/lib/number-list";
-import { event as eventTexts } from "@/texts/pt-BR";
+import { event as eventTexts } from "@/texts/pt-BR/event";
 
 /** Where a seller stands. */
 export type SettlementState =

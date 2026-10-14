@@ -1,5 +1,5 @@
 import { SHARE_CONTENT_TYPE, SHARE_SIZE, shareImage } from "@/lib/share-image";
-import { verifyPage as verifyPageTexts } from "@/texts/pt-BR";
+import { verifyPage as verifyPageTexts } from "@/texts/pt-BR/verify-page";
 
 export const dynamic = "force-static";
 export const size = SHARE_SIZE;

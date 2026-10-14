@@ -12,7 +12,8 @@ import { cn } from "@/lib/cn";
 import { shortDateTime } from "@/lib/format";
 import { opLabel, type QueuedOp, type SyncNotice } from "@/lib/seller-offline";
 import { copyText } from "@/lib/share";
-import { common as commonTexts, sellerPage as sellerPageTexts } from "@/texts/pt-BR";
+import { common as commonTexts } from "@/texts/pt-BR/common";
+import { sellerPage as sellerPageTexts } from "@/texts/pt-BR/seller-page";
 import { toast } from "sonner";
 
 import type { SendProblem } from "./use-seller-sync";

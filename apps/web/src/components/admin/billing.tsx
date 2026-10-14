@@ -61,7 +61,10 @@ import { dateTime, money, parseMoney, shortDateTime } from "@/lib/format";
 import { fromLocalInput, localInputIn, toLocalInput } from "@/lib/local-time";
 import { quote, type PriceTable } from "@/lib/pricing";
 import { copyText } from "@/lib/share";
-import { account as accountTexts, admin as adminTexts, common as commonTexts, event as eventTexts } from "@/texts/pt-BR";
+import { account as accountTexts } from "@/texts/pt-BR/account";
+import { admin as adminTexts } from "@/texts/pt-BR/admin";
+import { common as commonTexts } from "@/texts/pt-BR/common";
+import { event as eventTexts } from "@/texts/pt-BR/event";
 
 const t = adminTexts.billing;
 const EXAMPLES = [50, 100, 300, 1000] as const;

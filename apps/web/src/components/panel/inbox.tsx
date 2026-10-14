@@ -30,7 +30,8 @@ import { money, shortDateTime } from "@/lib/format";
 import { isUuid } from "@/lib/api";
 import { markInboxRead, safeLink, useInbox } from "@/lib/platform";
 import { areaList, parseAreas } from "@/lib/team";
-import { changelog as changelogTexts, inbox as inboxTexts } from "@/texts/pt-BR";
+import { changelog as changelogTexts } from "@/texts/pt-BR/changelog";
+import { inbox as inboxTexts } from "@/texts/pt-BR/inbox";
 
 const t = inboxTexts;
 const NEWS_SHOWN = 4;

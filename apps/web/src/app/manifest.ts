@@ -1,6 +1,8 @@
 import type { MetadataRoute } from "next";
 
-import { meta as metaTexts, panel as panelTexts, portaria as portariaTexts } from "@/texts/pt-BR";
+import { meta as metaTexts } from "@/texts/pt-BR/meta";
+import { panel as panelTexts } from "@/texts/pt-BR/panel";
+import { portaria as portariaTexts } from "@/texts/pt-BR/portaria";
 
 /** Manifest of the panel (ADR 0021). The door has its own, scoped to /portaria (ADR 0018). */
 export default function manifest(): MetadataRoute.Manifest {

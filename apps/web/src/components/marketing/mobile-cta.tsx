@@ -6,7 +6,8 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { ButtonLink } from "@/components/ui";
 import { readToken, subscribeToken } from "@/lib/api";
 import { cn } from "@/lib/cn";
-import { landing as landingTexts, nav as navTexts } from "@/texts/pt-BR";
+import { landing as landingTexts } from "@/texts/pt-BR/landing";
+import { nav as navTexts } from "@/texts/pt-BR/nav";
 
 /** Sections that already carry the call to action: the bar steps aside while they are on screen. */
 const OWN_CTA = ["comecar", "criar"] as const;

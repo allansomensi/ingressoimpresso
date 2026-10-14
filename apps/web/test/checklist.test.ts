@@ -2,7 +2,7 @@ import type { ChecklistDto, ChecklistItemDto } from "@ingressoimpresso/api-types
 import { describe, expect, it } from "vitest";
 
 import { checklistTarget, isComplete, requiredDone, splitItems } from "@/lib/checklist";
-import { checklist as checklistTexts } from "@/texts/pt-BR";
+import { checklist as checklistTexts } from "@/texts/pt-BR/checklist";
 
 function item(key: ChecklistItemDto["key"], state: ChecklistItemDto["state"], optional = false): ChecklistItemDto {
   return { key, state, optional, area: "manage", canAct: true, progress: null, hint: null };

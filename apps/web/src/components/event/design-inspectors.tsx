@@ -8,7 +8,8 @@ import { Button, Field, Input, NumberInput, Select, Switch } from "@/components/
 import { cn } from "@/lib/cn";
 import { FONTS_WITH_BOLD, MAX_PREFIX_CHARS, MAX_TEXT_CHARS, MAX_TEXT_LINES, MIN_QR_SIZE_MM } from "@/lib/design-rules";
 import { FIELDS } from "@/lib/ticket-fields";
-import { common as commonTexts, event as eventTexts } from "@/texts/pt-BR";
+import { common as commonTexts } from "@/texts/pt-BR/common";
+import { event as eventTexts } from "@/texts/pt-BR/event";
 
 const t = eventTexts.design;
 const ALIGNS: readonly { value: TextAlign; icon: LucideIcon }[] = [

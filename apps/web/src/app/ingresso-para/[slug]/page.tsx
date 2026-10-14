@@ -16,7 +16,10 @@ import { TemplateCard } from "@/components/marketing/template-card";
 import { ButtonLink } from "@/components/ui";
 import { eventSeoPage, eventSeoPages } from "@/content/seo-event-pages";
 import { EVENT_TEMPLATES, templateSeoById } from "@/content/seo-templates";
-import { eventPages as eventPagesTexts, landing as landingTexts, meta as metaTexts, templateGallery as templateGalleryTexts } from "@/texts/pt-BR";
+import { eventPages as eventPagesTexts } from "@/texts/pt-BR/event-pages";
+import { landing as landingTexts } from "@/texts/pt-BR/landing";
+import { meta as metaTexts } from "@/texts/pt-BR/meta";
+import { templateGallery as templateGalleryTexts } from "@/texts/pt-BR/template-gallery";
 
 const t = eventPagesTexts;
 

@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 
-import { portaria as portariaTexts } from "@/texts/pt-BR";
+import { portaria as portariaTexts } from "@/texts/pt-BR/portaria";
 
 export const metadata: Metadata = {
   title: portariaTexts.title,

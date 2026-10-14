@@ -4,7 +4,7 @@ import { AlertTriangle, X } from "lucide-react";
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 
 import { cn } from "@/lib/cn";
-import { common as commonTexts } from "@/texts/pt-BR";
+import { common as commonTexts } from "@/texts/pt-BR/common";
 
 import { Button } from "./button";
 import { useIsPhone } from "./popover";

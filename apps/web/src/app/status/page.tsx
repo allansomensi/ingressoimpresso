@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { SiteFooter } from "@/components/marketing/site-footer";
 import { SiteHeader } from "@/components/marketing/site-header";
 import { StatusPage } from "@/components/status/status-page";
-import { status as statusTexts } from "@/texts/pt-BR";
+import { status as statusTexts } from "@/texts/pt-BR/status";
 
 export const metadata: Metadata = {
   title: statusTexts.title,

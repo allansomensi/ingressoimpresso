@@ -8,7 +8,8 @@ import { SiteAnalytics } from "@/components/site-analytics";
 import { EnvironmentBadge } from "@/components/environment-badge";
 import { IS_STAGING, SITE_URL } from "@/lib/site";
 import { THEME_COLORS, THEME_SCRIPT } from "@/lib/theme-script";
-import { landing as landingTexts, meta as metaTexts } from "@/texts/pt-BR";
+import { landing as landingTexts } from "@/texts/pt-BR/landing";
+import { meta as metaTexts } from "@/texts/pt-BR/meta";
 
 import { Providers } from "./providers";
 import "./globals.css";

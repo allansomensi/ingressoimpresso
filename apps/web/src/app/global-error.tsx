@@ -1,6 +1,7 @@
 "use client";
 
-import { common as commonTexts, crash as crashTexts } from "@/texts/pt-BR";
+import { common as commonTexts } from "@/texts/pt-BR/common";
+import { crash as crashTexts } from "@/texts/pt-BR/crash";
 
 import "./globals.css";
 

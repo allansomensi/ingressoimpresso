@@ -11,7 +11,9 @@ import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { eventDateTime, money } from "@/lib/format";
 import { downloadCsv } from "@/lib/share";
-import { admin as adminTexts, event as eventTexts, results as resultsTexts } from "@/texts/pt-BR";
+import { admin as adminTexts } from "@/texts/pt-BR/admin";
+import { event as eventTexts } from "@/texts/pt-BR/event";
+import { results as resultsTexts } from "@/texts/pt-BR/results";
 
 const t = resultsTexts;
 

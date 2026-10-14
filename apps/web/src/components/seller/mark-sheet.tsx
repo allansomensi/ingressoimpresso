@@ -15,7 +15,8 @@ import { cn } from "@/lib/cn";
 import { firstOutside, firstShared, formatRanges, parseNumberList, type NumberRange } from "@/lib/number-list";
 import { newId } from "@/lib/seller-offline";
 import { nextAvailable, padNumber, type NumberCell } from "@/lib/seller-page";
-import { common as commonTexts, sellerPage as sellerPageTexts } from "@/texts/pt-BR";
+import { common as commonTexts } from "@/texts/pt-BR/common";
+import { sellerPage as sellerPageTexts } from "@/texts/pt-BR/seller-page";
 
 const t = sellerPageTexts;
 const s = t.sheet;

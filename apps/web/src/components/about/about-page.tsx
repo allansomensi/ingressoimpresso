@@ -5,7 +5,8 @@ import { TicketMock } from "@/components/marketing/mockups";
 import { ButtonLink } from "@/components/ui";
 import { LEGAL_ENTITY } from "@/content/legal";
 import { APP_COMMIT, RELEASE_NOTES_HREF, VERSION_LABEL } from "@/lib/version";
-import { about as aboutTexts, landing as landingTexts } from "@/texts/pt-BR";
+import { about as aboutTexts } from "@/texts/pt-BR/about";
+import { landing as landingTexts } from "@/texts/pt-BR/landing";
 
 const t = aboutTexts;
 const PRINCIPLE_ICONS: readonly LucideIcon[] = [ShieldCheck, WifiOff, Scale, HeartHandshake];

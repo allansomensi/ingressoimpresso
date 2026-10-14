@@ -10,7 +10,8 @@ import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { dateTime, money, parseMoney } from "@/lib/format";
 import { LARGEST_BATCH, discounted, quoteBreakdown, sliderPosition, sliderQuantity } from "@/lib/pricing";
-import { common as commonTexts, landing as landingTexts } from "@/texts/pt-BR";
+import { common as commonTexts } from "@/texts/pt-BR/common";
+import { landing as landingTexts } from "@/texts/pt-BR/landing";
 
 const t = landingTexts;
 const s = t.sim;

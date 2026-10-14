@@ -16,7 +16,10 @@ import { ButtonLink } from "@/components/ui";
 import { eventSeoPage } from "@/content/seo-event-pages";
 import { eventSlugForTemplate, templateSeoBySlug, templateSeoPages } from "@/content/seo-templates";
 import { templateById } from "@/lib/templates/catalog";
-import { eventPages as eventPagesTexts, meta as metaTexts, templateGallery as templateGalleryTexts, templates as templatesTexts } from "@/texts/pt-BR";
+import { eventPages as eventPagesTexts } from "@/texts/pt-BR/event-pages";
+import { meta as metaTexts } from "@/texts/pt-BR/meta";
+import { templateGallery as templateGalleryTexts } from "@/texts/pt-BR/template-gallery";
+import { templates as templatesTexts } from "@/texts/pt-BR/templates";
 
 const t = templateGalleryTexts;
 

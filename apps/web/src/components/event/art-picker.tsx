@@ -7,7 +7,7 @@ import { useRef, useState, type DragEvent } from "react";
 import { Badge, Button, Spinner } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { BLEED_MM } from "@/lib/design-rules";
-import { event as eventTexts } from "@/texts/pt-BR";
+import { event as eventTexts } from "@/texts/pt-BR/event";
 
 const t = eventTexts.design;
 const MM_PER_INCH = 25.4;

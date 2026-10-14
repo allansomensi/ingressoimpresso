@@ -10,7 +10,7 @@ import { Button, Card, CardHeader, ErrorMessage, Input, Skeleton } from "@/compo
 import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { money, shortDateTime } from "@/lib/format";
-import { credits as creditsTexts } from "@/texts/pt-BR";
+import { credits as creditsTexts } from "@/texts/pt-BR/credits";
 
 const t = creditsTexts;
 const SHOWN = 4;

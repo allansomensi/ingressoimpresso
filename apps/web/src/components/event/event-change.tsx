@@ -13,7 +13,8 @@ import { offsetMinutes, wallClockInput, withOffset } from "@/lib/event-time";
 import { eventDateTime, shortDateTime } from "@/lib/format";
 import { copyText, whatsappUrl } from "@/lib/share";
 import { canDo } from "@/lib/team";
-import { eventChange as eventChangeTexts, panel as panelTexts } from "@/texts/pt-BR";
+import { eventChange as eventChangeTexts } from "@/texts/pt-BR/event-change";
+import { panel as panelTexts } from "@/texts/pt-BR/panel";
 
 const t = eventChangeTexts;
 const MAX_REASON = 200;

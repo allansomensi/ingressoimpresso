@@ -6,7 +6,7 @@ import type { DoorVoidDto } from "@ingressoimpresso/api-types";
 
 import type { StoredEntry, StoredScan } from "./storage";
 import { categoryOf, clockTime, otherSession, padNumber, sellerOf, seatOf, type DoorContext, type Tone } from "./logic";
-import { portaria as portariaTexts } from "@/texts/pt-BR";
+import { portaria as portariaTexts } from "@/texts/pt-BR/portaria";
 
 const t = portariaTexts.history;
 const r = portariaTexts.result;

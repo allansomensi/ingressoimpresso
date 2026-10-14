@@ -12,7 +12,8 @@ import { cn } from "@/lib/cn";
 import { dateTime } from "@/lib/format";
 import { fromLocalInput, toLocalInput } from "@/lib/local-time";
 import { useUnsavedChanges } from "@/lib/unsaved";
-import { admin as adminTexts, common as commonTexts } from "@/texts/pt-BR";
+import { admin as adminTexts } from "@/texts/pt-BR/admin";
+import { common as commonTexts } from "@/texts/pt-BR/common";
 
 const t = adminTexts.settings;
 const MODES: readonly MaintenanceMode[] = ["off", "read_only", "full"];
