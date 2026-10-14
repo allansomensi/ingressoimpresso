@@ -310,8 +310,9 @@ async fn design_art_and_preview(pool: PgPool) {
         )
         .await;
     assert_eq!(preview.status, StatusCode::OK);
-    assert_eq!(preview.headers[header::CONTENT_TYPE], "image/png");
-    assert!(preview.bytes.starts_with(b"\x89PNG"));
+    // A JPEG: a picture for the editor's screen, a tenth of the bytes of a PNG.
+    assert_eq!(preview.headers[header::CONTENT_TYPE], "image/jpeg");
+    assert!(preview.bytes.starts_with(b"\xff\xd8\xff"));
 
     body["design"]["qr"]["sizeMm"] = json!(10);
     let invalid = app

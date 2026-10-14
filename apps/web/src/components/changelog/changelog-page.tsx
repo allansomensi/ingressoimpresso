@@ -9,9 +9,9 @@ import { Badge, ButtonLink, EmptyState, Skeleton } from "@/components/ui";
 import { CHANGELOG_KINDS, type ChangelogGroup, groupChangelog, markSeen, paragraphs, useChangelog } from "@/lib/changelog";
 import { cn } from "@/lib/cn";
 import { APP_VERSION, VERSION_LABEL, versionAnchor } from "@/lib/version";
-import { texts } from "@/texts/pt-BR";
+import { changelog as changelogTexts } from "@/texts/pt-BR/changelog";
 
-const t = texts.changelog;
+const t = changelogTexts;
 
 type Filter = ChangelogKind | "all";
 

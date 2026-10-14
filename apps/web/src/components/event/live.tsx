@@ -26,12 +26,12 @@ import { agoLabel, deviceHealth, LIVE_REFRESH_MS, occupancy, refusalCount } from
 import { money } from "@/lib/format";
 import { useWakeLock } from "@/lib/wake-lock";
 import { clockNow, serverClockNow, subscribeClock } from "@/portaria/clock";
-import { texts } from "@/texts/pt-BR";
+import { event as eventTexts } from "@/texts/pt-BR/event";
 
 import { EntriesCurve, Meter } from "./live-chart";
 import type { SelectTab } from "./tabs";
 
-const t = texts.event.live;
+const t = eventTexts.live;
 
 function count(value: number): string {
   return value.toLocaleString("pt-BR");

@@ -3,11 +3,11 @@ import type { Metadata } from "next";
 import { SiteFooter } from "@/components/marketing/site-footer";
 import { SiteHeader } from "@/components/marketing/site-header";
 import { SupportPage } from "@/components/support/support-page";
-import { texts } from "@/texts/pt-BR";
+import { helpCenter as helpCenterTexts } from "@/texts/pt-BR/help-center";
 
 export const metadata: Metadata = {
-  title: texts.helpCenter.title,
-  description: texts.helpCenter.metaDescription,
+  title: helpCenterTexts.title,
+  description: helpCenterTexts.metaDescription,
   alternates: { canonical: "/suporte" },
 };
 

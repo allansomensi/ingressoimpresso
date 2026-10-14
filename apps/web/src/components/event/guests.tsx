@@ -41,11 +41,12 @@ import {
 } from "@/lib/guest-list";
 import { inkFor } from "@/lib/design-rules";
 import { useUnsavedChanges } from "@/lib/unsaved";
-import { texts } from "@/texts/pt-BR";
+import { event as eventTexts } from "@/texts/pt-BR/event";
 
 import { useEventAccess } from "./access";
+import { useLivePolling } from "./live-polling";
 
-const t = texts.event.guests;
+const t = eventTexts.guests;
 const FILTERS: readonly GuestFilter[] = ["all", "arrived", "missing"];
 
 function time(iso: string): string {
@@ -63,7 +64,7 @@ export function GuestsTab({ eventId }: { eventId: string }) {
     queryKey: key,
     queryFn: () => api<GuestDto[]>(`/api/events/${eventId}/guests`),
     // Arrivals come in from the door phones.
-    refetchInterval: 15_000,
+    refetchInterval: useLivePolling(eventId, 15_000),
   });
   const categories = useQuery({
     queryKey: ["categories", eventId],

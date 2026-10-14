@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 
 import { ReferralRedirect } from "@/components/account/referral-redirect";
-import { texts } from "@/texts/pt-BR";
+import { referrals as referralsTexts } from "@/texts/pt-BR/referrals";
 
-const t = texts.referrals;
+const t = referralsTexts;
 
 // A referral link (ADR 0076): kept out of search, but with a title for link previews.
 export const metadata: Metadata = {

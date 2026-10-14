@@ -1,10 +1,11 @@
 "use client";
 
-import { texts } from "@/texts/pt-BR";
+import { common as commonTexts } from "@/texts/pt-BR/common";
+import { crash as crashTexts } from "@/texts/pt-BR/crash";
 
 import "./globals.css";
 
-const t = texts.crash;
+const t = crashTexts;
 
 /** Error in the root layout itself: renders its own document, with no providers. */
 export default function GlobalError({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
@@ -18,7 +19,7 @@ export default function GlobalError({ reset }: { error: Error & { digest?: strin
           onClick={reset}
           className="rounded-xl bg-brand-solid px-5 py-2.5 text-sm font-semibold text-brand-fg"
         >
-          {texts.common.retry}
+          {commonTexts.retry}
         </button>
       </body>
     </html>

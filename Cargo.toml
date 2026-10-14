@@ -25,7 +25,7 @@ time = { version = "0.3.55", features = ["serde", "formatting", "parsing", "macr
 tokio = { version = "1.53.2", features = ["rt-multi-thread", "macros", "net", "signal", "sync", "time", "fs"] }
 tower = { version = "0.5.3", features = ["util"] }
 tokio-util = { version = "0.7.19", features = ["io"] }
-tower-http = { version = "0.7.1", features = ["cors", "trace", "limit", "timeout", "catch-panic", "request-id"] }
+tower-http = { version = "0.7.1", features = ["cors", "trace", "limit", "timeout", "catch-panic", "request-id", "compression-gzip", "compression-br"] }
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["json", "env-filter"] }
 
@@ -35,6 +35,7 @@ curve25519-dalek = { version = "5.0.0", default-features = false }
 ed25519-dalek = { version = "3.0.0", default-features = false, features = ["zeroize"] }
 getrandom = { version = "0.4.3", default-features = false }
 form_urlencoded = "1.2.2"
+futures-util = { version = "0.3.34", default-features = false, features = ["alloc"] }
 hex = "0.4.3"
 hmac = "0.13.0"
 image = { version = "0.25.10", default-features = false, features = ["png", "jpeg"] }
@@ -83,6 +84,8 @@ must_use_candidate = "allow"
 [profile.release]
 lto = "thin"
 codegen-units = 1
+# The API binary ships without its symbol table (a smaller image to push and pull).
+strip = true
 
 [profile.release-wasm]
 inherits = "release"

@@ -8,9 +8,10 @@ import Link from "next/link";
 import { ProfileEditor, type ProfileTarget } from "@/components/organization/profile-editor";
 import { ErrorMessage, LoadingBlock, PageHeader } from "@/components/ui";
 import { api } from "@/lib/api";
-import { texts } from "@/texts/pt-BR";
+import { panel as panelTexts } from "@/texts/pt-BR/panel";
+import { profile as profileTexts } from "@/texts/pt-BR/profile";
 
-const t = texts.profile;
+const t = profileTexts;
 const KEY = ["organization-profile"];
 const TARGET: ProfileTarget = { endpoint: "/api/account/profile", queryKey: KEY };
 
@@ -23,7 +24,7 @@ export default function OrganizationProfilePage() {
         className="-ml-1.5 inline-flex min-h-9 w-fit items-center gap-1 rounded-lg px-1.5 text-sm font-medium text-fg-muted transition hover:text-fg active:bg-surface-2 pointer-coarse:min-h-10"
       >
         <ChevronLeft className="size-4" aria-hidden />
-        {texts.panel.accountPage}
+        {panelTexts.accountPage}
       </Link>
       <PageHeader title={t.title} description={t.description} />
       {profile.isPending ? (

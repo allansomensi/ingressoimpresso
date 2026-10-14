@@ -12,6 +12,7 @@ const commit = (process.env["GITHUB_SHA"] ?? process.env["VERCEL_GIT_COMMIT_SHA"
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  images: { formats: ["image/avif", "image/webp"] },
   env: {
     NEXT_PUBLIC_APP_VERSION: packageJson.version,
     NEXT_PUBLIC_APP_COMMIT: commit,

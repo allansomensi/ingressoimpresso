@@ -26,7 +26,8 @@ pub use qr::QrError;
 pub use render::{
     Art, MAX_TICKETS_PER_JOB, PrintOptions, RenderError, RenderJob, SLUG_MM, TicketCategory,
     TicketImage, TicketQr, TicketToRender, WHATSAPP_WIDTH_PX, control_sheet_pdf, home_pdf,
-    home_sheet_pngs, print_pdf, sample_qr_text, ticket_images, whatsapp_zip, write_whatsapp_zip,
+    home_sheet_jpegs, home_sheet_pngs, print_pdf, sample_qr_text, ticket_images, whatsapp_zip,
+    write_whatsapp_zip,
 };
 pub use report_doc::{ReportDocument, ReportFact, ReportSection, ReportTable, report_pdf};
 pub use sheet::{Cell, Sheet, Workbook, xlsx};

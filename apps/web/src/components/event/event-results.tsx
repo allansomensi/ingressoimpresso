@@ -8,9 +8,11 @@ import { BarChart } from "@/components/admin/bar-chart";
 import { Card, CardHeader, Skeleton, Stat } from "@/components/ui";
 import { api } from "@/lib/api";
 import { money } from "@/lib/format";
-import { texts } from "@/texts/pt-BR";
+import { event as eventTexts } from "@/texts/pt-BR/event";
 
-const t = texts.event.results;
+import { useLivePolling } from "./live-polling";
+
+const t = eventTexts.results;
 
 /** `22:15` of an RFC 3339 instant, in its own offset (the event's local time). */
 function clock(iso: string): string {
@@ -26,7 +28,8 @@ export function EventResults({ eventId }: { eventId: string }) {
   const results = useQuery({
     queryKey: ["analytics", eventId],
     queryFn: () => api<EventAnalyticsDto>(`/api/events/${eventId}/analytics`),
-    refetchInterval: 30_000,
+    // Entries and sales move while the door works.
+    refetchInterval: useLivePolling(eventId, 30_000),
   });
   if (results.isPending) {
     return <Skeleton className="h-72 w-full rounded-2xl" />;

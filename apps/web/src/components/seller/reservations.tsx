@@ -13,9 +13,10 @@ import { cn } from "@/lib/cn";
 import { formatRanges } from "@/lib/number-list";
 import { deadlineLabel, isActive, isDueSoon, reminderMessage, timeLeft } from "@/lib/reservations";
 import { whatsappLink } from "@/lib/settlement";
-import { texts } from "@/texts/pt-BR";
+import { reservations as reservationsTexts } from "@/texts/pt-BR/reservations";
+import { sellerPage as sellerPageTexts } from "@/texts/pt-BR/seller-page";
 
-const t = texts.sellerPage.reservations;
+const t = sellerPageTexts.reservations;
 
 type Actions = {
   onOpen: (reservation: ReservationDto) => void;
@@ -168,7 +169,7 @@ export function ReservationsSection({ view, now, canceled, ...actions }: { view:
                         <span className="truncate text-sm font-medium text-fg">{reservation.holderName}</span>
                         <span className="font-mono text-xs text-fg-muted tabular">{formatRanges(reservation.numbers, view.numberDigits)}</span>
                       </span>
-                      <span className="text-xs text-fg-subtle">{texts.reservations.expired} · {deadlineLabel(reservation.expiresAt, now)}</span>
+                      <span className="text-xs text-fg-subtle">{reservationsTexts.expired} · {deadlineLabel(reservation.expiresAt, now)}</span>
                     </span>
                     <span className="flex gap-2">
                       {!canceled && (
@@ -273,7 +274,7 @@ export function ReservationSheet({
             </span>
             <span className="flex min-w-0 flex-1 flex-col">
               <span className="truncate font-semibold text-fg">{reservation.holderName}</span>
-              <span className="text-sm text-fg-muted">{reservation.holderPhone ?? texts.sellerPage.noBuyer}</span>
+              <span className="text-sm text-fg-muted">{reservation.holderPhone ?? sellerPageTexts.noBuyer}</span>
             </span>
             {isDueSoon(reservation, now) ? (
               <Badge tone="warning" dot>

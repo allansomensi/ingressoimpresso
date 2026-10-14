@@ -9,9 +9,10 @@ import { cn } from "@/lib/cn";
 import { spokenDate } from "@/lib/event-change";
 import { sessionLabel } from "@/lib/series";
 import { verdictTone, type VerdictTone } from "@/lib/verify";
-import { texts } from "@/texts/pt-BR";
+import { series as seriesTexts } from "@/texts/pt-BR/series";
+import { verifyPage as verifyPageTexts } from "@/texts/pt-BR/verify-page";
 
-const t = texts.verifyPage;
+const t = verifyPageTexts;
 
 const TONE: Record<VerdictTone, { icon: LucideIcon; badge: string; ring: string }> = {
   success: { icon: ShieldCheck, badge: "bg-success-solid text-white", ring: "border-success/30 bg-success-soft" },
@@ -39,7 +40,7 @@ function TicketSummary({ ticket }: { ticket: VerifiedTicketDto }) {
         {event.inSeries && (
           <p className="-mt-1 flex flex-col gap-1.5">
             <span className="w-fit rounded-full bg-brand-soft px-2.5 py-0.5 text-xs font-semibold text-brand-soft-fg">{sessionLabel(event.startsAt)}</span>
-            <span className="text-xs text-fg-muted">{texts.series.sessionOnly}</span>
+            <span className="text-xs text-fg-muted">{seriesTexts.sessionOnly}</span>
           </p>
         )}
         <dl className="flex flex-col gap-2 text-sm">

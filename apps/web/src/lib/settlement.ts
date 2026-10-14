@@ -6,7 +6,7 @@ import type { ReportRowDto } from "@ingressoimpresso/api-types";
 
 import { money } from "@/lib/format";
 import { formatRanges, type NumberRange } from "@/lib/number-list";
-import { texts } from "@/texts/pt-BR";
+import { event as eventTexts } from "@/texts/pt-BR/event";
 
 /** Where a seller stands. */
 export type SettlementState =
@@ -111,7 +111,7 @@ export function settlementMessage({
   row: ReportRowDto;
   priceCents: number | null;
 }): string {
-  const w = texts.event.sellers.whatsapp;
+  const w = eventTexts.sellers.whatsapp;
   const firstName = seller.trim().split(/\s+/)[0] ?? seller;
   const lines = [w.greeting(firstName, eventName), "", w.took(row.tickets, formatRanges(ranges))];
   if (row.boxOffice) {

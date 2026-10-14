@@ -152,8 +152,8 @@ export class DoorEngine {
     this.#generation += 1;
     const generation = this.#generation;
     try {
-      await loadTicketCore(CORE_WASM_URL);
-      const [device, manifest] = await Promise.all([storage.loadDevice(), storage.loadManifest()]);
+      // The core (a fetch) and the local database (a disk read) load side by side.
+      const [, device, manifest] = await Promise.all([loadTicketCore(CORE_WASM_URL), storage.loadDevice(), storage.loadManifest()]);
       if (device === undefined) {
         this.#set({ phase: "unregistered" });
         return;

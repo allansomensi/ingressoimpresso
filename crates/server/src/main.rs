@@ -12,8 +12,16 @@ use ingressoimpresso_server::moderation::Classifier;
 use ingressoimpresso_server::payments::Payments;
 use ingressoimpresso_server::state::AppState;
 use ingressoimpresso_server::{MIGRATOR, app, jobs};
+use sqlx::Connection;
 use sqlx::postgres::{PgConnectOptions, PgPoolOptions, PgSslMode};
 use tracing_subscriber::EnvFilter;
+
+/// Idle connections are checked with a ping before reuse only after this long: Neon closes
+/// connections when its compute suspends, and a fresher one has just answered a query.
+const PING_IDLE_AFTER: Duration = Duration::from_secs(30);
+/// The server has about 600 distinct statements; sqlx's default cache of 100 per connection
+/// would re-prepare them in turns, one extra round trip each.
+const STATEMENT_CACHE: usize = 1024;
 
 #[tokio::main]
 async fn main() -> ExitCode {
@@ -58,9 +66,22 @@ async fn run(config: Config) -> Result<()> {
         // whatever the URL says, so a stripped connection never silently goes in plain text.
         options = options.ssl_mode(PgSslMode::VerifyFull);
     }
+    options = options.statement_cache_capacity(STATEMENT_CACHE);
     let pool = PgPoolOptions::new()
         .max_connections(10)
         .acquire_timeout(Duration::from_secs(10))
+        // The database is on another network (ADR 0013): sqlx's default ping on every acquire
+        // doubled the round trips of each statement. A connection that just answered is reused
+        // as is; one that sat idle is checked first.
+        .test_before_acquire(false)
+        .before_acquire(|connection, metadata| {
+            Box::pin(async move {
+                if metadata.idle_for >= PING_IDLE_AFTER {
+                    connection.ping().await?;
+                }
+                Ok(true)
+            })
+        })
         .connect_with(options)
         .await
         .context("connecting to the database")?;

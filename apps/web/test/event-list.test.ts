@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { eventPhase, groupSeries, sortEvents } from "@/lib/event-list";
+import { eventPhase, groupSeries, livePollingInterval, sortEvents } from "@/lib/event-list";
 
 const NOW = Date.parse("2026-10-11T15:00:00-03:00");
 
@@ -15,6 +15,17 @@ describe("event list", () => {
     expect(eventPhase(event("c", "2026-11-01T20:00:00-03:00", "2026-11-01T23:00:00-03:00"), NOW)).toBe("upcoming");
     expect(eventPhase(event("d", "2026-09-01T20:00:00-03:00", "2026-09-01T23:00:00-03:00"), NOW)).toBe("past");
     expect(eventPhase(event("e", "2026-11-01T20:00:00-03:00", "2026-11-01T23:00:00-03:00", "closed"), NOW)).toBe("archived");
+  });
+
+  it("polls the door's data only around the event", () => {
+    expect(livePollingInterval(event("now", "2026-10-11T14:00:00-03:00", "2026-10-11T18:00:00-03:00"), NOW, 15_000)).toBe(15_000);
+    expect(livePollingInterval(event("tonight", "2026-10-11T20:00:00-03:00", "2026-10-11T23:00:00-03:00"), NOW, 15_000)).toBe(15_000);
+    // Just over: the door may still be at work.
+    expect(livePollingInterval(event("just over", "2026-10-11T10:00:00-03:00", "2026-10-11T13:00:00-03:00"), NOW, 15_000)).toBe(15_000);
+    expect(livePollingInterval(event("next month", "2026-11-01T20:00:00-03:00", "2026-11-01T23:00:00-03:00"), NOW, 15_000)).toBe(false);
+    expect(livePollingInterval(event("last month", "2026-09-01T20:00:00-03:00", "2026-09-01T23:00:00-03:00"), NOW, 15_000)).toBe(false);
+    expect(livePollingInterval(event("archived", "2026-10-11T14:00:00-03:00", "2026-10-11T18:00:00-03:00", "closed"), NOW, 15_000)).toBe(false);
+    expect(livePollingInterval(undefined, NOW, 15_000)).toBe(false);
   });
 
   it("puts what needs attention first: now, today, the next ones, then the ones that ended", () => {

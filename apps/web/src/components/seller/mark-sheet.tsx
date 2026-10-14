@@ -15,9 +15,10 @@ import { cn } from "@/lib/cn";
 import { firstOutside, firstShared, formatRanges, parseNumberList, type NumberRange } from "@/lib/number-list";
 import { newId } from "@/lib/seller-offline";
 import { nextAvailable, padNumber, type NumberCell } from "@/lib/seller-page";
-import { texts } from "@/texts/pt-BR";
+import { common as commonTexts } from "@/texts/pt-BR/common";
+import { sellerPage as sellerPageTexts } from "@/texts/pt-BR/seller-page";
 
-const t = texts.sellerPage;
+const t = sellerPageTexts;
 const s = t.sheet;
 
 export type SheetMode = "sell" | "reserve";
@@ -164,7 +165,7 @@ export function MarkSheet({
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
-            {texts.common.cancel}
+            {commonTexts.cancel}
           </Button>
           <Button type="submit" form="seller-mark" disabled={!valid} icon={reserving ? <BookmarkPlus /> : <Check />}>
             {reserving
@@ -252,7 +253,7 @@ export function MarkSheet({
           <legend className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-fg">
             <UserRound aria-hidden className="size-4 text-fg-subtle" />
             {reserving ? s.holder : s.buyer}
-            {!reserving && <span className="text-xs font-normal text-fg-subtle">({texts.common.optional})</span>}
+            {!reserving && <span className="text-xs font-normal text-fg-subtle">({commonTexts.optional})</span>}
           </legend>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label={reserving ? s.holderName : s.buyerName}>

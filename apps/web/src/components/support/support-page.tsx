@@ -3,11 +3,11 @@ import Link from "next/link";
 
 import { buttonClass } from "@/components/ui";
 import { LEGAL_ENTITY } from "@/content/legal";
-import { texts } from "@/texts/pt-BR";
+import { helpCenter as helpCenterTexts } from "@/texts/pt-BR/help-center";
 
 import { CopyEmail } from "./copy-email";
 
-const t = texts.helpCenter;
+const t = helpCenterTexts;
 const REPOSITORY_ISSUES = "https://github.com/allansomensi/ingressoimpresso/issues/new/choose";
 
 const SHORTCUTS: readonly { key: keyof typeof t.shortcuts; href: string; icon: LucideIcon }[] = [

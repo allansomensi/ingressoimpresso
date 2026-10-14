@@ -13,9 +13,9 @@ import { money } from "@/lib/format";
 import { referralState, referralUrl, type ReferralState } from "@/lib/referral";
 import { copyText, whatsappUrl } from "@/lib/share";
 import { SITE_URL } from "@/lib/site";
-import { texts } from "@/texts/pt-BR";
+import { referrals as referralsTexts } from "@/texts/pt-BR/referrals";
 
-const t = texts.referrals;
+const t = referralsTexts;
 
 const STATE_TONE: Record<ReferralState, Tone> = {
   pending: "neutral",

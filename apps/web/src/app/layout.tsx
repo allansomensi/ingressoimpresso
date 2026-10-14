@@ -8,26 +8,27 @@ import { SiteAnalytics } from "@/components/site-analytics";
 import { EnvironmentBadge } from "@/components/environment-badge";
 import { IS_STAGING, SITE_URL } from "@/lib/site";
 import { THEME_COLORS, THEME_SCRIPT } from "@/lib/theme-script";
-import { texts } from "@/texts/pt-BR";
+import { landing as landingTexts } from "@/texts/pt-BR/landing";
+import { meta as metaTexts } from "@/texts/pt-BR/meta";
 
 import { Providers } from "./providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: { default: `${texts.meta.title} · ${texts.meta.tagline}`, template: `%s · ${texts.meta.title}` },
-  description: texts.meta.description,
-  applicationName: texts.meta.title,
-  appleWebApp: { capable: true, title: texts.meta.title, statusBarStyle: "default" },
+  title: { default: `${metaTexts.title} · ${metaTexts.tagline}`, template: `%s · ${metaTexts.title}` },
+  description: metaTexts.description,
+  applicationName: metaTexts.title,
+  appleWebApp: { capable: true, title: metaTexts.title, statusBarStyle: "default" },
   formatDetection: { telephone: false },
   openGraph: {
     type: "website",
     locale: "pt_BR",
-    siteName: texts.meta.title,
-    title: texts.landing.headline,
-    description: texts.meta.description,
+    siteName: metaTexts.title,
+    title: landingTexts.headline,
+    description: metaTexts.description,
   },
-  twitter: { card: "summary_large_image", title: texts.landing.headline, description: texts.meta.description },
+  twitter: { card: "summary_large_image", title: landingTexts.headline, description: metaTexts.description },
   // The staging site (ADR 0046) never shows up in search results.
   ...(IS_STAGING ? { robots: { index: false, follow: false } } : {}),
 };

@@ -45,26 +45,13 @@ pub async fn live(
            from issued i"#,
         event_id
     )
-    .fetch_one(pool)
-    .await?;
+    .fetch_one(pool);
     let entries = sqlx::query!(
         r#"select count(*) as "count!", min(s.scanned_at) as first, max(s.scanned_at) as last
            from entries e join scans s on s.id = e.first_scan_id where e.event_id = $1"#,
         event_id
     )
-    .fetch_one(pool)
-    .await?;
-
-    // The last hour; once the event is over, the last hour with entries.
-    let anchor = if now > event.ends_at {
-        entries.last.unwrap_or(now).min(now)
-    } else {
-        now
-    };
-    let timeline = timeline(pool, event_id, anchor).await?;
-
-    let doors = doors(pool, event_id).await?;
-
+    .fetch_one(pool);
     let devices = sqlx::query_as!(
         DoorLiveDeviceDto,
         r#"select d.id, d.name, a.label as door,
@@ -77,20 +64,7 @@ pub async fn live(
            where d.event_id = $1 order by d.name, d.created_at"#,
         event_id
     )
-    .fetch_all(pool)
-    .await?;
-
-    let categories = super::report::by_category(&state, event_id, price)
-        .await?
-        .into_iter()
-        .map(|row| DoorLiveCategoryDto {
-            name: row.name,
-            color: row.color,
-            sold: row.sold,
-            entries: row.entries,
-        })
-        .collect();
-
+    .fetch_all(pool);
     let refusals = sqlx::query_as!(
         DoorLiveRefusalsDto,
         r#"select count(*) filter (where local_outcome = 'rejected_used'
@@ -105,12 +79,35 @@ pub async fn live(
            from scans where event_id = $1"#,
         event_id
     )
-    .fetch_one(pool)
-    .await?;
+    .fetch_one(pool);
+    // Polled every few seconds: the independent reads go out together.
+    let (tickets, entries, doors, devices, categories, refusals, guests, box_office) = tokio::try_join!(
+        async { Ok(tickets.await?) },
+        async { Ok(entries.await?) },
+        doors(pool, event_id),
+        async { Ok(devices.await?) },
+        super::report::by_category(&state, event_id, price),
+        async { Ok(refusals.await?) },
+        guests(pool, event_id),
+        box_office(pool, event_id, price),
+    )?;
+    let categories = categories
+        .into_iter()
+        .map(|row| DoorLiveCategoryDto {
+            name: row.name,
+            color: row.color,
+            sold: row.sold,
+            entries: row.entries,
+        })
+        .collect();
 
-    let guests = guests(pool, event_id).await?;
-
-    let box_office = box_office(pool, event_id, price).await?;
+    // The last hour; once the event is over, the last hour with entries.
+    let anchor = if now > event.ends_at {
+        entries.last.unwrap_or(now).min(now)
+    } else {
+        now
+    };
+    let timeline = timeline(pool, event_id, anchor).await?;
 
     Ok(Json(DoorLiveDto {
         issued: tickets.issued,

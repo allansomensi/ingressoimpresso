@@ -363,7 +363,9 @@ docs/deploy.md       domínio próprio: Neon, Resend, DNS (Registro.br), Render,
 
 - **Frontend:** Next.js na Vercel, com pnpm. O deploy é pré-compilado pelo GitHub Actions
   (`.github/workflows/deploy-web.yml`, secrets `VERCEL_*`), porque o build da Vercel não tem Rust;
-  `apps/web/vercel.json` desliga os builds da integração Git.
+  `apps/web/vercel.json` desliga os builds da integração Git. O service worker do site (`sw.js`)
+  só é registrado no painel, no login e nas páginas que abrem offline (`WORKER_PATHS` em
+  `lib/pwa.ts`), nunca na landing.
 - **Endereços:** site no domínio raiz (`www` redireciona), API em `api.`, e-mail de
   `contato@` no domínio raiz (registros do Resend em `send` e `resend._domainkey`; o antigo
   `mail.` saiu); DNS no Registro.br.
@@ -374,7 +376,10 @@ docs/deploy.md       domínio próprio: Neon, Resend, DNS (Registro.br), Render,
   API não sobe sem origens, `PUBLIC_API_URL` https e `ADMIN_EMAILS`. Sessão do painel por token
   Bearer + CORS (ADR 0016); downloads por link temporário.
 - **Banco:** Neon `aws-us-east-1`, host direto com `sslmode=verify-full`. Precisa ficar junto da
-  API, não do usuário. Dorme quando parado (worker consulta sozinho a cada hora).
+  API, não do usuário. Dorme quando parado (worker consulta sozinho a cada hora). O pool não testa
+  a conexão a cada consulta (só as paradas há 30 s, `before_acquire` em `main.rs`) e guarda 1024
+  statements preparados por conexão; leituras independentes de um handler vão juntas com
+  `tokio::try_join!` (manifesto da portaria, página do vendedor, Ao vivo).
 - **E-mail:** Resend (o cliente manda `User-Agent`, senão o Resend recusa). Remetente de todos
   os e-mails: `DEFAULT_MAIL_FROM` (`Ingresso Impresso <contato@ingressoimpresso.com.br>`), ou
   `MAIL_FROM` quando definida. `MAIL_DAILY_LIMIT`
@@ -407,9 +412,11 @@ docs/deploy.md       domínio próprio: Neon, Resend, DNS (Registro.br), Render,
 - **Produção recusa (ADR 0047):** a chave mestra do CI, `sk_test_` sem `STRIPE_ALLOW_TEST_MODE=true`
   (só o staging tem), `PUBLIC_WEB_URL` sem https; a conexão com o Neon é forçada a `verify-full`.
   A API responde `nosniff`, `X-Frame-Options: DENY`, `no-referrer`, `no-store` (salvo o que o
-  handler definir) e HSTS, com 90 s de timeout por requisição. O **Deploy web** é o último job do
-  CI (`uses: ./.github/workflows/deploy-web.yml`, só em `push`), no branch empurrado, para as
-  proteções dos Environments valerem; o CI tem o job **Dependency audit**.
+  handler definir) e HSTS, com 90 s de timeout por requisição, e comprime JSON (gzip/brotli,
+  `CompressionLayer` em `app.rs`; PDF, ZIP e planilha ficam de fora). O **Deploy web** é o último
+  job do CI (`uses: ./.github/workflows/deploy-web.yml`, só em `push`), no branch empurrado, para
+  as proteções dos Environments valerem; o CI tem os jobs **Dependency audit** e **End-to-end**
+  (`just e2e`, Chromium em cache), que rodam ao lado de **just check**.
 - **Releases (ADR 0049):** no push do `main`, o job **Release** (depois do Deploy web) cria a tag
   `vX.Y.Z` e a GitHub Release com as notas do `CHANGELOG.md`, se a tag ainda não existe. O
   workflow **Branches** apaga o branch de um PR integrado (nunca `main`/`staging`) e, rodado à
@@ -526,7 +533,10 @@ just backup-restore-test <dump.age> <chave-age>   # restaura um backup num banco
   (`crates/render/fonts` + `world.rs` + `ticket.typ` e `public/fonts/ticket` em WOFF2, gerado por
   `just ticket-fonts`: o papel usa a fonte inteira, o site só o alfabeto latino). Conteúdo pesado
   abaixo da dobra da landing espera a tela (`defer-render`, `useNearScreen`).
-- **Textos de interface centralizados:** `apps/web/src/texts/pt-BR.ts` no web e módulos `texts.rs`
+- **Textos de interface centralizados:** `apps/web/src/texts/pt-BR/<seção>.ts` no web (um módulo
+  por seção, importado como `import { event as eventTexts } from "@/texts/pt-BR/event"`: cada
+  página leva só as seções que usa; `pt-BR.ts` só lista as seções e importá-lo traz tudo) e
+  módulos `texts.rs`
   no Rust; e-mails em `emails.rs` (todo texto do usuário passa por `escape`); documentos legais
   em `apps/web/src/content/legal.ts`. Mudou Termos ou Privacidade: mude a data e o
   `TERMS_VERSION` nos dois lados (`legal.ts` e `auth.rs`). Sem framework de i18n.

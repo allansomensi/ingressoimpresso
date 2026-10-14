@@ -7,7 +7,7 @@ import type { EventChangeDto, PublicOrganizationDto } from "@ingressoimpresso/ap
 
 import { placeLine } from "@/lib/calendar";
 import { wallClock } from "@/lib/event-time";
-import { texts } from "@/texts/pt-BR";
+import { eventChange as eventChangeTexts } from "@/texts/pt-BR/event-change";
 
 export type ChangeKind = "canceled" | "postponed" | "moved" | null;
 
@@ -82,7 +82,7 @@ export function sellerMessage({
   change: EventChangeDto;
   organization: Pick<PublicOrganizationDto, "name" | "whatsapp"> | null;
 }): string {
-  const t = texts.eventChange.text;
+  const t = eventChangeTexts.text;
   const kind = changeKind(change, startsAt);
   const lines: string[] = [];
   if (kind === "canceled") {

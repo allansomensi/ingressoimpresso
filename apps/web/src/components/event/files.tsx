@@ -35,11 +35,12 @@ import {
 import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { shortDateTime } from "@/lib/format";
-import { texts } from "@/texts/pt-BR";
+import { errors as errorsTexts } from "@/texts/pt-BR/errors";
+import { event as eventTexts } from "@/texts/pt-BR/event";
 
 import type { SelectTab } from "./tabs";
 
-const t = texts.event.files;
+const t = eventTexts.files;
 const KINDS: readonly ExportKind[] = ["home", "print", "control", "whatsapp"];
 const KIND_ICONS: Record<ExportKind, LucideIcon> = {
   home: Home,
@@ -271,7 +272,7 @@ export function FilesTab({ eventId, onSelect }: { eventId: string; onSelect: Sel
                   </Badge>
                   {item.status === "failed" && item.error !== null && (
                     <p className="w-full text-xs leading-relaxed text-danger-fg">
-                      {(texts.errors as Readonly<Record<string, string>>)[item.error] ?? texts.errors.generic}
+                      {(errorsTexts as Readonly<Record<string, string>>)[item.error] ?? errorsTexts.generic}
                     </p>
                   )}
                   {item.status === "done" && (

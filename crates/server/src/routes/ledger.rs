@@ -694,8 +694,11 @@ pub async fn spreadsheet(
 ) -> ApiResult<Response> {
     let event = authorize_event(&state.pool, &user, event_id).await?;
     let data = accountability(&state, event).await?;
-    let bytes =
-        ticket_render::xlsx(&workbook(&data)).map_err(|error| ApiError::Internal(error.into()))?;
+    let sheets = workbook(&data);
+    let bytes = tokio::task::spawn_blocking(move || ticket_render::xlsx(&sheets))
+        .await
+        .map_err(anyhow::Error::from)?
+        .map_err(|error| ApiError::Internal(error.into()))?;
     Ok(attachment(
         &format!("{}.xlsx", base_name(&data.event)),
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

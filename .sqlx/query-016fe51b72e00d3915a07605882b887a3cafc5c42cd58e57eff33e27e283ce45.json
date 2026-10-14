@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select b.data, b.sha256 from blobs b\n           join organization_profiles p on p.logo_blob_id = b.id\n           where b.id = $1 and b.moderation_status not in ('flagged', 'rejected')\n             and not exists (select 1 from rejected_art r where r.sha256 = b.sha256)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "data",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "blobs",
+            "name": "data"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "sha256",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "blobs",
+            "name": "sha256"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "016fe51b72e00d3915a07605882b887a3cafc5c42cd58e57eff33e27e283ce45"
+}

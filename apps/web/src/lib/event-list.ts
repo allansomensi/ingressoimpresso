@@ -2,6 +2,8 @@
 
 import type { EventChangeDto, EventDto, EventSeriesRefDto } from "@ingressoimpresso/api-types";
 
+import { isDoorDay } from "./door-live";
+
 export type EventPhase = "happening" | "today" | "upcoming" | "past" | "canceled" | "archived";
 
 type Timed = Pick<EventDto, "status" | "startsAt" | "endsAt"> & { change?: Pick<EventChangeDto, "canceledAt"> };
@@ -26,6 +28,20 @@ export function eventPhase(event: Timed, now: number): EventPhase {
     return "today";
   }
   return "upcoming";
+}
+
+/**
+ * How often the panel asks again for what the door phones write (entries, arrivals, last contact):
+ * every `ms` while the event is today, happening or just over (the door may still be working);
+ * never otherwise (`false`), so an old or future event costs no requests.
+ */
+export function livePollingInterval(event: Timed | undefined, now: number, ms: number): number | false {
+  if (event === undefined) {
+    return false;
+  }
+  const phase = eventPhase(event, now);
+  const live = phase === "today" || phase === "happening" || (phase === "past" && isDoorDay(event.startsAt, event.endsAt, now));
+  return live ? ms : false;
 }
 
 const RANK: Record<EventPhase, number> = { happening: 0, today: 1, upcoming: 2, past: 3, canceled: 3, archived: 4 };

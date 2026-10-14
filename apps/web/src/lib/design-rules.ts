@@ -1,11 +1,11 @@
 /**
  * The ticket design rules of crates/render/src/design.rs, checked in the editor as the user types
- * (the server checks them again on save). Messages come from `texts.event.design.issues`.
+ * (the server checks them again on save). Messages come from `ticketCanvasTexts.issues`.
  */
 
 import type { BandEdge, BandStyle, FontChoice, SponsorStrip, TextBlock, TicketDesign } from "@ingressoimpresso/api-types";
 
-import { texts } from "@/texts/pt-BR";
+import { ticketCanvas as ticketCanvasTexts } from "@/texts/pt-BR/ticket-canvas";
 
 export const BLEED_MM = 3;
 export const MIN_QR_SIZE_MM = 22;
@@ -98,7 +98,7 @@ export function fitsA4(width: number, height: number): boolean {
 }
 
 function textIssues(design: TicketDesign, block: TextBlock, index: number): DesignIssue[] {
-  const m = texts.event.design.issues;
+  const m = ticketCanvasTexts.issues;
   const target: IssueTarget = { kind: "text", index };
   const issues: DesignIssue[] = [];
   if ([...block.text].length > MAX_TEXT_CHARS) {
@@ -124,7 +124,7 @@ function textIssues(design: TicketDesign, block: TextBlock, index: number): Desi
 
 /** Every rule the design breaks, in the editor's order. */
 export function designIssues(design: TicketDesign): DesignIssue[] {
-  const m = texts.event.design.issues;
+  const m = ticketCanvasTexts.issues;
   const issues: DesignIssue[] = [];
   const body: IssueTarget = { kind: "body" };
   if (!within(design.widthMm, BODY_WIDTH_MM) || !within(design.heightMm, BODY_HEIGHT_MM)) {

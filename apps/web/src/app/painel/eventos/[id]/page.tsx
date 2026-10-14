@@ -47,7 +47,13 @@ import { changeKind } from "@/lib/event-change";
 import { positionLabel } from "@/lib/series";
 import { areaList, canDo } from "@/lib/team";
 import { hasUnsavedChanges } from "@/lib/unsaved";
-import { texts } from "@/texts/pt-BR";
+import { admin as adminTexts } from "@/texts/pt-BR/admin";
+import { common as commonTexts } from "@/texts/pt-BR/common";
+import { event as eventTexts } from "@/texts/pt-BR/event";
+import { eventChange as eventChangeTexts } from "@/texts/pt-BR/event-change";
+import { meta as metaTexts } from "@/texts/pt-BR/meta";
+import { panel as panelTexts } from "@/texts/pt-BR/panel";
+import { series as seriesTexts } from "@/texts/pt-BR/series";
 
 // Each tab is its own chunk: opening an event loads only the tab on screen.
 const tabLoading = () => <LoadingBlock rows={3} />;
@@ -91,7 +97,7 @@ export default function EventPage() {
 
 function HeaderSkeleton() {
   return (
-    <div className="flex flex-col gap-4" aria-busy="true" aria-label={texts.common.loading}>
+    <div className="flex flex-col gap-4" aria-busy="true" aria-label={commonTexts.loading}>
       <Skeleton className="h-4 w-24" />
       <Skeleton className="h-9 w-72 max-w-full" />
       <Skeleton className="h-5 w-96 max-w-full" />
@@ -120,9 +126,9 @@ function EventView() {
   const leaveAllowed = async () =>
     !hasUnsavedChanges() ||
     confirm({
-      title: texts.event.design.leaveConfirmTitle,
-      description: texts.event.design.leaveConfirmBody,
-      confirmLabel: texts.event.design.leaveConfirm,
+      title: eventTexts.design.leaveConfirmTitle,
+      description: eventTexts.design.leaveConfirmBody,
+      confirmLabel: eventTexts.design.leaveConfirm,
     });
 
   const select = async (next: Tab) => {
@@ -165,7 +171,7 @@ function EventView() {
   const name = event.data?.name;
   useEffect(() => {
     if (name !== undefined) {
-      document.title = `${name} · ${texts.meta.title}`;
+      document.title = `${name} · ${metaTexts.title}`;
     }
   }, [name]);
 
@@ -188,11 +194,11 @@ function EventView() {
       return (
         <EmptyState
           icon={SearchX}
-          title={texts.event.notFoundTitle}
-          description={texts.event.notFound}
+          title={eventTexts.notFoundTitle}
+          description={eventTexts.notFound}
           action={
             <ButtonLink href="/painel" variant="secondary" icon={<ArrowLeft />}>
-              {texts.event.backToEvents}
+              {eventTexts.backToEvents}
             </ButtonLink>
           }
         />
@@ -208,9 +214,9 @@ function EventView() {
       {data.supportAccess && (
         <div role="status" className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-warning/30 bg-warning-soft px-4 py-3 text-sm text-warning-fg">
           <LifeBuoy className="size-4 shrink-0" aria-hidden />
-          <span className="flex-1">{texts.admin.support.banner}</span>
+          <span className="flex-1">{adminTexts.support.banner}</span>
           <Link href="/painel/admin?aba=eventos" className="font-semibold underline-offset-2 hover:underline">
-            {texts.admin.support.backToAdmin}
+            {adminTexts.support.backToAdmin}
           </Link>
         </div>
       )}
@@ -223,7 +229,7 @@ function EventView() {
           className="col-start-1 row-start-1 -ml-1.5 inline-flex min-h-9 w-fit items-center gap-1 rounded-lg px-1.5 text-sm font-medium text-fg-muted transition hover:text-fg active:bg-surface-2 pointer-coarse:min-h-10"
         >
           <ChevronLeft className="size-4" aria-hidden />
-          {texts.event.backToEvents}
+          {eventTexts.backToEvents}
         </Link>
         <div className="col-start-2 row-start-1 flex items-center gap-2 sm:row-start-2 sm:self-start">
           <Button
@@ -235,7 +241,7 @@ function EventView() {
               void select("team");
             }}
           >
-            <span className="max-sm:sr-only">{texts.event.tabs.team}</span>
+            <span className="max-sm:sr-only">{eventTexts.tabs.team}</span>
           </Button>
           {canDo(data, "manage") && (
             <Button
@@ -246,7 +252,7 @@ function EventView() {
                 setEditing(true);
               }}
             >
-              <span className="max-sm:sr-only">{texts.panel.editEvent}</span>
+              <span className="max-sm:sr-only">{panelTexts.editEvent}</span>
             </Button>
           )}
           <EventActions event={data} />
@@ -256,17 +262,17 @@ function EventView() {
             {data.name}
             {data.status === "closed" && (
               <Badge tone="neutral" className="ml-3 align-middle">
-                {texts.event.actions.archivedBadge}
+                {eventTexts.actions.archivedBadge}
               </Badge>
             )}
             {changeKind(data.change, data.startsAt) === "canceled" ? (
               <Badge tone="danger" className="ml-3 align-middle">
-                {texts.eventChange.canceledBadge}
+                {eventChangeTexts.canceledBadge}
               </Badge>
             ) : (
               data.change.postponedFromStartsAt !== null && (
                 <Badge tone="warning" className="ml-3 align-middle">
-                  {texts.eventChange.postponedBadge}
+                  {eventChangeTexts.postponedBadge}
                 </Badge>
               )
             )}
@@ -280,14 +286,14 @@ function EventView() {
             <span className="flex min-w-0 items-center gap-1.5 max-sm:order-last max-sm:w-full">
               <MapPin className="size-4 shrink-0 text-fg-subtle" aria-hidden />
               <span className="truncate">
-                {data.venue ?? texts.panel.noVenue}
+                {data.venue ?? panelTexts.noVenue}
                 {data.address !== null && <span className="text-fg-subtle"> · {data.address}</span>}
               </span>
             </span>
             {data.ticketPriceCents !== null && (
               <span className="flex items-center gap-1.5">
                 <Tag className="size-4 shrink-0 text-fg-subtle" aria-hidden />
-                {texts.event.priceLabel(money(data.ticketPriceCents))}
+                {eventTexts.priceLabel(money(data.ticketPriceCents))}
               </span>
             )}
           </div>
@@ -301,7 +307,7 @@ function EventView() {
                   <CalendarRange className="size-3.5 text-brand" aria-hidden />
                   <span className="font-medium text-fg">{positionLabel(data.series)}</span>
                   <span aria-hidden>·</span>
-                  <span>{texts.series.seeAll}</span>
+                  <span>{seriesTexts.seeAll}</span>
                 </Link>
               )}
               {data.team !== null && (
@@ -313,9 +319,9 @@ function EventView() {
                   className="flex w-fit max-w-full flex-wrap items-center gap-x-2 gap-y-1 rounded-full border border-border bg-surface px-3 py-1 text-xs text-fg-muted transition hover:border-border-strong hover:text-fg active:bg-surface-2"
                 >
                   <UsersRound className="size-3.5 text-brand" aria-hidden />
-                  <span className="font-medium text-fg">{texts.event.team.teamOf(data.team.organization)}</span>
+                  <span className="font-medium text-fg">{eventTexts.team.teamOf(data.team.organization)}</span>
                   <span aria-hidden>·</span>
-                  <span>{texts.event.team.yourParts(areaList(data.team.areas))}</span>
+                  <span>{eventTexts.team.yourParts(areaList(data.team.areas))}</span>
                 </button>
               )}
             </div>
@@ -374,7 +380,7 @@ function EventView() {
                   )}
                 >
                   <Icon aria-hidden className={cn("size-4 shrink-0", selected ? "text-brand" : "text-fg-subtle")} />
-                  {texts.event.tabs[item]}
+                  {eventTexts.tabs[item]}
                 </button>
               );
             })}
@@ -414,7 +420,7 @@ function EventView() {
         key={tab}
         role="tabpanel"
         id={`panel-${tab}`}
-        aria-label={tab === "team" ? texts.event.tabs.team : undefined}
+        aria-label={tab === "team" ? eventTexts.tabs.team : undefined}
         aria-labelledby={tab === "team" ? undefined : `tab-${tab}`}
         className="animate-fade-in"
       >
@@ -490,7 +496,7 @@ function StripArrow({ side, onClick }: { side: "before" | "after"; onClick: () =
       type="button"
       // The tabs stay reachable by keyboard (arrow keys); this only helps the pointer.
       tabIndex={-1}
-      aria-label={side === "before" ? texts.event.tabsBefore : texts.event.tabsAfter}
+      aria-label={side === "before" ? eventTexts.tabsBefore : eventTexts.tabsAfter}
       onClick={onClick}
       className={cn(
         "absolute top-1/2 hidden size-8 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-surface text-fg-muted shadow-sm transition hover:border-border-strong hover:text-fg active:bg-surface-2 pointer-fine:flex",

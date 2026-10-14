@@ -16,9 +16,14 @@ import { initials } from "@/lib/format";
 import { usePlatform } from "@/lib/platform";
 import { useRequiredSession, useSession } from "@/lib/session";
 import { hasUnsavedChanges } from "@/lib/unsaved";
-import { texts } from "@/texts/pt-BR";
+import { admin as adminTexts } from "@/texts/pt-BR/admin";
+import { common as commonTexts } from "@/texts/pt-BR/common";
+import { event as eventTexts } from "@/texts/pt-BR/event";
+import { panel as panelTexts } from "@/texts/pt-BR/panel";
+import { profile as profileTexts } from "@/texts/pt-BR/profile";
+import { theme as themeTexts } from "@/texts/pt-BR/theme";
 
-const t = texts.panel;
+const t = panelTexts;
 
 const menuLink =
   "flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-fg-muted transition hover:bg-surface-2 active:bg-surface-2 hover:text-fg max-sm:py-3 max-sm:text-[15px]";
@@ -48,12 +53,12 @@ function UserMenu({ email, isAdmin, onSignOut }: { email: string; isAdmin: boole
       </Link>
       <Link href="/painel/organizacao" className={menuLink}>
         <Building2 className="size-4" aria-hidden />
-        {texts.profile.open}
+        {profileTexts.open}
       </Link>
       {isAdmin && (
         <Link href="/painel/admin" className={menuLink}>
           <ShieldCheck className="size-4" aria-hidden />
-          {texts.admin.openPanel}
+          {adminTexts.openPanel}
         </Link>
       )}
       <Link href="/novidades" className={menuLink}>
@@ -66,7 +71,7 @@ function UserMenu({ email, isAdmin, onSignOut }: { email: string; isAdmin: boole
       </Link>
       <div className="my-1 h-px bg-border" />
       <div className="flex items-center justify-between gap-3 px-3 py-1.5">
-        <span className="text-sm font-medium text-fg-muted">{texts.theme.label}</span>
+        <span className="text-sm font-medium text-fg-muted">{themeTexts.label}</span>
         <ThemeSwitcher />
       </div>
       <div className="my-1 h-px bg-border" />
@@ -91,7 +96,7 @@ function TabBar({
   const items: { href: string; label: string; icon: typeof CalendarDays; active: boolean }[] = [
     { href: "/painel", label: t.events, icon: CalendarDays, active: pathname === "/painel" || pathname.startsWith("/painel/eventos") },
     { href: "/painel/resultados", label: t.results, icon: BarChart3, active: pathname.startsWith("/painel/resultados") },
-    ...(isAdmin ? [{ href: "/painel/admin", label: texts.admin.nav, icon: ShieldCheck, active: pathname.startsWith("/painel/admin") }] : []),
+    ...(isAdmin ? [{ href: "/painel/admin", label: adminTexts.nav, icon: ShieldCheck, active: pathname.startsWith("/painel/admin") }] : []),
     { href: "/painel/conta", label: t.account, icon: UserRound, active: pathname.startsWith("/painel/conta") || pathname.startsWith("/painel/organizacao") },
   ];
   return (
@@ -125,7 +130,7 @@ function TabBar({
 
 function PanelSkeleton() {
   return (
-    <div className="flex flex-col gap-4" aria-busy="true" aria-label={texts.common.loading}>
+    <div className="flex flex-col gap-4" aria-busy="true" aria-label={commonTexts.loading}>
       <Skeleton className="h-9 w-56" />
       <Skeleton className="h-5 w-96 max-w-full" />
       <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -157,9 +162,9 @@ export function PanelShell({ children }: { children: ReactNode }) {
     event.preventDefault();
     const href = link.getAttribute("href") ?? "/painel";
     void confirm({
-      title: texts.event.design.leaveConfirmTitle,
-      description: texts.event.design.leaveConfirmBody,
-      confirmLabel: texts.event.design.leaveConfirm,
+      title: eventTexts.design.leaveConfirmTitle,
+      description: eventTexts.design.leaveConfirmBody,
+      confirmLabel: eventTexts.design.leaveConfirm,
     }).then((ok) => {
       if (ok) {
         router.push(href);
@@ -173,7 +178,7 @@ export function PanelShell({ children }: { children: ReactNode }) {
         href="#conteudo"
         className="sr-only z-50 rounded-lg bg-brand-solid px-3 py-2 text-sm font-semibold text-brand-fg focus:not-sr-only focus:fixed focus:top-3 focus:left-3"
       >
-        {texts.common.skipToContent}
+        {commonTexts.skipToContent}
       </a>
       <header
         onClickCapture={guardLinks}
@@ -215,7 +220,7 @@ export function PanelShell({ children }: { children: ReactNode }) {
                   )}
                 >
                   <ShieldCheck className="size-4" aria-hidden />
-                  {texts.admin.nav}
+                  {adminTexts.nav}
                 </Link>
               )}
             </nav>
@@ -276,7 +281,7 @@ export function PanelShell({ children }: { children: ReactNode }) {
             description={errorMessage(session.error)}
             action={
               <Button variant="secondary" icon={<RefreshCw />} onClick={session.retry}>
-                {texts.common.retry}
+                {commonTexts.retry}
               </Button>
             }
           />

@@ -15,9 +15,11 @@ import { CATEGORY_COLORS, nextColor, presetPriceText, uncategorized } from "@/li
 import { cn } from "@/lib/cn";
 import { money, parseMoney, ticketNumber } from "@/lib/format";
 import { NUMBER_LIST_INPUT, formatRanges, parseNumberList } from "@/lib/number-list";
-import { texts } from "@/texts/pt-BR";
+import { common as commonTexts } from "@/texts/pt-BR/common";
+import { errors as errorsTexts } from "@/texts/pt-BR/errors";
+import { event as eventTexts } from "@/texts/pt-BR/event";
 
-const t = texts.event.categories;
+const t = eventTexts.categories;
 
 type PriceMode = "event" | "free" | "own";
 
@@ -315,8 +317,8 @@ function CategoryCard({
                 <span className="max-sm:sr-only">{t.addNumbers}</span>
               </Button>
             </div>
-            {text.trim() !== "" && !parsed.ok && <p className="text-xs text-danger-fg">{texts.errors.invalid_range}</p>}
-            {parsed.ok && <p className="text-xs text-fg-muted">{texts.common.tickets(parsed.count)}</p>}
+            {text.trim() !== "" && !parsed.ok && <p className="text-xs text-danger-fg">{errorsTexts.invalid_range}</p>}
+            {parsed.ok && <p className="text-xs text-fg-muted">{commonTexts.tickets(parsed.count)}</p>}
             <ErrorMessage error={add.error} />
           </form>
         )}
@@ -383,7 +385,7 @@ function CategoryDialog({
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
-            {texts.common.cancel}
+            {commonTexts.cancel}
           </Button>
           <Button type="submit" form="category" loading={save.isPending} disabled={!valid}>
             {category === null ? t.create : t.save}
@@ -529,7 +531,7 @@ function SuggestDialog({
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
-            {texts.common.cancel}
+            {commonTexts.cancel}
           </Button>
           <Button type="submit" form="suggest-categories" loading={create.isPending} disabled={!valid}>
             {t.suggestCreate(chosen.length)}

@@ -527,23 +527,31 @@ pub async fn manifest(
             .ok_or_else(|| bad_request("invalid_cursor", "cursor must come from a manifest"))?,
     };
     let event_id = device.event_id;
-    let event = event_info(&state, event_id).await?;
-    let verifier = verifier(&state, event_id).await?;
-    let voids = active_voids(&state, event_id).await?;
-    let sellers = seller_ranges(&state, event_id).await?;
-    let (categories, seats) = tags(&state, event_id).await?;
-    let (allowed_category_ids, doors) = doors(&state, &device).await?;
-    let (guests, guests_version) =
-        super::guests::door_list(&state, event_id, query.guests.as_deref()).await?;
-    record_sync(&state, device.id, query.pending).await?;
+    // Every phone asks every few seconds: the independent reads go out together, so the answer
+    // waits for a couple of round trips to the database instead of a dozen.
+    let (event, verifier, voids, sellers, (categories, seats), (allowed_category_ids, doors)) = tokio::try_join!(
+        event_info(&state, event_id),
+        verifier(&state, event_id),
+        active_voids(&state, event_id),
+        seller_ranges(&state, event_id),
+        tags(&state, event_id),
+        doors(&state, &device),
+    )?;
+    let ((guests, guests_version), ()) = tokio::try_join!(
+        super::guests::door_list(&state, event_id, query.guests.as_deref()),
+        record_sync(&state, device.id, query.pending),
+    )?;
     // Every transaction below xmin has finished: its rows are visible to the next statement.
     let xmin = sqlx::query_scalar!(
         r#"select pg_snapshot_xmin(pg_current_snapshot())::text::bigint as "xmin!""#
     )
     .fetch_one(&state.pool)
     .await?;
-    let entries = entries_between(&state, event_id, since, xmin).await?;
-    let guest_arrivals = super::guests::arrivals_between(&state, event_id, since, xmin).await?;
+    let (entries, guest_arrivals, sessions) = tokio::try_join!(
+        entries_between(&state, event_id, since, xmin),
+        super::guests::arrivals_between(&state, event_id, since, xmin),
+        super::series::sessions(&state.pool, event_id),
+    )?;
     Ok(Json(DoorManifest {
         device_id: device.id,
         device_name: device.name,
@@ -561,7 +569,7 @@ pub async fn manifest(
         guests,
         guests_version,
         guest_arrivals,
-        sessions: super::series::sessions(&state.pool, device.event_id).await?,
+        sessions,
     }))
 }
 

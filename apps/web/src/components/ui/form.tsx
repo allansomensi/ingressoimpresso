@@ -10,7 +10,7 @@ import {
 } from "react";
 
 import { cn } from "@/lib/cn";
-import { texts } from "@/texts/pt-BR";
+import { common as commonTexts } from "@/texts/pt-BR/common";
 
 export const controlClass = cn(
   // 16px on phones: iOS zooms into any field with smaller text.
@@ -38,7 +38,7 @@ export function Field({
     <label className={cn("flex min-w-0 flex-col gap-1.5", className)}>
       <span className="flex items-baseline gap-1.5 text-sm font-medium text-fg">
         {label}
-        {optional && <span className="text-xs font-normal text-fg-subtle">({texts.common.optional})</span>}
+        {optional && <span className="text-xs font-normal text-fg-subtle">({commonTexts.optional})</span>}
       </span>
       {children}
       {hint !== undefined && <span className="text-xs leading-relaxed text-fg-muted">{hint}</span>}

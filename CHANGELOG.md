@@ -16,6 +16,21 @@ e não acompanha estes números.
 
 - O site abre mais rápido no celular: as fontes dos ingressos ficaram três vezes menores e a
   galeria de modelos da página inicial só é desenhada quando chega perto da tela.
+- Todas as páginas carregam menos código: cada uma leva só os textos que usa (antes, o catálogo
+  inteiro ia em toda página) e a página inicial deixou de instalar o aplicativo do painel por
+  baixo dos panos.
+- A API responde comprimida e com menos idas ao banco: o manifesto da portaria, a página do
+  vendedor, o Ao vivo, a série e o relatório da organização fazem suas leituras ao mesmo tempo,
+  ingressos digitais em lote entram numa só gravação e a conexão com o banco deixou de ser
+  testada antes de cada consulta.
+- Portaria no celular: a tela não é redesenhada a cada segundo (só o "sincronizado há 5 s"), a
+  câmera lê mais devagar enquanto um resultado espera um toque, a cópia offline do app espera um
+  momento de folga em vez de disputar com o primeiro manifesto e as gravações da sincronização
+  vão em lote; o núcleo da portaria ficou um quarto menor.
+- Painel: as abas Portaria, Lista, Relatório e Resultados só ficam perguntando ao servidor em
+  volta do dia do evento; a galeria de modelos desenha cada modelo quando ele aparece na tela; a
+  prévia do editor chega como JPEG, dez vezes menor; o logo da organização e a imagem do ingresso
+  digital ficam guardados por mais tempo.
 
 ## [1.5.0] - 2026-10-13
 

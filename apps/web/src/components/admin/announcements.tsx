@@ -37,9 +37,12 @@ import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { shortDateTime } from "@/lib/format";
 import { fromLocalInput, toLocalInput } from "@/lib/local-time";
-import { texts } from "@/texts/pt-BR";
+import { admin as adminTexts } from "@/texts/pt-BR/admin";
+import { common as commonTexts } from "@/texts/pt-BR/common";
+import { event as eventTexts } from "@/texts/pt-BR/event";
+import { inbox as inboxTexts } from "@/texts/pt-BR/inbox";
 
-const t = texts.admin.announcements;
+const t = adminTexts.announcements;
 const LEVELS: readonly AnnouncementLevel[] = ["info", "success", "warning", "critical"];
 const STATUS_TONE: Record<AnnouncementStatus, Tone> = {
   draft: "neutral",
@@ -101,7 +104,7 @@ function Editor({ item, onClose }: { item: AdminAnnouncementDto | null; onClose:
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
-            {texts.common.cancel}
+            {commonTexts.cancel}
           </Button>
           {!published && (
             <Button variant="secondary" disabled={!valid} loading={save.isPending && save.variables === false} onClick={() => save.mutate(false)}>
@@ -109,7 +112,7 @@ function Editor({ item, onClose }: { item: AdminAnnouncementDto | null; onClose:
             </Button>
           )}
           <Button icon={<Send />} disabled={!valid} loading={save.isPending && save.variables === true} onClick={() => save.mutate(true)}>
-            {published ? texts.common.save : t.publish}
+            {published ? commonTexts.save : t.publish}
           </Button>
         </>
       }
@@ -146,7 +149,7 @@ function Editor({ item, onClose }: { item: AdminAnnouncementDto | null; onClose:
               >
                 {LEVELS.map((option) => (
                   <option key={option} value={option}>
-                    {texts.inbox.levels[option]}
+                    {inboxTexts.levels[option]}
                   </option>
                 ))}
               </Select>
@@ -299,7 +302,7 @@ export function AdminAnnouncements() {
                 </div>
                 {item.status !== "archived" && (
                 <Menu
-                  label={texts.event.batches.moreActions}
+                  label={eventTexts.batches.moreActions}
                   trigger={<MoreHorizontal className="size-4" aria-hidden />}
                   triggerClassName="flex size-9 items-center justify-center rounded-lg text-fg-muted transition hover:bg-surface-2 active:bg-surface-2 hover:text-fg"
                 >
@@ -309,7 +312,7 @@ export function AdminAnnouncements() {
                         setEditing(item);
                       }}
                     >
-                      {texts.common.edit}
+                      {commonTexts.edit}
                     </MenuItem>
                     <MenuItem
                       tone="danger"
@@ -320,14 +323,14 @@ export function AdminAnnouncements() {
                           await confirm({
                             title: draft ? t.deleteTitle : t.archiveTitle,
                             description: draft ? t.deleteBody : live ? t.archiveLiveBody : t.archiveBody,
-                            confirmLabel: draft ? texts.common.remove : t.archive,
+                            confirmLabel: draft ? commonTexts.remove : t.archive,
                           })
                         ) {
                           remove.mutate(item.id);
                         }
                       }}
                     >
-                      {item.publishedAt === null ? texts.common.remove : t.archive}
+                      {item.publishedAt === null ? commonTexts.remove : t.archive}
                     </MenuItem>
                 </Menu>
                 )}

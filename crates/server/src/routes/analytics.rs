@@ -70,20 +70,24 @@ pub async fn organization(
                cross join lateral generate_series(lower(b.numbers), upper(b.numbers) - 1) as n
                where b.status = 'paid'
            ),
-           voided as (
-               select distinct on (i.event_id, i.number) i.event_id, i.number, v.reason
-               from issued i join ticket_voids v
-                 on v.event_id = i.event_id and v.undone_at is null and v.numbers @> i.number
-               order by i.event_id, i.number, v.created_at
+           -- Each paid number once, with the reason of its first active void, totalled per event
+           -- in one pass (a count per event over every number was quadratic).
+           per_event as (
+               select i.event_id, count(*) as paid_tickets,
+                      count(*) filter (where (
+                          select v.reason from ticket_voids v
+                          where v.event_id = i.event_id and v.undone_at is null and v.numbers @> i.number
+                          order by v.created_at limit 1) in ('unsold', 'lost')) as not_sold
+               from issued i group by i.event_id
            )
            select e.id, e.name, e.starts_at, e.status, e.utc_offset_minutes, e.ticket_price_cents,
-                  (select count(*) from issued i where i.event_id = e.id) as "paid_tickets!",
-                  (select count(*) from voided v where v.event_id = e.id
-                   and v.reason in ('unsold', 'lost')) as "not_sold!",
+                  coalesce(p.paid_tickets, 0) as "paid_tickets!",
+                  coalesce(p.not_sold, 0) as "not_sold!",
                   (select count(*) from entries en where en.event_id = e.id) as "entries!",
                   (select coalesce(sum(b.price_cents), 0) from ticket_batches b
                    where b.event_id = e.id and b.status = 'paid')::bigint as "cost_cents!"
            from events e join org_events o on o.id = e.id
+           left join per_event p on p.event_id = e.id
            order by e.starts_at desc"#,
         user.id
     )

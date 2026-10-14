@@ -3,7 +3,7 @@
 import { useRef, type ClipboardEvent, type KeyboardEvent } from "react";
 
 import { cn } from "@/lib/cn";
-import { texts } from "@/texts/pt-BR";
+import { login as loginTexts } from "@/texts/pt-BR/login";
 
 /**
  * Six boxes for the login code: typing advances, Backspace goes back, pasting fills them all.
@@ -70,7 +70,7 @@ export function OtpInput({
   };
 
   return (
-    <div className="flex justify-between gap-2" role="group" aria-label={texts.login.codeLabel}>
+    <div className="flex justify-between gap-2" role="group" aria-label={loginTexts.codeLabel}>
       {Array.from({ length }, (_, index) => (
         <input
           key={index}
@@ -92,7 +92,7 @@ export function OtpInput({
           autoComplete={index === 0 ? "one-time-code" : "off"}
           maxLength={length}
           disabled={disabled}
-          aria-label={texts.login.codeDigit(index + 1)}
+          aria-label={loginTexts.codeDigit(index + 1)}
           aria-invalid={invalid || undefined}
           autoFocus={index === 0}
           className={cn(

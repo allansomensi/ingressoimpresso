@@ -12,12 +12,13 @@ import { cn } from "@/lib/cn";
 import { shortDateTime } from "@/lib/format";
 import { opLabel, type QueuedOp, type SyncNotice } from "@/lib/seller-offline";
 import { copyText } from "@/lib/share";
-import { texts } from "@/texts/pt-BR";
+import { common as commonTexts } from "@/texts/pt-BR/common";
+import { sellerPage as sellerPageTexts } from "@/texts/pt-BR/seller-page";
 import { toast } from "sonner";
 
 import type { SendProblem } from "./use-seller-sync";
 
-const t = texts.sellerPage.offline;
+const t = sellerPageTexts.offline;
 
 /** The bar under the header while something is not sent (or there is no connection). */
 export function SyncStatus({
@@ -82,7 +83,7 @@ export function SyncStatus({
 
 /** What the server could not do, in plain words; stays until the seller says they read it. */
 export function NoticesDialog({ notices, onClose }: { notices: readonly SyncNotice[]; onClose: () => void }) {
-  const c = texts.sellerPage.conflicts;
+  const c = sellerPageTexts.conflicts;
   return (
     <Dialog
       open={notices.length > 0}
@@ -134,12 +135,12 @@ export function PendingList({ queue, view }: { queue: readonly QueuedOp[]; view:
         onClick={() => {
           void copyText(lines.join("\n")).then((ok) => {
             if (ok) {
-              toast.success(texts.common.copied);
+              toast.success(commonTexts.copied);
             }
           });
         }}
       >
-        {texts.common.copy}
+        {commonTexts.copy}
       </Button>
     </div>
   );

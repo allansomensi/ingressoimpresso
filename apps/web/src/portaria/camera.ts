@@ -10,6 +10,12 @@ import { ZXING_WASM_URL } from "./assets";
 const MAX_FRAME_PX = 720;
 /** Pause between reads: enough for a responsive door without draining the battery. */
 const READ_EVERY_MS = 120;
+/**
+ * Pause between reads while a result that waits for a tap is on screen: nothing new can replace
+ * it, and a read every so often is enough to notice the same code still in view (the rescan
+ * window is 5 s), so the decoder stops heating the phone for nothing.
+ */
+const IDLE_READ_EVERY_MS = 400;
 
 let prepared = false;
 
@@ -36,6 +42,7 @@ export class Scanner {
   #stream: MediaStream | null = null;
   #timer: ReturnType<typeof setTimeout> | undefined;
   #running = false;
+  #idle = false;
 
   constructor(video: HTMLVideoElement, onTexts: (texts: string[]) => void) {
     this.#video = video;
@@ -73,6 +80,11 @@ export class Scanner {
     return capabilities?.torch === true;
   }
 
+  /** Slows the reads down (`true`) while a result holds the screen, or back to full speed. */
+  setIdle(idle: boolean): void {
+    this.#idle = idle;
+  }
+
   async setTorch(on: boolean): Promise<void> {
     const track = this.#stream?.getVideoTracks()[0];
     // `torch` is not in the TypeScript DOM types yet.
@@ -88,7 +100,7 @@ export class Scanner {
       void this.#readFrame().finally(() => {
         this.#schedule();
       });
-    }, READ_EVERY_MS);
+    }, this.#idle ? IDLE_READ_EVERY_MS : READ_EVERY_MS);
   }
 
   async #readFrame(): Promise<void> {

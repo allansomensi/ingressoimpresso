@@ -14,9 +14,15 @@ import { parseMoney } from "@/lib/format";
 import { profileBody, profileForm, type ProfileForm } from "@/lib/organization";
 import { textOn } from "@/lib/ticket-pass";
 import { useUnsavedChanges } from "@/lib/unsaved";
-import { texts } from "@/texts/pt-BR";
+import { admin as adminTexts } from "@/texts/pt-BR/admin";
+import { common as commonTexts } from "@/texts/pt-BR/common";
+import { errors as errorsTexts } from "@/texts/pt-BR/errors";
+import { landing as landingTexts } from "@/texts/pt-BR/landing";
+import { panel as panelTexts } from "@/texts/pt-BR/panel";
+import { profile as profileTexts } from "@/texts/pt-BR/profile";
+import { ticket as ticketTexts } from "@/texts/pt-BR/ticket";
 
-const t = texts.profile;
+const t = profileTexts;
 const DEFAULT_COLOR = "#5b3df5";
 /** The API's limit (`MAX_LOGO_BYTES`): checked here first so nobody waits for a refused upload. */
 const MAX_LOGO_BYTES = 8 * 1024 * 1024;
@@ -161,19 +167,19 @@ export function ProfileEditor({ profile, target }: { profile: OrganizationProfil
               <Input
                 value={form.defaultVenue}
                 maxLength={120}
-                placeholder={texts.panel.venuePlaceholder}
+                placeholder={panelTexts.venuePlaceholder}
                 onChange={(event) => {
                   set("defaultVenue")(event.target.value);
                 }}
               />
             </Field>
-            <Field label={t.defaultPrice} optional hint={price.ok ? undefined : <span className="text-danger-fg">{texts.panel.priceInvalid}</span>}>
+            <Field label={t.defaultPrice} optional hint={price.ok ? undefined : <span className="text-danger-fg">{panelTexts.priceInvalid}</span>}>
               <span className="relative flex">
-                <span className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-sm text-fg-muted">{texts.common.currency}</span>
+                <span className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-sm text-fg-muted">{commonTexts.currency}</span>
                 <Input
                   inputMode="decimal"
                   value={form.defaultPrice}
-                  placeholder={texts.panel.pricePlaceholder}
+                  placeholder={panelTexts.pricePlaceholder}
                   aria-invalid={!price.ok || undefined}
                   className="pl-10"
                   onChange={(event) => {
@@ -187,7 +193,7 @@ export function ProfileEditor({ profile, target }: { profile: OrganizationProfil
                 value={form.defaultAddress}
                 maxLength={200}
                 autoComplete="street-address"
-                placeholder={texts.panel.addressPlaceholder}
+                placeholder={panelTexts.addressPlaceholder}
                 onChange={(event) => {
                   set("defaultAddress")(event.target.value);
                 }}
@@ -203,7 +209,7 @@ export function ProfileEditor({ profile, target }: { profile: OrganizationProfil
         {/* Phones: the save button stays within reach at the bottom (above the tab bar). */}
         <div className="max-lg:fixed max-lg:inset-x-0 max-lg:bottom-[calc(4rem+env(safe-area-inset-bottom))] max-lg:z-30 max-lg:border-t max-lg:border-border max-lg:bg-bg max-lg:px-4 max-lg:py-3 max-sm:bottom-[calc(4rem+env(safe-area-inset-bottom))] sm:max-lg:bottom-0 sm:max-lg:pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           <Button type="submit" icon={<Save />} loading={save.isPending} disabled={!dirty || !price.ok} className="w-full">
-            {texts.common.save}
+            {commonTexts.save}
           </Button>
         </div>
       </div>
@@ -229,7 +235,7 @@ function LogoField({ profile, target }: { profile: OrganizationProfileDto; targe
     mutationFn: (reject: boolean) => api<OrganizationProfileDto>(`${target.endpoint}/logo${reject ? "?reject=true" : ""}`, { method: "DELETE" }),
     onSuccess: (fresh, reject) => {
       queryClient.setQueryData(target.queryKey, fresh);
-      toast.success(reject ? texts.admin.support.logoRejected : t.logoRemoved);
+      toast.success(reject ? adminTexts.support.logoRejected : t.logoRemoved);
     },
     onError: (error) => toast.error(errorMessage(error)),
   });
@@ -266,7 +272,7 @@ function LogoField({ profile, target }: { profile: OrganizationProfileDto; targe
                 icon={<Trash2 />}
                 loading={remove.isPending && remove.variables !== true}
                 onClick={() => {
-                  const copy = target.support === true ? texts.admin.support : t;
+                  const copy = target.support === true ? adminTexts.support : t;
                   void confirm({ title: copy.logoRemoveTitle, description: copy.logoRemoveBody, confirmLabel: t.logoRemove }).then((ok) => {
                     if (ok) {
                       remove.mutate(false);
@@ -284,7 +290,7 @@ function LogoField({ profile, target }: { profile: OrganizationProfileDto; targe
                 icon={<Ban />}
                 loading={remove.isPending && remove.variables === true}
                 onClick={() => {
-                  const copy = texts.admin.support;
+                  const copy = adminTexts.support;
                   void confirm({ title: copy.logoRejectTitle, description: copy.logoRejectBody, confirmLabel: copy.logoReject }).then((ok) => {
                     if (ok) {
                       remove.mutate(true);
@@ -292,7 +298,7 @@ function LogoField({ profile, target }: { profile: OrganizationProfileDto; targe
                   });
                 }}
               >
-                {texts.admin.support.logoReject}
+                {adminTexts.support.logoReject}
               </Button>
             )}
           </div>
@@ -312,7 +318,7 @@ function LogoField({ profile, target }: { profile: OrganizationProfileDto; targe
             return;
           }
           if (file.size > MAX_LOGO_BYTES) {
-            toast.error(texts.errors.payload_too_large);
+            toast.error(errorsTexts.payload_too_large);
             return;
           }
           send.mutate(file);
@@ -336,9 +342,9 @@ function Preview({ organization }: { organization: PublicOrganizationDto }) {
         <div className="flex flex-col gap-2 px-5 pt-5 pb-6" style={{ backgroundColor: band, color: ink }}>
           <span className="flex items-center gap-3">
             <OrganizationLogo organization={organization} className="size-10" />
-            <span className="text-xs font-semibold tracking-[0.16em] uppercase opacity-90">{texts.ticket.by(organization.name)}</span>
+            <span className="text-xs font-semibold tracking-[0.16em] uppercase opacity-90">{ticketTexts.by(organization.name)}</span>
           </span>
-          <span className="text-xl leading-tight font-bold">{texts.landing.templateSamples.show.name}</span>
+          <span className="text-xl leading-tight font-bold">{landingTexts.templateSamples.show.name}</span>
         </div>
         <PreviewContact organization={organization} />
       </div>

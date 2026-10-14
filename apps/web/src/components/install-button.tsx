@@ -7,9 +7,9 @@ import { toast } from "sonner";
 
 import { Button, Dialog } from "@/components/ui";
 import { promptInstall, useInstallState } from "@/lib/pwa";
-import { texts } from "@/texts/pt-BR";
+import { pwa as pwaTexts } from "@/texts/pt-BR/pwa";
 
-const t = texts.pwa;
+const t = pwaTexts;
 const IOS_ICONS = [Share, PlusSquare, Download] as const;
 
 /** "Install app": the browser prompt on Android/desktop Chrome, instructions on iPhone. */
