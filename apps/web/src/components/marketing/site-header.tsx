@@ -11,13 +11,15 @@ import { cn } from "@/lib/cn";
 import { nav as navTexts } from "@/texts/pt-BR/nav";
 
 const t = navTexts;
-// Absolute anchors: the header also sits on the legal pages and the changelog.
+// Absolute anchors: the header also sits on the legal pages and the changelog. The pages of their
+// own (templates, guides, prices) are linked from every page, which is how search engines find
+// them first (ADR 0081).
 const LINKS = [
   { href: "/#como-funciona", label: t.howItWorks },
   { href: "/#exemplos", label: t.examples },
   { href: "/modelos", label: t.templates },
-  { href: "/#recursos", label: t.features },
-  { href: "/#precos", label: t.pricing },
+  { href: "/guias", label: t.guides },
+  { href: "/precos", label: t.pricing },
   { href: "/#duvidas", label: t.faq },
 ] as const;
 

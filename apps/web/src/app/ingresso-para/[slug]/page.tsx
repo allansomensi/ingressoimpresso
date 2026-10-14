@@ -7,6 +7,7 @@ import { JsonLd, eventPageJsonLd } from "@/components/json-ld";
 import { Breadcrumb } from "@/components/marketing/breadcrumb";
 import { FaqList } from "@/components/marketing/faq-list";
 import { FinalCta } from "@/components/marketing/final-cta";
+import { GuideCard } from "@/components/marketing/guide-card";
 import { MobileCta } from "@/components/marketing/mobile-cta";
 import { PhoneMock, TicketMock } from "@/components/marketing/mockups";
 import { SectionHeading } from "@/components/marketing/section-heading";
@@ -15,10 +16,12 @@ import { SiteHeader } from "@/components/marketing/site-header";
 import { TemplateCard } from "@/components/marketing/template-card";
 import { ButtonLink } from "@/components/ui";
 import { eventSeoPage, eventSeoPages } from "@/content/seo-event-pages";
+import { guidesForEvent } from "@/content/seo-guides";
 import { EVENT_TEMPLATES, templateSeoById } from "@/content/seo-templates";
+import { pageMetadata } from "@/lib/seo";
 import { eventPages as eventPagesTexts } from "@/texts/pt-BR/event-pages";
+import { guides as guidesTexts } from "@/texts/pt-BR/guides";
 import { landing as landingTexts } from "@/texts/pt-BR/landing";
-import { meta as metaTexts } from "@/texts/pt-BR/meta";
 import { templateGallery as templateGalleryTexts } from "@/texts/pt-BR/template-gallery";
 
 const t = eventPagesTexts;
@@ -37,16 +40,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (page === undefined) {
     return {};
   }
-  const path = `/ingresso-para/${page.slug}`;
-  return {
-    // The titles are written to fit search results: no " · Ingresso Impresso" suffix.
-    title: { absolute: page.title },
-    description: page.description,
-    alternates: { canonical: path },
-    // The share image is ./opengraph-image.tsx (and ./twitter-image.tsx).
-    openGraph: { type: "website", locale: "pt_BR", siteName: metaTexts.title, url: path, title: page.title, description: page.description },
-    twitter: { card: "summary_large_image", title: page.title, description: page.description },
-  };
+  // The titles are written to fit search results: no " · Ingresso Impresso" suffix. The share
+  // image is ./opengraph-image.tsx.
+  return pageMetadata({ title: page.title, description: page.description, path: `/ingresso-para/${page.slug}` });
 }
 
 /** A landing page for one kind of event (festa junina, formatura…), with the landing's look. */
@@ -57,6 +53,7 @@ export default async function EventTypePage({ params }: Props) {
   }
   const templates = (EVENT_TEMPLATES[page.slug] ?? []).map(templateSeoById).filter((template) => template !== undefined);
   const others = eventSeoPages.filter((other) => other.slug !== page.slug);
+  const guides = guidesForEvent(page.slug);
   return (
     <div className="flex min-h-dvh flex-col">
       <JsonLd data={eventPageJsonLd(page)} />
@@ -67,7 +64,7 @@ export default async function EventTypePage({ params }: Props) {
           <div aria-hidden className="absolute inset-0 bg-dots [mask-image:radial-gradient(ellipse_at_top,black,transparent_70%)] opacity-60" />
           <div className="relative mx-auto grid max-w-6xl items-center gap-14 px-4 pt-10 pb-20 sm:px-6 lg:grid-cols-[1.1fr_1fr] lg:pt-16 lg:pb-28">
             <div className="flex flex-col items-start gap-6 animate-rise">
-              <Breadcrumb items={[{ label: t.home, href: "/" }, { label: page.label }]} />
+              <Breadcrumb items={[{ label: t.home, href: "/" }, { label: t.hubBreadcrumb, href: "/ingresso-para" }, { label: page.label }]} />
               <span className="inline-flex items-center gap-2 rounded-full border border-brand/20 bg-brand-soft px-3 py-1 text-[13px] font-medium text-brand-soft-fg">
                 <span className="size-1.5 rounded-full bg-brand" />
                 {t.eyebrow(page.label)}
@@ -78,7 +75,7 @@ export default async function EventTypePage({ params }: Props) {
                 <ButtonLink href="/entrar" size="lg" icon={<ArrowRight />} className="flex-row-reverse">
                   {page.cta}
                 </ButtonLink>
-                <ButtonLink href="/#precos" size="lg" variant="secondary">
+                <ButtonLink href="/precos" size="lg" variant="secondary">
                   {t.secondaryCta}
                 </ButtonLink>
               </div>
@@ -138,8 +135,28 @@ export default async function EventTypePage({ params }: Props) {
           </div>
         </section>
 
+        {/* How it works for this kind of event */}
+        <section className="border-t border-border bg-surface">
+          <div className="mx-auto flex max-w-6xl flex-col gap-12 px-4 py-20 sm:px-6 lg:py-24">
+            <SectionHeading title={t.stepsTitle(page.label)} lead={t.stepsLead} />
+            <ol className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
+              {page.passos.map((step, index) => (
+                <li key={step.titulo} className="flex gap-4 rounded-3xl border border-border bg-bg p-5 sm:flex-col sm:p-6">
+                  <span className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-brand-solid font-mono text-sm font-semibold text-brand-fg">
+                    {index + 1}
+                  </span>
+                  <div className="flex min-w-0 flex-col gap-1.5">
+                    <h3 className="text-base font-semibold text-fg">{step.titulo}</h3>
+                    <p className="text-[15px] leading-relaxed text-fg-muted">{step.texto}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </section>
+
         {/* FAQ */}
-        <section id="duvidas" className="scroll-mt-16 border-t border-border bg-surface">
+        <section id="duvidas" className="scroll-mt-16 border-t border-border bg-bg">
           <div className="mx-auto flex max-w-3xl flex-col gap-10 px-4 py-20 sm:px-6 lg:py-28">
             <SectionHeading title={landingTexts.faqTitle} />
             <FaqList items={page.faq.map((item) => ({ question: item.pergunta, answer: item.resposta }))} />
@@ -148,7 +165,7 @@ export default async function EventTypePage({ params }: Props) {
 
         {/* Templates for this kind of event */}
         {templates.length > 0 && (
-          <section className="border-t border-border bg-bg">
+          <section className="border-t border-border bg-surface">
             <div className="mx-auto flex max-w-6xl flex-col gap-10 px-4 py-20 sm:px-6 lg:py-24">
               <SectionHeading title={t.templatesTitle(page.label)} lead={t.templatesLead} />
               <ul className="grid gap-4 sm:grid-cols-3">
@@ -163,6 +180,22 @@ export default async function EventTypePage({ params }: Props) {
                   {templateGalleryTexts.all}
                 </ButtonLink>
               </div>
+            </div>
+          </section>
+        )}
+
+        {/* Guides for organizing this kind of event */}
+        {guides.length > 0 && (
+          <section className="border-t border-border bg-bg">
+            <div className="mx-auto flex max-w-6xl flex-col gap-10 px-4 py-20 sm:px-6 lg:py-24">
+              <SectionHeading title={guidesTexts.forEventTitle} />
+              <ul className="grid gap-4 sm:grid-cols-3">
+                {guides.slice(0, 3).map((guide) => (
+                  <li key={guide.slug}>
+                    <GuideCard guide={guide} headingLevel="h3" />
+                  </li>
+                ))}
+              </ul>
             </div>
           </section>
         )}

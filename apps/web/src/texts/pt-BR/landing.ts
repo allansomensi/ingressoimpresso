@@ -1,5 +1,7 @@
 export const landing = {
   metaTitle: "Ingresso numerado com QR code para imprimir · Ingresso Impresso",
+  metaDescription:
+    "Crie ingressos numerados com QR code à prova de cópia, imprima em casa ou na gráfica e confira a entrada pelo celular, mesmo sem internet. 30 grátis.",
   eyebrow: "Para quem vende ingresso na mão",
   headline: "Ingresso que não dá para copiar, no papel ou no celular",
   lead: "Monte o ingresso, imprima em casa ou na gráfica, mande pelo WhatsApp para quem comprou de longe e confira na entrada com qualquer celular, mesmo sem internet.",
@@ -123,7 +125,20 @@ export const landing = {
     classic: { name: "Recital de Piano", venue: "Auditório da Escola de Música" },
   },
   audienceTitle: "Feito para quem organiza evento sem bilheteria",
-  audience: ["Bandas independentes", "Festas de escola", "Igrejas e quermesses", "Formaturas", "Teatro e dança", "Pequenos produtores"],
+  // Each one links to its page in /ingresso-para (src/content/seo-event-pages.ts).
+  audience: [
+    { label: "Bandas independentes", slug: "show-de-banda" },
+    { label: "Festas e baladas", slug: "festa" },
+    { label: "Festas de escola", slug: "festa-de-escola" },
+    { label: "Festas juninas", slug: "festa-junina" },
+    { label: "Igrejas e congressos", slug: "evento-de-igreja" },
+    { label: "Formaturas", slug: "formatura" },
+    { label: "Teatro e dança", slug: "teatro-e-danca" },
+    { label: "Jantares beneficentes", slug: "jantar-beneficente" },
+    { label: "Campeonatos", slug: "campeonato" },
+    { label: "Palestras e cursos", slug: "palestra-e-curso" },
+  ],
+  audienceMore: "Ver todos os tipos de evento",
   mock: {
     event: "Show de Lançamento",
     venue: "Bar do Zé · 20 nov · 22h",
@@ -238,7 +253,7 @@ export const landing = {
     table: "Ver a tabela de preços",
   },
   pricingPromotion: (percent: number) => `${String(percent)}% de desconto em todos os lotes`,
-  pricingPromotionUntil: (date: string) => `Promoção válida até ${date}. O desconto já aparece no valor do lote.`,
+  pricingPromotionUntil: (date: string) => `Promoção válida até ${date} (horário de Brasília). O desconto já aparece no valor do lote.`,
   pricingUpcoming: (date: string) => `A tabela de preços muda em ${date}. Lotes criados antes mantêm o preço.`,
   faqTitle: "Perguntas frequentes",
   faq: [

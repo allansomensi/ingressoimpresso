@@ -22,5 +22,7 @@ export const footer = {
   examples: "Exemplos de uso",
   theme: "Tema",
   eventTypes: "Ingresso para",
+  eventTypesAll: "Tipos de evento",
+  guides: "Guias",
   verify: "Conferir ingresso",
 } as const;

@@ -5,6 +5,7 @@ export const nav = {
   pricing: "Preços",
   faq: "Dúvidas",
   templates: "Modelos",
+  guides: "Guias",
   signIn: "Entrar",
   start: "Começar grátis",
   panel: "Abrir o painel",

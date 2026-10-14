@@ -14,6 +14,8 @@ export { nav } from "./pt-BR/nav";
 export { landing } from "./pt-BR/landing";
 export { templateGallery } from "./pt-BR/template-gallery";
 export { eventPages } from "./pt-BR/event-pages";
+export { pricingPage } from "./pt-BR/pricing-page";
+export { guides } from "./pt-BR/guides";
 export { footer } from "./pt-BR/footer";
 export { reservations } from "./pt-BR/reservations";
 export { sellerPage } from "./pt-BR/seller-page";
