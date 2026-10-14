@@ -9,22 +9,16 @@ import { SectionHeading } from "@/components/marketing/section-heading";
 import { SiteFooter } from "@/components/marketing/site-footer";
 import { SiteHeader } from "@/components/marketing/site-header";
 import { TicketChecker } from "@/components/verify/ticket-checker";
+import { pageMetadata } from "@/lib/seo";
 import { eventPages as eventPagesTexts } from "@/texts/pt-BR/event-pages";
-import { meta as metaTexts } from "@/texts/pt-BR/meta";
 import { verifyPage as verifyPageTexts } from "@/texts/pt-BR/verify-page";
 
 const t = verifyPageTexts;
 const HOW_ICONS: readonly LucideIcon[] = [Fingerprint, ScanSearch, BadgeCheck];
 
-export const metadata: Metadata = {
-  // Written to fit search results: no " · Ingresso Impresso" suffix.
-  title: { absolute: t.metaTitle },
-  description: t.metaDescription,
-  alternates: { canonical: "/conferir" },
-  // The share image is ./opengraph-image.tsx.
-  openGraph: { type: "website", locale: "pt_BR", siteName: metaTexts.title, url: "/conferir", title: t.metaTitle, description: t.metaDescription },
-  twitter: { card: "summary_large_image", title: t.metaTitle, description: t.metaDescription },
-};
+// Written to fit search results: no " · Ingresso Impresso" suffix. The share image is
+// ./opengraph-image.tsx.
+export const metadata: Metadata = pageMetadata({ title: t.metaTitle, description: t.metaDescription, path: "/conferir" });
 
 /**
  * Check a ticket before buying it (ADR 0075): the checker first (camera, photo or pasted text),

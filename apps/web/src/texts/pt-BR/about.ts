@@ -1,5 +1,6 @@
 export const about = {
   title: "Sobre",
+  metaTitle: "Sobre o Ingresso Impresso: ingresso para quem vende na mão",
   metaDescription:
     "O Ingresso Impresso nasceu para quem vende ingresso na mão: bandas, escolas, igrejas e pequenos produtores. Conheça a ideia, os princípios e quem faz.",
   eyebrow: "Sobre o Ingresso Impresso",
