@@ -3,13 +3,14 @@ import type { Metadata } from "next";
 import { ChangelogPage } from "@/components/changelog/changelog-page";
 import { SiteFooter } from "@/components/marketing/site-footer";
 import { SiteHeader } from "@/components/marketing/site-header";
+import { pageMetadata } from "@/lib/seo";
 import { changelog as changelogTexts } from "@/texts/pt-BR/changelog";
 
-export const metadata: Metadata = {
-  title: changelogTexts.title,
+export const metadata: Metadata = pageMetadata({
+  title: changelogTexts.metaTitle,
   description: changelogTexts.metaDescription,
-  alternates: { canonical: "/novidades" },
-};
+  path: "/novidades",
+});
 
 export default function NewsPage() {
   return (

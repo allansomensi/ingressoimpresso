@@ -1,5 +1,6 @@
 export const helpCenter = {
   title: "Suporte",
+  metaTitle: "Central de ajuda do Ingresso Impresso",
   metaDescription:
     "Precisa de ajuda com o Ingresso Impresso? Veja respostas rápidas, o status do sistema e como falar com a gente por e-mail.",
   eyebrow: "Suporte",

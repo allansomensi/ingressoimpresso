@@ -1,5 +1,6 @@
 export const changelog = {
   title: "Novidades",
+  metaTitle: "Novidades do Ingresso Impresso, versão por versão",
   subtitle: "Tudo o que mudou no Ingresso Impresso, versão por versão: recursos novos, melhorias, correções e segurança.",
   release: (version: string) => `Versão ${version}`,
   currentRelease: "Versão atual",
