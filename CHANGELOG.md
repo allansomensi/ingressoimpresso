@@ -12,6 +12,11 @@ e não acompanha estes números.
 
 ## [Não lançado]
 
+### Adicionado
+
+- Medição de velocidade do site nos aparelhos de quem visita (Vercel Speed Insights), fora da
+  portaria, para acompanhar o efeito das melhorias de desempenho.
+
 ### Alterado
 
 - O site abre mais rápido no celular: as fontes dos ingressos ficaram três vezes menores e a
