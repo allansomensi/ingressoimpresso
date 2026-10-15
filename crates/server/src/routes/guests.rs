@@ -341,7 +341,9 @@ pub(crate) async fn door_list(
                                           ',' order by g.id)), '')
                   as "version!"
            from guest_list g left join ticket_categories c on c.id = g.category_id
-           where g.event_id = $1"#,
+           where g.event_id = $1
+             -- Nobody enters a stall by name (ADR 0084): fichas have no list at the door.
+             and exists(select 1 from events e where e.id = $1 and e.kind = 'tickets')"#,
         event_id
     )
     .fetch_one(&state.pool)
@@ -352,7 +354,9 @@ pub(crate) async fn door_list(
     let guests = sqlx::query!(
         r#"select g.id, g.name, g.companions, g.note, c.name as "category_name?", c.color as "category_color?"
            from guest_list g left join ticket_categories c on c.id = g.category_id
-           where g.event_id = $1 order by g.name"#,
+           where g.event_id = $1
+             and exists(select 1 from events e where e.id = $1 and e.kind = 'tickets')
+           order by g.name"#,
         event_id
     )
     .fetch_all(&state.pool)

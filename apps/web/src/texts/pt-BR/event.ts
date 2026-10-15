@@ -204,19 +204,9 @@ export const event = {
         field: "Fichas",
       },
       goalsAll: { field: "Fichas por vendedor" },
-      boxOffice: {
-        newLabel: "Bilheteria (vende na barraca)",
-        newHint: "Os números são vendidos na hora, na barraca: conta como vendido o que for usado.",
-        toggleOn:
-          "Os números deste vendedor são vendidos na barraca: quem atende cobra, entrega a ficha da pilha e lê. Conta como vendido o que foi usado; não precisa marcar vendas nem registrar devolução.",
-        entered: "Usadas",
-        equationLabel: (took: number, entered: number) => `Levou ${String(took)}, usadas ${String(entered)}: acerta ${String(entered)} fichas.`,
-        linkNote: "Na bilheteria conta o que foi usado nas barracas: o link serve só para consultar o acerto.",
-      },
       whatsapp: {
         took: (count: number, numbers: string) =>
           `🎟️ Levou ${count === 1 ? "1 ficha" : `${count.toLocaleString("pt-BR")} fichas`}${numbers === "" ? "" : ` (${numbers})`}`,
-        boxOffice: (count: number) => `🚪 Vendidas na barraca: ${count.toLocaleString("pt-BR")}`,
       },
       payment: {
         equals: (count: number) => (count === 1 ? "Equivale a 1 ficha." : `Equivale a ${count.toLocaleString("pt-BR")} fichas.`),
@@ -378,7 +368,6 @@ export const event = {
       noDevices: "Nenhum celular registrado ainda. Crie um link na aba Barracas.",
       fullscreenLabel: "Barracas ao vivo",
       deviceEntries: (count: number) => (count === 1 ? "1 ficha" : `${String(count)} fichas`),
-      boxOfficeHint: (count: number) => (count === 1 ? "1 vendida na barraca" : `${String(count)} vendidas na barraca`),
       blockedHint: (offline: number) =>
         offline === 0 ? "nenhuma passou sem sinal" : offline === 1 ? "1 passou sem sinal" : `${String(offline)} passaram sem sinal`,
       refusalsHint: "cópias, inválidas, canceladas e barraca errada",

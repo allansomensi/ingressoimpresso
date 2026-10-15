@@ -98,6 +98,18 @@ pub async fn list(
     ))
 }
 
+/// A box office counts as sold what entered (ADR 0069); a ficha is bought at the cashier and used
+/// later, or never, at a stall: consumption tokens have no box office (ADR 0084).
+fn no_box_office_for_tokens(event: &super::EventRow) -> ApiResult<()> {
+    if event.tokens() {
+        return Err(bad_request(
+            "box_office_tokens",
+            "consumption tokens have no box office",
+        ));
+    }
+    Ok(())
+}
+
 /// `POST /api/events/{id}/sellers`.
 pub async fn create(
     State(state): State<AppState>,
@@ -110,6 +122,7 @@ pub async fn create(
     let box_office = body.box_office.unwrap_or(false);
     if box_office {
         need_money(&access)?;
+        no_box_office_for_tokens(&access.event)?;
     }
     let id = Uuid::new_v4();
     sqlx::query!(
@@ -183,6 +196,9 @@ pub async fn update(
     let mut tx = state.pool.begin().await?;
     // Turning the box office on or off changes what the seller owes (their entries instead of the
     // numbers they kept): money matters, beyond the delivery part that edits the seller.
+    if body.box_office == Some(true) {
+        no_box_office_for_tokens(&access.event)?;
+    }
     if let Some(wanted) = body.box_office {
         let current = sqlx::query_scalar!(
             "select box_office from sellers where id = $1 for update",

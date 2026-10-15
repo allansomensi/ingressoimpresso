@@ -987,7 +987,8 @@ async fn table_map(
 ) -> ApiResult<Option<PassTableMapDto>> {
     let Some(seat) = sqlx::query!(
         r#"select t.name, s.seat from ticket_seats s join event_tables t on t.id = s.table_id
-           where s.event_id = $1 and s.ticket_number = $2"#,
+           where s.event_id = $1 and s.ticket_number = $2
+             and exists(select 1 from events e where e.id = $1 and e.kind = 'tickets')"#,
         event_id,
         number,
     )

@@ -735,17 +735,23 @@ async fn tags(
     .collect::<ApiResult<Vec<_>>>()?;
     let seats = sqlx::query!(
         r#"select s.ticket_number, s.seat, t.name from ticket_seats s
-           join event_tables t on t.id = s.table_id where s.event_id = $1 order by s.ticket_number"#,
+           join event_tables t on t.id = s.table_id
+           where s.event_id = $1
+             -- A ficha has no seat (ADR 0084), even if the event once had tables.
+             and exists(select 1 from events e where e.id = $1 and e.kind = 'tickets')
+           order by s.ticket_number"#,
         event_id
     )
     .fetch_all(&state.pool)
     .await?
     .into_iter()
     .filter_map(|row| {
-        u32::try_from(row.ticket_number).ok().map(|number| DoorSeatDto {
-            number,
-            label: crate::texts::seat_label(&row.name, row.seat),
-        })
+        u32::try_from(row.ticket_number)
+            .ok()
+            .map(|number| DoorSeatDto {
+                number,
+                label: crate::texts::seat_label(&row.name, row.seat),
+            })
     })
     .collect();
     Ok((categories, seats))

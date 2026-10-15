@@ -334,7 +334,14 @@ pub(crate) async fn current_design(
     .fetch_optional(&state.pool)
     .await?;
     let Some(row) = row else {
-        return Ok((TicketDesign::default_v1(), None, Vec::new()));
+        // Never saved: the default of the event's kind, a ficha for consumption tokens (ADR 0086).
+        let tokens = sqlx::query_scalar!(
+            r#"select kind = 'tokens' as "tokens!" from events where id = $1"#,
+            event_id
+        )
+        .fetch_one(&state.pool)
+        .await?;
+        return Ok((TicketDesign::default_for(tokens), None, Vec::new()));
     };
     let design: TicketDesign =
         serde_json::from_value(row.spec).map_err(|error| ApiError::Internal(error.into()))?;

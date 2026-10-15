@@ -234,12 +234,16 @@ export function TicketView({
    * Category and seat of the ticket, drawn on its band (ADR 0056): `{ text: "Meia · Mesa 5…", color }`,
    * and the category's name for the `{categoria}` field (ADR 0084).
    */
-  tag?: { text: string; color: string; category?: string | null } | null;
+  tag?: { text: string; color: string; category?: string | null; priceCents?: number | null } | null;
   /** Object URLs of the sponsors' logos, in order (ADR 0059). */
   sponsorUrls?: readonly string[];
 }) {
-  // `{categoria}` prints the ticket's category, known here from its band (ADR 0084).
-  const fields: EventFields = tag?.category === undefined ? event : { ...event, categoryName: tag.category };
+  // `{categoria}` prints the ticket's category, known here from its band (ADR 0084), and `{preco}`
+  // its own price when it has one, as the printed file does (`category_texts`, ADR 0080).
+  const fields: EventFields =
+    tag?.category === undefined
+      ? event
+      : { ...event, categoryName: tag.category, ...(tag.priceCents == null ? {} : { ticketPriceCents: tag.priceCents }) };
   const root = useRef<HTMLDivElement>(null);
   const drag = useRef<Drag | null>(null);
   const [dragView, setDragView] = useState<DragView | null>(null);

@@ -130,7 +130,18 @@ function EventForm({
 
   return (
     <form onSubmit={submit} className="flex flex-col gap-4">
-      <KindPicker value={kind} onChange={setKind} />
+      <KindPicker
+        value={kind}
+        onChange={(next) => {
+          setKind(next);
+          // The organization's default is a ticket price: a new token event starts without it
+          // (each product has its own), and gets it back if it turns into tickets again.
+          const fallback = defaults?.defaultTicketPriceCents ?? null;
+          if (event === undefined && fallback !== null && (price === priceText(fallback) || price === "")) {
+            setPrice(next === "tokens" ? "" : priceText(fallback));
+          }
+        }}
+      />
       <Field label={t.eventName}>
         <Input
           value={name}

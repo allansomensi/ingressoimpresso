@@ -134,13 +134,15 @@ export function DesignTab({ eventId }: { eventId: string }) {
 }
 
 /** A band to preview: the event's first category and table (ADR 0056, 0057), if it has any. */
-function useSampleTag(eventId: string): { text: string; color: string; category: string | null } | null {
+function useSampleTag(eventId: string): { text: string; color: string; category: string | null; priceCents: number | null } | null {
   const categories = useQuery({ queryKey: ["categories", eventId], queryFn: () => api<CategoryDto[]>(`/api/events/${eventId}/categories`) });
   const tables = useQuery({ queryKey: ["tables", eventId], queryFn: () => api<TableDto[]>(`/api/events/${eventId}/tables`) });
   const category = categories.data?.[0] ?? null;
   const table = tables.data?.[0] ?? null;
   const text = bandText(category?.name ?? null, table === null ? null : seatLabel(table.name, 1));
-  return text === null ? null : { text, color: category?.color ?? SEAT_BAND_COLOR, category: category?.name ?? null };
+  return text === null
+    ? null
+    : { text, color: category?.color ?? SEAT_BAND_COLOR, category: category?.name ?? null, priceCents: category?.priceCents ?? null };
 }
 
 /** The ticket as saved, for team members who do not take care of the art (ADR 0055). */

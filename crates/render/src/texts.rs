@@ -67,5 +67,8 @@ pub(crate) const WEEKDAYS: [&str; 7] = [
     "domingo",
 ];
 
+/// Under the QR of the default consumption token (ADR 0084), as in the panel's template.
+pub(crate) const TOKEN_UNIT: &str = "Vale 1 unidade";
+
 /// The `{preco}` field of a free event.
 pub(crate) const FREE_PRICE: &str = "Gratuito";

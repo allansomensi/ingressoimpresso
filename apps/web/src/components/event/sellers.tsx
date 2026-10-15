@@ -54,7 +54,7 @@ import {
 import { useState, type FormEvent, type ReactNode } from "react";
 import { toast } from "sonner";
 
-import { ReadOnlyNotice, useEventAccess, useEventTexts, type EventTexts } from "@/components/event/access";
+import { ReadOnlyNotice, useEventAccess, useEventKind, useEventTexts, type EventTexts } from "@/components/event/access";
 import { GoalDialog, GoalLine, RankingCard, ReserveDialog, SellerReservations } from "@/components/event/seller-extras";
 import { PaymentDialog, ReturnDialog } from "@/components/event/settlement-dialogs";
 import { PixCard, SellerPixDialog, useEventPix } from "@/components/pix/event-pix";
@@ -825,8 +825,9 @@ function SellerCard({
                 {pixTexts.sellerKey}
               </MenuItem>
             )}
-            {/* The box office changes what the seller owes: the money part's call (ADR 0069). */}
-            {delivery && cash && (
+            {/* The box office changes what the seller owes: the money part's call (ADR 0069). A
+                ficha is bought before it is used, so token events have none (ADR 0084). */}
+            {delivery && cash && (event.kind !== "tokens" || seller.boxOffice) && (
               <MenuItem
                 icon={<Store />}
                 onSelect={() => {
@@ -1203,6 +1204,7 @@ function NoPriceNotice({ onEditEvent }: { onEditEvent: () => void }) {
 /** The new-seller form: a card on its own while there are no sellers, a tile in the grid after. */
 function NewSeller({ eventId, onCreated, tile }: { eventId: string; onCreated: () => void; tile: boolean }) {
   const t = useEventTexts().sellers;
+  const kind = useEventKind();
   const { can } = useEventAccess();
   const [open, setOpen] = useState(!tile);
   const [name, setName] = useState("");
@@ -1288,7 +1290,7 @@ function NewSeller({ eventId, onCreated, tile }: { eventId: string; onCreated: (
             {t.create}
           </Button>
         </div>
-        {can("money") && (
+        {can("money") && kind !== "tokens" && (
           <div className="sm:col-span-full">
             <Switch checked={boxOffice} onChange={setBoxOffice} label={t.boxOffice.newLabel} description={t.boxOffice.newHint} />
           </div>

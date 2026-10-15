@@ -4,6 +4,7 @@
 //! part with the art, excluding the stub). The art always covers the body plus [`BLEED_MM`] on
 //! every side, so home, print-shop and image outputs show exactly the same trim area.
 
+use crate::texts;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -461,6 +462,92 @@ impl TicketDesign {
         }
     }
 
+    /// The default of a consumption-token event (ADRs 0084, 0086): the "Ficha de consumo"
+    /// template of the panel without its background art, 63 × 38 mm (21 per A4). The product
+    /// (`{categoria}`) in large type, its price and the QR, with the product band on the left.
+    pub fn default_tokens() -> Self {
+        let text = |text: &str, x_mm: f64, y_mm: f64, width_mm: f64, height_mm: f64| TextBlock {
+            text: text.to_owned(),
+            x_mm,
+            y_mm,
+            width_mm,
+            height_mm,
+            font: FontChoice::Sans,
+            size_pt: 10.0,
+            color: "#4a5f80".to_owned(),
+            align: TextAlign::Left,
+            lines: 1,
+            bold: false,
+            uppercase: false,
+            letter_spacing: 0.0,
+        };
+        Self {
+            version: DESIGN_VERSION,
+            width_mm: 63.0,
+            height_mm: 38.0,
+            background_color: "#ffffff".to_owned(),
+            number: NumberStyle {
+                x_mm: 9.0,
+                y_mm: 31.0,
+                width_mm: 25.0,
+                height_mm: 4.0,
+                font: FontChoice::Mono,
+                size_pt: 7.5,
+                color: "#4a5f80".to_owned(),
+                align: TextAlign::Left,
+                prefix: "Nº ".to_owned(),
+                digits: 4,
+            },
+            qr: QrPlacement {
+                x_mm: 37.0,
+                y_mm: 7.0,
+                size_mm: 22.0,
+            },
+            stub: None,
+            texts: vec![
+                TextBlock {
+                    size_pt: 6.0,
+                    bold: true,
+                    uppercase: true,
+                    letter_spacing: 0.12,
+                    ..text("{evento}", 9.0, 3.2, 26.0, 3.6)
+                },
+                TextBlock {
+                    font: FontChoice::Display,
+                    size_pt: 24.0,
+                    color: "#0b2a5b".to_owned(),
+                    uppercase: true,
+                    ..text("{categoria}", 9.0, 9.0, 26.0, 10.5)
+                },
+                TextBlock {
+                    font: FontChoice::Slab,
+                    size_pt: 12.0,
+                    color: "#1d4ed8".to_owned(),
+                    ..text("{preco}", 9.0, 22.5, 26.0, 5.5)
+                },
+                TextBlock {
+                    size_pt: 5.5,
+                    align: TextAlign::Center,
+                    ..text(texts::TOKEN_UNIT, 35.5, 31.2, 25.0, 3.4)
+                },
+            ],
+            band: Some(BandStyle {
+                edge: BandEdge::Left,
+                size_mm: 5.0,
+            }),
+            sponsors: None,
+        }
+    }
+
+    /// The default design of an event of tickets (`false`) or of consumption tokens (`true`).
+    pub fn default_for(tokens: bool) -> Self {
+        if tokens {
+            Self::default_tokens()
+        } else {
+            Self::default_v1()
+        }
+    }
+
     /// The rectangle (x, y, width, height) of a band of `size_mm` along `edge`.
     pub fn band_rect(&self, edge: BandEdge, size_mm: f64) -> (f64, f64, f64, f64) {
         match edge {
@@ -756,6 +843,17 @@ mod tests {
     #[test]
     fn default_design_is_valid() {
         assert_eq!(TicketDesign::default_v1().validate(), Ok(()));
+        assert_eq!(TicketDesign::default_tokens().validate(), Ok(()));
+        assert_eq!(TicketDesign::default_for(false), TicketDesign::default_v1());
+    }
+
+    #[test]
+    fn the_default_token_shows_its_product_and_fits_21_per_sheet() {
+        let design = TicketDesign::default_tokens();
+        assert!(design.texts.iter().any(|block| block.text == "{categoria}"));
+        assert!(design.stub.is_none());
+        assert_eq!((design.width_mm, design.height_mm), (63.0, 38.0));
+        assert!(!design.band_covers_qr(BandEdge::Left, 5.0));
     }
 
     #[test]
