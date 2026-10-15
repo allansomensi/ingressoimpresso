@@ -495,7 +495,7 @@ export function TicketPass() {
       )}
 
       <Link href="/" className="mx-auto flex items-center gap-2 text-xs text-fg-subtle transition hover:text-fg pointer-coarse:min-h-11">
-        {t.poweredBy}
+        {words.poweredBy}
         <LogoMark className="size-4" />
         <span className="font-semibold">{brandTexts.name}</span>
       </Link>

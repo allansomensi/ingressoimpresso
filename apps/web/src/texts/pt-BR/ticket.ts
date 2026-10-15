@@ -42,6 +42,7 @@ export const ticket = {
   // A consumption token sent by link (ADR 0084): the words that change.
   tokens: {
     metaTitle: "Sua ficha",
+    poweredBy: "Ficha gerada com",
     number: "Ficha",
     show: "Mostre este QR code na barraca",
     valid: "Válida",

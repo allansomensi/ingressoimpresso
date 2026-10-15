@@ -215,7 +215,7 @@ function AssignForm({ seller, event, onDone, onCancel }: { seller: SellerDto; ev
             </div>
           )}
           {text.trim() !== "" && !parsed.ok && <p className="text-xs text-danger-fg">{errorsTexts.invalid_range}</p>}
-          {parsed.ok && parsed.count > 0 && <p className="text-xs text-fg-muted">{commonTexts.tickets(parsed.count)}</p>}
+          {parsed.ok && parsed.count > 0 && <p className="text-xs text-fg-muted">{t.ticketsCount(parsed.count)}</p>}
         </>
       ) : (
         <>
@@ -513,7 +513,7 @@ function History({
             </span>
             <span className="flex min-w-0 flex-1 flex-col">
               <span className="text-sm font-medium [overflow-wrap:anywhere] text-fg">
-                {t.historyReturn(reason, label)} <span className="font-normal text-fg-muted">· {commonTexts.tickets(countNumbers(numbers))}</span>
+                {t.historyReturn(reason, label)} <span className="font-normal text-fg-muted">· {t.ticketsCount(countNumbers(numbers))}</span>
               </span>
               <span className="truncate text-xs text-fg-muted">
                 {shortDay(item.createdAt.slice(0, 10))}

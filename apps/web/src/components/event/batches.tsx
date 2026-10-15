@@ -34,7 +34,6 @@ import { cn } from "@/lib/cn";
 import { money, shortDateTime, ticketNumber } from "@/lib/format";
 import { quote } from "@/lib/pricing";
 import { useSession } from "@/lib/session";
-import { common as commonTexts } from "@/texts/pt-BR/common";
 import { errors as errorsTexts } from "@/texts/pt-BR/errors";
 import { useEventTexts } from "@/components/event/access";
 import { event as eventTexts } from "@/texts/pt-BR/event";
@@ -303,7 +302,7 @@ function BatchRow({
             {ticketNumber(batch.first, digits)} – {ticketNumber(batch.last, digits)}
           </span>
           <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-fg-muted">
-            {commonTexts.tickets(quantityOf(batch))}
+            {t.ticketCount(quantityOf(batch))}
             <span aria-hidden>·</span>
             <span className="tabular">{money(batch.priceCents)}</span>
             {(batch.discountCents > 0 || batch.creditCents > 0) && (

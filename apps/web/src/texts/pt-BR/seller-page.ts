@@ -217,6 +217,8 @@ export const sellerPage = {
   },
   // Consumption tokens (ADR 0086): the same page in the words of a ficha.
   tokens: {
+    money: { byCategory: "por produto", noCategory: "sem produto" },
+    categoriesLegend: "Produtos",
     offline: {
       ticketOffline: "Criar a ficha no celular precisa de internet. Marque a venda agora e envie a ficha quando a conexão voltar.",
     },
@@ -227,6 +229,7 @@ export const sellerPage = {
     },
     sale: {
       title: (number: string) => `Ficha ${number}`,
+      soldAt: (when: string) => `Vendida em ${when}`,
       ticketTitle: "Ficha no celular",
       ticketHint: "Mande a ficha para o celular de quem comprou. É o mesmo QR do papel: vale uma vez só.",
       ticketCreate: "Criar ficha no celular",

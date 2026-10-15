@@ -147,6 +147,11 @@ export const verifyPage = {
   },
   // A consumption token (ADR 0086): the result speaks of a ficha.
   tokens: {
+    settings: {
+      description: "Quem tem uma ficha deste evento pode conferir no site se ela é verdadeira, antes de comprar de outra pessoa.",
+      toggle: "Permitir conferir as fichas no site",
+      on: "Ligada: o site mostra o evento, o número e o produto de um QR verdadeiro, nunca quem comprou nem se já foi usada.",
+    },
     again: "Conferir outra ficha",
     verdicts: {
       valid: {
