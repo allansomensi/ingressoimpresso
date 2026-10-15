@@ -311,6 +311,19 @@ async fn buyers_pay_the_organization_and_it_counts_in_the_settlement(pool: PgPoo
     .await;
     assert_eq!(refused.error_code(), "pix_not_yours");
 
+    // The account export carries the key (it may be a CPF) and the receipts.
+    let export = app.get("/api/account/export", &token).await.json();
+    assert_eq!(
+        export["organization"]["profile"]["pix"]["key"],
+        "tesouraria@escola.org.br"
+    );
+    let receipts = export["events"][0]["pixReceipts"].as_array().unwrap();
+    assert!(
+        receipts
+            .iter()
+            .any(|receipt| receipt["number"] == 3 && receipt["receivedBy"] == "organization")
+    );
+
     // Undone, the balance comes back.
     app.post(
         &format!("/api/events/{event}/pix/receipts"),

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select id, name, phone, box_office, goal, created_at from sellers where event_id = $1 order by name",
+  "query": "select id, name, phone, box_office, goal, created_at, pix_key_type, pix_key, pix_name, pix_city\n           from sellers where event_id = $1 order by name",
   "describe": {
     "columns": [
       {
@@ -68,6 +68,50 @@
             "name": "created_at"
           }
         }
+      },
+      {
+        "ordinal": 6,
+        "name": "pix_key_type",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "sellers",
+            "name": "pix_key_type"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "pix_key",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "sellers",
+            "name": "pix_key"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "pix_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "sellers",
+            "name": "pix_name"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "pix_city",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "sellers",
+            "name": "pix_city"
+          }
+        }
       }
     ],
     "parameters": {
@@ -81,8 +125,12 @@
       true,
       false,
       true,
-      false
+      false,
+      true,
+      true,
+      true,
+      true
     ]
   },
-  "hash": "483e5f6a311d5b1dbc17b9f51bc96a48b09d0068e00e6e08c038143b8deff2ef"
+  "hash": "a1c6aeada0fe5e8e64956f8a25db467628e9018cdb60ea0dd6042b723437428e"
 }
