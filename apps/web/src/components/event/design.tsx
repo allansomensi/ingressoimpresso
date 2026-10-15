@@ -46,6 +46,7 @@ import { ReadOnlyNotice, useEventKind, useEventTexts } from "@/components/event/
 import { ArtPicker } from "@/components/event/art-picker";
 import { NumberInspector, QrInspector, TextInspector } from "@/components/event/design-inspectors";
 import { AlignBar, SelectionInspector, ShortcutsHelp, useMarquee } from "@/components/event/design-tools";
+import { TabHeader } from "@/components/event/tab-header";
 import { TemplateGallery } from "@/components/event/template-gallery";
 import { TicketView, type ElementChange } from "@/components/ticket/ticket-view";
 import {
@@ -58,7 +59,6 @@ import {
   ErrorMessage,
   Field,
   Input,
-  Lead,
   LoadingBlock,
   NumberInput,
   Select,
@@ -739,9 +739,9 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
 
   return (
     <div className="flex flex-col gap-6">
-      <Lead>{t.intro}</Lead>
+      <TabHeader tab="design" help={t.intro} />
       <div ref={editorRef} className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_400px]">
-        <div className="flex min-w-0 flex-col gap-4 xl:sticky xl:top-36">
+        <div className="flex min-w-0 flex-col gap-4 xl:sticky xl:top-24">
           <Card padded={false} className="overflow-hidden">
             {/* Phones: tools on the first row (undo and redo on the right), state and saving on
                 the second. Larger screens: one row that wraps only if it must. */}

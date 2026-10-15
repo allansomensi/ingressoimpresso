@@ -92,15 +92,17 @@ export function Stat({
     warning: "bg-warning-soft text-warning-fg",
     danger: "bg-danger-soft text-danger-fg",
   }[tone];
+  // The number and the icon size up with the card itself (a container query), not with the
+  // screen: four cards in a row beside a navigation are narrower than two on a phone.
   return (
-    <div className="flex min-w-0 items-start justify-between gap-3 rounded-2xl border border-border bg-surface p-3.5 shadow-xs sm:p-5">
+    <div className="flex min-w-0 items-start justify-between gap-3 rounded-2xl border border-border bg-surface p-3.5 shadow-xs @container sm:p-5">
       <div className="flex min-w-0 flex-col gap-0.5 sm:gap-1">
         <span className="text-[13px] leading-snug font-medium text-fg-muted">{label}</span>
-        <span className="truncate text-xl font-semibold tracking-tight text-fg tabular sm:text-2xl">{value}</span>
+        <span className="truncate text-xl font-semibold tracking-tight text-fg tabular @min-[15rem]:text-2xl">{value}</span>
         {hint !== undefined && <span className="min-w-0 text-xs leading-snug [overflow-wrap:anywhere] text-fg-subtle">{hint}</span>}
       </div>
       {Icon !== undefined && (
-        <span className={cn("hidden size-9 shrink-0 items-center justify-center rounded-xl sm:flex", toneClass)}>
+        <span className={cn("hidden size-9 shrink-0 items-center justify-center rounded-xl @min-[12rem]:flex", toneClass)}>
           <Icon aria-hidden className="size-[18px]" />
         </span>
       )}

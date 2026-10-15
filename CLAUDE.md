@@ -98,8 +98,8 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   de toque (`pointer-coarse:` em `Button`, `icon-sm`, utilidade `touch-target`), `active:` ao lado
   de `hover:`, folhas que fecham ao arrastar (`useSheetDrag`, `useScrollLock` em
   `components/ui/sheet.ts`), `Alert` com `onDismiss`, `TableScroll` para tabelas largas; lista de
-  eventos por ordem de atenção (`lib/event-list.ts`), cabeçalho compacto e folha **Seções** na
-  página do evento (`components/event/sections-sheet.tsx`, `TAB_GROUPS`), editor com o inspetor
+  eventos por ordem de atenção (`lib/event-list.ts`), cabeçalho compacto e as seções do evento
+  agrupadas (`TAB_GROUPS`; a navegação em si é o ADR 0087), editor com o inspetor
   logo abaixo do ingresso no celular e barra de ação no pé da landing (`marketing/mobile-cta.tsx`).
 - **Ingresso pelo vendedor e segunda via (ADR 0061): implementados.** O vendedor cria e manda pelo
   WhatsApp o ingresso no celular de um número que vendeu (`POST /api/seller/tickets`,
@@ -225,6 +225,12 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
     recebeu entra no acerto do vendedor (`pix_cents` em `received_cents`). A plataforma nunca
     toca no dinheiro.
 
+- **Painel por seções (ADR 0087): implementado.** As seções do evento e da administração usam a
+  mesma navegação agrupada (`components/panel/section-nav.tsx`: lista ao lado em `lg`, barra que
+  abre uma folha abaixo disso), com marcas (falta algo, ao vivo, contador); toda seção do evento
+  começa por `TabHeader` (nome, uma linha, `?` com a explicação, ações); criar é um diálogo;
+  cartões mostram o essencial e dobram o resto (vendedor). Container `max-w-7xl`.
+
 Plano completo em `docs/arquitetura.md` §12.
 
 ## Onde está cada coisa
@@ -317,8 +323,8 @@ apps/web             landing em src/app/page.tsx (+ src/components/marketing: si
                      app/precos (tabela lida no servidor por lib/pricing-server.ts); /llms.txt
                      em app/llms.txt/route.ts (texto em src/content/llms.ts); página Sobre em app/sobre +
                      components/about, painel em
-                     src/app/{entrar,painel}, abas do evento em src/components/event (aba na URL,
-                     ?aba=); sistema de design em src/components/ui + tokens em globals.css (ADR 0021);
+                     src/app/{entrar,painel}, seções do evento em src/components/event (seção na
+                     URL, ?aba=); sistema de design em src/components/ui + tokens em globals.css (ADR 0021);
                      logo em src/components/brand.tsx e public/brand, ícones em public/icons;
                      tema em src/lib/theme{,-script}.ts (data-theme no <html>, ADR 0022);
                      Analytics em src/components/site-analytics.tsx (fora da portaria);
@@ -361,8 +367,11 @@ apps/web             landing em src/app/page.tsx (+ src/components/marketing: si
                      selos em components/panel/event-phase.tsx); página da série em
                      app/painel/series/[id] + components/series/series-view.tsx, outra data em
                      components/event/add-date.tsx, "Sessão de …" em lib/series.ts; card O que
-                     falta em components/event/checklist.tsx (destinos em lib/checklist.ts); folha
-                     Seções do evento em components/event/sections-sheet.tsx (grupos em tabs.ts);
+                     falta em components/event/checklist.tsx (destinos em lib/checklist.ts, que
+                     também marcam a seção na navegação); seções do evento: grupos e slugs em
+                     components/event/tabs.ts, ícones e marcas em event-nav.tsx, cabeçalho de cada
+                     seção em tab-header.tsx, navegação compartilhada com o admin em
+                     components/panel/section-nav.tsx (ADR 0087);
                      folhas arrastáveis e trava de rolagem em components/ui/sheet.ts;
                      duas etapas: cartão em components/account/two-factor.tsx e segundo passo do
                      login em components/two-factor-step.tsx;
@@ -588,6 +597,13 @@ just backup-restore-test <dump.age> <chave-age>   # restaura um backup num banco
   (`crates/render/fonts` + `world.rs` + `ticket.typ` e `public/fonts/ticket` em WOFF2, gerado por
   `just ticket-fonts`: o papel usa a fonte inteira, o site só o alfabeto latino). Conteúdo pesado
   abaixo da dobra da landing espera a tela (`defer-render`, `useNearScreen`).
+- **Seções do painel (ADR 0087):** seção nova do evento entra em `TABS`/`TAB_GROUPS` (`tabs.ts`),
+  ganha ícone em `TAB_ICONS` (`event-nav.tsx`), nome e linha curta em `texts/pt-BR/event.ts`
+  (`tabs`, `sections.hints`, com a versão das fichas quando mudar) e começa por `TabHeader` (a
+  explicação longa vai em `help`, as ações da seção inteira em `actions`). Criar algo abre um
+  `Dialog`; o estado vazio leva o mesmo botão. Cartão com muita coisa mostra o essencial e dobra o
+  resto. Grades de quatro `Stat` dentro do evento usam `grid-cols-2 xl:grid-cols-4`. Página nova
+  com muitas seções usa `SectionNav`.
 - **Fichas falam de ficha (ADR 0086):** texto novo de uma tela que um evento de fichas mostra
   ganha a versão das fichas na seção `tokens` do seu módulo (ficha, usada, barraca, produto, com a
   concordância certa); leia os textos por `useEventTexts()`/`forKind`, nunca por uma constante do

@@ -271,7 +271,9 @@ export function RankingCard({
           )
         }
       />
-      {!anySale && <p className="mb-4 rounded-xl bg-surface-2 px-4 py-3 text-sm text-fg-muted">{r.empty}</p>}
+      {/* Before the first sale every row would read zero: the list waits for the first one. */}
+      {!anySale && <p className="rounded-xl bg-surface-2 px-4 py-3 text-sm text-fg-muted">{r.empty}</p>}
+      {anySale && (
       <ol className="flex flex-col divide-y divide-border rounded-xl border border-border">
         {ranked.map((entry) => (
           <li key={entry.seller.id} className="flex items-center gap-3 px-3 py-2.5">
@@ -309,7 +311,8 @@ export function RankingCard({
           </li>
         ))}
       </ol>
-      {sellers.some((seller) => seller.boxOffice) && <p className="mt-2 text-xs text-fg-subtle">{r.boxOfficeOut}</p>}
+      )}
+      {anySale && sellers.some((seller) => seller.boxOffice) && <p className="mt-2 text-xs text-fg-subtle">{r.boxOfficeOut}</p>}
       {editable && settings.data !== undefined && (
         <div className="mt-4 border-t border-border pt-4">
           <Switch

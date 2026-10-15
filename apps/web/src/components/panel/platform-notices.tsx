@@ -82,7 +82,7 @@ export function MaintenanceBanner({ maintenance, isAdmin }: { maintenance: Maint
         isAdmin ? "border-brand/20 bg-brand-soft text-brand-soft-fg" : "border-warning/30 bg-warning-soft text-warning-fg",
       )}
     >
-      <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-sm sm:px-6">
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-sm sm:px-6">
         <Wrench className="size-4 shrink-0" aria-hidden />
         <span className="min-w-0 flex-1">
           {isAdmin ? t.adminBanner(t.modes[maintenance.mode]) : (maintenance.message ?? t.readOnlyBanner)}

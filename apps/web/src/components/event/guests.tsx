@@ -14,7 +14,6 @@ import {
   ErrorMessage,
   Field,
   Input,
-  Lead,
   List,
   ListItem,
   LoadingBlock,
@@ -45,6 +44,7 @@ import { event as eventTexts } from "@/texts/pt-BR/event";
 
 import { useEventAccess } from "./access";
 import { useLivePolling } from "./live-polling";
+import { TabHeader } from "./tab-header";
 
 const t = eventTexts.guests;
 const FILTERS: readonly GuestFilter[] = ["all", "arrived", "missing"];
@@ -100,7 +100,33 @@ export function GuestsTab({ eventId }: { eventId: string }) {
 
   return (
     <div className="flex flex-col gap-6">
-      <Lead>{t.intro}</Lead>
+      <TabHeader
+        tab="guests"
+        help={t.intro}
+        actions={
+          editable && (
+            <>
+              <Button
+                icon={<Plus />}
+                onClick={() => {
+                  setForm("new");
+                }}
+              >
+                {t.add}
+              </Button>
+              <Button
+                variant="secondary"
+                icon={<ClipboardPaste />}
+                onClick={() => {
+                  setPasting(true);
+                }}
+              >
+                {t.paste}
+              </Button>
+            </>
+          )
+        }
+      />
       <div className="grid grid-cols-3 gap-2 sm:gap-4">
         <Stat label={t.names} value={totals.names.toLocaleString("pt-BR")} icon={ListChecks} />
         <Stat label={t.people} value={totals.people.toLocaleString("pt-BR")} icon={Users} />
@@ -113,67 +139,43 @@ export function GuestsTab({ eventId }: { eventId: string }) {
         />
       </div>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <label className="relative flex-1">
-          <span className="sr-only">{t.search}</span>
-          <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-fg-subtle" aria-hidden />
-          <Input
-            type="search"
-            value={query}
-            placeholder={t.search}
-            className="pl-10"
-            onChange={(event) => {
-              setQuery(event.target.value);
-            }}
-          />
-        </label>
-        {editable && (
-          <div className="flex gap-2">
-            <Button
-              icon={<Plus />}
-              className="flex-1 sm:flex-none"
-              onClick={() => {
-                setForm("new");
-              }}
-            >
-              {t.add}
-            </Button>
-            <Button
-              variant="secondary"
-              icon={<ClipboardPaste />}
-              className="flex-1 sm:flex-none"
-              onClick={() => {
-                setPasting(true);
-              }}
-            >
-              {t.paste}
-            </Button>
-          </div>
-        )}
-      </div>
-
       {list.length === 0 ? (
         <EmptyState icon={ListChecks} title={t.emptyTitle} description={t.empty} />
       ) : (
         <>
-          <div role="radiogroup" aria-label={t.filterLabel} className="flex gap-1 rounded-xl bg-surface-2 p-1 sm:w-fit">
-            {FILTERS.map((item) => (
-              <button
-                key={item}
-                type="button"
-                role="radio"
-                aria-checked={filter === item}
-                onClick={() => {
-                  setFilter(item);
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <label className="relative flex-1">
+              <span className="sr-only">{t.search}</span>
+              <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-fg-subtle" aria-hidden />
+              <Input
+                type="search"
+                value={query}
+                placeholder={t.search}
+                className="pl-10"
+                onChange={(event) => {
+                  setQuery(event.target.value);
                 }}
-                className={cn(
-                  "min-h-9 flex-1 rounded-lg px-3 text-sm font-medium transition pointer-coarse:min-h-11 sm:flex-none",
-                  filter === item ? "bg-surface text-fg shadow-xs" : "text-fg-muted hover:text-fg active:bg-surface-3",
-                )}
-              >
-                {t.filters[item]}
-              </button>
-            ))}
+              />
+            </label>
+            <div role="radiogroup" aria-label={t.filterLabel} className="flex gap-1 rounded-xl bg-surface-2 p-1 sm:w-fit">
+              {FILTERS.map((item) => (
+                <button
+                  key={item}
+                  type="button"
+                  role="radio"
+                  aria-checked={filter === item}
+                  onClick={() => {
+                    setFilter(item);
+                  }}
+                  className={cn(
+                    "min-h-9 flex-1 rounded-lg px-3 text-sm font-medium transition pointer-coarse:min-h-11 sm:flex-none",
+                    filter === item ? "bg-surface text-fg shadow-xs" : "text-fg-muted hover:text-fg active:bg-surface-3",
+                  )}
+                >
+                  {t.filters[item]}
+                </button>
+              ))}
+            </div>
           </div>
           {shown.length === 0 ? (
             <p className="py-6 text-center text-sm text-fg-subtle">{t.noMatch}</p>

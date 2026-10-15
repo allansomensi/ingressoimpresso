@@ -90,7 +90,7 @@ export function Accountability({ eventId }: { eventId: string }) {
           </div>
         }
       />
-      <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <dl className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         <Figure label={t.received} value={money(s.receivedCents)} hint={s.outstandingCents !== null && s.outstandingCents > 0 ? t.outstanding(money(s.outstandingCents)) : null} />
         <Figure label={t.otherIncome} value={money(s.otherIncomeCents)} hint={null} />
         <Figure label={t.spent} value={money(spent)} hint={s.platformCents > 0 ? t.platform(money(s.platformCents)) : null} />

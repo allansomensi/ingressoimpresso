@@ -4,7 +4,8 @@ import type { EventReportDto, ReportCategoryDto, ReportRowDto } from "@ingressoi
 import { useQuery } from "@tanstack/react-query";
 import { CheckCircle2, Download, HandCoins, Info, RefreshCw, Smartphone, Ticket, Users, Wallet } from "lucide-react";
 
-import { Button, Card, CardHeader, ErrorMessage, Lead, LoadingBlock, Stat, TableScroll } from "@/components/ui";
+import { TabHeader } from "@/components/event/tab-header";
+import { Button, Card, CardHeader, ErrorMessage, LoadingBlock, Stat, TableScroll } from "@/components/ui";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { money as formatMoney } from "@/lib/format";
@@ -177,19 +178,28 @@ export function ReportTab({ eventId, onSelect }: { eventId: string; onSelect: Se
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <Lead>{t.intro}</Lead>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button variant="secondary" size="sm" icon={<RefreshCw />} onClick={() => void report.refetch()} loading={report.isFetching}>
-            {t.refresh}
-          </Button>
-          <Button size="sm" icon={<Download />} onClick={() => { download(t, data); }}>
-            {t.csv}
-          </Button>
-        </div>
-      </div>
+      <TabHeader
+        tab="report"
+        help={t.intro}
+        actions={
+          <>
+            <Button variant="secondary" icon={<RefreshCw />} onClick={() => void report.refetch()} loading={report.isFetching}>
+              {t.refresh}
+            </Button>
+            <Button
+              variant="secondary"
+              icon={<Download />}
+              onClick={() => {
+                download(t, data);
+              }}
+            >
+              {t.csv}
+            </Button>
+          </>
+        }
+      />
 
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <Stat
           label={t.stats.issued}
           value={data.totals.tickets.toLocaleString("pt-BR")}
