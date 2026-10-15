@@ -1,3 +1,5 @@
+import type { Known, Overrides } from "@/lib/event-kind";
+
 export const portaria = {
   title: "Portaria",
   canceledBanner: "Evento cancelado pela organização. As leituras continuam: siga a orientação de quem organiza.",
@@ -205,6 +207,9 @@ export const portaria = {
   // Consumption tokens (ADR 0084): the words that change at a stall.
   tokens: {
     title: "Barraca",
+    loading: "Abrindo a barraca…",
+    forgetConfirm: "Apagar os dados da barraca deste celular?",
+    oneLineOffline: "Sem sinal: cópias de uma ficha podem passar em celulares diferentes até a internet voltar. Use um celular por barraca.",
     registerIntro: "Dê um nome a este celular, como o da barraca. Ele aparece quando uma ficha já foi usada por aqui.",
     deviceNamePlaceholder: "Barraca do pastel",
     entries: (count: number) => (count === 1 ? "1 usada" : `${String(count)} usadas`),
@@ -226,6 +231,7 @@ export const portaria = {
       boxOfficeCharge: (amount: string) => `Caixa · cobrar ${amount}`,
       boxOfficeCourtesy: "Caixa · cortesia",
       boxOfficeNoPrice: "Caixa · cobrar o valor combinado",
+      voidReasons: { unsold: "devolvida sem vender", lost: "perdida ou roubada", revoked: "cancelada pelo organizador" },
     },
     history: {
       title: "Últimas leituras desta barraca",
@@ -245,7 +251,20 @@ export const portaria = {
       },
       firstEntry: (time: string, device: string) => `Usada às ${time} em ${device}`,
       copyOf: (time: string, device: string) => `Cópia: esta ficha já tinha sido usada às ${time} em ${device}`,
+      refused: (count: number) => (count === 1 ? "1 recusada" : `${String(count)} recusadas`),
+      category: "Produto",
     },
+    rehearsal: {
+      title: "Ensaio da barraca",
+      intro: "Leia uma ficha de amostra (da folha de ensaio ou da prévia) ou uma ficha de verdade: você vê o que aconteceria na barraca, sem dar baixa.",
+      readHint: "Aponte para o QR de uma amostra ou de uma ficha",
+      soundHint: "Toca os três avisos: ficha válida, recusa e atenção.",
+      readCheck: "Ler uma amostra ou uma ficha",
+      wouldAdmit: "VALERIA",
+      otherQrTitle: "NÃO É UMA FICHA",
+      otherQrDetail: "A câmera leu um QR, mas ele não é uma ficha nossa.",
+    },
+    boxOffice: { title: "Vendidas na barraca" },
     readiness: {
       title: "Pronto para ficar sem internet?",
       progress: (done: number, total: number) => `${String(done)} de ${String(total)}`,
@@ -259,3 +278,7 @@ export const portaria = {
     },
   },
 } as const;
+
+/** Fails to compile when a consumption-token text has no ticket text or other parameters. */
+type Checked<T extends Overrides<typeof portaria> & Known<T, typeof portaria>> = T;
+export type PortariaTokenTexts = Checked<typeof portaria.tokens>;

@@ -64,15 +64,16 @@ import { cn } from "@/lib/cn";
 import { shortDateTime } from "@/lib/format";
 import { copyText, downloadCsv, whatsappUrl } from "@/lib/share";
 import { common as commonTexts } from "@/texts/pt-BR/common";
+import { useEventTexts } from "@/components/event/access";
 import { event as eventTexts } from "@/texts/pt-BR/event";
 
 import type { SelectTab } from "./tabs";
 
-const t = eventTexts.digital;
 const MAX_BULK = 500;
 
 /** Status line of a link: revoked, voided, entered or how often it was opened. */
 function LinkState({ link }: { link: TicketLinkDto }) {
+  const t = useEventTexts().digital;
   if (link.revokedAt !== null) {
     return <Badge tone="neutral">{t.states.revoked}</Badge>;
   }
@@ -111,6 +112,7 @@ function ShareLink({
   title: ReactNode;
   onClose: () => void;
 }) {
+  const t = useEventTexts().digital;
   const [copied, setCopied] = useState(false);
   const message = t.whatsappMessage(link.holderName, eventName, link.url);
   return (
@@ -169,6 +171,7 @@ function ShareLink({
 }
 
 function RenameDialog({ link, onClose, eventId }: { link: TicketLinkDto | null; onClose: () => void; eventId: string }) {
+  const t = useEventTexts().digital;
   const queryClient = useQueryClient();
   const [name, setName] = useState(link?.holderName ?? "");
   const save = useMutation({
@@ -249,6 +252,7 @@ function ReplaceDialog({
   onClose: () => void;
   onReplaced: (replacement: TicketReplacementDto, phone: string) => void;
 }) {
+  const t = useEventTexts().digital;
   const r = t.replace;
   const queryClient = useQueryClient();
   const sales = useQuery({
@@ -374,6 +378,7 @@ function ReplaceDialog({
 }
 
 function BulkLinks({ eventId, eventName }: { eventId: string; eventName: string }) {
+  const t = useEventTexts().digital;
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [first, setFirst] = useState("");
@@ -460,6 +465,7 @@ function BulkLinks({ eventId, eventName }: { eventId: string; eventName: string 
 }
 
 export function DigitalTab({ eventId, onSelect }: { eventId: string; onSelect: SelectTab }) {
+  const t = useEventTexts().digital;
   const queryClient = useQueryClient();
   const confirm = useConfirm();
   const key = ["tickets", eventId];

@@ -48,15 +48,15 @@ import { deadlineLabel, isActive, isDueSoon, reminderMessage, timeLeft } from "@
 import { goalPercent, goalTotals, rankSellers } from "@/lib/seller-goals";
 import { whatsappLink } from "@/lib/settlement";
 import { common as commonTexts } from "@/texts/pt-BR/common";
-import { event as eventTexts } from "@/texts/pt-BR/event";
+import { useEventTexts } from "@/components/event/access";
 import { sellerPage as sellerPageTexts } from "@/texts/pt-BR/seller-page";
 
-const t = eventTexts.sellers;
 
 // Goals ------------------------------------------------------------------------------------------
 
 /** One seller's goal. */
 export function GoalDialog({ open, onClose, seller, onSaved }: { open: boolean; onClose: () => void; seller: SellerDto; onSaved: () => void }) {
+  const t = useEventTexts().sellers;
   const g = t.goal;
   const [goal, setGoal] = useState(seller.goal ?? 20);
   const save = useMutation({
@@ -116,6 +116,7 @@ export function GoalDialog({ open, onClose, seller, onSaved }: { open: boolean; 
 
 /** One goal for every seller (box offices aside). */
 function GoalsAllDialog({ open, onClose, eventId, onSaved }: { open: boolean; onClose: () => void; eventId: string; onSaved: () => void }) {
+  const t = useEventTexts().sellers;
   const g = t.goalsAll;
   const [goal, setGoal] = useState(20);
   const [onlyMissing, setOnlyMissing] = useState(false);
@@ -171,6 +172,7 @@ function GoalsAllDialog({ open, onClose, eventId, onSaved }: { open: boolean; on
 
 /** "Meta: 12 de 20" under a seller, with the way to set or change it. */
 export function GoalLine({ seller, sold, editable, onEdit }: { seller: SellerDto; sold: number; editable: boolean; onEdit: () => void }) {
+  const t = useEventTexts().sellers;
   const g = t.goal;
   if (seller.goal === null) {
     return editable ? (
@@ -225,6 +227,7 @@ export function RankingCard({
   editable: boolean;
   onChange: () => void;
 }) {
+  const t = useEventTexts().sellers;
   const r = t.ranking;
   const queryClient = useQueryClient();
   const [bulk, setBulk] = useState(false);
@@ -352,6 +355,7 @@ export function ReserveDialog({
   reservations: readonly ReservationDto[];
   onSaved: () => void;
 }) {
+  const t = useEventTexts().sellers;
   const r = t.reservations;
   const [now] = useState(() => new Date());
   const [numbers, setNumbers] = useState("");
@@ -483,6 +487,7 @@ export function SellerReservations({
   editable: boolean;
   onChange: () => void;
 }) {
+  const t = useEventTexts().sellers;
   const r = t.reservations;
   const confirm = useConfirm();
   const [now] = useState(() => new Date());

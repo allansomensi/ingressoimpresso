@@ -24,9 +24,9 @@ import { money, parseMoney, ticketNumber } from "@/lib/format";
 import { NUMBER_LIST_INPUT, countNumbers, firstOutside, firstShared, formatRanges, intersect, mergeRanges, parseNumberList, subtract, type NumberRange } from "@/lib/number-list";
 import { todayIso } from "@/lib/settlement";
 import { common as commonTexts } from "@/texts/pt-BR/common";
+import { useEventTexts } from "@/components/event/access";
 import { event as eventTexts } from "@/texts/pt-BR/event";
 
-const t = eventTexts.sellers;
 const MAX_AMOUNT_CENTS = 100_000_000;
 
 /** A row of mutually exclusive choices, as big touch targets. */
@@ -100,6 +100,7 @@ export function PaymentDialog({
   priceCents: number | null;
   onSaved: () => void;
 }) {
+  const t = useEventTexts().sellers;
   const p = t.payment;
   const [amount, setAmount] = useState("");
   const [method, setMethod] = useState<SellerPaymentMethod>("pix");
@@ -271,6 +272,7 @@ export function ReturnDialog({
   reservations: readonly ReservationDto[];
   onSaved: () => void;
 }) {
+  const t = useEventTexts().sellers;
   const g = t.giveBackDialog;
   const [numbers, setNumbers] = useState("");
   const [reason, setReason] = useState<"unsold" | "lost">("unsold");

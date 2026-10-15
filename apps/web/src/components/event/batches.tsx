@@ -36,12 +36,12 @@ import { quote } from "@/lib/pricing";
 import { useSession } from "@/lib/session";
 import { common as commonTexts } from "@/texts/pt-BR/common";
 import { errors as errorsTexts } from "@/texts/pt-BR/errors";
+import { useEventTexts } from "@/components/event/access";
 import { event as eventTexts } from "@/texts/pt-BR/event";
 import { landing as landingTexts } from "@/texts/pt-BR/landing";
 
 import type { SelectTab } from "./tabs";
 
-const t = eventTexts.batches;
 const MAX_BATCH = 5_000;
 /** How long to keep asking after the payer comes back (Pix may confirm a bit later). */
 const RETURN_POLL_MS = 3_000;
@@ -60,6 +60,7 @@ function quantityOf(batch: BatchDto): number {
 }
 
 function NewBatch({ eventId, pricing, nextNumber }: { eventId: string; pricing: PricingDto | undefined; nextNumber: number }) {
+  const t = useEventTexts().batches;
   const queryClient = useQueryClient();
   const account = useQuery({ queryKey: ["account"], queryFn: () => api<AccountDto>("/api/account") });
   const freeLeft = account.data?.freeTicketsLeft ?? 0;
@@ -227,6 +228,7 @@ function BatchRow({
   isAdmin: boolean;
   eventId: string;
 }) {
+  const t = useEventTexts().batches;
   const queryClient = useQueryClient();
   const confirm = useConfirm();
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["batches", eventId] });
@@ -386,6 +388,7 @@ function PaymentReturn({
   eventId: string;
   onSelect: SelectTab;
 }) {
+  const t = useEventTexts().batches;
   const search = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -492,6 +495,7 @@ function PaymentReturn({
 }
 
 export function BatchesTab({ eventId, onSelect }: { eventId: string; onSelect: SelectTab }) {
+  const t = useEventTexts().batches;
   const { session } = useSession();
   const search = useSearchParams();
   const isAdmin = session.status === "signed-in" && session.user.isAdmin;

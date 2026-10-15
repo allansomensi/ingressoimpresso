@@ -32,6 +32,7 @@ import { GoalCard } from "@/components/seller/goal-card";
 import { MarkSheet, type SheetStart } from "@/components/seller/mark-sheet";
 import { ReservationSheet, ReservationsSection } from "@/components/seller/reservations";
 import { SalePix, salePixCharge } from "@/components/seller/sale-pix";
+import { SellerKind, useSellerTexts } from "@/components/seller/seller-texts";
 import { NoticesDialog, PendingList, SyncStatus } from "@/components/seller/sync-status";
 import { useSellerSync } from "@/components/seller/use-seller-sync";
 import { Button, Dialog, Spinner, buttonClass, useConfirm } from "@/components/ui";
@@ -42,6 +43,7 @@ import { changeKind } from "@/lib/event-change";
 import { eventDateTime, money, shortDateTime } from "@/lib/format";
 import { countNumbers, intersect } from "@/lib/number-list";
 import { pendingNumbers } from "@/lib/seller-offline";
+import { forKind } from "@/lib/event-kind";
 import { numberCells, padNumber, type NumberCell, type NumberState } from "@/lib/seller-page";
 import { whatsappLink } from "@/lib/settlement";
 import { copyText } from "@/lib/share";
@@ -54,7 +56,6 @@ import { event as eventTexts } from "@/texts/pt-BR/event";
 import { pix as pixTexts } from "@/texts/pt-BR/pix";
 import { sellerPage as sellerPageTexts } from "@/texts/pt-BR/seller-page";
 
-const t = sellerPageTexts;
 
 type Filter = "available" | "sold" | "all";
 
@@ -88,6 +89,7 @@ function SaleTicket({
   ready: boolean;
   onSaved: (view: SellerViewDto) => void;
 }) {
+  const t = useSellerTexts();
   const [busy, setBusy] = useState(false);
   const sale = cell.sale;
   if (sale === null) {
@@ -183,6 +185,7 @@ function SaleSheet({
   ticketReady: boolean;
   onSaved: (view: SellerViewDto) => void;
 }) {
+  const t = useSellerTexts();
   const confirm = useConfirm();
   const sale = cell?.sale ?? null;
   const label = cell === null ? "" : padNumber(cell.number, digits);
@@ -253,6 +256,8 @@ function SaleSheet({
 export function SellerPage() {
   const sync = useSellerSync();
   const { token, phase, view, serverView, queue, now, enqueue } = sync;
+  // The page provides the kind to its sheets below; its own words come from the data.
+  const t = forKind(sellerPageTexts, sellerPageTexts.tokens, view?.event.kind);
   const confirm = useConfirm();
   const [filter, setFilter] = useState<Filter>("available");
   const [sheet, setSheet] = useState<SheetStart | null>(null);
@@ -264,7 +269,7 @@ export function SellerPage() {
   const eventName = view?.event.name ?? null;
   useEffect(() => {
     if (eventName !== null) {
-      document.title = `${t.metaTitle} · ${eventName}`;
+      document.title = `${sellerPageTexts.metaTitle} · ${eventName}`;
     }
   }, [eventName]);
 
@@ -353,7 +358,7 @@ export function SellerPage() {
     submit({ kind: "cancel_reservation", reservationId: item.id }, dismiss ? t.reservations.dismissedToast : t.reservations.canceledToast);
   };
 
-  return (
+  const page = (
     <div className="mx-auto flex w-full max-w-xl flex-col gap-5 px-4 pt-5 pb-[calc(7rem+env(safe-area-inset-bottom))]">
       <header className="flex items-center justify-between">
         <span className="flex items-center gap-2 text-sm font-semibold text-fg-muted">
@@ -374,7 +379,7 @@ export function SellerPage() {
         onRetry={() => void sync.sync()}
       />
 
-      <EventChangeNotice change={view.event.change} startsAt={view.event.startsAt} forSeller />
+      <EventChangeNotice change={view.event.change} startsAt={view.event.startsAt} kind={view.event.kind} forSeller />
 
       <section
         className={cn("relative overflow-hidden rounded-3xl bg-brand-solid p-5 text-white shadow-lg", heroColor === null && "shadow-brand/25")}
@@ -738,4 +743,6 @@ export function SellerPage() {
       <NoticesDialog notices={sync.notices} onClose={sync.dismissNotices} />
     </div>
   );
+  // The sheets speak of fichas on a consumption-token event (ADR 0086).
+  return <SellerKind.Provider value={view.event.kind}>{page}</SellerKind.Provider>;
 }

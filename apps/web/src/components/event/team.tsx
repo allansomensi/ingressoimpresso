@@ -22,7 +22,7 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
-import { useTeam } from "@/components/event/access";
+import { useEventTexts, useTeam, type EventTexts } from "@/components/event/access";
 import {
   Badge,
   Button,
@@ -45,9 +45,7 @@ import { cn } from "@/lib/cn";
 import { whatsappLink } from "@/lib/settlement";
 import { PART_AREAS, TEAM_AREAS, areaList, displayName, personInitials, normalizeAreas, responsibleFor } from "@/lib/team";
 import { common as commonTexts } from "@/texts/pt-BR/common";
-import { event as eventTexts } from "@/texts/pt-BR/event";
 
-const t = eventTexts.team;
 
 export const AREA_ICONS: Record<TeamArea, LucideIcon> = {
   manage: Crown,
@@ -58,9 +56,9 @@ export const AREA_ICONS: Record<TeamArea, LucideIcon> = {
 };
 
 /** The WhatsApp message that invites someone (when the e-mail did not go, or to insist). */
-function inviteLink(event: EventDto, member: Pick<TeamMemberDto, "areas" | "email">): string {
+function inviteLink(t: EventTexts["team"], event: EventDto, member: Pick<TeamMemberDto, "areas" | "email">): string {
   const url = `${window.location.origin}/entrar?email=${encodeURIComponent(member.email)}`;
-  return whatsappLink(null, t.inviteMessage(event.name, areaList(member.areas), url));
+  return whatsappLink(null, t.inviteMessage(event.name, areaList(member.areas, event.kind), url));
 }
 
 function Avatar({ person, pending = false }: { person: { name: string | null; email: string }; pending?: boolean }) {
@@ -80,6 +78,7 @@ function Avatar({ person, pending = false }: { person: { name: string | null; em
 type DialogState = { mode: "add"; area: TeamArea | null } | { mode: "edit"; member: TeamMemberDto } | null;
 
 export function TeamTab({ eventId, event }: { eventId: string; event: EventDto }) {
+  const t = useEventTexts().team;
   const team = useTeam(eventId);
   const [dialog, setDialog] = useState<DialogState>(null);
 
@@ -235,6 +234,7 @@ function MemberRow({
   canManage: boolean;
   onEdit: () => void;
 }) {
+  const t = useEventTexts().team;
   const queryClient = useQueryClient();
   const router = useRouter();
   const confirm = useConfirm();
@@ -310,7 +310,7 @@ function MemberRow({
             <MenuItem
               icon={<MessageCircle />}
               onSelect={() => {
-                window.open(inviteLink(event, member), "_blank", "noopener,noreferrer");
+                window.open(inviteLink(t, event, member), "_blank", "noopener,noreferrer");
               }}
             >
               {t.resend}
@@ -358,6 +358,7 @@ function MemberDialog({
   state: Exclude<DialogState, null>;
   onClose: () => void;
 }) {
+  const t = useEventTexts().team;
   const queryClient = useQueryClient();
   const editing = state.mode === "edit" ? state.member : null;
   const [email, setEmail] = useState(editing?.email ?? "");
@@ -391,7 +392,7 @@ function MemberDialog({
         action: {
           label: t.sendWhatsapp,
           onClick: () => {
-            window.open(inviteLink(event, member), "_blank", "noopener,noreferrer");
+            window.open(inviteLink(t, event, member), "_blank", "noopener,noreferrer");
           },
         },
         duration: added.emailed ? 6000 : 15000,

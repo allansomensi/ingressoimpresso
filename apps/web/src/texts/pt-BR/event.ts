@@ -1,3 +1,5 @@
+import type { Known, Overrides } from "@/lib/event-kind";
+
 export const event = {
   backToEvents: "Eventos",
   notFoundTitle: "Evento não encontrado",
@@ -35,20 +37,30 @@ export const event = {
     live: "Ao vivo",
     guests: "Lista",
   },
-  // Consumption tokens (ADR 0084): the words of the event page that change.
+  // Consumption tokens (ADRs 0084, 0086): the same sections in the words of a ficha, laid over
+  // the ticket ones by `useEventTexts` (`forKind`). Only what changes is listed.
   tokens: {
     badge: "Fichas de consumo",
+    priceLabel: (price: string) => `${price} a ficha`,
+    actions: {
+      duplicated: "Evento duplicado com a ficha, os vendedores e a equipe. Ajuste a data e o nome.",
+    },
     tabs: { design: "Ficha", categories: "Produtos", door: "Barracas" },
-    hints: {
-      design: "Arte, textos e prévia da ficha",
-      batches: "Gerar e pagar as fichas",
-      categories: "Bebidas e comidas, cores e preços",
-      sellers: "Caixas, faixas de números e acerto",
-      digital: "Fichas por link, no celular",
-      files: "PDFs para imprimir as fichas",
-      door: "Celulares que dão baixa nas barracas",
-      live: "Fichas usadas agora",
-      report: "Acerto, barracas e prestação de contas",
+    sections: {
+      hints: {
+        design: "Arte, textos e prévia da ficha",
+        batches: "Gerar e pagar as fichas",
+        categories: "Bebidas e comidas, cores e preços",
+        sellers: "Quem vende, faixas de números e acerto",
+        digital: "Fichas por link, no celular",
+        files: "PDFs para imprimir as fichas",
+        door: "Celulares que dão baixa nas barracas",
+        live: "Fichas usadas agora",
+        report: "Acerto, barracas e prestação de contas",
+      },
+    },
+    accountability: {
+      hint: "Para mostrar os números ao grupo: o dinheiro das fichas, as outras receitas, as despesas e o saldo, em PDF ou planilha.",
     },
     // The Products tab (categories of a token event).
     categories: {
@@ -82,7 +94,7 @@ export const event = {
       dialogEditTitle: "Editar produto",
       name: "Produto",
       namePlaceholder: "Pastel",
-      priceHint: "Vale no acerto com os caixas, no relatório e nos campos {preco} e {categoria} impressos na ficha.",
+      priceHint: "Vale no acerto com os vendedores, no relatório e nos campos {preco} e {categoria} impressos na ficha.",
       saved: "Produto salvo.",
       create: "Criar produto",
       uncategorized: (count: number) =>
@@ -90,19 +102,300 @@ export const event = {
       bandTip: "A faixa com o produto aparece no editor da ficha. Para o nome grande, use o campo {categoria} num texto.",
       bandTipAction: "Ver na ficha",
     },
+    team: {
+      areas: { delivery: "Fichas e vendedores", art: "Arte da ficha", door: "Barracas" },
+      areaHints: {
+        delivery: "Vendedores e números, links, arquivos para imprimir e fichas digitais.",
+        art: "Desenho da ficha: imagem, textos e cores.",
+        door: "Links das barracas e celulares que leem as fichas.",
+      },
+      areasShort: { delivery: "Fichas", door: "Barracas" },
+      emptyBody: "Adicione quem recebe o dinheiro dos vendedores, quem entrega as fichas, quem faz a arte ou cuida das barracas.",
+    },
+    overview: {
+      stats: { paid: "Fichas emitidas", entries: "Fichas usadas", devices: "Celulares nas barracas" },
+    },
+    results: {
+      subtitle: "Vendidas = emitidas − devolvidas − perdidas. O faturamento é estimado pelo preço do evento.",
+      sold: "Vendidas",
+      soldHint: (paid: number, percent: number) => `${percent.toLocaleString("pt-BR")}% de ${paid.toLocaleString("pt-BR")} emitidas`,
+      cost: "Custo das fichas",
+      attendance: "Fichas usadas",
+      attendanceHint: (entries: number) => (entries === 1 ? "1 ficha usada" : `${entries.toLocaleString("pt-BR")} fichas usadas`),
+      digital: (count: number, opened: number) =>
+        `${count.toLocaleString("pt-BR")} ${count === 1 ? "ficha digital" : "fichas digitais"}, ${opened.toLocaleString("pt-BR")} ${opened === 1 ? "aberta" : "abertas"}`,
+      chartTitle: "Fichas usadas a cada 15 minutos",
+      chartEmpty: "O uso aparece aqui assim que as barracas começarem a ler.",
+      entriesValue: (count: number) => (count === 1 ? "1 ficha" : `${count.toLocaleString("pt-BR")} fichas`),
+      peak: (time: string, count: number) => `Pico às ${time}, com ${count.toLocaleString("pt-BR")} fichas`,
+    },
+    design: {
+      intro:
+        "Comece por um modelo ou monte do zero: arraste os elementos, edite os textos e veja o resultado na hora. A prévia de impressão mostra a folha A4 com fichas de AMOSTRA, exatamente como sai.",
+      canvas: { label: "Ficha (área de edição)" },
+      startBody: "Modelos prontos de ficha de consumo e de festa junina, com o produto em destaque e os dados do seu evento.",
+      elementsHint: "Clique num elemento aqui ou na ficha para editar. Com Shift, selecione vários.",
+      selection: {
+        alignToTicket: "Alinhar à ficha",
+        cannotRemove: "Número e QR code fazem parte de toda ficha. Para tirar os patrocinadores, desligue a faixa.",
+        duplicateLimit: (max: number) => `A ficha aceita até ${String(max)} textos.`,
+      },
+      artHint: (widthMm: number, heightMm: number) =>
+        `Tamanho ideal: ${String(widthMm + 6)} × ${String(heightMm + 6)} mm (a ficha + 3 mm de sangria em cada lado).`,
+      noArt: "Sem arte: a ficha usa a cor de fundo.",
+      size: "Tamanho da ficha",
+      sponsors: {
+        hint: "Logos de quem apoia o evento, lado a lado numa faixa da ficha. Arraste e redimensione a faixa na prévia.",
+      },
+      band: {
+        title: "Faixa do produto",
+        hint: "Uma faixa colorida com o produto, para a barraca reconhecer de longe. Só sai nas fichas que têm produto.",
+        preview: "A prévia mostra o primeiro produto do evento.",
+        noTags: "Crie produtos na aba Produtos para ver a faixa na prévia.",
+      },
+      stubFieldsHint: "Um por linha. Cada campo pede cerca de 8 mm de altura da ficha.",
+      leaveConfirmTitle: "Sair sem salvar a ficha?",
+      leaveConfirmBody: "As mudanças na ficha ainda não foram salvas e serão perdidas.",
+      previewDescription: "A primeira folha A4 com fichas de AMOSTRA (QR inválido), exatamente como o arquivo sai.",
+      previewEmpty: "Gere a prévia para ver a folha A4 com fichas de amostra.",
+      previewAlt: "Prévia da folha A4 com fichas de amostra",
+      savedToast: (version: number) => `Ficha salva (versão ${String(version)}).`,
+      unsavedHint: "Enquanto não salvar, os arquivos usam a ficha padrão.",
+    },
+    batches: {
+      intro: "Cada lote é uma faixa de números. Depois do pagamento, as fichas do lote podem ser geradas e impressas.",
+      quantity: "Quantidade de fichas",
+      perTicket: (amount: string) => `${amount} por ficha, em média`,
+      createdToast: "Lote criado. Agora é só pagar para liberar as fichas.",
+      freeTitle: (count: number) => `Você tem ${count.toLocaleString("pt-BR")} fichas grátis para testar`,
+      freeBody: "Elas saem do seu próximo lote, em qualquer evento. Imprima, leia na barraca e veja tudo funcionando antes de pagar.",
+      freeInBatch: (count: number) => `${count.toLocaleString("pt-BR")} fichas grátis neste lote`,
+      empty: "Crie o primeiro lote para gerar as fichas.",
+      refundedNote: "Lote estornado: os números ficam cancelados nas barracas e não voltam a ser usados.",
+      cancelConfirmBody:
+        "Nenhuma ficha deste lote poderá ser gerada. Se ele for o último lote, os números voltam a ficar livres para o próximo. Um pagamento aberto é encerrado.",
+      markPaidConfirmBody: "Use só para pagamentos feitos fora do site. As fichas do lote passam a poder ser geradas.",
+      paymentSuccess: "Pagamento confirmado! As fichas do lote já podem ser geradas.",
+    },
+    sellers: {
+      empty: "Vendedores são opcionais: use quando as fichas forem vendidas por várias pessoas.",
+      how: [
+        { title: "Cadastre", body: "Quem vai vender: o caixa, pais, alunos, voluntários." },
+        { title: "Entregue os números", body: "Cada um leva uma faixa, como 1 a 40." },
+        { title: "Registre", body: "O dinheiro que cada um passa e as fichas que voltam." },
+        { title: "Acerto fechado", body: "Você vê quem já pagou, quanto falta e quem pagou a mais." },
+      ],
+      assignCategory: "Produto",
+      assignAllCategories: "Todos os produtos",
+      assignNoneFree: "Não sobrou número livre: todos já estão com alguém, cancelados ou enviados como ficha digital.",
+      assignRestHint:
+        "Livres são os números dos lotes que ainda não estão com nenhum vendedor, não foram cancelados nem enviados como ficha digital.",
+      ticketsCount: (count: number) => (count === 1 ? "1 ficha" : `${count.toLocaleString("pt-BR")} fichas`),
+      summary: { dueHint: "fichas a acertar × preço" },
+      noPriceTitle: "Defina o preço da ficha",
+      equationLabel: (took: number, unsold: number, lost: number, due: number) =>
+        `Levou ${String(took)}, devolveu ${String(unsold)}, perdeu ${String(lost)}: acerta ${String(due)} fichas.`,
+      sendTickets: "Vendedores mandam a ficha no celular",
+      sendTicketsOn: "Na página do vendedor, ele envia pelo WhatsApp a ficha de quem comprou: o mesmo QR do papel, que vale uma vez só.",
+      sendTicketsOff: "Desligado: só a equipe envia fichas no celular, pela aba Digitais.",
+      sendTicketsSaved: (on: boolean) => (on ? "Os vendedores podem enviar a ficha no celular." : "Envio pelos vendedores desligado."),
+      goal: {
+        description: "Quantas fichas este vendedor quer vender. Ele vê o progresso na página dele.",
+        field: "Fichas",
+      },
+      goalsAll: { field: "Fichas por vendedor" },
+      boxOffice: {
+        newLabel: "Bilheteria (vende na barraca)",
+        newHint: "Os números são vendidos na hora, na barraca: conta como vendido o que for usado.",
+        toggleOn:
+          "Os números deste vendedor são vendidos na barraca: quem atende cobra, entrega a ficha da pilha e lê. Conta como vendido o que foi usado; não precisa marcar vendas nem registrar devolução.",
+        entered: "Usadas",
+        equationLabel: (took: number, entered: number) => `Levou ${String(took)}, usadas ${String(entered)}: acerta ${String(entered)} fichas.`,
+        linkNote: "Na bilheteria conta o que foi usado nas barracas: o link serve só para consultar o acerto.",
+      },
+      whatsapp: {
+        took: (count: number, numbers: string) =>
+          `🎟️ Levou ${count === 1 ? "1 ficha" : `${count.toLocaleString("pt-BR")} fichas`}${numbers === "" ? "" : ` (${numbers})`}`,
+        boxOffice: (count: number) => `🚪 Vendidas na barraca: ${count.toLocaleString("pt-BR")}`,
+      },
+      payment: {
+        equals: (count: number) => (count === 1 ? "Equivale a 1 ficha." : `Equivale a ${count.toLocaleString("pt-BR")} fichas.`),
+      },
+      giveBackDialog: {
+        description: "Os números devolvidos são cancelados: deixam de valer nas barracas e saem do acerto do vendedor.",
+        reasonHints: {
+          unsold: "Sai do acerto: o vendedor não paga por elas.",
+          lost: "Sai do acerto e fica bloqueada nas barracas, caso alguém tente usar.",
+        },
+        preview: (count: number, numbers: string) => `${count === 1 ? "1 ficha" : `${count.toLocaleString("pt-BR")} fichas`}: ${numbers}`,
+        submit: (count: number) => (count === 1 ? "Registrar devolução de 1 ficha" : `Registrar devolução de ${count.toLocaleString("pt-BR")} fichas`),
+        savedToast: (count: number) => (count === 1 ? "Devolução de 1 ficha registrada." : `Devolução de ${count.toLocaleString("pt-BR")} fichas registrada.`),
+      },
+    },
+    digital: {
+      intro:
+        "Para quem não vai buscar a ficha em papel: envie um link pelo WhatsApp. A pessoa abre no celular e mostra o QR na barraca, mesmo sem internet. É a mesma ficha do papel: vale uma vez só.",
+      stats: { entered: "Já usadas" },
+      noPaidTitle: "Nenhuma ficha paga ainda",
+      noPaid: "Crie e pague um lote para enviar fichas pelo celular.",
+      sendTitle: "Enviar uma ficha",
+      number: "Número da ficha",
+      paperWarning: "Se este número já foi impresso, guarde o papel ou rasgue: a primeira leitura na barraca vale, a outra é barrada.",
+      createdTitle: (number: string) => `Ficha nº ${number} pronta para enviar`,
+      whatsappMessage: (name: string | null, event: string, url: string) =>
+        `${name === null ? "Olá!" : `Olá, ${name}!`} Sua ficha para ${event} está aqui:\n${url}\n\nNa barraca, mostre o QR code na tela. Dica: abra o link uma vez antes e salve a imagem da ficha.`,
+      open: "Abrir ficha",
+      qrLabel: "QR code do link da ficha",
+      bulkFile: "fichas-digitais.csv",
+      emptyTitle: "Nenhuma ficha enviada ainda",
+      empty: "Os links criados aparecem aqui, com quem abriu e as fichas já usadas.",
+      states: { entered: (time: string) => `Usada ${time}` },
+      revokeBody:
+        "O link para de abrir. O QR que a pessoa já viu continua valendo na barraca: para bloquear a ficha, cancele o número na aba Cancelamentos.",
+      replace: {
+        hint: "Alguém perdeu a ficha? Cancele o número perdido e mande outro para a mesma pessoa, num passo só.",
+        dialogTitle: "Segunda via de uma ficha perdida",
+        dialogBody: "Um número livre, do mesmo produto, vai para a mesma pessoa como ficha no celular.",
+        newNumberHint: "Deixe vazio para usar o próximo livre do mesmo produto.",
+        warning: "O número perdido para de valer nas barracas. Quem vendeu continua respondendo por ele no acerto, porque a pessoa pagou.",
+        warningNumber: (number: string) =>
+          `O nº ${number} para de valer nas barracas. Quem vendeu continua respondendo por ele no acerto, porque a pessoa pagou.`,
+      },
+    },
+    voids: {
+      intro: "Cancele faixas devolvidas, perdidas ou que não devem ser usadas. Elas são bloqueadas nas barracas e não aparecem nos arquivos.",
+      createConfirmBody: "Essas fichas serão barradas nas barracas. Dá para desfazer depois.",
+      replaceTip: "Alguém perdeu uma ficha só?",
+      replacedHint: "A ficha digital da segunda via fica na aba Digitais.",
+    },
+    files: {
+      intro:
+        "Gere os arquivos das fichas pagas. Fichas canceladas não entram. Cada arquivo leva alguns segundos (as imagens do WhatsApp, um pouco mais).",
+      kindHints: {
+        home: "Várias fichas por folha, com marcas de corte.",
+        print: "Uma ficha por página, no tamanho final + 3 mm.",
+        whatsapp: "Uma imagem por ficha, em pastas por vendedor.",
+      },
+      scope: "Quais fichas",
+      scopeAll: "Todas as pagas",
+      noPaid: "Pague um lote para poder gerar os arquivos das fichas.",
+      tickets: (count: number) => (count === 1 ? "1 ficha" : `${count.toLocaleString("pt-BR")} fichas`),
+      whatsappWarning: "Envie cada imagem a um só comprador: cópias são barradas nas barracas.",
+      digitalTip: "Vai mandar uma ficha por vez? Na aba Digitais você cria um link por comprador e envia direto no WhatsApp, sem baixar ZIP.",
+    },
+    report: {
+      categories: { title: "Por produto", category: "Produto", tickets: "Emitidas", sold: "Vendidas", entries: "Usadas", none: "Sem produto" },
+      intro:
+        "O acerto de cada vendedor (o que levou, devolveu, vendeu, pagou e quanto falta) e o que aconteceu nas barracas. Pagamentos e devoluções são registrados na aba Vendedores.",
+      noSellers: "Nenhum vendedor com fichas ainda.",
+      unassignedNote: (count: number) =>
+        count === 1
+          ? "1 ficha emitida está sem vendedor e não entra no acerto."
+          : `${count.toLocaleString("pt-BR")} fichas emitidas estão sem vendedor e não entram no acerto.`,
+      doorSummary: (entries: number, blocked: number) =>
+        `${entries === 1 ? "1 ficha usada" : `${entries.toLocaleString("pt-BR")} fichas usadas`} · ${blocked === 1 ? "1 cópia barrada" : `${blocked.toLocaleString("pt-BR")} cópias barradas`}`,
+      doorBySellerTitle: "Barracas por vendedor",
+      stats: {
+        issued: "Emitidas",
+        issuedHint: (withSellers: number, without: number) =>
+          without === 0
+            ? "todas com vendedores"
+            : withSellers === 0
+              ? "nenhuma com vendedor ainda"
+              : `${withSellers.toLocaleString("pt-BR")} com vendedores · ${without.toLocaleString("pt-BR")} sem vendedor`,
+        sold: "Vendidas",
+        reservedHint: (count: number) => (count === 1 ? "e 1 reservada" : `e ${count.toLocaleString("pt-BR")} reservadas`),
+        entries: "Usadas",
+      },
+      columns: {
+        unsold: "Devolvidas",
+        lost: "Perdidas",
+        revoked: "Outras cancel.",
+        markedSold: "Marcou vendidas",
+        reserved: "Reservadas",
+        entries: "Usadas",
+        voidEntries: "Usadas canceladas",
+      },
+      hints: {
+        tickets: "Fichas emitidas entregues ao vendedor",
+        unsold: "Devolvidas sem vender",
+        lost: "Perdidas ou roubadas (bloqueadas nas barracas)",
+        revoked: "Canceladas por outro motivo (contam como vendidas)",
+        declaredSold: "Levou − devolvidas − perdidas: as fichas que o vendedor paga",
+        entries: "Fichas usadas",
+        offlineDuplicates: "Cópias usadas em celulares sem internet",
+        blockedCopies: "Cópias barradas nas barracas",
+        voidEntries: "Fichas canceladas que foram usadas (o celular ainda não sabia do cancelamento)",
+      },
+      door: "Barracas",
+      rejected: (invalid: number, otherEvent: number) => `QR falsos ou ilegíveis: ${String(invalid)} · fichas de outro evento: ${String(otherEvent)}`,
+      deviceColumns: { firstEntries: "Usadas" },
+    },
     door: {
       intro:
         "Crie um link para cada barraca. Quem trabalha nela abre o link no celular, dá um nome ao aparelho e já pode dar baixa nas fichas, mesmo sem internet.",
       entries: (count: number) => (count === 1 ? "1 ficha já foi usada." : `${String(count)} fichas já foram usadas.`),
       entriesLabel: "Fichas usadas",
       defaultLabel: "Barraca",
+      showLinkConfirmBody:
+        "Por segurança, o link só aparece quando é criado. Um link novo substitui o anterior, com o mesmo nome e os mesmos produtos: os celulares já conectados continuam funcionando, e o link antigo deixa de conectar celulares novos.",
+      qrLabel: "QR code do link da barraca",
+      qrHint: "Aponte a câmera do celular para abrir o app da barraca.",
+      whatsappMessage: "Link da barraca (abra no celular que vai dar baixa nas fichas):",
+      disconnectConfirmBody: "Esse celular para de ler fichas na próxima sincronização.",
       categories: "Aceitar só estes produtos",
       categoriesHint: "Nenhum marcado: a barraca aceita qualquer ficha. Ficha de outro produto aparece em amarelo, com a barraca certa.",
       allCategories: "Todos os produtos",
       editCategories: "Produtos",
       editCategoriesTitle: (label: string) => `Produtos da barraca “${label}”`,
+      editCategoriesBody: "Os celulares desta barraca recebem a mudança na próxima sincronização (alguns segundos, com internet).",
       categoriesSaved: "Produtos da barraca salvos.",
-      whatsappMessage: "Link da barraca (abra no celular que vai dar baixa nas fichas):",
+      sheetBody:
+        "Imprima e leve para a barraca: são fichas de amostra com o desenho do evento e um QR de teste. No celular, toque em Ensaiar e leia a folha para conferir câmera, som e lanterna sem registrar nada.",
+      sheetSteps: [
+        "Imprima a folha (ou abra no computador).",
+        "No celular da barraca, toque em ⋮ › Ensaiar.",
+        "Leia a amostra: tela verde “Amostra lida”.",
+        "Teste som, vibração e lanterna e toque em Terminar ensaio.",
+      ],
+    },
+    live: {
+      entries: "Fichas usadas",
+      ofSold: (sold: string) => `de ${sold} vendidas`,
+      occupancy: "Uso",
+      missing: "Ainda não usadas",
+      occupancyLabel: (percent: string) => `${percent} das vendidas já foram usadas`,
+      issuedHint: (issued: string) => `${issued} emitidas`,
+      noEntries: "Nenhuma ficha usada ainda",
+      curveTitle: "Fichas usadas a cada 5 minutos",
+      curveHintAfter: "Última hora com uso",
+      curveTooltip: (from: string, to: string, count: number) => `${from}–${to} · ${count === 1 ? "1 ficha" : `${String(count)} fichas`}`,
+      curveTable: "Fichas usadas por janela de 5 minutos",
+      byDoor: "Por barraca",
+      byCategory: "Por produto",
+      noCategory: "Sem produto",
+      allCategories: "todos os produtos",
+      noDevices: "Nenhum celular registrado ainda. Crie um link na aba Barracas.",
+      fullscreenLabel: "Barracas ao vivo",
+      deviceEntries: (count: number) => (count === 1 ? "1 ficha" : `${String(count)} fichas`),
+      boxOfficeHint: (count: number) => (count === 1 ? "1 vendida na barraca" : `${String(count)} vendidas na barraca`),
+      blockedHint: (offline: number) =>
+        offline === 0 ? "nenhuma passou sem sinal" : offline === 1 ? "1 passou sem sinal" : `${String(offline)} passaram sem sinal`,
+      refusalsHint: "cópias, inválidas, canceladas e barraca errada",
+      refusalsTitle: "O que as barracas barraram",
+      refusalRows: {
+        blockedCopies: "Cópias barradas nas barracas",
+        offlineDuplicates: "Cópias usadas sem sinal",
+        otherEvent: "Ficha de outro evento",
+        voided: "Canceladas barradas",
+        voidEntries: "Canceladas usadas (celular sem sinal)",
+        wrongDoor: "Mandadas para outra barraca",
+        wrongDoorAdmitted: "Aceitas na barraca errada",
+      },
+      emptyTitle: "As barracas ainda não começaram",
+      empty: "Quando os celulares começarem a ler as fichas, o uso aparece aqui sozinho, a cada 10 segundos.",
+      openDoor: "Preparar as barracas",
+      overviewTitle: "Barracas ao vivo",
     },
   },
   tabsBefore: "Ver as abas anteriores",
@@ -1439,3 +1732,7 @@ export const event = {
     pasteSubmit: (count: number) => (count === 1 ? "Adicionar 1 nome" : `Adicionar ${String(count)} nomes`),
   },
 } as const;
+
+/** Fails to compile when a consumption-token text has no ticket text or other parameters. */
+type Checked<T extends Overrides<typeof event> & Known<T, typeof event>> = T;
+export type EventTokenTexts = Checked<Omit<typeof event.tokens, "badge">>;

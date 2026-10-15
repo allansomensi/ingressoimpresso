@@ -1,23 +1,35 @@
 "use client";
 
-import type { EventDto, EventTeamDto, TeamArea } from "@ingressoimpresso/api-types";
+import type { EventDto, EventKind, EventTeamDto, TeamArea } from "@ingressoimpresso/api-types";
 import { useQuery } from "@tanstack/react-query";
 import { Eye } from "lucide-react";
 import { createContext, useContext, type ReactNode } from "react";
 
 import { api } from "@/lib/api";
+import { forKind } from "@/lib/event-kind";
 import { canDo, displayName, isOwner, responsibleFor } from "@/lib/team";
 import { event as eventTexts } from "@/texts/pt-BR/event";
 
-const t = eventTexts.team;
-
-type Access = Pick<EventDto, "team">;
+type Access = Pick<EventDto, "team"> & { kind?: EventKind | undefined };
 
 const AccessContext = createContext<Access>({ team: null });
 
-/** Shares the current user's place on the event (ADR 0055) with every tab. */
+/** Shares the current user's place on the event (ADR 0055) and its kind (ADR 0084) with every tab. */
 export function EventAccessProvider({ event, children }: { event: Access; children: ReactNode }) {
-  return <AccessContext.Provider value={{ team: event.team }}>{children}</AccessContext.Provider>;
+  return <AccessContext.Provider value={{ team: event.team, kind: event.kind }}>{children}</AccessContext.Provider>;
+}
+
+/** Tickets or consumption tokens, for the event shown. */
+export function useEventKind(): EventKind | undefined {
+  return useContext(AccessContext).kind;
+}
+
+/** The texts of the event page, in the words of either kind. */
+export type EventTexts = typeof eventTexts;
+
+/** The texts of the event page in the words of its kind: "ficha" for consumption tokens (ADR 0086). */
+export function useEventTexts(): EventTexts {
+  return forKind(eventTexts, eventTexts.tokens, useEventKind());
 }
 
 /** What the current user may do on the event shown. */
@@ -37,6 +49,7 @@ export function useTeam(eventId: string, enabled = true) {
 
 /** Tells a team member this part is someone else's, and whose. */
 export function ReadOnlyNotice({ eventId, area }: { eventId: string; area: TeamArea }) {
+  const t = useEventTexts().team;
   const { can } = useEventAccess();
   const team = useTeam(eventId, !can(area));
   if (can(area)) {

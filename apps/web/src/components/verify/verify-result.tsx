@@ -7,12 +7,11 @@ import { EventChangeNotice, OrganizationContact, OrganizationLogo } from "@/comp
 import { Alert, Button } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { spokenDate } from "@/lib/event-change";
+import { forKind } from "@/lib/event-kind";
 import { sessionLabel } from "@/lib/series";
 import { verdictTone, type VerdictTone } from "@/lib/verify";
 import { series as seriesTexts } from "@/texts/pt-BR/series";
 import { verifyPage as verifyPageTexts } from "@/texts/pt-BR/verify-page";
-
-const t = verifyPageTexts;
 
 const TONE: Record<VerdictTone, { icon: LucideIcon; badge: string; ring: string }> = {
   success: { icon: ShieldCheck, badge: "bg-success-solid text-white", ring: "border-success/30 bg-success-soft" },
@@ -23,6 +22,7 @@ const TONE: Record<VerdictTone, { icon: LucideIcon; badge: string; ring: string 
 
 /** The ticket as printed: event, when and where, number and category. */
 function TicketSummary({ ticket }: { ticket: VerifiedTicketDto }) {
+  const t = forKind(verifyPageTexts, verifyPageTexts.tokens, ticket.event.kind);
   const { event, organization } = ticket;
   const where = [event.venue, event.address].filter((part) => part !== null && part !== "").join(" · ");
   return (
@@ -40,7 +40,7 @@ function TicketSummary({ ticket }: { ticket: VerifiedTicketDto }) {
         {event.inSeries && (
           <p className="-mt-1 flex flex-col gap-1.5">
             <span className="w-fit rounded-full bg-brand-soft px-2.5 py-0.5 text-xs font-semibold text-brand-soft-fg">{sessionLabel(event.startsAt)}</span>
-            <span className="text-xs text-fg-muted">{seriesTexts.sessionOnly}</span>
+            <span className="text-xs text-fg-muted">{event.kind === "tokens" ? seriesTexts.sessionOnlyTokens : seriesTexts.sessionOnly}</span>
           </p>
         )}
         <dl className="flex flex-col gap-2 text-sm">
@@ -91,8 +91,10 @@ function TicketSummary({ ticket }: { ticket: VerifiedTicketDto }) {
 export function VerifyResult({ result, onAgain }: { result: VerifyResultDto; onAgain: () => void }) {
   const tone = verdictTone(result.verdict);
   const { icon: Icon, badge, ring } = TONE[tone];
-  const copy = t.verdicts[result.verdict];
   const ticket = result.ticket;
+  // A consumption token speaks of a ficha (ADR 0086).
+  const t = forKind(verifyPageTexts, verifyPageTexts.tokens, ticket?.event.kind);
+  const copy = t.verdicts[result.verdict];
   const buyable = result.verdict === "valid" || result.verdict === "event_postponed";
   return (
     <section aria-label={t.resultLabel} aria-live="polite" className="flex flex-col gap-4 animate-fade-in">
@@ -109,7 +111,7 @@ export function VerifyResult({ result, onAgain }: { result: VerifyResultDto; onA
         <>
           <TicketSummary ticket={ticket} />
           {(result.verdict === "event_postponed" || result.verdict === "event_canceled") && (
-            <EventChangeNotice change={ticket.event.change} startsAt={ticket.event.startsAt} />
+            <EventChangeNotice change={ticket.event.change} startsAt={ticket.event.startsAt} kind={ticket.event.kind} />
           )}
           {buyable && (
             <Alert tone="warning" title={t.copyTitle}>

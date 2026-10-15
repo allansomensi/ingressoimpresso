@@ -33,6 +33,7 @@ export const panel = {
   },
   tokenPrice: "Preço da ficha",
   tokenPriceHint: "Cada produto pode ter o próprio preço na aba Produtos. Deixe em branco se não houver preço único.",
+  tokenAddressHint: "Aparece na ficha no celular, com o botão Como chegar.",
   tokensBadge: "Fichas",
   pricePlaceholder: "30,00",
   priceInvalid: "Valor inválido. Use só números, como 30 ou 30,50.",

@@ -14,7 +14,7 @@ import { ClipboardList, Download, FileDown, FolderArchive, Home, Layers, Message
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
-import { ReadOnlyNotice, useEventAccess } from "@/components/event/access";
+import { ReadOnlyNotice, useEventAccess, useEventTexts, type EventTexts } from "@/components/event/access";
 import {
   Alert,
   Badge,
@@ -36,11 +36,9 @@ import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { shortDateTime } from "@/lib/format";
 import { errors as errorsTexts } from "@/texts/pt-BR/errors";
-import { event as eventTexts } from "@/texts/pt-BR/event";
 
 import type { SelectTab } from "./tabs";
 
-const t = eventTexts.files;
 const KINDS: readonly ExportKind[] = ["home", "print", "control", "whatsapp"];
 const KIND_ICONS: Record<ExportKind, LucideIcon> = {
   home: Home,
@@ -50,7 +48,7 @@ const KIND_ICONS: Record<ExportKind, LucideIcon> = {
 };
 const STATUS_TONE: Record<ExportDto["status"], Tone> = { queued: "neutral", running: "brand", done: "success", failed: "danger" };
 
-function scopeLabel(scope: ExportScope, batches: BatchDto[], sellers: SellerDto[]): string {
+function scopeLabel(t: EventTexts["files"], scope: ExportScope, batches: BatchDto[], sellers: SellerDto[]): string {
   switch (scope.type) {
     case "all":
       return t.scopeAll;
@@ -81,6 +79,7 @@ function decodeScope(value: string): ExportScope {
 }
 
 export function FilesTab({ eventId, onSelect }: { eventId: string; onSelect: SelectTab }) {
+  const t = useEventTexts().files;
   const queryClient = useQueryClient();
   const { can } = useEventAccess();
   const key = ["exports", eventId];
@@ -262,7 +261,7 @@ export function FilesTab({ eventId, onSelect }: { eventId: string; onSelect: Sel
                   <span className="flex min-w-0 flex-1 flex-col">
                     <span className="truncate text-sm font-semibold text-fg">{t.kinds[item.kind]}</span>
                     <span className="truncate text-xs text-fg-muted">
-                      {scopeLabel(item.scope, batches.data ?? [], sellerList)}
+                      {scopeLabel(t, item.scope, batches.data ?? [], sellerList)}
                       {item.ticketCount !== null && ` · ${t.tickets(item.ticketCount)}`}
                       {` · ${shortDateTime(item.createdAt)}`}
                     </span>

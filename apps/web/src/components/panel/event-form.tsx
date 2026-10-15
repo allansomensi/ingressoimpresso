@@ -157,7 +157,7 @@ function EventForm({
           enterKeyHint="next"
         />
       </Field>
-      <Field label={t.address} optional hint={t.addressHint}>
+      <Field label={t.address} optional hint={kind === "tokens" ? t.tokenAddressHint : t.addressHint}>
         <Input
           value={address}
           onChange={(e) => {

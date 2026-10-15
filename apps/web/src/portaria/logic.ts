@@ -53,28 +53,14 @@ export function isSampleQr(text: string): boolean {
 
 const t = portariaTexts.result;
 
-/** The result words of an event: a ficha at a stall for consumption tokens (ADR 0084). */
-export function resultWords(kind: EventKind | undefined): typeof portariaTexts.result {
-  return forKind(portariaTexts.result, portariaTexts.tokens.result, kind);
+/** The door's words of an event: a ficha at a stall for consumption tokens (ADRs 0084, 0086). */
+export function doorWords(kind: EventKind | undefined): typeof portariaTexts {
+  return forKind(portariaTexts, portariaTexts.tokens, kind);
 }
 
-/** The door's words of an event (header, hints, history): a stall for consumption tokens (ADR 0084). */
-export function doorWords(kind: EventKind | undefined): typeof portariaTexts {
-  const tokens = portariaTexts.tokens;
-  return forKind(
-    portariaTexts,
-    {
-      title: tokens.title,
-      registerIntro: tokens.registerIntro,
-      deviceNamePlaceholder: tokens.deviceNamePlaceholder,
-      entries: tokens.entries,
-      scanHint: tokens.scanHint,
-      readiness: tokens.readiness,
-      result: resultWords(kind),
-      history: forKind(portariaTexts.history, tokens.history, kind),
-    },
-    kind,
-  );
+/** The result words of an event. */
+export function resultWords(kind: EventKind | undefined): typeof portariaTexts.result {
+  return doorWords(kind).result;
 }
 
 /** Green, red, yellow, and blue for a ticket going out (re-entry, ADR 0083). */
@@ -380,7 +366,7 @@ export function wrongDoorView(number: number, wrong: { category: string; doors: 
  * code is explained.
  */
 export function rehearsalView(text: string, decision: DecisionDto, context: DoorContext): ResultView {
-  const r = portariaTexts.rehearsal;
+  const r = doorWords(context.kind).rehearsal;
   const base = { seller: null, category: null, seat: null, number: null, rehearsal: true } as const;
   if (isSampleQr(text)) {
     return { ...base, tone: "ok", title: r.sampleTitle, detail: r.sampleDetail };

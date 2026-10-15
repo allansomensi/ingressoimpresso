@@ -10,16 +10,14 @@ import { BookmarkPlus, Check, UserRound } from "lucide-react";
 import { useState, type FormEvent } from "react";
 
 import { DeadlinePicker, useDeadline } from "@/components/seller/deadline-picker";
+import { useSellerTexts } from "@/components/seller/seller-texts";
 import { Button, Dialog, Field, Input } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { firstOutside, firstShared, formatRanges, parseNumberList, type NumberRange } from "@/lib/number-list";
 import { newId } from "@/lib/seller-offline";
 import { nextAvailable, padNumber, type NumberCell } from "@/lib/seller-page";
 import { common as commonTexts } from "@/texts/pt-BR/common";
-import { sellerPage as sellerPageTexts } from "@/texts/pt-BR/seller-page";
 
-const t = sellerPageTexts;
-const s = t.sheet;
 
 export type SheetMode = "sell" | "reserve";
 
@@ -58,6 +56,8 @@ export function MarkSheet({
   /** The change, and the toast that says it was written down. */
   onSubmit: (op: SellerOp, done: string) => void;
 }) {
+  const t = useSellerTexts();
+  const s = t.sheet;
   const editing = start.reservation;
   const [mode, setMode] = useState<SheetMode>(editing === undefined ? start.mode : "reserve");
   const [numbers, setNumbers] = useState(start.numbers);

@@ -9,9 +9,8 @@ import { cn } from "@/lib/cn";
 import { FONTS_WITH_BOLD, MAX_PREFIX_CHARS, MAX_TEXT_CHARS, MAX_TEXT_LINES, MIN_QR_SIZE_MM } from "@/lib/design-rules";
 import { FIELDS } from "@/lib/ticket-fields";
 import { common as commonTexts } from "@/texts/pt-BR/common";
-import { event as eventTexts } from "@/texts/pt-BR/event";
+import { useEventTexts } from "@/components/event/access";
 
-const t = eventTexts.design;
 const ALIGNS: readonly { value: TextAlign; icon: LucideIcon }[] = [
   { value: "left", icon: AlignLeft },
   { value: "center", icon: AlignCenter },
@@ -20,6 +19,7 @@ const ALIGNS: readonly { value: TextAlign; icon: LucideIcon }[] = [
 
 /** Left / centre / right as a segmented control. */
 function AlignPicker({ value, onChange }: { value: TextAlign; onChange: (value: TextAlign) => void }) {
+  const t = useEventTexts().design;
   return (
     <div role="radiogroup" aria-label={t.align} className="flex h-11 items-center gap-0.5 rounded-xl border border-border-strong bg-surface-2 p-1">
       {ALIGNS.map(({ value: option, icon: Icon }) => (
@@ -46,6 +46,7 @@ function AlignPicker({ value, onChange }: { value: TextAlign; onChange: (value: 
 }
 
 function FontPicker({ value, onChange }: { value: FontChoice; onChange: (value: FontChoice) => void }) {
+  const t = useEventTexts().design;
   return (
     <Select
       value={value}
@@ -76,6 +77,7 @@ function BoxFields({
   height: number;
   onChange: (change: Partial<{ xMm: number; yMm: number; widthMm: number; heightMm: number }>) => void;
 }) {
+  const t = useEventTexts().design;
   return (
     <fieldset className="grid grid-cols-2 gap-3">
       <legend className="mb-2 text-xs font-semibold tracking-wide text-fg-subtle uppercase">{t.position}</legend>
@@ -113,6 +115,7 @@ export function TextInspector({
   onRemove: () => void;
   onReorder: (direction: -1 | 1) => void;
 }) {
+  const t = useEventTexts().design;
   const input = useRef<HTMLInputElement>(null);
   const hasBold = FONTS_WITH_BOLD.includes(block.font);
 
@@ -245,6 +248,7 @@ export function TextInspector({
 }
 
 export function NumberInspector({ number, onChange }: { number: NumberStyle; onChange: (change: Partial<NumberStyle>, key: string) => void }) {
+  const t = useEventTexts().design;
   return (
     <div className="flex flex-col gap-5">
       <p className="text-sm text-fg-muted">{t.numberHint}</p>
@@ -282,6 +286,7 @@ export function NumberInspector({ number, onChange }: { number: NumberStyle; onC
 }
 
 export function QrInspector({ qr, onChange }: { qr: QrPlacement; onChange: (change: Partial<QrPlacement>, key: string) => void }) {
+  const t = useEventTexts().design;
   return (
     <div className="flex flex-col gap-4">
       <p className="text-sm text-fg-muted">{t.qrHint}</p>

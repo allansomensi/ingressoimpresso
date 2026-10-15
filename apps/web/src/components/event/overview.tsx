@@ -9,6 +9,7 @@ import { Button, Card, CardHeader, ErrorMessage, Skeleton, Stat } from "@/compon
 import { isDoorDay } from "@/lib/door-live";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
+import { useEventTexts } from "@/components/event/access";
 import { event as eventTexts } from "@/texts/pt-BR/event";
 
 import { ChecklistCard } from "./checklist";
@@ -16,7 +17,6 @@ import { EventResults } from "./event-results";
 import { Occupancy, useDoorLive } from "./live";
 import type { SelectTab } from "./tabs";
 
-const t = eventTexts.overview;
 
 export function OverviewTab({
   eventId,
@@ -29,6 +29,7 @@ export function OverviewTab({
   onEditEvent: () => void;
   event?: Pick<EventDto, "startsAt" | "endsAt">;
 }) {
+  const t = useEventTexts().overview;
   // Judged once, when the tab opens (rendering stays pure).
   const [doorDay] = useState(() => event !== undefined && isDoorDay(event.startsAt, event.endsAt, Date.now()));
   // What is missing is worked out by the API (ADR 0078).

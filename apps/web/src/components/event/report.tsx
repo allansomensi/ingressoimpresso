@@ -12,9 +12,8 @@ import { settlementTotals } from "@/lib/settlement";
 import { Accountability } from "@/components/event/accountability";
 import { useLivePolling } from "@/components/event/live-polling";
 import type { SelectTab } from "@/components/event/tabs";
-import { event as eventTexts } from "@/texts/pt-BR/event";
+import { useEventTexts, type EventTexts } from "@/components/event/access";
 
-const t = eventTexts.report;
 
 /** Settlement columns of a report line, in display and CSV order (money comes after them). */
 const SETTLEMENT_COLUMNS = ["tickets", "unsold", "lost", "revoked", "declaredSold", "markedSold", "reserved"] as const satisfies readonly (keyof ReportRowDto)[];
@@ -27,7 +26,7 @@ function money(cents: number | null): string {
   return cents === null ? "—" : formatMoney(cents);
 }
 
-function lineName(row: ReportRowDto, kind: LineKind): string {
+function lineName(t: EventTexts["report"], row: ReportRowDto, kind: LineKind): string {
   return kind === "seller" ? (row.seller ?? "") : kind === "unassigned" ? t.unassigned : t.totals;
 }
 
@@ -66,7 +65,7 @@ function lines(report: EventReportDto): [ReportRowDto, LineKind][] {
 }
 
 /** Spreadsheet-friendly CSV: `;` separators and a BOM, as Brazilian Excel expects. */
-function toCsv(report: EventReportDto): string {
+function toCsv(t: EventTexts["report"], report: EventReportDto): string {
   // Text starting like a formula (=, +, -, @) is kept as text by Excel/Sheets with a leading '.
   const quote = (value: string) => `"${(/^[=+\-@\t\r]/.test(value) ? `'${value}` : value).replaceAll('"', '""')}"`;
   const amount = (cents: number | null) => (cents === null ? "" : (cents / 100).toFixed(2).replace(".", ","));
@@ -80,7 +79,7 @@ function toCsv(report: EventReportDto): string {
   ];
   const body = lines(report).map(([row, kind]) =>
     [
-      quote(lineName(row, kind)),
+      quote(lineName(t, row, kind)),
       ...SETTLEMENT_COLUMNS.map((column) => String(row[column])),
       amount(row.amountDueCents),
       amount(row.receivedCents),
@@ -91,8 +90,8 @@ function toCsv(report: EventReportDto): string {
   return `\uFEFF${[header.map(quote).join(";"), ...body].join("\r\n")}\r\n`;
 }
 
-function download(report: EventReportDto) {
-  const url = URL.createObjectURL(new Blob([toCsv(report)], { type: "text/csv;charset=utf-8" }));
+function download(t: EventTexts["report"], report: EventReportDto) {
+  const url = URL.createObjectURL(new Blob([toCsv(t, report)], { type: "text/csv;charset=utf-8" }));
   const link = document.createElement("a");
   link.href = url;
   link.download = t.fileName;
@@ -107,6 +106,7 @@ const ALERT_COLUMNS = new Set<string>(["offlineDuplicates", "voidEntries"]);
 
 /** The balance cell: what is missing, settled, or paid beyond. */
 function Balance({ cents }: { cents: number | null }) {
+  const t = useEventTexts().report;
   if (cents === null) {
     return <span className="text-fg-subtle">—</span>;
   }
@@ -121,6 +121,7 @@ function Balance({ cents }: { cents: number | null }) {
 
 /** The total balance: what is still to collect, and apart, what some sellers paid beyond. */
 function TotalBalance({ outstanding, overpaid }: { outstanding: number | null; overpaid: number }) {
+  const t = useEventTexts().report;
   if (outstanding === null) {
     return <span className="text-fg-subtle">—</span>;
   }
@@ -141,6 +142,7 @@ function rowClass(kind: LineKind): string {
 }
 
 function HeaderCell({ column }: { column: (typeof SETTLEMENT_COLUMNS)[number] | (typeof DOOR_COLUMNS)[number] }) {
+  const t = useEventTexts().report;
   return (
     <th className="px-2 py-2.5 text-right font-medium" title={t.hints[column]}>
       <span className="cursor-help border-b border-dotted border-fg-subtle/60">{t.columns[column]}</span>
@@ -149,6 +151,7 @@ function HeaderCell({ column }: { column: (typeof SETTLEMENT_COLUMNS)[number] | 
 }
 
 export function ReportTab({ eventId, onSelect }: { eventId: string; onSelect: SelectTab }) {
+  const t = useEventTexts().report;
   const report = useQuery({
     queryKey: ["report", eventId],
     queryFn: () => api<EventReportDto>(`/api/events/${eventId}/report`),
@@ -180,7 +183,7 @@ export function ReportTab({ eventId, onSelect }: { eventId: string; onSelect: Se
           <Button variant="secondary" size="sm" icon={<RefreshCw />} onClick={() => void report.refetch()} loading={report.isFetching}>
             {t.refresh}
           </Button>
-          <Button size="sm" icon={<Download />} onClick={() => { download(data); }}>
+          <Button size="sm" icon={<Download />} onClick={() => { download(t, data); }}>
             {t.csv}
           </Button>
         </div>
@@ -264,7 +267,7 @@ export function ReportTab({ eventId, onSelect }: { eventId: string; onSelect: Se
               )}
               {settlementLines.map(([row, kind]) => (
                 <tr key={row.sellerId ?? kind} className={rowClass(kind)}>
-                  <td className="py-3 pr-2 pl-5 text-fg">{kind === "totals" ? t.sellersTotal : lineName(row, kind)}</td>
+                  <td className="py-3 pr-2 pl-5 text-fg">{kind === "totals" ? t.sellersTotal : lineName(t, row, kind)}</td>
                   {SETTLEMENT_COLUMNS.map((column) => (
                     <td key={column} className="px-2 py-3 text-right font-mono text-fg tabular">
                       {row[column]}
@@ -322,7 +325,7 @@ export function ReportTab({ eventId, onSelect }: { eventId: string; onSelect: Se
             <tbody className="divide-y divide-border">
               {lines(data).map(([row, kind]) => (
                 <tr key={row.sellerId ?? kind} className={rowClass(kind)}>
-                  <td className="py-3 pr-2 pl-5 text-fg">{lineName(row, kind)}</td>
+                  <td className="py-3 pr-2 pl-5 text-fg">{lineName(t, row, kind)}</td>
                   {DOOR_COLUMNS.map((column, index) => (
                     <td
                       key={column}
@@ -384,6 +387,7 @@ export function ReportTab({ eventId, onSelect }: { eventId: string; onSelect: Se
 
 /** Paid tickets by category (ADR 0056): how many, sold, entered and the amount. */
 function CategoryTable({ rows }: { rows: readonly ReportCategoryDto[] }) {
+  const t = useEventTexts().report;
   const c = t.categories;
   const total = rows.reduce(
     (sum, row) => ({

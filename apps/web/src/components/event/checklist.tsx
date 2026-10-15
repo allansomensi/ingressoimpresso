@@ -8,11 +8,12 @@ import { useState, type ReactNode } from "react";
 import { Badge, Card, CardHeader } from "@/components/ui";
 import { checklistTarget, requiredDone, splitItems } from "@/lib/checklist";
 import { cn } from "@/lib/cn";
+import { forKind } from "@/lib/event-kind";
 import { checklist as checklistTexts } from "@/texts/pt-BR/checklist";
 
+import { useEventKind } from "./access";
 import type { SelectTab } from "./tabs";
 
-const t = checklistTexts;
 
 /**
  * "O que falta" (ADR 0078): what the event still needs, worked out by the API, in the order the
@@ -20,6 +21,7 @@ const t = checklistTexts;
  * state. Once every required item is done the card folds into one line that reopens the list.
  */
 export function ChecklistCard({ list, onSelect, onEditEvent }: { list: ChecklistDto; onSelect: SelectTab; onEditEvent: () => void }) {
+  const t = forKind(checklistTexts, checklistTexts.tokens, useEventKind());
   const complete = list.missing === 0;
   const [open, setOpen] = useState(false);
   const [showDone, setShowDone] = useState(false);
@@ -128,7 +130,7 @@ function FoldButton({ open, onClick, children }: { open: boolean; onClick: () =>
 }
 
 /** What the row says under the title: why it is missing, how far, or who takes care of it. */
-function detail(item: ChecklistItemDto): string {
+function detail(t: typeof checklistTexts, item: ChecklistItemDto): string {
   if (item.state === "done") {
     return item.progress === null ? t.items[item.key].body : t.sellerLinks(item.progress.done, item.progress.total);
   }
@@ -152,6 +154,7 @@ function ItemRow({
   onSelect: SelectTab;
   onEditEvent: () => void;
 }) {
+  const t = forKind(checklistTexts, checklistTexts.tokens, useEventKind());
   const isDone = item.state === "done";
   const target = checklistTarget(item.key);
   const someoneElse = !item.canAct && !isDone && (item.area === null ? t.organizationOnly : t.otherPerson);
@@ -176,7 +179,7 @@ function ItemRow({
           <span className={cn("font-medium", isDone ? "text-fg-muted" : "text-fg")}>{t.items[item.key].title}</span>
           {item.optional && !isDone && <Badge tone="neutral">{t.optional}</Badge>}
         </span>
-        <span className={cn("text-sm", item.hint !== null && !isDone ? "text-warning-fg" : "text-fg-muted")}>{detail(item)}</span>
+        <span className={cn("text-sm", item.hint !== null && !isDone ? "text-warning-fg" : "text-fg-muted")}>{detail(t, item)}</span>
         {someoneElse !== false && <span className="text-xs text-fg-subtle">{someoneElse}</span>}
       </span>
       {item.canAct && (

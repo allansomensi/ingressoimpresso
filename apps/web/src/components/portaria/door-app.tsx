@@ -68,11 +68,14 @@ export function DoorApp() {
     };
   }, [engine]);
 
+  // A phone registered before knows the kind of its event while it loads (ADR 0086).
+  const words = doorWords((state.manifest?.event ?? state.device?.event)?.kind);
+
   return (
     <main className="flex min-h-dvh flex-col bg-[#0b0a12] bg-[radial-gradient(80%_50%_at_50%_0%,rgba(91,61,245,0.18),transparent)] text-neutral-50">
-      {state.phase === "loading" && <Centered>{t.loading}</Centered>}
+      {state.phase === "loading" && <Centered>{words.loading}</Centered>}
       {state.phase === "failed" && <Centered>{errorsTexts.generic}</Centered>}
-      {state.phase === "revoked" && <Revoked engine={engine} />}
+      {state.phase === "revoked" && <Revoked engine={engine} forgetConfirm={words.forgetConfirm} />}
       {state.phase === "unregistered" &&
         (accessToken === "" ? <Centered>{t.noAccess}</Centered> : <Register engine={engine} accessToken={accessToken} />)}
       {state.phase === "ready" &&
@@ -195,7 +198,7 @@ function SwitchLink({ engine, state, accessToken }: { engine: DoorEngine; state:
   );
 }
 
-function Revoked({ engine }: { engine: DoorEngine }) {
+function Revoked({ engine, forgetConfirm }: { engine: DoorEngine; forgetConfirm: string }) {
   return (
     <div className="m-auto flex w-full max-w-sm flex-col items-center gap-5 p-6 text-center">
       <span className="flex size-16 items-center justify-center rounded-3xl bg-red-500/15 text-red-300">
@@ -206,7 +209,7 @@ function Revoked({ engine }: { engine: DoorEngine }) {
         type="button"
         className={secondaryClass}
         onClick={() => {
-          if (window.confirm(t.forgetConfirm)) {
+          if (window.confirm(forgetConfirm)) {
             void engine.forget();
           }
         }}
@@ -394,7 +397,7 @@ function Door({ engine, state }: { engine: DoorEngine; state: DoorState }) {
             }}
           />
         )}
-        {state.offlineSince !== null && <OfflineWarning offlineSince={state.offlineSince} />}
+        {state.offlineSince !== null && <OfflineWarning text={words.oneLineOffline} offlineSince={state.offlineSince} />}
         {state.storageFailed && <p className="rounded-xl bg-red-600 px-3 py-2 text-sm font-semibold">{t.storageError}</p>}
         {/* Canceled by the organizer (ADR 0065): the door keeps reading, the organizer decides. */}
         {event?.canceledAt != null && (
@@ -406,7 +409,7 @@ function Door({ engine, state }: { engine: DoorEngine; state: DoorState }) {
         {state.boxOffice !== null && !rehearsing && (
           <p className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl bg-white/[0.06] px-3 py-2 text-sm">
             <Store className="size-4 shrink-0 text-emerald-300" aria-hidden />
-            <span className="font-semibold">{t.boxOffice.title}</span>
+            <span className="font-semibold">{words.boxOffice.title}</span>
             <span className="text-white/75 tabular-nums">{t.boxOffice.mine(state.boxOffice.mine.count, boxOfficeAmount(state.boxOffice.mine))}</span>
             <span className="text-white/50" aria-hidden>
               ·
@@ -462,7 +465,7 @@ function Door({ engine, state }: { engine: DoorEngine; state: DoorState }) {
             />
           </div>
           <p className="absolute inset-x-0 bottom-4 text-center text-sm font-medium text-white/85 drop-shadow">
-            {rehearsing ? t.rehearsal.readHint : exitMode ? t.mode.exitHint : words.scanHint}
+            {rehearsing ? words.rehearsal.readHint : exitMode ? t.mode.exitHint : words.scanHint}
           </p>
         </div>
         {cameraFailed && <p role="alert" className="w-full max-w-md rounded-xl bg-red-500/15 px-3 py-2 text-center text-red-300">{t.cameraError}</p>}
@@ -502,6 +505,7 @@ function Door({ engine, state }: { engine: DoorEngine; state: DoorState }) {
         </div>
         {rehearsing ? (
           <RehearsalPanel
+            texts={words.rehearsal}
             checks={{ ...rehearsal, read: state.rehearsalRead }}
             torch={running ? torch !== null : null}
             onSound={() => {
@@ -607,6 +611,7 @@ function boxOfficeAmount(totals: { cents: number; unpriced: number }): string {
 
 /** Rehearsal (ADR 0067): read a sample, hear the sounds, try the torch, then finish. */
 function RehearsalPanel(props: {
+  texts: typeof t.rehearsal;
   checks: { read: boolean; sound: boolean; torch: boolean };
   /** Torch available (`null`: the camera is not on yet). */
   torch: boolean | null;
@@ -614,7 +619,7 @@ function RehearsalPanel(props: {
   onTorch: () => void;
   onFinish: (done: boolean) => void;
 }) {
-  const r = t.rehearsal;
+  const r = props.texts;
   const items: [boolean, string][] = [
     [props.checks.read, r.readCheck],
     [props.checks.sound, r.sound],
@@ -695,7 +700,7 @@ function SyncStatus(props: Pick<DoorState, "offlineSince" | "lastSyncOkAt">) {
 }
 
 /** Offline for a while: one phone per line, so no copy slips through two phones. */
-function OfflineWarning({ offlineSince }: { offlineSince: number }) {
+function OfflineWarning({ text, offlineSince }: { text: string; offlineSince: number }) {
   const now = useClock();
   if (now - offlineSince <= OFFLINE_WARNING_MS) {
     return null;
@@ -703,7 +708,7 @@ function OfflineWarning({ offlineSince }: { offlineSince: number }) {
   return (
     <p className="flex items-start gap-2 rounded-xl bg-amber-400 px-3 py-2 text-sm font-semibold text-black">
       <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
-      {t.oneLineOffline}
+      {text}
     </p>
   );
 }

@@ -1,5 +1,6 @@
 import type { EventKind } from "@ingressoimpresso/api-types";
 
+import { forKind } from "@/lib/event-kind";
 import { event as eventTexts } from "@/texts/pt-BR/event";
 
 /** Tabs of the event page and their `?aba=` slugs (the Stripe return URL uses `aba=lotes`). */
@@ -68,12 +69,10 @@ export function tabsOf(kind: EventKind | undefined, tabs: readonly Tab[] = STRIP
 
 /** The tab's name: "Ficha", "Produtos" and "Barracas" for consumption tokens (ADR 0084). */
 export function tabLabel(tab: Tab, kind: EventKind | undefined): string {
-  const tokens: Partial<Record<Tab, string>> = eventTexts.tokens.tabs;
-  return (kind === "tokens" ? tokens[tab] : undefined) ?? eventTexts.tabs[tab];
+  return forKind(eventTexts, eventTexts.tokens, kind).tabs[tab];
 }
 
 /** What the tab is for, in the sections sheet. */
 export function tabHint(tab: Tab, kind: EventKind | undefined): string {
-  const tokens: Partial<Record<Tab, string>> = eventTexts.tokens.hints;
-  return (kind === "tokens" ? tokens[tab] : undefined) ?? eventTexts.sections.hints[tab];
+  return forKind(eventTexts, eventTexts.tokens, kind).sections.hints[tab];
 }

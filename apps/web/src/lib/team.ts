@@ -3,8 +3,9 @@
  * rules only hide what a person cannot do, so the panel never offers a button that would fail.
  */
 
-import type { EventDto, TeamArea, TeamMemberDto } from "@ingressoimpresso/api-types";
+import type { EventDto, EventKind, TeamArea, TeamMemberDto } from "@ingressoimpresso/api-types";
 
+import { forKind } from "@/lib/event-kind";
 import { initials } from "@/lib/format";
 import { event as eventTexts } from "@/texts/pt-BR/event";
 
@@ -59,9 +60,10 @@ export function listNames(names: readonly string[]): string {
   return rest.length === 0 ? last : `${rest.join(", ")} e ${last}`;
 }
 
-/** "Recebimentos, Arte do ingresso e Portaria". */
-export function areaList(areas: readonly TeamArea[]): string {
-  return listNames(TEAM_AREAS.filter((area) => areas.includes(area)).map((area) => eventTexts.team.areas[area]));
+/** "Recebimentos, Arte do ingresso e Portaria" ("Arte da ficha" and "Barracas" for consumption tokens). */
+export function areaList(areas: readonly TeamArea[], kind?: EventKind): string {
+  const names = forKind(eventTexts, eventTexts.tokens, kind).team.areas;
+  return listNames(TEAM_AREAS.filter((area) => areas.includes(area)).map((area) => names[area]));
 }
 
 /** Areas read from a notification (unknown values are skipped). */

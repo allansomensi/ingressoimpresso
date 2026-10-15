@@ -1,3 +1,5 @@
+import type { Known, Overrides } from "@/lib/event-kind";
+
 // Check a ticket before buying it (ADR 0075).
 export const verifyPage = {
   metaTitle: "Conferir ingresso: veja se o QR code é verdadeiro",
@@ -143,4 +145,32 @@ export const verifyPage = {
     saved: (on: boolean) => (on ? "Conferência pública ligada." : "Conferência pública desligada."),
     open: "Abrir a página de conferência",
   },
+  // A consumption token (ADR 0086): the result speaks of a ficha.
+  tokens: {
+    again: "Conferir outra ficha",
+    verdicts: {
+      valid: {
+        title: "Ficha autêntica",
+        body: "Este QR code foi emitido pelo Ingresso Impresso para o evento abaixo, e o número não foi cancelado.",
+      },
+      event_postponed: { body: "A ficha foi emitida para o evento abaixo e continua valendo para a nova data." },
+      event_over: { body: "A ficha foi emitida para um evento que já terminou. Ela não serve para outra data." },
+      event_canceled: { body: "A organização cancelou o evento. Não compre esta ficha; quem já comprou deve falar com a organização." },
+      ticket_canceled: {
+        body: "A ficha é do evento abaixo, mas a organização cancelou este número (perda, segunda via ou estorno). Ela não vale nas barracas.",
+      },
+      private: {
+        body: "Quem organiza este evento desligou a conferência pública. Para saber se a ficha vale, pergunte diretamente à organização.",
+      },
+    },
+    copyBody:
+      "Uma cópia deste QR (foto, xerox, print) também aparece como autêntica, e só a primeira leitura vale na barraca. Por isso não dizemos se a ficha já foi usada nem quem comprou. Compre de quem você confia.",
+    category: "Produto",
+    contactMessage: (number: string, event: string) =>
+      `Olá! Conferi no Ingresso Impresso a ficha nº ${number} de "${event}" e queria confirmar com vocês antes de comprar.`,
+  },
 } as const;
+
+/** Fails to compile when a consumption-token text has no ticket text or other parameters. */
+type Checked<T extends Overrides<typeof verifyPage> & Known<T, typeof verifyPage>> = T;
+export type VerifyPageTokenTexts = Checked<typeof verifyPage.tokens>;

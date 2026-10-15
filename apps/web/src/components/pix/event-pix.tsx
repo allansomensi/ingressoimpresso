@@ -16,6 +16,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { useEventKind } from "@/components/event/access";
 import { PixAccountForm } from "@/components/pix/pix-account-form";
 import { Alert, Badge, Button, Card, CardHeader, Dialog, Input, buttonClass, errorMessage, useConfirm } from "@/components/ui";
 import { api } from "@/lib/api";
@@ -64,6 +65,7 @@ export function pixTotals(numbers: readonly PixNumberDto[]): {
  * arrived. Only the money part of the team changes it (ADR 0055).
  */
 export function PixCard({ eventId, editable }: { eventId: string; editable: boolean }) {
+  const kind = useEventKind();
   const queryClient = useQueryClient();
   const pix = useEventPix(eventId);
   const [reviewing, setReviewing] = useState(false);
@@ -137,7 +139,9 @@ export function PixCard({ eventId, editable }: { eventId: string; editable: bool
                 />
                 {t.receivers[option].title}
               </span>
-              <span className="pl-6 text-xs leading-relaxed text-fg-muted">{t.receivers[option].body}</span>
+              <span className="pl-6 text-xs leading-relaxed text-fg-muted">
+                {option === "off" && kind === "tokens" ? t.receivers.offTokens : t.receivers[option].body}
+              </span>
             </label>
           );
         })}

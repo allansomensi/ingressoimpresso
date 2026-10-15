@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { Alert, Button, Dialog, ErrorMessage, Field, Input, Textarea, errorMessage, useConfirm } from "@/components/ui";
 import { api } from "@/lib/api";
 import { changeKind, sellerMessage, spokenDate } from "@/lib/event-change";
+import { forKind } from "@/lib/event-kind";
 import { offsetMinutes, wallClockInput, withOffset } from "@/lib/event-time";
 import { eventDateTime, shortDateTime } from "@/lib/format";
 import { copyText, whatsappUrl } from "@/lib/share";
@@ -16,7 +17,8 @@ import { canDo } from "@/lib/team";
 import { eventChange as eventChangeTexts } from "@/texts/pt-BR/event-change";
 import { panel as panelTexts } from "@/texts/pt-BR/panel";
 
-const t = eventChangeTexts;
+import { useEventKind } from "./access";
+
 const MAX_REASON = 200;
 
 /** Minutes between two `datetime-local` values (plain calendar arithmetic). */
@@ -44,6 +46,7 @@ function useSaved(onDone: (event: EventDto) => void) {
 
 /** New date (the end keeps the event's length until it is edited) and an optional reason. */
 export function PostponeDialog({ event, open, onClose, onDone }: { event: EventDto; open: boolean; onClose: () => void; onDone: (event: EventDto) => void }) {
+  const t = forKind(eventChangeTexts, eventChangeTexts.tokens, useEventKind());
   return (
     <Dialog open={open} onClose={onClose} title={t.postponeTitle} description={t.postponeDescription}>
       {open && <PostponeForm event={event} onClose={onClose} onDone={onDone} />}
@@ -52,6 +55,7 @@ export function PostponeDialog({ event, open, onClose, onDone }: { event: EventD
 }
 
 function PostponeForm({ event, onClose, onDone }: { event: EventDto; onClose: () => void; onDone: (event: EventDto) => void }) {
+  const t = forKind(eventChangeTexts, eventChangeTexts.tokens, useEventKind());
   const [startsAt, setStartsAt] = useState(wallClockInput(event.startsAt));
   const [endsAt, setEndsAt] = useState(wallClockInput(event.endsAt));
   const [endTouched, setEndTouched] = useState(false);
@@ -140,6 +144,7 @@ function PostponeForm({ event, onClose, onDone }: { event: EventDto; onClose: ()
 
 /** What canceling does, an optional reason, and the red button. */
 export function CancelDialog({ event, open, onClose, onDone }: { event: EventDto; open: boolean; onClose: () => void; onDone: (event: EventDto) => void }) {
+  const t = forKind(eventChangeTexts, eventChangeTexts.tokens, useEventKind());
   const [reason, setReason] = useState("");
   const saved = useSaved(onDone);
   const save = useMutation({
@@ -206,6 +211,7 @@ export function CancelDialog({ event, open, onClose, onDone }: { event: EventDto
 
 /** The ready-made message for the sellers: copy it or open WhatsApp with it. */
 export function ChangeMessageDialog({ event, open, onClose }: { event: EventDto; open: boolean; onClose: () => void }) {
+  const t = forKind(eventChangeTexts, eventChangeTexts.tokens, useEventKind());
   // The organization's own people get its WhatsApp in the message; a team member does not
   // see the profile of an organization that is not theirs.
   const profile = useQuery({
@@ -223,6 +229,7 @@ export function ChangeMessageDialog({ event, open, onClose }: { event: EventDto;
     address: event.address,
     change: event.change,
     organization,
+    eventKind: event.kind,
   });
   const copy = async () => {
     if (await copyText(message)) {
@@ -259,6 +266,7 @@ const buttonLike =
 
 /** The notice on the event's page: what changed, the message for the sellers, undo. */
 export function EventChangeBanner({ event }: { event: EventDto }) {
+  const t = forKind(eventChangeTexts, eventChangeTexts.tokens, useEventKind());
   const kind = changeKind(event.change, event.startsAt);
   const [messageOpen, setMessageOpen] = useState(false);
   const confirm = useConfirm();

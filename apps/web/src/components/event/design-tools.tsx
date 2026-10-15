@@ -31,9 +31,8 @@ import {
   type Axis,
   type TicketElement,
 } from "@/lib/design-selection";
-import { event as eventTexts } from "@/texts/pt-BR/event";
+import { useEventTexts } from "@/components/event/access";
 
-const t = eventTexts.design;
 
 const noSubscription = () => () => undefined;
 
@@ -48,6 +47,7 @@ function useIsMac(): boolean {
 
 /** The "Atalhos" button: a panel listing the editor's keyboard shortcuts (hidden on touch screens). */
 export function ShortcutsHelp() {
+  const t = useEventTexts().design;
   const mac = useIsMac();
   const items = t.shortcuts.items(mac ? "⌘" : "Ctrl", mac ? "⌥" : "Alt", mac ? "⌫" : "Delete");
   return (
@@ -132,6 +132,7 @@ export function AlignBar({
   onDistribute?: (axis: Axis) => void;
   canDistribute?: boolean;
 }) {
+  const t = useEventTexts().design;
   const s = t.selection;
   return (
     <div className="flex flex-col gap-2">
@@ -197,6 +198,7 @@ export function SelectionInspector({
   onRemove: () => void;
   onClear: () => void;
 }) {
+  const t = useEventTexts().design;
   const s = t.selection;
   const mac = useIsMac();
   const mod = mac ? "⌘" : "Ctrl";

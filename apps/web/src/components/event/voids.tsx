@@ -28,14 +28,14 @@ import { cn } from "@/lib/cn";
 import { shortDateTime, ticketNumber } from "@/lib/format";
 import { common as commonTexts } from "@/texts/pt-BR/common";
 import { errors as errorsTexts } from "@/texts/pt-BR/errors";
-import { event as eventTexts } from "@/texts/pt-BR/event";
+import { useEventTexts } from "@/components/event/access";
 
 import type { SelectTab } from "./tabs";
 
-const t = eventTexts.voids;
 const REASON_TONE: Record<VoidReason, Tone> = { unsold: "neutral", lost: "danger", revoked: "warning" };
 
 export function VoidsTab({ eventId, onSelect }: { eventId: string; onSelect: SelectTab }) {
+  const t = useEventTexts().voids;
   const queryClient = useQueryClient();
   const confirm = useConfirm();
   const key = ["voids", eventId];
