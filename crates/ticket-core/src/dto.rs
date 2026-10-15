@@ -150,7 +150,7 @@ pub struct EntryDto {
     pub device_name: String,
 }
 
-/// When and where a ticket first entered.
+/// When and where a ticket crossed the door: its first entry, or the exit of a return.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(
@@ -207,8 +207,27 @@ pub enum DecisionDto {
     AlreadyEntered {
         /// Ticket number.
         number: u32,
-        /// First entry.
+        /// First entry (with re-entry, the entry that holds now).
         first_entry: FirstEntryDto,
+    },
+    /// Green: went out and comes back in (re-entry).
+    Readmit {
+        /// Ticket number.
+        number: u32,
+        /// When and where it went out.
+        exited: FirstEntryDto,
+    },
+    /// Blue: goes out and may come back (re-entry).
+    Exit {
+        /// Ticket number.
+        number: u32,
+    },
+    /// Yellow: read again on the way out.
+    AlreadyOut {
+        /// Ticket number.
+        number: u32,
+        /// When and where it went out.
+        exited: FirstEntryDto,
     },
     /// Red: voided by the organizer.
     Voided {
@@ -370,6 +389,17 @@ impl From<&Decision> for DecisionDto {
                 number: number.get(),
                 first_entry: first_entry.into(),
             },
+            Decision::Readmit { number, exited } => Self::Readmit {
+                number: number.get(),
+                exited: exited.into(),
+            },
+            Decision::Exit { number } => Self::Exit {
+                number: number.get(),
+            },
+            Decision::AlreadyOut { number, exited } => Self::AlreadyOut {
+                number: number.get(),
+                exited: exited.into(),
+            },
             Decision::Voided { number, reason } => Self::Voided {
                 number: number.get(),
                 reason: (*reason).into(),
@@ -412,6 +442,38 @@ mod tests {
             })
         );
         assert_eq!(serde_json::from_value::<DecisionDto>(json).unwrap(), dto);
+    }
+
+    #[test]
+    fn reentry_decision_json_shapes() {
+        let exited = FirstEntryDto {
+            at_unix_ms: 1_767_229_200_000,
+            device_name: "Saída".to_owned(),
+        };
+        assert_eq!(
+            serde_json::to_value(DecisionDto::Readmit {
+                number: 7,
+                exited: exited.clone()
+            })
+            .unwrap(),
+            serde_json::json!({
+                "kind": "readmit",
+                "number": 7,
+                "exited": { "atUnixMs": 1_767_229_200_000_i64, "deviceName": "Saída" }
+            })
+        );
+        assert_eq!(
+            serde_json::to_value(DecisionDto::Exit { number: 7 }).unwrap(),
+            serde_json::json!({ "kind": "exit", "number": 7 })
+        );
+        assert_eq!(
+            serde_json::to_value(DecisionDto::AlreadyOut { number: 7, exited }).unwrap(),
+            serde_json::json!({
+                "kind": "already_out",
+                "number": 7,
+                "exited": { "atUnixMs": 1_767_229_200_000_i64, "deviceName": "Saída" }
+            })
+        );
     }
 
     #[test]

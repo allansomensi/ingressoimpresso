@@ -424,6 +424,7 @@ fn text_blocks_print_their_fields_inside_their_box_in_every_font() {
             starts_at: Some(time::macros::datetime!(2026-06-20 19:30)),
             price_cents: None,
             organization: None,
+            category: None,
         };
         let dark = dark_text_pixels(&job);
         assert!(

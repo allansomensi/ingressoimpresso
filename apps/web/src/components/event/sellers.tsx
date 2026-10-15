@@ -57,6 +57,7 @@ import { toast } from "sonner";
 import { ReadOnlyNotice, useEventAccess } from "@/components/event/access";
 import { GoalDialog, GoalLine, RankingCard, ReserveDialog, SellerReservations } from "@/components/event/seller-extras";
 import { PaymentDialog, ReturnDialog } from "@/components/event/settlement-dialogs";
+import { PixCard, SellerPixDialog, useEventPix } from "@/components/pix/event-pix";
 import {
   Alert,
   Badge,
@@ -87,6 +88,7 @@ import { receivedPercent, settlementMessage, settlementState, settlementTotals, 
 import { common as commonTexts } from "@/texts/pt-BR/common";
 import { errors as errorsTexts } from "@/texts/pt-BR/errors";
 import { event as eventTexts } from "@/texts/pt-BR/event";
+import { pix as pixTexts } from "@/texts/pt-BR/pix";
 
 const t = eventTexts.sellers;
 
@@ -369,6 +371,8 @@ function MoneyBar({ row }: { row: ReportRowDto }) {
         </span>
         <StateBadge state={state} />
       </div>
+      {/* Pix the buyers paid straight to the organization counts as handed over (ADR 0085). */}
+      {row.pixCents > 0 && <p className="-mt-1 text-xs text-fg-muted">{pixTexts.summaryPix(money(row.pixCents))}</p>}
       <div
         role="progressbar"
         aria-valuemin={0}
@@ -679,6 +683,7 @@ function SellerCard({
   reservations,
   allReservations,
   event,
+  pixSeller,
   onChange,
 }: {
   seller: SellerDto;
@@ -691,6 +696,8 @@ function SellerCard({
   /** Every reservation of the event (numbers taken). */
   allReservations: readonly ReservationDto[];
   event: EventDto;
+  /** The event's buyers pay each seller by Pix (ADR 0085): their own key is set here. */
+  pixSeller: boolean;
   onChange: () => void;
 }) {
   const confirm = useConfirm();
@@ -698,7 +705,7 @@ function SellerCard({
   const delivery = can("delivery");
   const cash = can("money");
   const [assigning, setAssigning] = useState(false);
-  const [dialog, setDialog] = useState<"payment" | "return" | "goal" | "reserve" | null>(null);
+  const [dialog, setDialog] = useState<"payment" | "return" | "goal" | "reserve" | "pix" | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const remove = useMutation({
     mutationFn: (path: string) => api<undefined>(path, { method: "DELETE" }),
@@ -748,6 +755,12 @@ function SellerCard({
                   {t.boxOffice.badge}
                 </Badge>
               )}
+              {pixSeller && seller.pix !== null && (
+                <Badge tone="success" className="shrink-0">
+                  <QrCode className="size-3" aria-hidden />
+                  {pixTexts.sellerKeyBadge}
+                </Badge>
+              )}
             </span>
             <span className="flex min-w-0 items-center gap-1.5 text-sm text-fg-muted">
               {seller.phone !== null && (
@@ -766,7 +779,7 @@ function SellerCard({
             </span>
           </div>
         </div>
-        {(delivery || (row !== undefined && total > 0)) && (
+        {(delivery || cash || (row !== undefined && total > 0)) && (
         <div className="flex shrink-0 items-center">
           <Menu
             label={t.menu(seller.name)}
@@ -795,6 +808,17 @@ function SellerCard({
                   {t.copySummary}
                 </MenuItem>
               </>
+            )}
+            {/* Where this seller's buyers pay by Pix: the money part's call (ADR 0085). */}
+            {cash && pixSeller && (
+              <MenuItem
+                icon={<QrCode />}
+                onSelect={() => {
+                  setDialog("pix");
+                }}
+              >
+                {pixTexts.sellerKey}
+              </MenuItem>
             )}
             {/* The box office changes what the seller owes: the money part's call (ADR 0069). */}
             {delivery && cash && (
@@ -1016,6 +1040,16 @@ function SellerCard({
             setDialog(null);
           }}
           seller={seller}
+          onSaved={onChange}
+        />
+      )}
+      {dialog === "pix" && (
+        <SellerPixDialog
+          eventId={event.id}
+          seller={seller}
+          onClose={() => {
+            setDialog(null);
+          }}
           onSaved={onChange}
         />
       )}
@@ -1275,8 +1309,11 @@ export function SellersTab({ eventId, event, onEditEvent }: { eventId: string; e
     queryKey: ["reservations", eventId],
     queryFn: () => api<ReservationDto[]>(`/api/events/${eventId}/reservations`),
   });
+  // Pix of the buyers (ADR 0085): sellers may have their own key when they receive it.
+  const pix = useEventPix(eventId);
+  const pixSeller = pix.data?.receiver === "seller";
   const refresh = () => {
-    for (const key of ["sellers", "report", "seller-payments", "voids", "ticket-sales", "reservations", "analytics"]) {
+    for (const key of ["sellers", "report", "seller-payments", "voids", "ticket-sales", "reservations", "analytics", "event-pix"]) {
       void queryClient.invalidateQueries({ queryKey: [key, eventId] });
     }
   };
@@ -1310,6 +1347,7 @@ export function SellersTab({ eventId, event, onEditEvent }: { eventId: string; e
             allReservations={reservations.data ?? []}
             voids={voids.data ?? []}
             event={event}
+            pixSeller={pixSeller}
             onChange={refresh}
           />
         ))}
@@ -1322,6 +1360,15 @@ export function SellersTab({ eventId, event, onEditEvent }: { eventId: string; e
       <>
         {content}
         <SellerSettings eventId={eventId} />
+      </>
+    );
+  }
+  // How buyers pay by Pix (ADR 0085): read by the whole team, changed by the money part.
+  if (list.length > 0) {
+    content = (
+      <>
+        {content}
+        <PixCard eventId={eventId} editable={can("money") && event.status !== "closed"} />
       </>
     );
   }

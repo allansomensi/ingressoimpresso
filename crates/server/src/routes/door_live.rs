@@ -11,7 +11,7 @@ use uuid::Uuid;
 use super::authorize_event;
 use crate::api::{
     DoorLiveBoxOfficeDto, DoorLiveBucketDto, DoorLiveCategoryDto, DoorLiveDeviceDto,
-    DoorLiveDoorDto, DoorLiveDto, DoorLiveGuestsDto, DoorLiveRefusalsDto,
+    DoorLiveDoorDto, DoorLiveDto, DoorLiveGuestsDto, DoorLiveReentryDto, DoorLiveRefusalsDto,
 };
 use crate::auth::AuthUser;
 use crate::error::ApiResult;
@@ -81,7 +81,7 @@ pub async fn live(
     )
     .fetch_one(pool);
     // Polled every few seconds: the independent reads go out together.
-    let (tickets, entries, doors, devices, categories, refusals, guests, box_office) = tokio::try_join!(
+    let (tickets, entries, doors, devices, categories, refusals, guests, box_office, reentry) = tokio::try_join!(
         async { Ok(tickets.await?) },
         async { Ok(entries.await?) },
         doors(pool, event_id),
@@ -90,6 +90,7 @@ pub async fn live(
         async { Ok(refusals.await?) },
         guests(pool, event_id),
         box_office(pool, event_id, price),
+        reentry(pool, event_id),
     )?;
     let categories = categories
         .into_iter()
@@ -122,7 +123,49 @@ pub async fn live(
         refusals,
         guests,
         box_office,
+        reentry,
         generated_at: now,
+    }))
+}
+
+/// Who is inside and who is out (ADR 0083): the latest movement of each ticket that entered, in
+/// the order every phone uses (time, phone name, exit after entry).
+async fn reentry(pool: &PgPool, event_id: Uuid) -> ApiResult<Option<DoorLiveReentryDto>> {
+    let row = sqlx::query!(
+        r#"with latest as (
+               select distinct on (s.ticket_number) s.ticket_number, s.local_outcome
+               from scans s join door_devices d on d.id = s.device_id
+               where s.event_id = $1 and s.local_outcome in ('admitted', 'readmitted', 'exited')
+               order by s.ticket_number, s.scanned_at desc, d.name desc, (s.local_outcome = 'exited') desc
+           )
+           select e.reentry,
+                  (select count(*) from entries n
+                   where n.event_id = $1
+                     and not exists (select 1 from latest l
+                                     where l.ticket_number = n.ticket_number and l.local_outcome = 'exited')) as "inside!",
+                  (select count(*) from entries n join latest l on l.ticket_number = n.ticket_number
+                   where n.event_id = $1 and l.local_outcome = 'exited') as "out!",
+                  (select count(*) from scans where event_id = $1 and local_outcome = 'exited') as "exits!",
+                  (select count(*) from scans where event_id = $1 and server_class = 'reentry') as "returns!"
+           from events e where e.id = $1"#,
+        event_id
+    )
+    .fetch_one(pool)
+    .await?;
+    if !row.reentry && row.exits == 0 {
+        return Ok(None);
+    }
+    Ok(Some(DoorLiveReentryDto {
+        allowed: row.reentry,
+        // Turned off after some went out: everyone who entered counts as inside again.
+        inside: if row.reentry {
+            row.inside
+        } else {
+            row.inside + row.out
+        },
+        out: if row.reentry { row.out } else { 0 },
+        exits: row.exits,
+        returns: row.returns,
     }))
 }
 

@@ -714,20 +714,27 @@ fn text_values(job: &RenderJob, details: &EventDetails) -> Vec<Option<String>> {
         .collect()
 }
 
-/// The texts of a ticket whose category has its own price, when the design prints the price
-/// (ADR 0056: a VIP ticket shows the VIP price).
+/// The texts of a ticket with a category, when the design prints something of it: its own price
+/// (`{preco}`, ADR 0056: a VIP ticket shows the VIP price) or its name (`{categoria}`, ADR 0084:
+/// the product of a consumption token).
 fn category_texts(job: &RenderJob, ticket: &TicketToRender) -> Option<Vec<Option<String>>> {
-    let price = ticket.category.as_ref()?.price_cents?;
-    let prints_price = job
-        .design
-        .texts
-        .iter()
-        .any(|block| block.text.contains("{preco}"));
-    if !prints_price || job.details.price_cents == Some(price) {
+    let category = ticket.category.as_ref()?;
+    let prints = |field: &str| {
+        job.design
+            .texts
+            .iter()
+            .any(|block| block.text.contains(field))
+    };
+    let price = category
+        .price_cents
+        .filter(|price| prints("{preco}") && job.details.price_cents != Some(*price));
+    let name = prints("{categoria}").then(|| category.name.clone());
+    if price.is_none() && name.is_none() {
         return None;
     }
     let details = EventDetails {
-        price_cents: Some(price),
+        price_cents: price.or(job.details.price_cents),
+        category: name,
         ..job.details.clone()
     };
     Some(text_values(job, &details))
@@ -997,6 +1004,41 @@ mod tests {
         assert!(data.tickets[1].text_values.is_none());
         assert!(data.tickets[2].text_values.is_none());
         // Printing it works too.
+        assert!(home_pdf(&job).is_ok());
+    }
+
+    #[test]
+    fn tokens_print_their_category() {
+        let block = |text: &str| crate::design::TextBlock {
+            text: text.to_owned(),
+            x_mm: 5.0,
+            y_mm: 5.0,
+            width_mm: 40.0,
+            height_mm: 8.0,
+            font: crate::design::FontChoice::Sans,
+            size_pt: 10.0,
+            color: "#111111".to_owned(),
+            align: crate::design::TextAlign::Left,
+            lines: 1,
+            bold: false,
+            uppercase: true,
+            letter_spacing: 0.0,
+        };
+        let mut job = signed_job(2);
+        job.design.texts = vec![block("{categoria}"), block("{preco}")];
+        job.details.price_cents = Some(500);
+        job.tickets[0].category = Some(TicketCategory {
+            name: "Pastel".to_owned(),
+            color: "#ca8a04".to_owned(),
+            price_cents: None,
+        });
+        let data = TemplateData::new(&job, &job.tickets);
+        // Without a category, the product block is hidden.
+        assert_eq!(data.text_values[0], None);
+        let own = data.tickets[0].text_values.as_ref().unwrap();
+        assert_eq!(own[0].as_deref(), Some("PASTEL"));
+        assert_eq!(own[1].as_deref(), Some("R$ 5,00"));
+        assert!(data.tickets[1].text_values.is_none());
         assert!(home_pdf(&job).is_ok());
     }
 

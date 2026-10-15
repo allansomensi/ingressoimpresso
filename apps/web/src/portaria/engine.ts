@@ -21,6 +21,7 @@ import {
   boxOfficeTotals,
   canUndoArrival,
   guestState,
+  isEntry,
   numberOf,
   outcomeOf,
   rehearsalView,
@@ -52,6 +53,10 @@ export interface DoorState {
   pending: number;
   /** Tickets known to have entered (all phones). */
   entryCount: number;
+  /** Tickets inside now (ADR 0083): with re-entry, those that entered and did not go out. */
+  insideCount: number;
+  /** This phone reads the exit (re-entry, ADR 0083); only while the event allows it. */
+  exitMode: boolean;
   lastSyncOkAt: number | null;
   /** Since when sync has been failing (null while it works). */
   offlineSince: number | null;
@@ -83,6 +88,8 @@ const INITIAL: DoorState = {
   manifest: null,
   pending: 0,
   entryCount: 0,
+  insideCount: 0,
+  exitMode: false,
   lastSyncOkAt: null,
   offlineSince: null,
   result: null,
@@ -99,6 +106,17 @@ const INITIAL: DoorState = {
 
 function toEntryDto(entry: storage.StoredEntry): EntryDto {
   return { number: entry.number, atUnixMs: entry.atUnixMs, deviceName: entry.deviceName };
+}
+
+/** Hands stored movements to the core: entries (first ones and returns), then exits (ADR 0083). */
+function recordMovements(core: DoorCore, movements: readonly storage.StoredEntry[]): void {
+  core.recordEntries(movements.filter((item) => item.exit !== true).map(toEntryDto));
+  core.recordExits(movements.filter((item) => item.exit === true).map(toEntryDto));
+}
+
+/** Whether the event lets a ticket that went out come back (manifests stored before lack it). */
+function reentryOf(manifest: storage.StoredManifest | null | undefined): boolean {
+  return manifest?.event.reentry === true;
 }
 
 export class DoorEngine {
@@ -161,13 +179,14 @@ export class DoorEngine {
       if (manifest !== undefined) {
         await this.#rebuildCore(manifest.verifier, manifest);
       }
-      const [arrivals, admitted, entries, rehearsalPending] = await Promise.all([
+      const [arrivals, admitted, entries, rehearsalPending, exitMode] = await Promise.all([
         storage.allArrivals(),
         storage.ownAdmittedNumbers(),
         storage.allEntries(),
         storage.readFlag("rehearsalPending"),
+        storage.readFlag("exitMode"),
       ]);
-      this.#entered = new Set(entries.map((entry) => entry.number));
+      this.#entered = new Set(entries.filter((entry) => entry.exit !== true).map((entry) => entry.number));
       this.#admittedHere = new Set(admitted);
       this.#set({
         phase: "ready",
@@ -176,6 +195,7 @@ export class DoorEngine {
         lastSyncOkAt: null,
         pending: await this.#pendingTotal(),
         rehearsed: rehearsalPending,
+        exitMode,
         ...this.#arrivalState(arrivals),
       });
       this.#countBoxOffice();
@@ -230,6 +250,26 @@ export class DoorEngine {
     return this.#core !== null && this.#state.phase === "ready";
   }
 
+  /** Whether reads go to the exit now: the phone is set to it and the event allows re-entry. */
+  get readingExits(): boolean {
+    return this.#state.exitMode && reentryOf(this.#state.manifest);
+  }
+
+  /** Sets this phone to read the entrance or the exit (ADR 0083); kept across reloads. */
+  async setExitMode(exit: boolean): Promise<void> {
+    if (exit === this.#state.exitMode) {
+      return;
+    }
+    this.#last = null;
+    this.#wrongDoor = null;
+    this.#set({ exitMode: exit, result: null });
+    try {
+      await storage.writeFlag("exitMode", exit);
+    } catch {
+      // Kept for this session at least.
+    }
+  }
+
   /**
    * Handles the texts of one camera frame. Ignored while a scan is being processed or a result
    * is on screen, except a green one seen for a moment, which a different ticket replaces (a busy
@@ -241,7 +281,8 @@ export class DoorEngine {
     if (core === null || device === null || texts.length === 0 || this.#scanning) {
       return;
     }
-    const text = texts.find((candidate) => core.evaluate(candidate).kind !== "invalid") ?? texts[0];
+    const exit = this.readingExits;
+    const text = texts.find((candidate) => (exit ? core.evaluateExit(candidate) : core.evaluate(candidate)).kind !== "invalid") ?? texts[0];
     if (text === undefined) {
       return;
     }
@@ -273,7 +314,7 @@ export class DoorEngine {
     try {
       if (this.#state.rehearsing) {
         // Rehearsal: what would happen, never recorded nor sent (ADR 0067).
-        const view = rehearsalView(text, core.evaluate(text), this.#context());
+        const view = rehearsalView(text, exit ? core.evaluateExit(text) : core.evaluate(text), this.#context());
         this.#last = { text, seenAt: Date.now(), view };
         this.#set({ result: view, testScanDone: true, rehearsalRead: true });
         return;
@@ -281,12 +322,18 @@ export class DoorEngine {
       // DoorCore takes integer milliseconds.
       const at = Math.round(now + (this.#state.manifest?.offsetMs ?? 0));
       const context = this.#context();
+      if (exit) {
+        const view = await this.#checkOut(core, text, at, device.deviceName);
+        this.#last = { text, seenAt: Date.now(), view };
+        this.#set({ result: view, testScanDone: true, ...this.#counts(core) });
+        return;
+      }
       // A door limited to some categories looks before letting in (ADR 0068): a valid ticket of
       // another category is refused without an entry, and the refusal is logged like any scan.
       if ((context.allowedCategoryIds ?? []).length > 0) {
         const preview = core.evaluate(text);
-        const wrong = preview.kind === "admit" ? wrongDoor(context, preview.number) : null;
-        if (preview.kind === "admit" && wrong !== null) {
+        const wrong = isEntry(preview) ? wrongDoor(context, preview.number) : null;
+        if (isEntry(preview) && wrong !== null) {
           await this.#persist(
             { id: crypto.randomUUID(), number: preview.number, outcome: "rejected_wrong_door", scannedAtMs: at, synced: 0 },
             null,
@@ -300,7 +347,7 @@ export class DoorEngine {
       }
       const view = await this.#checkIn(core, text, at, device.deviceName, false);
       this.#last = { text, seenAt: Date.now(), view };
-      this.#set({ result: view, checking: false, testScanDone: true, entryCount: core.entryCount });
+      this.#set({ result: view, checking: false, testScanDone: true, ...this.#counts(core) });
     } catch {
       // A bug, never a decision: say so instead of showing nothing.
       this.#set({ result: errorView(), checking: false });
@@ -324,7 +371,7 @@ export class DoorEngine {
       const at = Math.round(Date.now() + (this.#state.manifest?.offsetMs ?? 0));
       const view = await this.#checkIn(core, pending.text, at, device.deviceName, true);
       this.#last = { text: pending.text, seenAt: Date.now(), view };
-      this.#set({ result: view, checking: false, entryCount: core.entryCount });
+      this.#set({ result: view, checking: false, ...this.#counts(core) });
     } catch {
       this.#set({ result: errorView(), checking: false });
     } finally {
@@ -343,12 +390,12 @@ export class DoorEngine {
         outcome: outcomeOf(decision),
         scannedAtMs: at,
         synced: 0,
-        ...(exception && decision.kind === "admit" ? { exception: true } : {}),
+        ...(exception && isEntry(decision) ? { exception: true } : {}),
         // For this phone's history only (never uploaded).
         ...(decision.kind === "voided" || decision.kind === "invalid" ? { reason: decision.reason } : {}),
         ...(decision.kind === "other_event" ? { eventTag: decision.eventTag } : {}),
       },
-      decision.kind === "admit" ? { number: decision.number, atUnixMs: at, deviceName } : null,
+      isEntry(decision) ? { number: decision.number, atUnixMs: at, deviceName } : null,
     );
     let view = viewOf(decision, this.#context());
     if (decision.kind === "admit") {
@@ -356,11 +403,37 @@ export class DoorEngine {
       this.#admittedHere.add(decision.number);
       this.#countBoxOffice();
     }
-    if (decision.kind === "admit" && scan !== null && this.#gate.canConfirm(Date.now(), this.#state.lastSyncOkAt)) {
+    // A return is confirmed like a first entry: a copy may have come back first elsewhere.
+    if (isEntry(decision) && scan !== null && this.#gate.canConfirm(Date.now(), this.#state.lastSyncOkAt)) {
       this.#set({ checking: true, testScanDone: true });
       view = (await this.#confirm(scan, decision.number)) ?? view;
     }
     return view;
+  }
+
+  /**
+   * The exit (ADR 0083): decided and persisted like an entry (invariant 6), never confirmed
+   * online (an exit can only make the door more permissive later, and the server keeps it).
+   */
+  async #checkOut(core: DoorCore, text: string, at: number, deviceName: string): Promise<ResultView> {
+    const decision = core.checkOut(text, at, deviceName);
+    await this.#persist(
+      {
+        id: crypto.randomUUID(),
+        number: numberOf(decision),
+        outcome: outcomeOf(decision),
+        scannedAtMs: at,
+        synced: 0,
+        ...(decision.kind === "voided" || decision.kind === "invalid" ? { reason: decision.reason } : {}),
+        ...(decision.kind === "other_event" ? { eventTag: decision.eventTag } : {}),
+      },
+      decision.kind === "exit" ? { number: decision.number, atUnixMs: at, deviceName, exit: true } : null,
+    );
+    return viewOf(decision, this.#context());
+  }
+
+  #counts(core: DoorCore): Pick<DoorState, "entryCount" | "insideCount"> {
+    return { entryCount: core.entryCount, insideCount: core.insideCount };
   }
 
   /**
@@ -551,6 +624,8 @@ export class DoorEngine {
       doors: manifest?.doors ?? [],
       priceCents: manifest?.event.ticketPriceCents ?? null,
       sessions: manifest?.sessions ?? [],
+      reentry: reentryOf(manifest),
+      kind: manifest?.event.kind ?? this.#state.device?.event.kind ?? "tickets",
     };
   }
 
@@ -681,36 +756,48 @@ export class DoorEngine {
     if (await storage.mergeArrivals(manifest.guestArrivals)) {
       this.#set(this.#arrivalState(await storage.allArrivals()));
     }
-    const added = await storage.addEntries(
-      manifest.entries.map((entry) => ({
+    const added = await storage.addEntries([
+      ...manifest.entries.map((entry) => ({
         scanId: entry.scanId,
         number: entry.number,
         atUnixMs: entry.atUnixMs,
         deviceName: entry.deviceName,
       })),
-    );
+      // Exits of re-entry (ADR 0083); servers before it send none.
+      ...((manifest.exits as DoorManifest["exits"] | undefined) ?? []).map((exit) => ({
+        scanId: exit.scanId,
+        number: exit.number,
+        atUnixMs: exit.atUnixMs,
+        deviceName: exit.deviceName,
+        exit: true as const,
+      })),
+    ]);
     if (this.#core === null || JSON.stringify(manifest.verifier) !== this.#verifierJson) {
       await this.#rebuildCore(manifest.verifier, stored);
     } else {
       this.#core.replaceVoids(manifest.voids);
-      this.#core.recordEntries(added.map(toEntryDto));
+      this.#core.setReentry(reentryOf(stored));
+      recordMovements(this.#core, added);
     }
     await storage.saveManifest(stored);
     for (const entry of added) {
-      this.#entered.add(entry.number);
+      if (entry.exit !== true) {
+        this.#entered.add(entry.number);
+      }
     }
-    this.#set({ manifest: stored, entryCount: this.#core?.entryCount ?? 0 });
+    this.#set({ manifest: stored, ...(this.#core === null ? { entryCount: 0, insideCount: 0 } : this.#counts(this.#core)) });
     this.#countBoxOffice();
   }
 
-  /** A fresh core for new keys: verifier, voids and every known entry. */
+  /** A fresh core for new keys: verifier, voids, re-entry and every known movement. */
   async #rebuildCore(verifier: DoorVerifierDto, manifest: storage.StoredManifest): Promise<void> {
     const core = new DoorCore(verifier);
     core.replaceVoids(manifest.voids);
-    core.recordEntries((await storage.allEntries()).map(toEntryDto));
+    core.setReentry(reentryOf(manifest));
+    recordMovements(core, await storage.allEntries());
     this.#core?.free();
     this.#core = core;
     this.#verifierJson = JSON.stringify(verifier);
-    this.#set({ entryCount: core.entryCount });
+    this.#set(this.#counts(core));
   }
 }

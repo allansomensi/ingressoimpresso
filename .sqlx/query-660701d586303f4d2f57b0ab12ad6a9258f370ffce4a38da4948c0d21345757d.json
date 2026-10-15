@@ -1,0 +1,35 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select (select count(*) from entries where event_id = $1) as \"entries!\",\n                  reentry from events where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "entries!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "reentry",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "reentry"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null,
+      false
+    ]
+  },
+  "hash": "660701d586303f4d2f57b0ab12ad6a9258f370ffce4a38da4948c0d21345757d"
+}

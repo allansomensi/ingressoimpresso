@@ -119,10 +119,37 @@ pub struct DecisionCase {
     pub voids: Vec<VoidRangeDto>,
     /// Entries known by the door.
     pub entries: Vec<EntryDto>,
+    /// Whether the door lets a ticket that went out come back (ADR 0083); absent: no.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts", ts(optional))]
+    pub reentry: Option<bool>,
+    /// Exits known by the door (ADR 0083); absent: none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts", ts(optional))]
+    pub exits: Option<Vec<EntryDto>>,
+    /// Where the ticket is read: the entrance (absent) or the exit.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts", ts(optional))]
+    pub direction: Option<DirectionDto>,
     /// Scanned text.
     pub qr_text: String,
     /// Expected decision.
     pub expected: DecisionDto,
+}
+
+/// Where a door phone reads a ticket (ADR 0083).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(
+    feature = "ts",
+    derive(ts_rs::TS),
+    ts(export, export_to = "ticket-core-wasm/src/generated/")
+)]
+pub enum DirectionDto {
+    /// At the entrance: `check_in`.
+    In,
+    /// At the exit: `check_out`.
+    Out,
 }
 
 /// Ed25519 group order L, little-endian (used to build a non-canonical `S`).
@@ -138,6 +165,8 @@ const PRIMARY_TAG: u32 = 0x1A2B_3C4D;
 const OTHER_TAG: u32 = 0x0BAD_F00D;
 /// 2026-01-01T00:00:00Z.
 const ENTRY_TIME: i64 = 1_767_225_600_000;
+/// One hour, between the movements of the re-entry cases.
+const HOUR_MS: i64 = 3_600_000;
 
 struct EventSpec {
     name: &'static str,
@@ -590,9 +619,206 @@ fn cases() -> Result<Vec<DecisionCase>> {
             invalid(InvalidReasonDto::Malformed),
         ),
     ];
+    cases.extend(reentry_cases(&base45::encode(&flipped_signature))?);
     // Keep the file stable and easy to diff.
     cases.sort_by(|a, b| a.name.cmp(&b.name));
     Ok(cases)
+}
+
+/// Re-entry (ADR 0083): exits, returns and the exit's own decisions. Written by hand like every
+/// other case.
+#[expect(
+    clippy::too_many_lines,
+    reason = "one specification table reads best in one place"
+)]
+fn reentry_cases(forged_text: &str) -> Result<Vec<DecisionCase>> {
+    let at = |offset: i64, value: u32, device: &str| EntryDto {
+        number: value,
+        at_unix_ms: ENTRY_TIME + offset,
+        device_name: device.to_owned(),
+    };
+    let when = |offset: i64, device: &str| FirstEntryDto {
+        at_unix_ms: ENTRY_TIME + offset,
+        device_name: device.to_owned(),
+    };
+    let ticket = text(PRIMARY, 1, 42)?;
+    let returning = |name: &str, description: &str, expected: DecisionDto| DecisionCase {
+        reentry: Some(true),
+        ..case(name, description, PRIMARY, &ticket, expected)
+    };
+    let leaving =
+        |name: &str, description: &str, qr_text: &str, expected: DecisionDto| DecisionCase {
+            reentry: Some(true),
+            direction: Some(DirectionDto::Out),
+            ..case(name, description, PRIMARY, qr_text, expected)
+        };
+    Ok(vec![
+        DecisionCase {
+            entries: vec![at(0, 42, "Porta 1")],
+            exits: Some(vec![at(HOUR_MS, 42, "Saída")]),
+            ..case(
+                "reentry-off-ignores-exits",
+                "Without re-entry, a ticket that went out is still a ticket that already entered.",
+                PRIMARY,
+                &ticket,
+                DecisionDto::AlreadyEntered {
+                    number: 42,
+                    first_entry: when(0, "Porta 1"),
+                },
+            )
+        },
+        returning(
+            "reentry-first-entry",
+            "With re-entry, a ticket nobody saw yet enters as usual.",
+            DecisionDto::Admit { number: 42 },
+        ),
+        DecisionCase {
+            entries: vec![at(0, 42, "Porta 1")],
+            exits: Some(vec![at(HOUR_MS, 42, "Saída")]),
+            ..returning(
+                "reentry-return-after-exit",
+                "A ticket whose latest movement is an exit comes back in and shows when it left.",
+                DecisionDto::Readmit {
+                    number: 42,
+                    exited: when(HOUR_MS, "Saída"),
+                },
+            )
+        },
+        DecisionCase {
+            entries: vec![at(0, 42, "Porta 1"), at(2 * HOUR_MS, 42, "Porta 2")],
+            exits: Some(vec![at(HOUR_MS, 42, "Saída")]),
+            ..returning(
+                "reentry-inside-after-return",
+                "Back inside: a copy is blocked and the door shows the entry that holds now.",
+                DecisionDto::AlreadyEntered {
+                    number: 42,
+                    first_entry: when(2 * HOUR_MS, "Porta 2"),
+                },
+            )
+        },
+        DecisionCase {
+            entries: vec![at(2 * HOUR_MS, 42, "Porta 1")],
+            exits: Some(vec![at(HOUR_MS, 42, "Saída")]),
+            ..returning(
+                "reentry-exit-older-than-entry",
+                "Movements count by their time, not by when the phone heard of them: an exit \
+                 older than the entry does not let the ticket in again.",
+                DecisionDto::AlreadyEntered {
+                    number: 42,
+                    first_entry: when(2 * HOUR_MS, "Porta 1"),
+                },
+            )
+        },
+        DecisionCase {
+            exits: Some(vec![at(0, 42, "Saída")]),
+            ..returning(
+                "reentry-exit-without-entry",
+                "An exit of a ticket never seen entering does not count as an entry.",
+                DecisionDto::Admit { number: 42 },
+            )
+        },
+        DecisionCase {
+            entries: vec![at(0, 42, "Porta B")],
+            exits: Some(vec![at(0, 42, "Porta A")]),
+            ..returning(
+                "reentry-tie-broken-by-device",
+                "Movements at the same millisecond are ordered by device name, then direction.",
+                DecisionDto::AlreadyEntered {
+                    number: 42,
+                    first_entry: when(0, "Porta B"),
+                },
+            )
+        },
+        DecisionCase {
+            voids: vec![VoidRangeDto {
+                first: 40,
+                last: 45,
+                reason: VoidReasonDto::Lost,
+            }],
+            entries: vec![at(0, 42, "Porta 1")],
+            exits: Some(vec![at(HOUR_MS, 42, "Saída")]),
+            ..returning(
+                "reentry-void-precedes-return",
+                "A ticket voided while outside does not come back.",
+                DecisionDto::Voided {
+                    number: 42,
+                    reason: VoidReasonDto::Lost,
+                },
+            )
+        },
+        DecisionCase {
+            entries: vec![at(0, 42, "Porta 1")],
+            ..leaving(
+                "exit-goes-out",
+                "At the exit, a ticket inside goes out.",
+                &ticket,
+                DecisionDto::Exit { number: 42 },
+            )
+        },
+        DecisionCase {
+            entries: vec![at(0, 42, "Porta 1")],
+            exits: Some(vec![at(HOUR_MS, 42, "Saída")]),
+            ..leaving(
+                "exit-already-out",
+                "Read again on the way out: it is already out, nothing new is recorded.",
+                &ticket,
+                DecisionDto::AlreadyOut {
+                    number: 42,
+                    exited: when(HOUR_MS, "Saída"),
+                },
+            )
+        },
+        DecisionCase {
+            entries: vec![at(0, 42, "Porta 1"), at(2 * HOUR_MS, 42, "Porta 2")],
+            exits: Some(vec![at(HOUR_MS, 42, "Saída")]),
+            ..leaving(
+                "exit-after-return",
+                "A ticket that came back goes out again.",
+                &ticket,
+                DecisionDto::Exit { number: 42 },
+            )
+        },
+        leaving(
+            "exit-without-entry",
+            "A ticket this phone never saw entering still goes out: its entry may be on a phone \
+             that has not synced.",
+            &ticket,
+            DecisionDto::Exit { number: 42 },
+        ),
+        DecisionCase {
+            voids: vec![VoidRangeDto {
+                first: 42,
+                last: 42,
+                reason: VoidReasonDto::Unsold,
+            }],
+            entries: vec![at(0, 42, "Porta 1")],
+            ..leaving(
+                "exit-voided",
+                "A voided ticket is shown as voided at the exit too: it could not come back.",
+                &ticket,
+                DecisionDto::Voided {
+                    number: 42,
+                    reason: VoidReasonDto::Unsold,
+                },
+            )
+        },
+        leaving(
+            "exit-other-event",
+            "Another event's ticket is told apart at the exit too.",
+            &text(OTHER, 1, 1)?,
+            DecisionDto::OtherEvent {
+                event_tag: OTHER_TAG,
+            },
+        ),
+        leaving(
+            "exit-forged",
+            "A forged ticket is invalid at the exit too.",
+            forged_text,
+            DecisionDto::Invalid {
+                reason: InvalidReasonDto::BadSignature,
+            },
+        ),
+    ])
 }
 
 fn case(
@@ -608,6 +834,9 @@ fn case(
         door_event: door_event.to_owned(),
         voids: Vec::new(),
         entries: Vec::new(),
+        reentry: None,
+        exits: None,
+        direction: None,
         qr_text: qr_text.to_owned(),
         expected,
     }

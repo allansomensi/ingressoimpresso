@@ -91,6 +91,39 @@ impl DoorCore {
         Ok(first_entries)
     }
 
+    /// Records exits (`EntryDto[]`) of re-entry (ADR 0083), local or synced from other devices.
+    /// Returns how many of them became the latest movement of their ticket.
+    ///
+    /// # Errors
+    ///
+    /// Throws if any exit is malformed; no exit is recorded in that case.
+    #[wasm_bindgen(js_name = recordExits)]
+    #[allow(
+        clippy::needless_pass_by_value,
+        reason = "wasm-bindgen passes JS values by value"
+    )]
+    pub fn record_exits(&mut self, exits: JsValue) -> Result<u32, JsError> {
+        let dtos: Vec<EntryDto> = from_js(exits)?;
+        let exits = dtos
+            .iter()
+            .map(<(TicketNumber, EntryInfo)>::try_from)
+            .collect::<Result<Vec<_>, _>>()?;
+        let state = self.door.state_mut();
+        let mut latest: u32 = 0;
+        for (number, exit) in exits {
+            if state.record_exit(number, exit) {
+                latest = latest.saturating_add(1);
+            }
+        }
+        Ok(latest)
+    }
+
+    /// Allows or forbids re-entry (ADR 0083), as the event's manifest says.
+    #[wasm_bindgen(js_name = setReentry)]
+    pub fn set_reentry(&mut self, allowed: bool) {
+        self.door.state_mut().set_reentry(allowed);
+    }
+
     /// Evaluates a scan without recording anything. Returns a `DecisionDto`.
     ///
     /// # Errors
@@ -119,10 +152,46 @@ impl DoorCore {
         to_js(&self.door.check_in(qr_text, entry))
     }
 
+    /// Evaluates a scan at the exit without recording anything. Returns a `DecisionDto`.
+    ///
+    /// # Errors
+    ///
+    /// Throws only if the decision cannot be converted to a JS value.
+    #[wasm_bindgen(js_name = evaluateExit)]
+    pub fn evaluate_exit(&self, qr_text: &str) -> Result<JsValue, JsError> {
+        to_js(&self.door.evaluate_exit(qr_text))
+    }
+
+    /// Evaluates a scan at the exit and, if it goes out, records the exit atomically. Returns a
+    /// `DecisionDto`.
+    ///
+    /// # Errors
+    ///
+    /// Throws if `atUnixMs` is not a safe integer.
+    #[wasm_bindgen(js_name = checkOut)]
+    pub fn check_out(
+        &mut self,
+        qr_text: &str,
+        at_unix_ms: f64,
+        device_name: String,
+    ) -> Result<JsValue, JsError> {
+        let exit = EntryInfo {
+            at_unix_ms: unix_ms_from_js(at_unix_ms)?,
+            device_name,
+        };
+        to_js(&self.door.check_out(qr_text, exit))
+    }
+
     /// How many distinct tickets have entered.
     #[wasm_bindgen(js_name = entryCount)]
     pub fn entry_count(&self) -> u32 {
         u32::try_from(self.door.state().entry_count()).unwrap_or(u32::MAX)
+    }
+
+    /// How many tickets are inside now (with re-entry, those that entered and did not go out).
+    #[wasm_bindgen(js_name = insideCount)]
+    pub fn inside_count(&self) -> u32 {
+        u32::try_from(self.door.state().inside_count()).unwrap_or(u32::MAX)
     }
 }
 

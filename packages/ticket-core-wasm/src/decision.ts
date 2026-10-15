@@ -19,6 +19,9 @@ const INVALID_REASONS = Object.keys({
 const KINDS = Object.keys({
   admit: true,
   already_entered: true,
+  readmit: true,
+  exit: true,
+  already_out: true,
   voided: true,
   other_event: true,
   invalid: true,
@@ -55,10 +58,11 @@ function oneOf<const T extends string>(record: JsonRecord, key: string, allowed:
   return match;
 }
 
-function firstEntry(record: JsonRecord): FirstEntryDto {
-  const value = record["firstEntry"];
+/** When and where a ticket crossed the door (`firstEntry`, or `exited` of re-entry). */
+function crossing(record: JsonRecord, key: "firstEntry" | "exited"): FirstEntryDto {
+  const value = record[key];
   if (!isRecord(value)) {
-    throw new TypeError("decision.firstEntry is not an object");
+    throw new TypeError(`decision.${key} is not an object`);
   }
   return { atUnixMs: integer(value, "atUnixMs"), deviceName: text(value, "deviceName") };
 }
@@ -78,7 +82,12 @@ export function parseDecision(value: unknown): DecisionDto {
     case "admit":
       return { kind, number: integer(value, "number") };
     case "already_entered":
-      return { kind, number: integer(value, "number"), firstEntry: firstEntry(value) };
+      return { kind, number: integer(value, "number"), firstEntry: crossing(value, "firstEntry") };
+    case "readmit":
+    case "already_out":
+      return { kind, number: integer(value, "number"), exited: crossing(value, "exited") };
+    case "exit":
+      return { kind, number: integer(value, "number") };
     case "voided":
       return { kind, number: integer(value, "number"), reason: oneOf(value, "reason", VOID_REASONS) };
     case "other_event":

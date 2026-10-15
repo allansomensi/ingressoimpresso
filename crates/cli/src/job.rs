@@ -275,6 +275,7 @@ impl JobFile {
             starts_at,
             price_cents: self.event.price_cents,
             organization: self.event.organization.clone(),
+            category: None,
         })
     }
 

@@ -1,0 +1,73 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select coalesce(tc.price_cents, e.ticket_price_cents) as \"amount_cents?\",\n                  s.pix_key_type, s.pix_key, s.pix_name, s.pix_city\n           from ticket_sales ts\n           join events e on e.id = ts.event_id\n           join sellers s on s.id = ts.seller_id\n           left join category_ranges cr on cr.event_id = ts.event_id and cr.numbers @> ts.ticket_number\n           left join ticket_categories tc on tc.id = cr.category_id\n           where ts.event_id = $1 and ts.ticket_number = $2 and ts.seller_id = $3",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "amount_cents?",
+        "type_info": "Int4",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "pix_key_type",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "sellers",
+            "name": "pix_key_type"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "pix_key",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "sellers",
+            "name": "pix_key"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "pix_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "sellers",
+            "name": "pix_name"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "pix_city",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "sellers",
+            "name": "pix_city"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "897f4fa530f56616b94a2f04b09b45cc3410c4f8d7bdaa99a16fe75565b1ddd9"
+}

@@ -21,6 +21,7 @@ pub const FIELDS: &[&str] = &[
     "hora",
     "preco",
     "organizacao",
+    "categoria",
 ];
 
 /// What text blocks can print about the event, besides its name.
@@ -34,6 +35,9 @@ pub struct EventDetails {
     pub price_cents: Option<i64>,
     /// Name of the organization that runs the event (ADR 0064).
     pub organization: Option<String>,
+    /// The ticket's category (`{categoria}`, ADR 0084): the product of a consumption token.
+    /// Known per ticket only; a ticket without one hides the block.
+    pub category: Option<String>,
 }
 
 /// `text` with its fields replaced. `None` when a field it uses has no value (an event without
@@ -121,6 +125,12 @@ fn value(name: &str, event_name: &str, details: &EventDetails) -> Option<String>
             .unwrap_or_default()
             .trim()
             .to_owned(),
+        "categoria" => details
+            .category
+            .as_deref()
+            .unwrap_or_default()
+            .trim()
+            .to_owned(),
         _ => return None,
     })
 }
@@ -154,6 +164,7 @@ mod tests {
             starts_at: Some(datetime!(2026-03-14 21:00)),
             price_cents: Some(2_500),
             organization: Some(" Banda Os Vizinhos ".to_owned()),
+            category: Some(" Pastel ".to_owned()),
         }
     }
 
@@ -174,6 +185,8 @@ mod tests {
             ("{dia}/{mes_curto} · {hora}", "14/mar · 21h"),
             ("{organizacao}", "Banda Os Vizinhos"),
             ("Realização: {organizacao}", "Realização: Banda Os Vizinhos"),
+            ("{categoria}", "Pastel"),
+            ("1 {categoria} · {preco}", "1 Pastel · R$ 25,00"),
         ];
         for (text, expected) in cases {
             assert_eq!(
@@ -191,6 +204,7 @@ mod tests {
             starts_at: Some(datetime!(2026-01-05 09:30)),
             price_cents: Some(123_456_789),
             organization: None,
+            category: None,
         };
         assert_eq!(resolve("{hora}", "", &details).as_deref(), Some("9h30"));
         assert_eq!(resolve("{dia}", "", &details).as_deref(), Some("05"));
@@ -216,6 +230,7 @@ mod tests {
         assert_eq!(resolve("{preco}", "Show", &empty), None);
         assert_eq!(resolve("{data} {hora}", "Show", &empty), None);
         assert_eq!(resolve("Realização: {organizacao}", "Show", &empty), None);
+        assert_eq!(resolve("Ficha de {categoria}", "Show", &empty), None);
         assert_eq!(
             resolve("Entrada individual", "Show", &empty).as_deref(),
             Some("Entrada individual")

@@ -30,10 +30,16 @@ function beep(frequency: number, startAt: number, durationS: number): void {
   oscillator.stop(start + durationS);
 }
 
-/** One high beep for "enter", a low double buzz for a rejection, a middle tone for a warning. */
+/**
+ * One high beep for "enter", a low double buzz for a rejection, a middle tone for a warning and
+ * two quick falling beeps for a ticket going out (ADR 0083).
+ */
 export function announce(tone: Tone): void {
   if (tone === "ok") {
     beep(1320, 0, 0.12);
+  } else if (tone === "exit") {
+    beep(990, 0, 0.08);
+    beep(740, 0.12, 0.1);
   } else if (tone === "bad") {
     beep(220, 0, 0.18);
     beep(220, 0.25, 0.18);
@@ -42,7 +48,7 @@ export function announce(tone: Tone): void {
   }
   // iPhone ignores vibration from the web; Android honours it.
   if ("vibrate" in navigator) {
-    navigator.vibrate(tone === "ok" ? 80 : [200, 100, 200]);
+    navigator.vibrate(tone === "ok" || tone === "exit" ? 80 : [200, 100, 200]);
   }
 }
 

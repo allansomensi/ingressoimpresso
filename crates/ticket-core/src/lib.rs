@@ -13,6 +13,7 @@
 //! 1. Build an [`EventVerifier`] from the event manifest (event id, tag and public keys).
 //! 2. Wrap it in a [`Door`] together with the known voids and entries ([`DoorState`]).
 //! 3. Call [`Door::check_in`] with the scanned QR text and show the resulting [`Decision`].
+//!    With re-entry ([`DoorState::set_reentry`]), the exit calls [`Door::check_out`].
 #![deny(clippy::indexing_slicing)]
 
 pub mod base45;
@@ -28,7 +29,8 @@ mod signing;
 pub mod dto;
 
 pub use door::{
-    Decision, Door, DoorState, EntryInfo, InvalidReason, VoidRange, VoidRangeError, VoidReason,
+    Decision, Direction, Door, DoorState, EntryInfo, InvalidReason, Movement, VoidRange,
+    VoidRangeError, VoidReason,
 };
 pub use ids::{EventId, EventPublicKey, EventTag, KeyId, KeyStatus, PublicKeyError, TicketNumber};
 pub use payload::{

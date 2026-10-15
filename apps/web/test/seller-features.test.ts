@@ -130,6 +130,7 @@ describe("goals and ranking", () => {
     link: null,
     boxOffice,
     goal,
+    pix: null,
   });
   const rows = (sold: Record<string, number>) => new Map(Object.entries(sold).map(([id, markedSold]) => [id, { markedSold } as ReportRowDto]));
 

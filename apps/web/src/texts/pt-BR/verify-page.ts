@@ -67,6 +67,9 @@ export const verifyPage = {
     "Uma cópia deste QR (foto, xerox, print) também aparece como autêntica, e só a primeira leitura entra na portaria. Por isso não dizemos se o ingresso já foi usado nem quem comprou. Compre de quem você confia.",
   number: "Número",
   category: "Categoria",
+  // A category that asks for a document at the door (ADR 0082).
+  document: (category: string, note: string | null) =>
+    `${category} pede documento na entrada${note === null ? ": um comprovante do direito, com foto." : `: ${note}.`}`,
   when: "Quando",
   where: "Onde",
   organizedBy: "Organização",

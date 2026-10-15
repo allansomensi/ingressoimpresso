@@ -19,8 +19,8 @@ use uuid::Uuid;
 
 use super::{EventRow, authorize_event};
 use crate::api::{
-    DoorCategoryTagDto, VerifiedEventDto, VerifiedTicketDto, VerifyResultDto, VerifySettingsDto,
-    VerifyTicketBody, VerifyVerdict,
+    VerifiedEventDto, VerifiedTicketDto, VerifyResultDto, VerifySettingsDto, VerifyTicketBody,
+    VerifyVerdict,
 };
 use crate::auth::AuthUser;
 use crate::error::ApiResult;
@@ -129,7 +129,7 @@ pub async fn verify(
         EventRow,
         r#"select id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag,
                   utc_offset_minutes, address, postponed_from_starts_at, postponed_at,
-                  postpone_reason, canceled_at, cancel_reason
+                  postpone_reason, canceled_at, cancel_reason, kind
            from events where qr_tag = $1"#,
         i64::from(tag)
     )
@@ -181,11 +181,9 @@ pub async fn verify(
             number,
             number_label: format!("{number:0width$}", width = usize::from(digits)),
             number_prefix: prefix,
-            category: tags.category(number).map(|category| DoorCategoryTagDto {
-                name: category.name,
-                color: category.color,
-            }),
+            category: tags.tag(number),
             event: VerifiedEventDto {
+                kind: event.kind(),
                 change: event.change(),
                 name: event.name,
                 venue: event.venue,

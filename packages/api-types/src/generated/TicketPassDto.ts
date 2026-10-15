@@ -3,6 +3,7 @@ import type { DoorCategoryTagDto } from "./DoorCategoryTagDto";
 import type { PassTableMapDto } from "./PassTableMapDto";
 import type { PublicOrganizationDto } from "./PublicOrganizationDto";
 import type { TicketPassEvent } from "./TicketPassEvent";
+import type { TicketPixDto } from "./TicketPixDto";
 import type { TicketState } from "./TicketState";
 
 /**
@@ -60,4 +61,9 @@ organization: PublicOrganizationDto,
 /**
  * The room with the holder's table highlighted (ADR 0066); `null` without a seat.
  */
-tableMap: PassTableMapDto | null, };
+tableMap: PassTableMapDto | null, 
+/**
+ * How to pay for it by Pix (ADR 0085); `null` when the event does not charge by Pix or
+ * the number has nothing to pay.
+ */
+pix: TicketPixDto | null, };

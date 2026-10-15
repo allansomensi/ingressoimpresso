@@ -48,9 +48,13 @@ categories: Array<DoorCategoryRangeDto>,
  */
 seats: Array<DoorSeatDto>, 
 /**
- * Admitted scans since `since`, from every phone.
+ * Admitted scans since `since` (first entries and returns), from every phone.
  */
 entries: Array<DoorEntryDto>, 
+/**
+ * Exits since `since` (ADR 0083), from every phone.
+ */
+exits: Array<DoorEntryDto>, 
 /**
  * Opaque cursor for the next call.
  */

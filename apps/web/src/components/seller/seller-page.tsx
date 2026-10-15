@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   Copy,
   HandCoins,
+  Landmark,
   MapPin,
   MessageCircle,
   Pencil,
@@ -30,6 +31,7 @@ import { EventChangeNotice, OrganizationContact, OrganizationLogo } from "@/comp
 import { GoalCard } from "@/components/seller/goal-card";
 import { MarkSheet, type SheetStart } from "@/components/seller/mark-sheet";
 import { ReservationSheet, ReservationsSection } from "@/components/seller/reservations";
+import { SalePix, salePixCharge } from "@/components/seller/sale-pix";
 import { NoticesDialog, PendingList, SyncStatus } from "@/components/seller/sync-status";
 import { useSellerSync } from "@/components/seller/use-seller-sync";
 import { Button, Dialog, Spinner, buttonClass, useConfirm } from "@/components/ui";
@@ -38,7 +40,7 @@ import { categoryOf } from "@/lib/categories";
 import { cn } from "@/lib/cn";
 import { changeKind } from "@/lib/event-change";
 import { eventDateTime, money, shortDateTime } from "@/lib/format";
-import { intersect } from "@/lib/number-list";
+import { countNumbers, intersect } from "@/lib/number-list";
 import { pendingNumbers } from "@/lib/seller-offline";
 import { numberCells, padNumber, type NumberCell, type NumberState } from "@/lib/seller-page";
 import { whatsappLink } from "@/lib/settlement";
@@ -49,6 +51,7 @@ import { textOn } from "@/lib/ticket-pass";
 import { brand as brandTexts } from "@/texts/pt-BR/brand";
 import { errors as errorsTexts } from "@/texts/pt-BR/errors";
 import { event as eventTexts } from "@/texts/pt-BR/event";
+import { pix as pixTexts } from "@/texts/pt-BR/pix";
 import { sellerPage as sellerPageTexts } from "@/texts/pt-BR/seller-page";
 
 const t = sellerPageTexts;
@@ -153,9 +156,10 @@ function SaleTicket({
   );
 }
 
-/** A sold number: its buyer, the digital ticket and the way back. */
+/** A sold number: its buyer, the Pix, the digital ticket and the way back. */
 function SaleSheet({
   cell,
+  view,
   onClose,
   onEdit,
   onUndo,
@@ -167,6 +171,7 @@ function SaleSheet({
   onSaved,
 }: {
   cell: NumberCell | null;
+  view: SellerViewDto;
   onClose: () => void;
   /** `null` when sales can no longer change (canceled event). */
   onEdit: ((cell: NumberCell) => void) | null;
@@ -237,6 +242,7 @@ function SaleSheet({
           </a>
         )}
       </div>
+      {cell !== null && <SalePix cell={cell} view={view} token={token} label={label} ready={ticketReady} onSaved={onSaved} />}
       {cell !== null && (canSendTickets || (cell.sale?.ticketUrl ?? null) !== null) && (
         <SaleTicket cell={cell} token={token} label={label} eventName={eventName} ready={ticketReady} onSaved={onSaved} />
       )}
@@ -311,13 +317,21 @@ export function SellerPage() {
   const withYou = s.available + s.reserved;
   const selectedCell = selected === null ? null : (cells.find((cell) => cell.number === selected && cell.state === "sold") ?? null);
   const reservation = view.reservations.find((item) => item.id === reservationId) ?? null;
-  // The digital ticket needs the sale on the server and a connection.
+  // The digital ticket and the Pix receipt need the sale on the server and a connection.
   const ticketReady =
     sync.online && selectedCell !== null && serverView?.sales.some((sale) => sale.number === selectedCell.number) === true && !pending.has(selectedCell.number);
 
   const submit = (op: SellerOp, done: string) => {
     enqueue(op);
     toast.success(done);
+  };
+  // Selling one number of an event that charges by Pix opens it, with the QR for the buyer.
+  const submitSale = (op: SellerOp, done: string) => {
+    submit(op, done);
+    const first = op.kind === "mark" && !op.edit && countNumbers(op.ranges) === 1 ? op.ranges[0]?.first : undefined;
+    if (first !== undefined && salePixCharge(view, first, pad(first)) !== null) {
+      setSelected(first);
+    }
   };
   const openSheet = (start: Partial<SheetStart> & Pick<SheetStart, "mode">) => {
     setSelected(null);
@@ -470,6 +484,12 @@ export function SellerPage() {
               ))}
             </ul>
           )}
+          {s.pixCents > 0 && (
+            <p className="flex items-center gap-1.5 text-xs text-fg-muted">
+              <Landmark aria-hidden className="size-3.5 shrink-0 text-success-fg" />
+              {pixTexts.summaryPix(money(s.pixCents))}
+            </p>
+          )}
           <p className="flex items-start gap-1.5 text-xs leading-relaxed text-fg-muted">
             {s.balanceCents <= 0 && s.dueTickets > 0 && <CheckCircle2 aria-hidden className="mt-px size-3.5 shrink-0 text-success-fg" />}
             {s.balanceCents < 0 ? t.money.overpaid(money(-s.balanceCents)) : s.balanceCents === 0 && s.dueTickets > 0 ? t.money.settled : t.money.explain}
@@ -517,6 +537,16 @@ export function SellerPage() {
                   >
                     <span className="rounded-lg bg-brand-soft px-2 py-1 font-mono text-sm font-semibold text-brand-soft-fg tabular">{pad(cell.number)}</span>
                     <span className="min-w-0 flex-1 truncate text-sm text-fg">{cell.sale?.buyerName ?? <span className="text-fg-subtle">{t.noBuyer}</span>}</span>
+                    {cell.sale?.pixReceipt != null && (
+                      <span
+                        title={pixTexts.sellerPaidChipLabel}
+                        className="flex items-center gap-1 rounded-full bg-success-soft px-2 py-0.5 text-[11px] font-semibold text-success-fg"
+                      >
+                        <CheckCircle2 aria-hidden className="size-3" />
+                        {pixTexts.sellerPaidChip}
+                        <span className="sr-only">{` · ${pixTexts.sellerPaidChipLabel}`}</span>
+                      </span>
+                    )}
                     {pending.has(cell.number) && (
                       <span className="flex items-center gap-1 text-xs text-warning-fg">
                         <WifiOff aria-hidden className="size-3.5" />
@@ -659,11 +689,12 @@ export function SellerPage() {
           onClose={() => {
             setSheet(null);
           }}
-          onSubmit={submit}
+          onSubmit={submitSale}
         />
       )}
       <SaleSheet
         cell={selectedCell}
+        view={view}
         onClose={() => {
           setSelected(null);
         }}

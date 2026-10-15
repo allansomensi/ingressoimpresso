@@ -62,7 +62,10 @@ entrou ou quem vendeu. O Ingresso Impresso resolve isso sem exigir internet nem 
 - Ingresso digital por link, que abre no celular do público mesmo offline.
 - Vendedores com faixas de números, acerto (pagamentos, devoluções e saldo), cancelamentos,
   relatório por vendedor e resultados do evento.
-- Rifas sem sorteio (só a impressão dos números).
+- Pix copia e cola com valor e identificador por número, direto para a organização ou o
+  vendedor (a plataforma não toca no dinheiro), conferido no painel e somado ao acerto.
+- Fichas de consumo numeradas (bebida, comida) com baixa na barraca, e rifas sem sorteio (só a
+  impressão dos números).
 - Login sem senha (código por e-mail ou Google) e **verificação em duas etapas** opcional.
 - PWA instalável, tema claro/escuro e interface pensada primeiro para o celular.
 
@@ -71,6 +74,7 @@ entrou ou quem vendeu. O Ingresso Impresso resolve isso sem exigir internet nem 
 - Verificação da assinatura Ed25519 e decisão no próprio aparelho, em Rust compilado para
   WebAssembly.
 - Vários celulares na mesma porta, sincronizando quando há rede.
+- Categorias que pedem documento (meia-entrada) e saída e volta com o mesmo ingresso.
 
 **Para quem administra a plataforma**
 - Métricas, financeiro, organizações, cortesias, estornos e modo suporte com auditoria.

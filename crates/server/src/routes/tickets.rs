@@ -23,9 +23,9 @@ use uuid::Uuid;
 
 use super::{EventRow, MAX_TICKET_NUMBER, authorize_event, one_line, optional_text};
 use crate::api::{
-    CreateTicketLinkBody, CreateTicketLinksBody, DoorCategoryTagDto, OpenTicketBody, PassTableDto,
-    PassTableMapDto, ReplaceTicketBody, TableShape, TicketLinkDto, TicketLinksDto, TicketPassDto,
-    TicketPassEvent, TicketReplacementDto, TicketState, UpdateTicketLinkBody,
+    CreateTicketLinkBody, CreateTicketLinksBody, OpenTicketBody, PassTableDto, PassTableMapDto,
+    ReplaceTicketBody, TableShape, TicketLinkDto, TicketLinksDto, TicketPassDto, TicketPassEvent,
+    TicketReplacementDto, TicketState, UpdateTicketLinkBody,
 };
 use crate::auth::{AuthUser, new_token, token_hash};
 use crate::error::{ApiError, ApiResult, bad_request};
@@ -932,19 +932,14 @@ pub async fn open(
         EventRow,
         r#"select id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag,
                   utc_offset_minutes, address, postponed_from_starts_at, postponed_at,
-                  postpone_reason, canceled_at, cancel_reason
+                  postpone_reason, canceled_at, cancel_reason, kind
            from events where id = $1"#,
         link.event_id
     )
     .fetch_one(&state.pool)
     .await?;
     let pass = TicketPassDto {
-        category: tags
-            .category(link.ticket_number)
-            .map(|category| DoorCategoryTagDto {
-                name: category.name,
-                color: category.color,
-            }),
+        category: tags.tag(link.ticket_number),
         seat: tags.seat(link.ticket_number),
         event: TicketPassEvent {
             name: event.name,
@@ -956,9 +951,16 @@ pub async fn open(
             address: row.address.clone(),
             change: row.change(),
             in_series: super::series::in_series(&state.pool, link.event_id).await?,
+            kind: row.kind(),
         },
         organization: super::organization::event_organization(&state.pool, link.event_id).await?,
         table_map: table_map(&state, link.event_id, link.ticket_number).await?,
+        // No Pix for a ticket that is voided or of a canceled event (ADR 0085).
+        pix: if ticket_state == TicketState::Voided || row.canceled_at.is_some() {
+            None
+        } else {
+            super::pix::ticket_pix(&state.pool, link.event_id, link.ticket_number).await?
+        },
         number: link.ticket_number,
         number_label: label(link.ticket_number, digits),
         number_prefix: prefix,
@@ -1113,7 +1115,7 @@ async fn render_image(state: &AppState, link: &OpenRow) -> ApiResult<Vec<u8>> {
         EventRow,
         r#"select id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag,
                   utc_offset_minutes, address, postponed_from_starts_at, postponed_at,
-                  postpone_reason, canceled_at, cancel_reason
+                  postpone_reason, canceled_at, cancel_reason, kind
            from events where id = $1"#,
         link.event_id
     )

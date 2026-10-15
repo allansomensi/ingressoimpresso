@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into organization_profiles (organization_id, pix_key_type, pix_key, pix_name, pix_city)\n           values ($1, $2, $3, $4, $5)\n           on conflict (organization_id) do update\n           set pix_key_type = excluded.pix_key_type, pix_key = excluded.pix_key,\n               pix_name = excluded.pix_name, pix_city = excluded.pix_city, updated_at = now()",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "cd6129a24cb5bd10e66ab9922c24ed7a2843682a37ccfbf544013ba20d9758df"
+}
