@@ -194,8 +194,8 @@ fn valid_email(email: &str) -> bool {
         && !email.chars().any(|c| c.is_whitespace() || c.is_control())
 }
 
-/// A Brazilian mobile or landline as typed (`(11) 99999-8888`, `+55 11 …`, `011 …`) to the
-/// directory's `+55` + area code + number.
+/// A Brazilian mobile as typed (`(11) 99999-8888`, `+55 11 …`, `011 …`) to the directory's
+/// `+55` + area code + number. Only mobiles (9 digits, starting with 9) are Pix keys.
 fn phone(text: &str) -> Option<String> {
     let international = text.starts_with('+');
     let digits = only(text, |c| c.is_ascii_digit(), " ()-.+")?;
@@ -207,7 +207,8 @@ fn phone(text: &str) -> Option<String> {
     let area_ok = national
         .get(..2)
         .is_some_and(|area| area.chars().all(|c| ('1'..='9').contains(&c)));
-    (area_ok && (10..=11).contains(&national.len())).then(|| format!("+55{national}"))
+    let mobile = national.len() == 11 && national.as_bytes().get(2) == Some(&b'9');
+    (area_ok && mobile).then(|| format!("+55{national}"))
 }
 
 #[cfg(test)]
@@ -282,8 +283,13 @@ mod tests {
             Ok("+5511999998888".to_owned())
         );
         assert_eq!(
+            normalize_key(PixKeyType::Phone, "+55 21 98888-4444"),
+            Ok("+5521988884444".to_owned())
+        );
+        // A landline is no Pix key.
+        assert_eq!(
             normalize_key(PixKeyType::Phone, "+55 21 3333-4444"),
-            Ok("+552133334444".to_owned())
+            Err(PixError::Key)
         );
         assert_eq!(
             normalize_key(PixKeyType::Phone, "011 99999-8888"),

@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into ticket_payments (event_id, ticket_number, amount_cents, received_by, confirmed_by)\n           select $1, receipt.number, receipt.amount, receipt.payee, $5\n           from unnest($2::int4[], $3::int4[], $4::text[]) as receipt(number, amount, payee)\n           on conflict (event_id, ticket_number) do nothing",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4Array",
+        "Int4Array",
+        "TextArray",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "ba228454655f9b1de20bb5c287edf87f1db58a0c07d235177d5fb3feee58452a"
+}

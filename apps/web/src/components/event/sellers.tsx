@@ -1374,8 +1374,9 @@ export function SellersTab({ eventId, event, onEditEvent }: { eventId: string; e
       </>
     );
   }
-  // How buyers pay by Pix (ADR 0085): read by the whole team, changed by the money part.
-  if (list.length > 0) {
+  // How buyers pay by Pix (ADR 0085): read by the whole team, changed by the money part. Also
+  // without sellers: digital tickets sent by the team are paid by Pix too.
+  if (sellers.isSuccess) {
     content = (
       <>
         {content}

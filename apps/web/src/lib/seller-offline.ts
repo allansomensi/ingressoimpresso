@@ -210,6 +210,8 @@ export function problemText(problem: SellerOpProblemDto, op: SellerOp, digits: n
       return c.eventCanceled;
     case "box_office":
       return c.boxOffice;
+    case "pix_received":
+      return c.pixReceived;
     case "invalid":
       return c.invalid;
   }

@@ -206,9 +206,12 @@ function SaleSheet({
       description={sale === null ? undefined : t.sale.soldAt(shortDateTime(sale.soldAt))}
       footer={
         <>
-          <Button variant="danger-ghost" icon={<RotateCcw />} onClick={() => void undo()}>
-            {t.sale.undo}
-          </Button>
+          {/* A sale whose Pix arrived stays: the organization undoes the receipt first (ADR 0085). */}
+          {sale?.pixReceipt == null && (
+            <Button variant="danger-ghost" icon={<RotateCcw />} onClick={() => void undo()}>
+              {t.sale.undo}
+            </Button>
+          )}
           {onEdit !== null && (
             <Button
               variant="secondary"

@@ -252,7 +252,9 @@ async fn accountability(state: &AppState, event: EventRow) -> ApiResult<Accounta
     };
     let other_income_cents = sum(LedgerKind::Income);
     let expenses_cents = sum(LedgerKind::Expense);
-    let received_cents: i64 = report.sellers.iter().map(|row| row.received_cents).sum();
+    // What sellers handed over plus the Pix the organization received for numbers of no seller
+    // (digital tickets it sent itself, ADR 0085).
+    let received_cents = report.totals.received_cents;
     let ticket_sales_cents = report
         .sellers
         .iter()

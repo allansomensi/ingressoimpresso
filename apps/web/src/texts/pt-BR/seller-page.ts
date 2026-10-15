@@ -105,6 +105,7 @@ export const sellerPage = {
     expired: (holder: string | null) => `O prazo da reserva${holder === null ? "" : ` de ${holder}`} passou antes de ela ser enviada: os números continuam livres.`,
     eventCanceled: "O evento foi cancelado: esta alteração não foi feita.",
     boxOffice: "A bilheteria não faz reservas: os números são vendidos na porta.",
+    pixReceived: "O Pix desta venda já foi recebido: a venda continua. Se precisar desfazer, fale com a organização.",
     invalid: "Esta alteração tinha um dado inválido e não foi feita.",
     ops: {
       mark: (numbers: string, buyer: string | null) => `Venda do ${numbers}${buyer === null ? "" : ` para ${buyer}`}`,

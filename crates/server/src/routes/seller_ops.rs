@@ -130,6 +130,10 @@ impl Done {
                 "box_office_seller",
                 "a box office sells at the door".to_owned(),
             ),
+            SellerOpProblem::PixReceived => ApiError::Conflict(
+                "pix_received",
+                "the Pix of this number was received".to_owned(),
+            ),
             SellerOpProblem::Expired | SellerOpProblem::Invalid => bad_request(
                 "invalid_expiry",
                 "the deadline must be in the future and before the event ends",
@@ -354,6 +358,10 @@ pub(crate) async fn unmark(
     number: i32,
 ) -> ApiResult<Done> {
     lock_seller(tx, actor.seller).await?;
+    // A sale whose Pix arrived stays (ADR 0085): the organization undoes the receipt first.
+    if pix_received(tx, actor.event, number).await? {
+        return Ok(Done::rejected(SellerOpProblem::PixReceived));
+    }
     sqlx::query!(
         "delete from ticket_sales where event_id = $1 and ticket_number = $2 and seller_id = $3",
         actor.event,
@@ -525,6 +533,22 @@ pub(crate) async fn clear_reservations(
     .execute(&mut **tx)
     .await?;
     Ok(())
+}
+
+/// Whether the Pix of a number was received (ADR 0085).
+pub(crate) async fn pix_received(
+    tx: &mut Transaction<'_, Postgres>,
+    event_id: Uuid,
+    number: i32,
+) -> ApiResult<bool> {
+    Ok(sqlx::query_scalar!(
+        r#"select exists(select 1 from ticket_payments
+                         where event_id = $1 and ticket_number = $2) as "paid!""#,
+        event_id,
+        number,
+    )
+    .fetch_one(&mut **tx)
+    .await?)
 }
 
 #[cfg(test)]

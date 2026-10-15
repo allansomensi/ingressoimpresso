@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select g.id, g.name, g.companions, g.note, c.name as \"category_name?\", c.color as \"category_color?\"\n           from guest_list g left join ticket_categories c on c.id = g.category_id\n           where g.event_id = $1 order by g.name",
+  "query": "select g.id, g.name, g.companions, g.note, c.name as \"category_name?\", c.color as \"category_color?\"\n           from guest_list g left join ticket_categories c on c.id = g.category_id\n           where g.event_id = $1\n             and exists(select 1 from events e where e.id = $1 and e.kind = 'tickets')\n           order by g.name",
   "describe": {
     "columns": [
       {
@@ -84,5 +84,5 @@
       false
     ]
   },
-  "hash": "0c7f1e1672914612534ee7713d739ed4a024504d9372cab9d2fd4ca01050d76b"
+  "hash": "4f6f5e3fe14245cb14546eac398e36995eec9028998617730962c1cd4a090d37"
 }

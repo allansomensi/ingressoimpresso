@@ -219,7 +219,8 @@ function PixReview({ eventId, data, editable, onClose }: { eventId: string; data
   });
   const rows = useMemo(() => {
     const needle = query.trim().toLowerCase().replace(/\s+/g, " ");
-    const digits = needle.replace(/\D/g, "");
+    // A number only when the search is a number: an identifier has digits of its own.
+    const digits = /^\d+$/.test(needle) ? needle : "";
     return data.numbers.filter((row) => {
       if ((filter === "pending" && row.receipt !== null) || (filter === "paid" && row.receipt === null)) {
         return false;

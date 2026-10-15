@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select t.name, s.seat from ticket_seats s join event_tables t on t.id = s.table_id\n           where s.event_id = $1 and s.ticket_number = $2",
+  "query": "select t.name, s.seat from ticket_seats s join event_tables t on t.id = s.table_id\n           where s.event_id = $1 and s.ticket_number = $2\n             and exists(select 1 from events e where e.id = $1 and e.kind = 'tickets')",
   "describe": {
     "columns": [
       {
@@ -37,5 +37,5 @@
       false
     ]
   },
-  "hash": "bded815d58c5d97ed806859ff0a3e636d0e0193bb1afdd8ab3e67638ef55d088"
+  "hash": "e913882935a0738bef6ad882158d4de487559d5896e9bb1200888b7353d57b2e"
 }
