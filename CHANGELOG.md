@@ -12,6 +12,8 @@ e não acompanha estes números.
 
 ## [Não lançado]
 
+## [1.6.0] - 2026-10-15
+
 ### Adicionado
 
 - Categorias que pedem documento na portaria, como a meia-entrada: a tela verde mostra "Meia:
@@ -385,7 +387,8 @@ Primeira versão numerada: o produto que já estava em produção, das fases 0 a
 - Política de segurança de conteúdo (CSP) com nonce por requisição em todo o site (ADR 0048).
 - Verificação anti-robô antes do envio do código de login (ADR 0044).
 
-[Não lançado]: https://github.com/allansomensi/ingressoimpresso/compare/v1.5.0...HEAD
+[Não lançado]: https://github.com/allansomensi/ingressoimpresso/compare/v1.6.0...HEAD
+[1.6.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.2.0...v1.3.0
