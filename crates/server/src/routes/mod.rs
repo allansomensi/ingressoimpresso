@@ -20,6 +20,7 @@ pub mod ledger;
 pub mod mail_admin;
 pub mod moderation;
 pub mod organization;
+pub mod pix;
 pub mod platform;
 pub mod privacy;
 pub mod referrals;

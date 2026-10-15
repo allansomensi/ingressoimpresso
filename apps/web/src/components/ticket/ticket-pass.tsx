@@ -1,6 +1,6 @@
 "use client";
 
-import type { TicketPassDto } from "@ingressoimpresso/api-types";
+import type { TicketPassDto, TicketPixDto } from "@ingressoimpresso/api-types";
 import {
   Armchair,
   CalendarDays,
@@ -10,6 +10,7 @@ import {
   ExternalLink,
   IdCard,
   ImageIcon,
+  Landmark,
   MapPin,
   Navigation,
   RefreshCw,
@@ -19,11 +20,12 @@ import {
   XCircle,
 } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { LogoMark } from "@/components/brand";
 import { EventChangeNotice, OrganizationContact, OrganizationLogo } from "@/components/organization/organization";
+import { PixCharge } from "@/components/pix/pix-charge";
 import { QrCode } from "@/components/qr";
 import { SeatMap } from "@/components/ticket/seat-map";
 import { Button, Dialog, Spinner, buttonClass } from "@/components/ui";
@@ -44,12 +46,14 @@ import { forKind } from "@/lib/event-kind";
 import { inkFor } from "@/lib/design-rules";
 import { changeKind } from "@/lib/event-change";
 import { shortDateTime } from "@/lib/format";
+import { pixReference } from "@/lib/pix";
 import { sessionLabel } from "@/lib/series";
 import { SITE_URL } from "@/lib/site";
 import { forgetPass, normalizePass, passBand, passDate, passImage, saveImage, storePass, storedPass, textOn } from "@/lib/ticket-pass";
 import { useWakeLock } from "@/lib/wake-lock";
 import { brand as brandTexts } from "@/texts/pt-BR/brand";
 import { errors as errorsTexts } from "@/texts/pt-BR/errors";
+import { pix as pixTexts } from "@/texts/pt-BR/pix";
 import { ticket as ticketTexts } from "@/texts/pt-BR/ticket";
 
 const t = ticketTexts;
@@ -157,6 +161,42 @@ function DayPlan({ pass }: { pass: TicketPassDto }) {
           </a>
         )}
       </div>
+    </section>
+  );
+}
+
+/** How to pay for the number by Pix (ADR 0085): straight to whoever organizes, never to us. */
+function TicketPix({ pix, eventId, number, label, tokens }: { pix: TicketPixDto; eventId: string; number: number; label: string; tokens: boolean }) {
+  const charge = useMemo(
+    () => ({ ...pix.account, amountCents: pix.amountCents, reference: pixReference(eventId, number), description: pixTexts.describe(label, tokens) }),
+    [pix, eventId, number, label, tokens],
+  );
+  return (
+    <section aria-labelledby="ticket-pix" className="flex flex-col gap-4 rounded-2xl border border-border bg-surface p-5">
+      <div className="flex items-center justify-between gap-3">
+        <h2 id="ticket-pix" className="flex items-center gap-2 text-sm font-semibold text-fg">
+          <Landmark className="size-4 text-brand" aria-hidden />
+          {pixTexts.ticketTitle}
+        </h2>
+        <span
+          className={cn(
+            "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold",
+            pix.paid ? "bg-success-soft text-success-fg" : "bg-warning-soft text-warning-fg",
+          )}
+        >
+          {pix.paid && <CheckCircle2 className="size-3.5" aria-hidden />}
+          {pix.paid ? pixTexts.ticketPaid : pixTexts.ticketPending}
+        </span>
+      </div>
+      {pix.paid ? (
+        <p className="text-sm leading-relaxed text-fg-muted">{pixTexts.ticketPaidBody}</p>
+      ) : (
+        <>
+          <p className="-mt-1 text-sm leading-relaxed text-fg-muted">{pixTexts.ticketHint}</p>
+          <PixCharge charge={charge} />
+          <p className="text-xs leading-relaxed text-fg-subtle">{pixTexts.ticketReference}</p>
+        </>
+      )}
     </section>
   );
 }
@@ -419,6 +459,10 @@ export function TicketPass() {
             {t.art}
           </Button>
         </div>
+      )}
+
+      {pass.pix !== null && pass.state !== "voided" && !canceled && (
+        <TicketPix pix={pass.pix} eventId={pass.event.id} number={pass.number} label={pass.numberLabel} tokens={pass.event.kind === "tokens"} />
       )}
 
       {!canceled && <DayPlan pass={pass} />}

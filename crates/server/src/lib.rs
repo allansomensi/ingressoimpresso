@@ -19,6 +19,7 @@ pub mod keys;
 pub mod mail;
 pub mod moderation;
 pub mod payments;
+pub mod pix;
 pub mod platform;
 pub mod pricing;
 pub mod ratelimit;

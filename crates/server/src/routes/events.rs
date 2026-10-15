@@ -514,8 +514,11 @@ pub(crate) async fn copy_event(
         .await?;
     }
     sqlx::query!(
-        r#"insert into sellers (id, event_id, name, phone, box_office, goal)
-           select gen_random_uuid(), $2, name, phone, box_office, goal from sellers where event_id = $1"#,
+        r#"insert into sellers (id, event_id, name, phone, box_office, goal,
+                                  pix_key_type, pix_key, pix_name, pix_city)
+           select gen_random_uuid(), $2, name, phone, box_office, goal,
+                  pix_key_type, pix_key, pix_name, pix_city
+           from sellers where event_id = $1"#,
         event_id,
         copy.id,
     )
@@ -528,7 +531,7 @@ pub(crate) async fn copy_event(
     sqlx::query!(
         r#"update events c set sellers_send_tickets = s.sellers_send_tickets,
                               sellers_ranking = s.sellers_ranking, public_verify = s.public_verify,
-                              reentry = s.reentry, series_id = $3
+                              reentry = s.reentry, pix_receiver = s.pix_receiver, series_id = $3
            from events s where s.id = $1 and c.id = $2"#,
         event_id,
         copy.id,

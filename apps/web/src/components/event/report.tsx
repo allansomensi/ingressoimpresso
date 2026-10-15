@@ -49,6 +49,7 @@ function sellersTotal(rows: readonly ReportRowDto[]): ReportRowDto {
     voidEntries: sum((row) => row.voidEntries),
     amountDueCents: due,
     receivedCents: sum((row) => row.receivedCents),
+    pixCents: sum((row) => row.pixCents),
     balanceCents: due === null ? null : due - sum((row) => row.receivedCents),
     markedSold: sum((row) => row.markedSold),
     reserved: sum((row) => row.reserved),

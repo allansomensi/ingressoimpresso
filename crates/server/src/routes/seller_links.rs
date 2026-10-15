@@ -20,7 +20,7 @@ use crate::api::{
     NumberRangeDto, SellerCategoryDto, SellerDueLineDto, SellerLinkDto, SellerMarkBody,
     SellerPaymentMethod, SellerSaleDto, SellerSettingsBody, SellerSettingsDto, SellerSummaryDto,
     SellerTicketBody, SellerTokenBody, SellerUnmarkBody, SellerViewDto, SellerViewEvent,
-    SellerViewPaymentDto, SellerVoidDto, TicketSaleDto, VoidReason,
+    SellerViewPaymentDto, SellerViewPixDto, SellerVoidDto, TicketSaleDto, VoidReason,
 };
 use crate::auth::{AuthUser, new_token, token_hash};
 use crate::error::{ApiError, ApiResult, bad_request};
@@ -369,11 +369,16 @@ async fn categories(
         .collect())
 }
 
-/// The numbers the seller marked as sold, each with its digital ticket when one was sent.
+/// The numbers the seller marked as sold, each with its digital ticket when one was sent and
+/// its Pix when someone saw it arrive (ADR 0085).
 async fn sales(state: &AppState, link: &LinkRow) -> ApiResult<Vec<SellerSaleDto>> {
     let sales = sqlx::query!(
-        r#"select ticket_number, buyer_name, buyer_phone, sold_at
-           from ticket_sales where event_id = $1 and seller_id = $2 order by ticket_number"#,
+        r#"select s.ticket_number, s.buyer_name, s.buyer_phone, s.sold_at,
+                  p.received_by as "received_by?", p.amount_cents as "paid_cents?",
+                  p.confirmed_at as "confirmed_at?"
+           from ticket_sales s
+           left join ticket_payments p on p.event_id = s.event_id and p.ticket_number = s.ticket_number
+           where s.event_id = $1 and s.seller_id = $2 order by s.ticket_number"#,
         link.event_id,
         link.seller_id,
     )
@@ -389,6 +394,11 @@ async fn sales(state: &AppState, link: &LinkRow) -> ApiResult<Vec<SellerSaleDto>
             buyer_phone: sale.buyer_phone,
             sold_at: sale.sold_at,
             ticket_url: urls.remove(&sale.ticket_number),
+            pix_receipt: super::pix::receipt(
+                sale.received_by.as_deref(),
+                sale.paid_cents,
+                sale.confirmed_at,
+            ),
         })
         .collect())
 }
@@ -472,6 +482,7 @@ pub(crate) async fn view(state: &AppState, link: &LinkRow) -> ApiResult<SellerVi
         organization,
         categories,
         receivers,
+        (pix, pix_cents),
     ) = tokio::try_join!(
         held_ranges(state, link),
         seller_voids(state, link),
@@ -486,11 +497,13 @@ pub(crate) async fn view(state: &AppState, link: &LinkRow) -> ApiResult<SellerVi
         super::organization::event_organization(&state.pool, link.event_id),
         categories(state, link.event_id, event.ticket_price_cents),
         super::team::receivers(state, link.event_id),
+        seller_pix(state, link),
     )?;
     let summary = summary(
         &counts,
         due_lines,
         &payments,
+        pix_cents,
         event.ticket_price_cents,
         event.box_office,
     );
@@ -531,7 +544,42 @@ pub(crate) async fn view(state: &AppState, link: &LinkRow) -> ApiResult<SellerVi
         reservations,
         goal: event.goal.filter(|_| !event.box_office),
         ranking,
+        pix,
     })
+}
+
+/// The Pix the seller's buyers pay (ADR 0085) and what the organization already received by Pix
+/// for the seller's numbers (counted as handed over).
+async fn seller_pix(
+    state: &AppState,
+    link: &LinkRow,
+) -> ApiResult<(Option<SellerViewPixDto>, i64)> {
+    let pix = super::pix::event_pix(&state.pool, link.event_id).await?;
+    let row = sqlx::query!(
+        r#"select s.pix_key_type, s.pix_key, s.pix_name, s.pix_city,
+                  (select coalesce(sum(p.amount_cents), 0)::bigint from ticket_payments p
+                   join seller_assignments a on a.event_id = p.event_id and a.seller_id = s.id
+                                            and a.numbers @> p.ticket_number
+                   where p.event_id = s.event_id and p.received_by = 'organization') as "pix_cents!"
+           from sellers s where s.id = $1"#,
+        link.seller_id
+    )
+    .fetch_one(&state.pool)
+    .await?;
+    let own = super::pix::account(
+        row.pix_key_type.as_deref(),
+        row.pix_key,
+        row.pix_name,
+        row.pix_city,
+    );
+    let view = pix
+        .payee(own.as_ref())
+        .map(|(payee, account)| SellerViewPixDto {
+            payee,
+            account,
+            event_id: link.event_id,
+        });
+    Ok((view, row.pix_cents))
 }
 
 /// The seller's numbers and money: what they hold, sold and owe, and what they handed over. A
@@ -540,10 +588,15 @@ fn summary(
     counts: &Counts,
     due_lines: Vec<SellerDueLineDto>,
     payments: &[SellerViewPaymentDto],
+    pix_cents: i64,
     price: Option<i32>,
     box_office: bool,
 ) -> SellerSummaryDto {
-    let received_cents: i64 = payments.iter().map(|p| i64::from(p.amount_cents)).sum();
+    let received_cents: i64 = payments
+        .iter()
+        .map(|p| i64::from(p.amount_cents))
+        .sum::<i64>()
+        + pix_cents;
     let due_tickets = if box_office {
         due_lines.iter().map(|line| line.tickets).sum()
     } else {
@@ -560,6 +613,7 @@ fn summary(
         due_tickets,
         amount_due_cents,
         received_cents,
+        pix_cents,
         balance_cents: amount_due_cents.map(|due| due - received_cents),
         due_lines,
     }

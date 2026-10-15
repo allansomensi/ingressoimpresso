@@ -52,6 +52,8 @@ export function normalizePass(pass: TicketPassDto): TicketPassDto {
     seat: partial.seat ?? null,
     organization,
     tableMap: partial.tableMap ?? null,
+    // Saved before the Pix (ADR 0085).
+    pix: partial.pix ?? null,
     event: {
       ...pass.event,
       id: event.id ?? "",

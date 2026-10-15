@@ -54,9 +54,14 @@ voidEntries: number,
  */
 amountDueCents: number | null, 
 /**
- * Money the seller handed over (ADR 0050); 0 for unassigned tickets.
+ * Money the seller handed over (ADR 0050), with the buyers' Pix the organization received
+ * for their numbers (ADR 0085); on the unassigned line, that Pix only.
  */
 receivedCents: number, 
+/**
+ * Of `received_cents`, the buyers' Pix received by the organization (ADR 0085).
+ */
+pixCents: number, 
 /**
  * Amount due − received: positive is still owed, negative was overpaid. `null` without
  * a ticket price and on the unassigned line (nobody owes those tickets).

@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update organization_profiles\n           set pix_key_type = null, pix_key = null, pix_name = null, pix_city = null, updated_at = now()\n           where organization_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "8d4d000930b45226ff4357fc78a67655aaed4aa26c3726f49fb9a4f292c7f13f"
+}

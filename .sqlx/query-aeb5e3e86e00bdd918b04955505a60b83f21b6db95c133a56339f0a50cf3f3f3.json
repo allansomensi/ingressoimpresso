@@ -1,0 +1,71 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select s.pix_key_type, s.pix_key, s.pix_name, s.pix_city,\n                  (select coalesce(sum(p.amount_cents), 0)::bigint from ticket_payments p\n                   join seller_assignments a on a.event_id = p.event_id and a.seller_id = s.id\n                                            and a.numbers @> p.ticket_number\n                   where p.event_id = s.event_id and p.received_by = 'organization') as \"pix_cents!\"\n           from sellers s where s.id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "pix_key_type",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "sellers",
+            "name": "pix_key_type"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "pix_key",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "sellers",
+            "name": "pix_key"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "pix_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "sellers",
+            "name": "pix_name"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "pix_city",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "sellers",
+            "name": "pix_city"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "pix_cents!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true,
+      true,
+      true,
+      true,
+      null
+    ]
+  },
+  "hash": "aeb5e3e86e00bdd918b04955505a60b83f21b6db95c133a56339f0a50cf3f3f3"
+}

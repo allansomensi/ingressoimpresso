@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "delete from ticket_payments\n               where event_id = $1 and ticket_number = $2 and received_by = 'seller'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b84cd610ad29f2957a4cf308e5e164016be8f98b48dd5b67946d664763cbbd06"
+}

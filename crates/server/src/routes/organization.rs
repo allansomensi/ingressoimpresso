@@ -40,7 +40,7 @@ const LOGOS_PER_HOUR: usize = 30;
 
 /// The organization of the signed-in user (its people edit the profile; a person only on an
 /// event's team does not, ADR 0055).
-async fn own_organization(pool: &PgPool, user: &AuthUser) -> ApiResult<Uuid> {
+pub(crate) async fn own_organization(pool: &PgPool, user: &AuthUser) -> ApiResult<Uuid> {
     sqlx::query_scalar!(
         "select organization_id from memberships where user_id = $1 order by created_at limit 1",
         user.id

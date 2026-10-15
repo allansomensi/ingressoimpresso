@@ -1,0 +1,35 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select a.seller_id as \"seller_id?\", sum(p.amount_cents)::bigint as \"pix!\"\n           from ticket_payments p\n           left join seller_assignments a on a.event_id = p.event_id and a.numbers @> p.ticket_number\n           where p.event_id = $1 and p.received_by = 'organization'\n           group by a.seller_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "seller_id?",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "seller_assignments",
+            "name": "seller_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "pix!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      null
+    ]
+  },
+  "hash": "cd54195a6cb61ddb7c6e1fec4f52adc3c4a5f95a1f2d75e23eb3592c3ce47001"
+}

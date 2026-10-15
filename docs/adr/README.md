@@ -94,3 +94,4 @@ feita e as consequências.
 | [0082](0082-documento-na-portaria.md) | Documento na portaria | Aceito |
 | [0083](0083-saida-e-volta.md) | Saída e volta | Aceito |
 | [0084](0084-fichas-de-consumo.md) | Fichas de consumo | Aceito |
+| [0085](0085-pix-copia-e-cola.md) | Pix copia e cola do organizador | Aceito |

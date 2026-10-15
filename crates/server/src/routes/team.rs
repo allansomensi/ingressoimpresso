@@ -58,7 +58,12 @@ pub fn need(method: &Method, path: &str) -> Need {
         })
         .collect::<Vec<_>>()
         .join("/");
-    match (method.as_str(), shape.as_str()) {
+    area(method.as_str(), &shape)
+}
+
+/// The area of a request by its method and the path's shape (ids as `{id}`).
+fn area(method: &str, shape: &str) -> Need {
+    match (method, shape) {
         (
             "POST",
             "events/{id}/design/preview"
@@ -107,9 +112,18 @@ pub fn need(method: &Method, path: &str) -> Need {
             Need::Area(TeamArea::Delivery)
         }
         ("POST", "voids/{id}/undo") => Need::Either(TeamArea::Delivery, TeamArea::Money),
-        ("POST", "sellers/{id}/payments" | "sellers/{id}/returns" | "events/{id}/ledger")
-        | ("PUT", "ledger/{id}")
-        | ("DELETE", "seller-payments/{id}" | "ledger/{id}") => Need::Area(TeamArea::Money),
+        (
+            "POST",
+            "sellers/{id}/payments"
+            | "sellers/{id}/returns"
+            | "events/{id}/ledger"
+            // Pix of the buyers (ADR 0085).
+            | "events/{id}/pix/receipts",
+        )
+        | ("PUT", "ledger/{id}" | "events/{id}/pix-settings" | "sellers/{id}/pix")
+        | ("DELETE", "seller-payments/{id}" | "ledger/{id}" | "sellers/{id}/pix") => {
+            Need::Area(TeamArea::Money)
+        }
         // Door links, door by category and the guest list (ADRs 0068, 0070).
         (
             "POST",
@@ -694,6 +708,21 @@ mod tests {
                 Method::PUT,
                 "events/{id}/door-settings",
                 Need::Area(TeamArea::Door),
+            ),
+            (
+                Method::PUT,
+                "events/{id}/pix-settings",
+                Need::Area(TeamArea::Money),
+            ),
+            (
+                Method::POST,
+                "events/{id}/pix/receipts",
+                Need::Area(TeamArea::Money),
+            ),
+            (
+                Method::DELETE,
+                "sellers/{id}/pix",
+                Need::Area(TeamArea::Money),
             ),
             (
                 Method::POST,

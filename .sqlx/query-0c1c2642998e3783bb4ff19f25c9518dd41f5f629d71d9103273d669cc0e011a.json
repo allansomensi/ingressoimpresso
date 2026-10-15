@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update events set pix_receiver = $2 where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "0c1c2642998e3783bb4ff19f25c9518dd41f5f629d71d9103273d669cc0e011a"
+}

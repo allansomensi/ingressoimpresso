@@ -6,6 +6,7 @@ import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
 
 import { ProfileEditor, type ProfileTarget } from "@/components/organization/profile-editor";
+import { OrganizationPix } from "@/components/pix/organization-pix";
 import { ErrorMessage, LoadingBlock, PageHeader } from "@/components/ui";
 import { api } from "@/lib/api";
 import { panel as panelTexts } from "@/texts/pt-BR/panel";
@@ -32,7 +33,14 @@ export default function OrganizationProfilePage() {
       ) : profile.isError ? (
         <ErrorMessage error={profile.error} />
       ) : (
-        <ProfileEditor key={profile.dataUpdatedAt} profile={profile.data} target={TARGET} />
+        // The profile's save bar stays fixed at the bottom on phones: the room it needs moves from
+        // the form to the end of the page, under the Pix card.
+        <div className="flex flex-col gap-6 pb-24 lg:pb-0 [&>form]:pb-0">
+          <ProfileEditor key={profile.dataUpdatedAt} profile={profile.data} target={TARGET} />
+          <div id="pix" className="scroll-mt-28 lg:max-w-[calc(100%-340px-1.5rem)]">
+            <OrganizationPix organizationName={profile.data.organizationName} />
+          </div>
+        </div>
       )}
     </main>
   );

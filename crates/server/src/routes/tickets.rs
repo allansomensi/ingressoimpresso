@@ -955,6 +955,12 @@ pub async fn open(
         },
         organization: super::organization::event_organization(&state.pool, link.event_id).await?,
         table_map: table_map(&state, link.event_id, link.ticket_number).await?,
+        // No Pix for a ticket that is voided or of a canceled event (ADR 0085).
+        pix: if ticket_state == TicketState::Voided || row.canceled_at.is_some() {
+            None
+        } else {
+            super::pix::ticket_pix(&state.pool, link.event_id, link.ticket_number).await?
+        },
         number: link.ticket_number,
         number_label: label(link.ticket_number, digits),
         number_prefix: prefix,

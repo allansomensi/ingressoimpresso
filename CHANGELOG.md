@@ -25,6 +25,10 @@ e não acompanha estes números.
   A4) e cada barraca dá baixa pelo celular, mesmo sem internet. Ficha usada ou copiada não passa
   duas vezes.
 - Campo `{categoria}` nos textos do ingresso: imprime a categoria de cada número.
+- Pix copia e cola direto para quem organiza: com a chave cadastrada em Minha organização (ou a de
+  cada vendedor), o link do vendedor e o ingresso no celular mostram o QR e o código com o valor
+  e um identificador por número. O dinheiro não passa pela plataforma. Em Vendedores, **Conferir
+  Pix** marca o que chegou no extrato, e o que a organização recebeu sai do acerto do vendedor.
 - Medição de velocidade do site nos aparelhos de quem visita (Vercel Speed Insights), fora da
   portaria, para acompanhar o efeito das melhorias de desempenho.
 - Guias para quem organiza evento, em `/guias`: como fazer ingresso para festa, evitar ingresso

@@ -30,7 +30,7 @@ use crate::routes::{
     seller_links, seller_sync, sellers, settlement, status, support, tables, team, tickets,
     two_factor, voids,
 };
-use crate::routes::{checklist, series};
+use crate::routes::{checklist, pix, series};
 use crate::routes::{referrals, verify};
 use crate::state::AppState;
 
@@ -363,6 +363,21 @@ pub fn router(state: AppState) -> Router {
         .route("/events/{id}/series/leave", post(series::leave))
         .route("/series/{id}", get(series::get).put(series::rename))
         .route("/events/{id}/checklist", get(checklist::checklist))
+        // Pix "copia e cola" (ADR 0085).
+        .route(
+            "/account/pix",
+            get(pix::organization_account)
+                .put(pix::set_organization_account)
+                .delete(pix::delete_organization_account),
+        )
+        .route(
+            "/sellers/{id}/pix",
+            put(pix::set_seller_account).delete(pix::delete_seller_account),
+        )
+        .route("/events/{id}/pix", get(pix::event))
+        .route("/events/{id}/pix-settings", put(pix::update_settings))
+        .route("/events/{id}/pix/receipts", post(pix::set_receipts))
+        .route("/seller/pix", post(pix::seller_receipt))
         .fallback(not_found)
         .layer(DefaultBodyLimit::max(JSON_BODY_LIMIT))
         // Axum's own rejections (bad JSON, a malformed id, a body too large) answer plain text;
