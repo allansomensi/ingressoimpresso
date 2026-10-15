@@ -11,4 +11,12 @@ name: string,
 /**
  * Band colour (`#rrggbb`).
  */
-color: string, };
+color: string, 
+/**
+ * The door asks for a document (ADR 0082): the holder is told to bring it.
+ */
+checkDocument: boolean, 
+/**
+ * Which documents count.
+ */
+documentNote: string | null, };

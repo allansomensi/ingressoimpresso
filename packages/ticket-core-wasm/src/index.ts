@@ -19,6 +19,7 @@ import type { EntryDto } from "./generated/EntryDto";
 import type { VoidRangeDto } from "./generated/VoidRangeDto";
 
 export type { DecisionDto } from "./generated/DecisionDto";
+export type { DirectionDto } from "./generated/DirectionDto";
 export type { DoorEventDto } from "./generated/DoorEventDto";
 export type { EntryDto } from "./generated/EntryDto";
 export type { EventKeyDto } from "./generated/EventKeyDto";
@@ -76,7 +77,8 @@ export function formatVersion(): number {
 
 /**
  * A door device for one event: verifies scans and decides admit / already entered / voided /
- * other event / invalid, entirely offline.
+ * other event / invalid, entirely offline. With re-entry (ADR 0083) it also decides the exit and
+ * the return of a ticket that went out.
  *
  * Call `free()` when discarding an instance to release WebAssembly memory.
  */
@@ -102,19 +104,47 @@ export class DoorCore {
     return this.#raw.recordEntries(entries);
   }
 
+  /**
+   * Records exits known from this or other devices (re-entry, ADR 0083). Order does not matter:
+   * the latest movement of each ticket wins. Returns how many became their ticket's latest one.
+   */
+  recordExits(exits: readonly EntryDto[]): number {
+    return this.#raw.recordExits(exits);
+  }
+
+  /** Allows or forbids re-entry, as the event says. Off by default. */
+  setReentry(allowed: boolean): void {
+    this.#raw.setReentry(allowed);
+  }
+
   /** Evaluates a scan without recording anything. */
   evaluate(qrText: string): DecisionDto {
     return parseDecision(this.#raw.evaluate(qrText));
   }
 
-  /** Evaluates a scan and, if admitted, records the entry in the same step. */
+  /** Evaluates a scan and, if admitted (first entry or return), records the entry in the same step. */
   checkIn(qrText: string, atUnixMs: number, deviceName: string): DecisionDto {
     return parseDecision(this.#raw.checkIn(qrText, atUnixMs, deviceName));
+  }
+
+  /** Evaluates a scan at the exit without recording anything. */
+  evaluateExit(qrText: string): DecisionDto {
+    return parseDecision(this.#raw.evaluateExit(qrText));
+  }
+
+  /** Evaluates a scan at the exit and, if it goes out, records the exit in the same step. */
+  checkOut(qrText: string, atUnixMs: number, deviceName: string): DecisionDto {
+    return parseDecision(this.#raw.checkOut(qrText, atUnixMs, deviceName));
   }
 
   /** How many distinct tickets have entered. */
   get entryCount(): number {
     return this.#raw.entryCount();
+  }
+
+  /** How many tickets are inside now: with re-entry, those that entered and did not go out. */
+  get insideCount(): number {
+    return this.#raw.insideCount();
   }
 
   /** Releases the WebAssembly memory held by this instance. */

@@ -1,13 +1,14 @@
 "use client";
 
-import type { EventBody, EventDto, OrganizationProfileDto } from "@ingressoimpresso/api-types";
+import type { EventBody, EventDto, EventKind, OrganizationProfileDto } from "@ingressoimpresso/api-types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Sparkles } from "lucide-react";
+import { Coins, Sparkles, Ticket } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
 import { Button, Dialog, ErrorMessage, Field, Input, LoadingBlock } from "@/components/ui";
 import { api } from "@/lib/api";
+import { cn } from "@/lib/cn";
 import { browserOffset, offsetMinutes, wallClockInput, withOffset } from "@/lib/event-time";
 import { parseMoney } from "@/lib/format";
 import { common as commonTexts } from "@/texts/pt-BR/common";
@@ -88,6 +89,7 @@ function EventForm({
   const [startsAt, setStartsAt] = useState(event === undefined ? "" : wallClockInput(event.startsAt));
   const [endsAt, setEndsAt] = useState(event === undefined ? "" : wallClockInput(event.endsAt));
   const [price, setPrice] = useState(priceText(event === undefined ? (defaults?.defaultTicketPriceCents ?? null) : event.ticketPriceCents));
+  const [kind, setKind] = useState<EventKind>(event?.kind ?? "tickets");
   // The end follows the start (+5 h) until it is edited by hand.
   const [endTouched, setEndTouched] = useState(event !== undefined);
   const parsedPrice = parseMoney(price);
@@ -105,6 +107,7 @@ function EventForm({
         startsAt: withOffset(startsAt, offset),
         endsAt: withOffset(endsAt, offset),
         ticketPriceCents: parsedPrice.ok ? parsedPrice.cents : null,
+        kind,
       };
       return event === undefined
         ? api<EventDto>("/api/events", { method: "POST", body })
@@ -127,6 +130,7 @@ function EventForm({
 
   return (
     <form onSubmit={submit} className="flex flex-col gap-4">
+      <KindPicker value={kind} onChange={setKind} />
       <Field label={t.eventName}>
         <Input
           value={name}
@@ -195,7 +199,11 @@ function EventForm({
         </Field>
       </div>
       <p className="-mt-2 text-xs text-fg-muted">{timeZone}</p>
-      <Field label={t.price} optional hint={parsedPrice.ok ? t.priceHint : <span className="text-danger-fg">{t.priceInvalid}</span>}>
+      <Field
+        label={kind === "tokens" ? t.tokenPrice : t.price}
+        optional
+        hint={parsedPrice.ok ? (kind === "tokens" ? t.tokenPriceHint : t.priceHint) : <span className="text-danger-fg">{t.priceInvalid}</span>}
+      >
         <span className="relative flex">
           <span className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-sm text-fg-muted">{commonTexts.currency}</span>
           <Input
@@ -227,5 +235,49 @@ function EventForm({
         </Button>
       </div>
     </form>
+  );
+}
+
+/** Tickets or consumption tokens (ADR 0084): two cards, the first thing the form asks. */
+function KindPicker({ value, onChange }: { value: EventKind; onChange: (kind: EventKind) => void }) {
+  const options = [
+    { kind: "tickets", Icon: Ticket },
+    { kind: "tokens", Icon: Coins },
+  ] as const satisfies readonly { kind: EventKind; Icon: typeof Ticket }[];
+  return (
+    <fieldset className="flex flex-col gap-2">
+      <legend className="mb-1.5 text-sm font-medium text-fg">{t.kind}</legend>
+      <div className="grid grid-cols-2 gap-2">
+        {options.map(({ kind, Icon }) => {
+          const selected = value === kind;
+          return (
+            <label
+              key={kind}
+              className={cn(
+                "relative flex cursor-pointer flex-col gap-1.5 rounded-xl border p-3 transition has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand",
+                selected ? "border-brand bg-brand-soft/60" : "border-border hover:border-border-strong active:bg-surface-2",
+              )}
+            >
+              <input
+                type="radio"
+                name="event-kind"
+                className="sr-only"
+                checked={selected}
+                onChange={() => {
+                  onChange(kind);
+                }}
+              />
+              <span className="flex items-center gap-2 text-sm font-semibold text-fg">
+                <span className={cn("flex size-8 items-center justify-center rounded-lg", selected ? "bg-brand-solid text-white" : "bg-surface-2 text-fg-muted")}>
+                  <Icon className="size-4" aria-hidden />
+                </span>
+                {t.kinds[kind].title}
+              </span>
+              <span className="text-xs leading-relaxed text-fg-muted">{t.kinds[kind].body}</span>
+            </label>
+          );
+        })}
+      </div>
+    </fieldset>
   );
 }

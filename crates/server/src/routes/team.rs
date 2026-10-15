@@ -58,7 +58,12 @@ pub fn need(method: &Method, path: &str) -> Need {
         })
         .collect::<Vec<_>>()
         .join("/");
-    match (method.as_str(), shape.as_str()) {
+    area(method.as_str(), &shape)
+}
+
+/// The area of a request by its method and the path's shape (ids as `{id}`).
+fn area(method: &str, shape: &str) -> Need {
+    match (method, shape) {
         (
             "POST",
             "events/{id}/design/preview"
@@ -107,9 +112,18 @@ pub fn need(method: &Method, path: &str) -> Need {
             Need::Area(TeamArea::Delivery)
         }
         ("POST", "voids/{id}/undo") => Need::Either(TeamArea::Delivery, TeamArea::Money),
-        ("POST", "sellers/{id}/payments" | "sellers/{id}/returns" | "events/{id}/ledger")
-        | ("PUT", "ledger/{id}")
-        | ("DELETE", "seller-payments/{id}" | "ledger/{id}") => Need::Area(TeamArea::Money),
+        (
+            "POST",
+            "sellers/{id}/payments"
+            | "sellers/{id}/returns"
+            | "events/{id}/ledger"
+            // Pix of the buyers (ADR 0085).
+            | "events/{id}/pix/receipts",
+        )
+        | ("PUT", "ledger/{id}" | "events/{id}/pix-settings" | "sellers/{id}/pix")
+        | ("DELETE", "seller-payments/{id}" | "ledger/{id}" | "sellers/{id}/pix") => {
+            Need::Area(TeamArea::Money)
+        }
         // Door links, door by category and the guest list (ADRs 0068, 0070).
         (
             "POST",
@@ -120,7 +134,12 @@ pub fn need(method: &Method, path: &str) -> Need {
             | "events/{id}/guests"
             | "events/{id}/guests/bulk",
         )
-        | ("PUT", "door-accesses/{id}/categories" | "guests/{id}")
+        | (
+            "PUT",
+            "door-accesses/{id}/categories" | "guests/{id}"
+            // Exit and return (ADR 0083).
+            | "events/{id}/door-settings",
+        )
         | ("DELETE", "guests/{id}") => Need::Area(TeamArea::Door),
         // Categories set prices, so they belong to coordination.
         ("PUT", "events/{id}" | "team-members/{id}" | "categories/{id}")
@@ -684,6 +703,26 @@ mod tests {
                 Method::PUT,
                 "door-accesses/{id}/categories",
                 Need::Area(TeamArea::Door),
+            ),
+            (
+                Method::PUT,
+                "events/{id}/door-settings",
+                Need::Area(TeamArea::Door),
+            ),
+            (
+                Method::PUT,
+                "events/{id}/pix-settings",
+                Need::Area(TeamArea::Money),
+            ),
+            (
+                Method::POST,
+                "events/{id}/pix/receipts",
+                Need::Area(TeamArea::Money),
+            ),
+            (
+                Method::DELETE,
+                "sellers/{id}/pix",
+                Need::Area(TeamArea::Money),
             ),
             (
                 Method::POST,

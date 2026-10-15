@@ -8,6 +8,7 @@ import type { SellerSaleDto } from "./SellerSaleDto";
 import type { SellerSummaryDto } from "./SellerSummaryDto";
 import type { SellerViewEvent } from "./SellerViewEvent";
 import type { SellerViewPaymentDto } from "./SellerViewPaymentDto";
+import type { SellerViewPixDto } from "./SellerViewPixDto";
 import type { SellerVoidDto } from "./SellerVoidDto";
 
 /**
@@ -81,4 +82,8 @@ goal: number | null,
 /**
  * Where the seller stands among the others, when the organizer shows it (ADR 0073).
  */
-ranking: SellerRankingDto | null, };
+ranking: SellerRankingDto | null, 
+/**
+ * How buyers pay by Pix (ADR 0085); `null` when the event does not charge by Pix.
+ */
+pix: SellerViewPixDto | null, };

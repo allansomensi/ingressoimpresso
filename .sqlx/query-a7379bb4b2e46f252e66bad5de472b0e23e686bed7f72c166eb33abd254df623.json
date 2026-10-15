@@ -1,0 +1,64 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select ticket_number, amount_cents, received_by, confirmed_at\n           from ticket_payments where event_id = $1 order by ticket_number",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "ticket_number",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "ticket_payments",
+            "name": "ticket_number"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "amount_cents",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "ticket_payments",
+            "name": "amount_cents"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "received_by",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ticket_payments",
+            "name": "received_by"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "confirmed_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "ticket_payments",
+            "name": "confirmed_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "a7379bb4b2e46f252e66bad5de472b0e23e686bed7f72c166eb33abd254df623"
+}

@@ -179,6 +179,11 @@ dto! {
         #[serde(default)]
         #[cfg_attr(feature = "ts", ts(optional = nullable))]
         pub address: Option<String>,
+        /// Tickets or consumption tokens (ADR 0084); missing: tickets on create, unchanged on
+        /// update.
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional))]
+        pub kind: Option<EventKind>,
     }
 
     /// `PUT /api/events/{id}/status`: archive (`closed`) or reopen (`active`).
@@ -224,6 +229,8 @@ dto! {
         /// Required checklist items still missing (ADR 0078), in the event list only; `null`
         /// elsewhere and when the checklist does not apply (ended, archived or canceled).
         pub checklist_missing: Option<i32>,
+        /// Tickets or consumption tokens (ADR 0084).
+        pub kind: EventKind,
     }
 
     /// The current user's place on the team of an event of another organization (ADR 0055).
@@ -1011,6 +1018,20 @@ dto! {
         pub organization: PublicOrganizationDto,
         /// The room with the holder's table highlighted (ADR 0066); `null` without a seat.
         pub table_map: Option<PassTableMapDto>,
+        /// How to pay for it by Pix (ADR 0085); `null` when the event does not charge by Pix or
+        /// the number has nothing to pay.
+        #[serde(default)]
+        pub pix: Option<TicketPixDto>,
+    }
+
+    /// The Pix of a digital ticket.
+    pub struct TicketPixDto {
+        /// The key, the receiver and the city.
+        pub account: PixAccountDto,
+        /// The number's price (its category's, else the event's); `null`: the payer types it.
+        pub amount_cents: Option<i32>,
+        /// Someone saw the money arrive.
+        pub paid: bool,
     }
 
     /// A category's name and colour.
@@ -1019,6 +1040,12 @@ dto! {
         pub name: String,
         /// Band colour (`#rrggbb`).
         pub color: String,
+        /// The door asks for a document (ADR 0082): the holder is told to bring it.
+        #[serde(default)]
+        pub check_document: bool,
+        /// Which documents count.
+        #[serde(default)]
+        pub document_note: Option<String>,
     }
 
     /// The event on a digital ticket.
@@ -1047,6 +1074,9 @@ dto! {
         /// One of several dates (ADR 0077): the ticket says which session it is for.
         #[serde(default)]
         pub in_series: bool,
+        /// Tickets or consumption tokens (ADR 0084).
+        #[serde(default)]
+        pub kind: EventKind,
     }
 
     /// `GET /api/analytics`: results of every event of the organization (ADR 0034).
@@ -1240,6 +1270,8 @@ dto! {
         pub box_office: bool,
         /// Tickets the seller aims to sell (ADR 0073); never on a box office.
         pub goal: Option<i32>,
+        /// The seller's own Pix key (ADR 0085), when buyers pay them directly.
+        pub pix: Option<PixAccountDto>,
     }
 
     /// A seller's private link, where they mark what they sold (ADR 0053).
@@ -1513,6 +1545,9 @@ dto! {
         pub sold_at: OffsetDateTime,
         /// The number's active digital ticket, if one was sent (ADR 0061).
         pub ticket_url: Option<String>,
+        /// Its Pix was seen arriving (ADR 0085).
+        #[serde(default)]
+        pub pix_receipt: Option<PixReceiptDto>,
     }
 
     /// Money the organizer recorded from this seller, on their page.
@@ -1546,9 +1581,14 @@ dto! {
         pub amount_due_cents: Option<i64>,
         /// The tickets due by category (one line without categories).
         pub due_lines: Vec<SellerDueLineDto>,
-        /// Money the organizer recorded.
+        /// Money the organizer recorded, Pix paid straight to the organization included.
         #[cfg_attr(feature = "ts", ts(type = "number"))]
         pub received_cents: i64,
+        /// Of `received_cents`, the buyers' Pix the organization received for the seller's
+        /// numbers (ADR 0085).
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub pix_cents: i64,
         /// Amount due − received, when the event has a price.
         #[cfg_attr(feature = "ts", ts(type = "number | null"))]
         pub balance_cents: Option<i64>,
@@ -1605,6 +1645,9 @@ dto! {
         /// One of several dates (ADR 0077): the page says which session the link is for.
         #[serde(default)]
         pub in_series: bool,
+        /// Tickets or consumption tokens (ADR 0084).
+        #[serde(default)]
+        pub kind: EventKind,
     }
 
     /// `POST /api/seller`: everything the seller's page shows (ADR 0053).
@@ -1643,6 +1686,30 @@ dto! {
         pub goal: Option<i32>,
         /// Where the seller stands among the others, when the organizer shows it (ADR 0073).
         pub ranking: Option<SellerRankingDto>,
+        /// How buyers pay by Pix (ADR 0085); `null` when the event does not charge by Pix.
+        #[serde(default)]
+        pub pix: Option<SellerViewPixDto>,
+    }
+
+    /// The Pix the seller's buyers pay (ADR 0085).
+    pub struct SellerViewPixDto {
+        /// Whose key: the organization's or the seller's own.
+        pub payee: PixPayee,
+        /// The key, the receiver and the city.
+        pub account: PixAccountDto,
+        /// The event, for each number's payment identifier (the same the panel shows).
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub event_id: Uuid,
+    }
+
+    /// `POST /api/seller/pix`: the seller saw a buyer's Pix arrive on their own key (or undoes it).
+    pub struct SellerPixBody {
+        /// Token from the link's fragment.
+        pub token: String,
+        /// A number the seller sold.
+        pub number: i32,
+        /// Received (`true`) or not yet (`false`).
+        pub paid: bool,
     }
 
     /// An inclusive range of ticket numbers.
@@ -1776,6 +1843,10 @@ dto! {
         pub color: String,
         /// Price; `null` uses the event's price, 0 is a courtesy.
         pub price_cents: Option<i32>,
+        /// The door asks for a document before letting in (ADR 0082): meia-entrada.
+        pub check_document: bool,
+        /// Which documents count ("Carteira de estudante, RG de idoso…"); `null`: any proof.
+        pub document_note: Option<String>,
         /// Numbers in the category, ordered.
         pub ranges: Vec<RangeDto>,
     }
@@ -1788,6 +1859,14 @@ dto! {
         pub color: String,
         /// Price; `null` uses the event's price.
         pub price_cents: Option<i32>,
+        /// The door asks for a document (ADR 0082); missing: off.
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional))]
+        pub check_document: Option<bool>,
+        /// Which documents count (up to 80 characters).
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional = nullable))]
+        pub document_note: Option<String>,
     }
 
     /// A table on the event's map (ADR 0057).
@@ -2103,6 +2182,14 @@ dto! {
         /// Tickets that entered.
         #[cfg_attr(feature = "ts", ts(type = "number"))]
         pub entry_count: i64,
+        /// Whether a ticket that went out may come back in (ADR 0083).
+        pub reentry: bool,
+    }
+
+    /// `PUT /api/events/{id}/door-settings`: how the door works (ADR 0083).
+    pub struct DoorSettingsBody {
+        /// Let a ticket that went out come back in.
+        pub reentry: bool,
     }
 
     /// `POST /api/door/register`.
@@ -2156,6 +2243,12 @@ dto! {
         /// One of several dates (ADR 0077): the door says which session it is for.
         #[serde(default)]
         pub in_series: bool,
+        /// A ticket that went out may come back in (ADR 0083): the door offers the exit.
+        #[serde(default)]
+        pub reentry: bool,
+        /// Tickets or consumption tokens (ADR 0084): the door speaks of a ficha at a stall.
+        #[serde(default)]
+        pub kind: EventKind,
     }
 
     /// What `DoorCore` needs to verify tickets; same shape as ticket-core's `DoorEventDto`.
@@ -2217,6 +2310,12 @@ dto! {
         /// The category's own price (`null`: the event's; 0: courtesy), for the box office.
         #[serde(default)]
         pub price_cents: Option<i32>,
+        /// Ask for a document before letting in (ADR 0082).
+        #[serde(default)]
+        pub check_document: bool,
+        /// Which documents count.
+        #[serde(default)]
+        pub document_note: Option<String>,
     }
 
     /// The table and seat of a ticket, for the door.
@@ -2262,8 +2361,11 @@ dto! {
         /// Every seated ticket (ADR 0057), to tell the guest their table.
         #[serde(default)]
         pub seats: Vec<DoorSeatDto>,
-        /// Admitted scans since `since`, from every phone.
+        /// Admitted scans since `since` (first entries and returns), from every phone.
         pub entries: Vec<DoorEntryDto>,
+        /// Exits since `since` (ADR 0083), from every phone.
+        #[serde(default)]
+        pub exits: Vec<DoorEntryDto>,
         /// Opaque cursor for the next call.
         pub cursor: String,
         /// Server clock, Unix milliseconds.
@@ -2335,9 +2437,9 @@ dto! {
         /// Scan id.
         #[cfg_attr(feature = "ts", ts(type = "string"))]
         pub id: Uuid,
-        /// For admitted scans: first entry, duplicate or voided ticket.
+        /// For admitted scans: first entry, return, duplicate or voided ticket.
         pub class: Option<ScanClass>,
-        /// For duplicates: the first entry.
+        /// For duplicates: the first entry (with re-entry, the entry that holds now).
         pub first_entry: Option<DoorFirstEntryDto>,
         /// For voided tickets: why.
         pub void_reason: Option<VoidReason>,
@@ -2396,9 +2498,13 @@ dto! {
         /// such number has a price.
         #[cfg_attr(feature = "ts", ts(type = "number | null"))]
         pub amount_due_cents: Option<i64>,
-        /// Money the seller handed over (ADR 0050); 0 for unassigned tickets.
+        /// Money the seller handed over (ADR 0050), with the buyers' Pix the organization received
+        /// for their numbers (ADR 0085); on the unassigned line, that Pix only.
         #[cfg_attr(feature = "ts", ts(type = "number"))]
         pub received_cents: i64,
+        /// Of `received_cents`, the buyers' Pix received by the organization (ADR 0085).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub pix_cents: i64,
         /// Amount due − received: positive is still owed, negative was overpaid. `null` without
         /// a ticket price and on the unassigned line (nobody owes those tickets).
         #[cfg_attr(feature = "ts", ts(type = "number | null"))]
@@ -2469,6 +2575,46 @@ dto_enum! {
         Active,
         /// Finished.
         Closed,
+    }
+
+    /// What an event prints (ADR 0084): tickets for the entrance or consumption tokens (fichas).
+    pub enum EventKind {
+        /// Tickets, checked at the door.
+        Tickets,
+        /// Consumption tokens, each used once at a stall; the categories are the products.
+        Tokens,
+    }
+
+    /// Who the buyers' Pix of an event pays (ADR 0085).
+    pub enum PixReceiver {
+        /// No Pix on the seller's page nor on the digital tickets.
+        Off,
+        /// The organization's key.
+        Organization,
+        /// Each number's seller, with their own key; the organization's without one.
+        Seller,
+    }
+
+    /// Whose key a number's Pix pays, and who confirmed seeing it.
+    pub enum PixPayee {
+        /// The organization.
+        Organization,
+        /// The seller of the number.
+        Seller,
+    }
+
+    /// Kind of a Pix key (ADR 0085), as the Pix directory (DICT) has them.
+    pub enum PixKeyType {
+        /// CPF, 11 digits.
+        Cpf,
+        /// CNPJ, numeric or alphanumeric, 14 characters.
+        Cnpj,
+        /// E-mail.
+        Email,
+        /// Brazilian phone, `+55…`.
+        Phone,
+        /// Random key (EVP), a UUID.
+        Random,
     }
 
     /// Batch payment status.
@@ -2601,6 +2747,12 @@ dto_enum! {
         RejectedOtherEvent,
         /// Yellow: a category this door does not take (ADR 0068); no entry recorded.
         RejectedWrongDoor,
+        /// Green: went out and came back in (re-entry, ADR 0083).
+        Readmitted,
+        /// Blue: went out, may come back (re-entry, ADR 0083).
+        Exited,
+        /// Yellow: read again on the way out; nothing recorded.
+        RejectedAlreadyOut,
     }
 
     /// Kind of a changelog note.
@@ -2633,6 +2785,8 @@ dto_enum! {
         DuplicateEntry,
         /// The ticket is voided.
         VoidEntry,
+        /// A return of a ticket that went out (ADR 0083).
+        Reentry,
     }
 }
 
@@ -2740,6 +2894,17 @@ macro_rules! db_enum {
 }
 
 db_enum!(EventStatus { Active => "active", Closed => "closed" });
+db_enum!(EventKind { Tickets => "tickets", Tokens => "tokens" });
+db_enum!(PixKeyType { Cpf => "cpf", Cnpj => "cnpj", Email => "email", Phone => "phone", Random => "random" });
+db_enum!(PixReceiver { Off => "off", Organization => "organization", Seller => "seller" });
+db_enum!(PixPayee { Organization => "organization", Seller => "seller" });
+
+/// Events print tickets unless they say otherwise; apps and pages saved before ADR 0084 get them.
+impl Default for EventKind {
+    fn default() -> Self {
+        Self::Tickets
+    }
+}
 db_enum!(BatchStatus { AwaitingPayment => "awaiting_payment", Paid => "paid", Canceled => "canceled", Refunded => "refunded" });
 db_enum!(ChangelogKind { New => "new", Improvement => "improvement", Fix => "fix", Security => "security" });
 db_enum!(PaymentMethod { Stripe => "stripe", Admin => "admin", Free => "free", Credit => "credit" });
@@ -2756,8 +2921,16 @@ db_enum!(ScanOutcome {
     RejectedInvalid => "rejected_invalid",
     RejectedOtherEvent => "rejected_other_event",
     RejectedWrongDoor => "rejected_wrong_door",
+    Readmitted => "readmitted",
+    Exited => "exited",
+    RejectedAlreadyOut => "rejected_already_out",
 });
-db_enum!(ScanClass { FirstEntry => "first_entry", DuplicateEntry => "duplicate_entry", VoidEntry => "void_entry" });
+db_enum!(ScanClass {
+    FirstEntry => "first_entry",
+    DuplicateEntry => "duplicate_entry",
+    VoidEntry => "void_entry",
+    Reentry => "reentry",
+});
 
 // Platform controls (ADRs 0037–0043) --------------------------------------------------------
 
@@ -4033,10 +4206,30 @@ dto! {
         pub guests: DoorLiveGuestsDto,
         /// Sales at the door (ADR 0069).
         pub box_office: DoorLiveBoxOfficeDto,
+        /// Exit and return (ADR 0083); `null` when the event does not allow it and nobody went out.
+        pub reentry: Option<DoorLiveReentryDto>,
         /// Server clock.
         #[serde(with = "time::serde::rfc3339")]
         #[cfg_attr(feature = "ts", ts(type = "string"))]
         pub generated_at: OffsetDateTime,
+    }
+
+    /// Who is inside now and who went out (ADR 0083).
+    pub struct DoorLiveReentryDto {
+        /// Whether the event lets a ticket that went out come back.
+        pub allowed: bool,
+        /// Tickets inside now: entered and not out.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub inside: i64,
+        /// Tickets out now, with the right to come back.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub out: i64,
+        /// Exits read.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub exits: i64,
+        /// Returns let in.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub returns: i64,
     }
 
     /// Entries in a 5-minute window.
@@ -4273,6 +4466,98 @@ dto! {
         pub path: Option<String>,
     }
 
+    /// A Pix key with who receives and the city (ADR 0085), as the BR Code needs them.
+    pub struct PixAccountDto {
+        /// Kind of key.
+        pub key_type: PixKeyType,
+        /// The key, normalized (CPF/CNPJ without punctuation, `+55…`, lowercase e-mail, EVP).
+        pub key: String,
+        /// Who receives, as the payer's bank shows it (up to 25 characters).
+        pub name: String,
+        /// City of who receives (up to 15 characters).
+        pub city: String,
+    }
+
+    /// `PUT /api/account/pix`, `PUT /api/sellers/{id}/pix`.
+    pub struct PixAccountBody {
+        /// Kind of key.
+        pub key_type: PixKeyType,
+        /// As typed: `123.456.789-09`, `(11) 99999-8888`…
+        pub key: String,
+        /// Who receives (1–25 characters).
+        pub name: String,
+        /// City (1–15 characters).
+        pub city: String,
+    }
+
+    /// `GET /api/events/{id}/pix`: how buyers pay by Pix and which numbers were paid.
+    pub struct EventPixDto {
+        /// Who the Pix pays.
+        pub receiver: PixReceiver,
+        /// The organization's key, when it has one (Minha organização).
+        pub organization: Option<PixAccountDto>,
+        /// The event's sellers and their own keys.
+        pub sellers: Vec<SellerPixDto>,
+        /// Numbers someone may pay: sold, sent as digital tickets or already paid.
+        pub numbers: Vec<PixNumberDto>,
+    }
+
+    /// A seller and their Pix key.
+    pub struct SellerPixDto {
+        /// Seller id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub seller_id: Uuid,
+        /// Name.
+        pub name: String,
+        /// Their own key, if any.
+        pub account: Option<PixAccountDto>,
+    }
+
+    /// A number that may be paid by Pix.
+    pub struct PixNumberDto {
+        /// Ticket number.
+        pub number: i32,
+        /// Its price (category's, else the event's); `null` without one.
+        pub amount_cents: Option<i32>,
+        /// Seller who holds it.
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub seller_id: Option<Uuid>,
+        /// Seller's name.
+        pub seller: Option<String>,
+        /// Buyer or holder, as written down.
+        pub buyer: Option<String>,
+        /// Whose key its Pix pays now.
+        pub payee: PixPayee,
+        /// Its Pix was seen arriving.
+        pub receipt: Option<PixReceiptDto>,
+    }
+
+    /// Someone saw a number's Pix arrive.
+    pub struct PixReceiptDto {
+        /// Who received it.
+        pub received_by: PixPayee,
+        /// Amount recorded.
+        pub amount_cents: i32,
+        /// When it was confirmed.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub confirmed_at: OffsetDateTime,
+    }
+
+    /// `PUT /api/events/{id}/pix-settings`.
+    pub struct PixSettingsBody {
+        /// Who the Pix pays.
+        pub receiver: PixReceiver,
+    }
+
+    /// `POST /api/events/{id}/pix/receipts`: numbers whose Pix was seen arriving (or undone).
+    pub struct PixReceiptsBody {
+        /// Up to 500 numbers.
+        pub numbers: Vec<i32>,
+        /// Received (`true`) or not yet (`false`).
+        pub paid: bool,
+    }
+
     /// Who runs an event, as the public pages show it (ADR 0064).
     pub struct PublicOrganizationDto {
         /// Name.
@@ -4369,6 +4654,8 @@ dto! {
         pub change: EventChangeDto,
         /// One of several dates (ADR 0077): the page says which session the ticket is for.
         pub in_series: bool,
+        /// Tickets or consumption tokens (ADR 0084).
+        pub kind: EventKind,
     }
 
     /// `GET|PUT /api/events/{id}/verify-settings`.

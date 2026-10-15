@@ -366,7 +366,12 @@ pub(crate) async fn door_list(
         category: row
             .category_name
             .zip(row.category_color)
-            .map(|(name, color)| DoorCategoryTagDto { name, color }),
+            .map(|(name, color)| DoorCategoryTagDto {
+                name,
+                color,
+                check_document: false,
+                document_note: None,
+            }),
     })
     .collect();
     Ok((Some(guests), version))

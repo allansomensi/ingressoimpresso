@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { nextAvailable, numberCells, padNumber } from "@/lib/seller-page";
 
-const sale = (number: number, buyerName: string | null = null) => ({ number, buyerName, buyerPhone: null, soldAt: "2026-10-11T12:00:00Z", ticketUrl: null });
+const sale = (number: number, buyerName: string | null = null) => ({ number, buyerName, buyerPhone: null, soldAt: "2026-10-11T12:00:00Z", ticketUrl: null, pixReceipt: null });
 
 describe("seller page", () => {
   it("lists every number with where it stands", () => {

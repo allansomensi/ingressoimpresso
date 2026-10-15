@@ -42,9 +42,14 @@ amountDueCents: number | null,
  */
 dueLines: Array<SellerDueLineDto>, 
 /**
- * Money the organizer recorded.
+ * Money the organizer recorded, Pix paid straight to the organization included.
  */
 receivedCents: number, 
+/**
+ * Of `received_cents`, the buyers' Pix the organization received for the seller's
+ * numbers (ADR 0085).
+ */
+pixCents: number, 
 /**
  * Amount due − received, when the event has a price.
  */

@@ -759,6 +759,93 @@ const classic: TicketTemplate = {
   },
 };
 
+/**
+ * Consumption tokens (ADR 0084): 63 × 38 mm, 21 per A4 sheet. The product (`{categoria}`) in
+ * large type, its price and the QR the stall reads; the category band runs down the left edge.
+ */
+const TOKEN_W = 63;
+const TOKEN_H = 38;
+const TOKEN_QR: [number, number, number] = [37, 7, 22];
+const TOKEN_BAND = { edge: "left", sizeMm: 5 } as const;
+
+const token: TicketTemplate = {
+  id: "token",
+  categories: ["tokens"],
+  palettes: [
+    { id: "blue", bg: "#ffffff", ink: "#0b2a5b", muted: "#4a5f80", accent: "#1d4ed8", extra: [] },
+    { id: "red", bg: "#ffffff", ink: "#3f0d0d", muted: "#7a4a4a", accent: "#dc2626", extra: [] },
+    { id: "green", bg: "#ffffff", ink: "#0f3b2a", muted: "#4b6b5e", accent: "#15803d", extra: [] },
+  ],
+  build: (p) => {
+    const [x, y, size] = TOKEN_QR;
+    const art = canvas(
+      TOKEN_W,
+      TOKEN_H,
+      p.bg,
+      `<rect x="6.5" y="1.5" width="55" height="35" rx="1.2" fill="none" stroke="${p.accent}" stroke-width="0.35"/>` +
+        `<line x1="9" y1="21.2" x2="31" y2="21.2" stroke="${p.accent}" stroke-width="0.3" stroke-dasharray="0.8 0.8"/>` +
+        qrCard(x, y, size, 1.5),
+    );
+    return {
+      background: art,
+      design: {
+        ...design(TOKEN_W, TOKEN_H, p.bg, {
+          number: { ...number(9, 31, 25, 4, "mono", 7.5, p.muted, "left"), prefix: "Nº " },
+          qr: TOKEN_QR,
+          stub: null,
+          texts: [
+            block("{evento}", 9, 3.2, 26, 3.6, { sizePt: 6, bold: true, color: p.muted, uppercase: true, letterSpacing: 0.12 }),
+            // One line that shrinks to fit: a product name is never broken in the middle.
+            block("{categoria}", 9, 9, 26, 10.5, { font: "display", sizePt: 24, color: p.ink, uppercase: true }),
+            block("{preco}", 9, 22.5, 26, 5.5, { font: "slab", sizePt: 12, color: p.accent }),
+            block(c.tokenUnit, 35.5, 31.2, 25, 3.4, { sizePt: 5.5, color: p.muted, align: "center" }),
+          ],
+        }),
+        band: TOKEN_BAND,
+      },
+    };
+  },
+};
+
+const tokenJunina: TicketTemplate = {
+  id: "tokenJunina",
+  categories: ["tokens"],
+  palettes: [
+    { id: "classic", bg: "#fff4dc", ink: "#d62839", muted: "#7a4a2a", accent: "#5c3317", extra: ["#e63946", "#f4a261", "#2a9d8f", "#457b9d", "#e9c46a"] },
+    { id: "night", bg: "#1b2045", ink: "#ffd166", muted: "#c9cbe6", accent: "#f1f1f1", extra: ["#ef476f", "#ffd166", "#06d6a0", "#118ab2", "#f78c6b"] },
+  ],
+  build: (p) => {
+    const [x, y, size] = TOKEN_QR;
+    const check = `<pattern id="xadrez" width="3" height="3" patternUnits="userSpaceOnUse"><rect width="1.5" height="3" fill="${p.ink}" opacity="0.35"/><rect width="3" height="1.5" fill="${p.ink}" opacity="0.35"/></pattern>`;
+    const art = canvas(
+      TOKEN_W,
+      TOKEN_H,
+      p.bg,
+      bunting(5, 66, -1.5, 1.4, p.extra, p.accent) +
+        `<rect x="5" y="34.6" width="61" height="6.4" fill="url(#xadrez)"/>` +
+        `<rect x="5" y="34.3" width="61" height="0.4" fill="${p.ink}" opacity="0.6"/>` +
+        qrCard(x, y, size, 1.5, `stroke="${p.accent}" stroke-width="0.3" stroke-dasharray="1 0.8"`),
+      check,
+    );
+    return {
+      background: art,
+      design: {
+        ...design(TOKEN_W, TOKEN_H, p.bg, {
+          number: { ...number(35.5, 30.6, 25, 3.4, "mono", 7, p.muted, "center"), prefix: "Nº " },
+          qr: TOKEN_QR,
+          stub: null,
+          texts: [
+            block("{categoria}", 8.5, 8.5, 25.5, 10, { font: "slab", sizePt: 22, color: p.ink, uppercase: true }),
+            block("{preco}", 8.5, 20.5, 26, 5.5, { font: "slab", sizePt: 12, color: p.muted }),
+            block("{evento}", 8.5, 27, 26, 6, { sizePt: 6.5, bold: true, color: p.muted, lines: 2 }),
+          ],
+        }),
+        band: TOKEN_BAND,
+      },
+    };
+  },
+};
+
 /** Every template, in the gallery's order. */
 export const TEMPLATES: readonly TicketTemplate[] = [
   show,
@@ -777,6 +864,8 @@ export const TEMPLATES: readonly TicketTemplate[] = [
   cinema,
   newYear,
   classic,
+  token,
+  tokenJunina,
 ];
 
 export function templateById(id: string): TicketTemplate | undefined {

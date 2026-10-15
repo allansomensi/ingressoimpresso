@@ -1,0 +1,76 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select e.pix_receiver, p.pix_key_type as \"key_type?\", p.pix_key as \"key?\",\n                  p.pix_name as \"name?\", p.pix_city as \"city?\"\n           from events e left join organization_profiles p on p.organization_id = e.organization_id\n           where e.id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "pix_receiver",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "pix_receiver"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "key_type?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "organization_profiles",
+            "name": "pix_key_type"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "key?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "organization_profiles",
+            "name": "pix_key"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "name?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "organization_profiles",
+            "name": "pix_name"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "city?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "organization_profiles",
+            "name": "pix_city"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "ade59096cf593e8ff8123d3eabfcef144753578a7f3f50a92bf64d599cff48be"
+}

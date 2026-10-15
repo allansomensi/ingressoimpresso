@@ -51,7 +51,8 @@ pub async fn list(
 ) -> ApiResult<Json<Vec<SellerDto>>> {
     authorize_event(&state.pool, &user, event_id).await?;
     let sellers = sqlx::query!(
-        "select id, name, phone, box_office, goal from sellers where event_id = $1 order by name",
+        r#"select id, name, phone, box_office, goal, pix_key_type, pix_key, pix_name, pix_city
+           from sellers where event_id = $1 order by name"#,
         event_id
     )
     .fetch_all(&state.pool)
@@ -86,6 +87,12 @@ pub async fn list(
                 phone: seller.phone,
                 box_office: seller.box_office,
                 goal: seller.goal,
+                pix: super::pix::account(
+                    seller.pix_key_type.as_deref(),
+                    seller.pix_key,
+                    seller.pix_name,
+                    seller.pix_city,
+                ),
             })
             .collect(),
     ))
@@ -131,6 +138,7 @@ pub async fn create(
             link: None,
             box_office,
             goal: None,
+            pix: None,
         }),
     ))
 }

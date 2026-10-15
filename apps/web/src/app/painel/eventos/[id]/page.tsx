@@ -11,6 +11,7 @@ import {
   CalendarRange,
   ChevronLeft,
   ChevronRight,
+  Coins,
   FileDown,
   LayoutDashboard,
   MapPin,
@@ -35,7 +36,7 @@ import { Suspense, useEffect, useRef, useState, type KeyboardEvent, type MouseEv
 
 import { AreaGate, EventAccessProvider } from "@/components/event/access";
 import { SectionsSheet } from "@/components/event/sections-sheet";
-import { STRIP_TABS, tabFromSlug, tabSlug, type Tab } from "@/components/event/tabs";
+import { tabFromSlug, tabLabel, tabSlug, tabsOf, type Tab } from "@/components/event/tabs";
 import { EventActions } from "@/components/event/event-actions";
 import { EventChangeBanner } from "@/components/event/event-change";
 import { EventFormDialog } from "@/components/panel/event-form";
@@ -113,14 +114,18 @@ function EventView() {
   const search = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
-  const tab = tabFromSlug(search.get("aba"));
+  const requested = tabFromSlug(search.get("aba"));
   const [editing, setEditing] = useState(false);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
-  const { attach: attachStrip, ...strip } = useScrollEdges();
+  const { attach: attachStrip, ...edges } = useScrollEdges();
   const event = useQuery({
     queryKey: ["event", eventId],
     queryFn: () => (eventId === "" ? Promise.reject(new ApiError(404, "not_found")) : api<EventDto>(`/api/events/${eventId}`)),
   });
+  // Consumption tokens have fewer tabs (ADR 0084); a link to a missing one opens the overview.
+  const kind = event.data?.kind;
+  const strip = tabsOf(kind);
+  const tab = requested === "team" || strip.includes(requested) ? requested : "overview";
 
   const confirm = useConfirm();
   const leaveAllowed = async () =>
@@ -147,13 +152,13 @@ function EventView() {
 
   const keyDown = (keyEvent: KeyboardEvent, index: number) => {
     const targets: Partial<Record<string, number>> = {
-      ArrowRight: (index + 1) % STRIP_TABS.length,
-      ArrowLeft: (index - 1 + STRIP_TABS.length) % STRIP_TABS.length,
+      ArrowRight: (index + 1) % strip.length,
+      ArrowLeft: (index - 1 + strip.length) % strip.length,
       Home: 0,
-      End: STRIP_TABS.length - 1,
+      End: strip.length - 1,
     };
     const next = targets[keyEvent.key];
-    const target = next === undefined ? undefined : STRIP_TABS[next];
+    const target = next === undefined ? undefined : strip[next];
     if (next === undefined || target === undefined) {
       return;
     }
@@ -164,8 +169,8 @@ function EventView() {
 
   // The selected tab stays visible in the scrollable strip (phones, deep links like ?aba=relatorio).
   useEffect(() => {
-    tabRefs.current[STRIP_TABS.indexOf(tab)]?.scrollIntoView({ block: "nearest", inline: "nearest" });
-  }, [tab, event.isSuccess]);
+    tabRefs.current[tabsOf(kind).indexOf(tab)]?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [tab, event.isSuccess, kind]);
 
   // The browser tab shows the event name.
   const name = event.data?.name;
@@ -260,6 +265,12 @@ function EventView() {
         <div className="col-span-2 col-start-1 row-start-2 flex min-w-0 flex-col gap-2 sm:col-span-1">
           <h1 className="text-[1.375rem] leading-tight font-semibold tracking-tight text-balance text-fg sm:text-3xl">
             {data.name}
+            {data.kind === "tokens" && (
+              <Badge tone="brand" className="ml-3 align-middle">
+                <Coins className="size-3.5" aria-hidden />
+                {eventTexts.tokens.badge}
+              </Badge>
+            )}
             {data.status === "closed" && (
               <Badge tone="neutral" className="ml-3 align-middle">
                 {eventTexts.actions.archivedBadge}
@@ -341,16 +352,16 @@ function EventView() {
             // The edges that hide tabs fade out, so there is visibly more to scroll to.
             className={cn(
               "-mb-px flex scroll-px-12 gap-0.5 overflow-x-auto pl-4 scrollbar-none sm:pl-0",
-              strip.before && strip.after
+              edges.before && edges.after
                 ? "[mask-image:linear-gradient(to_right,transparent,black_3rem,black_calc(100%-3rem),transparent)]"
-                : strip.before
+                : edges.before
                   ? "[mask-image:linear-gradient(to_right,transparent,black_3rem)]"
-                  : strip.after
+                  : edges.after
                     ? "[mask-image:linear-gradient(to_left,transparent,black_3rem)]"
                     : undefined,
             )}
           >
-            {STRIP_TABS.map((item, index) => {
+            {strip.map((item, index) => {
               const Icon = ICONS[item];
               const selected = tab === item;
               return (
@@ -380,34 +391,35 @@ function EventView() {
                   )}
                 >
                   <Icon aria-hidden className={cn("size-4 shrink-0", selected ? "text-brand" : "text-fg-subtle")} />
-                  {eventTexts.tabs[item]}
+                  {tabLabel(item, kind)}
                 </button>
               );
             })}
           </nav>
           {/* A mouse has no sideways swipe: arrows page the strip (touch screens swipe it). */}
-          {strip.before && (
+          {edges.before && (
             <StripArrow
               side="before"
               onClick={() => {
-                strip.page(-1);
+                edges.page(-1);
               }}
             />
           )}
-          {strip.after && (
+          {edges.after && (
             <StripArrow
               side="after"
               onClick={() => {
-                strip.page(1);
+                edges.page(1);
               }}
             />
           )}
         </div>
-        {strip.overflow && (
+        {edges.overflow && (
           <div className="shrink-0 pr-2 pl-1 sm:pr-0">
             <SectionsSheet
               current={tab}
               icons={ICONS}
+              {...(kind === undefined ? {} : { kind })}
               onSelect={(next) => {
                 void select(next);
               }}
@@ -462,7 +474,7 @@ function EventView() {
         {tab === "files" && <FilesTab eventId={eventId} onSelect={select} />}
         {tab === "door" && (
           <AreaGate eventId={eventId} area="door">
-            <DoorTab eventId={eventId} />
+            <DoorTab eventId={eventId} kind={data.kind} />
           </AreaGate>
         )}
         {tab === "live" && <LiveTab eventId={eventId} onSelect={select} />}

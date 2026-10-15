@@ -29,7 +29,16 @@ describe("shared vectors (testdata/vectors/ticket-v1.json)", () => {
 
   it("covers every decision path", () => {
     const kinds = new Set(vectors.cases.map((testCase) => testCase.expected.kind));
-    expect([...kinds].sort()).toEqual(["admit", "already_entered", "invalid", "other_event", "voided"]);
+    expect([...kinds].sort()).toEqual([
+      "admit",
+      "already_entered",
+      "already_out",
+      "exit",
+      "invalid",
+      "other_event",
+      "readmit",
+      "voided",
+    ]);
   });
 
   it.each(vectors.cases.map((testCase) => [testCase.name, testCase] as const))(
@@ -38,8 +47,11 @@ describe("shared vectors (testdata/vectors/ticket-v1.json)", () => {
       const door = new DoorCore(event(testCase.doorEvent).door);
       try {
         door.replaceVoids(testCase.voids);
+        door.setReentry(testCase.reentry ?? false);
         door.recordEntries(testCase.entries);
-        expect(door.evaluate(testCase.qrText)).toEqual(testCase.expected);
+        door.recordExits(testCase.exits ?? []);
+        const decision = testCase.direction === "out" ? door.evaluateExit(testCase.qrText) : door.evaluate(testCase.qrText);
+        expect(decision).toEqual(testCase.expected);
       } finally {
         door.free();
       }
@@ -153,6 +165,71 @@ describe("DoorCore.checkIn", () => {
       }
     },
   );
+});
+
+describe("DoorCore re-entry (ADR 0083)", () => {
+  const ticket = (number: number): string => {
+    const issued = vectors.issued.find((candidate) => candidate.event === "primary" && candidate.number === number);
+    if (issued === undefined) {
+      throw new Error(`no issued vector for #${String(number)}`);
+    }
+    return issued.qrText;
+  };
+
+  it("goes out, comes back, and blocks a copy while inside", () => {
+    const door = new DoorCore(event("primary").door);
+    try {
+      door.setReentry(true);
+      expect(door.checkIn(ticket(42), 1_000, "Porta 1")).toEqual({ kind: "admit", number: 42 });
+      expect(door.insideCount).toBe(1);
+      expect(door.checkOut(ticket(42), 2_000, "Saída")).toEqual({ kind: "exit", number: 42 });
+      expect(door.insideCount).toBe(0);
+      expect(door.checkOut(ticket(42), 2_500, "Saída")).toEqual({
+        kind: "already_out",
+        number: 42,
+        exited: { atUnixMs: 2_000, deviceName: "Saída" },
+      });
+      expect(door.checkIn(ticket(42), 3_000, "Porta 2")).toEqual({
+        kind: "readmit",
+        number: 42,
+        exited: { atUnixMs: 2_000, deviceName: "Saída" },
+      });
+      expect(door.checkIn(ticket(42), 4_000, "Porta 1")).toEqual({
+        kind: "already_entered",
+        number: 42,
+        firstEntry: { atUnixMs: 3_000, deviceName: "Porta 2" },
+      });
+      expect(door.entryCount).toBe(1);
+      expect(door.insideCount).toBe(1);
+    } finally {
+      door.free();
+    }
+  });
+
+  it("keeps a ticket that went out blocked when re-entry is off", () => {
+    const door = new DoorCore(event("primary").door);
+    try {
+      door.checkIn(ticket(42), 1_000, "Porta 1");
+      expect(door.recordExits([{ number: 42, atUnixMs: 2_000, deviceName: "Saída" }])).toBe(1);
+      expect(door.evaluate(ticket(42)).kind).toBe("already_entered");
+      expect(door.insideCount).toBe(1);
+    } finally {
+      door.free();
+    }
+  });
+
+  it("never records a voided ticket on the way out", () => {
+    const door = new DoorCore(event("primary").door);
+    try {
+      door.setReentry(true);
+      door.replaceVoids([{ first: 42, last: 42, reason: "lost" }]);
+      expect(door.checkOut(ticket(42), 1_000, "Saída")).toEqual({ kind: "voided", number: 42, reason: "lost" });
+      door.replaceVoids([]);
+      expect(door.evaluateExit(ticket(42))).toEqual({ kind: "exit", number: 42 });
+    } finally {
+      door.free();
+    }
+  });
 });
 
 describe("DoorCore input validation", () => {

@@ -5,6 +5,7 @@ import type { DoorLiveCategoryDto } from "./DoorLiveCategoryDto";
 import type { DoorLiveDeviceDto } from "./DoorLiveDeviceDto";
 import type { DoorLiveDoorDto } from "./DoorLiveDoorDto";
 import type { DoorLiveGuestsDto } from "./DoorLiveGuestsDto";
+import type { DoorLiveReentryDto } from "./DoorLiveReentryDto";
 import type { DoorLiveRefusalsDto } from "./DoorLiveRefusalsDto";
 
 /**
@@ -59,6 +60,10 @@ guests: DoorLiveGuestsDto,
  * Sales at the door (ADR 0069).
  */
 boxOffice: DoorLiveBoxOfficeDto, 
+/**
+ * Exit and return (ADR 0083); `null` when the event does not allow it and nobody went out.
+ */
+reentry: DoorLiveReentryDto | null, 
 /**
  * Server clock.
  */

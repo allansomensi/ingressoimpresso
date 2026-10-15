@@ -31,6 +31,7 @@ function EventBadges({ event, now }: { event: EventDto; now: number }) {
   return (
     <span className="flex flex-wrap items-center justify-end gap-1.5">
       <PhaseBadge phase={phase} />
+      {event.kind === "tokens" && <Badge tone="brand">{t.tokensBadge}</Badge>}
       {postponed && <Badge tone="warning">{eventChangeTexts.postponedBadge}</Badge>}
       <MissingBadge count={event.checklistMissing} />
     </span>

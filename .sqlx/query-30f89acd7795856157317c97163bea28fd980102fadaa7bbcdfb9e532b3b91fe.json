@@ -1,0 +1,218 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into events (id, organization_id, name, venue, starts_at, ends_at, qr_tag,\n                                   ticket_price_cents, utc_offset_minutes, address, kind)\n               values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)\n               on conflict (qr_tag) do nothing\n               returning id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag,\n                         utc_offset_minutes, address, postponed_from_starts_at, postponed_at,\n                         postpone_reason, canceled_at, cancel_reason, kind",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "venue",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "venue"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "starts_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "starts_at"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "ends_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "ends_at"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "ticket_price_cents",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "ticket_price_cents"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "qr_tag",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "qr_tag"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "utc_offset_minutes",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "utc_offset_minutes"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "address",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "address"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "postponed_from_starts_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "postponed_from_starts_at"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "postponed_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "postponed_at"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "postpone_reason",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "postpone_reason"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "canceled_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "canceled_at"
+          }
+        }
+      },
+      {
+        "ordinal": 14,
+        "name": "cancel_reason",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "cancel_reason"
+          }
+        }
+      },
+      {
+        "ordinal": 15,
+        "name": "kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "kind"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Text",
+        "Timestamptz",
+        "Timestamptz",
+        "Int8",
+        "Int4",
+        "Int2",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false
+    ]
+  },
+  "hash": "30f89acd7795856157317c97163bea28fd980102fadaa7bbcdfb9e532b3b91fe"
+}

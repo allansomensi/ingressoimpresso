@@ -14,6 +14,10 @@ export const ticket = {
   number: "Ingresso",
   show: "Mostre este QR code na entrada",
   brightness: "Deixe o brilho da tela no máximo",
+  // A category that asks for a document at the door (ADR 0082).
+  documentTitle: (category: string) => `${category}: leve um documento`,
+  documentBody: "A portaria confere antes de você entrar.",
+  documentAny: "Leve um comprovante do direito ao benefício, com foto.",
   valid: "Válido",
   entered: (when: string) => `Já utilizado ${when}`,
   enteredNote: "Este ingresso já passou pela porta. Se você saiu e quer voltar, fale com a equipe da entrada.",
@@ -33,6 +37,21 @@ export const ticket = {
     "Salve a imagem do ingresso na galeria, por garantia.",
     "Na porta, deixe o brilho no máximo e segure o celular parado.",
   ],
+  // A consumption token sent by link (ADR 0084): the words that change.
+  tokens: {
+    number: "Ficha",
+    show: "Mostre este QR code na barraca",
+    entered: (when: string) => `Já usada ${when}`,
+    enteredNote: "Esta ficha já foi usada numa barraca.",
+    voided: "Ficha cancelada",
+    voidedNote: "O organizador cancelou esta ficha e ela não vale. Fale com quem vendeu para resolver.",
+    tipsTitle: "Como usar a ficha",
+    tips: [
+      "Abra este link uma vez com internet antes do evento: ele fica salvo neste celular.",
+      "Na barraca, mostre o QR code com o brilho no máximo.",
+      "Cada ficha vale uma vez: depois de usada, não passa de novo.",
+    ],
+  },
   poweredBy: "Ingresso gerado com",
   image: {
     ticket: "INGRESSO",

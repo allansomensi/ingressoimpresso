@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into ticket_payments (event_id, ticket_number, amount_cents, received_by, confirmed_by)\n               values ($1, $2, $3, $4, $5)\n               on conflict (event_id, ticket_number) do nothing",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4",
+        "Int4",
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "772f99560ae9e934508a79cc05db7d9619a19ebdfd622f7f9f8ee58507be9569"
+}

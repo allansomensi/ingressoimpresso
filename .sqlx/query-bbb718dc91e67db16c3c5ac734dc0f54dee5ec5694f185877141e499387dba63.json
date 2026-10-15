@@ -1,0 +1,64 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select pix_key_type, pix_key, pix_name, pix_city from organization_profiles\n           where organization_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "pix_key_type",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "organization_profiles",
+            "name": "pix_key_type"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "pix_key",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "organization_profiles",
+            "name": "pix_key"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "pix_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "organization_profiles",
+            "name": "pix_name"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "pix_city",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "organization_profiles",
+            "name": "pix_city"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "bbb718dc91e67db16c3c5ac734dc0f54dee5ec5694f185877141e499387dba63"
+}

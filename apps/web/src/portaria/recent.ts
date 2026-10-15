@@ -5,10 +5,9 @@
 import type { DoorVoidDto } from "@ingressoimpresso/api-types";
 
 import type { StoredEntry, StoredScan } from "./storage";
-import { categoryOf, clockTime, otherSession, padNumber, sellerOf, seatOf, type DoorContext, type Tone } from "./logic";
+import { categoryOf, clockTime, doorWords, otherSession, padNumber, sellerOf, seatOf, type DoorContext, type Tone } from "./logic";
 import { portaria as portariaTexts } from "@/texts/pt-BR/portaria";
 
-const t = portariaTexts.history;
 const r = portariaTexts.result;
 
 /** How many scans the history shows. */
@@ -33,18 +32,19 @@ export interface RecentScan {
   synced: boolean;
 }
 
-/** What this phone did: who it let in and who it turned away (distinct scans). */
+/** What this phone did: who it let in, who went out (ADR 0083) and who it turned away. */
 export interface RecentSummary {
   admitted: number;
+  exits: number;
   refused: number;
   pending: number;
 }
 
-/** The first entry of `number` other than `scanId`'s own, if it came before `at`. */
+/** The first entry of `number` other than `scanId`'s own, if it came before `at` (exits aside). */
 function earlierEntry(entries: readonly StoredEntry[], number: number, scanId: string, at: number): StoredEntry | null {
   let first: StoredEntry | null = null;
   for (const entry of entries) {
-    if (entry.number !== number || entry.scanId === scanId || entry.atUnixMs > at) {
+    if (entry.exit === true || entry.number !== number || entry.scanId === scanId || entry.atUnixMs > at) {
       continue;
     }
     if (first === null || entry.atUnixMs < first.atUnixMs) {
@@ -52,6 +52,20 @@ function earlierEntry(entries: readonly StoredEntry[], number: number, scanId: s
     }
   }
   return first;
+}
+
+/** The latest exit of `number` before `at` (ADR 0083): where a return came from. */
+function exitBefore(entries: readonly StoredEntry[], number: number, at: number): StoredEntry | null {
+  let latest: StoredEntry | null = null;
+  for (const entry of entries) {
+    if (entry.exit !== true || entry.number !== number || entry.atUnixMs > at) {
+      continue;
+    }
+    if (latest === null || entry.atUnixMs > latest.atUnixMs) {
+      latest = entry;
+    }
+  }
+  return latest;
 }
 
 function voidReasonOf(scan: StoredScan, voids: readonly DoorVoidDto[]): string | null {
@@ -72,6 +86,8 @@ export function recentScanOf(
   context: DoorContext,
   voids: readonly DoorVoidDto[] = [],
 ): RecentScan {
+  // A ficha "used" at a stall, for consumption tokens (ADR 0084).
+  const t = doorWords(context.kind).history;
   const number = scan.number;
   const base = {
     id: scan.id,
@@ -104,6 +120,19 @@ export function recentScanOf(
         detail: earlier === null ? null : t.copyOf(clockTime(earlier.atUnixMs), earlier.deviceName),
       };
     }
+    case "readmitted": {
+      const exited = number === null ? null : exitBefore(entries, number, scan.scannedAtMs);
+      return {
+        ...base,
+        tone: "ok",
+        label: scan.exception === true ? t.outcomes.exception : t.outcomes.readmitted,
+        detail: exited === null ? null : t.exitedAt(clockTime(exited.atUnixMs), exited.deviceName),
+      };
+    }
+    case "exited":
+      return { ...base, tone: "exit", label: t.outcomes.exited, detail: null };
+    case "rejected_already_out":
+      return { ...base, tone: "warn", label: t.outcomes.rejected_already_out, detail: null };
     case "rejected_used":
       return {
         ...base,
@@ -144,10 +173,12 @@ export function recentScans(
 
 /** Counts over every scan of this phone (not only the ones shown). */
 export function recentSummary(scans: readonly StoredScan[]): RecentSummary {
-  const summary = { admitted: 0, refused: 0, pending: 0 };
+  const summary = { admitted: 0, exits: 0, refused: 0, pending: 0 };
   for (const scan of scans) {
-    if (scan.outcome === "admitted" && scan.verdict === undefined) {
+    if ((scan.outcome === "admitted" || scan.outcome === "readmitted") && scan.verdict === undefined) {
       summary.admitted += 1;
+    } else if (scan.outcome === "exited") {
+      summary.exits += 1;
     } else {
       summary.refused += 1;
     }

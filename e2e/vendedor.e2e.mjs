@@ -130,11 +130,28 @@ assert.equal(view.reservations[0].holderName, "Bia");
 assert.deepEqual(view.reservations[0].numbers, [{ first: 4, last: 4 }]);
 await until("the queue to be empty", async () => (await page.getByText(/alterações? para enviar/).count()) === 0);
 
-// 5. The token stays in the fragment: not in the phone's storage, not in the API's log.
+// 5. Pix copia e cola (ADR 0085): with the organization's key on, the sold number shows the code
+// with its amount and identifier, built on the phone.
+await api("/api/account/pix", { token, method: "PUT", body: { keyType: "email", key: "tesouraria@exemplo.com", name: "Comissão", city: "Recife" } });
+await api(`/api/events/${event.id}/pix-settings`, { token, method: "PUT", body: { receiver: "organization" } });
+await page.reload();
+await page.getByText("Olá, Maria!").waitFor({ timeout: TIMEOUT });
+await page.getByRole("radio", { name: /^Vendidos/ }).click();
+await page.getByRole("button", { name: /0003/ }).click();
+await page.getByRole("heading", { name: "Cobrar no Pix" }).waitFor({ timeout: TIMEOUT });
+const reference = `ING0003E${event.id.replace(/-/g, "").slice(0, 4).toUpperCase()}`;
+const code = await page.getByRole("button", { name: "Copiar código Pix" }).first().evaluate((button) => button.textContent ?? "");
+assert.ok(code.startsWith("000201") && code.includes("tesouraria@exemplo.com"), "the code pays the organization's key");
+assert.ok(code.includes("540510.00") && code.includes(reference), "the code carries the amount and the number's identifier");
+await page.getByRole("img", { name: "QR code do Pix" }).waitFor();
+await page.screenshot({ path: join(OUT, "seller-pix.png") });
+await page.keyboard.press("Escape");
+
+// 6. The token stays in the fragment: not in the phone's storage, not in the API's log.
 const stored = await page.evaluate(() => JSON.stringify(Object.entries(localStorage)));
 assert.ok(stored.includes("ingressoimpresso.seller."), "the last view is kept on the phone");
 assert.ok(!stored.includes(secret), "the token is not stored");
 assert.ok(!readFileSync(API_LOG, "utf8").includes(secret), "the token never reaches the API log");
 
 await browser.close();
-console.log("seller e2e: offline queue, reopening offline, conflicts and privacy ok");
+console.log("seller e2e: offline queue, reopening offline, conflicts, Pix and privacy ok");

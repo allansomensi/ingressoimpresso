@@ -20,6 +20,7 @@ export const FIELDS = [
   "hora",
   "preco",
   "organizacao",
+  "categoria",
 ] as const;
 
 export type Field = (typeof FIELDS)[number];
@@ -41,9 +42,13 @@ const MONTHS = [
 const WEEKDAYS = ["segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado", "domingo"] as const;
 const FREE_PRICE = "Gratuito";
 
-/** What a ticket can print about its event (and who runs it, `{organizacao}`, ADR 0064). */
+/**
+ * What a ticket can print about its event (and who runs it, `{organizacao}`, ADR 0064), plus its
+ * category (`{categoria}`, ADR 0084), known per ticket: previews pass a sample one.
+ */
 export type EventFields = Pick<EventDto, "name" | "venue" | "startsAt" | "ticketPriceCents"> & {
   organizationName?: string | null | undefined;
+  categoryName?: string | null | undefined;
 };
 
 function isField(name: string): name is Field {
@@ -73,6 +78,9 @@ function value(field: Field, event: EventFields): string {
   }
   if (field === "organizacao") {
     return (event.organizationName ?? "").trim();
+  }
+  if (field === "categoria") {
+    return (event.categoryName ?? "").trim();
   }
   const d = wallClock(event.startsAt);
   const month = MONTHS[d.month - 1] ?? "";

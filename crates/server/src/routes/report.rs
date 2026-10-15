@@ -29,6 +29,8 @@ struct Counts {
     blocked_copies: i64,
     void_entries: i64,
     received_cents: i64,
+    /// Of `received_cents`, the buyers' Pix received by the organization (ADR 0085).
+    pix_cents: i64,
     marked_sold: i64,
     /// Reserved and not sold (ADR 0072).
     reserved: i64,
@@ -54,6 +56,7 @@ impl Counts {
         self.blocked_copies += other.blocked_copies;
         self.void_entries += other.void_entries;
         self.received_cents += other.received_cents;
+        self.pix_cents += other.pix_cents;
         self.marked_sold += other.marked_sold;
         self.reserved += other.reserved;
         self.due_cents += other.due_cents;
@@ -98,6 +101,7 @@ impl Counts {
             void_entries: self.void_entries,
             amount_due_cents,
             received_cents: self.received_cents,
+            pix_cents: self.pix_cents,
             balance_cents: amount_due_cents
                 .filter(|_| owed)
                 .map(|due| due - self.received_cents),
@@ -139,16 +143,7 @@ pub(crate) async fn build(state: &AppState, event: &EventRow) -> ApiResult<Event
     )
     .fetch_all(&state.pool)
     .await?;
-    let received: HashMap<Uuid, i64> = sqlx::query!(
-        r#"select seller_id, sum(amount_cents)::bigint as "received!"
-           from seller_payments where event_id = $1 group by seller_id"#,
-        event_id
-    )
-    .fetch_all(&state.pool)
-    .await?
-    .into_iter()
-    .map(|row| (row.seller_id, row.received))
-    .collect();
+    let (received, mut pix) = money_by_seller(state, event_id).await?;
     let mut totals = Counts::default();
     let mut owed = Counts::default();
     let mut rows = Vec::with_capacity(sellers.len());
@@ -157,7 +152,9 @@ pub(crate) async fn build(state: &AppState, event: &EventRow) -> ApiResult<Event
         if seller.box_office {
             counts = counts.as_box_office();
         }
-        counts.received_cents = received.get(&seller.id).copied().unwrap_or_default();
+        counts.pix_cents = pix.remove(&Some(seller.id)).unwrap_or_default();
+        counts.received_cents =
+            received.get(&seller.id).copied().unwrap_or_default() + counts.pix_cents;
         totals.add(counts);
         owed.add(counts);
         rows.push(counts.row(
@@ -167,7 +164,9 @@ pub(crate) async fn build(state: &AppState, event: &EventRow) -> ApiResult<Event
             seller.box_office,
         ));
     }
-    let unassigned = by_seller.remove(&None).unwrap_or_default();
+    let mut unassigned = by_seller.remove(&None).unwrap_or_default();
+    unassigned.pix_cents = pix.remove(&None).unwrap_or_default();
+    unassigned.received_cents = unassigned.pix_cents;
     totals.add(unassigned);
     // The total balance is what sellers still owe (net): unassigned tickets are nobody's debt.
     let mut totals_row = totals.row(None, priced, false, false);
@@ -210,6 +209,39 @@ pub(crate) async fn build(state: &AppState, event: &EventRow) -> ApiResult<Event
         other_event_scans: rejected.other_event,
         generated_at: OffsetDateTime::now_utc(),
     })
+}
+
+/// Money the organizer recorded per seller, and the buyers' Pix the organization received by the
+/// seller who holds each number (ADR 0085): money the seller no longer has to hand over. Numbers
+/// of no seller go to the `None` line.
+async fn money_by_seller(
+    state: &AppState,
+    event_id: Uuid,
+) -> ApiResult<(HashMap<Uuid, i64>, HashMap<Option<Uuid>, i64>)> {
+    let received: HashMap<Uuid, i64> = sqlx::query!(
+        r#"select seller_id, sum(amount_cents)::bigint as "received!"
+           from seller_payments where event_id = $1 group by seller_id"#,
+        event_id
+    )
+    .fetch_all(&state.pool)
+    .await?
+    .into_iter()
+    .map(|row| (row.seller_id, row.received))
+    .collect();
+    let pix: HashMap<Option<Uuid>, i64> = sqlx::query!(
+        r#"select a.seller_id as "seller_id?", sum(p.amount_cents)::bigint as "pix!"
+           from ticket_payments p
+           left join seller_assignments a on a.event_id = p.event_id and a.numbers @> p.ticket_number
+           where p.event_id = $1 and p.received_by = 'organization'
+           group by a.seller_id"#,
+        event_id
+    )
+    .fetch_all(&state.pool)
+    .await?
+    .into_iter()
+    .map(|row| (row.seller_id, row.pix))
+    .collect();
+    Ok((received, pix))
 }
 
 /// Counts per seller id (`None`: paid tickets without a seller).
@@ -290,6 +322,7 @@ async fn counts_by_seller(
                     blocked_copies: line.blocked_copies,
                     void_entries: line.void_entries,
                     received_cents: 0,
+                    pix_cents: 0,
                     marked_sold: line.marked_sold,
                     reserved: line.reserved,
                     due_cents: line.due_cents,

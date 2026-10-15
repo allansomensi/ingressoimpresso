@@ -1,3 +1,7 @@
+import type { EventKind } from "@ingressoimpresso/api-types";
+
+import { event as eventTexts } from "@/texts/pt-BR/event";
+
 /** Tabs of the event page and their `?aba=` slugs (the Stripe return URL uses `aba=lotes`). */
 export const TABS = [
   "overview",
@@ -53,3 +57,23 @@ export const TAB_GROUPS = [
   { key: "day", tabs: ["door", "live", "guests", "report"] },
   { key: "people", tabs: ["team"] },
 ] as const satisfies readonly { key: string; tabs: readonly Tab[] }[];
+
+/**
+ * Tabs an event of `kind` shows (ADR 0084): consumption tokens have no guest list (nobody enters
+ * by name at a stall).
+ */
+export function tabsOf(kind: EventKind | undefined, tabs: readonly Tab[] = STRIP_TABS): Tab[] {
+  return tabs.filter((tab) => kind !== "tokens" || tab !== "guests");
+}
+
+/** The tab's name: "Ficha", "Produtos" and "Barracas" for consumption tokens (ADR 0084). */
+export function tabLabel(tab: Tab, kind: EventKind | undefined): string {
+  const tokens: Partial<Record<Tab, string>> = eventTexts.tokens.tabs;
+  return (kind === "tokens" ? tokens[tab] : undefined) ?? eventTexts.tabs[tab];
+}
+
+/** What the tab is for, in the sections sheet. */
+export function tabHint(tab: Tab, kind: EventKind | undefined): string {
+  const tokens: Partial<Record<Tab, string>> = eventTexts.tokens.hints;
+  return (kind === "tokens" ? tokens[tab] : undefined) ?? eventTexts.sections.hints[tab];
+}

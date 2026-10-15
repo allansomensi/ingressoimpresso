@@ -1,8 +1,10 @@
 "use client";
 
+import type { EventKind } from "@ingressoimpresso/api-types";
 import { Check, LayoutTemplate } from "lucide-react";
 import { useMemo, useState } from "react";
 
+import { sampleTag } from "@/components/marketing/template-sample";
 import { TicketView } from "@/components/ticket/ticket-view";
 import { Badge, Button, Dialog } from "@/components/ui";
 import { useNearScreen } from "@/components/ui/near-screen";
@@ -52,7 +54,14 @@ function TemplateCard({
           style={wide ? { width: "100%" } : { height: "100%", aspectRatio: `${String(total)} / ${String(design.heightMm)}` }}
         >
           {near ? (
-            <TicketView design={design} event={event} artUrl={art} number={42} />
+            <TicketView
+              design={design}
+              event={event}
+              artUrl={art}
+              number={42}
+              // A ficha shows its product's band (ADR 0084).
+              tag={template.categories.includes("tokens") ? sampleTag(event, palette) : null}
+            />
           ) : (
             <div aria-hidden className="size-full" style={{ aspectRatio: `${String(total)} / ${String(design.heightMm)}`, background: design.backgroundColor }} />
           )}
@@ -115,17 +124,22 @@ export function TemplateGallery({
   open,
   onClose,
   event,
+  kind = "tickets",
   applying,
   onApply,
 }: {
   open: boolean;
   onClose: () => void;
   event: EventFields;
+  /** Consumption tokens open on the ficha templates (ADR 0084). */
+  kind?: EventKind;
   /** Id of the template being applied. */
   applying: string | null;
   onApply: (template: TicketTemplate, palette: Palette) => void;
 }) {
-  const [category, setCategory] = useState<TemplateCategory | null>(null);
+  const [category, setCategory] = useState<TemplateCategory | null>(kind === "tokens" ? "tokens" : null);
+  // A ficha shows its product (`{categoria}`): a sample one when the event has none yet.
+  const sample: EventFields = { ...event, categoryName: event.categoryName ?? t.sampleCategory };
   const shown = category === null ? TEMPLATES : TEMPLATES.filter((template) => template.categories.includes(category));
   const categories = Object.keys(t.categories) as TemplateCategory[];
 
@@ -170,7 +184,7 @@ export function TemplateGallery({
             <TemplateCard
               key={template.id}
               template={template}
-              event={event}
+              event={sample}
               applying={applying === template.id}
               disabled={applying !== null}
               onApply={(palette) => {

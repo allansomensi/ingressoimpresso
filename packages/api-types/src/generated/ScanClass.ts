@@ -3,4 +3,4 @@
 /**
  * Server classification of an admitted scan.
  */
-export type ScanClass = "first_entry" | "duplicate_entry" | "void_entry";
+export type ScanClass = "first_entry" | "duplicate_entry" | "void_entry" | "reentry";

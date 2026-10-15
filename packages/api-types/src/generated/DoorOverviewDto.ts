@@ -17,4 +17,8 @@ devices: Array<DoorDeviceDto>,
 /**
  * Tickets that entered.
  */
-entryCount: number, };
+entryCount: number, 
+/**
+ * Whether a ticket that went out may come back in (ADR 0083).
+ */
+reentry: boolean, };

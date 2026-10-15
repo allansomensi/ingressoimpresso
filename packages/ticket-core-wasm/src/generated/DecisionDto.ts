@@ -16,9 +16,29 @@ number: number, } | { "kind": "already_entered",
  */
 number: number, 
 /**
- * First entry.
+ * First entry (with re-entry, the entry that holds now).
  */
-firstEntry: FirstEntryDto, } | { "kind": "voided", 
+firstEntry: FirstEntryDto, } | { "kind": "readmit", 
+/**
+ * Ticket number.
+ */
+number: number, 
+/**
+ * When and where it went out.
+ */
+exited: FirstEntryDto, } | { "kind": "exit", 
+/**
+ * Ticket number.
+ */
+number: number, } | { "kind": "already_out", 
+/**
+ * Ticket number.
+ */
+number: number, 
+/**
+ * When and where it went out.
+ */
+exited: FirstEntryDto, } | { "kind": "voided", 
 /**
  * Ticket number.
  */

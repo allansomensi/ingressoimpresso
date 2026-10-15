@@ -22,6 +22,14 @@ color: string,
  */
 priceCents: number | null, 
 /**
+ * The door asks for a document before letting in (ADR 0082): meia-entrada.
+ */
+checkDocument: boolean, 
+/**
+ * Which documents count ("Carteira de estudante, RG de idoso…"); `null`: any proof.
+ */
+documentNote: string | null, 
+/**
  * Numbers in the category, ordered.
  */
 ranges: Array<RangeDto>, };

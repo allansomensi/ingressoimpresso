@@ -238,6 +238,96 @@ proptest! {
         }
     }
 
+    /// Entries and exits of every phone, heard in any order, leave every phone with the same
+    /// state (ADR 0083): the first entry is the earliest, the latest movement the latest.
+    #[test]
+    fn movements_converge_in_any_order(
+        movements in proptest::collection::vec((1u32..12, 0i64..1_000, 0u8..3, any::<bool>()), 0..40),
+        seed in any::<u64>(),
+    ) {
+        let apply = |state: &mut DoorState, &(value, at, device, out): &(u32, i64, u8, bool)| {
+            let number = TicketNumber::new(value).unwrap();
+            let info = EntryInfo { at_unix_ms: at, device_name: format!("Porta {device}") };
+            if out {
+                state.record_exit(number, info);
+            } else {
+                state.record_entry(number, info);
+            }
+        };
+        let mut forward = DoorState::new();
+        for movement in &movements {
+            apply(&mut forward, movement);
+        }
+        // A deterministic shuffle of the same movements.
+        let mut shuffled = movements.clone();
+        let mut state = seed | 1;
+        for index in (1..shuffled.len()).rev() {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            shuffled.swap(index, usize::try_from(state % (index as u64 + 1)).unwrap());
+        }
+        let mut other = DoorState::new();
+        for movement in &shuffled {
+            apply(&mut other, movement);
+        }
+        prop_assert_eq!(&forward, &other);
+        for &(value, at, _, _) in &movements {
+            let latest = forward.latest_movement(TicketNumber::new(value).unwrap()).unwrap();
+            prop_assert!(latest.info.at_unix_ms >= at);
+        }
+    }
+
+    /// With re-entry, one phone never lets the same ticket in twice without an exit between: a
+    /// ticket is inside at most once at any time (ADR 0083).
+    #[test]
+    fn reentry_admits_only_after_an_exit(
+        fixture in fixture_strategy(),
+        steps in proptest::collection::vec((1u32..6, any::<bool>()), 1..60),
+    ) {
+        let mut door = ticket_core::Door::new(fixture.verifier.clone());
+        door.state_mut().set_reentry(true);
+        let mut inside = std::collections::HashSet::new();
+        let mut entered = std::collections::HashSet::new();
+        for (index, (value, out)) in steps.iter().enumerate() {
+            let number = TicketNumber::new(*value).unwrap();
+            let text = fixture.issuer.issue(number).to_qr_text();
+            let info = EntryInfo { at_unix_ms: i64::try_from(index).unwrap(), device_name: "Porta 1".to_owned() };
+            if *out {
+                match door.check_out(&text, info) {
+                    Decision::Exit { number: seen } => {
+                        prop_assert_eq!(seen, number);
+                        inside.remove(value);
+                    }
+                    Decision::AlreadyOut { number: seen, .. } => {
+                        prop_assert_eq!(seen, number);
+                        prop_assert!(!inside.contains(value));
+                    }
+                    other => prop_assert!(false, "unexpected exit decision {:?}", other),
+                }
+            } else {
+                match door.check_in(&text, info) {
+                    Decision::Admit { number: seen } => {
+                        prop_assert_eq!(seen, number);
+                        prop_assert!(entered.insert(*value), "ticket {} admitted twice", value);
+                        prop_assert!(inside.insert(*value));
+                    }
+                    Decision::Readmit { number: seen, .. } => {
+                        prop_assert_eq!(seen, number);
+                        prop_assert!(entered.contains(value));
+                        prop_assert!(inside.insert(*value), "ticket {} back in while inside", value);
+                    }
+                    Decision::AlreadyEntered { number: seen, .. } => {
+                        prop_assert_eq!(seen, number);
+                        prop_assert!(inside.contains(value));
+                    }
+                    other => prop_assert!(false, "unexpected entry decision {:?}", other),
+                }
+            }
+            prop_assert_eq!(door.state().inside_count(), inside.len());
+        }
+    }
+
     #[test]
     fn check_in_admits_each_ticket_at_most_once(
         fixture in fixture_strategy(),

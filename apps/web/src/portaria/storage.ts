@@ -88,12 +88,17 @@ export interface StoredArrival extends GuestArrival {
   synced: 0 | 1;
 }
 
-/** An admitted scan of any phone: what `DoorCore.recordEntries` needs, plus its scan id. */
+/**
+ * A movement of any phone: an admitted scan (first entry or return), or an exit of re-entry
+ * (ADR 0083), what `DoorCore.recordEntries`/`recordExits` need plus its scan id. Exits share the
+ * store, so no new database version is needed; entries stored by older apps have no `exit`.
+ */
 export interface StoredEntry {
   scanId: string;
   number: number;
   atUnixMs: number;
   deviceName: string;
+  exit?: true;
 }
 
 interface DoorDb extends DBSchema {
@@ -218,7 +223,7 @@ export async function saveVerdict(id: string, verdict: ScanVerdict): Promise<voi
   await tx.done;
 }
 
-/** Numbers this phone let in (box office counter, ADR 0069). */
+/** Numbers this phone let in for the first time (box office counter, ADR 0069). */
 export async function ownAdmittedNumbers(): Promise<number[]> {
   const scans = await (await db()).getAll("scans");
   return scans.flatMap((scan) => (scan.outcome === "admitted" && scan.number !== null ? [scan.number] : []));
@@ -355,10 +360,13 @@ export function toArrivalUpload(arrival: StoredArrival): DoorGuestUpload {
 
 // --- Flags -------------------------------------------------------------------------------
 
-export async function readFlag(key: "rehearsalPending"): Promise<boolean> {
+/** `rehearsalPending`: a finished rehearsal not yet told; `exitMode`: this phone reads exits. */
+export type Flag = "rehearsalPending" | "exitMode";
+
+export async function readFlag(key: Flag): Promise<boolean> {
   return (await (await db()).get("meta", key)) ?? false;
 }
 
-export async function writeFlag(key: "rehearsalPending", value: boolean): Promise<void> {
+export async function writeFlag(key: Flag, value: boolean): Promise<void> {
   await (await db()).put("meta", value, key);
 }

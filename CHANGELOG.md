@@ -14,6 +14,21 @@ e não acompanha estes números.
 
 ### Adicionado
 
+- Categorias que pedem documento na portaria, como a meia-entrada: a tela verde mostra "Meia:
+  peça o documento" com os documentos que valem e espera o porteiro conferir. O ingresso digital
+  e a página Conferir ingresso avisam quem vai entrar.
+- Saída e volta: com a opção ligada na aba Portaria, quem sai pode voltar com o mesmo ingresso. Um
+  celular lê a saída (tela azul), a volta entra pela portaria normal e uma cópia continua barrada
+  enquanto o ingresso está lá dentro. O Ao vivo mostra quem está dentro e quem está fora.
+- Fichas de consumo: um evento pode imprimir fichas de bebida e comida em vez de ingressos. Cada
+  produto tem cor e preço, a ficha sai com o produto em letras grandes (modelos novos, 21 por folha
+  A4) e cada barraca dá baixa pelo celular, mesmo sem internet. Ficha usada ou copiada não passa
+  duas vezes.
+- Campo `{categoria}` nos textos do ingresso: imprime a categoria de cada número.
+- Pix copia e cola direto para quem organiza: com a chave cadastrada em Minha organização (ou a de
+  cada vendedor), o link do vendedor e o ingresso no celular mostram o QR e o código com o valor
+  e um identificador por número. O dinheiro não passa pela plataforma. Em Vendedores, **Conferir
+  Pix** marca o que chegou no extrato, e o que a organização recebeu sai do acerto do vendedor.
 - Medição de velocidade do site nos aparelhos de quem visita (Vercel Speed Insights), fora da
   portaria, para acompanhar o efeito das melhorias de desempenho.
 - Guias para quem organiza evento, em `/guias`: como fazer ingresso para festa, evitar ingresso

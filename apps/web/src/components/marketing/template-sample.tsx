@@ -5,7 +5,7 @@ import { useMemo } from "react";
 import { TicketView } from "@/components/ticket/ticket-view";
 import { cn } from "@/lib/cn";
 import { svgDataUrl } from "@/lib/rasterize";
-import { templateById, type TemplateId } from "@/lib/templates/catalog";
+import { templateById, type Palette, type TemplateId } from "@/lib/templates/catalog";
 import type { EventFields } from "@/lib/ticket-fields";
 import { landing as landingTexts } from "@/texts/pt-BR/landing";
 
@@ -16,21 +16,34 @@ const SAMPLE_PRICE = [3_000, 1_500, 8_000, 2_000];
 /** Templates whose main sample has a date of their season (an arraiá in June…). */
 const SEASON_START: Partial<Record<TemplateId, string>> = {
   arraia: "2026-06-20T18:30:00-03:00",
+  tokenJunina: "2026-06-20T18:30:00-03:00",
   carnival: "2027-02-06T16:00:00-03:00",
   newYear: "2026-12-31T22:00:00-03:00",
   graduation: "2026-12-12T20:00:00-03:00",
 };
 
+/** A consumption token costs a few reais, not a ticket's price (ADR 0084). */
+const TOKEN_PRICE = [600, 800, 500, 1_000];
+
 /** The sample event a template is shown with (its name and venue fit the template). */
 export function sampleEvent(id: TemplateId, index: number): EventFields {
   const sample = landingTexts.templateSamples[id];
   const season = index === 0 ? SEASON_START[id] : undefined;
+  const category = "category" in sample ? sample.category : null;
+  const prices = category === null ? SAMPLE_PRICE : TOKEN_PRICE;
   return {
     name: sample.name,
     venue: sample.venue,
     startsAt: season ?? SAMPLE_START[index % SAMPLE_START.length] ?? "2026-11-21T21:00:00-03:00",
-    ticketPriceCents: SAMPLE_PRICE[index % SAMPLE_PRICE.length] ?? null,
+    ticketPriceCents: prices[index % prices.length] ?? null,
+    categoryName: category,
   };
+}
+
+/** The band of a sample with a product (a consumption token, ADR 0084), in the palette's colour. */
+export function sampleTag(event: EventFields, palette: Palette): { text: string; color: string; category: string } | null {
+  const category = event.categoryName ?? null;
+  return category === null ? null : { text: category, color: palette.extra[0] ?? palette.accent, category };
 }
 
 /**
@@ -61,7 +74,7 @@ export function TemplateSample({
       return null;
     }
     const chosen = template.palettes[palette % template.palettes.length] ?? template.palettes[0];
-    return chosen === undefined ? null : template.build(chosen);
+    return chosen === undefined ? null : { ...template.build(chosen), palette: chosen };
   }, [template, palette]);
   const art = useMemo(() => (built === null ? null : svgDataUrl(built.background)), [built]);
   if (built === null) {
@@ -69,13 +82,16 @@ export function TemplateSample({
   }
   const { design } = built;
   const total = design.widthMm + (design.stub?.widthMm ?? 0);
+  const event = sampleEvent(id, index);
   return (
     <div
       data-template-capture={capture ? id : undefined}
       className={cn("overflow-hidden", height === undefined && "w-full", className)}
       style={{ aspectRatio: `${String(total)} / ${String(design.heightMm)}`, ...(height === undefined ? {} : { height }) }}
     >
-      {!placeholder && <TicketView design={design} event={sampleEvent(id, index)} artUrl={art} number={17 + index * 23} />}
+      {!placeholder && (
+        <TicketView design={design} event={event} artUrl={art} number={17 + index * 23} tag={sampleTag(event, built.palette)} />
+      )}
     </div>
   );
 }

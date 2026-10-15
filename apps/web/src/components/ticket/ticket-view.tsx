@@ -230,11 +230,16 @@ export function TicketView({
   onSelect?: (elements: TicketElement[]) => void;
   /** Moves and resizes; every change of one gesture carries the same `gesture` key. */
   onChange?: (changes: ElementChange[], gesture: string) => void;
-  /** Category and seat of the ticket, drawn on its band (ADR 0056): `{ text: "Meia · Mesa 5…", color }`. */
-  tag?: { text: string; color: string } | null;
+  /**
+   * Category and seat of the ticket, drawn on its band (ADR 0056): `{ text: "Meia · Mesa 5…", color }`,
+   * and the category's name for the `{categoria}` field (ADR 0084).
+   */
+  tag?: { text: string; color: string; category?: string | null } | null;
   /** Object URLs of the sponsors' logos, in order (ADR 0059). */
   sponsorUrls?: readonly string[];
 }) {
+  // `{categoria}` prints the ticket's category, known here from its band (ADR 0084).
+  const fields: EventFields = tag?.category === undefined ? event : { ...event, categoryName: tag.category };
   const root = useRef<HTMLDivElement>(null);
   const drag = useRef<Drag | null>(null);
   const [dragView, setDragView] = useState<DragView | null>(null);
@@ -514,7 +519,7 @@ export function TicketView({
       {/* The editor finds the body by this attribute to turn marquee pixels into millimetres. */}
       <div className="absolute inset-y-0" style={{ left: u(bodyX), width: u(design.widthMm) }} data-ticket-body={editable ? "" : undefined}>
         {design.texts.map((block, index) => {
-          const value = blockValue(block, event);
+          const value = blockValue(block, fields);
           const element: TicketElement = { kind: "text", index };
           if (value === null && !editable) {
             return null;

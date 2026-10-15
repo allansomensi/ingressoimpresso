@@ -2,7 +2,7 @@
  * Digital tickets on the holder's phone (ADR 0030): the copy kept in this browser so the ticket
  * opens without internet at the door, and the image saved to the gallery.
  */
-import type { PublicOrganizationDto, TicketPassDto } from "@ingressoimpresso/api-types";
+import type { DoorCategoryTagDto, PublicOrganizationDto, TicketPassDto } from "@ingressoimpresso/api-types";
 import { encode } from "uqr";
 
 import { NO_CHANGE } from "@/lib/event-change";
@@ -41,12 +41,19 @@ export function normalizePass(pass: TicketPassDto): TicketPassDto {
     website: null,
     instagram: null,
   };
+  // Saved before categories could ask for a document (ADR 0082).
+  const category = partial.category as (Partial<DoorCategoryTagDto> & Pick<DoorCategoryTagDto, "name" | "color">) | null | undefined;
   return {
     ...pass,
-    category: partial.category ?? null,
+    category:
+      category === null || category === undefined
+        ? null
+        : { ...category, checkDocument: category.checkDocument ?? false, documentNote: category.documentNote ?? null },
     seat: partial.seat ?? null,
     organization,
     tableMap: partial.tableMap ?? null,
+    // Saved before the Pix (ADR 0085).
+    pix: partial.pix ?? null,
     event: {
       ...pass.event,
       id: event.id ?? "",
@@ -55,6 +62,8 @@ export function normalizePass(pass: TicketPassDto): TicketPassDto {
       change: event.change ?? NO_CHANGE,
       // Saved before an event could have several dates (ADR 0077).
       inSeries: event.inSeries ?? false,
+      // Saved before consumption tokens (ADR 0084).
+      kind: event.kind ?? "tickets",
     },
   };
 }

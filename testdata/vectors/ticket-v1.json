@@ -243,6 +243,158 @@
       }
     },
     {
+      "name": "exit-after-return",
+      "description": "A ticket that came back goes out again.",
+      "doorEvent": "primary",
+      "voids": [],
+      "entries": [
+        {
+          "number": 42,
+          "atUnixMs": 1767225600000,
+          "deviceName": "Porta 1"
+        },
+        {
+          "number": 42,
+          "atUnixMs": 1767232800000,
+          "deviceName": "Porta 2"
+        }
+      ],
+      "reentry": true,
+      "exits": [
+        {
+          "number": 42,
+          "atUnixMs": 1767229200000,
+          "deviceName": "Saída"
+        }
+      ],
+      "direction": "out",
+      "qrText": "C60/K53X9000.00XIAO4V/%L6B360QA4R8*C/PLV74XSEP$7V/FLXA933-Z8:RGX1CL9DS12EIAWKA+X4GGIR7J64P3YKG3I/3E+J5UH41TSC7P",
+      "expected": {
+        "kind": "exit",
+        "number": 42
+      }
+    },
+    {
+      "name": "exit-already-out",
+      "description": "Read again on the way out: it is already out, nothing new is recorded.",
+      "doorEvent": "primary",
+      "voids": [],
+      "entries": [
+        {
+          "number": 42,
+          "atUnixMs": 1767225600000,
+          "deviceName": "Porta 1"
+        }
+      ],
+      "reentry": true,
+      "exits": [
+        {
+          "number": 42,
+          "atUnixMs": 1767229200000,
+          "deviceName": "Saída"
+        }
+      ],
+      "direction": "out",
+      "qrText": "C60/K53X9000.00XIAO4V/%L6B360QA4R8*C/PLV74XSEP$7V/FLXA933-Z8:RGX1CL9DS12EIAWKA+X4GGIR7J64P3YKG3I/3E+J5UH41TSC7P",
+      "expected": {
+        "kind": "already_out",
+        "number": 42,
+        "exited": {
+          "atUnixMs": 1767229200000,
+          "deviceName": "Saída"
+        }
+      }
+    },
+    {
+      "name": "exit-forged",
+      "description": "A forged ticket is invalid at the exit too.",
+      "doorEvent": "primary",
+      "voids": [],
+      "entries": [],
+      "reentry": true,
+      "direction": "out",
+      "qrText": "C60/K53X9000100JM6R$FJTU/C2*ZN/XJ-.V+GA1Z5:NV93C6BLY-H6Z6W4367JODRQU9YE60/V6:F02BD*6VZ9WAH1MUXISEOS%+8G5P$PB9*L",
+      "expected": {
+        "kind": "invalid",
+        "reason": "bad_signature"
+      }
+    },
+    {
+      "name": "exit-goes-out",
+      "description": "At the exit, a ticket inside goes out.",
+      "doorEvent": "primary",
+      "voids": [],
+      "entries": [
+        {
+          "number": 42,
+          "atUnixMs": 1767225600000,
+          "deviceName": "Porta 1"
+        }
+      ],
+      "reentry": true,
+      "direction": "out",
+      "qrText": "C60/K53X9000.00XIAO4V/%L6B360QA4R8*C/PLV74XSEP$7V/FLXA933-Z8:RGX1CL9DS12EIAWKA+X4GGIR7J64P3YKG3I/3E+J5UH41TSC7P",
+      "expected": {
+        "kind": "exit",
+        "number": 42
+      }
+    },
+    {
+      "name": "exit-other-event",
+      "description": "Another event's ticket is told apart at the exit too.",
+      "doorEvent": "primary",
+      "voids": [],
+      "entries": [],
+      "reentry": true,
+      "direction": "out",
+      "qrText": ".50N:L:S1000100Y$J*AUAANR0W6ACZTR9X0A1TDQ7C2N7041U8DZC7.3YEG0RC3OJZ:1WJMWJ1$:ROOAKWQPW24VUJ:UE7T2092+UQ5W9788.4",
+      "expected": {
+        "kind": "other_event",
+        "eventTag": 195948557
+      }
+    },
+    {
+      "name": "exit-voided",
+      "description": "A voided ticket is shown as voided at the exit too: it could not come back.",
+      "doorEvent": "primary",
+      "voids": [
+        {
+          "first": 42,
+          "last": 42,
+          "reason": "unsold"
+        }
+      ],
+      "entries": [
+        {
+          "number": 42,
+          "atUnixMs": 1767225600000,
+          "deviceName": "Porta 1"
+        }
+      ],
+      "reentry": true,
+      "direction": "out",
+      "qrText": "C60/K53X9000.00XIAO4V/%L6B360QA4R8*C/PLV74XSEP$7V/FLXA933-Z8:RGX1CL9DS12EIAWKA+X4GGIR7J64P3YKG3I/3E+J5UH41TSC7P",
+      "expected": {
+        "kind": "voided",
+        "number": 42,
+        "reason": "unsold"
+      }
+    },
+    {
+      "name": "exit-without-entry",
+      "description": "A ticket this phone never saw entering still goes out: its entry may be on a phone that has not synced.",
+      "doorEvent": "primary",
+      "voids": [],
+      "entries": [],
+      "reentry": true,
+      "direction": "out",
+      "qrText": "C60/K53X9000.00XIAO4V/%L6B360QA4R8*C/PLV74XSEP$7V/FLXA933-Z8:RGX1CL9DS12EIAWKA+X4GGIR7J64P3YKG3I/3E+J5UH41TSC7P",
+      "expected": {
+        "kind": "exit",
+        "number": 42
+      }
+    },
+    {
       "name": "first-overlapping-void-wins",
       "description": "With overlapping voids, the first in the list gives the reason.",
       "doorEvent": "primary",
@@ -383,6 +535,226 @@
       "expected": {
         "kind": "other_event",
         "eventTag": 439041101
+      }
+    },
+    {
+      "name": "reentry-exit-older-than-entry",
+      "description": "Movements count by their time, not by when the phone heard of them: an exit older than the entry does not let the ticket in again.",
+      "doorEvent": "primary",
+      "voids": [],
+      "entries": [
+        {
+          "number": 42,
+          "atUnixMs": 1767232800000,
+          "deviceName": "Porta 1"
+        }
+      ],
+      "reentry": true,
+      "exits": [
+        {
+          "number": 42,
+          "atUnixMs": 1767229200000,
+          "deviceName": "Saída"
+        }
+      ],
+      "qrText": "C60/K53X9000.00XIAO4V/%L6B360QA4R8*C/PLV74XSEP$7V/FLXA933-Z8:RGX1CL9DS12EIAWKA+X4GGIR7J64P3YKG3I/3E+J5UH41TSC7P",
+      "expected": {
+        "kind": "already_entered",
+        "number": 42,
+        "firstEntry": {
+          "atUnixMs": 1767232800000,
+          "deviceName": "Porta 1"
+        }
+      }
+    },
+    {
+      "name": "reentry-exit-without-entry",
+      "description": "An exit of a ticket never seen entering does not count as an entry.",
+      "doorEvent": "primary",
+      "voids": [],
+      "entries": [],
+      "reentry": true,
+      "exits": [
+        {
+          "number": 42,
+          "atUnixMs": 1767225600000,
+          "deviceName": "Saída"
+        }
+      ],
+      "qrText": "C60/K53X9000.00XIAO4V/%L6B360QA4R8*C/PLV74XSEP$7V/FLXA933-Z8:RGX1CL9DS12EIAWKA+X4GGIR7J64P3YKG3I/3E+J5UH41TSC7P",
+      "expected": {
+        "kind": "admit",
+        "number": 42
+      }
+    },
+    {
+      "name": "reentry-first-entry",
+      "description": "With re-entry, a ticket nobody saw yet enters as usual.",
+      "doorEvent": "primary",
+      "voids": [],
+      "entries": [],
+      "reentry": true,
+      "qrText": "C60/K53X9000.00XIAO4V/%L6B360QA4R8*C/PLV74XSEP$7V/FLXA933-Z8:RGX1CL9DS12EIAWKA+X4GGIR7J64P3YKG3I/3E+J5UH41TSC7P",
+      "expected": {
+        "kind": "admit",
+        "number": 42
+      }
+    },
+    {
+      "name": "reentry-inside-after-return",
+      "description": "Back inside: a copy is blocked and the door shows the entry that holds now.",
+      "doorEvent": "primary",
+      "voids": [],
+      "entries": [
+        {
+          "number": 42,
+          "atUnixMs": 1767225600000,
+          "deviceName": "Porta 1"
+        },
+        {
+          "number": 42,
+          "atUnixMs": 1767232800000,
+          "deviceName": "Porta 2"
+        }
+      ],
+      "reentry": true,
+      "exits": [
+        {
+          "number": 42,
+          "atUnixMs": 1767229200000,
+          "deviceName": "Saída"
+        }
+      ],
+      "qrText": "C60/K53X9000.00XIAO4V/%L6B360QA4R8*C/PLV74XSEP$7V/FLXA933-Z8:RGX1CL9DS12EIAWKA+X4GGIR7J64P3YKG3I/3E+J5UH41TSC7P",
+      "expected": {
+        "kind": "already_entered",
+        "number": 42,
+        "firstEntry": {
+          "atUnixMs": 1767232800000,
+          "deviceName": "Porta 2"
+        }
+      }
+    },
+    {
+      "name": "reentry-off-ignores-exits",
+      "description": "Without re-entry, a ticket that went out is still a ticket that already entered.",
+      "doorEvent": "primary",
+      "voids": [],
+      "entries": [
+        {
+          "number": 42,
+          "atUnixMs": 1767225600000,
+          "deviceName": "Porta 1"
+        }
+      ],
+      "exits": [
+        {
+          "number": 42,
+          "atUnixMs": 1767229200000,
+          "deviceName": "Saída"
+        }
+      ],
+      "qrText": "C60/K53X9000.00XIAO4V/%L6B360QA4R8*C/PLV74XSEP$7V/FLXA933-Z8:RGX1CL9DS12EIAWKA+X4GGIR7J64P3YKG3I/3E+J5UH41TSC7P",
+      "expected": {
+        "kind": "already_entered",
+        "number": 42,
+        "firstEntry": {
+          "atUnixMs": 1767225600000,
+          "deviceName": "Porta 1"
+        }
+      }
+    },
+    {
+      "name": "reentry-return-after-exit",
+      "description": "A ticket whose latest movement is an exit comes back in and shows when it left.",
+      "doorEvent": "primary",
+      "voids": [],
+      "entries": [
+        {
+          "number": 42,
+          "atUnixMs": 1767225600000,
+          "deviceName": "Porta 1"
+        }
+      ],
+      "reentry": true,
+      "exits": [
+        {
+          "number": 42,
+          "atUnixMs": 1767229200000,
+          "deviceName": "Saída"
+        }
+      ],
+      "qrText": "C60/K53X9000.00XIAO4V/%L6B360QA4R8*C/PLV74XSEP$7V/FLXA933-Z8:RGX1CL9DS12EIAWKA+X4GGIR7J64P3YKG3I/3E+J5UH41TSC7P",
+      "expected": {
+        "kind": "readmit",
+        "number": 42,
+        "exited": {
+          "atUnixMs": 1767229200000,
+          "deviceName": "Saída"
+        }
+      }
+    },
+    {
+      "name": "reentry-tie-broken-by-device",
+      "description": "Movements at the same millisecond are ordered by device name, then direction.",
+      "doorEvent": "primary",
+      "voids": [],
+      "entries": [
+        {
+          "number": 42,
+          "atUnixMs": 1767225600000,
+          "deviceName": "Porta B"
+        }
+      ],
+      "reentry": true,
+      "exits": [
+        {
+          "number": 42,
+          "atUnixMs": 1767225600000,
+          "deviceName": "Porta A"
+        }
+      ],
+      "qrText": "C60/K53X9000.00XIAO4V/%L6B360QA4R8*C/PLV74XSEP$7V/FLXA933-Z8:RGX1CL9DS12EIAWKA+X4GGIR7J64P3YKG3I/3E+J5UH41TSC7P",
+      "expected": {
+        "kind": "already_entered",
+        "number": 42,
+        "firstEntry": {
+          "atUnixMs": 1767225600000,
+          "deviceName": "Porta B"
+        }
+      }
+    },
+    {
+      "name": "reentry-void-precedes-return",
+      "description": "A ticket voided while outside does not come back.",
+      "doorEvent": "primary",
+      "voids": [
+        {
+          "first": 40,
+          "last": 45,
+          "reason": "lost"
+        }
+      ],
+      "entries": [
+        {
+          "number": 42,
+          "atUnixMs": 1767225600000,
+          "deviceName": "Porta 1"
+        }
+      ],
+      "reentry": true,
+      "exits": [
+        {
+          "number": 42,
+          "atUnixMs": 1767229200000,
+          "deviceName": "Saída"
+        }
+      ],
+      "qrText": "C60/K53X9000.00XIAO4V/%L6B360QA4R8*C/PLV74XSEP$7V/FLXA933-Z8:RGX1CL9DS12EIAWKA+X4GGIR7J64P3YKG3I/3E+J5UH41TSC7P",
+      "expected": {
+        "kind": "voided",
+        "number": 42,
+        "reason": "lost"
       }
     },
     {

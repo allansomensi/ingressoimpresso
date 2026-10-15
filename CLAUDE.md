@@ -198,6 +198,26 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   verdadeiro; `/llms.txt` (`content/llms.ts`); tags de verificação por
   `NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION`/`NEXT_PUBLIC_BING_SITE_VERIFICATION`. Falta o que depende
   do mantenedor: Search Console e Bing (`docs/deploy.md`, "Buscadores").
+- **Documento na porta, saída e volta, fichas e Pix (ADRs 0082–0085): implementados.**
+  - Categoria que pede documento (`ticket_categories.check_document`/`document_note`): a tela
+    verde diz "MEIA: peça o documento" e espera o porteiro; o manifesto leva o campo (opcional
+    para o app antigo), o ingresso digital e o `/conferir` avisam.
+  - Saída e volta (`events.reentry`, aba Portaria): o `DoorCore` guarda o último movimento de
+    cada número (registro LWW, ordem total por hora, celular e Saída > Entrada) e decide
+    `Readmit`/`Exit`/`AlreadyOut` (`Door::check_out`); vetores escritos à mão em
+    `crates/cli/src/vectors.rs` (`reentry_cases`), formato do QR intacto. Um celular no modo
+    Saída lê saídas (tela azul); o Ao vivo mostra dentro e fora. App antigo segue mais restrito.
+  - Fichas de consumo (`events.kind` = `tokens`): mesma mecânica, outras palavras por
+    `lib/event-kind.ts` (`forKind`); produtos são categorias, campo `{categoria}` nos dois lados,
+    dois modelos de ficha (63 × 38 mm), sem saída e volta (`reentry_tokens`).
+  - Pix copia e cola (ADR 0085): chave da organização (`organization_profiles.pix_*`, Minha
+    organização) e de cada vendedor (`sellers.pix_*`), conferidas em `pix.rs`;
+    `events.pix_receiver` (`off`/`organization`/`seller`); BR Code montado no aparelho
+    (`lib/pix.ts`, identificador `ING0042EA3F9` por número) no link do vendedor (QR primeiro,
+    "Recebi o Pix" na chave própria) e no ingresso digital; recebimentos por número em
+    `ticket_payments`, conferidos em **Conferir Pix** (aba Vendedores); o que a organização
+    recebeu entra no acerto do vendedor (`pix_cents` em `received_cents`). A plataforma nunca
+    toca no dinheiro.
 
 Plano completo em `docs/arquitetura.md` §12.
 
@@ -255,7 +275,9 @@ crates/server        API (pacote `ingressoimpresso-server`, binário `ingressoim
                      perfil da organização e logo público em routes/organization.rs (ADR 0064),
                      adiar/cancelar em routes/event_changes.rs (ADR 0065; links da portaria por
                      door::extend_accesses),
-                     conferir ingresso (público, ADR 0075) em routes/verify.rs, indique e
+                     conferir ingresso (público, ADR 0075) em routes/verify.rs, Pix copia e cola
+                     (chaves, quem recebe, conferência, ADR 0085) em routes/pix.rs com as regras
+                     das chaves em pix.rs, indique e
                      ganhe (código, vínculo no cadastro, recompensa e revogação) em
                      routes/referrals.rs (ADR 0076), várias datas em routes/series.rs
                      (ADR 0077; a cópia em events::copy_event) e o que falta em
@@ -359,6 +381,12 @@ apps/web             landing em src/app/page.tsx (+ src/components/marketing: si
                      conferir ingresso em app/conferir + components/verify (ticket-checker,
                      verify-result, verify-settings na aba Digitais) + lib/verify.ts; a câmera e
                      a foto usam portaria/camera.ts (readQrImage);
+                     Pix (ADR 0085): BR Code em lib/pix.ts (montado no aparelho, offline),
+                     cobrança em components/pix/pix-charge.tsx, chave da organização em
+                     components/pix/organization-pix.tsx (Minha organização, #pix), quem recebe,
+                     Conferir Pix e chave do vendedor em components/pix/event-pix.tsx (aba
+                     Vendedores), no link do vendedor components/seller/sale-pix.tsx; tipo do
+                     evento (ingressos ou fichas, ADR 0084) em lib/event-kind.ts (forKind);
                      indique e ganhe: app/i/[code] (guarda o código, lib/referral.ts), convite em
                      app/entrar, cartão em components/account/referrals.tsx, admin em
                      components/admin/referrals.tsx;

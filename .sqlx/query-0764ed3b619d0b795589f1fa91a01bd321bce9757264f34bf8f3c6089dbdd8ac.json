@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update sellers set pix_key_type = null, pix_key = null, pix_name = null, pix_city = null\n           where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "0764ed3b619d0b795589f1fa91a01bd321bce9757264f34bf8f3c6089dbdd8ac"
+}

@@ -8,6 +8,8 @@ import type {
   DoorAccessDto,
   DoorDeviceDto,
   DoorOverviewDto,
+  DoorSettingsBody,
+  EventKind,
 } from "@ingressoimpresso/api-types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -18,6 +20,7 @@ import {
   Download,
   Link2,
   LogIn,
+  LogOut,
   MessageCircle,
   Plus,
   QrCode as QrCodeIcon,
@@ -41,18 +44,21 @@ import {
   Lead,
   LoadingBlock,
   Stat,
+  Switch,
   buttonClass,
   errorMessage,
   useConfirm,
 } from "@/components/ui";
 import { api, fetchBlobUrl } from "@/lib/api";
 import { cn } from "@/lib/cn";
+import { forKind } from "@/lib/event-kind";
 import { shortDateTime } from "@/lib/format";
 import { event as eventTexts } from "@/texts/pt-BR/event";
 
 import { useLivePolling } from "./live-polling";
 
 const t = eventTexts.door;
+type DoorTexts = typeof eventTexts.door;
 /** A phone that synced this recently is shown as online (it syncs every few seconds). */
 const ONLINE_MS = 60_000;
 
@@ -68,7 +74,9 @@ function accessState(access: DoorAccessDto, now: number): "active" | "expired" |
   return Date.parse(access.expiresAt) <= now ? "expired" : "active";
 }
 
-export function DoorTab({ eventId }: { eventId: string }) {
+export function DoorTab({ eventId, kind = "tickets" }: { eventId: string; kind?: EventKind }) {
+  // Stalls instead of doors for consumption tokens (ADR 0084).
+  const words = forKind(eventTexts.door, eventTexts.tokens.door, kind);
   const queryClient = useQueryClient();
   const confirm = useConfirm();
   const key = ["door", eventId];
@@ -82,7 +90,7 @@ export function DoorTab({ eventId }: { eventId: string }) {
     queryKey: ["categories", eventId],
     queryFn: () => api<CategoryDto[]>(`/api/events/${eventId}/categories`),
   });
-  const [label, setLabel] = useState<string>(t.defaultLabel);
+  const [label, setLabel] = useState<string>(words.defaultLabel);
   const [chosen, setChosen] = useState<string[]>([]);
   const [editing, setEditing] = useState<DoorAccessDto | null>(null);
   const [created, setCreated] = useState<{ url: string; label: string; renewed: boolean } | null>(null);
@@ -127,7 +135,7 @@ export function DoorTab({ eventId }: { eventId: string }) {
       return api<DoorAccessDto>(`/api/door-accesses/${id}/categories`, { method: "PUT", body });
     },
     onSuccess: () => {
-      toast.success(t.categoriesSaved);
+      toast.success(words.categoriesSaved);
       setEditing(null);
       void refresh();
     },
@@ -138,6 +146,19 @@ export function DoorTab({ eventId }: { eventId: string }) {
     onSuccess: () => {
       toast.success(t.revokedToast);
       void refresh();
+    },
+    onError,
+  });
+  // Exit and return (ADR 0083): the phones pick the change up on their next sync.
+  const reentry = useMutation({
+    mutationFn: (allowed: boolean) => {
+      const body: DoorSettingsBody = { reentry: allowed };
+      return api<DoorOverviewDto>(`/api/events/${eventId}/door-settings`, { method: "PUT", body });
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(key, data);
+      toast.success(data.reentry ? t.reentryOn : t.reentryOff);
+      void queryClient.invalidateQueries({ queryKey: ["door-live", eventId] });
     },
     onError,
   });
@@ -181,12 +202,51 @@ export function DoorTab({ eventId }: { eventId: string }) {
 
   return (
     <div className="flex flex-col gap-6">
-      <Lead>{t.intro}</Lead>
+      <Lead>{words.intro}</Lead>
       <div className="grid grid-cols-3 gap-2 sm:gap-4">
-        <Stat label={t.entriesLabel} value={overview.data.entryCount.toLocaleString("pt-BR")} hint={t.entries(overview.data.entryCount)} icon={LogIn} tone="success" />
+        <Stat
+          label={words.entriesLabel}
+          value={overview.data.entryCount.toLocaleString("pt-BR")}
+          hint={words.entries(overview.data.entryCount)}
+          icon={LogIn}
+          tone="success"
+        />
         <Stat label={t.devicesOnline} value={overview.data.devices.filter(online).length} icon={Smartphone} />
         <Stat label={t.linksActive} value={activeLinks} icon={Link2} />
       </div>
+
+      {/* A consumption token is used once: no exit and return (ADR 0084). */}
+      {kind !== "tokens" && (
+      <Card className="flex flex-col gap-4">
+        <div className="flex items-start gap-3">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-brand-soft-fg">
+            <LogOut className="size-5" aria-hidden />
+          </span>
+          <div className="min-w-0 flex-1">
+            <Switch
+              checked={reentry.isPending ? reentry.variables : overview.data.reentry}
+              onChange={(allowed) => {
+                reentry.mutate(allowed);
+              }}
+              label={t.reentry}
+              description={t.reentryHint}
+            />
+          </div>
+        </div>
+        {overview.data.reentry && (
+          <ol className="grid gap-2 sm:grid-cols-3">
+            {t.reentrySteps.map((step, index) => (
+              <li key={step} className="flex items-start gap-2.5 rounded-xl bg-surface-2 p-3 text-sm leading-relaxed text-fg-muted">
+                <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-brand-solid text-xs font-bold text-white tabular">
+                  {index + 1}
+                </span>
+                {step}
+              </li>
+            ))}
+          </ol>
+        )}
+      </Card>
+      )}
 
       {created !== null && (
         <div ref={createdRef} className="scroll-mt-32">
@@ -213,7 +273,7 @@ export function DoorTab({ eventId }: { eventId: string }) {
                   </Button>
                   <a
                     className={buttonClass({ variant: "secondary" })}
-                    href={`https://wa.me/?text=${encodeURIComponent(`${t.whatsappMessage}\n${created.url}`)}`}
+                    href={`https://wa.me/?text=${encodeURIComponent(`${words.whatsappMessage}\n${created.url}`)}`}
                     target="_blank"
                     rel="noreferrer"
                   >
@@ -240,9 +300,9 @@ export function DoorTab({ eventId }: { eventId: string }) {
           </form>
           {eventCategories.length > 0 && (
             <fieldset className="-mt-2 mb-5 flex flex-col gap-2">
-              <legend className="mb-2 text-sm font-medium text-fg">{t.categories}</legend>
+              <legend className="mb-2 text-sm font-medium text-fg">{words.categories}</legend>
               <CategoryChips categories={eventCategories} chosen={chosen} onChange={setChosen} />
-              <p className="text-xs leading-relaxed text-fg-muted">{t.categoriesHint}</p>
+              <p className="text-xs leading-relaxed text-fg-muted">{words.categoriesHint}</p>
             </fieldset>
           )}
           <ErrorMessage error={create.error} className="mb-4" />
@@ -262,7 +322,7 @@ export function DoorTab({ eventId }: { eventId: string }) {
                       {eventCategories.length > 0 && (
                         <span className="flex flex-wrap gap-1">
                           {access.categoryIds.length === 0 ? (
-                            <span className="text-xs text-fg-subtle">{t.allCategories}</span>
+                            <span className="text-xs text-fg-subtle">{words.allCategories}</span>
                           ) : (
                             eventCategories.filter((category) => access.categoryIds.includes(category.id)).map((category) => {
                               const id = category.id;
@@ -307,7 +367,7 @@ export function DoorTab({ eventId }: { eventId: string }) {
                           setEditing(access);
                         }}
                       >
-                        {t.editCategories}
+                        {words.editCategories}
                       </Button>
                     )}
                     {state === "active" ? (
@@ -400,6 +460,7 @@ export function DoorTab({ eventId }: { eventId: string }) {
       <RehearsalSheet eventId={eventId} />
 
       <CategoriesDialog
+        words={words}
         access={editing}
         categories={eventCategories}
         saving={saveCategories.isPending}
@@ -456,12 +517,14 @@ function CategoryChips({
 }
 
 function CategoriesDialog({
+  words,
   access,
   categories,
   saving,
   onClose,
   onSave,
 }: {
+  words: DoorTexts;
   access: DoorAccessDto | null;
   categories: readonly CategoryDto[];
   saving: boolean;
@@ -472,17 +535,18 @@ function CategoriesDialog({
     <Dialog
       open={access !== null}
       onClose={onClose}
-      title={access === null ? "" : t.editCategoriesTitle(access.label)}
-      description={t.editCategoriesBody}
+      title={access === null ? "" : words.editCategoriesTitle(access.label)}
+      description={words.editCategoriesBody}
     >
       {access !== null && (
-        <CategoriesForm key={access.id} initial={access.categoryIds} categories={categories} saving={saving} onCancel={onClose} onSave={onSave} />
+        <CategoriesForm key={access.id} words={words} initial={access.categoryIds} categories={categories} saving={saving} onCancel={onClose} onSave={onSave} />
       )}
     </Dialog>
   );
 }
 
 function CategoriesForm(props: {
+  words: DoorTexts;
   initial: readonly string[];
   categories: readonly CategoryDto[];
   saving: boolean;
@@ -499,7 +563,7 @@ function CategoriesForm(props: {
       }}
     >
       <CategoryChips categories={props.categories} chosen={chosen} onChange={setChosen} />
-      <p className="text-xs leading-relaxed text-fg-muted">{t.categoriesHint}</p>
+      <p className="text-xs leading-relaxed text-fg-muted">{props.words.categoriesHint}</p>
       <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
         <Button type="button" variant="secondary" onClick={props.onCancel}>
           {t.cancel}

@@ -10,6 +10,8 @@ export const templates = {
   replaceBody: "A arte, as posições e os textos atuais serão substituídos. Nada é salvo até você clicar em Salvar.",
   replaceConfirm: "Usar o modelo",
   colors: "Cores",
+  // The product shown on the ficha templates when the event has none yet (ADR 0084).
+  sampleCategory: "Pastel",
   format: (width: number, height: number, stub: boolean) =>
     `${String(width)} × ${String(height)} mm${stub ? " + canhoto" : ""}`,
   categories: {
@@ -23,6 +25,7 @@ export const templates = {
     charity: "Beneficente",
     business: "Palestras",
     kids: "Infantil",
+    tokens: "Fichas",
   },
   items: {
     show: { name: "Show ao vivo", description: "Feixes de luz e letras fortes para bandas e shows." },
@@ -41,6 +44,8 @@ export const templates = {
     cinema: { name: "Cinema / sessão", description: "Película de filme para sessões e mostras." },
     newYear: { name: "Réveillon", description: "Fogos dourados para a virada do ano." },
     classic: { name: "Clássico", description: "Moldura simples que combina com qualquer evento." },
+    token: { name: "Ficha de consumo", description: "Produto em destaque, preço e QR: 21 fichas por folha A4, com baixa na barraca." },
+    tokenJunina: { name: "Ficha de festa junina", description: "Bandeirinhas e xadrez para as fichas de comida e bebida do arraiá." },
   },
   palettes: {
     neon: "Neon",
@@ -92,5 +97,6 @@ export const templates = {
     startsAt: "Início às {hora}",
     session: "Sessão das {hora}",
     ticket: "Ingresso",
+    tokenUnit: "Vale 1 unidade",
   },
 } as const;

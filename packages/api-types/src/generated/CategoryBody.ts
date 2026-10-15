@@ -15,4 +15,12 @@ color: string,
 /**
  * Price; `null` uses the event's price.
  */
-priceCents: number | null, };
+priceCents: number | null, 
+/**
+ * The door asks for a document (ADR 0082); missing: off.
+ */
+checkDocument?: boolean, 
+/**
+ * Which documents count (up to 80 characters).
+ */
+documentNote?: string | null, };

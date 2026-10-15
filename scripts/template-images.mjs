@@ -2,7 +2,8 @@
 // /modelos/<slug> page draws its template filled with the sample event, and the element marked
 // `data-template-capture` is saved as apps/web/public/modelos/<slug>.jpg, 1200 px wide.
 // Usage: `just web-dev` (or `next start`) in another terminal, then `just template-images`.
-// WEB sets the site (default http://localhost:3000); CHROMIUM_PATH, a Chromium to use.
+// WEB sets the site (default http://localhost:3000); CHROMIUM_PATH, a Chromium to use; ONLY, the
+// slugs to capture (comma-separated), so a new template leaves the other pictures untouched.
 import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -14,7 +15,10 @@ const WIDTH = 1200;
 const OUT = join(dirname(fileURLToPath(import.meta.url)), "..", "apps", "web", "public", "modelos");
 
 const sitemap = await (await fetch(`${WEB}/sitemap.xml`)).text();
-const slugs = [...sitemap.matchAll(/<loc>[^<]*\/modelos\/([a-z0-9-]+)<\/loc>/g)].map((match) => match[1]);
+const only = (process.env.ONLY ?? "").split(",").map((slug) => slug.trim()).filter((slug) => slug !== "");
+const slugs = [...sitemap.matchAll(/<loc>[^<]*\/modelos\/([a-z0-9-]+)<\/loc>/g)]
+  .map((match) => match[1])
+  .filter((slug) => only.length === 0 || only.includes(slug));
 if (slugs.length === 0) {
   console.error(`no /modelos/<slug> in ${WEB}/sitemap.xml: is the site running?`);
   process.exit(1);

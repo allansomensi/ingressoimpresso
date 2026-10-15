@@ -142,7 +142,7 @@ async fn profile(state: &AppState, organization_id: Uuid) -> ApiResult<Value> {
     let public = super::organization::public_organization(&state.pool, organization_id).await?;
     let defaults = sqlx::query!(
         r#"select default_venue, default_address, default_ticket_price_cents,
-                  logo_blob_id is not null as "logo!"
+                  logo_blob_id is not null as "logo!", pix_key_type, pix_key, pix_name, pix_city
            from organization_profiles where organization_id = $1"#,
         organization_id
     )
@@ -158,6 +158,10 @@ async fn profile(state: &AppState, organization_id: Uuid) -> ApiResult<Value> {
         "defaultVenue": defaults.as_ref().and_then(|row| row.default_venue.clone()),
         "defaultAddress": defaults.as_ref().and_then(|row| row.default_address.clone()),
         "defaultTicketPriceCents": defaults.as_ref().and_then(|row| row.default_ticket_price_cents),
+        // The Pix key (ADR 0085) may be a CPF: it is the account holder's data too.
+        "pix": defaults.and_then(|row| super::pix::account(
+            row.pix_key_type.as_deref(), row.pix_key, row.pix_name, row.pix_city,
+        )),
     }))
 }
 
@@ -200,7 +204,8 @@ async fn export_event(state: &AppState, event_id: Uuid) -> ApiResult<Value> {
     })
     .collect::<Vec<_>>();
     let sellers = sqlx::query!(
-        "select id, name, phone, box_office, goal, created_at from sellers where event_id = $1 order by name",
+        r#"select id, name, phone, box_office, goal, created_at, pix_key_type, pix_key, pix_name, pix_city
+           from sellers where event_id = $1 order by name"#,
         event_id
     )
     .fetch_all(&state.pool)
@@ -269,6 +274,7 @@ async fn export_event(state: &AppState, event_id: Uuid) -> ApiResult<Value> {
             "name": seller.name, "phone": seller.phone, "createdAt": rfc3339(seller.created_at),
             "boxOffice": seller.box_office, "goal": seller.goal, "ranges": ranges,
             "received": received, "sales": sales, "reservations": reservations,
+            "pix": super::pix::account(seller.pix_key_type.as_deref(), seller.pix_key, seller.pix_name, seller.pix_city),
         }));
     }
     let voids = sqlx::query!(
@@ -381,6 +387,22 @@ async fn export_event(state: &AppState, event_id: Uuid) -> ApiResult<Value> {
         })
     })
     .collect::<Vec<_>>();
+    // Pix the buyers paid (ADR 0085), number by number.
+    let pix_receipts = sqlx::query!(
+        r#"select ticket_number, amount_cents, received_by, confirmed_at
+           from ticket_payments where event_id = $1 order by ticket_number"#,
+        event_id
+    )
+    .fetch_all(&state.pool)
+    .await?
+    .into_iter()
+    .map(|receipt| {
+        json!({
+            "number": receipt.ticket_number, "amountCents": receipt.amount_cents,
+            "receivedBy": receipt.received_by, "confirmedAt": rfc3339(receipt.confirmed_at),
+        })
+    })
+    .collect::<Vec<_>>();
     Ok(json!({
         "batches": batch_list,
         "payments": payments,
@@ -393,6 +415,7 @@ async fn export_event(state: &AppState, event_id: Uuid) -> ApiResult<Value> {
         "tables": tables,
         "entries": entries,
         "guestList": guests,
+        "pixReceipts": pix_receipts,
     }))
 }
 

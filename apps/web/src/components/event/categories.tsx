@@ -1,29 +1,36 @@
 "use client";
 
-import type { BatchDto, CategoryBody, CategoryDto, EventDto, RangeDto } from "@ingressoimpresso/api-types";
+import type { BatchDto, CategoryBody, CategoryDto, EventDto, EventKind, RangeDto } from "@ingressoimpresso/api-types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, MoreHorizontal, Pencil, Plus, Sparkles, Tags, Trash2, X } from "lucide-react";
+import { Check, IdCard, MoreHorizontal, Pencil, Plus, Sparkles, Tags, Trash2, X } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
 import { ReadOnlyNotice, useEventAccess } from "@/components/event/access";
 import { TablesSection } from "@/components/event/tables";
 import type { SelectTab } from "@/components/event/tabs";
-import { Alert, Button, Card, Dialog, ErrorMessage, Field, Input, Lead, LoadingBlock, Menu, MenuItem, buttonClass, errorMessage, useConfirm } from "@/components/ui";
+import { Alert, Badge, Button, Card, Dialog, ErrorMessage, Field, Input, Lead, LoadingBlock, Menu, MenuItem, Switch, buttonClass, errorMessage, useConfirm } from "@/components/ui";
 import { api } from "@/lib/api";
 import { CATEGORY_COLORS, nextColor, presetPriceText, uncategorized } from "@/lib/categories";
 import { cn } from "@/lib/cn";
+import { forKind } from "@/lib/event-kind";
 import { money, parseMoney, ticketNumber } from "@/lib/format";
 import { NUMBER_LIST_INPUT, formatRanges, parseNumberList } from "@/lib/number-list";
 import { common as commonTexts } from "@/texts/pt-BR/common";
 import { errors as errorsTexts } from "@/texts/pt-BR/errors";
 import { event as eventTexts } from "@/texts/pt-BR/event";
+import { portaria as portariaTexts } from "@/texts/pt-BR/portaria";
 
-const t = eventTexts.categories;
+type CategoryTexts = typeof eventTexts.categories;
+
+/** The tab's words: "Produtos" for consumption tokens (ADR 0084). */
+function categoryTexts(kind: EventKind): CategoryTexts {
+  return forKind(eventTexts.categories, eventTexts.tokens.categories, kind);
+}
 
 type PriceMode = "event" | "free" | "own";
 
-function priceLabel(category: CategoryDto, eventPrice: number | null): string {
+function priceLabel(t: CategoryTexts, category: CategoryDto, eventPrice: number | null): string {
   if (category.priceCents === null) {
     return eventPrice === null ? t.priceEventNone : t.priceEvent(money(eventPrice));
   }
@@ -35,12 +42,14 @@ export function CategoriesTab({ eventId, event, onSelect }: { eventId: string; e
   return (
     <div className="flex flex-col gap-8">
       <CategoriesSection eventId={eventId} event={event} editable={can("manage")} onSelect={onSelect} />
-      <TablesSection eventId={eventId} editable={can("delivery")} />
+      {/* Tables and seats are for tickets; a stall has none (ADR 0084). */}
+      {event.kind !== "tokens" && <TablesSection eventId={eventId} editable={can("delivery")} />}
     </div>
   );
 }
 
 function CategoriesSection({ eventId, event, editable, onSelect }: { eventId: string; event: EventDto; editable: boolean; onSelect: SelectTab }) {
+  const t = categoryTexts(event.kind);
   const queryClient = useQueryClient();
   const categories = useQuery({ queryKey: ["categories", eventId], queryFn: () => api<CategoryDto[]>(`/api/events/${eventId}/categories`) });
   const batches = useQuery({ queryKey: ["batches", eventId], queryFn: () => api<BatchDto[]>(`/api/events/${eventId}/batches`) });
@@ -115,6 +124,7 @@ function CategoriesSection({ eventId, event, editable, onSelect }: { eventId: st
             {list.map((category) => (
               <CategoryCard
                 key={category.id}
+                t={t}
                 category={category}
                 eventPrice={event.ticketPriceCents}
                 editable={editable}
@@ -142,6 +152,8 @@ function CategoriesSection({ eventId, event, editable, onSelect }: { eventId: st
       {dialog !== null && (
         <CategoryDialog
           key={dialog.category?.id ?? "new"}
+          t={t}
+          tokens={event.kind === "tokens"}
           eventId={eventId}
           eventPrice={event.ticketPriceCents}
           category={dialog.category}
@@ -155,6 +167,7 @@ function CategoriesSection({ eventId, event, editable, onSelect }: { eventId: st
       )}
       {suggesting && (
         <SuggestDialog
+          t={t}
           eventId={eventId}
           eventPrice={event.ticketPriceCents}
           onClose={() => {
@@ -168,12 +181,14 @@ function CategoriesSection({ eventId, event, editable, onSelect }: { eventId: st
 }
 
 function CategoryCard({
+  t,
   category,
   eventPrice,
   editable,
   onEdit,
   onChange,
 }: {
+  t: CategoryTexts;
   category: CategoryDto;
   eventPrice: number | null;
   editable: boolean;
@@ -226,6 +241,15 @@ function CategoryCard({
               {category.name}
             </span>
             <span className="text-sm text-fg-muted">{t.count(count)}</span>
+            {category.checkDocument && (
+              <span className="mt-1.5 flex flex-col gap-1">
+                <Badge tone="warning" className="w-fit">
+                  <IdCard className="size-3.5" aria-hidden />
+                  {t.documentBadge}
+                </Badge>
+                <span className="text-xs leading-relaxed text-fg-muted">{t.documentBadgeHint(category.documentNote ?? portariaTexts.result.documentAny)}</span>
+              </span>
+            )}
           </div>
           <div className="flex shrink-0 items-center gap-1">
             {/* The price is what people come to change (VIP, meia): one tap away. */}
@@ -240,14 +264,14 @@ function CategoryCard({
               >
                 <span className="text-[11px] font-medium tracking-wide text-fg-subtle uppercase">{t.priceOf}</span>
                 <span className="flex items-center gap-1.5 text-sm font-semibold text-fg tabular">
-                  {priceLabel(category, eventPrice)}
+                  {priceLabel(t, category, eventPrice)}
                   <Pencil className="size-3.5 text-fg-subtle transition group-hover:text-fg" aria-hidden />
                 </span>
               </button>
             ) : (
               <span className="flex flex-col items-end px-2.5 py-1 text-right">
                 <span className="text-[11px] font-medium tracking-wide text-fg-subtle uppercase">{t.priceOf}</span>
-                <span className="text-sm font-semibold text-fg tabular">{priceLabel(category, eventPrice)}</span>
+                <span className="text-sm font-semibold text-fg tabular">{priceLabel(t, category, eventPrice)}</span>
               </span>
             )}
             {editable && (
@@ -328,6 +352,8 @@ function CategoryCard({
 }
 
 function CategoryDialog({
+  t,
+  tokens,
   eventId,
   eventPrice,
   category,
@@ -336,6 +362,9 @@ function CategoryDialog({
   onClose,
   onSaved,
 }: {
+  t: CategoryTexts;
+  /** A product of consumption tokens: no document at a stall (ADR 0084). */
+  tokens: boolean;
   eventId: string;
   eventPrice: number | null;
   category: CategoryDto | null;
@@ -349,12 +378,21 @@ function CategoryDialog({
   const initialMode: PriceMode = category?.priceCents === null || category === null ? "event" : category.priceCents === 0 ? "free" : "own";
   const [mode, setMode] = useState<PriceMode>(initialMode);
   const [priceText, setPriceText] = useState(category?.priceCents ? (category.priceCents / 100).toFixed(2).replace(".", ",") : "");
+  const [checkDocument, setCheckDocument] = useState(category?.checkDocument ?? false);
+  const [documentNote, setDocumentNote] = useState(category?.documentNote ?? "");
   const price = parseMoney(priceText);
   const priceCents = mode === "event" ? null : mode === "free" ? 0 : price.ok ? price.cents : null;
   const valid = name.trim() !== "" && (mode !== "own" || (price.ok && price.cents !== null));
   const save = useMutation({
     mutationFn: () => {
-      const body: CategoryBody = { name: name.trim(), color, priceCents };
+      const note = documentNote.trim();
+      const body: CategoryBody = {
+        name: name.trim(),
+        color,
+        priceCents,
+        checkDocument,
+        documentNote: checkDocument && note !== "" ? note : null,
+      };
       return category === null
         ? api<CategoryDto>(`/api/events/${eventId}/categories`, { method: "POST", body })
         : api(`/api/categories/${category.id}`, { method: "PUT", body });
@@ -473,31 +511,56 @@ function CategoryDialog({
             />
           )}
         </fieldset>
+        {!tokens && (
+        <div className="flex flex-col gap-3 rounded-xl border border-border p-4">
+          <Switch checked={checkDocument} onChange={setCheckDocument} label={t.document} description={t.documentHint} />
+          {checkDocument && (
+            <Field label={t.documentNote} hint={t.documentNoteHint} optional>
+              <Input
+                value={documentNote}
+                maxLength={80}
+                placeholder={t.documentNotePlaceholder}
+                onChange={(changeEvent) => {
+                  setDocumentNote(changeEvent.target.value);
+                }}
+              />
+            </Field>
+          )}
+        </div>
+        )}
         <ErrorMessage error={save.error} />
       </form>
     </Dialog>
   );
 }
 
-type SuggestRow = { name: string; color: string; use: boolean; priceText: string };
+type SuggestRow = { name: string; color: string; use: boolean; priceText: string; document: string | null };
 
 /**
  * The usual categories in one go, each with its price checked before it is created: VIP is
  * rarely the event's price, and meia starts at half of it.
  */
 function SuggestDialog({
+  t,
   eventId,
   eventPrice,
   onClose,
   onSaved,
 }: {
+  t: CategoryTexts;
   eventId: string;
   eventPrice: number | null;
   onClose: () => void;
   onSaved: () => void;
 }) {
   const [rows, setRows] = useState<SuggestRow[]>(() =>
-    t.presets.map((preset) => ({ name: preset.name, color: preset.color, use: true, priceText: presetPriceText(preset.price, eventPrice) })),
+    t.presets.map((preset) => ({
+      name: preset.name,
+      color: preset.color,
+      use: true,
+      priceText: presetPriceText(preset.price, eventPrice),
+      document: preset.document,
+    })),
   );
   const chosen = rows.filter((row) => row.use);
   const parsed = chosen.map((row) => ({ row, price: parseMoney(row.priceText) }));
@@ -505,7 +568,13 @@ function SuggestDialog({
   const create = useMutation({
     mutationFn: async () => {
       for (const { row, price } of parsed) {
-        const body: CategoryBody = { name: row.name, color: row.color, priceCents: price.ok ? price.cents : null };
+        const body: CategoryBody = {
+          name: row.name,
+          color: row.color,
+          priceCents: price.ok ? price.cents : null,
+          checkDocument: row.document !== null,
+          documentNote: row.document,
+        };
         await api<CategoryDto>(`/api/events/${eventId}/categories`, { method: "POST", body });
       }
     },
@@ -563,9 +632,17 @@ function SuggestDialog({
                     update(index, { use: changeEvent.target.checked });
                   }}
                 />
-                <span className="flex min-w-0 flex-1 items-center gap-2 text-sm font-medium text-fg">
-                  <span className="size-3 shrink-0 rounded-full" style={{ backgroundColor: row.color }} aria-hidden />
-                  <span className="truncate">{row.name}</span>
+                <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <span className="flex items-center gap-2 text-sm font-medium text-fg">
+                    <span className="size-3 shrink-0 rounded-full" style={{ backgroundColor: row.color }} aria-hidden />
+                    <span className="truncate">{row.name}</span>
+                  </span>
+                  {row.document !== null && (
+                    <span className="flex items-center gap-1 pl-5 text-xs text-fg-muted">
+                      <IdCard className="size-3.5 shrink-0" aria-hidden />
+                      <span className="truncate">{t.suggestDocument(row.name)}</span>
+                    </span>
+                  )}
                 </span>
                 <div className="flex w-36 shrink-0 flex-col items-end gap-0.5">
                   <Input

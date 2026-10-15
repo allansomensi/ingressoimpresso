@@ -89,6 +89,7 @@ function applyOne(view: SellerViewDto, item: QueuedOp, now: Date): SellerViewDto
           buyerPhone: op.buyerPhone,
           soldAt: sales.get(number)?.soldAt ?? item.createdAt,
           ticketUrl: sales.get(number)?.ticketUrl ?? null,
+          pixReceipt: sales.get(number)?.pixReceipt ?? null,
         });
       }
       return {
@@ -253,6 +254,9 @@ export async function storageKey(token: string): Promise<string> {
 }
 
 type Saved = { view: SellerViewDto; savedAt: string };
+/** A view as an older version of the page may have saved it. */
+type StoredView = Omit<SellerViewDto, "pix" | "sales"> &
+  Partial<Pick<SellerViewDto, "pix">> & { sales: (Omit<SellerSaleDto, "pixReceipt"> & Partial<Pick<SellerSaleDto, "pixReceipt">>)[] };
 
 function read<T>(name: string): T | null {
   try {
@@ -277,8 +281,16 @@ function write(name: string, value: unknown): void {
 
 /** The last view of a link saved on this phone, if any. */
 export function readSaved(key: string): Saved | null {
-  const saved = read<Saved>(`view.${key}`);
-  return saved !== null && typeof saved.savedAt === "string" && Array.isArray(saved.view.ranges) ? saved : null;
+  const saved = read<{ view: StoredView; savedAt: string }>(`view.${key}`);
+  if (saved === null || typeof saved.savedAt !== "string" || !Array.isArray(saved.view.ranges)) {
+    return null;
+  }
+  // A copy saved before the Pix (ADR 0085) has no `pix` nor `pixReceipt`: read them as absent.
+  const { view } = saved;
+  return {
+    savedAt: saved.savedAt,
+    view: { ...view, pix: view.pix ?? null, sales: view.sales.map((sale) => ({ ...sale, pixReceipt: sale.pixReceipt ?? null })) },
+  };
 }
 
 /** Keeps the latest view of a link (and forgets the oldest links beyond the limit). */
