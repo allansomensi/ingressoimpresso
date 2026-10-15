@@ -10,6 +10,7 @@ const event: EventFields = {
   startsAt: "2026-03-14T21:00:00-03:00",
   ticketPriceCents: 2_500,
   organizationName: " Banda Os Vizinhos ",
+  categoryName: " Pastel ",
 };
 
 describe("resolveFields", () => {
@@ -29,6 +30,8 @@ describe("resolveFields", () => {
       ["{dia}/{mes_curto} · {hora}", "14/mar · 21h"],
       ["{organizacao}", "Banda Os Vizinhos"],
       ["Realização: {organizacao}", "Realização: Banda Os Vizinhos"],
+      ["{categoria}", "Pastel"],
+      ["1 {categoria} · {preco}", "1 Pastel · R$ 25,00"],
     ];
     for (const [text, expected] of cases) {
       expect(resolveFields(text, event)).toBe(expected);
@@ -49,6 +52,7 @@ describe("resolveFields", () => {
     expect(resolveFields("Local: {local}", empty)).toBeNull();
     expect(resolveFields("Realização: {organizacao}", { ...empty, organizationName: null })).toBeNull();
     expect(resolveFields("{preco}", empty)).toBeNull();
+    expect(resolveFields("Ficha de {categoria}", { ...empty, categoryName: null })).toBeNull();
     expect(resolveFields("Entrada individual", empty)).toBe("Entrada individual");
   });
 

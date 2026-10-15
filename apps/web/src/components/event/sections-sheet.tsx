@@ -1,12 +1,13 @@
 "use client";
 
+import type { EventKind } from "@ingressoimpresso/api-types";
 import { LayoutGrid, type LucideIcon } from "lucide-react";
 
 import { Popover } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { event as eventTexts } from "@/texts/pt-BR/event";
 
-import { TAB_GROUPS, type Tab } from "./tabs";
+import { TAB_GROUPS, tabHint, tabLabel, tabsOf, type Tab } from "./tabs";
 
 const t = eventTexts.sections;
 
@@ -18,10 +19,13 @@ const t = eventTexts.sections;
 export function SectionsSheet({
   current,
   icons,
+  kind,
   onSelect,
 }: {
   current: Tab;
   icons: Record<Tab, LucideIcon>;
+  /** Consumption tokens name some tabs differently and have no guest list (ADR 0084). */
+  kind?: EventKind;
   onSelect: (tab: Tab) => void;
 }) {
   return (
@@ -37,7 +41,7 @@ export function SectionsSheet({
           <section key={group.key} aria-label={t.groups[group.key]}>
             <h3 className="px-3 pb-1 text-xs font-semibold tracking-wide text-fg-subtle uppercase">{t.groups[group.key]}</h3>
             <ul className="flex flex-col">
-              {group.tabs.map((tab) => {
+              {tabsOf(kind, group.tabs).map((tab) => {
                 const Icon = icons[tab];
                 const selected = tab === current;
                 return (
@@ -64,8 +68,8 @@ export function SectionsSheet({
                         <Icon className="size-[18px]" aria-hidden />
                       </span>
                       <span className="flex min-w-0 flex-col">
-                        <span className="text-[15px] leading-snug font-medium">{eventTexts.tabs[tab]}</span>
-                        <span className={cn("truncate text-[13px]", selected ? "text-brand-soft-fg" : "text-fg-muted")}>{t.hints[tab]}</span>
+                        <span className="text-[15px] leading-snug font-medium">{tabLabel(tab, kind)}</span>
+                        <span className={cn("truncate text-[13px]", selected ? "text-brand-soft-fg" : "text-fg-muted")}>{tabHint(tab, kind)}</span>
                       </span>
                     </button>
                   </li>

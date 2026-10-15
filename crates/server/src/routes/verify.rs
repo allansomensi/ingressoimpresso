@@ -129,7 +129,7 @@ pub async fn verify(
         EventRow,
         r#"select id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag,
                   utc_offset_minutes, address, postponed_from_starts_at, postponed_at,
-                  postpone_reason, canceled_at, cancel_reason
+                  postpone_reason, canceled_at, cancel_reason, kind
            from events where qr_tag = $1"#,
         i64::from(tag)
     )
@@ -183,6 +183,7 @@ pub async fn verify(
             number_prefix: prefix,
             category: tags.tag(number),
             event: VerifiedEventDto {
+                kind: event.kind(),
                 change: event.change(),
                 name: event.name,
                 venue: event.venue,

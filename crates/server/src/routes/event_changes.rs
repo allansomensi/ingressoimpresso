@@ -104,7 +104,7 @@ pub async fn postpone(
            where id = $1
            returning id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag,
                      utc_offset_minutes, address, postponed_from_starts_at, postponed_at,
-                     postpone_reason, canceled_at, cancel_reason"#,
+                     postpone_reason, canceled_at, cancel_reason, kind"#,
         event_id,
         body.starts_at,
         body.ends_at,
@@ -149,7 +149,7 @@ pub async fn cancel(
            where id = $1
            returning id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag,
                      utc_offset_minutes, address, postponed_from_starts_at, postponed_at,
-                     postpone_reason, canceled_at, cancel_reason"#,
+                     postpone_reason, canceled_at, cancel_reason, kind"#,
         event_id,
         reason,
     )
@@ -182,7 +182,7 @@ pub async fn undo_cancel(
            where id = $1 and canceled_at is not null
            returning id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag,
                      utc_offset_minutes, address, postponed_from_starts_at, postponed_at,
-                     postpone_reason, canceled_at, cancel_reason"#,
+                     postpone_reason, canceled_at, cancel_reason, kind"#,
         event_id,
     )
     .fetch_optional(&state.pool)

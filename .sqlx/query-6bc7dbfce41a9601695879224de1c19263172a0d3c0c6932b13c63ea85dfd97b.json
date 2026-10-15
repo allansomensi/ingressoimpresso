@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "update events set canceled_at = coalesce(canceled_at, now()), cancel_reason = $2\n           where id = $1\n           returning id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag,\n                     utc_offset_minutes, address, postponed_from_starts_at, postponed_at,\n                     postpone_reason, canceled_at, cancel_reason",
+  "query": "update events\n           set starts_at = $2, ends_at = $3,\n               postponed_from_starts_at = case when $4 then null else $5::timestamptz end,\n               postponed_at = case when $4 then null else now() end,\n               postpone_reason = case when $4 then null else $6 end\n           where id = $1\n           returning id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag,\n                     utc_offset_minutes, address, postponed_from_starts_at, postponed_at,\n                     postpone_reason, canceled_at, cancel_reason, kind",
   "describe": {
     "columns": [
       {
@@ -167,11 +167,26 @@
             "name": "cancel_reason"
           }
         }
+      },
+      {
+        "ordinal": 15,
+        "name": "kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "kind"
+          }
+        }
       }
     ],
     "parameters": {
       "Left": [
         "Uuid",
+        "Timestamptz",
+        "Timestamptz",
+        "Bool",
+        "Timestamptz",
         "Text"
       ]
     },
@@ -190,8 +205,9 @@
       true,
       true,
       true,
-      true
+      true,
+      false
     ]
   },
-  "hash": "2a69d40764d141930035d82e5d79a580015f044330b8c972216ec0cefe14708f"
+  "hash": "6bc7dbfce41a9601695879224de1c19263172a0d3c0c6932b13c63ea85dfd97b"
 }

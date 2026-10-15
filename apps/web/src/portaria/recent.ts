@@ -5,10 +5,9 @@
 import type { DoorVoidDto } from "@ingressoimpresso/api-types";
 
 import type { StoredEntry, StoredScan } from "./storage";
-import { categoryOf, clockTime, otherSession, padNumber, sellerOf, seatOf, type DoorContext, type Tone } from "./logic";
+import { categoryOf, clockTime, doorWords, otherSession, padNumber, sellerOf, seatOf, type DoorContext, type Tone } from "./logic";
 import { portaria as portariaTexts } from "@/texts/pt-BR/portaria";
 
-const t = portariaTexts.history;
 const r = portariaTexts.result;
 
 /** How many scans the history shows. */
@@ -87,6 +86,8 @@ export function recentScanOf(
   context: DoorContext,
   voids: readonly DoorVoidDto[] = [],
 ): RecentScan {
+  // A ficha "used" at a stall, for consumption tokens (ADR 0084).
+  const t = doorWords(context.kind).history;
   const number = scan.number;
   const base = {
     id: scan.id,

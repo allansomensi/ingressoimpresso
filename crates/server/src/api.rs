@@ -179,6 +179,11 @@ dto! {
         #[serde(default)]
         #[cfg_attr(feature = "ts", ts(optional = nullable))]
         pub address: Option<String>,
+        /// Tickets or consumption tokens (ADR 0084); missing: tickets on create, unchanged on
+        /// update.
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional))]
+        pub kind: Option<EventKind>,
     }
 
     /// `PUT /api/events/{id}/status`: archive (`closed`) or reopen (`active`).
@@ -224,6 +229,8 @@ dto! {
         /// Required checklist items still missing (ADR 0078), in the event list only; `null`
         /// elsewhere and when the checklist does not apply (ended, archived or canceled).
         pub checklist_missing: Option<i32>,
+        /// Tickets or consumption tokens (ADR 0084).
+        pub kind: EventKind,
     }
 
     /// The current user's place on the team of an event of another organization (ADR 0055).
@@ -1053,6 +1060,9 @@ dto! {
         /// One of several dates (ADR 0077): the ticket says which session it is for.
         #[serde(default)]
         pub in_series: bool,
+        /// Tickets or consumption tokens (ADR 0084).
+        #[serde(default)]
+        pub kind: EventKind,
     }
 
     /// `GET /api/analytics`: results of every event of the organization (ADR 0034).
@@ -1611,6 +1621,9 @@ dto! {
         /// One of several dates (ADR 0077): the page says which session the link is for.
         #[serde(default)]
         pub in_series: bool,
+        /// Tickets or consumption tokens (ADR 0084).
+        #[serde(default)]
+        pub kind: EventKind,
     }
 
     /// `POST /api/seller`: everything the seller's page shows (ADR 0053).
@@ -2185,6 +2198,9 @@ dto! {
         /// A ticket that went out may come back in (ADR 0083): the door offers the exit.
         #[serde(default)]
         pub reentry: bool,
+        /// Tickets or consumption tokens (ADR 0084): the door speaks of a ficha at a stall.
+        #[serde(default)]
+        pub kind: EventKind,
     }
 
     /// What `DoorCore` needs to verify tickets; same shape as ticket-core's `DoorEventDto`.
@@ -2509,6 +2525,28 @@ dto_enum! {
         Closed,
     }
 
+    /// What an event prints (ADR 0084): tickets for the entrance or consumption tokens (fichas).
+    pub enum EventKind {
+        /// Tickets, checked at the door.
+        Tickets,
+        /// Consumption tokens, each used once at a stall; the categories are the products.
+        Tokens,
+    }
+
+    /// Kind of a Pix key (ADR 0085), as the Pix directory (DICT) has them.
+    pub enum PixKeyType {
+        /// CPF, 11 digits.
+        Cpf,
+        /// CNPJ, numeric or alphanumeric, 14 characters.
+        Cnpj,
+        /// E-mail.
+        Email,
+        /// Brazilian phone, `+55…`.
+        Phone,
+        /// Random key (EVP), a UUID.
+        Random,
+    }
+
     /// Batch payment status.
     pub enum BatchStatus {
         /// Waiting for payment (no ticket is signed).
@@ -2786,6 +2824,15 @@ macro_rules! db_enum {
 }
 
 db_enum!(EventStatus { Active => "active", Closed => "closed" });
+db_enum!(EventKind { Tickets => "tickets", Tokens => "tokens" });
+db_enum!(PixKeyType { Cpf => "cpf", Cnpj => "cnpj", Email => "email", Phone => "phone", Random => "random" });
+
+/// Events print tickets unless they say otherwise; apps and pages saved before ADR 0084 get them.
+impl Default for EventKind {
+    fn default() -> Self {
+        Self::Tickets
+    }
+}
 db_enum!(BatchStatus { AwaitingPayment => "awaiting_payment", Paid => "paid", Canceled => "canceled", Refunded => "refunded" });
 db_enum!(ChangelogKind { New => "new", Improvement => "improvement", Fix => "fix", Security => "security" });
 db_enum!(PaymentMethod { Stripe => "stripe", Admin => "admin", Free => "free", Credit => "credit" });
@@ -4443,6 +4490,8 @@ dto! {
         pub change: EventChangeDto,
         /// One of several dates (ADR 0077): the page says which session the ticket is for.
         pub in_series: bool,
+        /// Tickets or consumption tokens (ADR 0084).
+        pub kind: EventKind,
     }
 
     /// `GET|PUT /api/events/{id}/verify-settings`.

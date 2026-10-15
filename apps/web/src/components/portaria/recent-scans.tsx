@@ -5,7 +5,7 @@ import { useEffect, useId, useState } from "react";
 
 import { inkFor } from "@/lib/design-rules";
 import type { DoorEngine, DoorState } from "@/portaria/engine";
-import { clockTime } from "@/portaria/logic";
+import { clockTime, doorWords } from "@/portaria/logic";
 import { scanTime, type RecentScan, type RecentSummary } from "@/portaria/recent";
 import { portaria as portariaTexts } from "@/texts/pt-BR/portaria";
 
@@ -20,6 +20,8 @@ const TONE_BORDER = { ok: "border-l-emerald-400", bad: "border-l-red-400", warn:
  * the doorkeeper can look back at a result that went by, or answer "did I let them in?".
  */
 export function RecentScans({ engine, state, onClose }: { engine: DoorEngine; state: DoorState; onClose: () => void }) {
+  // A stall's fichas, for consumption tokens (ADR 0084).
+  const words = doorWords(state.manifest?.event.kind).history;
   const [data, setData] = useState<{ scans: RecentScan[]; summary: RecentSummary } | null>(null);
   const [failed, setFailed] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -71,11 +73,11 @@ export function RecentScans({ engine, state, onClose }: { engine: DoorEngine; st
         <header className="flex items-start gap-2 px-4 pt-2 pb-3">
           <div className="min-w-0 flex-1 pt-2">
             <h2 id={titleId} className="text-lg font-bold tracking-tight">
-              {t.title}
+              {words.title}
             </h2>
             {data !== null && (
               <p className="mt-2 flex flex-wrap gap-1.5 text-sm font-semibold tabular-nums">
-                <span className="rounded-full bg-emerald-400/15 px-2.5 py-0.5 text-emerald-300">{t.admitted(data.summary.admitted)}</span>
+                <span className="rounded-full bg-emerald-400/15 px-2.5 py-0.5 text-emerald-300">{words.admitted(data.summary.admitted)}</span>
                 {data.summary.exits > 0 && (
                   <span className="rounded-full bg-sky-400/15 px-2.5 py-0.5 text-sky-300">{t.exits(data.summary.exits)}</span>
                 )}

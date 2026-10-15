@@ -15,7 +15,7 @@ export type EventSeoPage = {
 };
 
 /** Last change to the content below (the sitemap's `lastmod`): update it with the content. */
-export const EVENT_PAGES_UPDATED_AT = "2026-10-14";
+export const EVENT_PAGES_UPDATED_AT = "2026-10-15";
 
 export const eventSeoPages: readonly EventSeoPage[] = [
   {
@@ -136,6 +136,11 @@ export const eventSeoPages: readonly EventSeoPage[] = [
         pergunta: "Dá para separar ingresso de adulto e de criança?",
         resposta:
           "Sim. Crie uma categoria para cada um, com a sua faixa de números e o seu preço. Cada ingresso sai com uma faixa colorida da categoria.",
+      },
+      {
+        pergunta: "Dá para fazer as fichas de comida e bebida?",
+        resposta:
+          "Sim. Crie um evento de fichas de consumo: cada produto (pastel, quentão, refrigerante) tem a sua cor e o seu preço, e cada barraca dá baixa pelo celular. Ficha usada ou falsificada não passa duas vezes.",
       },
     ],
     cta: "Criar os ingressos do meu arraiá",

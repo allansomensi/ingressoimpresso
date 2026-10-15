@@ -1,6 +1,6 @@
 "use client";
 
-import type { BatchDto, CategoryBody, CategoryDto, EventDto, RangeDto } from "@ingressoimpresso/api-types";
+import type { BatchDto, CategoryBody, CategoryDto, EventDto, EventKind, RangeDto } from "@ingressoimpresso/api-types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, IdCard, MoreHorizontal, Pencil, Plus, Sparkles, Tags, Trash2, X } from "lucide-react";
 import { useState, type FormEvent } from "react";
@@ -13,6 +13,7 @@ import { Alert, Badge, Button, Card, Dialog, ErrorMessage, Field, Input, Lead, L
 import { api } from "@/lib/api";
 import { CATEGORY_COLORS, nextColor, presetPriceText, uncategorized } from "@/lib/categories";
 import { cn } from "@/lib/cn";
+import { forKind } from "@/lib/event-kind";
 import { money, parseMoney, ticketNumber } from "@/lib/format";
 import { NUMBER_LIST_INPUT, formatRanges, parseNumberList } from "@/lib/number-list";
 import { common as commonTexts } from "@/texts/pt-BR/common";
@@ -20,11 +21,16 @@ import { errors as errorsTexts } from "@/texts/pt-BR/errors";
 import { event as eventTexts } from "@/texts/pt-BR/event";
 import { portaria as portariaTexts } from "@/texts/pt-BR/portaria";
 
-const t = eventTexts.categories;
+type CategoryTexts = typeof eventTexts.categories;
+
+/** The tab's words: "Produtos" for consumption tokens (ADR 0084). */
+function categoryTexts(kind: EventKind): CategoryTexts {
+  return forKind(eventTexts.categories, eventTexts.tokens.categories, kind);
+}
 
 type PriceMode = "event" | "free" | "own";
 
-function priceLabel(category: CategoryDto, eventPrice: number | null): string {
+function priceLabel(t: CategoryTexts, category: CategoryDto, eventPrice: number | null): string {
   if (category.priceCents === null) {
     return eventPrice === null ? t.priceEventNone : t.priceEvent(money(eventPrice));
   }
@@ -36,12 +42,14 @@ export function CategoriesTab({ eventId, event, onSelect }: { eventId: string; e
   return (
     <div className="flex flex-col gap-8">
       <CategoriesSection eventId={eventId} event={event} editable={can("manage")} onSelect={onSelect} />
-      <TablesSection eventId={eventId} editable={can("delivery")} />
+      {/* Tables and seats are for tickets; a stall has none (ADR 0084). */}
+      {event.kind !== "tokens" && <TablesSection eventId={eventId} editable={can("delivery")} />}
     </div>
   );
 }
 
 function CategoriesSection({ eventId, event, editable, onSelect }: { eventId: string; event: EventDto; editable: boolean; onSelect: SelectTab }) {
+  const t = categoryTexts(event.kind);
   const queryClient = useQueryClient();
   const categories = useQuery({ queryKey: ["categories", eventId], queryFn: () => api<CategoryDto[]>(`/api/events/${eventId}/categories`) });
   const batches = useQuery({ queryKey: ["batches", eventId], queryFn: () => api<BatchDto[]>(`/api/events/${eventId}/batches`) });
@@ -116,6 +124,7 @@ function CategoriesSection({ eventId, event, editable, onSelect }: { eventId: st
             {list.map((category) => (
               <CategoryCard
                 key={category.id}
+                t={t}
                 category={category}
                 eventPrice={event.ticketPriceCents}
                 editable={editable}
@@ -143,6 +152,8 @@ function CategoriesSection({ eventId, event, editable, onSelect }: { eventId: st
       {dialog !== null && (
         <CategoryDialog
           key={dialog.category?.id ?? "new"}
+          t={t}
+          tokens={event.kind === "tokens"}
           eventId={eventId}
           eventPrice={event.ticketPriceCents}
           category={dialog.category}
@@ -156,6 +167,7 @@ function CategoriesSection({ eventId, event, editable, onSelect }: { eventId: st
       )}
       {suggesting && (
         <SuggestDialog
+          t={t}
           eventId={eventId}
           eventPrice={event.ticketPriceCents}
           onClose={() => {
@@ -169,12 +181,14 @@ function CategoriesSection({ eventId, event, editable, onSelect }: { eventId: st
 }
 
 function CategoryCard({
+  t,
   category,
   eventPrice,
   editable,
   onEdit,
   onChange,
 }: {
+  t: CategoryTexts;
   category: CategoryDto;
   eventPrice: number | null;
   editable: boolean;
@@ -250,14 +264,14 @@ function CategoryCard({
               >
                 <span className="text-[11px] font-medium tracking-wide text-fg-subtle uppercase">{t.priceOf}</span>
                 <span className="flex items-center gap-1.5 text-sm font-semibold text-fg tabular">
-                  {priceLabel(category, eventPrice)}
+                  {priceLabel(t, category, eventPrice)}
                   <Pencil className="size-3.5 text-fg-subtle transition group-hover:text-fg" aria-hidden />
                 </span>
               </button>
             ) : (
               <span className="flex flex-col items-end px-2.5 py-1 text-right">
                 <span className="text-[11px] font-medium tracking-wide text-fg-subtle uppercase">{t.priceOf}</span>
-                <span className="text-sm font-semibold text-fg tabular">{priceLabel(category, eventPrice)}</span>
+                <span className="text-sm font-semibold text-fg tabular">{priceLabel(t, category, eventPrice)}</span>
               </span>
             )}
             {editable && (
@@ -338,6 +352,8 @@ function CategoryCard({
 }
 
 function CategoryDialog({
+  t,
+  tokens,
   eventId,
   eventPrice,
   category,
@@ -346,6 +362,9 @@ function CategoryDialog({
   onClose,
   onSaved,
 }: {
+  t: CategoryTexts;
+  /** A product of consumption tokens: no document at a stall (ADR 0084). */
+  tokens: boolean;
   eventId: string;
   eventPrice: number | null;
   category: CategoryDto | null;
@@ -492,6 +511,7 @@ function CategoryDialog({
             />
           )}
         </fieldset>
+        {!tokens && (
         <div className="flex flex-col gap-3 rounded-xl border border-border p-4">
           <Switch checked={checkDocument} onChange={setCheckDocument} label={t.document} description={t.documentHint} />
           {checkDocument && (
@@ -507,6 +527,7 @@ function CategoryDialog({
             </Field>
           )}
         </div>
+        )}
         <ErrorMessage error={save.error} />
       </form>
     </Dialog>
@@ -520,11 +541,13 @@ type SuggestRow = { name: string; color: string; use: boolean; priceText: string
  * rarely the event's price, and meia starts at half of it.
  */
 function SuggestDialog({
+  t,
   eventId,
   eventPrice,
   onClose,
   onSaved,
 }: {
+  t: CategoryTexts;
   eventId: string;
   eventPrice: number | null;
   onClose: () => void;

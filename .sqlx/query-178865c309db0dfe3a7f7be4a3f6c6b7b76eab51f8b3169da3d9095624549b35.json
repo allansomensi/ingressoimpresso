@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "update events set canceled_at = null, cancel_reason = null\n           where id = $1 and canceled_at is not null\n           returning id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag,\n                     utc_offset_minutes, address, postponed_from_starts_at, postponed_at,\n                     postpone_reason, canceled_at, cancel_reason",
+  "query": "update events set canceled_at = null, cancel_reason = null\n           where id = $1 and canceled_at is not null\n           returning id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag,\n                     utc_offset_minutes, address, postponed_from_starts_at, postponed_at,\n                     postpone_reason, canceled_at, cancel_reason, kind",
   "describe": {
     "columns": [
       {
@@ -167,6 +167,17 @@
             "name": "cancel_reason"
           }
         }
+      },
+      {
+        "ordinal": 15,
+        "name": "kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "kind"
+          }
+        }
       }
     ],
     "parameters": {
@@ -189,8 +200,9 @@
       true,
       true,
       true,
-      true
+      true,
+      false
     ]
   },
-  "hash": "7ec73d9aedf38b48832bbc00b7f197a022afb58616ed896a26e05d1bf11bbd76"
+  "hash": "178865c309db0dfe3a7f7be4a3f6c6b7b76eab51f8b3169da3d9095624549b35"
 }

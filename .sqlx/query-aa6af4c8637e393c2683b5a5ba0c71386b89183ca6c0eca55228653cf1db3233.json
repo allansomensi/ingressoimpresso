@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag,\n                  utc_offset_minutes, address, postponed_from_starts_at, postponed_at,\n                  postpone_reason, canceled_at, cancel_reason\n           from events where qr_tag = $1",
+  "query": "select id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag,\n                  utc_offset_minutes, address, postponed_from_starts_at, postponed_at,\n                  postpone_reason, canceled_at, cancel_reason, kind\n           from events where qr_tag = $1",
   "describe": {
     "columns": [
       {
@@ -167,6 +167,17 @@
             "name": "cancel_reason"
           }
         }
+      },
+      {
+        "ordinal": 15,
+        "name": "kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "kind"
+          }
+        }
       }
     ],
     "parameters": {
@@ -189,8 +200,9 @@
       true,
       true,
       true,
-      true
+      true,
+      false
     ]
   },
-  "hash": "56f95bfe9bb3a4c300dd10e42f765c3b883e1430532f18e5da49629bfc16ca5d"
+  "hash": "aa6af4c8637e393c2683b5a5ba0c71386b89183ca6c0eca55228653cf1db3233"
 }

@@ -232,7 +232,7 @@ async fn generate(state: &AppState, export: &ExportRow) -> Result<(i32, String, 
     let event = sqlx::query_as!(
         EventRow,
         r#"select id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag, utc_offset_minutes,
-                  address, postponed_from_starts_at, postponed_at, postpone_reason, canceled_at, cancel_reason
+                  address, postponed_from_starts_at, postponed_at, postpone_reason, canceled_at, cancel_reason, kind
            from events where id = $1"#,
         export.event_id
     )

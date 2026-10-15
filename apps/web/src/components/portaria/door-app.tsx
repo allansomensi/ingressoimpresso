@@ -36,7 +36,7 @@ import { accessTokenFromHash, clearHash, noAccessToken, subscribeHash } from "@/
 import { inkFor } from "@/lib/design-rules";
 import { money } from "@/lib/format";
 import { sessionLabel } from "@/lib/series";
-import { HOLD_MS, OFFLINE_WARNING_MS, canRehearse, clockTime, dismissPolicy, type ResultView } from "@/portaria/logic";
+import { HOLD_MS, OFFLINE_WARNING_MS, canRehearse, clockTime, dismissPolicy, doorWords, type ResultView } from "@/portaria/logic";
 import { cameraGranted, keepOffline, keepScreenOn, persistStorage, whenIdle } from "@/portaria/offline";
 import { errors as errorsTexts } from "@/texts/pt-BR/errors";
 import { portaria as portariaTexts } from "@/texts/pt-BR/portaria";
@@ -309,8 +309,10 @@ function Door({ engine, state }: { engine: DoorEngine; state: DoorState }) {
   const reentry = manifest?.event.reentry === true;
   const exitMode = reentry && state.exitMode;
   const banner = rehearsing ? t.rehearsal.banner : exitMode ? t.mode.exitBanner : null;
+  // A stall that takes fichas, for consumption tokens (ADR 0084).
+  const words = doorWords(event?.kind);
   // With re-entry, who is inside now says more than how many ever entered.
-  const counter = reentry ? t.insideCount(state.insideCount) : t.entries(state.entryCount);
+  const counter = reentry ? t.insideCount(state.insideCount) : words.entries(state.entryCount);
   const frame = exitMode ? "border-[#60a5fa]" : "border-white/90";
 
   const startRehearsal = () => {
@@ -342,7 +344,7 @@ function Door({ engine, state }: { engine: DoorEngine; state: DoorState }) {
         <div className="flex items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-2.5">
             <LogoMark className="size-7" />
-            <h1 className="truncate text-lg font-bold tracking-tight">{event?.name ?? t.title}</h1>
+            <h1 className="truncate text-lg font-bold tracking-tight">{event?.name ?? words.title}</h1>
           </div>
           <div className="flex shrink-0 items-center gap-1">
             {/* This phone's latest scans, to look back at a result that went by. */}
@@ -460,7 +462,7 @@ function Door({ engine, state }: { engine: DoorEngine; state: DoorState }) {
             />
           </div>
           <p className="absolute inset-x-0 bottom-4 text-center text-sm font-medium text-white/85 drop-shadow">
-            {rehearsing ? t.rehearsal.readHint : exitMode ? t.mode.exitHint : t.scanHint}
+            {rehearsing ? t.rehearsal.readHint : exitMode ? t.mode.exitHint : words.scanHint}
           </p>
         </div>
         {cameraFailed && <p role="alert" className="w-full max-w-md rounded-xl bg-red-500/15 px-3 py-2 text-center text-red-300">{t.cameraError}</p>}
@@ -515,6 +517,7 @@ function Door({ engine, state }: { engine: DoorEngine; state: DoorState }) {
         ) : (
           !running && (
             <Readiness
+              texts={words.readiness}
               app={checks.app}
               dataAt={manifest?.syncedAt ?? null}
               camera={checks.camera}
@@ -706,13 +709,14 @@ function OfflineWarning({ offlineSince }: { offlineSince: number }) {
 }
 
 function Readiness(props: {
+  texts: typeof t.readiness;
   app: boolean;
   dataAt: number | null;
   camera: boolean;
   storage: boolean;
   testScan: boolean;
 }) {
-  const r = t.readiness;
+  const r = props.texts;
   const items: [boolean, string][] = [
     [props.app, r.app],
     [props.dataAt !== null, props.dataAt === null ? r.noData : r.data(clockTime(props.dataAt))],

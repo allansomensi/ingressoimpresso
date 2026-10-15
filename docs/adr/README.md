@@ -93,3 +93,4 @@ feita e as consequências.
 | [0081](0081-guias-precos-e-seo-tecnico.md) | Guias, página de preços e SEO técnico | Aceito |
 | [0082](0082-documento-na-portaria.md) | Documento na portaria | Aceito |
 | [0083](0083-saida-e-volta.md) | Saída e volta | Aceito |
+| [0084](0084-fichas-de-consumo.md) | Fichas de consumo | Aceito |

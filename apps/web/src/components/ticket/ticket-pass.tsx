@@ -40,6 +40,7 @@ import {
   type CalendarEntry,
 } from "@/lib/calendar";
 import { cn } from "@/lib/cn";
+import { forKind } from "@/lib/event-kind";
 import { inkFor } from "@/lib/design-rules";
 import { changeKind } from "@/lib/event-change";
 import { shortDateTime } from "@/lib/format";
@@ -254,6 +255,8 @@ export function TicketPass() {
   const fileName = `ingresso-${pass.numberLabel}.png`;
   // Passes saved on the phone before categories and seats existed have neither (ADR 0056).
   const category = pass.category ?? null;
+  // A consumption token speaks of a ficha at a stall (ADR 0084).
+  const words = forKind(t, t.tokens, pass.event.kind);
   const seat = pass.seat ?? null;
 
   const save = async () => {
@@ -335,16 +338,16 @@ export function TicketPass() {
           {pass.qrText === null ? (
             <div className="flex aspect-square w-full max-w-[18rem] flex-col items-center justify-center gap-3 rounded-2xl bg-danger-soft p-6 text-center text-danger-fg">
               <XCircle className="size-12" aria-hidden />
-              <p className="font-semibold">{t.voided}</p>
+              <p className="font-semibold">{words.voided}</p>
             </div>
           ) : (
             <div className={cn("w-full max-w-[18rem] rounded-2xl bg-white p-2 ring-1 ring-black/10", pass.state === "entered" && "opacity-60")}>
-              <QrCode text={pass.qrText} size={512} label={t.show} className="h-auto w-full bg-white" />
+              <QrCode text={pass.qrText} size={512} label={words.show} className="h-auto w-full bg-white" />
             </div>
           )}
 
           <div className="flex flex-col items-center gap-1 text-center">
-            <span className="text-xs font-medium tracking-wide text-fg-subtle uppercase">{t.number}</span>
+            <span className="text-xs font-medium tracking-wide text-fg-subtle uppercase">{words.number}</span>
             <span className="font-mono text-3xl font-bold tracking-tight text-fg tabular">
               {prefix} {pass.numberLabel}
             </span>
@@ -391,12 +394,12 @@ export function TicketPass() {
             <div className="flex flex-col items-center gap-1.5 text-center">
               <span className="inline-flex items-center gap-1.5 rounded-full bg-warning-soft px-3 py-1 text-sm font-semibold text-warning-fg">
                 <CheckCircle2 className="size-4" aria-hidden />
-                {t.entered(shortDateTime(pass.enteredAt))}
+                {words.entered(shortDateTime(pass.enteredAt))}
               </span>
-              <p className="text-xs leading-relaxed text-fg-muted">{t.enteredNote}</p>
+              <p className="text-xs leading-relaxed text-fg-muted">{words.enteredNote}</p>
             </div>
           )}
-          {pass.state === "voided" && <p className="text-center text-sm leading-relaxed text-fg-muted">{t.voidedNote}</p>}
+          {pass.state === "voided" && <p className="text-center text-sm leading-relaxed text-fg-muted">{words.voidedNote}</p>}
 
           {pass.qrText !== null && pass.state === "valid" && !canceled && (
             <p className="flex items-center gap-2 text-sm font-medium text-fg-muted">
@@ -437,9 +440,9 @@ export function TicketPass() {
 
       {!canceled && (
         <section className="flex flex-col gap-2 rounded-2xl border border-border bg-surface p-5">
-          <h2 className="text-sm font-semibold text-fg">{t.tipsTitle}</h2>
+          <h2 className="text-sm font-semibold text-fg">{words.tipsTitle}</h2>
           <ul className="flex list-disc flex-col gap-1.5 pl-5 text-sm leading-relaxed text-fg-muted marker:text-fg-subtle">
-            {t.tips.map((tip) => (
+            {words.tips.map((tip) => (
               <li key={tip}>{tip}</li>
             ))}
           </ul>

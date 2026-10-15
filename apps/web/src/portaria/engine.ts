@@ -625,6 +625,7 @@ export class DoorEngine {
       priceCents: manifest?.event.ticketPriceCents ?? null,
       sessions: manifest?.sessions ?? [],
       reentry: reentryOf(manifest),
+      kind: manifest?.event.kind ?? this.#state.device?.event.kind ?? "tickets",
     };
   }
 

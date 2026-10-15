@@ -215,7 +215,7 @@ pub(crate) async fn event_row(state: &AppState, event_id: Uuid) -> ApiResult<Eve
         EventRow,
         r#"select id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag,
                   utc_offset_minutes, address, postponed_from_starts_at, postponed_at,
-                  postpone_reason, canceled_at, cancel_reason
+                  postpone_reason, canceled_at, cancel_reason, kind
            from events where id = $1"#,
         event_id
     )
@@ -487,13 +487,13 @@ pub(crate) async fn view(state: &AppState, link: &LinkRow) -> ApiResult<SellerVi
         categories(state, link.event_id, event.ticket_price_cents),
         super::team::receivers(state, link.event_id),
     )?;
-    let received_cents: i64 = payments.iter().map(|p| i64::from(p.amount_cents)).sum();
-    let due_tickets = if event.box_office {
-        due_lines.iter().map(|line| line.tickets).sum()
-    } else {
-        counts.tickets - counts.unsold - counts.lost
-    };
-    let amount_due_cents = amount_due(&due_lines, event.ticket_price_cents);
+    let summary = summary(
+        &counts,
+        due_lines,
+        &payments,
+        event.ticket_price_cents,
+        event.box_office,
+    );
     // A box office sells at the door: no goal, no ranking (ADR 0073).
     let ranking = if event.sellers_ranking && !event.box_office {
         let standings = super::seller_goals::standings(&state.pool, link.event_id).await?;
@@ -513,6 +513,7 @@ pub(crate) async fn view(state: &AppState, link: &LinkRow) -> ApiResult<SellerVi
             ends_at: event.ends_at.to_offset(offset),
             utc_offset_minutes: event.utc_offset_minutes,
             in_series,
+            kind: row.kind(),
         },
         organization,
         seller: event.seller,
@@ -522,19 +523,7 @@ pub(crate) async fn view(state: &AppState, link: &LinkRow) -> ApiResult<SellerVi
         voids,
         sales,
         payments,
-        summary: SellerSummaryDto {
-            tickets: counts.tickets,
-            sold: counts.sold,
-            available: counts.available,
-            reserved: counts.reserved,
-            unsold: counts.unsold,
-            lost: counts.lost,
-            due_tickets,
-            amount_due_cents,
-            received_cents,
-            balance_cents: amount_due_cents.map(|due| due - received_cents),
-            due_lines,
-        },
+        summary,
         categories,
         receivers,
         can_send_tickets: event.sellers_send_tickets,
@@ -543,6 +532,37 @@ pub(crate) async fn view(state: &AppState, link: &LinkRow) -> ApiResult<SellerVi
         goal: event.goal.filter(|_| !event.box_office),
         ranking,
     })
+}
+
+/// The seller's numbers and money: what they hold, sold and owe, and what they handed over. A
+/// box office answers for what entered (ADR 0069).
+fn summary(
+    counts: &Counts,
+    due_lines: Vec<SellerDueLineDto>,
+    payments: &[SellerViewPaymentDto],
+    price: Option<i32>,
+    box_office: bool,
+) -> SellerSummaryDto {
+    let received_cents: i64 = payments.iter().map(|p| i64::from(p.amount_cents)).sum();
+    let due_tickets = if box_office {
+        due_lines.iter().map(|line| line.tickets).sum()
+    } else {
+        counts.tickets - counts.unsold - counts.lost
+    };
+    let amount_due_cents = amount_due(&due_lines, price);
+    SellerSummaryDto {
+        tickets: counts.tickets,
+        sold: counts.sold,
+        available: counts.available,
+        reserved: counts.reserved,
+        unsold: counts.unsold,
+        lost: counts.lost,
+        due_tickets,
+        amount_due_cents,
+        received_cents,
+        balance_cents: amount_due_cents.map(|due| due - received_cents),
+        due_lines,
+    }
 }
 
 /// What the seller owes for `lines`; `null` when a line has no price (nor the event one).

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "update events set status = $2 where id = $1\n           returning id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag,\n                     utc_offset_minutes, address, postponed_from_starts_at, postponed_at,\n                     postpone_reason, canceled_at, cancel_reason",
+  "query": "update events set status = $2 where id = $1\n           returning id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag,\n                     utc_offset_minutes, address, postponed_from_starts_at, postponed_at,\n                     postpone_reason, canceled_at, cancel_reason, kind",
   "describe": {
     "columns": [
       {
@@ -167,6 +167,17 @@
             "name": "cancel_reason"
           }
         }
+      },
+      {
+        "ordinal": 15,
+        "name": "kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "kind"
+          }
+        }
       }
     ],
     "parameters": {
@@ -190,8 +201,9 @@
       true,
       true,
       true,
-      true
+      true,
+      false
     ]
   },
-  "hash": "1e99a7bf7444f701c8b7c41fdee18ceabeba2f23387e031c6219a6b0d2520b97"
+  "hash": "9a8531ac29196f77cc908bff60c6188d3f04cb572a6c00080a61f2a1b86e66bb"
 }

@@ -86,9 +86,16 @@ pub struct EventRow {
     pub canceled_at: Option<OffsetDateTime>,
     /// Why.
     pub cancel_reason: Option<String>,
+    /// `tickets` or `tokens` (ADR 0084).
+    pub kind: String,
 }
 
 impl EventRow {
+    /// Tickets or consumption tokens (ADR 0084).
+    pub fn kind(&self) -> crate::api::EventKind {
+        crate::api::EventKind::from_db(&self.kind).unwrap_or_default()
+    }
+
     /// The event's UTC offset (Brasília time if the stored value were ever out of range).
     pub fn offset(&self) -> UtcOffset {
         UtcOffset::from_whole_seconds(i32::from(self.utc_offset_minutes) * 60).unwrap_or(BRASILIA)
@@ -102,6 +109,7 @@ impl EventRow {
             starts_at: Some(PrimitiveDateTime::new(start.date(), start.time())),
             price_cents: self.ticket_price_cents.map(i64::from),
             organization: Some(organization),
+            category: None,
         }
     }
 
@@ -174,7 +182,7 @@ pub async fn event_access(
     let row = sqlx::query!(
         r#"select e.id, e.name, e.venue, e.starts_at, e.ends_at, e.ticket_price_cents, e.status, e.qr_tag,
                   e.utc_offset_minutes, e.address, e.postponed_from_starts_at, e.postponed_at,
-                  e.postpone_reason, e.canceled_at, e.cancel_reason,
+                  e.postpone_reason, e.canceled_at, e.cancel_reason, e.kind,
                   e.organization_id, o.name as organization_name,
                   o.suspended_at is not null as "organization_suspended!",
                   exists(select 1 from memberships m
@@ -249,6 +257,7 @@ pub async fn event_access(
             postpone_reason: row.postpone_reason,
             canceled_at: row.canceled_at,
             cancel_reason: row.cancel_reason,
+            kind: row.kind,
         },
         organization_id: row.organization_id,
         support,

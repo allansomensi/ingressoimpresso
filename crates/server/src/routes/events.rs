@@ -18,8 +18,8 @@ use uuid::Uuid;
 
 use super::{EventAccess, EventRow, authorize_event, door, event_access, one_line, optional_text};
 use crate::api::{
-    ArtDto, DesignBody, DesignResponse, EventBody, EventChangeDto, EventDto, EventSeriesRefDto,
-    EventStatus, EventStatusBody, EventTeamAccessDto, TeamArea,
+    ArtDto, DesignBody, DesignResponse, EventBody, EventChangeDto, EventDto, EventKind,
+    EventSeriesRefDto, EventStatus, EventStatusBody, EventTeamAccessDto, TeamArea,
 };
 use crate::auth::AuthUser;
 use crate::error::{ApiError, ApiResult, bad_request};
@@ -61,6 +61,7 @@ impl EventRow {
     pub(crate) fn into_dto(self, organization_name: String) -> ApiResult<EventDto> {
         let offset = self.offset();
         let change = self.change();
+        let kind = self.kind();
         Ok(EventDto {
             id: self.id,
             name: self.name,
@@ -79,6 +80,7 @@ impl EventRow {
             change,
             series: None,
             checklist_missing: None,
+            kind,
         })
     }
 }
@@ -179,7 +181,7 @@ pub async fn list(State(state): State<AppState>, user: AuthUser) -> ApiResult<Js
     let rows = sqlx::query!(
         r#"select e.id, e.name, e.venue, e.starts_at, e.ends_at, e.ticket_price_cents, e.status, e.qr_tag,
                   e.utc_offset_minutes, e.address, e.postponed_from_starts_at, e.postponed_at,
-                  e.postpone_reason, e.canceled_at, e.cancel_reason,
+                  e.postpone_reason, e.canceled_at, e.cancel_reason, e.kind,
                   o.name as organization, t.areas as "areas?",
                   s.id as "series_id?", s.name as "series_name?",
                   (select count(*) from events x where x.series_id = s.id)::int4 as "series_dates?",
@@ -223,6 +225,7 @@ pub async fn list(State(state): State<AppState>, user: AuthUser) -> ApiResult<Js
                 postpone_reason: row.postpone_reason,
                 canceled_at: row.canceled_at,
                 cancel_reason: row.cancel_reason,
+                kind: row.kind,
             };
             (event, row.organization, row.areas, series)
         })
@@ -266,6 +269,8 @@ struct NewEvent<'a> {
     ends_at: OffsetDateTime,
     ticket_price_cents: Option<i32>,
     utc_offset_minutes: i16,
+    /// Tickets or consumption tokens (ADR 0084).
+    kind: EventKind,
 }
 
 /// Inserts an event with a random QR tag and its first signing key (ADR 0004, 0005).
@@ -282,12 +287,12 @@ async fn insert_event(
         created = sqlx::query_as!(
             EventRow,
             r#"insert into events (id, organization_id, name, venue, starts_at, ends_at, qr_tag,
-                                   ticket_price_cents, utc_offset_minutes, address)
-               values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                                   ticket_price_cents, utc_offset_minutes, address, kind)
+               values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
                on conflict (qr_tag) do nothing
                returning id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag,
                          utc_offset_minutes, address, postponed_from_starts_at, postponed_at,
-                         postpone_reason, canceled_at, cancel_reason"#,
+                         postpone_reason, canceled_at, cancel_reason, kind"#,
             event_id,
             event.organization_id,
             event.name,
@@ -298,6 +303,7 @@ async fn insert_event(
             event.ticket_price_cents,
             event.utc_offset_minutes,
             event.address,
+            event.kind.db(),
         )
         .fetch_optional(&mut **tx)
         .await?;
@@ -351,6 +357,7 @@ pub async fn create(
             ends_at: body.ends_at,
             ticket_price_cents: body.ticket_price_cents,
             utc_offset_minutes: valid.offset,
+            kind: body.kind.unwrap_or_default(),
         },
     )
     .await?;
@@ -457,6 +464,7 @@ pub(crate) async fn copy_event(
             ends_at: to.ends_at,
             ticket_price_cents: source.ticket_price_cents,
             utc_offset_minutes: to.utc_offset_minutes,
+            kind: source.kind(),
         },
     )
     .await?;
@@ -674,7 +682,7 @@ pub async fn set_status(
         r#"update events set status = $2 where id = $1
            returning id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag,
                      utc_offset_minutes, address, postponed_from_starts_at, postponed_at,
-                     postpone_reason, canceled_at, cancel_reason"#,
+                     postpone_reason, canceled_at, cancel_reason, kind"#,
         event_id,
         body.status.db(),
     )
@@ -739,11 +747,13 @@ pub async fn update(
     let row = sqlx::query_as!(
         EventRow,
         r#"update events set name = $2, venue = $3, starts_at = $4, ends_at = $5, ticket_price_cents = $6,
-                             utc_offset_minutes = $7, address = $8
+                             utc_offset_minutes = $7, address = $8, kind = coalesce($9, kind),
+                             -- A consumption token is used once: no exit and return (ADR 0084).
+                             reentry = reentry and coalesce($9, kind) = 'tickets'
            where id = $1
            returning id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag,
                      utc_offset_minutes, address, postponed_from_starts_at, postponed_at,
-                     postpone_reason, canceled_at, cancel_reason"#,
+                     postpone_reason, canceled_at, cancel_reason, kind"#,
         event_id,
         valid.name,
         valid.venue,
@@ -752,6 +762,7 @@ pub async fn update(
         body.ticket_price_cents,
         valid.offset,
         valid.address,
+        body.kind.map(EventKind::db),
     )
     .fetch_one(&mut *tx)
     .await?;

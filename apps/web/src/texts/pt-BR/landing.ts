@@ -123,6 +123,9 @@ export const landing = {
     cinema: { name: "Mostra de Curtas", venue: "Cine Clube" },
     newYear: { name: "Réveillon da Praia", venue: "Quiosque do Mar" },
     classic: { name: "Recital de Piano", venue: "Auditório da Escola de Música" },
+    // Consumption tokens (ADR 0084): the product printed in large type.
+    token: { name: "Quermesse de São João", venue: "Pátio da paróquia", category: "Refrigerante" },
+    tokenJunina: { name: "Arraiá da Escola São José", venue: "Quadra da escola", category: "Pastel" },
   },
   audienceTitle: "Feito para quem organiza evento sem bilheteria",
   // Each one links to its page in /ingresso-para (src/content/seo-event-pages.ts).

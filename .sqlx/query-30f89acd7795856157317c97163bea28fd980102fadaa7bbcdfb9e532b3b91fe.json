@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "insert into events (id, organization_id, name, venue, starts_at, ends_at, qr_tag,\n                                   ticket_price_cents, utc_offset_minutes, address)\n               values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)\n               on conflict (qr_tag) do nothing\n               returning id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag,\n                         utc_offset_minutes, address, postponed_from_starts_at, postponed_at,\n                         postpone_reason, canceled_at, cancel_reason",
+  "query": "insert into events (id, organization_id, name, venue, starts_at, ends_at, qr_tag,\n                                   ticket_price_cents, utc_offset_minutes, address, kind)\n               values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)\n               on conflict (qr_tag) do nothing\n               returning id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag,\n                         utc_offset_minutes, address, postponed_from_starts_at, postponed_at,\n                         postpone_reason, canceled_at, cancel_reason, kind",
   "describe": {
     "columns": [
       {
@@ -167,6 +167,17 @@
             "name": "cancel_reason"
           }
         }
+      },
+      {
+        "ordinal": 15,
+        "name": "kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "kind"
+          }
+        }
       }
     ],
     "parameters": {
@@ -180,6 +191,7 @@
         "Int8",
         "Int4",
         "Int2",
+        "Text",
         "Text"
       ]
     },
@@ -198,8 +210,9 @@
       true,
       true,
       true,
-      true
+      true,
+      false
     ]
   },
-  "hash": "96a402ddd535e816a174b1335c48004d4d18684dca1bd48abf0545fe57ca0c7a"
+  "hash": "30f89acd7795856157317c97163bea28fd980102fadaa7bbcdfb9e532b3b91fe"
 }

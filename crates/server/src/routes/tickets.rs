@@ -932,7 +932,7 @@ pub async fn open(
         EventRow,
         r#"select id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag,
                   utc_offset_minutes, address, postponed_from_starts_at, postponed_at,
-                  postpone_reason, canceled_at, cancel_reason
+                  postpone_reason, canceled_at, cancel_reason, kind
            from events where id = $1"#,
         link.event_id
     )
@@ -951,6 +951,7 @@ pub async fn open(
             address: row.address.clone(),
             change: row.change(),
             in_series: super::series::in_series(&state.pool, link.event_id).await?,
+            kind: row.kind(),
         },
         organization: super::organization::event_organization(&state.pool, link.event_id).await?,
         table_map: table_map(&state, link.event_id, link.ticket_number).await?,
@@ -1108,7 +1109,7 @@ async fn render_image(state: &AppState, link: &OpenRow) -> ApiResult<Vec<u8>> {
         EventRow,
         r#"select id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag,
                   utc_offset_minutes, address, postponed_from_starts_at, postponed_at,
-                  postpone_reason, canceled_at, cancel_reason
+                  postpone_reason, canceled_at, cancel_reason, kind
            from events where id = $1"#,
         link.event_id
     )

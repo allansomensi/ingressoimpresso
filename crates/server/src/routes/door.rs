@@ -144,7 +144,14 @@ pub async fn update_settings(
     Path(event_id): Path<Uuid>,
     Json(body): Json<DoorSettingsBody>,
 ) -> ApiResult<Json<DoorOverviewDto>> {
-    authorize_event(&state.pool, &user, event_id).await?;
+    let event = authorize_event(&state.pool, &user, event_id).await?;
+    // A consumption token is used once (ADR 0084).
+    if body.reentry && event.kind() == crate::api::EventKind::Tokens {
+        return Err(bad_request(
+            "reentry_tokens",
+            "consumption tokens are used once",
+        ));
+    }
     sqlx::query!(
         "update events set reentry = $2 where id = $1",
         event_id,
@@ -495,7 +502,7 @@ pub async fn register(
 async fn event_info(state: &AppState, event_id: Uuid) -> ApiResult<DoorEventInfo> {
     let row = sqlx::query!(
         r#"select e.id, e.name, e.venue, e.starts_at, e.ends_at, e.ticket_price_cents, e.canceled_at,
-                  e.utc_offset_minutes, e.reentry,
+                  e.utc_offset_minutes, e.reentry, e.kind,
                   coalesce((select (spec -> 'number' ->> 'digits')::int from ticket_designs
                             where event_id = e.id order by version desc limit 1), $2) as "digits!"
            from events e where e.id = $1"#,
@@ -519,6 +526,7 @@ async fn event_info(state: &AppState, event_id: Uuid) -> ApiResult<DoorEventInfo
         canceled_at: row.canceled_at,
         in_series: super::series::in_series(&state.pool, event_id).await?,
         reentry: row.reentry,
+        kind: crate::api::EventKind::from_db(&row.kind).unwrap_or_default(),
     })
 }
 

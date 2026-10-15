@@ -60,6 +60,8 @@ export function normalizePass(pass: TicketPassDto): TicketPassDto {
       change: event.change ?? NO_CHANGE,
       // Saved before an event could have several dates (ADR 0077).
       inSeries: event.inSeries ?? false,
+      // Saved before consumption tokens (ADR 0084).
+      kind: event.kind ?? "tickets",
     },
   };
 }

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select e.id, e.name, e.venue, e.starts_at, e.ends_at, e.ticket_price_cents, e.status, e.qr_tag,\n                  e.utc_offset_minutes, e.address, e.postponed_from_starts_at, e.postponed_at,\n                  e.postpone_reason, e.canceled_at, e.cancel_reason,\n                  o.name as organization, t.areas as \"areas?\",\n                  s.id as \"series_id?\", s.name as \"series_name?\",\n                  (select count(*) from events x where x.series_id = s.id)::int4 as \"series_dates?\",\n                  (select count(*) from events x where x.series_id = s.id\n                   and (x.starts_at, x.id) <= (e.starts_at, e.id))::int4 as \"series_position?\"\n           from events e join organizations o on o.id = e.organization_id\n           left join event_team t on t.event_id = e.id and t.user_id = $1\n           left join event_series s on s.id = e.series_id\n           where exists (select 1 from memberships m where m.organization_id = e.organization_id and m.user_id = $1)\n              or t.id is not null\n           order by e.starts_at desc",
+  "query": "update events set name = $2, venue = $3, starts_at = $4, ends_at = $5, ticket_price_cents = $6,\n                             utc_offset_minutes = $7, address = $8, kind = coalesce($9, kind),\n                             -- A consumption token is used once: no exit and return (ADR 0084).\n                             reentry = reentry and coalesce($9, kind) = 'tickets'\n           where id = $1\n           returning id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag,\n                     utc_offset_minutes, address, postponed_from_starts_at, postponed_at,\n                     postpone_reason, canceled_at, cancel_reason, kind",
   "describe": {
     "columns": [
       {
@@ -170,64 +170,27 @@
       },
       {
         "ordinal": 15,
-        "name": "organization",
+        "name": "kind",
         "type_info": "Text",
         "origin": {
           "Table": {
-            "table": "organizations",
-            "name": "name"
+            "table": "events",
+            "name": "kind"
           }
         }
-      },
-      {
-        "ordinal": 16,
-        "name": "areas?",
-        "type_info": "TextArray",
-        "origin": {
-          "Table": {
-            "table": "event_team",
-            "name": "areas"
-          }
-        }
-      },
-      {
-        "ordinal": 17,
-        "name": "series_id?",
-        "type_info": "Uuid",
-        "origin": {
-          "Table": {
-            "table": "event_series",
-            "name": "id"
-          }
-        }
-      },
-      {
-        "ordinal": 18,
-        "name": "series_name?",
-        "type_info": "Text",
-        "origin": {
-          "Table": {
-            "table": "event_series",
-            "name": "name"
-          }
-        }
-      },
-      {
-        "ordinal": 19,
-        "name": "series_dates?",
-        "type_info": "Int4",
-        "origin": "Expression"
-      },
-      {
-        "ordinal": 20,
-        "name": "series_position?",
-        "type_info": "Int4",
-        "origin": "Expression"
       }
     ],
     "parameters": {
       "Left": [
-        "Uuid"
+        "Uuid",
+        "Text",
+        "Text",
+        "Timestamptz",
+        "Timestamptz",
+        "Int4",
+        "Int2",
+        "Text",
+        "Text"
       ]
     },
     "nullable": [
@@ -246,13 +209,8 @@
       true,
       true,
       true,
-      false,
-      false,
-      false,
-      false,
-      null,
-      null
+      false
     ]
   },
-  "hash": "507e36edcc5a1d50680ef784beadac486348268f68a7e43e6bfff61084b6f6ed"
+  "hash": "937ef47153e288fcd63acd72088dbf05d232ae8ed5e0cb9c8a8c76ff80b7e051"
 }

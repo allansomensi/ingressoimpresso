@@ -14,7 +14,7 @@ export type TemplateSeoPage = {
 };
 
 /** Last change to the template pages (the sitemap's `lastmod`): update it with the content. */
-export const TEMPLATE_PAGES_UPDATED_AT = "2026-10-14";
+export const TEMPLATE_PAGES_UPDATED_AT = "2026-10-15";
 
 export const templateSeoPages: readonly TemplateSeoPage[] = [
   {
@@ -177,12 +177,32 @@ export const templateSeoPages: readonly TemplateSeoPage[] = [
     intro:
       "Moldura simples que combina com qualquer evento: recital, rifa, jantar ou festa. Use as cores da sua marca ou envie a sua própria arte.",
   },
+  {
+    id: "token",
+    slug: "ficha-de-consumo",
+    title: "Modelo de ficha de consumo numerada para imprimir",
+    description:
+      "Modelo de ficha de bebida e comida numerada, com o produto em destaque, preço e QR code: 21 por folha A4, com baixa na barraca pelo celular.",
+    h1: "Modelo de ficha de consumo numerada",
+    intro:
+      "Cada ficha sai com o produto em letras grandes, o preço e um QR próprio. Na barraca, o celular lê a ficha, mostra o produto e barra a ficha já usada ou falsificada, mesmo sem internet.",
+  },
+  {
+    id: "tokenJunina",
+    slug: "ficha-de-festa-junina",
+    title: "Modelo de ficha de festa junina com QR code",
+    description:
+      "Modelo de ficha de comida e bebida para festa junina, com bandeirinhas e xadrez. Numerada, com QR code e baixa na barraca pelo celular.",
+    h1: "Modelo de ficha de festa junina",
+    intro:
+      "Bandeirinhas e xadrez para as fichas do arraiá da escola ou da igreja. Cada barraca dá baixa pelo celular, e a ficha usada ou copiada não passa duas vezes.",
+  },
 ];
 
 /** The templates shown on each event page (src/content/seo-event-pages.ts), the closest first. */
 export const EVENT_TEMPLATES: Readonly<Record<string, readonly TemplateId[]>> = {
   festa: ["party", "newYear", "carnival"],
-  "festa-junina": ["arraia", "kids", "classic"],
+  "festa-junina": ["arraia", "tokenJunina", "kids"],
   formatura: ["graduation", "wedding", "party"],
   "show-de-banda": ["show", "party", "carnival"],
   "festa-de-escola": ["kids", "arraia", "theater"],

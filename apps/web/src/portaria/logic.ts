@@ -3,6 +3,7 @@
  * confirmation is worth waiting for (ADR 0006). No browser APIs here, so it is unit tested.
  */
 import type {
+  EventKind,
   DoorCategoryRangeDto,
   DoorGuestArrivalDto,
   DoorGuestDto,
@@ -15,6 +16,7 @@ import type {
 } from "@ingressoimpresso/api-types";
 import type { DecisionDto } from "@ingressoimpresso/ticket-core-wasm";
 
+import { forKind } from "@/lib/event-kind";
 import { money } from "@/lib/format";
 import { sessionLabel } from "@/lib/series";
 import { errors as errorsTexts } from "@/texts/pt-BR/errors";
@@ -50,6 +52,30 @@ export function isSampleQr(text: string): boolean {
 }
 
 const t = portariaTexts.result;
+
+/** The result words of an event: a ficha at a stall for consumption tokens (ADR 0084). */
+export function resultWords(kind: EventKind | undefined): typeof portariaTexts.result {
+  return forKind(portariaTexts.result, portariaTexts.tokens.result, kind);
+}
+
+/** The door's words of an event (header, hints, history): a stall for consumption tokens (ADR 0084). */
+export function doorWords(kind: EventKind | undefined): typeof portariaTexts {
+  const tokens = portariaTexts.tokens;
+  return forKind(
+    portariaTexts,
+    {
+      title: tokens.title,
+      registerIntro: tokens.registerIntro,
+      deviceNamePlaceholder: tokens.deviceNamePlaceholder,
+      entries: tokens.entries,
+      scanHint: tokens.scanHint,
+      readiness: tokens.readiness,
+      result: resultWords(kind),
+      history: forKind(portariaTexts.history, tokens.history, kind),
+    },
+    kind,
+  );
+}
 
 /** Green, red, yellow, and blue for a ticket going out (re-entry, ADR 0083). */
 export type Tone = "ok" | "bad" | "warn" | "exit";
@@ -154,6 +180,8 @@ export interface DoorContext {
   sessions?: readonly DoorSessionDto[];
   /** A ticket that went out may come back (ADR 0083): "already entered" means "inside now". */
   reentry?: boolean;
+  /** Tickets or consumption tokens (ADR 0084): the words of the result. */
+  kind?: EventKind;
 }
 
 /** The session of another date of the series a QR tag belongs to, if any (ADR 0077). */
@@ -259,6 +287,7 @@ export function viewOf(
   decision: DecisionDto,
   context: DoorContext,
 ): ResultView {
+  const w = resultWords(context.kind);
   const number = numberOf(decision);
   const label = number === null ? null : t.number(padNumber(number, context.digits));
   const seller = number === null ? null : sellerOf(context.sellers, number);
@@ -274,7 +303,7 @@ export function viewOf(
       const document = documentOf(context.categories, decision.number);
       return {
         tone: "ok",
-        title: t.admit,
+        title: w.admit,
         number: label,
         detail: null,
         seller: sellerLine,
@@ -286,9 +315,9 @@ export function viewOf(
     case "already_entered":
       return {
         tone: "bad",
-        title: context.reentry === true ? t.inside : t.alreadyEntered,
+        title: context.reentry === true ? w.inside : w.alreadyEntered,
         number: label,
-        detail: (context.reentry === true ? t.insideSince : t.alreadyEnteredAt)(
+        detail: (context.reentry === true ? w.insideSince : w.alreadyEnteredAt)(
           clockTime(decision.firstEntry.atUnixMs),
           decision.firstEntry.deviceName,
         ),
@@ -299,7 +328,7 @@ export function viewOf(
     case "readmit":
       return {
         tone: "ok",
-        title: t.admit,
+        title: w.admit,
         number: label,
         detail: t.returning(clockTime(decision.exited.atUnixMs), decision.exited.deviceName),
         seller: sellerLine,
@@ -317,26 +346,27 @@ export function viewOf(
         ...tags,
       };
     case "voided":
-      return { tone: "bad", title: t.voided, number: label, detail: t.voidReasons[decision.reason], seller: sellerLine, ...tags };
+      return { tone: "bad", title: w.voided, number: label, detail: t.voidReasons[decision.reason], seller: sellerLine, ...tags };
     case "other_event": {
       // A ticket of another date of the same event never enters here, but the door says which.
       const session = otherSession(context, decision.eventTag);
       return session === null
-        ? { tone: "warn", title: t.otherEvent, number: null, detail: null, seller: null, ...none }
-        : { tone: "warn", title: t.otherSession, number: null, detail: t.otherSessionDetail(session), seller: null, ...none };
+        ? { tone: "warn", title: w.otherEvent, number: null, detail: null, seller: null, ...none }
+        : { tone: "warn", title: w.otherSession, number: null, detail: t.otherSessionDetail(session), seller: null, ...none };
     }
     case "invalid":
-      return { tone: "bad", title: t.invalid, number: null, detail: t.invalidReasons[decision.reason], seller: null, ...none };
+      return { tone: "bad", title: w.invalid, number: null, detail: t.invalidReasons[decision.reason], seller: null, ...none };
   }
 }
 
 /** Yellow screen of a valid ticket of a category this door does not take (ADR 0068). */
 export function wrongDoorView(number: number, wrong: { category: string; doors: string[] }, context: DoorContext): ResultView {
+  const w = resultWords(context.kind);
   return {
     tone: "warn",
-    title: t.wrongDoor,
+    title: w.wrongDoor,
     number: t.number(padNumber(number, context.digits)),
-    detail: wrong.doors.length === 0 ? t.wrongDoorNone(wrong.category) : t.wrongDoorGo(wrong.category, wrong.doors),
+    detail: wrong.doors.length === 0 ? w.wrongDoorNone(wrong.category) : w.wrongDoorGo(wrong.category, wrong.doors),
     seller: null,
     category: categoryOf(context.categories, number),
     seat: seatOf(context.seats, number),
