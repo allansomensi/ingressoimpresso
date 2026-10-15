@@ -1,7 +1,7 @@
 "use client";
 
 import type { VerifiedTicketDto, VerifyResultDto } from "@ingressoimpresso/api-types";
-import { CalendarClock, CalendarDays, Lock, MapPin, RotateCcw, ShieldCheck, ShieldX, type LucideIcon } from "lucide-react";
+import { CalendarClock, CalendarDays, IdCard, Lock, MapPin, RotateCcw, ShieldCheck, ShieldX, type LucideIcon } from "lucide-react";
 
 import { EventChangeNotice, OrganizationContact, OrganizationLogo } from "@/components/organization/organization";
 import { Alert, Button } from "@/components/ui";
@@ -75,6 +75,12 @@ function TicketSummary({ ticket }: { ticket: VerifiedTicketDto }) {
             <span className="sr-only">{t.category}: </span>
             {ticket.category.name}
           </span>
+        )}
+        {ticket.category?.checkDocument === true && (
+          <p className="flex w-full items-start gap-2 text-xs leading-relaxed text-fg-muted">
+            <IdCard aria-hidden className="mt-px size-4 shrink-0 text-warning" />
+            {t.document(ticket.category.name, ticket.category.documentNote)}
+          </p>
         )}
       </div>
     </article>

@@ -23,9 +23,9 @@ use uuid::Uuid;
 
 use super::{EventRow, MAX_TICKET_NUMBER, authorize_event, one_line, optional_text};
 use crate::api::{
-    CreateTicketLinkBody, CreateTicketLinksBody, DoorCategoryTagDto, OpenTicketBody, PassTableDto,
-    PassTableMapDto, ReplaceTicketBody, TableShape, TicketLinkDto, TicketLinksDto, TicketPassDto,
-    TicketPassEvent, TicketReplacementDto, TicketState, UpdateTicketLinkBody,
+    CreateTicketLinkBody, CreateTicketLinksBody, OpenTicketBody, PassTableDto, PassTableMapDto,
+    ReplaceTicketBody, TableShape, TicketLinkDto, TicketLinksDto, TicketPassDto, TicketPassEvent,
+    TicketReplacementDto, TicketState, UpdateTicketLinkBody,
 };
 use crate::auth::{AuthUser, new_token, token_hash};
 use crate::error::{ApiError, ApiResult, bad_request};
@@ -939,12 +939,7 @@ pub async fn open(
     .fetch_one(&state.pool)
     .await?;
     let pass = TicketPassDto {
-        category: tags
-            .category(link.ticket_number)
-            .map(|category| DoorCategoryTagDto {
-                name: category.name,
-                color: category.color,
-            }),
+        category: tags.tag(link.ticket_number),
         seat: tags.seat(link.ticket_number),
         event: TicketPassEvent {
             name: event.name,

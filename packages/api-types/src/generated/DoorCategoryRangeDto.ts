@@ -27,4 +27,12 @@ last: number,
 /**
  * The category's own price (`null`: the event's; 0: courtesy), for the box office.
  */
-priceCents: number | null, };
+priceCents: number | null, 
+/**
+ * Ask for a document before letting in (ADR 0082).
+ */
+checkDocument: boolean, 
+/**
+ * Which documents count.
+ */
+documentNote: string | null, };

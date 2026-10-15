@@ -17,8 +17,8 @@ use crate::api::{
     DoorCategoryRangeDto, DoorDeviceDto, DoorEntryDto, DoorEventInfo, DoorFirstEntryDto,
     DoorKeyDto, DoorManifest, DoorOverviewDto, DoorRegisterBody, DoorRegistration, DoorRouteDto,
     DoorScanResult, DoorScanUpload, DoorScansBody, DoorScansResponse, DoorSeatDto,
-    DoorSellerRangeDto, DoorVerifierDto, DoorVoidDto, KeyStatus, ScanClass, ScanOutcome,
-    VoidReason,
+    DoorSellerRangeDto, DoorSettingsBody, DoorVerifierDto, DoorVoidDto, KeyStatus, ScanClass,
+    ScanOutcome, VoidReason,
 };
 use crate::auth::{AuthUser, bearer_token, new_token, token_hash};
 use crate::error::{ApiError, ApiResult, bad_request};
@@ -120,8 +120,9 @@ pub async fn overview(
     )
     .fetch_all(&state.pool)
     .await?;
-    let entry_count = sqlx::query_scalar!(
-        r#"select count(*) as "count!" from entries where event_id = $1"#,
+    let counts = sqlx::query!(
+        r#"select (select count(*) from entries where event_id = $1) as "entries!",
+                  reentry from events where id = $1"#,
         event_id
     )
     .fetch_one(&state.pool)
@@ -129,8 +130,29 @@ pub async fn overview(
     Ok(Json(DoorOverviewDto {
         accesses: accesses.into_iter().map(Into::into).collect(),
         devices: devices.into_iter().map(Into::into).collect(),
-        entry_count,
+        entry_count: counts.entries,
+        reentry: counts.reentry,
     }))
+}
+
+/// `PUT /api/events/{id}/door-settings` (ADR 0083): whether a ticket that went out may come back.
+/// Phones pick the change up on their next sync; turned off, every ticket that entered is
+/// "already entered" again, exits or not.
+pub async fn update_settings(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(event_id): Path<Uuid>,
+    Json(body): Json<DoorSettingsBody>,
+) -> ApiResult<Json<DoorOverviewDto>> {
+    authorize_event(&state.pool, &user, event_id).await?;
+    sqlx::query!(
+        "update events set reentry = $2 where id = $1",
+        event_id,
+        body.reentry,
+    )
+    .execute(&state.pool)
+    .await?;
+    overview(State(state), user, Path(event_id)).await
 }
 
 /// `POST /api/events/{id}/door/accesses`: a new link; its token is returned only here.
@@ -473,7 +495,7 @@ pub async fn register(
 async fn event_info(state: &AppState, event_id: Uuid) -> ApiResult<DoorEventInfo> {
     let row = sqlx::query!(
         r#"select e.id, e.name, e.venue, e.starts_at, e.ends_at, e.ticket_price_cents, e.canceled_at,
-                  e.utc_offset_minutes,
+                  e.utc_offset_minutes, e.reentry,
                   coalesce((select (spec -> 'number' ->> 'digits')::int from ticket_designs
                             where event_id = e.id order by version desc limit 1), $2) as "digits!"
            from events e where e.id = $1"#,
@@ -496,6 +518,7 @@ async fn event_info(state: &AppState, event_id: Uuid) -> ApiResult<DoorEventInfo
         ticket_price_cents: row.ticket_price_cents,
         canceled_at: row.canceled_at,
         in_series: super::series::in_series(&state.pool, event_id).await?,
+        reentry: row.reentry,
     })
 }
 
@@ -547,8 +570,8 @@ pub async fn manifest(
     )
     .fetch_one(&state.pool)
     .await?;
-    let (entries, guest_arrivals, sessions) = tokio::try_join!(
-        entries_between(&state, event_id, since, xmin),
+    let ((entries, exits), guest_arrivals, sessions) = tokio::try_join!(
+        movements_between(&state, event_id, since, xmin),
         super::guests::arrivals_between(&state, event_id, since, xmin),
         super::series::sessions(&state.pool, event_id),
     )?;
@@ -562,6 +585,7 @@ pub async fn manifest(
         categories,
         seats,
         entries,
+        exits,
         cursor: since.max(xmin).to_string(),
         server_time_ms: unix_ms(OffsetDateTime::now_utc()),
         allowed_category_ids,
@@ -678,7 +702,8 @@ async fn tags(
     event_id: Uuid,
 ) -> ApiResult<(Vec<DoorCategoryRangeDto>, Vec<DoorSeatDto>)> {
     let categories = sqlx::query!(
-        r#"select c.id, c.name, c.color, c.price_cents, r.numbers from category_ranges r
+        r#"select c.id, c.name, c.color, c.price_cents, c.check_document, c.document_note, r.numbers
+           from category_ranges r
            join ticket_categories c on c.id = r.category_id
            where r.event_id = $1 order by lower(r.numbers)"#,
         event_id
@@ -695,6 +720,8 @@ async fn tags(
             first,
             last,
             price_cents: row.price_cents,
+            check_document: row.check_document,
+            document_note: row.document_note,
         })
     })
     .collect::<ApiResult<Vec<_>>>()?;
@@ -737,17 +764,21 @@ async fn seller_ranges(state: &AppState, event_id: Uuid) -> ApiResult<Vec<DoorSe
     .collect()
 }
 
-/// Admitted scans of every phone written by transactions in `[since, until)`.
-async fn entries_between(
+/// Entries (first ones and returns) and exits (ADR 0083) of every phone written by transactions
+/// in `[since, until)`. Phones on an app without re-entry read only the entries: a return is an
+/// entry like any other to them (the earliest one per ticket still wins).
+async fn movements_between(
     state: &AppState,
     event_id: Uuid,
     since: i64,
     until: i64,
-) -> ApiResult<Vec<DoorEntryDto>> {
-    sqlx::query!(
-        r#"select s.id, s.ticket_number as "ticket_number!", s.scanned_at, d.name
+) -> ApiResult<(Vec<DoorEntryDto>, Vec<DoorEntryDto>)> {
+    let mut entries = Vec::new();
+    let mut exits = Vec::new();
+    for row in sqlx::query!(
+        r#"select s.id, s.ticket_number as "ticket_number!", s.scanned_at, s.local_outcome, d.name
            from scans s join door_devices d on d.id = s.device_id
-           where s.event_id = $1 and s.local_outcome = 'admitted'
+           where s.event_id = $1 and s.local_outcome in ('admitted', 'readmitted', 'exited')
              and s.txid >= $2::bigint::text::xid8 and s.txid < $3::bigint::text::xid8
            order by s.txid, s.id"#,
         event_id,
@@ -756,17 +787,21 @@ async fn entries_between(
     )
     .fetch_all(&state.pool)
     .await?
-    .into_iter()
-    .map(|row| {
-        Ok(DoorEntryDto {
+    {
+        let movement = DoorEntryDto {
             scan_id: row.id,
             number: u32::try_from(row.ticket_number)
                 .map_err(|error| ApiError::Internal(error.into()))?,
             at_unix_ms: unix_ms(row.scanned_at),
             device_name: row.name,
-        })
-    })
-    .collect()
+        };
+        if row.local_outcome == "exited" {
+            exits.push(movement);
+        } else {
+            entries.push(movement);
+        }
+    }
+    Ok((entries, exits))
 }
 
 /// `POST /api/door/scans`: appends scans (idempotent by id) and classifies admitted ones.
@@ -831,12 +866,21 @@ impl TryFrom<&DoorScanUpload> for ValidScan {
             .map(|number| number.ok_or_else(invalid))
             .transpose()?;
         let exception = scan.exception.unwrap_or(false);
-        // Only an authentic ticket of this event can be at the wrong door, or let in anyway.
+        // Only an authentic ticket of this event can enter, come back, go out or be at the wrong
+        // door; only an entry may be let in anyway.
         if (matches!(
             scan.outcome,
-            ScanOutcome::Admitted | ScanOutcome::RejectedWrongDoor
+            ScanOutcome::Admitted
+                | ScanOutcome::Readmitted
+                | ScanOutcome::Exited
+                | ScanOutcome::RejectedAlreadyOut
+                | ScanOutcome::RejectedWrongDoor
         ) && number.is_none())
-            || (exception && scan.outcome != ScanOutcome::Admitted)
+            || (exception
+                && !matches!(
+                    scan.outcome,
+                    ScanOutcome::Admitted | ScanOutcome::Readmitted
+                ))
         {
             return Err(invalid());
         }
@@ -875,11 +919,11 @@ async fn record_scan(
             ));
         }
         let class = stored.server_class.as_deref().and_then(ScanClass::from_db);
-        return describe(tx, device.event_id, scan, class).await;
+        return describe(tx, device, scan, class).await;
     }
 
     let class = match (scan.outcome, scan.number) {
-        (ScanOutcome::Admitted, Some(number)) => {
+        (ScanOutcome::Admitted | ScanOutcome::Readmitted, Some(number)) => {
             let first = sqlx::query_scalar!(
                 r#"insert into entries (event_id, ticket_number, first_scan_id) values ($1, $2, $3)
                    on conflict do nothing returning ticket_number"#,
@@ -890,23 +934,27 @@ async fn record_scan(
             .fetch_optional(&mut **tx)
             .await?
             .is_some();
+            // The entry row is the per-ticket lock: two returns of one ticket uploaded by two
+            // phones at once are classified one after the other.
+            let first_scan_id = sqlx::query_scalar!(
+                "select first_scan_id from entries where event_id = $1 and ticket_number = $2 for update",
+                device.event_id,
+                number,
+            )
+            .fetch_one(&mut **tx)
+            .await?;
             // A concurrent upload of this same scan (the confirm and the sync loop racing) may
             // have inserted the entry first: it is still this scan's first entry.
-            let first = first
-                || sqlx::query_scalar!(
-                    "select first_scan_id from entries where event_id = $1 and ticket_number = $2",
-                    device.event_id,
-                    number,
-                )
-                .fetch_optional(&mut **tx)
-                .await?
-                    == Some(scan.id);
-            // Same precedence as the door decision: voided > already entered > first entry.
+            let first = first || first_scan_id == scan.id;
+            // Same precedence as the door decision: voided > first entry > return > already
+            // entered.
             Some(
                 if void_reason(tx, device.event_id, number).await?.is_some() {
                     ScanClass::VoidEntry
                 } else if first {
                     ScanClass::FirstEntry
+                } else if went_out_before(tx, device, number, scan).await? {
+                    ScanClass::Reentry
                 } else {
                     ScanClass::DuplicateEntry
                 },
@@ -931,16 +979,17 @@ async fn record_scan(
     )
     .execute(&mut **tx)
     .await?;
-    describe(tx, device.event_id, scan, class).await
+    describe(tx, device, scan, class).await
 }
 
 /// The result of a classified scan, with the first entry or void reason when relevant.
 async fn describe(
     tx: &mut Transaction<'static, Postgres>,
-    event_id: Uuid,
+    device: &DoorDevice,
     scan: &ValidScan,
     class: Option<ScanClass>,
 ) -> ApiResult<DoorScanResult> {
+    let event_id = device.event_id;
     let mut result = DoorScanResult {
         id: scan.id,
         class,
@@ -952,13 +1001,24 @@ async fn describe(
     };
     match class {
         Some(ScanClass::DuplicateEntry) => {
+            // With re-entry, the entry that holds now: the latest one before this scan (the copy
+            // that came back first). Without it, the first entry, as always.
             result.first_entry = sqlx::query!(
-                r#"select s.scanned_at, d.name from entries e
-                   join scans s on s.id = e.first_scan_id
+                r#"select s.scanned_at, d.name from scans s
                    join door_devices d on d.id = s.device_id
-                   where e.event_id = $1 and e.ticket_number = $2"#,
+                   where s.id = coalesce(
+                       (select m.id from scans m join door_devices md on md.id = m.device_id
+                        where (select reentry from events where id = $1)
+                          and m.event_id = $1 and m.ticket_number = $2 and m.id <> $3
+                          and m.local_outcome in ('admitted', 'readmitted')
+                          and (m.scanned_at, md.name) <= ($4, $5)
+                        order by m.scanned_at desc, md.name desc limit 1),
+                       (select first_scan_id from entries where event_id = $1 and ticket_number = $2))"#,
                 event_id,
                 number,
+                scan.id,
+                scan.scanned_at,
+                device.name,
             )
             .fetch_optional(&mut **tx)
             .await?
@@ -970,9 +1030,40 @@ async fn describe(
         Some(ScanClass::VoidEntry) => {
             result.void_reason = void_reason(tx, event_id, number).await?;
         }
-        Some(ScanClass::FirstEntry) | None => {}
+        Some(ScanClass::FirstEntry | ScanClass::Reentry) | None => {}
     }
     Ok(result)
+}
+
+/// Whether `number` was out when `scan` let it in (ADR 0083): the event allows re-entry and the
+/// ticket's latest movement before the scan, in the order every phone uses (time, phone name,
+/// direction), is an exit.
+async fn went_out_before(
+    tx: &mut Transaction<'static, Postgres>,
+    device: &DoorDevice,
+    number: i32,
+    scan: &ValidScan,
+) -> ApiResult<bool> {
+    Ok(sqlx::query_scalar!(
+        r#"select coalesce((
+               select m.local_outcome = 'exited'
+               from scans m join door_devices d on d.id = m.device_id
+               where m.event_id = $1 and m.ticket_number = $2 and m.id <> $3
+                 and m.local_outcome in ('admitted', 'readmitted', 'exited')
+                 -- Before this entry: an exit at the very same instant and phone comes after it.
+                 and ((m.scanned_at, d.name) < ($4, $5)
+                      or ((m.scanned_at, d.name) = ($4, $5) and m.local_outcome <> 'exited'))
+               order by m.scanned_at desc, d.name desc, (m.local_outcome = 'exited') desc
+               limit 1), false)
+           and (select reentry from events where id = $1) as "out!""#,
+        device.event_id,
+        number,
+        scan.id,
+        scan.scanned_at,
+        device.name,
+    )
+    .fetch_one(&mut **tx)
+    .await?)
 }
 
 async fn void_reason(

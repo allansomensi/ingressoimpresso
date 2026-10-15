@@ -63,6 +63,12 @@ struct DecisionCase {
     door_event: String,
     voids: Vec<VoidRangeDto>,
     entries: Vec<EntryDto>,
+    #[serde(default)]
+    reentry: Option<bool>,
+    #[serde(default)]
+    exits: Option<Vec<EntryDto>>,
+    #[serde(default)]
+    direction: Option<String>,
     qr_text: String,
     expected: DecisionDto,
 }
@@ -170,12 +176,21 @@ fn core_agrees_with_every_decision_case() {
                 .map(|void| VoidRange::try_from(void).expect("void converts"))
                 .collect(),
         );
+        door.state_mut().set_reentry(case.reentry.unwrap_or(false));
         for entry in &case.entries {
             let (number, info): (TicketNumber, EntryInfo) =
                 entry.try_into().expect("entry converts");
             door.state_mut().record_entry(number, info);
         }
-        let decision = door.evaluate(&case.qr_text);
+        for exit in case.exits.iter().flatten() {
+            let (number, info): (TicketNumber, EntryInfo) = exit.try_into().expect("exit converts");
+            door.state_mut().record_exit(number, info);
+        }
+        let decision = match case.direction.as_deref() {
+            None | Some("in") => door.evaluate(&case.qr_text),
+            Some("out") => door.evaluate_exit(&case.qr_text),
+            Some(other) => panic!("case {}: unknown direction {other}", case.name),
+        };
         assert_eq!(
             DecisionDto::from(&decision),
             case.expected,

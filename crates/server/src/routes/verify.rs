@@ -19,8 +19,8 @@ use uuid::Uuid;
 
 use super::{EventRow, authorize_event};
 use crate::api::{
-    DoorCategoryTagDto, VerifiedEventDto, VerifiedTicketDto, VerifyResultDto, VerifySettingsDto,
-    VerifyTicketBody, VerifyVerdict,
+    VerifiedEventDto, VerifiedTicketDto, VerifyResultDto, VerifySettingsDto, VerifyTicketBody,
+    VerifyVerdict,
 };
 use crate::auth::AuthUser;
 use crate::error::ApiResult;
@@ -181,10 +181,7 @@ pub async fn verify(
             number,
             number_label: format!("{number:0width$}", width = usize::from(digits)),
             number_prefix: prefix,
-            category: tags.category(number).map(|category| DoorCategoryTagDto {
-                name: category.name,
-                color: category.color,
-            }),
+            category: tags.tag(number),
             event: VerifiedEventDto {
                 change: event.change(),
                 name: event.name,

@@ -1019,6 +1019,12 @@ dto! {
         pub name: String,
         /// Band colour (`#rrggbb`).
         pub color: String,
+        /// The door asks for a document (ADR 0082): the holder is told to bring it.
+        #[serde(default)]
+        pub check_document: bool,
+        /// Which documents count.
+        #[serde(default)]
+        pub document_note: Option<String>,
     }
 
     /// The event on a digital ticket.
@@ -1776,6 +1782,10 @@ dto! {
         pub color: String,
         /// Price; `null` uses the event's price, 0 is a courtesy.
         pub price_cents: Option<i32>,
+        /// The door asks for a document before letting in (ADR 0082): meia-entrada.
+        pub check_document: bool,
+        /// Which documents count ("Carteira de estudante, RG de idoso…"); `null`: any proof.
+        pub document_note: Option<String>,
         /// Numbers in the category, ordered.
         pub ranges: Vec<RangeDto>,
     }
@@ -1788,6 +1798,14 @@ dto! {
         pub color: String,
         /// Price; `null` uses the event's price.
         pub price_cents: Option<i32>,
+        /// The door asks for a document (ADR 0082); missing: off.
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional))]
+        pub check_document: Option<bool>,
+        /// Which documents count (up to 80 characters).
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional = nullable))]
+        pub document_note: Option<String>,
     }
 
     /// A table on the event's map (ADR 0057).
@@ -2103,6 +2121,14 @@ dto! {
         /// Tickets that entered.
         #[cfg_attr(feature = "ts", ts(type = "number"))]
         pub entry_count: i64,
+        /// Whether a ticket that went out may come back in (ADR 0083).
+        pub reentry: bool,
+    }
+
+    /// `PUT /api/events/{id}/door-settings`: how the door works (ADR 0083).
+    pub struct DoorSettingsBody {
+        /// Let a ticket that went out come back in.
+        pub reentry: bool,
     }
 
     /// `POST /api/door/register`.
@@ -2156,6 +2182,9 @@ dto! {
         /// One of several dates (ADR 0077): the door says which session it is for.
         #[serde(default)]
         pub in_series: bool,
+        /// A ticket that went out may come back in (ADR 0083): the door offers the exit.
+        #[serde(default)]
+        pub reentry: bool,
     }
 
     /// What `DoorCore` needs to verify tickets; same shape as ticket-core's `DoorEventDto`.
@@ -2217,6 +2246,12 @@ dto! {
         /// The category's own price (`null`: the event's; 0: courtesy), for the box office.
         #[serde(default)]
         pub price_cents: Option<i32>,
+        /// Ask for a document before letting in (ADR 0082).
+        #[serde(default)]
+        pub check_document: bool,
+        /// Which documents count.
+        #[serde(default)]
+        pub document_note: Option<String>,
     }
 
     /// The table and seat of a ticket, for the door.
@@ -2262,8 +2297,11 @@ dto! {
         /// Every seated ticket (ADR 0057), to tell the guest their table.
         #[serde(default)]
         pub seats: Vec<DoorSeatDto>,
-        /// Admitted scans since `since`, from every phone.
+        /// Admitted scans since `since` (first entries and returns), from every phone.
         pub entries: Vec<DoorEntryDto>,
+        /// Exits since `since` (ADR 0083), from every phone.
+        #[serde(default)]
+        pub exits: Vec<DoorEntryDto>,
         /// Opaque cursor for the next call.
         pub cursor: String,
         /// Server clock, Unix milliseconds.
@@ -2335,9 +2373,9 @@ dto! {
         /// Scan id.
         #[cfg_attr(feature = "ts", ts(type = "string"))]
         pub id: Uuid,
-        /// For admitted scans: first entry, duplicate or voided ticket.
+        /// For admitted scans: first entry, return, duplicate or voided ticket.
         pub class: Option<ScanClass>,
-        /// For duplicates: the first entry.
+        /// For duplicates: the first entry (with re-entry, the entry that holds now).
         pub first_entry: Option<DoorFirstEntryDto>,
         /// For voided tickets: why.
         pub void_reason: Option<VoidReason>,
@@ -2601,6 +2639,12 @@ dto_enum! {
         RejectedOtherEvent,
         /// Yellow: a category this door does not take (ADR 0068); no entry recorded.
         RejectedWrongDoor,
+        /// Green: went out and came back in (re-entry, ADR 0083).
+        Readmitted,
+        /// Blue: went out, may come back (re-entry, ADR 0083).
+        Exited,
+        /// Yellow: read again on the way out; nothing recorded.
+        RejectedAlreadyOut,
     }
 
     /// Kind of a changelog note.
@@ -2633,6 +2677,8 @@ dto_enum! {
         DuplicateEntry,
         /// The ticket is voided.
         VoidEntry,
+        /// A return of a ticket that went out (ADR 0083).
+        Reentry,
     }
 }
 
@@ -2756,8 +2802,16 @@ db_enum!(ScanOutcome {
     RejectedInvalid => "rejected_invalid",
     RejectedOtherEvent => "rejected_other_event",
     RejectedWrongDoor => "rejected_wrong_door",
+    Readmitted => "readmitted",
+    Exited => "exited",
+    RejectedAlreadyOut => "rejected_already_out",
 });
-db_enum!(ScanClass { FirstEntry => "first_entry", DuplicateEntry => "duplicate_entry", VoidEntry => "void_entry" });
+db_enum!(ScanClass {
+    FirstEntry => "first_entry",
+    DuplicateEntry => "duplicate_entry",
+    VoidEntry => "void_entry",
+    Reentry => "reentry",
+});
 
 // Platform controls (ADRs 0037–0043) --------------------------------------------------------
 
@@ -4033,10 +4087,30 @@ dto! {
         pub guests: DoorLiveGuestsDto,
         /// Sales at the door (ADR 0069).
         pub box_office: DoorLiveBoxOfficeDto,
+        /// Exit and return (ADR 0083); `null` when the event does not allow it and nobody went out.
+        pub reentry: Option<DoorLiveReentryDto>,
         /// Server clock.
         #[serde(with = "time::serde::rfc3339")]
         #[cfg_attr(feature = "ts", ts(type = "string"))]
         pub generated_at: OffsetDateTime,
+    }
+
+    /// Who is inside now and who went out (ADR 0083).
+    pub struct DoorLiveReentryDto {
+        /// Whether the event lets a ticket that went out come back.
+        pub allowed: bool,
+        /// Tickets inside now: entered and not out.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub inside: i64,
+        /// Tickets out now, with the right to come back.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub out: i64,
+        /// Exits read.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub exits: i64,
+        /// Returns let in.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub returns: i64,
     }
 
     /// Entries in a 5-minute window.

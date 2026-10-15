@@ -2,14 +2,14 @@
 
 import type { BatchDto, CategoryBody, CategoryDto, EventDto, RangeDto } from "@ingressoimpresso/api-types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, MoreHorizontal, Pencil, Plus, Sparkles, Tags, Trash2, X } from "lucide-react";
+import { Check, IdCard, MoreHorizontal, Pencil, Plus, Sparkles, Tags, Trash2, X } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
 import { ReadOnlyNotice, useEventAccess } from "@/components/event/access";
 import { TablesSection } from "@/components/event/tables";
 import type { SelectTab } from "@/components/event/tabs";
-import { Alert, Button, Card, Dialog, ErrorMessage, Field, Input, Lead, LoadingBlock, Menu, MenuItem, buttonClass, errorMessage, useConfirm } from "@/components/ui";
+import { Alert, Badge, Button, Card, Dialog, ErrorMessage, Field, Input, Lead, LoadingBlock, Menu, MenuItem, Switch, buttonClass, errorMessage, useConfirm } from "@/components/ui";
 import { api } from "@/lib/api";
 import { CATEGORY_COLORS, nextColor, presetPriceText, uncategorized } from "@/lib/categories";
 import { cn } from "@/lib/cn";
@@ -18,6 +18,7 @@ import { NUMBER_LIST_INPUT, formatRanges, parseNumberList } from "@/lib/number-l
 import { common as commonTexts } from "@/texts/pt-BR/common";
 import { errors as errorsTexts } from "@/texts/pt-BR/errors";
 import { event as eventTexts } from "@/texts/pt-BR/event";
+import { portaria as portariaTexts } from "@/texts/pt-BR/portaria";
 
 const t = eventTexts.categories;
 
@@ -226,6 +227,15 @@ function CategoryCard({
               {category.name}
             </span>
             <span className="text-sm text-fg-muted">{t.count(count)}</span>
+            {category.checkDocument && (
+              <span className="mt-1.5 flex flex-col gap-1">
+                <Badge tone="warning" className="w-fit">
+                  <IdCard className="size-3.5" aria-hidden />
+                  {t.documentBadge}
+                </Badge>
+                <span className="text-xs leading-relaxed text-fg-muted">{t.documentBadgeHint(category.documentNote ?? portariaTexts.result.documentAny)}</span>
+              </span>
+            )}
           </div>
           <div className="flex shrink-0 items-center gap-1">
             {/* The price is what people come to change (VIP, meia): one tap away. */}
@@ -349,12 +359,21 @@ function CategoryDialog({
   const initialMode: PriceMode = category?.priceCents === null || category === null ? "event" : category.priceCents === 0 ? "free" : "own";
   const [mode, setMode] = useState<PriceMode>(initialMode);
   const [priceText, setPriceText] = useState(category?.priceCents ? (category.priceCents / 100).toFixed(2).replace(".", ",") : "");
+  const [checkDocument, setCheckDocument] = useState(category?.checkDocument ?? false);
+  const [documentNote, setDocumentNote] = useState(category?.documentNote ?? "");
   const price = parseMoney(priceText);
   const priceCents = mode === "event" ? null : mode === "free" ? 0 : price.ok ? price.cents : null;
   const valid = name.trim() !== "" && (mode !== "own" || (price.ok && price.cents !== null));
   const save = useMutation({
     mutationFn: () => {
-      const body: CategoryBody = { name: name.trim(), color, priceCents };
+      const note = documentNote.trim();
+      const body: CategoryBody = {
+        name: name.trim(),
+        color,
+        priceCents,
+        checkDocument,
+        documentNote: checkDocument && note !== "" ? note : null,
+      };
       return category === null
         ? api<CategoryDto>(`/api/events/${eventId}/categories`, { method: "POST", body })
         : api(`/api/categories/${category.id}`, { method: "PUT", body });
@@ -473,13 +492,28 @@ function CategoryDialog({
             />
           )}
         </fieldset>
+        <div className="flex flex-col gap-3 rounded-xl border border-border p-4">
+          <Switch checked={checkDocument} onChange={setCheckDocument} label={t.document} description={t.documentHint} />
+          {checkDocument && (
+            <Field label={t.documentNote} hint={t.documentNoteHint} optional>
+              <Input
+                value={documentNote}
+                maxLength={80}
+                placeholder={t.documentNotePlaceholder}
+                onChange={(changeEvent) => {
+                  setDocumentNote(changeEvent.target.value);
+                }}
+              />
+            </Field>
+          )}
+        </div>
         <ErrorMessage error={save.error} />
       </form>
     </Dialog>
   );
 }
 
-type SuggestRow = { name: string; color: string; use: boolean; priceText: string };
+type SuggestRow = { name: string; color: string; use: boolean; priceText: string; document: string | null };
 
 /**
  * The usual categories in one go, each with its price checked before it is created: VIP is
@@ -497,7 +531,13 @@ function SuggestDialog({
   onSaved: () => void;
 }) {
   const [rows, setRows] = useState<SuggestRow[]>(() =>
-    t.presets.map((preset) => ({ name: preset.name, color: preset.color, use: true, priceText: presetPriceText(preset.price, eventPrice) })),
+    t.presets.map((preset) => ({
+      name: preset.name,
+      color: preset.color,
+      use: true,
+      priceText: presetPriceText(preset.price, eventPrice),
+      document: preset.document,
+    })),
   );
   const chosen = rows.filter((row) => row.use);
   const parsed = chosen.map((row) => ({ row, price: parseMoney(row.priceText) }));
@@ -505,7 +545,13 @@ function SuggestDialog({
   const create = useMutation({
     mutationFn: async () => {
       for (const { row, price } of parsed) {
-        const body: CategoryBody = { name: row.name, color: row.color, priceCents: price.ok ? price.cents : null };
+        const body: CategoryBody = {
+          name: row.name,
+          color: row.color,
+          priceCents: price.ok ? price.cents : null,
+          checkDocument: row.document !== null,
+          documentNote: row.document,
+        };
         await api<CategoryDto>(`/api/events/${eventId}/categories`, { method: "POST", body });
       }
     },
@@ -563,9 +609,17 @@ function SuggestDialog({
                     update(index, { use: changeEvent.target.checked });
                   }}
                 />
-                <span className="flex min-w-0 flex-1 items-center gap-2 text-sm font-medium text-fg">
-                  <span className="size-3 shrink-0 rounded-full" style={{ backgroundColor: row.color }} aria-hidden />
-                  <span className="truncate">{row.name}</span>
+                <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <span className="flex items-center gap-2 text-sm font-medium text-fg">
+                    <span className="size-3 shrink-0 rounded-full" style={{ backgroundColor: row.color }} aria-hidden />
+                    <span className="truncate">{row.name}</span>
+                  </span>
+                  {row.document !== null && (
+                    <span className="flex items-center gap-1 pl-5 text-xs text-fg-muted">
+                      <IdCard className="size-3.5 shrink-0" aria-hidden />
+                      <span className="truncate">{t.suggestDocument(row.name)}</span>
+                    </span>
+                  )}
                 </span>
                 <div className="flex w-36 shrink-0 flex-col items-end gap-0.5">
                   <Input

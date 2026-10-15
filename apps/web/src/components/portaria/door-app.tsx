@@ -8,6 +8,9 @@ import {
   Flashlight,
   FlashlightOff,
   History,
+  IdCard,
+  LogIn,
+  LogOut,
   MoreVertical,
   Pause,
   ScanLine,
@@ -302,6 +305,13 @@ function Door({ engine, state }: { engine: DoorEngine; state: DoorState }) {
   const event = manifest?.event ?? state.device?.event;
   const hasGuests = (manifest?.guests?.length ?? 0) > 0;
   const rehearsing = state.rehearsing;
+  // Exit and return (ADR 0083): this phone may read the exit while the event allows it.
+  const reentry = manifest?.event.reentry === true;
+  const exitMode = reentry && state.exitMode;
+  const banner = rehearsing ? t.rehearsal.banner : exitMode ? t.mode.exitBanner : null;
+  // With re-entry, who is inside now says more than how many ever entered.
+  const counter = reentry ? t.insideCount(state.insideCount) : t.entries(state.entryCount);
+  const frame = exitMode ? "border-[#60a5fa]" : "border-white/90";
 
   const startRehearsal = () => {
     setMenuOpen(false);
@@ -318,16 +328,16 @@ function Door({ engine, state }: { engine: DoorEngine; state: DoorState }) {
 
   return (
     <div className="flex min-h-dvh flex-col">
-      {rehearsing && (
+      {banner !== null && (
         <div
           role="status"
-          className="sticky top-0 z-20 bg-amber-400 px-4 pt-[max(0.5rem,env(safe-area-inset-top))] pb-2 text-center text-sm font-black tracking-wide text-black"
+          className={`sticky top-0 z-20 px-4 pt-[max(0.5rem,env(safe-area-inset-top))] pb-2 text-center text-sm font-black tracking-wide ${rehearsing ? "bg-amber-400 text-black" : "bg-[#2563eb] text-white"}`}
         >
-          {t.rehearsal.banner}
+          {banner}
         </div>
       )}
       <header
-        className={`sticky z-10 flex flex-col gap-2 border-b border-white/10 bg-[#0b0a12]/85 px-4 pb-3 backdrop-blur-xl ${rehearsing ? "top-[calc(2.25rem+env(safe-area-inset-top))] pt-3" : "top-0 pt-[max(0.75rem,env(safe-area-inset-top))]"}`}
+        className={`sticky z-10 flex flex-col gap-2 border-b border-white/10 bg-[#0b0a12]/85 px-4 pb-3 backdrop-blur-xl ${banner !== null ? "top-[calc(2.25rem+env(safe-area-inset-top))] pt-3" : "top-0 pt-[max(0.75rem,env(safe-area-inset-top))]"}`}
       >
         <div className="flex items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-2.5">
@@ -338,7 +348,7 @@ function Door({ engine, state }: { engine: DoorEngine; state: DoorState }) {
             {/* This phone's latest scans, to look back at a result that went by. */}
             <button
               type="button"
-              aria-label={t.entriesButton(t.entries(state.entryCount))}
+              aria-label={t.entriesButton(counter)}
               aria-haspopup="dialog"
               onClick={() => {
                 setMenuOpen(false);
@@ -347,7 +357,7 @@ function Door({ engine, state }: { engine: DoorEngine; state: DoorState }) {
               className="flex min-h-11 items-center gap-1.5 rounded-full bg-white/10 px-3 text-sm font-semibold whitespace-nowrap tabular-nums transition active:scale-[0.97] active:bg-white/20"
             >
               <History className="size-4 text-white/70" aria-hidden />
-              {t.entries(state.entryCount)}
+              {counter}
             </button>
             {!rehearsing && (
               <button
@@ -374,6 +384,14 @@ function Door({ engine, state }: { engine: DoorEngine; state: DoorState }) {
             <span className="rounded-full bg-amber-400/15 px-2 py-0.5 text-xs font-semibold text-amber-200">{t.pending(state.pending)}</span>
           )}
         </p>
+        {reentry && (
+          <ModeSwitch
+            exit={exitMode}
+            onChange={(exit) => {
+              void engine.setExitMode(exit);
+            }}
+          />
+        )}
         {state.offlineSince !== null && <OfflineWarning offlineSince={state.offlineSince} />}
         {state.storageFailed && <p className="rounded-xl bg-red-600 px-3 py-2 text-sm font-semibold">{t.storageError}</p>}
         {/* Canceled by the organizer (ADR 0065): the door keeps reading, the organizer decides. */}
@@ -433,14 +451,16 @@ function Door({ engine, state }: { engine: DoorEngine; state: DoorState }) {
         <div className={`relative w-full max-w-md ${running ? "" : "hidden"}`}>
           <video ref={videoRef} className="aspect-square w-full rounded-3xl bg-black object-cover" muted playsInline />
           <div aria-hidden className="pointer-events-none absolute inset-[14%]">
-            <span className="absolute top-0 left-0 size-10 rounded-tl-2xl border-t-4 border-l-4 border-white/90" />
-            <span className="absolute top-0 right-0 size-10 rounded-tr-2xl border-t-4 border-r-4 border-white/90" />
-            <span className="absolute bottom-0 left-0 size-10 rounded-bl-2xl border-b-4 border-l-4 border-white/90" />
-            <span className="absolute right-0 bottom-0 size-10 rounded-br-2xl border-r-4 border-b-4 border-white/90" />
-            <span className="absolute inset-x-3 top-1/2 h-0.5 animate-pulse rounded-full bg-[#7c66ff] shadow-[0_0_16px_4px_rgba(124,102,255,0.6)]" />
+            <span className={`absolute top-0 left-0 size-10 rounded-tl-2xl border-t-4 border-l-4 ${frame}`} />
+            <span className={`absolute top-0 right-0 size-10 rounded-tr-2xl border-t-4 border-r-4 ${frame}`} />
+            <span className={`absolute bottom-0 left-0 size-10 rounded-bl-2xl border-b-4 border-l-4 ${frame}`} />
+            <span className={`absolute right-0 bottom-0 size-10 rounded-br-2xl border-r-4 border-b-4 ${frame}`} />
+            <span
+              className={`absolute inset-x-3 top-1/2 h-0.5 animate-pulse rounded-full ${exitMode ? "bg-[#60a5fa] shadow-[0_0_16px_4px_rgba(96,165,250,0.6)]" : "bg-[#7c66ff] shadow-[0_0_16px_4px_rgba(124,102,255,0.6)]"}`}
+            />
           </div>
           <p className="absolute inset-x-0 bottom-4 text-center text-sm font-medium text-white/85 drop-shadow">
-            {rehearsing ? t.rehearsal.readHint : t.scanHint}
+            {rehearsing ? t.rehearsal.readHint : exitMode ? t.mode.exitHint : t.scanHint}
           </p>
         </div>
         {cameraFailed && <p role="alert" className="w-full max-w-md rounded-xl bg-red-500/15 px-3 py-2 text-center text-red-300">{t.cameraError}</p>}
@@ -541,6 +561,39 @@ function Door({ engine, state }: { engine: DoorEngine; state: DoorState }) {
           }}
         />
       )}
+    </div>
+  );
+}
+
+/**
+ * Entrance or exit (ADR 0083): a two-way switch big enough for a thumb in the dark. The exit is
+ * blue everywhere (switch, banner, camera frame, result) so it is never mistaken for the entrance.
+ */
+function ModeSwitch({ exit, onChange }: { exit: boolean; onChange: (exit: boolean) => void }) {
+  const options = [
+    { value: false, label: t.mode.entrance, Icon: LogIn, on: "bg-white text-[#0b0a12] shadow" },
+    { value: true, label: t.mode.exit, Icon: LogOut, on: "bg-[#2563eb] text-white shadow" },
+  ] as const;
+  return (
+    <div role="radiogroup" aria-label={t.mode.label} className="grid grid-cols-2 gap-1 rounded-2xl bg-white/[0.07] p-1">
+      {options.map(({ value, label, Icon, on }) => {
+        const active = value === exit;
+        return (
+          <button
+            key={label}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            onClick={() => {
+              onChange(value);
+            }}
+            className={`flex min-h-11 items-center justify-center gap-2 rounded-xl text-base font-bold transition active:scale-[0.98] ${active ? on : "text-white/70 active:bg-white/10"}`}
+          >
+            <Icon className="size-5" aria-hidden />
+            {label}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -699,9 +752,10 @@ const TONE_CLASS = {
   ok: "bg-[#15803d] text-white",
   bad: "bg-[#c81e1e] text-white",
   warn: "bg-[#f5b70b] text-black",
+  exit: "bg-[#1d4ed8] text-white",
 } as const;
 
-const TONE_ICON = { ok: CheckCircle2, bad: XCircle, warn: AlertTriangle } as const;
+const TONE_ICON = { ok: CheckCircle2, bad: XCircle, warn: AlertTriangle, exit: LogOut } as const;
 
 /** How often the countdown of a result that leaves by itself moves. */
 const TICK_MS = 100;
@@ -795,6 +849,16 @@ function Result({ view, onDismiss, onOverride }: { view: ResultView; onDismiss: 
       <Icon className="pointer-events-none relative size-24 animate-pop" strokeWidth={2.25} aria-hidden />
       <span className="pointer-events-none relative text-[clamp(2.25rem,12vw,3rem)] leading-tight font-black tracking-tight text-balance">{view.title}</span>
       {view.number !== null && <span className="pointer-events-none relative font-mono text-4xl font-bold">{view.number}</span>}
+      {view.document !== undefined && view.document !== null && (
+        <span className="pointer-events-none relative flex w-full max-w-sm flex-col items-center gap-1.5 rounded-2xl bg-white px-5 py-4 text-[#422006] shadow-lg ring-4 ring-amber-300">
+          <span className="flex items-center gap-2 text-[clamp(1.375rem,6.5vw,1.75rem)] leading-tight font-black tracking-tight text-balance uppercase">
+            <IdCard className="size-7 shrink-0" strokeWidth={2.5} aria-hidden />
+            {t.result.documentTitle(view.document.category)}
+          </span>
+          <span className="text-lg leading-snug font-semibold text-balance">{view.document.note ?? t.result.documentAny}</span>
+          <span className="text-sm leading-snug font-medium text-[#713f12]/80 text-balance">{t.result.documentHint}</span>
+        </span>
+      )}
       {view.charge !== undefined && view.charge !== null && (
         <span className="pointer-events-none relative rounded-2xl bg-white px-5 py-3 text-[clamp(1.5rem,7vw,1.875rem)] leading-tight font-black text-balance text-[#14532d] shadow-lg">
           {view.charge}

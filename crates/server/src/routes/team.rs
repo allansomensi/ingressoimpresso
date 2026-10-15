@@ -120,7 +120,12 @@ pub fn need(method: &Method, path: &str) -> Need {
             | "events/{id}/guests"
             | "events/{id}/guests/bulk",
         )
-        | ("PUT", "door-accesses/{id}/categories" | "guests/{id}")
+        | (
+            "PUT",
+            "door-accesses/{id}/categories" | "guests/{id}"
+            // Exit and return (ADR 0083).
+            | "events/{id}/door-settings",
+        )
         | ("DELETE", "guests/{id}") => Need::Area(TeamArea::Door),
         // Categories set prices, so they belong to coordination.
         ("PUT", "events/{id}" | "team-members/{id}" | "categories/{id}")
@@ -683,6 +688,11 @@ mod tests {
             (
                 Method::PUT,
                 "door-accesses/{id}/categories",
+                Need::Area(TeamArea::Door),
+            ),
+            (
+                Method::PUT,
+                "events/{id}/door-settings",
                 Need::Area(TeamArea::Door),
             ),
             (

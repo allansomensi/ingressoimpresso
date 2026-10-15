@@ -26,6 +26,13 @@ vi.mock("@ingressoimpresso/ticket-core-wasm", () => ({
     recordEntries(): number {
       return 0;
     }
+    recordExits(): number {
+      return 0;
+    }
+    setReentry(): void {}
+    evaluateExit(): DecisionDto {
+      return { kind: "invalid", reason: "malformed" };
+    }
     evaluate(text: string): DecisionDto {
       return decisions.get(text) ?? { kind: "invalid", reason: "malformed" };
     }
@@ -45,6 +52,9 @@ vi.mock("@ingressoimpresso/ticket-core-wasm", () => ({
     get entryCount(): number {
       return 0;
     }
+    get insideCount(): number {
+      return 0;
+    }
     free(): void {}
   },
 }));
@@ -60,6 +70,7 @@ const manifest = {
     ticketPriceCents: null,
     canceledAt: null,
     inSeries: false,
+    reentry: false,
   },
   verifier: { eventId: "11111111-1111-4111-8111-111111111111", eventTag: 1, keys: [] },
   voids: [],

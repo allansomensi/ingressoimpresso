@@ -121,10 +121,11 @@ export const event = {
     suggestUse: (name: string) => `Usar ${name}`,
     freeShort: "Grátis",
     presets: [
-      { name: "Inteira", color: "#2563eb", price: "event" },
-      { name: "Meia", color: "#e11d48", price: "half" },
-      { name: "VIP", color: "#ca8a04", price: "event" },
-      { name: "Cortesia", color: "#16a34a", price: "free" },
+      { name: "Inteira", color: "#2563eb", price: "event", document: null },
+      // Meia-entrada (Lei 12.933/2013): the door asks for proof (ADR 0082).
+      { name: "Meia", color: "#e11d48", price: "half", document: "Carteira de estudante, documento de idoso, PcD ou ID Jovem" },
+      { name: "VIP", color: "#ca8a04", price: "event", document: null },
+      { name: "Cortesia", color: "#16a34a", price: "free", document: null },
     ],
     emptyTitle: "Sem categorias",
     emptyBody: "Opcional. Use quando houver meia-entrada, VIP ou convites: o porteiro reconhece pela cor da faixa.",
@@ -161,6 +162,15 @@ export const event = {
     uncategorized: (count: number) =>
       count === 1 ? "1 ingresso pago está sem categoria." : `${count.toLocaleString("pt-BR")} ingressos pagos estão sem categoria.`,
     count: (count: number) => (count === 1 ? "1 número" : `${count.toLocaleString("pt-BR")} números`),
+    // Document at the door (ADR 0082).
+    document: "Pedir documento na portaria",
+    documentHint: "A tela da portaria mostra o aviso em destaque e espera o porteiro conferir. Use na meia-entrada (Lei 12.933/2013).",
+    documentNote: "Quais documentos valem",
+    documentNotePlaceholder: "Carteira de estudante, documento de idoso, PcD ou ID Jovem",
+    documentNoteHint: "Aparece na portaria e no ingresso digital. Em branco: qualquer comprovante com foto.",
+    documentBadge: "Pede documento",
+    documentBadgeHint: (note: string) => `Na portaria: ${note}`,
+    suggestDocument: (name: string) => `${name} pede documento na portaria`,
     bandTip: "A faixa aparece no editor do ingresso, onde dá para escolher a borda e a espessura.",
     bandTipAction: "Ver no ingresso",
   },
@@ -1198,6 +1208,17 @@ export const event = {
     disconnect: "Desconectar",
     disconnectConfirmTitle: (name: string) => `Desconectar “${name}”?`,
     disconnectConfirmBody: "Esse celular para de ler ingressos na próxima sincronização.",
+    // Exit and return (ADR 0083).
+    reentry: "Saída e volta",
+    reentryHint:
+      "Quem sai pode voltar com o mesmo ingresso. O celular da saída lê o ingresso de quem sai; na volta, ele entra de novo e uma cópia continua barrada.",
+    reentrySteps: [
+      "No celular da saída, toque em Saída: a tela fica azul.",
+      "Leia o ingresso de quem vai sair (e pode voltar).",
+      "Na volta, a portaria lê como sempre: o ingresso entra de novo.",
+    ],
+    reentryOn: "Saída e volta ligada. Os celulares recebem na próxima sincronização.",
+    reentryOff: "Saída e volta desligada: quem já entrou não entra de novo.",
     // Door features (ADRs 0067, 0068, 0071).
     categories: "Aceitar só estas categorias",
     categoriesHint: "Nenhuma marcada: a porta aceita todos os ingressos. Ingresso de outra categoria aparece em amarelo, com a porta certa.",
@@ -1267,6 +1288,14 @@ export const event = {
     guests: "Lista de nomes",
     guestsValue: (arrived: string, total: string) => `${arrived} de ${total}`,
     guestsHint: (names: string, total: string) => `pessoas · ${names} de ${total} nomes`,
+    // Exit and return (ADR 0083).
+    insideNow: "Lá dentro agora",
+    insideHint: (entries: string) => `de ${entries} que entraram`,
+    outNow: "Fora, podem voltar",
+    outHint: (exits: number) => (exits === 1 ? "1 saída lida" : `${String(exits)} saídas lidas`),
+    reentryOff: "saída e volta desligada",
+    returned: "Voltaram",
+    returnedHint: "entradas de volta, depois de sair",
     boxOffice: "Bilheteria",
     boxOfficeHint: (count: number) => (count === 1 ? "1 vendido na porta" : `${String(count)} vendidos na porta`),
     boxOfficeNoPrice: "sem preço",

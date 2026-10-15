@@ -9,8 +9,10 @@ import {
   DoorOpen,
   ListChecks,
   LogIn,
+  LogOut,
   Maximize2,
   Minimize2,
+  RotateCcw,
   ShieldX,
   Smartphone,
   Store,
@@ -137,6 +139,20 @@ export function LiveTab({ eventId, onSelect }: { eventId: string; onSelect: Sele
           <EntriesCurve buckets={data.timeline} />
         </Card>
       </div>
+
+      {/* Exit and return (ADR 0083): who is in the room now, not only who ever entered. */}
+      {data.reentry !== null && (
+        <div className="grid grid-cols-3 gap-2 sm:gap-4">
+          <Stat label={t.insideNow} value={count(data.reentry.inside)} hint={t.insideHint(count(data.entries))} icon={LogIn} tone="success" />
+          <Stat
+            label={t.outNow}
+            value={data.reentry.allowed ? count(data.reentry.out) : "—"}
+            hint={data.reentry.allowed ? t.outHint(data.reentry.exits) : t.reentryOff}
+            icon={LogOut}
+          />
+          <Stat label={t.returned} value={count(data.reentry.returns)} hint={t.returnedHint} icon={RotateCcw} />
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-4">
         <Stat

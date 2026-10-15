@@ -20,8 +20,18 @@ use crate::state::AppState;
 pub const MAX_CATEGORIES: i64 = 12;
 const MAX_NAME: usize = 30;
 const MAX_PRICE_CENTS: i32 = 100_000_000;
+/// Longest note on which documents count (ADR 0082): it has to fit the door's screen.
+const MAX_DOCUMENT_NOTE: usize = 80;
 
-fn validate(body: &CategoryBody) -> ApiResult<(String, String)> {
+/// A category's fields, checked.
+struct ValidCategory {
+    name: String,
+    color: String,
+    check_document: bool,
+    document_note: Option<String>,
+}
+
+fn validate(body: &CategoryBody) -> ApiResult<ValidCategory> {
     let name = body.name.trim().to_owned();
     if name.is_empty() || name.chars().count() > MAX_NAME {
         return Err(bad_request(
@@ -43,7 +53,24 @@ fn validate(body: &CategoryBody) -> ApiResult<(String, String)> {
     {
         return Err(bad_request("invalid_price", "price out of range"));
     }
-    Ok((name, color))
+    let check_document = body.check_document.unwrap_or(false);
+    // A note without the check would never show: it is dropped with the check.
+    let document_note = super::optional_text(body.document_note.clone()).filter(|_| check_document);
+    if let Some(note) = &document_note {
+        if note.chars().count() > MAX_DOCUMENT_NOTE {
+            return Err(bad_request(
+                "invalid_document_note",
+                format!("note must have up to {MAX_DOCUMENT_NOTE} characters"),
+            ));
+        }
+        one_line(note, "invalid_document_note")?;
+    }
+    Ok(ValidCategory {
+        name,
+        color,
+        check_document,
+        document_note,
+    })
 }
 
 fn renamed(error: sqlx::Error) -> ApiError {
@@ -59,7 +86,8 @@ fn renamed(error: sqlx::Error) -> ApiError {
 /// Categories of an event with their ranges, in the order they were created.
 pub(crate) async fn load(pool: &PgPool, event_id: Uuid) -> ApiResult<Vec<CategoryDto>> {
     let categories = sqlx::query!(
-        "select id, name, color, price_cents from ticket_categories where event_id = $1 order by position, created_at",
+        r#"select id, name, color, price_cents, check_document, document_note
+           from ticket_categories where event_id = $1 order by position, created_at"#,
         event_id
     )
     .fetch_all(pool)
@@ -87,6 +115,8 @@ pub(crate) async fn load(pool: &PgPool, event_id: Uuid) -> ApiResult<Vec<Categor
             name: row.name,
             color: row.color,
             price_cents: row.price_cents,
+            check_document: row.check_document,
+            document_note: row.document_note,
         })
         .collect())
 }
@@ -109,7 +139,7 @@ pub async fn create(
     Json(body): Json<CategoryBody>,
 ) -> ApiResult<(StatusCode, Json<CategoryDto>)> {
     authorize_event(&state.pool, &user, event_id).await?;
-    let (name, color) = validate(&body)?;
+    let valid = validate(&body)?;
     let count = sqlx::query_scalar!(
         r#"select count(*) as "count!" from ticket_categories where event_id = $1"#,
         event_id
@@ -124,14 +154,17 @@ pub async fn create(
     }
     let id = Uuid::new_v4();
     sqlx::query!(
-        r#"insert into ticket_categories (id, event_id, name, color, price_cents, position)
-           values ($1, $2, $3, $4, $5, $6)"#,
+        r#"insert into ticket_categories (id, event_id, name, color, price_cents, position,
+                                         check_document, document_note)
+           values ($1, $2, $3, $4, $5, $6, $7, $8)"#,
         id,
         event_id,
-        name,
-        color,
+        valid.name,
+        valid.color,
         body.price_cents,
         i16::try_from(count).unwrap_or(i16::MAX),
+        valid.check_document,
+        valid.document_note,
     )
     .execute(&state.pool)
     .await
@@ -140,9 +173,11 @@ pub async fn create(
         StatusCode::CREATED,
         Json(CategoryDto {
             id,
-            name,
-            color,
+            name: valid.name,
+            color: valid.color,
             price_cents: body.price_cents,
+            check_document: valid.check_document,
+            document_note: valid.document_note,
             ranges: Vec::new(),
         }),
     ))
@@ -168,13 +203,17 @@ pub async fn update(
     Json(body): Json<CategoryBody>,
 ) -> ApiResult<StatusCode> {
     category_event(&state, &user, category_id).await?;
-    let (name, color) = validate(&body)?;
+    let valid = validate(&body)?;
     sqlx::query!(
-        "update ticket_categories set name = $2, color = $3, price_cents = $4 where id = $1",
+        r#"update ticket_categories
+           set name = $2, color = $3, price_cents = $4, check_document = $5, document_note = $6
+           where id = $1"#,
         category_id,
-        name,
-        color,
+        valid.name,
+        valid.color,
         body.price_cents,
+        valid.check_document,
+        valid.document_note,
     )
     .execute(&state.pool)
     .await
@@ -251,10 +290,20 @@ pub async fn unassign(
     Ok(StatusCode::NO_CONTENT)
 }
 
+/// A category range as the files and the public pages need it.
+#[derive(Debug, Clone)]
+struct TaggedRange {
+    first: i32,
+    last: i32,
+    category: ticket_render::TicketCategory,
+    check_document: bool,
+    document_note: Option<String>,
+}
+
 /// What each number prints and costs: category ranges with name, colour and price.
 #[derive(Debug, Clone, Default)]
 pub(crate) struct NumberTags {
-    categories: Vec<(i32, i32, ticket_render::TicketCategory)>,
+    categories: Vec<TaggedRange>,
     seats: HashMap<i32, String>,
 }
 
@@ -263,7 +312,8 @@ impl NumberTags {
     pub(crate) async fn load(pool: &PgPool, event_id: Uuid) -> ApiResult<Self> {
         let mut categories = Vec::new();
         for row in sqlx::query!(
-            r#"select r.numbers, c.name, c.color, c.price_cents from category_ranges r
+            r#"select r.numbers, c.name, c.color, c.price_cents, c.check_document, c.document_note
+               from category_ranges r
                join ticket_categories c on c.id = r.category_id where r.event_id = $1"#,
             event_id
         )
@@ -271,15 +321,17 @@ impl NumberTags {
         .await?
         {
             let (first, last) = bounds(&row.numbers)?;
-            categories.push((
+            categories.push(TaggedRange {
                 first,
                 last,
-                ticket_render::TicketCategory {
+                category: ticket_render::TicketCategory {
                     name: row.name,
                     color: row.color,
                     price_cents: row.price_cents.map(i64::from),
                 },
-            ));
+                check_document: row.check_document,
+                document_note: row.document_note,
+            });
         }
         let seats = sqlx::query!(
             r#"select s.ticket_number, s.seat, t.name from ticket_seats s
@@ -299,12 +351,27 @@ impl NumberTags {
         Ok(Self { categories, seats })
     }
 
-    /// The category of `number`.
-    pub(crate) fn category(&self, number: i32) -> Option<ticket_render::TicketCategory> {
+    fn range(&self, number: i32) -> Option<&TaggedRange> {
         self.categories
             .iter()
-            .find(|(first, last, _)| *first <= number && number <= *last)
-            .map(|(_, _, category)| category.clone())
+            .find(|range| range.first <= number && number <= range.last)
+    }
+
+    /// The category of `number`.
+    pub(crate) fn category(&self, number: i32) -> Option<ticket_render::TicketCategory> {
+        self.range(number).map(|range| range.category.clone())
+    }
+
+    /// The category of `number` as the public pages show it: name, colour and the document the
+    /// door asks for (ADR 0082).
+    pub(crate) fn tag(&self, number: i32) -> Option<crate::api::DoorCategoryTagDto> {
+        self.range(number)
+            .map(|range| crate::api::DoorCategoryTagDto {
+                name: range.category.name.clone(),
+                color: range.category.color.clone(),
+                check_document: range.check_document,
+                document_note: range.document_note.clone(),
+            })
     }
 
     /// The table and seat of `number`, e.g. `"Mesa 5 · Lugar 3"`.

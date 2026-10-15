@@ -14,6 +14,12 @@ e não acompanha estes números.
 
 ### Adicionado
 
+- Categorias que pedem documento na portaria, como a meia-entrada: a tela verde mostra "Meia:
+  peça o documento" com os documentos que valem e espera o porteiro conferir. O ingresso digital
+  e a página Conferir ingresso avisam quem vai entrar.
+- Saída e volta: com a opção ligada na aba Portaria, quem sai pode voltar com o mesmo ingresso. Um
+  celular lê a saída (tela azul), a volta entra pela portaria normal e uma cópia continua barrada
+  enquanto o ingresso está lá dentro. O Ao vivo mostra quem está dentro e quem está fora.
 - Medição de velocidade do site nos aparelhos de quem visita (Vercel Speed Insights), fora da
   portaria, para acompanhar o efeito das melhorias de desempenho.
 - Guias para quem organiza evento, em `/guias`: como fazer ingresso para festa, evitar ingresso

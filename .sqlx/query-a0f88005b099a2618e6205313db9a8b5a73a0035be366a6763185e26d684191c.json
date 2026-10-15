@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select s.id, s.ticket_number as \"ticket_number!\", s.scanned_at, d.name\n           from scans s join door_devices d on d.id = s.device_id\n           where s.event_id = $1 and s.local_outcome = 'admitted'\n             and s.txid >= $2::bigint::text::xid8 and s.txid < $3::bigint::text::xid8\n           order by s.txid, s.id",
+  "query": "select s.id, s.ticket_number as \"ticket_number!\", s.scanned_at, s.local_outcome, d.name\n           from scans s join door_devices d on d.id = s.device_id\n           where s.event_id = $1 and s.local_outcome in ('admitted', 'readmitted', 'exited')\n             and s.txid >= $2::bigint::text::xid8 and s.txid < $3::bigint::text::xid8\n           order by s.txid, s.id",
   "describe": {
     "columns": [
       {
@@ -38,6 +38,17 @@
       },
       {
         "ordinal": 3,
+        "name": "local_outcome",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "scans",
+            "name": "local_outcome"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
         "name": "name",
         "type_info": "Text",
         "origin": {
@@ -59,8 +70,9 @@
       false,
       true,
       false,
+      false,
       false
     ]
   },
-  "hash": "685a863bae689d417a1faea148fef484c408cfb7570edb1b1bf22814801861f1"
+  "hash": "a0f88005b099a2618e6205313db9a8b5a73a0035be366a6763185e26d684191c"
 }

@@ -1,16 +1,16 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select r.numbers, c.name, c.color, c.price_cents from category_ranges r\n               join ticket_categories c on c.id = r.category_id where r.event_id = $1",
+  "query": "select id, name, color, price_cents, check_document, document_note\n           from ticket_categories where event_id = $1 order by position, created_at",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "numbers",
-        "type_info": "Int4Range",
+        "name": "id",
+        "type_info": "Uuid",
         "origin": {
           "Table": {
-            "table": "category_ranges",
-            "name": "numbers"
+            "table": "ticket_categories",
+            "name": "id"
           }
         }
       },
@@ -46,6 +46,28 @@
             "name": "price_cents"
           }
         }
+      },
+      {
+        "ordinal": 4,
+        "name": "check_document",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "ticket_categories",
+            "name": "check_document"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "document_note",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ticket_categories",
+            "name": "document_note"
+          }
+        }
       }
     ],
     "parameters": {
@@ -57,8 +79,10 @@
       false,
       false,
       false,
+      true,
+      false,
       true
     ]
   },
-  "hash": "555335c4242e8aa81ac0a4567dc3df723b1256d3df3dca23599b42d58fd2578f"
+  "hash": "28f5fda1181c8715d55ff6fe219e51a0387d079703e556fc8142bd54ad7f747e"
 }

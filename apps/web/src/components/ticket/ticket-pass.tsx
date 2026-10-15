@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   Download,
   ExternalLink,
+  IdCard,
   ImageIcon,
   MapPin,
   Navigation,
@@ -366,6 +367,17 @@ export function TicketPass() {
                   {seat}
                 </span>
               )}
+            </div>
+          )}
+
+          {category?.checkDocument === true && pass.state === "valid" && !canceled && (
+            <div className="flex w-full items-start gap-3 rounded-2xl border border-warning/30 bg-warning-soft px-4 py-3 text-left text-warning-fg">
+              <IdCard className="mt-0.5 size-5 shrink-0" aria-hidden />
+              <p className="flex flex-col gap-0.5 text-sm leading-relaxed">
+                <span className="font-semibold">{t.documentTitle(category.name)}</span>
+                <span>{category.documentNote ?? t.documentAny}</span>
+                <span className="text-xs opacity-85">{t.documentBody}</span>
+              </p>
             </div>
           )}
 

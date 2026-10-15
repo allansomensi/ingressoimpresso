@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update events c set sellers_send_tickets = s.sellers_send_tickets,\n                              sellers_ranking = s.sellers_ranking, public_verify = s.public_verify,\n                              reentry = s.reentry, series_id = $3\n           from events s where s.id = $1 and c.id = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f4f61bcdfb03844237ea2b5cd0ffa7f763063843becb2a6c413cb4a53b7960e5"
+}

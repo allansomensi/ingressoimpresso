@@ -51,7 +51,8 @@ export function isSampleQr(text: string): boolean {
 
 const t = portariaTexts.result;
 
-export type Tone = "ok" | "bad" | "warn";
+/** Green, red, yellow, and blue for a ticket going out (re-entry, ADR 0083). */
+export type Tone = "ok" | "bad" | "warn" | "exit";
 
 /** The full-screen result of a scan. */
 export interface ResultView {
@@ -69,6 +70,8 @@ export interface ResultView {
   seat: string | null;
   /** Box office (ADR 0069): what to charge before handing the ticket over. */
   charge?: string | null;
+  /** The category asks for a document (ADR 0082): which one, before letting in. */
+  document?: DocumentCheck | null;
   /** Wrong door (ADR 0068): the doorkeeper may let the guest in anyway. */
   override?: boolean;
   /** Rehearsal (ADR 0067): what would happen; nothing was recorded. */
@@ -82,6 +85,12 @@ export function outcomeOf(decision: DecisionDto): ScanOutcome {
   switch (decision.kind) {
     case "admit":
       return "admitted";
+    case "readmit":
+      return "readmitted";
+    case "exit":
+      return "exited";
+    case "already_out":
+      return "rejected_already_out";
     case "already_entered":
       return "rejected_used";
     case "voided":
@@ -95,9 +104,12 @@ export function outcomeOf(decision: DecisionDto): ScanOutcome {
 
 /** The ticket number of an authentic ticket of this event. */
 export function numberOf(decision: DecisionDto): number | null {
-  return decision.kind === "admit" || decision.kind === "already_entered" || decision.kind === "voided"
-    ? decision.number
-    : null;
+  return decision.kind === "other_event" || decision.kind === "invalid" ? null : decision.number;
+}
+
+/** Whether the decision lets the ticket in (a first entry or a return, ADR 0083). */
+export function isEntry(decision: DecisionDto): decision is Extract<DecisionDto, { kind: "admit" | "readmit" }> {
+  return decision.kind === "admit" || decision.kind === "readmit";
 }
 
 /** Seller whose range holds `number` (ranges never overlap). */
@@ -107,8 +119,24 @@ export function sellerOf(sellers: readonly DoorSeller[], number: number): string
 
 /** A seller's range as stored: manifests saved by older apps lack `boxOffice`. */
 export type DoorSeller = Omit<DoorSellerRangeDto, "boxOffice"> & { boxOffice?: boolean };
-/** A category's range as stored: manifests saved by older apps lack `id` and `priceCents`. */
-export type DoorCategory = Omit<DoorCategoryRangeDto, "id" | "priceCents"> & { id?: string; priceCents?: number | null };
+/**
+ * A category's range as stored: manifests saved by older apps lack `id` and `priceCents`, and
+ * those saved before ADR 0082 the document check.
+ */
+export type DoorCategory = Omit<DoorCategoryRangeDto, "id" | "priceCents" | "checkDocument" | "documentNote"> & {
+  id?: string;
+  priceCents?: number | null;
+  checkDocument?: boolean;
+  documentNote?: string | null;
+};
+
+/** What the doorkeeper asks to see before letting a ticket in (ADR 0082). */
+export interface DocumentCheck {
+  /** The category that asks for it ("Meia"). */
+  category: string;
+  /** Which documents count; `null`: any proof of the right. */
+  note: string | null;
+}
 
 /** What the door knows about the numbers besides the QR (sent whole by the manifest). */
 export interface DoorContext {
@@ -124,6 +152,8 @@ export interface DoorContext {
   priceCents?: number | null;
   /** The other dates of the event's series (ADR 0077): their tickets are told apart. */
   sessions?: readonly DoorSessionDto[];
+  /** A ticket that went out may come back (ADR 0083): "already entered" means "inside now". */
+  reentry?: boolean;
 }
 
 /** The session of another date of the series a QR tag belongs to, if any (ADR 0077). */
@@ -135,6 +165,12 @@ export function otherSession(context: DoorContext, eventTag: number): string | n
 /** Category range that holds `number`. */
 function categoryRangeOf(categories: readonly DoorCategory[], number: number): DoorCategory | null {
   return categories.find((item) => item.first <= number && number <= item.last) ?? null;
+}
+
+/** The document `number` must show at the door, when its category asks for one (ADR 0082). */
+export function documentOf(categories: readonly DoorCategory[], number: number): DocumentCheck | null {
+  const range = categoryRangeOf(categories, number);
+  return range?.checkDocument === true ? { category: range.name, note: range.documentNote ?? null } : null;
 }
 
 /** Category whose range holds `number`. */
@@ -235,6 +271,7 @@ export function viewOf(
   switch (decision.kind) {
     case "admit": {
       const price = boxOfficePrice(context, decision.number);
+      const document = documentOf(context.categories, decision.number);
       return {
         tone: "ok",
         title: t.admit,
@@ -243,15 +280,40 @@ export function viewOf(
         seller: sellerLine,
         ...tags,
         ...(price === undefined ? {} : { charge: chargeLine(price) }),
+        ...(document === null ? {} : { document }),
       };
     }
     case "already_entered":
       return {
         tone: "bad",
-        title: t.alreadyEntered,
+        title: context.reentry === true ? t.inside : t.alreadyEntered,
         number: label,
-        detail: t.alreadyEnteredAt(clockTime(decision.firstEntry.atUnixMs), decision.firstEntry.deviceName),
+        detail: (context.reentry === true ? t.insideSince : t.alreadyEnteredAt)(
+          clockTime(decision.firstEntry.atUnixMs),
+          decision.firstEntry.deviceName,
+        ),
         seller: sellerLine,
+        ...tags,
+      };
+    // Re-entry (ADR 0083): a return was checked on the way in; no document, no charge again.
+    case "readmit":
+      return {
+        tone: "ok",
+        title: t.admit,
+        number: label,
+        detail: t.returning(clockTime(decision.exited.atUnixMs), decision.exited.deviceName),
+        seller: sellerLine,
+        ...tags,
+      };
+    case "exit":
+      return { tone: "exit", title: t.exit, number: label, detail: t.exitDetail, seller: null, ...tags };
+    case "already_out":
+      return {
+        tone: "warn",
+        title: t.alreadyOut,
+        number: label,
+        detail: t.alreadyOutAt(clockTime(decision.exited.atUnixMs), decision.exited.deviceName),
+        seller: null,
         ...tags,
       };
     case "voided":
@@ -296,7 +358,7 @@ export function rehearsalView(text: string, decision: DecisionDto, context: Door
   if (decision.kind === "invalid" && decision.reason === "malformed") {
     return { ...base, tone: "warn", title: r.otherQrTitle, detail: r.otherQrDetail };
   }
-  if (decision.kind === "admit") {
+  if (isEntry(decision)) {
     const wrong = wrongDoor(context, decision.number);
     if (wrong !== null) {
       return { ...wrongDoorView(decision.number, wrong, context), override: false, rehearsal: true };
@@ -304,6 +366,9 @@ export function rehearsalView(text: string, decision: DecisionDto, context: Door
     // Never the green "PODE ENTRAR" of real work: a volunteer who forgot the rehearsal on could
     // let people in without an entry.
     return { ...viewOf(decision, context), tone: "warn", title: r.wouldAdmit, rehearsal: true };
+  }
+  if (decision.kind === "exit") {
+    return { ...viewOf(decision, context), tone: "warn", title: r.wouldExit, rehearsal: true };
   }
   return { ...viewOf(decision, context), rehearsal: true };
 }
@@ -332,10 +397,16 @@ export type DismissPolicy = { auto: true; ms: number } | { auto: false };
 
 /**
  * Only a plain "enter" leaves by itself, so the queue keeps moving. Anything to read or act on
- * (a refusal, a warning, a box office charge, a wrong door) stays until the doorkeeper taps.
+ * (a refusal, a warning, a box office charge, a wrong door, a document to check) stays until the
+ * doorkeeper taps.
  */
 export function dismissPolicy(view: ResultView): DismissPolicy {
-  if (view.tone !== "ok" || view.override === true || (view.charge !== undefined && view.charge !== null)) {
+  if (
+    (view.tone !== "ok" && view.tone !== "exit") ||
+    view.override === true ||
+    (view.charge !== undefined && view.charge !== null) ||
+    (view.document !== undefined && view.document !== null)
+  ) {
     return { auto: false };
   }
   return { auto: true, ms: view.rehearsal === true ? REHEARSAL_AUTO_MS : RESULT_AUTO_MS };
@@ -349,7 +420,7 @@ export function canReplaceResult(view: ResultView, shownForMs: number): boolean 
   return dismissPolicy(view).auto && shownForMs >= MIN_RESULT_MS;
 }
 
-/** Screen after the server found a copy (the first entry was on another phone). */
+/** Screen after the server found a copy (the first entry, or the return, was on another phone). */
 export function alreadyEnteredView(
   number: number,
   firstEntry: { atUnixMs: number; deviceName: string },

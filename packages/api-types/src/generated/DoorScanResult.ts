@@ -12,11 +12,11 @@ export type DoorScanResult = {
  */
 id: string, 
 /**
- * For admitted scans: first entry, duplicate or voided ticket.
+ * For admitted scans: first entry, return, duplicate or voided ticket.
  */
 class: ScanClass | null, 
 /**
- * For duplicates: the first entry.
+ * For duplicates: the first entry (with re-entry, the entry that holds now).
  */
 firstEntry: DoorFirstEntryDto | null, 
 /**

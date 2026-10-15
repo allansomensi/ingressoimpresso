@@ -91,3 +91,5 @@ feita e as consequências.
 | [0079](0079-admin-alcanca-todos-os-recursos.md) | O admin alcança todos os recursos | Aceito |
 | [0080](0080-ajustes-da-porta-dos-vendedores-e-das-categorias.md) | Link da porta de novo, ensaio opcional, "todos os livres" e preço da categoria no papel | Aceito |
 | [0081](0081-guias-precos-e-seo-tecnico.md) | Guias, página de preços e SEO técnico | Aceito |
+| [0082](0082-documento-na-portaria.md) | Documento na portaria | Aceito |
+| [0083](0083-saida-e-volta.md) | Saída e volta | Aceito |

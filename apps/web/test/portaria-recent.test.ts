@@ -153,6 +153,6 @@ describe("recent scans of this phone", () => {
         scan({ id: "3", outcome: "rejected_used", synced: 0 }),
         scan({ id: "4", outcome: "admitted", verdict: { kind: "voided", reason: "lost" } }),
       ]),
-    ).toEqual({ admitted: 2, refused: 2, pending: 2 });
+    ).toEqual({ admitted: 2, exits: 0, refused: 2, pending: 2 });
   });
 });

@@ -516,11 +516,11 @@ pub(crate) async fn copy_event(
     super::team::copy(tx, event_id, copy.id, to.user_id).await?;
     copy_categories_and_tables(tx, event_id, copy.id).await?;
     // The event's switches are setup too: sellers sending tickets (ADR 0061), the sellers'
-    // ranking (ADR 0073) and the public check (ADR 0075).
+    // ranking (ADR 0073), the public check (ADR 0075) and exit and return (ADR 0083).
     sqlx::query!(
         r#"update events c set sellers_send_tickets = s.sellers_send_tickets,
                               sellers_ranking = s.sellers_ranking, public_verify = s.public_verify,
-                              series_id = $3
+                              reentry = s.reentry, series_id = $3
            from events s where s.id = $1 and c.id = $2"#,
         event_id,
         copy.id,
@@ -546,8 +546,10 @@ async fn copy_categories_and_tables(
     for category in categories {
         let new_id = Uuid::new_v4();
         sqlx::query!(
-            r#"insert into ticket_categories (id, event_id, name, color, price_cents, position)
-               select $3, $2, name, color, price_cents, position from ticket_categories where id = $1"#,
+            r#"insert into ticket_categories (id, event_id, name, color, price_cents, position,
+                                             check_document, document_note)
+               select $3, $2, name, color, price_cents, position, check_document, document_note
+               from ticket_categories where id = $1"#,
             category.id,
             to,
             new_id,

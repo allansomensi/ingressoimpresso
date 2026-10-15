@@ -14,6 +14,10 @@ export const ticket = {
   number: "Ingresso",
   show: "Mostre este QR code na entrada",
   brightness: "Deixe o brilho da tela no máximo",
+  // A category that asks for a document at the door (ADR 0082).
+  documentTitle: (category: string) => `${category}: leve um documento`,
+  documentBody: "A portaria confere antes de você entrar.",
+  documentAny: "Leve um comprovante do direito ao benefício, com foto.",
   valid: "Válido",
   entered: (when: string) => `Já utilizado ${when}`,
   enteredNote: "Este ingresso já passou pela porta. Se você saiu e quer voltar, fale com a equipe da entrada.",

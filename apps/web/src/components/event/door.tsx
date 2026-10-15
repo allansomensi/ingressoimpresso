@@ -8,6 +8,7 @@ import type {
   DoorAccessDto,
   DoorDeviceDto,
   DoorOverviewDto,
+  DoorSettingsBody,
 } from "@ingressoimpresso/api-types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -18,6 +19,7 @@ import {
   Download,
   Link2,
   LogIn,
+  LogOut,
   MessageCircle,
   Plus,
   QrCode as QrCodeIcon,
@@ -41,6 +43,7 @@ import {
   Lead,
   LoadingBlock,
   Stat,
+  Switch,
   buttonClass,
   errorMessage,
   useConfirm,
@@ -141,6 +144,19 @@ export function DoorTab({ eventId }: { eventId: string }) {
     },
     onError,
   });
+  // Exit and return (ADR 0083): the phones pick the change up on their next sync.
+  const reentry = useMutation({
+    mutationFn: (allowed: boolean) => {
+      const body: DoorSettingsBody = { reentry: allowed };
+      return api<DoorOverviewDto>(`/api/events/${eventId}/door-settings`, { method: "PUT", body });
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(key, data);
+      toast.success(data.reentry ? t.reentryOn : t.reentryOff);
+      void queryClient.invalidateQueries({ queryKey: ["door-live", eventId] });
+    },
+    onError,
+  });
   const revokeDevice = useMutation({
     mutationFn: (id: string) => api<DoorDeviceDto>(`/api/door-devices/${id}/revoke`, { method: "POST" }),
     onSuccess: () => {
@@ -187,6 +203,36 @@ export function DoorTab({ eventId }: { eventId: string }) {
         <Stat label={t.devicesOnline} value={overview.data.devices.filter(online).length} icon={Smartphone} />
         <Stat label={t.linksActive} value={activeLinks} icon={Link2} />
       </div>
+
+      <Card className="flex flex-col gap-4">
+        <div className="flex items-start gap-3">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-brand-soft-fg">
+            <LogOut className="size-5" aria-hidden />
+          </span>
+          <div className="min-w-0 flex-1">
+            <Switch
+              checked={reentry.isPending ? reentry.variables : overview.data.reentry}
+              onChange={(allowed) => {
+                reentry.mutate(allowed);
+              }}
+              label={t.reentry}
+              description={t.reentryHint}
+            />
+          </div>
+        </div>
+        {overview.data.reentry && (
+          <ol className="grid gap-2 sm:grid-cols-3">
+            {t.reentrySteps.map((step, index) => (
+              <li key={step} className="flex items-start gap-2.5 rounded-xl bg-surface-2 p-3 text-sm leading-relaxed text-fg-muted">
+                <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-brand-solid text-xs font-bold text-white tabular">
+                  {index + 1}
+                </span>
+                {step}
+              </li>
+            ))}
+          </ol>
+        )}
+      </Card>
 
       {created !== null && (
         <div ref={createdRef} className="scroll-mt-32">

@@ -1,16 +1,16 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select c.id, c.name, c.color, c.price_cents, r.numbers from category_ranges r\n           join ticket_categories c on c.id = r.category_id\n           where r.event_id = $1 order by lower(r.numbers)",
+  "query": "select r.numbers, c.name, c.color, c.price_cents, c.check_document, c.document_note\n               from category_ranges r\n               join ticket_categories c on c.id = r.category_id where r.event_id = $1",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "id",
-        "type_info": "Uuid",
+        "name": "numbers",
+        "type_info": "Int4Range",
         "origin": {
           "Table": {
-            "table": "ticket_categories",
-            "name": "id"
+            "table": "category_ranges",
+            "name": "numbers"
           }
         }
       },
@@ -49,12 +49,23 @@
       },
       {
         "ordinal": 4,
-        "name": "numbers",
-        "type_info": "Int4Range",
+        "name": "check_document",
+        "type_info": "Bool",
         "origin": {
           "Table": {
-            "table": "category_ranges",
-            "name": "numbers"
+            "table": "ticket_categories",
+            "name": "check_document"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "document_note",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ticket_categories",
+            "name": "document_note"
           }
         }
       }
@@ -69,8 +80,9 @@
       false,
       false,
       true,
-      false
+      false,
+      true
     ]
   },
-  "hash": "5ac017c6494ed929c49d97a51b95cf55bd794eb3a4eacaa834cd50f4aa482fb5"
+  "hash": "bdc5b6510c2b3b72322e227b287c881559eebe578ca65c66a7093471231b601f"
 }

@@ -40,4 +40,8 @@ canceledAt: string | null,
 /**
  * One of several dates (ADR 0077): the door says which session it is for.
  */
-inSeries: boolean, };
+inSeries: boolean, 
+/**
+ * A ticket that went out may come back in (ADR 0083): the door offers the exit.
+ */
+reentry: boolean, };
