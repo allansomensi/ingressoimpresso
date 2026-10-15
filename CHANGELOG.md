@@ -23,12 +23,15 @@ e não acompanha estes números.
 - Fichas de consumo: um evento pode imprimir fichas de bebida e comida em vez de ingressos. Cada
   produto tem cor e preço, a ficha sai com o produto em letras grandes (modelos novos, 21 por folha
   A4) e cada barraca dá baixa pelo celular, mesmo sem internet. Ficha usada ou copiada não passa
-  duas vezes.
+  duas vezes. O painel, o link do vendedor, o app da barraca, a ficha no celular, os arquivos e os
+  e-mails falam de ficha, barraca e produto, e um evento novo de fichas já começa com o desenho da
+  ficha.
 - Campo `{categoria}` nos textos do ingresso: imprime a categoria de cada número.
 - Pix copia e cola direto para quem organiza: com a chave cadastrada em Minha organização (ou a de
   cada vendedor), o link do vendedor e o ingresso no celular mostram o QR e o código com o valor
   e um identificador por número. O dinheiro não passa pela plataforma. Em Vendedores, **Conferir
   Pix** marca o que chegou no extrato, e o que a organização recebeu sai do acerto do vendedor.
+  Número vendido em mãos e segunda via não pedem pagamento de novo no celular.
 - Medição de velocidade do site nos aparelhos de quem visita (Vercel Speed Insights), fora da
   portaria, para acompanhar o efeito das melhorias de desempenho.
 - Guias para quem organiza evento, em `/guias`: como fazer ingresso para festa, evitar ingresso
