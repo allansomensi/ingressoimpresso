@@ -1,3 +1,5 @@
+import type { Known, Overrides } from "@/lib/event-kind";
+
 import { capital } from "./helpers";
 
 export const sellerPage = {
@@ -103,6 +105,7 @@ export const sellerPage = {
     expired: (holder: string | null) => `O prazo da reserva${holder === null ? "" : ` de ${holder}`} passou antes de ela ser enviada: os números continuam livres.`,
     eventCanceled: "O evento foi cancelado: esta alteração não foi feita.",
     boxOffice: "A bilheteria não faz reservas: os números são vendidos na porta.",
+    pixReceived: "O Pix desta venda já foi recebido: a venda continua. Se precisar desfazer, fale com a organização.",
     invalid: "Esta alteração tinha um dado inválido e não foi feita.",
     ops: {
       mark: (numbers: string, buyer: string | null) => `Venda do ${numbers}${buyer === null ? "" : ` para ${buyer}`}`,
@@ -212,4 +215,33 @@ export const sellerPage = {
     ticketMessage: (name: string | null, event: string, number: string, url: string) =>
       `${name === null ? "Olá!" : `Olá, ${name}!`} Seu ingresso nº ${number} para ${event} está aqui:\n${url}\n\nNa entrada, mostre o QR code na tela. Dica: abra o link uma vez antes, para ele funcionar sem internet.`,
   },
+  // Consumption tokens (ADR 0086): the same page in the words of a ficha.
+  tokens: {
+    money: { byCategory: "por produto", noCategory: "sem produto" },
+    categoriesLegend: "Produtos",
+    offline: {
+      ticketOffline: "Criar a ficha no celular precisa de internet. Marque a venda agora e envie a ficha quando a conexão voltar.",
+    },
+    canceledNoSales: "Com o evento cancelado, não dá mais para marcar vendas nem enviar fichas.",
+    sheet: {
+      buyerHint: "Opcional. Ajuda a lembrar de quem é cada ficha.",
+      preview: (count: number, numbers: string) => `${count === 1 ? "1 ficha" : `${count.toLocaleString("pt-BR")} fichas`}: ${numbers}`,
+    },
+    sale: {
+      title: (number: string) => `Ficha ${number}`,
+      soldAt: (when: string) => `Vendida em ${when}`,
+      ticketTitle: "Ficha no celular",
+      ticketHint: "Mande a ficha para o celular de quem comprou. É o mesmo QR do papel: vale uma vez só.",
+      ticketCreate: "Criar ficha no celular",
+      ticketReady: "Ficha pronta. Agora é só enviar.",
+      ticketSent: "O link abre a ficha no celular de quem comprou, até sem internet depois de aberto uma vez.",
+      ticketPaper: "Se a pessoa também levou o papel, só um dos dois vale na barraca.",
+      ticketMessage: (name: string | null, event: string, number: string, url: string) =>
+        `${name === null ? "Olá!" : `Olá, ${name}!`} Sua ficha nº ${number} para ${event} está aqui:\n${url}\n\nNa barraca, mostre o QR code na tela. Dica: abra o link uma vez antes, para ele funcionar sem internet.`,
+    },
+  },
 } as const;
+
+/** Fails to compile when a consumption-token text has no ticket text or other parameters. */
+type Checked<T extends Overrides<typeof sellerPage> & Known<T, typeof sellerPage>> = T;
+export type SellerPageTokenTexts = Checked<typeof sellerPage.tokens>;

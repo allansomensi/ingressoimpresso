@@ -28,12 +28,11 @@ import { agoLabel, deviceHealth, LIVE_REFRESH_MS, occupancy, refusalCount } from
 import { money } from "@/lib/format";
 import { useWakeLock } from "@/lib/wake-lock";
 import { clockNow, serverClockNow, subscribeClock } from "@/portaria/clock";
-import { event as eventTexts } from "@/texts/pt-BR/event";
+import { useEventTexts } from "@/components/event/access";
 
 import { EntriesCurve, Meter } from "./live-chart";
 import type { SelectTab } from "./tabs";
 
-const t = eventTexts.live;
 
 function count(value: number): string {
   return value.toLocaleString("pt-BR");
@@ -57,6 +56,7 @@ export function useDoorLive(eventId: string, enabled = true) {
 
 /** "Ao vivo": entries against sold, the curve, doors, categories, phones and refusals. */
 export function LiveTab({ eventId, onSelect }: { eventId: string; onSelect: SelectTab }) {
+  const t = useEventTexts().live;
   const live = useDoorLive(eventId);
   const now = useSyncExternalStore(subscribeClock, clockNow, serverClockNow);
   const [fullscreen, setFullscreen] = useState(false);
@@ -142,7 +142,7 @@ export function LiveTab({ eventId, onSelect }: { eventId: string; onSelect: Sele
 
       {/* Exit and return (ADR 0083): who is in the room now, not only who ever entered. */}
       {data.reentry !== null && (
-        <div className="grid grid-cols-3 gap-2 sm:gap-4">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-4">
           <Stat label={t.insideNow} value={count(data.reentry.inside)} hint={t.insideHint(count(data.entries))} icon={LogIn} tone="success" />
           <Stat
             label={t.outNow}
@@ -263,6 +263,7 @@ function LiveFullscreen({
   onExit: () => void;
   children: ReactNode;
 }) {
+  const t = useEventTexts().live;
   const shell = useRef<HTMLDivElement | null>(null);
   // The page above already loaded the event: this reads the same cache.
   const event = useQuery({ queryKey: ["event", eventId], queryFn: () => api<EventDto>(`/api/events/${eventId}`) });
@@ -337,6 +338,7 @@ function LiveFullscreen({
 }
 
 function RefusalsCard({ refusals }: { refusals: DoorLiveDto["refusals"] }) {
+  const t = useEventTexts().live;
   const rows = [
     ["blockedCopies", refusals.blockedCopies],
     ["offlineDuplicates", refusals.offlineDuplicates],
@@ -364,6 +366,7 @@ function RefusalsCard({ refusals }: { refusals: DoorLiveDto["refusals"] }) {
 
 /** The hero: entries, the occupancy meter and the first and last entry. */
 export function Occupancy({ data, compact = false }: { data: DoorLiveDto; compact?: boolean }) {
+  const t = useEventTexts().live;
   const share = occupancy(data.entries, data.sold);
   // On the overview it sits inside another card.
   const Frame = compact ? "div" : Card;
@@ -446,6 +449,7 @@ function BarList({
 }
 
 function DeviceList({ devices, now }: { devices: readonly DoorLiveDeviceDto[]; now: number }) {
+  const t = useEventTexts().live;
   if (devices.length === 0) {
     return <p className="text-sm text-fg-subtle">{t.noDevices}</p>;
   }

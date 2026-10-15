@@ -43,8 +43,9 @@ import { EventFormDialog } from "@/components/panel/event-form";
 import { Badge, Button, ButtonLink, EmptyState, ErrorMessage, LoadingBlock, Skeleton, useConfirm, useScrollEdges } from "@/components/ui";
 import { ApiError, api, isUuid } from "@/lib/api";
 import { cn } from "@/lib/cn";
-import { eventDateTime, money } from "@/lib/format";
 import { changeKind } from "@/lib/event-change";
+import { forKind } from "@/lib/event-kind";
+import { eventDateTime, money } from "@/lib/format";
 import { positionLabel } from "@/lib/series";
 import { areaList, canDo } from "@/lib/team";
 import { hasUnsavedChanges } from "@/lib/unsaved";
@@ -124,6 +125,8 @@ function EventView() {
   });
   // Consumption tokens have fewer tabs (ADR 0084); a link to a missing one opens the overview.
   const kind = event.data?.kind;
+  // The header and the leave dialog are outside the tabs' provider: they read the words here.
+  const words = forKind(eventTexts, eventTexts.tokens, kind);
   const strip = tabsOf(kind);
   const tab = requested === "team" || strip.includes(requested) ? requested : "overview";
 
@@ -131,9 +134,9 @@ function EventView() {
   const leaveAllowed = async () =>
     !hasUnsavedChanges() ||
     confirm({
-      title: eventTexts.design.leaveConfirmTitle,
-      description: eventTexts.design.leaveConfirmBody,
-      confirmLabel: eventTexts.design.leaveConfirm,
+      title: words.design.leaveConfirmTitle,
+      description: words.design.leaveConfirmBody,
+      confirmLabel: words.design.leaveConfirm,
     });
 
   const select = async (next: Tab) => {
@@ -304,7 +307,7 @@ function EventView() {
             {data.ticketPriceCents !== null && (
               <span className="flex items-center gap-1.5">
                 <Tag className="size-4 shrink-0 text-fg-subtle" aria-hidden />
-                {eventTexts.priceLabel(money(data.ticketPriceCents))}
+                {words.priceLabel(money(data.ticketPriceCents))}
               </span>
             )}
           </div>
@@ -332,7 +335,7 @@ function EventView() {
                   <UsersRound className="size-3.5 text-brand" aria-hidden />
                   <span className="font-medium text-fg">{eventTexts.team.teamOf(data.team.organization)}</span>
                   <span aria-hidden>·</span>
-                  <span>{eventTexts.team.yourParts(areaList(data.team.areas))}</span>
+                  <span>{words.team.yourParts(areaList(data.team.areas, data.kind))}</span>
                 </button>
               )}
             </div>

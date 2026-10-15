@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update sellers set box_office = false where event_id = $1 and box_office",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d7374f74efb0036f91158a5935c7f8958c71a52f732f3da7659a20a377a2a916"
+}

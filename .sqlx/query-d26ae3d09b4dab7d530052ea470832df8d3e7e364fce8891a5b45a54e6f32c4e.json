@@ -1,0 +1,97 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with wanted as (\n               select ticket_number from ticket_sales where event_id = $1\n               union select ticket_number from ticket_links where event_id = $1 and revoked_at is null\n           ),\n           payable as (\n               select w.ticket_number from wanted w\n               where not exists(select 1 from ticket_voids v\n                                where v.event_id = $1 and v.undone_at is null\n                                  and v.numbers @> w.ticket_number)\n                 and not exists(select 1 from ticket_replacements r\n                                join ticket_voids v on v.id = r.void_id\n                                where r.event_id = $1 and r.new_number = w.ticket_number\n                                  and v.undone_at is null)\n               union select ticket_number from ticket_payments where event_id = $1\n           )\n           select w.ticket_number as \"number!\",\n                  coalesce(tc.price_cents, e.ticket_price_cents) as \"amount_cents?\",\n                  a.seller_id as \"seller_id?\", s.name as \"seller?\",\n                  coalesce(ts.buyer_name, (select l.holder_name from ticket_links l\n                                           where l.event_id = $1 and l.ticket_number = w.ticket_number\n                                             and l.revoked_at is null limit 1)) as \"buyer?\",\n                  p.received_by as \"received_by?\", p.amount_cents as \"paid_cents?\",\n                  p.confirmed_at as \"confirmed_at?\"\n           from payable w\n           join events e on e.id = $1\n           left join category_ranges cr on cr.event_id = $1 and cr.numbers @> w.ticket_number\n           left join ticket_categories tc on tc.id = cr.category_id\n           left join seller_assignments a on a.event_id = $1 and a.numbers @> w.ticket_number\n           left join sellers s on s.id = a.seller_id\n           left join ticket_sales ts on ts.event_id = $1 and ts.ticket_number = w.ticket_number\n           left join ticket_payments p on p.event_id = $1 and p.ticket_number = w.ticket_number\n           order by w.ticket_number",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "number!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "amount_cents?",
+        "type_info": "Int4",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "seller_id?",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "seller_assignments",
+            "name": "seller_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "seller?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "sellers",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "buyer?",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "received_by?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ticket_payments",
+            "name": "received_by"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "paid_cents?",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "ticket_payments",
+            "name": "amount_cents"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "confirmed_at?",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "ticket_payments",
+            "name": "confirmed_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      false,
+      false,
+      null,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "d26ae3d09b4dab7d530052ea470832df8d3e7e364fce8891a5b45a54e6f32c4e"
+}

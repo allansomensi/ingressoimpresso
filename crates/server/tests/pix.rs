@@ -509,3 +509,135 @@ async fn pix_belongs_to_the_money_part_of_the_team(pool: PgPool) {
         .unwrap();
     assert_eq!(maria["account"]["key"], "maria@exemplo.com");
 }
+
+#[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
+async fn what_was_paid_in_person_is_never_charged_again(pool: PgPool) {
+    let app = TestApp::new(pool).await;
+    let token = app.login("formatura@exemplo.com").await;
+    let (event, maria, _joao) = setup(&app, &token).await;
+    let secret = seller_link(&app, &token, &maria).await;
+    app.put(
+        "/api/account/pix",
+        &token,
+        key("email", "tesouraria@escola.org.br", "Comissão", "Recife"),
+    )
+    .await;
+    app.put(
+        &format!("/api/events/{event}/pix-settings"),
+        &token,
+        json!({ "receiver": "organization" }),
+    )
+    .await;
+    let open = |url: String| {
+        let token = url.split_once('#').unwrap().1.to_owned();
+        let app = &app;
+        async move {
+            public(app, "/api/ticket", json!({ "token": token }))
+                .await
+                .json()
+        }
+    };
+
+    // Maria sold 3 in person and sends the ticket to the phone: no new charge on it.
+    public(
+        &app,
+        "/api/seller/sales",
+        json!({ "token": secret, "ranges": [{ "first": 3, "last": 3 }], "buyerName": "Ana" }),
+    )
+    .await;
+    let sent = public(
+        &app,
+        "/api/seller/tickets",
+        json!({ "token": secret, "number": 3 }),
+    )
+    .await;
+    assert_eq!(sent.status, StatusCode::OK, "{:?}", sent.json());
+    let url = sent.json()["sales"][0]["ticketUrl"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    assert!(open(url.clone()).await["pix"].is_null());
+    // Once the organization sees the Pix arrive, the ticket says it is paid.
+    app.post(
+        &format!("/api/events/{event}/pix/receipts"),
+        &token,
+        json!({ "numbers": [3], "paid": true }),
+    )
+    .await;
+    assert_eq!(open(url).await["pix"]["paid"], true);
+
+    // A paid number was sold: it is not undone, returned nor lost.
+    let undo = public(
+        &app,
+        "/api/seller/sales/undo",
+        json!({ "token": secret, "number": 3 }),
+    )
+    .await;
+    assert_eq!(undo.error_code(), "pix_received");
+    let returned = app
+        .post(
+            &format!("/api/sellers/{maria}/returns"),
+            &token,
+            json!({ "ranges": [{ "first": 1, "last": 5 }], "reason": "unsold" }),
+        )
+        .await;
+    assert_eq!(returned.error_code(), "pix_received");
+    let lost = app
+        .post(
+            &format!("/api/events/{event}/voids"),
+            &token,
+            json!({ "first": 3, "last": 3, "reason": "lost" }),
+        )
+        .await;
+    assert_eq!(lost.error_code(), "pix_received");
+
+    // A digital ticket lost and sent again: the second copy is not charged, and neither number
+    // waits for a Pix in the panel.
+    app.post(
+        &format!("/api/events/{event}/tickets"),
+        &token,
+        json!({ "number": 16, "holderName": "Bia" }),
+    )
+    .await;
+    let replaced = app
+        .post(
+            &format!("/api/events/{event}/tickets/replace"),
+            &token,
+            json!({ "number": 16 }),
+        )
+        .await;
+    assert_eq!(
+        replaced.status,
+        StatusCode::CREATED,
+        "{:?}",
+        replaced.json()
+    );
+    let replaced = replaced.json();
+    let fresh = replaced["link"]["url"]
+        .as_str()
+        .or_else(|| replaced["url"].as_str())
+        .unwrap()
+        .to_owned();
+    assert!(open(fresh).await["pix"].is_null());
+    let pix = app
+        .get(&format!("/api/events/{event}/pix"), &token)
+        .await
+        .json();
+    let listed: Vec<i64> = pix["numbers"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|row| row["number"].as_i64().unwrap())
+        .collect();
+    assert_eq!(listed, [3]);
+
+    // Only mobiles are Pix keys.
+    let landline = app
+        .put(
+            &format!("/api/sellers/{maria}/pix"),
+            &token,
+            key("phone", "(21) 3333-4444", "Maria", "Recife"),
+        )
+        .await;
+    assert_eq!(landline.status, StatusCode::BAD_REQUEST);
+}

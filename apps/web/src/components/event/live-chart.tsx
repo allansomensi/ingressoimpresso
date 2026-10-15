@@ -5,9 +5,8 @@ import { useState } from "react";
 
 import { cn } from "@/lib/cn";
 import { niceMax } from "@/lib/door-live";
-import { event as eventTexts } from "@/texts/pt-BR/event";
+import { useEventTexts } from "@/components/event/access";
 
-const t = eventTexts.live;
 /** Plot height in px (the columns grow from the baseline). */
 const PLOT = 160;
 
@@ -22,6 +21,7 @@ function hhmm(iso: string, plusMinutes = 0): string {
  * every value for screen readers.
  */
 export function EntriesCurve({ buckets }: { buckets: readonly DoorLiveBucketDto[] }) {
+  const t = useEventTexts().live;
   const [active, setActive] = useState<number | null>(null);
   const values = buckets.map((bucket) => bucket.entries);
   const peak = Math.max(0, ...values);

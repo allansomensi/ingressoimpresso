@@ -250,6 +250,7 @@ impl JobFile {
             None => None,
         };
         Ok(RenderJob {
+            tokens: false,
             design: self.design.clone(),
             art,
             sponsors: Vec::new(),

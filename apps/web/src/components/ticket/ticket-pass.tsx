@@ -96,6 +96,7 @@ function useOnline(): boolean {
 
 /** The calendar entry of a ticket: same `UID` after a postponement, so it updates the old one. */
 function calendarEntry(pass: TicketPassDto): CalendarEntry {
+  const words = forKind(t, t.tokens, pass.event.kind);
   const place = placeLine(pass.event.venue, pass.event.address);
   return {
     uid: `${pass.event.id === "" ? pass.event.name : pass.event.id}-${String(pass.number)}@ingressoimpresso.com.br`,
@@ -103,10 +104,10 @@ function calendarEntry(pass: TicketPassDto): CalendarEntry {
     startsAt: pass.event.startsAt,
     endsAt: pass.event.endsAt,
     location: place,
-    description: t.calendarDescription(pass.numberLabel, pass.seat, pass.organization.name),
+    description: words.calendarDescription(pass.numberLabel, pass.seat, pass.organization.name),
     sequence: calendarSequence(pass.event.change.postponedAt),
     alarmMinutes: 120,
-    alarmText: t.calendarAlarm(pass.event.name),
+    alarmText: words.calendarAlarm(pass.event.name),
   };
 }
 
@@ -256,7 +257,7 @@ export function TicketPass() {
 
   useEffect(() => {
     if (ready !== null) {
-      document.title = `${t.metaTitle} · ${ready.pass.event.name}`;
+      document.title = `${forKind(t, t.tokens, ready.pass.event.kind).metaTitle} · ${ready.pass.event.name}`;
     }
   }, [ready]);
 
@@ -302,9 +303,9 @@ export function TicketPass() {
   const save = async () => {
     setSaving(true);
     try {
-      const blob = await passImage(pass, { ticket: t.image.ticket, show: t.image.show, site: SITE_URL.replace(/^https?:\/\//, "") });
+      const blob = await passImage(pass, { ticket: words.image.ticket, show: words.image.show, site: SITE_URL.replace(/^https?:\/\//, "") });
       await saveImage(blob, fileName);
-      toast.success(t.saved);
+      toast.success(words.saved);
     } catch {
       toast.error(errorsTexts.generic);
     } finally {
@@ -338,7 +339,7 @@ export function TicketPass() {
         </p>
       )}
 
-      <EventChangeNotice change={pass.event.change} startsAt={pass.event.startsAt} />
+      <EventChangeNotice change={pass.event.change} startsAt={pass.event.startsAt} kind={pass.event.kind} />
 
       <article className="overflow-hidden rounded-[1.75rem] border border-border bg-surface shadow-lg">
         <header className="flex flex-col gap-2 px-6 pt-6 pb-7" style={{ backgroundColor: band, color: ink }}>
@@ -427,7 +428,7 @@ export function TicketPass() {
           {pass.state === "valid" && !canceled && (
             <span className="inline-flex items-center gap-1.5 rounded-full bg-success-soft px-3 py-1 text-sm font-semibold text-success-fg">
               <CheckCircle2 className="size-4" aria-hidden />
-              {t.valid}
+              {words.valid}
             </span>
           )}
           {pass.state === "entered" && pass.enteredAt !== null && (
@@ -478,7 +479,7 @@ export function TicketPass() {
             <OrganizationLogo organization={pass.organization} className="size-9 rounded-lg" />
             {pass.organization.name}
           </h2>
-          <OrganizationContact organization={pass.organization} message={t.contactMessage(pass.event.name, pass.numberLabel)} />
+          <OrganizationContact organization={pass.organization} message={words.contactMessage(pass.event.name, pass.numberLabel)} />
         </section>
       )}
 
@@ -494,17 +495,17 @@ export function TicketPass() {
       )}
 
       <Link href="/" className="mx-auto flex items-center gap-2 text-xs text-fg-subtle transition hover:text-fg pointer-coarse:min-h-11">
-        {t.poweredBy}
+        {words.poweredBy}
         <LogoMark className="size-4" />
         <span className="font-semibold">{brandTexts.name}</span>
       </Link>
 
-      <Dialog open={art.status === "ready" || art.status === "error"} onClose={closeArt} size="md" title={t.artTitle}>
+      <Dialog open={art.status === "ready" || art.status === "error"} onClose={closeArt} size="md" title={words.artTitle}>
         {art.status === "ready" ? (
           <div className="flex flex-col gap-4">
             {/* A blob URL from our own API: next/image cannot optimize it. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={art.url} alt={t.artAlt(pass.numberLabel)} className="w-full rounded-xl border border-border" />
+            <img src={art.url} alt={words.artAlt(pass.numberLabel)} className="w-full rounded-xl border border-border" />
             <a href={art.url} download={`ingresso-${pass.numberLabel}-arte.jpg`} className={buttonClass({ variant: "secondary" })}>
               <Download />
               {t.artDownload}

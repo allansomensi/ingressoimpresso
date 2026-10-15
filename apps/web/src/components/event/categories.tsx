@@ -342,7 +342,7 @@ function CategoryCard({
               </Button>
             </div>
             {text.trim() !== "" && !parsed.ok && <p className="text-xs text-danger-fg">{errorsTexts.invalid_range}</p>}
-            {parsed.ok && <p className="text-xs text-fg-muted">{commonTexts.tickets(parsed.count)}</p>}
+            {parsed.ok && <p className="text-xs text-fg-muted">{t.ticketCount(parsed.count)}</p>}
             <ErrorMessage error={add.error} />
           </form>
         )}

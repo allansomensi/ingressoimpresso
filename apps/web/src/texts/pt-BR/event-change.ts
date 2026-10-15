@@ -1,3 +1,5 @@
+import type { Known, Overrides } from "@/lib/event-kind";
+
 // Adiar ou cancelar o evento (ADR 0065).
 export const eventChange = {
   postpone: "Adiar evento",
@@ -65,4 +67,31 @@ export const eventChange = {
     sellerCanceledBody: "As vendas foram encerradas. Combine com a organização o que fazer com o dinheiro de quem já comprou.",
     sellerStillValid: "Os ingressos vendidos continuam valendo para a nova data. Avise quem comprou de você.",
   },
+  // Consumption tokens (ADR 0086).
+  tokens: {
+    postponeDescription: "Escolha a nova data. As fichas continuam valendo, os links das barracas passam para a nova data e a ficha no celular mostra o aviso.",
+    reasonHint: "Opcional. Aparece para quem tem ficha.",
+    printedNote: "As fichas já impressas continuam valendo, mas com a data antiga no papel: avise quem comprou.",
+    cancelDescription: "O evento não vai acontecer. As fichas ficam guardadas, mas:",
+    cancelEffects: [
+      "a ficha no celular e a página dos vendedores mostram o aviso;",
+      "os vendedores não conseguem mais marcar vendas nem enviar fichas;",
+      "não dá para criar nem pagar lotes;",
+      "as barracas mostram a faixa “Evento cancelado”, mas continuam lendo (você decide).",
+    ],
+    undoBody: "O evento volta a acontecer: vendedores, lotes e a ficha no celular voltam ao normal. Avise quem já sabia do cancelamento.",
+    text: {
+      stillValid: "As fichas continuam valendo para a nova data. Guarde a sua.",
+      keepTicket: "Guarde a sua ficha: a organização vai avisar como fica.",
+    },
+    notice: {
+      canceledBody: "Guarde esta ficha: a organização vai avisar como fica.",
+      stillValid: "Esta ficha continua valendo para a nova data.",
+      sellerStillValid: "As fichas vendidas continuam valendo para a nova data. Avise quem comprou de você.",
+    },
+  },
 } as const;
+
+/** Fails to compile when a consumption-token text has no ticket text or other parameters. */
+type Checked<T extends Overrides<typeof eventChange> & Known<T, typeof eventChange>> = T;
+export type EventChangeTokenTexts = Checked<typeof eventChange.tokens>;

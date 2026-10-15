@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select b.numbers, b.price_cents, b.event_id, e.name as event_name,\n                  (select u.email::text from payments p join users u on u.id = p.created_by\n                   where p.batch_id = b.id and p.status = 'paid' order by p.paid_at desc limit 1) as payer\n           from ticket_batches b join events e on e.id = b.event_id where b.id = $1",
+  "query": "select b.numbers, b.price_cents, b.event_id, e.name as event_name, e.kind,\n                  (select u.email::text from payments p join users u on u.id = p.created_by\n                   where p.batch_id = b.id and p.status = 'paid' order by p.paid_at desc limit 1) as payer\n           from ticket_batches b join events e on e.id = b.event_id where b.id = $1",
   "describe": {
     "columns": [
       {
@@ -49,6 +49,17 @@
       },
       {
         "ordinal": 4,
+        "name": "kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
         "name": "payer",
         "type_info": "Text",
         "origin": "Expression"
@@ -64,8 +75,9 @@
       false,
       false,
       false,
+      false,
       null
     ]
   },
-  "hash": "42ab2d35a8d9a8fd980367768fe6807db48028ab5147549e41d3c22e734201dd"
+  "hash": "91d3f0fa22eb7526a0912d5c86abc38787a636281e55f999fbea5d87eefe3074"
 }

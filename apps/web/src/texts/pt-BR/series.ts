@@ -3,6 +3,7 @@ export const series = {
   session: (day: string, hour: string) => `Sessão de ${day} às ${hour}`,
   position: (position: number, total: number) => `Data ${String(position)} de ${String(total)}`,
   sessionOnly: "Este ingresso vale só para esta sessão. O evento tem outras datas, cada uma com os seus ingressos.",
+  sessionOnlyTokens: "Esta ficha vale só para esta data. O evento tem outras datas, cada uma com as suas fichas.",
   dates: (count: number) => (count === 1 ? "1 data" : `${count.toLocaleString("pt-BR")} datas`),
   listNext: (when: string) => `próxima ${when}`,
   listLast: (when: string) => `última ${when}`,

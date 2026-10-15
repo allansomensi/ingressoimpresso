@@ -1,0 +1,86 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select (select coalesce(tc.price_cents, e.ticket_price_cents)\n                   from events e\n                   left join category_ranges cr on cr.event_id = e.id and cr.numbers @> $2::int4\n                   left join ticket_categories tc on tc.id = cr.category_id\n                   where e.id = $1) as \"amount_cents?\",\n                  s.pix_key_type as \"key_type?\", s.pix_key as \"key?\", s.pix_name as \"name?\",\n                  s.pix_city as \"city?\",\n                  exists(select 1 from ticket_payments p\n                         where p.event_id = $1 and p.ticket_number = $2) as \"paid!\",\n                  (exists(select 1 from ticket_sales ts\n                          where ts.event_id = $1 and ts.ticket_number = $2)\n                   or exists(select 1 from ticket_replacements r\n                             join ticket_voids v on v.id = r.void_id\n                             where r.event_id = $1 and r.new_number = $2\n                               and v.undone_at is null)) as \"paid_in_person!\"\n           from (select 1) one\n           left join seller_assignments a on a.event_id = $1 and a.numbers @> $2::int4\n           left join sellers s on s.id = a.seller_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "amount_cents?",
+        "type_info": "Int4",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "key_type?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "sellers",
+            "name": "pix_key_type"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "key?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "sellers",
+            "name": "pix_key"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "name?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "sellers",
+            "name": "pix_name"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "city?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "sellers",
+            "name": "pix_city"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "paid!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "paid_in_person!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      null,
+      true,
+      true,
+      true,
+      true,
+      null,
+      null
+    ]
+  },
+  "hash": "aaeefa6e71458e81f1357889b1387984916d20354cb0232c61bd7a3a7ca223ae"
+}

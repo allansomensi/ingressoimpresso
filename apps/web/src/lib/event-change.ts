@@ -3,9 +3,10 @@
  * message the organizer sends to the sellers, who pass it on to whoever bought.
  */
 
-import type { EventChangeDto, PublicOrganizationDto } from "@ingressoimpresso/api-types";
+import type { EventChangeDto, EventKind, PublicOrganizationDto } from "@ingressoimpresso/api-types";
 
 import { placeLine } from "@/lib/calendar";
+import { forKind } from "@/lib/event-kind";
 import { wallClock } from "@/lib/event-time";
 import { eventChange as eventChangeTexts } from "@/texts/pt-BR/event-change";
 
@@ -74,6 +75,7 @@ export function sellerMessage({
   address,
   change,
   organization,
+  eventKind,
 }: {
   eventName: string;
   startsAt: string;
@@ -81,8 +83,10 @@ export function sellerMessage({
   address: string | null;
   change: EventChangeDto;
   organization: Pick<PublicOrganizationDto, "name" | "whatsapp"> | null;
+  /** Tickets or consumption tokens (ADR 0084). */
+  eventKind?: EventKind | undefined;
 }): string {
-  const t = eventChangeTexts.text;
+  const t = forKind(eventChangeTexts, eventChangeTexts.tokens, eventKind).text;
   const kind = changeKind(change, startsAt);
   const lines: string[] = [];
   if (kind === "canceled") {

@@ -4,32 +4,37 @@
 /// Appended to the name of a duplicated event.
 pub(crate) const COPY_SUFFIX: &str = " (cópia)";
 
-/// Line item of a batch on the Stripe payment page.
-pub(crate) fn checkout_description(event: &str, first: i32, last: i32) -> String {
+/// Line item of a batch on the Stripe payment page ("fichas" for consumption tokens, ADR 0086).
+pub(crate) fn checkout_description(event: &str, first: i32, last: i32, tokens: bool) -> String {
     let quantity = last - first + 1;
-    let tickets = if quantity == 1 {
-        "ingresso"
-    } else {
-        "ingressos"
+    let tickets = match (tokens, quantity == 1) {
+        (false, true) => "ingresso",
+        (false, false) => "ingressos",
+        (true, true) => "ficha",
+        (true, false) => "fichas",
     };
     format!("{event}: lote de {quantity} {tickets} (nº {first} a {last})")
 }
 
-/// What a team member takes care of (ADR 0055), as the panel names it.
-pub(crate) const fn team_area(area: crate::api::TeamArea) -> &'static str {
+/// What a team member takes care of (ADR 0055), as the panel names it ("Arte da ficha" and
+/// "Barracas" for consumption tokens, ADR 0086).
+pub(crate) const fn team_area(area: crate::api::TeamArea, tokens: bool) -> &'static str {
     use crate::api::TeamArea;
-    match area {
-        TeamArea::Manage => "Coordenação (tudo)",
-        TeamArea::Money => "Recebimentos",
-        TeamArea::Delivery => "Ingressos e vendedores",
-        TeamArea::Art => "Arte do ingresso",
-        TeamArea::Door => "Portaria",
+    match (area, tokens) {
+        (TeamArea::Manage, _) => "Coordenação (tudo)",
+        (TeamArea::Money, _) => "Recebimentos",
+        (TeamArea::Delivery, false) => "Ingressos e vendedores",
+        (TeamArea::Delivery, true) => "Fichas e vendedores",
+        (TeamArea::Art, false) => "Arte do ingresso",
+        (TeamArea::Art, true) => "Arte da ficha",
+        (TeamArea::Door, false) => "Portaria",
+        (TeamArea::Door, true) => "Barracas",
     }
 }
 
 /// `Recebimentos, Arte do ingresso e Portaria`.
-pub(crate) fn team_areas(areas: &[crate::api::TeamArea]) -> String {
-    let names: Vec<&str> = areas.iter().map(|area| team_area(*area)).collect();
+pub(crate) fn team_areas(areas: &[crate::api::TeamArea], tokens: bool) -> String {
+    let names: Vec<&str> = areas.iter().map(|area| team_area(*area, tokens)).collect();
     match names.split_last() {
         None => String::new(),
         Some((last, [])) => (*last).to_owned(),
@@ -148,3 +153,67 @@ pub(crate) const ACCOUNTABILITY: AccountabilityTexts = AccountabilityTexts {
     ledger_sheet_headers: ["Data", "Descrição", "Categoria", "Tipo", "Valor"],
     signatures: ["Responsável pelas contas", "Conferido por"],
 };
+
+/// The same labels for consumption tokens (ADRs 0084, 0086).
+pub(crate) const ACCOUNTABILITY_TOKENS: AccountabilityTexts = AccountabilityTexts {
+    tickets: "Fichas",
+    issued: "Emitidas",
+    sold: "Vendidas",
+    entries: "Usadas",
+    by_category: "Por produto",
+    category_headers: [
+        "Produto", "Preço", "Emitidas", "Vendidas", "Usadas", "Valor",
+    ],
+    no_category: "Sem produto",
+    seller_sheet_headers: [
+        "Vendedor",
+        "Levou",
+        "Devolveu",
+        "Perdeu",
+        "Vendeu",
+        "Marcou vendidas",
+        "A acertar",
+        "Recebido",
+        "Falta",
+    ],
+    cash_note: "O dinheiro das fichas entra pelo que os vendedores já passaram.",
+    received_line: "Fichas: recebido dos vendedores",
+    platform_line: "Ingresso Impresso (lotes de fichas)",
+    ticket_sales: "Valor das fichas dos vendedores",
+    ..ACCOUNTABILITY
+};
+
+/// The accountability labels of an event of tickets or of consumption tokens.
+pub(crate) const fn accountability(tokens: bool) -> &'static AccountabilityTexts {
+    if tokens {
+        &ACCOUNTABILITY_TOKENS
+    } else {
+        &ACCOUNTABILITY
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::api::TeamArea;
+
+    #[test]
+    fn token_events_speak_of_fichas() {
+        assert_eq!(
+            checkout_description("Festa", 1, 50, false),
+            "Festa: lote de 50 ingressos (nº 1 a 50)"
+        );
+        assert_eq!(
+            checkout_description("Festa", 7, 7, true),
+            "Festa: lote de 1 ficha (nº 7 a 7)"
+        );
+        assert_eq!(
+            team_areas(&[TeamArea::Art, TeamArea::Door], true),
+            "Arte da ficha e Barracas"
+        );
+        assert_eq!(team_areas(&[TeamArea::Door], false), "Portaria");
+        assert_eq!(accountability(true).tickets, "Fichas");
+        assert_eq!(accountability(false).tickets, "Ingressos");
+        assert_eq!(accountability(true).summary, ACCOUNTABILITY.summary);
+    }
+}

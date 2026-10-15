@@ -54,7 +54,7 @@ import {
 import { useState, type FormEvent, type ReactNode } from "react";
 import { toast } from "sonner";
 
-import { ReadOnlyNotice, useEventAccess } from "@/components/event/access";
+import { ReadOnlyNotice, useEventAccess, useEventKind, useEventTexts, type EventTexts } from "@/components/event/access";
 import { GoalDialog, GoalLine, RankingCard, ReserveDialog, SellerReservations } from "@/components/event/seller-extras";
 import { PaymentDialog, ReturnDialog } from "@/components/event/settlement-dialogs";
 import { PixCard, SellerPixDialog, useEventPix } from "@/components/pix/event-pix";
@@ -87,10 +87,8 @@ import { NUMBER_LIST_INPUT, countNumbers, formatRanges, intersect, parseNumberLi
 import { receivedPercent, settlementMessage, settlementState, settlementTotals, shortDay, whatsappLink, type SettlementState } from "@/lib/settlement";
 import { common as commonTexts } from "@/texts/pt-BR/common";
 import { errors as errorsTexts } from "@/texts/pt-BR/errors";
-import { event as eventTexts } from "@/texts/pt-BR/event";
 import { pix as pixTexts } from "@/texts/pt-BR/pix";
 
-const t = eventTexts.sellers;
 
 type AssignMode = "pick" | "rest";
 
@@ -100,6 +98,7 @@ type AssignMode = "pick" | "rest";
  * which sells whatever the sellers did not take).
  */
 function AssignForm({ seller, event, onDone, onCancel }: { seller: SellerDto; event: EventDto; onDone: () => void; onCancel: () => void }) {
+  const t = useEventTexts().sellers;
   const [mode, setMode] = useState<AssignMode>(seller.boxOffice ? "rest" : "pick");
   const [text, setText] = useState("");
   const [category, setCategory] = useState("");
@@ -216,7 +215,7 @@ function AssignForm({ seller, event, onDone, onCancel }: { seller: SellerDto; ev
             </div>
           )}
           {text.trim() !== "" && !parsed.ok && <p className="text-xs text-danger-fg">{errorsTexts.invalid_range}</p>}
-          {parsed.ok && parsed.count > 0 && <p className="text-xs text-fg-muted">{commonTexts.tickets(parsed.count)}</p>}
+          {parsed.ok && parsed.count > 0 && <p className="text-xs text-fg-muted">{t.ticketsCount(parsed.count)}</p>}
         </>
       ) : (
         <>
@@ -278,7 +277,7 @@ const STATE_TONE: Record<SettlementState["kind"], Tone> = {
   overpaid: "brand",
 };
 
-function stateLabel(state: SettlementState): string {
+function stateLabel(t: EventTexts["sellers"], state: SettlementState): string {
   switch (state.kind) {
     case "empty":
       return t.state.empty;
@@ -295,6 +294,7 @@ function stateLabel(state: SettlementState): string {
 
 /** "Levou 40 − Devolveu 5 − Perdeu 1 = Acerta 34", as chips; "Levou 20 → Entraram 8" at the box office. */
 function Equation({ row }: { row: ReportRowDto }) {
+  const t = useEventTexts().sellers;
   const part = (label: string, value: number, strong = false) => (
     <span
       className={cn(
@@ -345,18 +345,20 @@ function Equation({ row }: { row: ReportRowDto }) {
 }
 
 function StateBadge({ state }: { state: SettlementState }) {
+  const t = useEventTexts().sellers;
   if (state.kind === "empty" || state.kind === "no_price") {
     return null;
   }
   return (
     <Badge tone={STATE_TONE[state.kind]} dot={state.kind === "owing"}>
       {state.kind === "settled" && <CheckCircle2 aria-hidden className="size-3.5" />}
-      {stateLabel(state)}
+      {stateLabel(t, state)}
     </Badge>
   );
 }
 
 function MoneyBar({ row }: { row: ReportRowDto }) {
+  const t = useEventTexts().sellers;
   const state = settlementState(row);
   const percent = receivedPercent(row);
   if (row.amountDueCents === null) {
@@ -413,6 +415,7 @@ function History({
   editable: boolean;
   onChange: () => void;
 }) {
+  const t = useEventTexts().sellers;
   const confirm = useConfirm();
   const holding = seller.ranges.map(({ first, last }) => ({ first, last }));
   const items: HistoryItem[] = [
@@ -510,7 +513,7 @@ function History({
             </span>
             <span className="flex min-w-0 flex-1 flex-col">
               <span className="text-sm font-medium [overflow-wrap:anywhere] text-fg">
-                {t.historyReturn(reason, label)} <span className="font-normal text-fg-muted">· {commonTexts.tickets(countNumbers(numbers))}</span>
+                {t.historyReturn(reason, label)} <span className="font-normal text-fg-muted">· {t.ticketsCount(countNumbers(numbers))}</span>
               </span>
               <span className="truncate text-xs text-fg-muted">
                 {shortDay(item.createdAt.slice(0, 10))}
@@ -546,6 +549,7 @@ function History({
 
 /** The seller's private link (ADR 0053): create it, send it, copy it. */
 function SellerLink({ seller, event, onChange }: { seller: SellerDto; event: EventDto; onChange: () => void }) {
+  const t = useEventTexts().sellers;
   const l = t.link;
   const confirm = useConfirm();
   const create = useMutation({
@@ -700,6 +704,7 @@ function SellerCard({
   pixSeller: boolean;
   onChange: () => void;
 }) {
+  const t = useEventTexts().sellers;
   const confirm = useConfirm();
   const { can } = useEventAccess();
   const delivery = can("delivery");
@@ -820,8 +825,9 @@ function SellerCard({
                 {pixTexts.sellerKey}
               </MenuItem>
             )}
-            {/* The box office changes what the seller owes: the money part's call (ADR 0069). */}
-            {delivery && cash && (
+            {/* The box office changes what the seller owes: the money part's call (ADR 0069). A
+                ficha is bought before it is used, so token events have none (ADR 0084). */}
+            {delivery && cash && (event.kind !== "tokens" || seller.boxOffice) && (
               <MenuItem
                 icon={<Store />}
                 onSelect={() => {
@@ -1069,6 +1075,7 @@ function SellerCard({
 
 /** The whole event at a glance: what sellers owe, what came in, what is missing. */
 function SettlementSummary({ rows }: { rows: readonly ReportRowDto[] }) {
+  const t = useEventTexts().sellers;
   const s = t.summary;
   const totals = settlementTotals(rows);
   const percent = receivedPercent({ amountDueCents: totals.dueCents, receivedCents: totals.receivedCents });
@@ -1117,6 +1124,7 @@ const HOW_ICONS: readonly LucideIcon[] = [UserPlus, Ticket, HandCoins, CheckCirc
 /** Four steps, for an event without sellers yet. */
 /** Whether sellers send digital tickets from their page (ADR 0061). */
 function SellerSettings({ eventId }: { eventId: string }) {
+  const t = useEventTexts().sellers;
   const queryClient = useQueryClient();
   const key = ["seller-settings", eventId];
   const settings = useQuery({ queryKey: key, queryFn: () => api<SellerSettingsDto>(`/api/events/${eventId}/seller-settings`) });
@@ -1151,6 +1159,7 @@ function SellerSettings({ eventId }: { eventId: string }) {
 }
 
 function HowItWorks() {
+  const t = useEventTexts().sellers;
   return (
     <Card>
       <CardHeader title={t.howTitle} description={t.empty} icon={Users} />
@@ -1176,6 +1185,7 @@ function HowItWorks() {
 }
 
 function NoPriceNotice({ onEditEvent }: { onEditEvent: () => void }) {
+  const t = useEventTexts().sellers;
   return (
     <Alert
       tone="warning"
@@ -1193,6 +1203,8 @@ function NoPriceNotice({ onEditEvent }: { onEditEvent: () => void }) {
 
 /** The new-seller form: a card on its own while there are no sellers, a tile in the grid after. */
 function NewSeller({ eventId, onCreated, tile }: { eventId: string; onCreated: () => void; tile: boolean }) {
+  const t = useEventTexts().sellers;
+  const kind = useEventKind();
   const { can } = useEventAccess();
   const [open, setOpen] = useState(!tile);
   const [name, setName] = useState("");
@@ -1278,7 +1290,7 @@ function NewSeller({ eventId, onCreated, tile }: { eventId: string; onCreated: (
             {t.create}
           </Button>
         </div>
-        {can("money") && (
+        {can("money") && kind !== "tokens" && (
           <div className="sm:col-span-full">
             <Switch checked={boxOffice} onChange={setBoxOffice} label={t.boxOffice.newLabel} description={t.boxOffice.newHint} />
           </div>
@@ -1291,6 +1303,7 @@ function NewSeller({ eventId, onCreated, tile }: { eventId: string; onCreated: (
 }
 
 export function SellersTab({ eventId, event, onEditEvent }: { eventId: string; event: EventDto; onEditEvent: () => void }) {
+  const t = useEventTexts().sellers;
   const queryClient = useQueryClient();
   const { can } = useEventAccess();
   const delivery = can("delivery");
@@ -1363,8 +1376,9 @@ export function SellersTab({ eventId, event, onEditEvent }: { eventId: string; e
       </>
     );
   }
-  // How buyers pay by Pix (ADR 0085): read by the whole team, changed by the money part.
-  if (list.length > 0) {
+  // How buyers pay by Pix (ADR 0085): read by the whole team, changed by the money part. Also
+  // without sellers: digital tickets sent by the team are paid by Pix too.
+  if (sellers.isSuccess) {
     content = (
       <>
         {content}

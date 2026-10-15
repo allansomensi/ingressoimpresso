@@ -238,6 +238,7 @@ pub async fn record_return(
                 "some of these numbers are voided already".to_owned(),
             ));
         }
+        super::pix::ensure_unpaid(&mut *tx, event_id, numbers).await?;
     }
     let mut voids = Vec::with_capacity(ranges.len());
     for (_, _, numbers) in ranges {

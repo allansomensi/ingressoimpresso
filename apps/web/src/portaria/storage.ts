@@ -183,8 +183,10 @@ export async function recordScan(scan: StoredScan, entry: StoredEntry | null): P
   await Promise.all([...writes, tx.done]);
 }
 
+/** Scans not yet uploaded, in the order they were read (the server classifies each one against the ones before it). */
 export async function pendingScans(limit: number): Promise<StoredScan[]> {
-  return (await db()).getAllFromIndex("scans", "synced", 0, limit);
+  const scans = await (await db()).getAllFromIndex("scans", "synced", 0, limit);
+  return scans.sort((a, b) => a.scannedAtMs - b.scannedAtMs);
 }
 
 export async function pendingCount(): Promise<number> {

@@ -51,14 +51,11 @@ import {
 } from "@/components/ui";
 import { api, fetchBlobUrl } from "@/lib/api";
 import { cn } from "@/lib/cn";
-import { forKind } from "@/lib/event-kind";
 import { shortDateTime } from "@/lib/format";
-import { event as eventTexts } from "@/texts/pt-BR/event";
+import { useEventTexts } from "@/components/event/access";
 
 import { useLivePolling } from "./live-polling";
 
-const t = eventTexts.door;
-type DoorTexts = typeof eventTexts.door;
 /** A phone that synced this recently is shown as online (it syncs every few seconds). */
 const ONLINE_MS = 60_000;
 
@@ -75,8 +72,7 @@ function accessState(access: DoorAccessDto, now: number): "active" | "expired" |
 }
 
 export function DoorTab({ eventId, kind = "tickets" }: { eventId: string; kind?: EventKind }) {
-  // Stalls instead of doors for consumption tokens (ADR 0084).
-  const words = forKind(eventTexts.door, eventTexts.tokens.door, kind);
+  const t = useEventTexts().door;
   const queryClient = useQueryClient();
   const confirm = useConfirm();
   const key = ["door", eventId];
@@ -90,7 +86,7 @@ export function DoorTab({ eventId, kind = "tickets" }: { eventId: string; kind?:
     queryKey: ["categories", eventId],
     queryFn: () => api<CategoryDto[]>(`/api/events/${eventId}/categories`),
   });
-  const [label, setLabel] = useState<string>(words.defaultLabel);
+  const [label, setLabel] = useState<string>(t.defaultLabel);
   const [chosen, setChosen] = useState<string[]>([]);
   const [editing, setEditing] = useState<DoorAccessDto | null>(null);
   const [created, setCreated] = useState<{ url: string; label: string; renewed: boolean } | null>(null);
@@ -135,7 +131,7 @@ export function DoorTab({ eventId, kind = "tickets" }: { eventId: string; kind?:
       return api<DoorAccessDto>(`/api/door-accesses/${id}/categories`, { method: "PUT", body });
     },
     onSuccess: () => {
-      toast.success(words.categoriesSaved);
+      toast.success(t.categoriesSaved);
       setEditing(null);
       void refresh();
     },
@@ -202,12 +198,12 @@ export function DoorTab({ eventId, kind = "tickets" }: { eventId: string; kind?:
 
   return (
     <div className="flex flex-col gap-6">
-      <Lead>{words.intro}</Lead>
+      <Lead>{t.intro}</Lead>
       <div className="grid grid-cols-3 gap-2 sm:gap-4">
         <Stat
-          label={words.entriesLabel}
+          label={t.entriesLabel}
           value={overview.data.entryCount.toLocaleString("pt-BR")}
-          hint={words.entries(overview.data.entryCount)}
+          hint={t.entries(overview.data.entryCount)}
           icon={LogIn}
           tone="success"
         />
@@ -273,7 +269,7 @@ export function DoorTab({ eventId, kind = "tickets" }: { eventId: string; kind?:
                   </Button>
                   <a
                     className={buttonClass({ variant: "secondary" })}
-                    href={`https://wa.me/?text=${encodeURIComponent(`${words.whatsappMessage}\n${created.url}`)}`}
+                    href={`https://wa.me/?text=${encodeURIComponent(`${t.whatsappMessage}\n${created.url}`)}`}
                     target="_blank"
                     rel="noreferrer"
                   >
@@ -300,9 +296,9 @@ export function DoorTab({ eventId, kind = "tickets" }: { eventId: string; kind?:
           </form>
           {eventCategories.length > 0 && (
             <fieldset className="-mt-2 mb-5 flex flex-col gap-2">
-              <legend className="mb-2 text-sm font-medium text-fg">{words.categories}</legend>
+              <legend className="mb-2 text-sm font-medium text-fg">{t.categories}</legend>
               <CategoryChips categories={eventCategories} chosen={chosen} onChange={setChosen} />
-              <p className="text-xs leading-relaxed text-fg-muted">{words.categoriesHint}</p>
+              <p className="text-xs leading-relaxed text-fg-muted">{t.categoriesHint}</p>
             </fieldset>
           )}
           <ErrorMessage error={create.error} className="mb-4" />
@@ -322,7 +318,7 @@ export function DoorTab({ eventId, kind = "tickets" }: { eventId: string; kind?:
                       {eventCategories.length > 0 && (
                         <span className="flex flex-wrap gap-1">
                           {access.categoryIds.length === 0 ? (
-                            <span className="text-xs text-fg-subtle">{words.allCategories}</span>
+                            <span className="text-xs text-fg-subtle">{t.allCategories}</span>
                           ) : (
                             eventCategories.filter((category) => access.categoryIds.includes(category.id)).map((category) => {
                               const id = category.id;
@@ -367,7 +363,7 @@ export function DoorTab({ eventId, kind = "tickets" }: { eventId: string; kind?:
                           setEditing(access);
                         }}
                       >
-                        {words.editCategories}
+                        {t.editCategories}
                       </Button>
                     )}
                     {state === "active" ? (
@@ -460,7 +456,6 @@ export function DoorTab({ eventId, kind = "tickets" }: { eventId: string; kind?:
       <RehearsalSheet eventId={eventId} />
 
       <CategoriesDialog
-        words={words}
         access={editing}
         categories={eventCategories}
         saving={saveCategories.isPending}
@@ -517,42 +512,41 @@ function CategoryChips({
 }
 
 function CategoriesDialog({
-  words,
   access,
   categories,
   saving,
   onClose,
   onSave,
 }: {
-  words: DoorTexts;
   access: DoorAccessDto | null;
   categories: readonly CategoryDto[];
   saving: boolean;
   onClose: () => void;
   onSave: (ids: string[]) => void;
 }) {
+  const t = useEventTexts().door;
   return (
     <Dialog
       open={access !== null}
       onClose={onClose}
-      title={access === null ? "" : words.editCategoriesTitle(access.label)}
-      description={words.editCategoriesBody}
+      title={access === null ? "" : t.editCategoriesTitle(access.label)}
+      description={t.editCategoriesBody}
     >
       {access !== null && (
-        <CategoriesForm key={access.id} words={words} initial={access.categoryIds} categories={categories} saving={saving} onCancel={onClose} onSave={onSave} />
+        <CategoriesForm key={access.id} initial={access.categoryIds} categories={categories} saving={saving} onCancel={onClose} onSave={onSave} />
       )}
     </Dialog>
   );
 }
 
 function CategoriesForm(props: {
-  words: DoorTexts;
   initial: readonly string[];
   categories: readonly CategoryDto[];
   saving: boolean;
   onCancel: () => void;
   onSave: (ids: string[]) => void;
 }) {
+  const t = useEventTexts().door;
   const [chosen, setChosen] = useState<string[]>([...props.initial]);
   return (
     <form
@@ -563,7 +557,7 @@ function CategoriesForm(props: {
       }}
     >
       <CategoryChips categories={props.categories} chosen={chosen} onChange={setChosen} />
-      <p className="text-xs leading-relaxed text-fg-muted">{props.words.categoriesHint}</p>
+      <p className="text-xs leading-relaxed text-fg-muted">{t.categoriesHint}</p>
       <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
         <Button type="button" variant="secondary" onClick={props.onCancel}>
           {t.cancel}
@@ -578,6 +572,7 @@ function CategoriesForm(props: {
 
 /** A printable sheet of sample tickets to rehearse with (ADR 0067). */
 function RehearsalSheet({ eventId }: { eventId: string }) {
+  const t = useEventTexts().door;
   const download = useMutation({
     mutationFn: () => fetchBlobUrl(`/api/events/${eventId}/door/rehearsal-sheet`),
     onSuccess: (url) => {

@@ -60,6 +60,7 @@ pub async fn sheet(
     }
     let tags = super::categories::NumberTags::load(&state.pool, event_id).await?;
     let job = RenderJob {
+        tokens: event.tokens(),
         details: super::event_details(&state.pool, &event).await?,
         design,
         art,

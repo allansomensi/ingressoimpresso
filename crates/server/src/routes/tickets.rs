@@ -987,7 +987,8 @@ async fn table_map(
 ) -> ApiResult<Option<PassTableMapDto>> {
     let Some(seat) = sqlx::query!(
         r#"select t.name, s.seat from ticket_seats s join event_tables t on t.id = s.table_id
-           where s.event_id = $1 and s.ticket_number = $2"#,
+           where s.event_id = $1 and s.ticket_number = $2
+             and exists(select 1 from events e where e.id = $1 and e.kind = 'tickets')"#,
         event_id,
         number,
     )
@@ -1125,6 +1126,7 @@ async fn render_image(state: &AppState, link: &OpenRow) -> ApiResult<Vec<u8>> {
     let tags = super::categories::NumberTags::load(&state.pool, link.event_id).await?;
     let number = i32::try_from(ticket.header().number.get()).unwrap_or(i32::MAX);
     let job = RenderJob {
+        tokens: event.tokens(),
         details: super::event_details(&state.pool, &event).await?,
         design,
         art,

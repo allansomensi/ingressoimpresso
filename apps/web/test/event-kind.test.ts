@@ -25,6 +25,29 @@ describe("consumption tokens (ADR 0084)", () => {
     expect(forKind(base, { title: "Fichas" }, undefined)).toBe(base);
   });
 
+  it("lay nested words at any depth, replace lists whole and merge once", () => {
+    const base = { a: { b: "ingresso", c: "porta" }, list: ["um", "dois"], n: 1 };
+    const tokens = { a: { b: "ficha" }, list: ["três"] };
+    const words = forKind(base, tokens, "tokens");
+    expect(words).toEqual({ a: { b: "ficha", c: "porta" }, list: ["três"], n: 1 });
+    expect(forKind(base, tokens, "tokens")).toBe(words);
+    expect(base.a.b).toBe("ingresso");
+  });
+
+  it("speak of fichas on every tab of a token event (ADR 0086)", () => {
+    const words = forKind(eventTexts, eventTexts.tokens, "tokens");
+    expect(words.priceLabel("R$ 5,00")).toBe("R$ 5,00 a ficha");
+    expect(words.batches.quantity).toBe(eventTexts.tokens.batches.quantity);
+    expect(words.batches.newBatch).toBe(eventTexts.batches.newBatch);
+    expect(words.sellers.ticketsCount(2)).toBe("2 fichas");
+    expect(words.files.tickets(1)).toBe("1 ficha");
+    expect(words.live.byDoor).toBe("Por barraca");
+    expect(words.report.categories.title).toBe("Por produto");
+    // No token word may still name a ticket or a door.
+    const leftovers = JSON.stringify(eventTexts.tokens, (_key, value: unknown) => (typeof value === "function" ? String(value) : value));
+    expect(/ingresso|portaria|\bporta\b/i.exec(leftovers)?.[0]).toBeUndefined();
+  });
+
   it("show no guest list and name the tabs for a stall", () => {
     expect(tabsOf("tokens")).not.toContain("guests");
     expect(tabsOf("tickets")).toContain("guests");
@@ -33,7 +56,7 @@ describe("consumption tokens (ADR 0084)", () => {
     expect(tabLabel("door", "tokens")).toBe(eventTexts.tokens.tabs.door);
     expect(tabLabel("door", "tickets")).toBe(eventTexts.tabs.door);
     expect(tabLabel("overview", "tokens")).toBe(eventTexts.tabs.overview);
-    expect(tabHint("live", "tokens")).toBe(eventTexts.tokens.hints.live);
+    expect(tabHint("live", "tokens")).toBe(eventTexts.tokens.sections.hints.live);
     expect(tabHint("team", "tokens")).toBe(eventTexts.sections.hints.team);
   });
 
@@ -61,7 +84,8 @@ describe("consumption tokens (ADR 0084)", () => {
     expect(words.entries(2)).toBe(portariaTexts.tokens.entries(2));
     expect(words.history.title).toBe(portariaTexts.tokens.history.title);
     expect(words.history.close).toBe(portariaTexts.history.close);
-    expect(words.rehearsal).toBe(portariaTexts.rehearsal);
+    expect(words.rehearsal.wouldAdmit).toBe(portariaTexts.tokens.rehearsal.wouldAdmit);
+    expect(words.rehearsal.finish).toBe(portariaTexts.rehearsal.finish);
     expect(doorWords("tickets")).toBe(portariaTexts);
   });
 

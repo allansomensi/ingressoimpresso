@@ -82,6 +82,9 @@ pub async fn create(
             "every number must belong to a batch",
         ));
     }
+    if matches!(body.reason, VoidReason::Unsold | VoidReason::Lost) {
+        super::pix::ensure_unpaid(&state.pool, event_id, &numbers).await?;
+    }
     let note = optional_text(body.note);
     if note.as_ref().is_some_and(|note| note.chars().count() > 200) {
         return Err(bad_request(

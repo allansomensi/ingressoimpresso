@@ -326,7 +326,7 @@ pub async fn checkout(
             payment_id,
             batch_id,
             event_id,
-            description: texts::checkout_description(&event.name, first, last),
+            description: texts::checkout_description(&event.name, first, last, event.tokens()),
             amount_cents,
             customer_email: user.email.clone(),
             success_url: format!("{back}&pagamento=sucesso"),
@@ -471,7 +471,7 @@ pub async fn apply_session(state: &AppState, session: &CheckoutSession) -> ApiRe
 /// or over-quota e-mail is logged and never undoes the payment.
 async fn notify_paid(state: &AppState, batch_id: Uuid) {
     let row = sqlx::query!(
-        r#"select b.numbers, b.price_cents, b.event_id, e.name as event_name,
+        r#"select b.numbers, b.price_cents, b.event_id, e.name as event_name, e.kind,
                   (select u.email::text from payments p join users u on u.id = p.created_by
                    where p.batch_id = b.id and p.status = 'paid' order by p.paid_at desc limit 1) as payer
            from ticket_batches b join events e on e.id = b.event_id where b.id = $1"#,
@@ -504,6 +504,8 @@ async fn notify_paid(state: &AppState, batch_id: Uuid) {
             last,
             amount: &amount,
             files_url: &files_url,
+            tokens: crate::api::EventKind::from_db(&row.kind)
+                == Some(crate::api::EventKind::Tokens),
         },
         &state.config.public_web_url,
     );
