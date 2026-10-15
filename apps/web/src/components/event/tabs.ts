@@ -21,9 +21,6 @@ export const TABS = [
 ] as const;
 export type Tab = (typeof TABS)[number];
 
-/** Tabs shown in the strip; the team opens from the event header (ADR 0055). */
-export const STRIP_TABS: readonly Tab[] = TABS.filter((tab) => tab !== "team");
-
 const SLUGS: Record<Tab, string> = {
   overview: "visao-geral",
   design: "ingresso",
@@ -51,7 +48,7 @@ export function tabFromSlug(slug: string | null): Tab {
 /** Switches the event page to another tab. */
 export type SelectTab = (tab: Tab) => void;
 
-/** Every tab grouped as the work goes, for the sections sheet on phones (ADR 0060). */
+/** Every tab grouped as the work goes: the sections of the event page (ADRs 0060, 0087). */
 export const TAB_GROUPS = [
   { key: "prepare", tabs: ["overview", "design", "batches", "categories"] },
   { key: "sell", tabs: ["sellers", "digital", "voids", "files"] },
@@ -63,7 +60,7 @@ export const TAB_GROUPS = [
  * Tabs an event of `kind` shows (ADR 0084): consumption tokens have no guest list (nobody enters
  * by name at a stall).
  */
-export function tabsOf(kind: EventKind | undefined, tabs: readonly Tab[] = STRIP_TABS): Tab[] {
+export function tabsOf(kind: EventKind | undefined, tabs: readonly Tab[] = TABS): Tab[] {
   return tabs.filter((tab) => kind !== "tokens" || tab !== "guests");
 }
 
@@ -72,7 +69,7 @@ export function tabLabel(tab: Tab, kind: EventKind | undefined): string {
   return forKind(eventTexts, eventTexts.tokens, kind).tabs[tab];
 }
 
-/** What the tab is for, in the sections sheet. */
+/** What the tab is for, in one line. */
 export function tabHint(tab: Tab, kind: EventKind | undefined): string {
   return forKind(eventTexts, eventTexts.tokens, kind).sections.hints[tab];
 }

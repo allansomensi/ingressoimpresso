@@ -32,7 +32,6 @@ import {
   Input,
   LoadingBlock,
   PageHeader,
-  Stat,
   errorMessage,
 } from "@/components/ui";
 import { api, fetchBlobUrl, writeToken } from "@/lib/api";
@@ -272,13 +271,21 @@ export default function AccountPage() {
               </span>
               <ChevronRight aria-hidden className="size-4 shrink-0 text-fg-subtle" />
             </Link>
+            <dl className="mt-5 flex flex-wrap gap-x-6 gap-y-2 border-t border-border pt-4 text-sm">
+              <div className="flex items-center gap-2">
+                <CalendarDays aria-hidden className="size-4 text-fg-subtle" />
+                <dt className="text-fg-muted">{t.events}</dt>
+                <dd className="font-semibold text-fg tabular">{a.eventCount.toLocaleString("pt-BR")}</dd>
+              </div>
+              <div className="flex items-center gap-2">
+                <Ticket aria-hidden className="size-4 text-fg-subtle" />
+                <dt className="text-fg-muted">{t.paidTickets}</dt>
+                <dd className="font-semibold text-fg tabular">{a.paidTickets.toLocaleString("pt-BR")}</dd>
+              </div>
+            </dl>
           </Card>
           {/* Refer and earn (ADR 0076). */}
           <ReferralsCard />
-          <div className="grid grid-cols-2 gap-3 sm:gap-4">
-            <Stat label={t.events} value={a.eventCount.toLocaleString("pt-BR")} icon={CalendarDays} />
-            <Stat label={t.paidTickets} value={a.paidTickets.toLocaleString("pt-BR")} icon={Ticket} tone="success" />
-          </div>
         </div>
         <div className="flex min-w-0 flex-col gap-6">
           {a.freeTicketsTotal > 0 && (

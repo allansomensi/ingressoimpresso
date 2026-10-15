@@ -184,7 +184,7 @@ export function PanelShell({ children }: { children: ReactNode }) {
         onClickCapture={guardLinks}
         className="sticky top-0 z-40 border-b border-border bg-bg/80 pt-[env(safe-area-inset-top)] backdrop-blur-xl"
       >
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
           <div className="flex min-w-0 items-center gap-6">
             <Logo href="/painel" />
             <nav className="hidden items-center gap-1 sm:flex" aria-label={t.events}>
@@ -241,7 +241,7 @@ export function PanelShell({ children }: { children: ReactNode }) {
       )}
       {session.status === "signed-in" && session.user.adminPendingTwoFactor && (
         <div role="status" className="border-b border-warning/30 bg-warning-soft text-warning-fg">
-          <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-sm sm:px-6">
+          <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-sm sm:px-6">
             <ShieldCheck className="size-4 shrink-0" aria-hidden />
             <span className="flex-1">{t.adminTwoFactor}</span>
             <Link href="/painel/conta" className="font-semibold underline-offset-2 hover:underline">
@@ -252,7 +252,7 @@ export function PanelShell({ children }: { children: ReactNode }) {
       )}
       {session.status === "signed-in" && session.user.suspended && (
         <div role="status" className="border-b border-danger/25 bg-danger-soft text-danger-fg">
-          <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-sm sm:px-6">
+          <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-sm sm:px-6">
             <ShieldAlert className="size-4 shrink-0" aria-hidden />
             <span className="flex-1">{t.suspended}</span>
             <Link href="/painel/conta" className="font-semibold underline-offset-2 hover:underline">
@@ -263,7 +263,7 @@ export function PanelShell({ children }: { children: ReactNode }) {
       )}
       <div
         id="conteudo"
-        className="mx-auto w-full max-w-6xl flex-1 px-4 pt-6 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:px-6 sm:pt-8 sm:pb-24"
+        className="mx-auto w-full max-w-7xl flex-1 px-4 pt-6 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:px-6 sm:pt-8 sm:pb-24"
       >
         {session.status === "signed-in" ? (
           locked && maintenance !== undefined ? (

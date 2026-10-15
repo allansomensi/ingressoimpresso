@@ -42,13 +42,11 @@ import {
   Badge,
   Button,
   Card,
-  CardHeader,
   Dialog,
   EmptyState,
   ErrorMessage,
   Field,
   Input,
-  Lead,
   List,
   ListItem,
   LoadingBlock,
@@ -67,6 +65,7 @@ import { common as commonTexts } from "@/texts/pt-BR/common";
 import { useEventTexts } from "@/components/event/access";
 import { event as eventTexts } from "@/texts/pt-BR/event";
 
+import { TabHeader } from "./tab-header";
 import type { SelectTab } from "./tabs";
 
 const MAX_BULK = 500;
@@ -464,6 +463,111 @@ function BulkLinks({ eventId, eventName }: { eventId: string; eventName: string 
   );
 }
 
+/** One ticket for one person: the number, who gets it and the WhatsApp to send it to (ADR 0087). */
+function SendDialog({
+  eventId,
+  open,
+  data,
+  onClose,
+  onCreated,
+}: {
+  eventId: string;
+  open: boolean;
+  data: TicketLinksDto;
+  onClose: () => void;
+  onCreated: (link: TicketLinkDto, phone: string) => void;
+}) {
+  const t = useEventTexts().digital;
+  const queryClient = useQueryClient();
+  const [number, setNumber] = useState("");
+  const [holder, setHolder] = useState("");
+  const [phone, setPhone] = useState("");
+  const label = (value: number) => String(value).padStart(data.numberDigits, "0");
+  const typed = number.trim() === "" ? null : Number(number);
+  const create = useMutation({
+    mutationFn: (chosen: number | null) => {
+      const body: CreateTicketLinkBody = { number: chosen, holderName: holder.trim() === "" ? null : holder.trim() };
+      return api<TicketLinkDto>(`/api/events/${eventId}/tickets`, { method: "POST", body });
+    },
+    onSuccess: (link) => {
+      onCreated(link, phone);
+      setNumber("");
+      setHolder("");
+      setPhone("");
+      void queryClient.invalidateQueries({ queryKey: ["tickets", eventId] });
+      onClose();
+    },
+  });
+  const submit = (formEvent: FormEvent) => {
+    formEvent.preventDefault();
+    create.mutate(typed);
+  };
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title={t.sendTitle}
+      description={t.sendHint}
+      size="sm"
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>
+            {commonTexts.cancel}
+          </Button>
+          <Button type="submit" form="send-ticket-form" icon={<Send />} loading={create.isPending} disabled={typed === null && data.nextNumber === null}>
+            {create.isPending ? t.creating : t.create}
+          </Button>
+        </>
+      }
+    >
+      <form id="send-ticket-form" onSubmit={submit} className="flex flex-col gap-4">
+        <Field
+          label={t.number}
+          hint={data.nextNumber === null ? t.numberNone : number === "" ? t.numberHint(label(data.nextNumber)) : undefined}
+        >
+          <Input
+            inputMode="numeric"
+            value={number}
+            placeholder={data.nextNumber === null ? "" : label(data.nextNumber)}
+            autoFocus
+            onChange={(changeEvent) => {
+              setNumber(changeEvent.target.value.replace(/\D/g, ""));
+              create.reset();
+            }}
+          />
+        </Field>
+        <Field label={t.holder} optional>
+          <Input
+            value={holder}
+            maxLength={80}
+            placeholder={t.holderPlaceholder}
+            onChange={(changeEvent) => {
+              setHolder(changeEvent.target.value);
+            }}
+          />
+        </Field>
+        <Field label={t.phone} optional hint={t.phoneHint}>
+          <Input
+            type="tel"
+            inputMode="tel"
+            autoComplete="off"
+            value={phone}
+            placeholder={t.phonePlaceholder}
+            onChange={(changeEvent) => {
+              setPhone(changeEvent.target.value);
+            }}
+          />
+        </Field>
+        <p className="flex items-start gap-2 text-xs leading-relaxed text-fg-muted">
+          <TriangleAlert className="mt-0.5 size-3.5 shrink-0 text-warning" aria-hidden />
+          {t.paperWarning}
+        </p>
+        <ErrorMessage error={create.error} />
+      </form>
+    </Dialog>
+  );
+}
+
 export function DigitalTab({ eventId, onSelect }: { eventId: string; onSelect: SelectTab }) {
   const t = useEventTexts().digital;
   const queryClient = useQueryClient();
@@ -471,29 +575,13 @@ export function DigitalTab({ eventId, onSelect }: { eventId: string; onSelect: S
   const key = ["tickets", eventId];
   const tickets = useQuery({ queryKey: key, queryFn: () => api<TicketLinksDto>(`/api/events/${eventId}/tickets`) });
   const event = useQuery({ queryKey: ["event", eventId], queryFn: () => api<EventDto>(`/api/events/${eventId}`) });
-  const [number, setNumber] = useState("");
-  const [holder, setHolder] = useState("");
-  const [phone, setPhone] = useState("");
+  const [sending, setSending] = useState(false);
   const [created, setCreated] = useState<{ link: TicketLinkDto; phone: string; title: string } | null>(null);
   const [replacing, setReplacing] = useState<{ number: number | null } | null>(null);
   const [renaming, setRenaming] = useState<TicketLinkDto | null>(null);
   const [query, setQuery] = useState("");
   const search = useDeferredValue(query.trim().toLowerCase());
   const refresh = () => queryClient.invalidateQueries({ queryKey: key });
-
-  const create = useMutation({
-    mutationFn: (chosen: number | null) => {
-      const body: CreateTicketLinkBody = { number: chosen, holderName: holder.trim() === "" ? null : holder.trim() };
-      return api<TicketLinkDto>(`/api/events/${eventId}/tickets`, { method: "POST", body });
-    },
-    onSuccess: (link) => {
-      setCreated({ link, phone, title: t.createdTitle(link.numberLabel) });
-      setNumber("");
-      setHolder("");
-      setPhone("");
-      void refresh();
-    },
-  });
   const revoke = useMutation({
     mutationFn: (id: string) => api<TicketLinkDto>(`/api/ticket-links/${id}/revoke`, { method: "POST" }),
     onSuccess: () => {
@@ -517,7 +605,7 @@ export function DigitalTab({ eventId, onSelect }: { eventId: string; onSelect: S
   if (data.paidTickets === 0) {
     return (
       <div className="flex flex-col gap-6">
-        <Lead>{t.intro}</Lead>
+        <TabHeader tab="digital" help={t.intro} />
         <EmptyState
           icon={Smartphone}
           title={t.noPaidTitle}
@@ -538,11 +626,6 @@ export function DigitalTab({ eventId, onSelect }: { eventId: string; onSelect: S
   }
   const active = data.links.filter((link) => link.revokedAt === null);
   const label = (value: number) => String(value).padStart(data.numberDigits, "0");
-  const typed = number.trim() === "" ? null : Number(number);
-  const submit = (formEvent: FormEvent) => {
-    formEvent.preventDefault();
-    create.mutate(typed);
-  };
   const shown = data.links.filter(
     (link) =>
       search === "" || link.numberLabel.includes(search) || String(link.number) === search || (link.holderName ?? "").toLowerCase().includes(search),
@@ -550,7 +633,34 @@ export function DigitalTab({ eventId, onSelect }: { eventId: string; onSelect: S
 
   return (
     <div className="flex flex-col gap-6">
-      <Lead>{t.intro}</Lead>
+      <TabHeader
+        tab="digital"
+        help={t.intro}
+        actions={
+          !closed && (
+            <>
+              <Button
+                variant="secondary"
+                icon={<TicketX />}
+                onClick={() => {
+                  setReplacing({ number: null });
+                }}
+              >
+                {t.replace.title}
+              </Button>
+              <Button
+                icon={<Send />}
+                onClick={() => {
+                  setSending(true);
+                }}
+              >
+                {t.sendTitle}
+              </Button>
+            </>
+          )
+        }
+      />
+      {closed && <Alert tone="warning">{eventTexts.actions.archivedNote}</Alert>}
       <div className="grid grid-cols-3 gap-2 sm:gap-4">
         <Stat label={t.stats.active} value={active.length.toLocaleString("pt-BR")} icon={Send} />
         <Stat label={t.stats.opened} value={active.filter((link) => link.openCount > 0).length.toLocaleString("pt-BR")} icon={Eye} />
@@ -574,88 +684,17 @@ export function DigitalTab({ eventId, onSelect }: { eventId: string; onSelect: S
         />
       )}
 
-      {closed ? (
-        <Alert tone="warning">{eventTexts.actions.archivedNote}</Alert>
-      ) : (
-        <Card>
-          <CardHeader icon={Send} title={t.sendTitle} description={t.sendHint} />
-          <form onSubmit={submit} className="flex flex-col gap-4">
-            <div className="grid gap-4 sm:grid-cols-[10rem_1fr_1fr]">
-              <Field
-                label={t.number}
-                hint={data.nextNumber === null ? t.numberNone : number === "" ? t.numberHint(label(data.nextNumber)) : undefined}
-              >
-                <Input
-                  inputMode="numeric"
-                  value={number}
-                  placeholder={data.nextNumber === null ? "" : label(data.nextNumber)}
-                  onChange={(changeEvent) => {
-                    setNumber(changeEvent.target.value.replace(/\D/g, ""));
-                    create.reset();
-                  }}
-                />
-              </Field>
-              <Field label={t.holder} optional>
-                <Input
-                  value={holder}
-                  maxLength={80}
-                  placeholder={t.holderPlaceholder}
-                  onChange={(changeEvent) => {
-                    setHolder(changeEvent.target.value);
-                  }}
-                />
-              </Field>
-              <Field label={t.phone} optional hint={t.phoneHint}>
-                <Input
-                  type="tel"
-                  inputMode="tel"
-                  autoComplete="off"
-                  value={phone}
-                  placeholder={t.phonePlaceholder}
-                  onChange={(changeEvent) => {
-                    setPhone(changeEvent.target.value);
-                  }}
-                />
-              </Field>
-            </div>
-            <p className="flex items-start gap-2 text-xs leading-relaxed text-fg-muted">
-              <TriangleAlert className="mt-0.5 size-3.5 shrink-0 text-warning" aria-hidden />
-              {t.paperWarning}
-            </p>
-            <ErrorMessage error={create.error} />
-            <Button
-              type="submit"
-              icon={<Send />}
-              loading={create.isPending}
-              disabled={typed === null && data.nextNumber === null}
-              className="w-full sm:w-fit"
-            >
-              {create.isPending ? t.creating : t.create}
-            </Button>
-          </form>
-        </Card>
-      )}
-
-      {!closed && (
-        <Card>
-          <CardHeader
-            icon={TicketX}
-            title={t.replace.title}
-            description={t.replace.hint}
-            className="mb-4"
-          />
-          <Button
-            variant="secondary"
-            icon={<TicketX />}
-            className="w-full sm:w-fit"
-            onClick={() => {
-              setReplacing({ number: null });
-            }}
-          >
-            {t.replace.open}
-          </Button>
-        </Card>
-      )}
+      <SendDialog
+        eventId={eventId}
+        open={sending}
+        data={data}
+        onClose={() => {
+          setSending(false);
+        }}
+        onCreated={(link, phone) => {
+          setCreated({ link, phone, title: t.createdTitle(link.numberLabel) });
+        }}
+      />
 
       {!closed && <BulkLinks eventId={eventId} eventName={eventName} />}
 

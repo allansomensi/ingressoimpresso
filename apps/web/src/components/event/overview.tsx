@@ -15,6 +15,7 @@ import { event as eventTexts } from "@/texts/pt-BR/event";
 import { ChecklistCard } from "./checklist";
 import { EventResults } from "./event-results";
 import { Occupancy, useDoorLive } from "./live";
+import { TabHeader } from "./tab-header";
 import type { SelectTab } from "./tabs";
 
 
@@ -32,6 +33,9 @@ export function OverviewTab({
   const t = useEventTexts().overview;
   // Judged once, when the tab opens (rendering stays pure).
   const [doorDay] = useState(() => event !== undefined && isDoorDay(event.startsAt, event.endsAt, Date.now()));
+  // Results (sales, entries, the curve of the door) matter from the day of the event on; before
+  // it, the sales live in Vendedores and Relatório.
+  const [started] = useState(() => event !== undefined && Date.parse(event.startsAt) <= Date.now());
   // What is missing is worked out by the API (ADR 0078).
   const checklist = useQuery({ queryKey: ["checklist", eventId], queryFn: () => api<ChecklistDto>(`/api/events/${eventId}/checklist`) });
   const batches = useQuery({ queryKey: ["batches", eventId], queryFn: () => api<BatchDto[]>(`/api/events/${eventId}/batches`) });
@@ -50,9 +54,11 @@ export function OverviewTab({
   // The list matters until the event is ready; then (or once it is over) the results do.
   const working = list !== undefined && list.applies && list.missing > 0;
   const settled = list !== undefined && !working;
+  // Four zeros say nothing about an event that is only starting: the list stands alone.
+  const quiet = !loading && paidTickets === 0 && (sellers.data?.length ?? 0) === 0 && (door.data?.entryCount ?? 0) === 0 && activeDevices === 0;
 
   const stats = (
-    <div className={cn("grid grid-cols-2 content-start gap-3 sm:gap-4", working ? "max-lg:order-1 lg:grid-cols-1" : "lg:grid-cols-4")}>
+    <div className={cn("grid grid-cols-2 content-start gap-3 sm:gap-4", working ? "lg:grid-cols-1" : "xl:grid-cols-4")}>
       <Stat label={t.stats.paid} value={count(paidTickets)} icon={Ticket} />
       <Stat label={t.stats.sellers} value={count(sellers.data?.length ?? 0)} icon={Users} />
       <Stat label={t.stats.entries} value={count(door.data?.entryCount ?? 0)} icon={LogIn} tone="success" />
@@ -62,12 +68,13 @@ export function OverviewTab({
 
   return (
     <div className="flex flex-col gap-6">
+      <TabHeader tab="overview" />
       {failure !== undefined && <ErrorMessage error={failure} />}
       {doorDay && <LiveCard eventId={eventId} onSelect={onSelect} />}
-      {paidTickets > 0 && settled && <EventResults eventId={eventId} />}
+      {paidTickets > 0 && settled && (started || doorDay) && <EventResults eventId={eventId} />}
       {list === undefined ? (
         <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
-          <Card className="max-lg:order-2">
+          <Card>
             <Skeleton className="mb-3 h-5 w-32" />
             <Skeleton className="mb-6 h-4 w-64 max-w-full" />
             <div className="flex flex-col gap-3">
@@ -79,9 +86,9 @@ export function OverviewTab({
           {stats}
         </div>
       ) : working ? (
-        <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
+        <div className={cn("grid gap-6", !quiet && "lg:grid-cols-[1.5fr_1fr]")}>
           <ChecklistCard list={list} onSelect={onSelect} onEditEvent={onEditEvent} />
-          {stats}
+          {!quiet && stats}
         </div>
       ) : (
         <>
@@ -89,7 +96,7 @@ export function OverviewTab({
           {stats}
         </>
       )}
-      {paidTickets > 0 && working && <EventResults eventId={eventId} />}
+      {paidTickets > 0 && working && (started || doorDay) && <EventResults eventId={eventId} />}
     </div>
   );
 }

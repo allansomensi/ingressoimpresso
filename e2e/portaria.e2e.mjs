@@ -348,7 +348,8 @@ await announcement
   .waitFor({ state: "visible", timeout: 3_000 })
   .then(() => announcement.click())
   .catch(() => undefined);
-await organizer.getByRole("tab", { name: "Relatório" }).click();
+// The sections of the event sit in a navigation down the side (ADR 0087).
+await organizer.getByRole("navigation", { name: "Seções do evento" }).getByRole("button", { name: "Relatório" }).click();
 // The report has a settlement table and a door table (ADR 0050), each with its own total.
 const totalOf = (table) => organizer.getByRole("table", { name: table }).locator("tr", { hasText: "Total" });
 const settlement = totalOf("Acerto por vendedor");
