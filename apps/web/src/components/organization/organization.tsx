@@ -1,6 +1,6 @@
 "use client";
 
-import type { EventChangeDto, PublicOrganizationDto } from "@ingressoimpresso/api-types";
+import type { EventChangeDto, EventKind, PublicOrganizationDto } from "@ingressoimpresso/api-types";
 import { AtSign, CalendarClock, Globe, Mail, MessageCircle, XCircle } from "lucide-react";
 import { useEffect, useSyncExternalStore } from "react";
 
@@ -8,6 +8,7 @@ import { buttonClass } from "@/components/ui";
 import { fetchDataUrl } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { changeKind, spokenDate } from "@/lib/event-change";
+import { forKind } from "@/lib/event-kind";
 import { initials } from "@/lib/format";
 import { instagramUrl } from "@/lib/organization";
 import { whatsappUrl } from "@/lib/share";
@@ -133,21 +134,24 @@ export function OrganizationContact({ organization, message }: { organization: P
 export function EventChangeNotice({
   change,
   startsAt,
+  kind,
   forSeller = false,
   className,
 }: {
   change: EventChangeDto;
   startsAt: string;
+  /** Tickets or consumption tokens (ADR 0084); old pages have none. */
+  kind?: EventKind | undefined;
   /** On the seller's page: what it means for the sales, not for a ticket. */
   forSeller?: boolean;
   className?: string | undefined;
 }) {
-  const t = eventChangeTexts.notice;
-  const kind = changeKind(change, startsAt);
-  if (kind === null) {
+  const t = forKind(eventChangeTexts, eventChangeTexts.tokens, kind).notice;
+  const changed = changeKind(change, startsAt);
+  if (changed === null) {
     return null;
   }
-  const canceled = kind === "canceled";
+  const canceled = changed === "canceled";
   const reason = canceled ? change.cancelReason : change.postponeReason;
   const Icon = canceled ? XCircle : CalendarClock;
   return (
@@ -161,7 +165,7 @@ export function EventChangeNotice({
     >
       <Icon aria-hidden className="mt-0.5 size-5 shrink-0" />
       <div className="flex min-w-0 flex-col gap-1 text-sm leading-relaxed">
-        <h2 className="text-base font-semibold">{canceled ? t.canceledTitle : kind === "moved" ? t.movedTitle : t.postponedTitle}</h2>
+        <h2 className="text-base font-semibold">{canceled ? t.canceledTitle : changed === "moved" ? t.movedTitle : t.postponedTitle}</h2>
         {!canceled && change.postponedFromStartsAt !== null && (
           <>
             <p className="font-semibold">{t.now(spokenDate(startsAt))}</p>

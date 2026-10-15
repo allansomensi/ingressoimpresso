@@ -198,7 +198,7 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   verdadeiro; `/llms.txt` (`content/llms.ts`); tags de verificação por
   `NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION`/`NEXT_PUBLIC_BING_SITE_VERIFICATION`. Falta o que depende
   do mantenedor: Search Console e Bing (`docs/deploy.md`, "Buscadores").
-- **Documento na porta, saída e volta, fichas e Pix (ADRs 0082–0085): implementados.**
+- **Documento na porta, saída e volta, fichas e Pix (ADRs 0082–0086): implementados.**
   - Categoria que pede documento (`ticket_categories.check_document`/`document_note`): a tela
     verde diz "MEIA: peça o documento" e espera o porteiro; o manifesto leva o campo (opcional
     para o app antigo), o ingresso digital e o `/conferir` avisam.
@@ -207,9 +207,15 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
     `Readmit`/`Exit`/`AlreadyOut` (`Door::check_out`); vetores escritos à mão em
     `crates/cli/src/vectors.rs` (`reentry_cases`), formato do QR intacto. Um celular no modo
     Saída lê saídas (tela azul); o Ao vivo mostra dentro e fora. App antigo segue mais restrito.
-  - Fichas de consumo (`events.kind` = `tokens`): mesma mecânica, outras palavras por
-    `lib/event-kind.ts` (`forKind`); produtos são categorias, campo `{categoria}` nos dois lados,
-    dois modelos de ficha (63 × 38 mm), sem saída e volta (`reentry_tokens`).
+  - Fichas de consumo (`events.kind` = `tokens`): mesma mecânica, outras palavras em todo o
+    produto (ADR 0086): cada módulo de textos tem uma seção `tokens` no formato dos ingressos,
+    posta por cima em qualquer profundidade por `forKind` (`lib/event-kind.ts`, conferida no
+    compilador por `Overrides`/`Known`); na página do evento `useEventTexts()` (contexto de
+    `EventAccessProvider`), no link do vendedor `SellerKind`; no servidor `EventRow::tokens`
+    (e-mail do lote, Stripe, convite, prestação de contas, folha de controle). Produtos são
+    categorias, campo `{categoria}` nos dois lados, dois modelos de ficha (63 × 38 mm) e a ficha
+    padrão `TicketDesign::default_tokens`; sem saída e volta (`reentry_tokens`), bilheteria
+    (`box_office_tokens`), documento, mesas nem lista de nomes.
   - Pix copia e cola (ADR 0085): chave da organização (`organization_profiles.pix_*`, Minha
     organização) e de cada vendedor (`sellers.pix_*`), conferidas em `pix.rs`;
     `events.pix_receiver` (`off`/`organization`/`seller`); BR Code montado no aparelho
@@ -582,6 +588,10 @@ just backup-restore-test <dump.age> <chave-age>   # restaura um backup num banco
   (`crates/render/fonts` + `world.rs` + `ticket.typ` e `public/fonts/ticket` em WOFF2, gerado por
   `just ticket-fonts`: o papel usa a fonte inteira, o site só o alfabeto latino). Conteúdo pesado
   abaixo da dobra da landing espera a tela (`defer-render`, `useNearScreen`).
+- **Fichas falam de ficha (ADR 0086):** texto novo de uma tela que um evento de fichas mostra
+  ganha a versão das fichas na seção `tokens` do seu módulo (ficha, usada, barraca, produto, com a
+  concordância certa); leia os textos por `useEventTexts()`/`forKind`, nunca por uma constante do
+  módulo dentro de um componente do evento.
 - **Textos de interface centralizados:** `apps/web/src/texts/pt-BR/<seção>.ts` no web (um módulo
   por seção, importado como `import { event as eventTexts } from "@/texts/pt-BR/event"`: cada
   página leva só as seções que usa; `pt-BR.ts` só lista as seções e importá-lo traz tudo) e

@@ -12,11 +12,10 @@ import { CancelDialog, ChangeMessageDialog, PostponeDialog } from "@/components/
 import { Menu, MenuItem, buttonClass, errorMessage, useConfirm } from "@/components/ui";
 import { api } from "@/lib/api";
 import { canDo, isOwner } from "@/lib/team";
-import { event as eventTexts } from "@/texts/pt-BR/event";
+import { useEventTexts } from "@/components/event/access";
 import { eventChange as eventChangeTexts } from "@/texts/pt-BR/event-change";
 import { series as seriesTexts } from "@/texts/pt-BR/series";
 
-const t = eventTexts.actions;
 const c = eventChangeTexts;
 const s = seriesTexts;
 
@@ -25,6 +24,7 @@ const s = seriesTexts;
  * duplicate, archive or reopen, and delete (the organization's own people).
  */
 export function EventActions({ event }: { event: EventDto }) {
+  const t = useEventTexts().actions;
   const queryClient = useQueryClient();
   const router = useRouter();
   const confirm = useConfirm();

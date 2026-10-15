@@ -31,7 +31,7 @@ struct ValidCategory {
     document_note: Option<String>,
 }
 
-fn validate(body: &CategoryBody) -> ApiResult<ValidCategory> {
+fn validate(body: &CategoryBody, tokens: bool) -> ApiResult<ValidCategory> {
     let name = body.name.trim().to_owned();
     if name.is_empty() || name.chars().count() > MAX_NAME {
         return Err(bad_request(
@@ -53,7 +53,8 @@ fn validate(body: &CategoryBody) -> ApiResult<ValidCategory> {
     {
         return Err(bad_request("invalid_price", "price out of range"));
     }
-    let check_document = body.check_document.unwrap_or(false);
+    // A ficha is never asked for a document at a stall (ADR 0084).
+    let check_document = body.check_document.unwrap_or(false) && !tokens;
     // A note without the check would never show: it is dropped with the check.
     let document_note = super::optional_text(body.document_note.clone()).filter(|_| check_document);
     if let Some(note) = &document_note {
@@ -138,8 +139,8 @@ pub async fn create(
     Path(event_id): Path<Uuid>,
     Json(body): Json<CategoryBody>,
 ) -> ApiResult<(StatusCode, Json<CategoryDto>)> {
-    authorize_event(&state.pool, &user, event_id).await?;
-    let valid = validate(&body)?;
+    let event = authorize_event(&state.pool, &user, event_id).await?;
+    let valid = validate(&body, event.tokens())?;
     let count = sqlx::query_scalar!(
         r#"select count(*) as "count!" from ticket_categories where event_id = $1"#,
         event_id
@@ -202,8 +203,14 @@ pub async fn update(
     Path(category_id): Path<Uuid>,
     Json(body): Json<CategoryBody>,
 ) -> ApiResult<StatusCode> {
-    category_event(&state, &user, category_id).await?;
-    let valid = validate(&body)?;
+    let event_id = category_event(&state, &user, category_id).await?;
+    let tokens = sqlx::query_scalar!(
+        r#"select kind = 'tokens' as "tokens!" from events where id = $1"#,
+        event_id
+    )
+    .fetch_one(&state.pool)
+    .await?;
+    let valid = validate(&body, tokens)?;
     sqlx::query!(
         r#"update ticket_categories
            set name = $2, color = $3, price_cents = $4, check_document = $5, document_note = $6
@@ -335,7 +342,10 @@ impl NumberTags {
         }
         let seats = sqlx::query!(
             r#"select s.ticket_number, s.seat, t.name from ticket_seats s
-               join event_tables t on t.id = s.table_id where s.event_id = $1"#,
+               join event_tables t on t.id = s.table_id
+               where s.event_id = $1
+                 -- A ficha has no seat (ADR 0084), even if the event once had tables.
+                 and exists(select 1 from events e where e.id = $1 and e.kind = 'tickets')"#,
             event_id
         )
         .fetch_all(pool)

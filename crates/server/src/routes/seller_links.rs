@@ -766,14 +766,23 @@ pub async fn unmark(
     ratelimit::by_ip(&state, &headers, ratelimit::SELLER_WRITE).await?;
     let link = find_link(&state, &body.token).await?;
     ensure_writable(&state, link.event_id, "/api/seller/sales/undo").await?;
+    let mut tx = state.pool.begin().await?;
+    // A sale whose Pix arrived stays (ADR 0085): the organization undoes the receipt first.
+    if super::seller_ops::pix_received(&mut tx, link.event_id, body.number).await? {
+        return Err(ApiError::Conflict(
+            "pix_received",
+            "the Pix of this number was received".to_owned(),
+        ));
+    }
     sqlx::query!(
         "delete from ticket_sales where event_id = $1 and ticket_number = $2 and seller_id = $3",
         link.event_id,
         body.number,
         link.seller_id,
     )
-    .execute(&state.pool)
+    .execute(&mut *tx)
     .await?;
+    tx.commit().await?;
     // A digital ticket the seller sent for a sale undone stops opening (ADR 0061).
     super::tickets::revoke_seller_links(&state, link.event_id, link.seller_id, body.number).await?;
     Ok(no_store(view(&state, &link).await?))

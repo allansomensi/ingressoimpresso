@@ -6,7 +6,7 @@ import { ArrowDownCircle, ArrowUpCircle, FileSpreadsheet, FileText, MoreHorizont
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
-import { useEventAccess } from "@/components/event/access";
+import { useEventAccess, useEventTexts } from "@/components/event/access";
 import { Button, Card, CardHeader, Dialog, ErrorMessage, Field, Input, LoadingBlock, Menu, MenuItem, buttonClass, errorMessage, useConfirm } from "@/components/ui";
 import { api, fetchBlobUrl } from "@/lib/api";
 import { cn } from "@/lib/cn";
@@ -14,9 +14,7 @@ import { money, parseMoney } from "@/lib/format";
 import { shortDay, todayIso } from "@/lib/settlement";
 import { common as commonTexts } from "@/texts/pt-BR/common";
 import { errors as errorsTexts } from "@/texts/pt-BR/errors";
-import { event as eventTexts } from "@/texts/pt-BR/event";
 
-const t = eventTexts.accountability;
 
 /** Saves a file the API generates (an anchor, so the link never lands in the history). */
 async function saveFile(path: string, name: string) {
@@ -32,6 +30,7 @@ async function saveFile(path: string, name: string) {
 
 /** The accountability (ADR 0058): money in and out, the files for the group and the entries. */
 export function Accountability({ eventId }: { eventId: string }) {
+  const t = useEventTexts().accountability;
   const queryClient = useQueryClient();
   const event = useQuery({ queryKey: ["event", eventId], queryFn: () => api<EventDto>(`/api/events/${eventId}`) });
   const { can } = useEventAccess();
@@ -169,6 +168,7 @@ function Figure({
 }
 
 function EntryRow({ entry, editable, onEdit, onChange }: { entry: LedgerEntryDto; editable: boolean; onEdit: () => void; onChange: () => void }) {
+  const t = useEventTexts().accountability;
   const confirm = useConfirm();
   const income = entry.kind === "income";
   const remove = useMutation({
@@ -233,6 +233,7 @@ function EntryDialog({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const t = useEventTexts().accountability;
   const [kind, setKind] = useState<LedgerKind>(initialKind);
   const [description, setDescription] = useState(entry?.description ?? "");
   const [category, setCategory] = useState(entry?.category ?? "");

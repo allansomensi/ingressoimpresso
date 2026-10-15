@@ -2675,6 +2675,8 @@ dto_enum! {
         EventCanceled,
         /// A box office does not reserve.
         BoxOffice,
+        /// Its Pix arrived (ADR 0085): only the organization undoes the receipt, then the sale.
+        PixReceived,
         /// Something the page should not have sent (a name too long, a bad number).
         Invalid,
     }

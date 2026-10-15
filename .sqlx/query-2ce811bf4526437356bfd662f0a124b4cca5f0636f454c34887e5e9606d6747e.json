@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select s.ticket_number, s.seat, t.name from ticket_seats s\n           join event_tables t on t.id = s.table_id where s.event_id = $1 order by s.ticket_number",
+  "query": "select s.ticket_number, s.seat, t.name from ticket_seats s\n           join event_tables t on t.id = s.table_id\n           where s.event_id = $1\n             -- A ficha has no seat (ADR 0084), even if the event once had tables.\n             and exists(select 1 from events e where e.id = $1 and e.kind = 'tickets')\n           order by s.ticket_number",
   "describe": {
     "columns": [
       {
@@ -48,5 +48,5 @@
       false
     ]
   },
-  "hash": "60322127f11b056656eaca2d44a48707179d208e416d6eafc69e576038cc45ec"
+  "hash": "2ce811bf4526437356bfd662f0a124b4cca5f0636f454c34887e5e9606d6747e"
 }

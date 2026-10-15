@@ -3,9 +3,12 @@
  * (the server checks them again on save). Messages come from `ticketCanvasTexts.issues`.
  */
 
-import type { BandEdge, BandStyle, FontChoice, SponsorStrip, TextBlock, TicketDesign } from "@ingressoimpresso/api-types";
+import type { BandEdge, BandStyle, EventKind, FontChoice, SponsorStrip, TextBlock, TicketDesign } from "@ingressoimpresso/api-types";
 
+import { forKind } from "@/lib/event-kind";
 import { ticketCanvas as ticketCanvasTexts } from "@/texts/pt-BR/ticket-canvas";
+
+type IssueTexts = typeof ticketCanvasTexts.issues;
 
 export const BLEED_MM = 3;
 export const MIN_QR_SIZE_MM = 22;
@@ -97,8 +100,7 @@ export function fitsA4(width: number, height: number): boolean {
   return (width <= w && height <= h) || (height <= w && width <= h);
 }
 
-function textIssues(design: TicketDesign, block: TextBlock, index: number): DesignIssue[] {
-  const m = ticketCanvasTexts.issues;
+function textIssues(m: IssueTexts, design: TicketDesign, block: TextBlock, index: number): DesignIssue[] {
   const target: IssueTarget = { kind: "text", index };
   const issues: DesignIssue[] = [];
   if ([...block.text].length > MAX_TEXT_CHARS) {
@@ -122,9 +124,9 @@ function textIssues(design: TicketDesign, block: TextBlock, index: number): Desi
   return issues;
 }
 
-/** Every rule the design breaks, in the editor's order. */
-export function designIssues(design: TicketDesign): DesignIssue[] {
-  const m = ticketCanvasTexts.issues;
+/** Every rule the design breaks, in the editor's order ("ficha" for consumption tokens). */
+export function designIssues(design: TicketDesign, kind?: EventKind): DesignIssue[] {
+  const m = forKind(ticketCanvasTexts, ticketCanvasTexts.tokens, kind).issues;
   const issues: DesignIssue[] = [];
   const body: IssueTarget = { kind: "body" };
   if (!within(design.widthMm, BODY_WIDTH_MM) || !within(design.heightMm, BODY_HEIGHT_MM)) {
@@ -203,7 +205,7 @@ export function designIssues(design: TicketDesign): DesignIssue[] {
     issues.push({ message: m.tooManyTexts(MAX_TEXT_BLOCKS), target: body });
   }
   design.texts.forEach((block, index) => {
-    issues.push(...textIssues(design, block, index));
+    issues.push(...textIssues(m, design, block, index));
   });
   return issues;
 }

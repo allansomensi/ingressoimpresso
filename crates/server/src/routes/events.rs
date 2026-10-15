@@ -772,6 +772,22 @@ pub async fn update(
     // Door links live until the end of the event plus a grace period: a postponed event must
     // not lock its phones out at the gate.
     door::extend_accesses(&mut tx, event_id, row.ends_at).await?;
+    if row.tokens() {
+        // Nothing of the door is asked of a ficha (ADR 0084): no document, no box office.
+        sqlx::query!(
+            r#"update ticket_categories set check_document = false, document_note = null
+               where event_id = $1 and check_document"#,
+            event_id
+        )
+        .execute(&mut *tx)
+        .await?;
+        sqlx::query!(
+            "update sellers set box_office = false where event_id = $1 and box_office",
+            event_id
+        )
+        .execute(&mut *tx)
+        .await?;
+    }
     tx.commit().await?;
     Ok(Json(access.dto(&state.pool, row).await?))
 }
@@ -839,7 +855,7 @@ pub async fn get_design(
     user: AuthUser,
     Path(event_id): Path<Uuid>,
 ) -> ApiResult<Json<DesignResponse>> {
-    authorize_event(&state.pool, &user, event_id).await?;
+    let event = authorize_event(&state.pool, &user, event_id).await?;
     let latest = sqlx::query!(
         "select version, spec, art_blob_id, sponsor_blob_ids from ticket_designs where event_id = $1 order by version desc limit 1",
         event_id
@@ -849,7 +865,8 @@ pub async fn get_design(
     let Some(latest) = latest else {
         return Ok(Json(DesignResponse {
             version: 0,
-            design: TicketDesign::default_v1(),
+            // A token event starts from a ficha, not a ticket (ADR 0086).
+            design: TicketDesign::default_for(event.tokens()),
             art: None,
             sponsors: Vec::new(),
         }));
@@ -1188,6 +1205,7 @@ pub async fn preview(
     // Samples show the band of the event's categories and seats, as printed (ADR 0056).
     let tags = super::categories::NumberTags::load(&state.pool, event_id).await?;
     let job = RenderJob {
+        tokens: event.tokens(),
         details: super::event_details(&state.pool, &event).await?,
         design: body.design,
         art,

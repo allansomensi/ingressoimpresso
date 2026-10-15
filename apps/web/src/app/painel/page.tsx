@@ -102,7 +102,7 @@ function EventCard({ event, now }: { event: EventDto; now: number }) {
           </span>
           {event.team !== null && (
             <span className="truncate text-xs text-fg-subtle max-sm:hidden">
-              {eventTexts.team.listLine(event.team.organization, areaList(event.team.areas))}
+              {eventTexts.team.listLine(event.team.organization, areaList(event.team.areas, event.kind))}
             </span>
           )}
         </div>

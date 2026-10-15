@@ -8,11 +8,10 @@ import { BarChart } from "@/components/admin/bar-chart";
 import { Card, CardHeader, Skeleton, Stat } from "@/components/ui";
 import { api } from "@/lib/api";
 import { money } from "@/lib/format";
-import { event as eventTexts } from "@/texts/pt-BR/event";
+import { useEventTexts } from "@/components/event/access";
 
 import { useLivePolling } from "./live-polling";
 
-const t = eventTexts.results;
 
 /** `22:15` of an RFC 3339 instant, in its own offset (the event's local time). */
 function clock(iso: string): string {
@@ -25,6 +24,7 @@ function percent(part: number, whole: number): number {
 
 /** What the event sold, cost and how the door went (ADR 0034). */
 export function EventResults({ eventId }: { eventId: string }) {
+  const t = useEventTexts().results;
   const results = useQuery({
     queryKey: ["analytics", eventId],
     queryFn: () => api<EventAnalyticsDto>(`/api/events/${eventId}/analytics`),

@@ -7,13 +7,14 @@ import Link from "next/link";
 import { toast } from "sonner";
 
 import { Card, CardHeader, Switch, errorMessage } from "@/components/ui";
+import { useEventKind } from "@/components/event/access";
 import { api } from "@/lib/api";
+import { forKind } from "@/lib/event-kind";
 import { verifyPage as verifyPageTexts } from "@/texts/pt-BR/verify-page";
-
-const t = verifyPageTexts.settings;
 
 /** Whether anyone holding a ticket of the event may check it on /conferir (ADR 0075). */
 export function PublicVerifyCard({ eventId }: { eventId: string }) {
+  const t = forKind(verifyPageTexts, verifyPageTexts.tokens, useEventKind()).settings;
   const queryClient = useQueryClient();
   const key = ["verify-settings", eventId];
   const settings = useQuery({ queryKey: key, queryFn: () => api<VerifySettingsDto>(`/api/events/${eventId}/verify-settings`) });

@@ -1,0 +1,27 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with previous as (\n               select m.local_outcome = 'exited' as is_exit, m.scanned_at, d.name\n               from scans m join door_devices d on d.id = m.device_id\n               where m.event_id = $1 and m.ticket_number = $2 and m.id <> $3\n                 and m.local_outcome in ('admitted', 'readmitted', 'exited')\n                 -- Before this entry: an exit at the very same instant and phone comes after it.\n                 and ((m.scanned_at, d.name) < ($4, $5)\n                      or ((m.scanned_at, d.name) = ($4, $5) and m.local_outcome <> 'exited'))\n               order by m.scanned_at desc, d.name desc, (m.local_outcome = 'exited') desc\n               limit 1\n           )\n           select coalesce((select is_exit from previous), false)\n           and not exists (\n               -- Another entry after that exit and before the next one already used it.\n               select 1\n               from scans e join door_devices de on de.id = e.device_id, previous p\n               where e.event_id = $1 and e.ticket_number = $2 and e.id <> $3\n                 and e.local_outcome in ('admitted', 'readmitted')\n                 and (e.scanned_at, de.name) > (p.scanned_at, p.name)\n                 and not exists (\n                     select 1 from scans x join door_devices dx on dx.id = x.device_id\n                     where x.event_id = $1 and x.ticket_number = $2 and x.local_outcome = 'exited'\n                       and (x.scanned_at, dx.name) > (p.scanned_at, p.name)\n                       and (x.scanned_at, dx.name) < (e.scanned_at, de.name)))\n           and (select reentry from events where id = $1) as \"out!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "out!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4",
+        "Uuid",
+        "Timestamptz",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "54a6a2994fa3fee75cc07e79617c90ff5660eb6726978ec4b56ec36fe4c36b09"
+}

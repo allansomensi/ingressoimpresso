@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select exists(select 1 from ticket_payments\n                         where event_id = $1 and $2::int4range @> ticket_number) as \"paid!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "paid!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4Range"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "800dada03fac3018b0360340f2ec12267f934e6839af076fb1610ab01b31a676"
+}

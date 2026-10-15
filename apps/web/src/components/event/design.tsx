@@ -42,7 +42,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
-import { ReadOnlyNotice } from "@/components/event/access";
+import { ReadOnlyNotice, useEventKind, useEventTexts } from "@/components/event/access";
 import { ArtPicker } from "@/components/event/art-picker";
 import { NumberInspector, QrInspector, TextInspector } from "@/components/event/design-inspectors";
 import { AlignBar, SelectionInspector, ShortcutsHelp, useMarquee } from "@/components/event/design-tools";
@@ -110,7 +110,6 @@ import { ticketCanvas as ticketCanvasTexts } from "@/texts/pt-BR/ticket-canvas";
 import { event as eventTexts } from "@/texts/pt-BR/event";
 import { templates as templatesTexts } from "@/texts/pt-BR/templates";
 
-const t = eventTexts.design;
 
 export function DesignTab({ eventId }: { eventId: string }) {
   const current = useQuery({
@@ -135,17 +134,20 @@ export function DesignTab({ eventId }: { eventId: string }) {
 }
 
 /** A band to preview: the event's first category and table (ADR 0056, 0057), if it has any. */
-function useSampleTag(eventId: string): { text: string; color: string; category: string | null } | null {
+function useSampleTag(eventId: string): { text: string; color: string; category: string | null; priceCents: number | null } | null {
   const categories = useQuery({ queryKey: ["categories", eventId], queryFn: () => api<CategoryDto[]>(`/api/events/${eventId}/categories`) });
   const tables = useQuery({ queryKey: ["tables", eventId], queryFn: () => api<TableDto[]>(`/api/events/${eventId}/tables`) });
   const category = categories.data?.[0] ?? null;
   const table = tables.data?.[0] ?? null;
   const text = bandText(category?.name ?? null, table === null ? null : seatLabel(table.name, 1));
-  return text === null ? null : { text, color: category?.color ?? SEAT_BAND_COLOR, category: category?.name ?? null };
+  return text === null
+    ? null
+    : { text, color: category?.color ?? SEAT_BAND_COLOR, category: category?.name ?? null, priceCents: category?.priceCents ?? null };
 }
 
 /** The ticket as saved, for team members who do not take care of the art (ADR 0055). */
 function DesignReadOnly({ eventId, event, current }: { eventId: string; event: EventDto; current: DesignResponse }) {
+  const t = useEventTexts().design;
   const { design, art } = current;
   const artId = art?.id ?? null;
   const artUrl = useQuery({
@@ -321,6 +323,7 @@ function useRevealInspector(selectedKey: string | null, design: TicketDesign) {
 }
 
 function DesignEditor({ eventId, event, initial }: { eventId: string; event: EventDto; initial: DesignResponse }) {
+  const t = useEventTexts().design;
   const queryClient = useQueryClient();
   const confirm = useConfirm();
   const initialDraft = useMemo<Draft>(() => ({ design: initial.design, art: initial.art, sponsors: initial.sponsors }), [initial]);
@@ -355,7 +358,8 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
   useUnsavedChanges(dirty);
 
   const tag = useSampleTag(eventId);
-  const issues = useMemo(() => designIssues(design), [design]);
+  const kind = useEventKind();
+  const issues = useMemo(() => designIssues(design, kind), [design, kind]);
   const problems = useMemo(
     () => issues.map((issue) => issueElement(issue.target)).filter((element): element is TicketElement => element !== null),
     [issues],

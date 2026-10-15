@@ -68,6 +68,7 @@ fn art() -> Art {
 fn job(numbers: &[u32], design: TicketDesign) -> RenderJob {
     let issuer = issuer();
     RenderJob {
+        tokens: false,
         design,
         art: Some(art()),
         sponsors: vec![art()],

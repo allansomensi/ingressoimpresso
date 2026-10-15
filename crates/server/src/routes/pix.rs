@@ -10,6 +10,7 @@ use axum::extract::{Path, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::Response;
 use sqlx::PgPool;
+use sqlx::postgres::types::PgRange;
 use uuid::Uuid;
 
 use super::authorize_event;
@@ -243,8 +244,9 @@ async fn sellers(pool: &PgPool, event_id: Uuid) -> ApiResult<Vec<SellerPixDto>> 
     .collect())
 }
 
-/// Numbers someone may pay: sold by a seller, sent as an active digital ticket, or already
-/// paid; each with its price, seller, buyer and receipt.
+/// Numbers someone may pay: sold by a seller or sent as an active digital ticket, and neither
+/// canceled nor the second copy of a lost one (paid with it); or already paid. Each with its
+/// price, seller, buyer and receipt.
 async fn numbers(
     pool: &PgPool,
     event_id: Uuid,
@@ -264,6 +266,16 @@ async fn numbers(
         r#"with wanted as (
                select ticket_number from ticket_sales where event_id = $1
                union select ticket_number from ticket_links where event_id = $1 and revoked_at is null
+           ),
+           payable as (
+               select w.ticket_number from wanted w
+               where not exists(select 1 from ticket_voids v
+                                where v.event_id = $1 and v.undone_at is null
+                                  and v.numbers @> w.ticket_number)
+                 and not exists(select 1 from ticket_replacements r
+                                join ticket_voids v on v.id = r.void_id
+                                where r.event_id = $1 and r.new_number = w.ticket_number
+                                  and v.undone_at is null)
                union select ticket_number from ticket_payments where event_id = $1
            )
            select w.ticket_number as "number!",
@@ -274,7 +286,7 @@ async fn numbers(
                                              and l.revoked_at is null limit 1)) as "buyer?",
                   p.received_by as "received_by?", p.amount_cents as "paid_cents?",
                   p.confirmed_at as "confirmed_at?"
-           from wanted w
+           from payable w
            join events e on e.id = $1
            left join category_ranges cr on cr.event_id = $1 and cr.numbers @> w.ticket_number
            left join ticket_categories tc on tc.id = cr.category_id
@@ -398,7 +410,8 @@ pub async fn set_receipts(
         .into_iter()
         .map(|row| (row.number, row))
         .collect();
-    let mut tx = state.pool.begin().await?;
+    let mut amounts = Vec::with_capacity(wanted.len());
+    let mut payees = Vec::with_capacity(wanted.len());
     for number in &wanted {
         let row = payable.get(number).ok_or_else(|| {
             bad_request(
@@ -406,27 +419,54 @@ pub async fn set_receipts(
                 "only sold numbers and digital tickets are paid by Pix",
             )
         })?;
-        sqlx::query!(
-            r#"insert into ticket_payments (event_id, ticket_number, amount_cents, received_by, confirmed_by)
-               values ($1, $2, $3, $4, $5)
-               on conflict (event_id, ticket_number) do nothing"#,
-            event_id,
-            number,
-            row.amount_cents.unwrap_or(0),
-            row.payee.db(),
-            user.id,
-        )
-        .execute(&mut *tx)
-        .await?;
+        amounts.push(row.amount_cents.unwrap_or(0));
+        payees.push(row.payee.db().to_owned());
     }
-    tx.commit().await?;
+    sqlx::query!(
+        r#"insert into ticket_payments (event_id, ticket_number, amount_cents, received_by, confirmed_by)
+           select $1, receipt.number, receipt.amount, receipt.payee, $5
+           from unnest($2::int4[], $3::int4[], $4::text[]) as receipt(number, amount, payee)
+           on conflict (event_id, ticket_number) do nothing"#,
+        event_id,
+        &wanted,
+        &amounts,
+        &payees,
+        user.id,
+    )
+    .execute(&state.pool)
+    .await?;
     Ok(Json(overview(&state.pool, event_id).await?))
+}
+
+/// Refuses to give back a range with a number whose Pix arrived (ADR 0085): it was sold, so it
+/// is neither unsold nor lost.
+pub(crate) async fn ensure_unpaid(
+    executor: impl sqlx::PgExecutor<'_>,
+    event_id: Uuid,
+    numbers: &PgRange<i32>,
+) -> ApiResult<()> {
+    let paid = sqlx::query_scalar!(
+        r#"select exists(select 1 from ticket_payments
+                         where event_id = $1 and $2::int4range @> ticket_number) as "paid!""#,
+        event_id,
+        numbers.clone(),
+    )
+    .fetch_one(executor)
+    .await?;
+    if paid {
+        return Err(ApiError::Conflict(
+            "pix_received",
+            "some of these numbers were paid by Pix".to_owned(),
+        ));
+    }
+    Ok(())
 }
 
 // Public pages -----------------------------------------------------------------------------
 
 /// The Pix of one number for its digital ticket; `None` when the event does not charge by Pix,
-/// there is no key to pay or the number is a courtesy.
+/// there is no key to pay or the number is a courtesy. A number a seller sold, or the second
+/// copy of a lost one, was paid in person: it shows only a receipt, never a new charge.
 pub(crate) async fn ticket_pix(
     pool: &PgPool,
     event_id: Uuid,
@@ -445,7 +485,13 @@ pub(crate) async fn ticket_pix(
                   s.pix_key_type as "key_type?", s.pix_key as "key?", s.pix_name as "name?",
                   s.pix_city as "city?",
                   exists(select 1 from ticket_payments p
-                         where p.event_id = $1 and p.ticket_number = $2) as "paid!"
+                         where p.event_id = $1 and p.ticket_number = $2) as "paid!",
+                  (exists(select 1 from ticket_sales ts
+                          where ts.event_id = $1 and ts.ticket_number = $2)
+                   or exists(select 1 from ticket_replacements r
+                             join ticket_voids v on v.id = r.void_id
+                             where r.event_id = $1 and r.new_number = $2
+                               and v.undone_at is null)) as "paid_in_person!"
            from (select 1) one
            left join seller_assignments a on a.event_id = $1 and a.numbers @> $2::int4
            left join sellers s on s.id = a.seller_id"#,
@@ -454,7 +500,7 @@ pub(crate) async fn ticket_pix(
     )
     .fetch_one(pool)
     .await?;
-    if row.amount_cents == Some(0) {
+    if row.amount_cents == Some(0) || (row.paid_in_person && !row.paid) {
         return Ok(None);
     }
     let seller = account(row.key_type.as_deref(), row.key, row.name, row.city);

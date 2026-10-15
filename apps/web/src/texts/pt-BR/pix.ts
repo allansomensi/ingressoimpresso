@@ -51,6 +51,7 @@ export const pix = {
     "O comprador paga direto para a organização ou para o vendedor, com o valor e um identificador por número. Você confere no extrato e marca como recebido.",
   receivers: {
     off: { title: "Desligada", body: "Sem Pix no link do vendedor nem no ingresso no celular." },
+    offTokens: "Sem Pix no link do vendedor nem na ficha no celular.",
     organization: { title: "Pix da organização", body: "Todo pagamento cai na chave da organização." },
     seller: { title: "Pix de cada vendedor", body: "Cai na chave do vendedor; quem não tem chave usa a da organização." },
   },

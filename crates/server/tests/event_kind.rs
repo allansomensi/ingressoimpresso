@@ -113,3 +113,68 @@ async fn events_print_tickets_or_tokens(pool: PgPool) {
         .json();
     assert_eq!(overview["reentry"], false);
 }
+
+#[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
+async fn a_token_event_asks_nothing_of_the_door(pool: PgPool) {
+    let app = TestApp::new(pool).await;
+    let token = app.login("paroquia@exemplo.com").await;
+    let event = app.post("/api/events", &token, body(None)).await.json();
+    let id = event["id"].as_str().unwrap();
+
+    // Set up as tickets: a category with a document check, a box office.
+    let meia = app
+        .post(
+            &format!("/api/events/{id}/categories"),
+            &token,
+            json!({ "name": "Meia", "color": "#2563eb", "checkDocument": true }),
+        )
+        .await;
+    assert_eq!(meia.json()["checkDocument"], true);
+    let seller = app
+        .post(
+            &format!("/api/events/{id}/sellers"),
+            &token,
+            json!({ "name": "Caixa", "boxOffice": true }),
+        )
+        .await;
+    assert_eq!(seller.json()["boxOffice"], true);
+
+    // Switched to fichas: no document, no box office, and none can come back.
+    app.put(&format!("/api/events/{id}"), &token, body(Some("tokens")))
+        .await;
+    let categories = app
+        .get(&format!("/api/events/{id}/categories"), &token)
+        .await
+        .json();
+    assert_eq!(categories[0]["checkDocument"], false);
+    let sellers = app
+        .get(&format!("/api/events/{id}/sellers"), &token)
+        .await
+        .json();
+    assert_eq!(sellers[0]["boxOffice"], false);
+    let again = app
+        .post(
+            &format!("/api/events/{id}/sellers"),
+            &token,
+            json!({ "name": "Outro caixa", "boxOffice": true }),
+        )
+        .await;
+    assert_eq!(again.error_code(), "box_office_tokens");
+    let pastel = app
+        .post(
+            &format!("/api/events/{id}/categories"),
+            &token,
+            json!({ "name": "Pastel", "color": "#ea580c", "checkDocument": true }),
+        )
+        .await;
+    assert_eq!(pastel.json()["checkDocument"], false);
+
+    // Never designed: the editor starts from a ficha, 21 per A4 sheet.
+    let design = app
+        .get(&format!("/api/events/{id}/design"), &token)
+        .await
+        .json();
+    assert_eq!(design["version"], 0);
+    assert_eq!(design["design"]["widthMm"], 63.0);
+    assert_eq!(design["design"]["heightMm"], 38.0);
+}

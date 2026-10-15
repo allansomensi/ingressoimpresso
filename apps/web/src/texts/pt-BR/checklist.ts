@@ -1,3 +1,5 @@
+import type { Known, Overrides } from "@/lib/event-kind";
+
 // What is missing before the event (ADR 0078).
 export const checklist = {
   title: "O que falta",
@@ -38,4 +40,22 @@ export const checklist = {
     no_devices: "Nenhum celular entrou pelo link ainda.",
   },
   sellerLinks: (done: number, total: number) => `${String(done)} de ${String(total)} vendedores com link`,
+  // Consumption tokens (ADR 0086).
+  tokens: {
+    items: {
+      details: { body: "A ficha no celular mostra o lugar e como chegar." },
+      design: { title: "Ficha desenhada" },
+      art: { body: "As imagens da ficha passam por uma revisão." },
+      categories: { title: "Produtos", body: "Bebida, comida, doce: faixas de números com cor e preço." },
+      batch: { body: "Arquivos e fichas no celular só saem de lotes pagos." },
+      delivery: { title: "Fichas entregues", body: "Gere os arquivos para imprimir ou mande fichas no celular." },
+      door_link: { title: "Link das barracas", body: "Os celulares das barracas entram por ele no dia." },
+      rehearsal: { title: "Ensaio nas barracas", body: "Opcional: teste a leitura num celular antes de abrir as barracas." },
+      public_verify: { body: "Quem compra de outra pessoa confere a ficha antes." },
+    },
+  },
 } as const;
+
+/** Fails to compile when a consumption-token text has no ticket text. */
+type Checked<T extends Overrides<typeof checklist> & Known<T, typeof checklist>> = T;
+export type ChecklistTokenTexts = Checked<typeof checklist.tokens>;

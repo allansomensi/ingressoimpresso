@@ -735,17 +735,23 @@ async fn tags(
     .collect::<ApiResult<Vec<_>>>()?;
     let seats = sqlx::query!(
         r#"select s.ticket_number, s.seat, t.name from ticket_seats s
-           join event_tables t on t.id = s.table_id where s.event_id = $1 order by s.ticket_number"#,
+           join event_tables t on t.id = s.table_id
+           where s.event_id = $1
+             -- A ficha has no seat (ADR 0084), even if the event once had tables.
+             and exists(select 1 from events e where e.id = $1 and e.kind = 'tickets')
+           order by s.ticket_number"#,
         event_id
     )
     .fetch_all(&state.pool)
     .await?
     .into_iter()
     .filter_map(|row| {
-        u32::try_from(row.ticket_number).ok().map(|number| DoorSeatDto {
-            number,
-            label: crate::texts::seat_label(&row.name, row.seat),
-        })
+        u32::try_from(row.ticket_number)
+            .ok()
+            .map(|number| DoorSeatDto {
+                number,
+                label: crate::texts::seat_label(&row.name, row.seat),
+            })
     })
     .collect();
     Ok((categories, seats))
@@ -835,9 +841,19 @@ pub async fn upload_scans(
         .iter()
         .map(ValidScan::try_from)
         .collect::<ApiResult<Vec<_>>>()?;
-    // Entries are locked in ticket order, so concurrent uploads cannot deadlock.
+    // Entries are locked in ticket order, so concurrent uploads cannot deadlock. Within a ticket,
+    // its movements go in the order they happened (an exit after an entry at the same instant):
+    // a phone's batch comes in any order, and each scan is classified against the ones before it.
     let mut order: Vec<usize> = (0..scans.len()).collect();
-    order.sort_by_key(|&index| scans.get(index).and_then(|scan| scan.number));
+    order.sort_by_key(|&index| {
+        scans.get(index).map(|scan| {
+            (
+                scan.number,
+                scan.scanned_at,
+                scan.outcome == ScanOutcome::Exited,
+            )
+        })
+    });
 
     let mut tx = state.pool.begin().await?;
     let mut results: Vec<Option<DoorScanResult>> = vec![None; scans.len()];
@@ -1043,9 +1059,10 @@ async fn describe(
     Ok(result)
 }
 
-/// Whether `number` was out when `scan` let it in (ADR 0083): the event allows re-entry and the
+/// Whether `number` was out when `scan` let it in (ADR 0083): the event allows re-entry, the
 /// ticket's latest movement before the scan, in the order every phone uses (time, phone name,
-/// direction), is an exit.
+/// direction), is an exit, and no other entry came back after that same exit (a phone without
+/// signal may upload a copy's return after the owner's: one exit lets one return in).
 async fn went_out_before(
     tx: &mut Transaction<'static, Postgres>,
     device: &DoorDevice,
@@ -1053,8 +1070,8 @@ async fn went_out_before(
     scan: &ValidScan,
 ) -> ApiResult<bool> {
     Ok(sqlx::query_scalar!(
-        r#"select coalesce((
-               select m.local_outcome = 'exited'
+        r#"with previous as (
+               select m.local_outcome = 'exited' as is_exit, m.scanned_at, d.name
                from scans m join door_devices d on d.id = m.device_id
                where m.event_id = $1 and m.ticket_number = $2 and m.id <> $3
                  and m.local_outcome in ('admitted', 'readmitted', 'exited')
@@ -1062,7 +1079,21 @@ async fn went_out_before(
                  and ((m.scanned_at, d.name) < ($4, $5)
                       or ((m.scanned_at, d.name) = ($4, $5) and m.local_outcome <> 'exited'))
                order by m.scanned_at desc, d.name desc, (m.local_outcome = 'exited') desc
-               limit 1), false)
+               limit 1
+           )
+           select coalesce((select is_exit from previous), false)
+           and not exists (
+               -- Another entry after that exit and before the next one already used it.
+               select 1
+               from scans e join door_devices de on de.id = e.device_id, previous p
+               where e.event_id = $1 and e.ticket_number = $2 and e.id <> $3
+                 and e.local_outcome in ('admitted', 'readmitted')
+                 and (e.scanned_at, de.name) > (p.scanned_at, p.name)
+                 and not exists (
+                     select 1 from scans x join door_devices dx on dx.id = x.device_id
+                     where x.event_id = $1 and x.ticket_number = $2 and x.local_outcome = 'exited'
+                       and (x.scanned_at, dx.name) > (p.scanned_at, p.name)
+                       and (x.scanned_at, dx.name) < (e.scanned_at, de.name)))
            and (select reentry from events where id = $1) as "out!""#,
         device.event_id,
         number,

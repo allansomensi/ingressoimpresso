@@ -1,3 +1,5 @@
+import type { Known, Overrides } from "@/lib/event-kind";
+
 /**
  * What every page that draws a ticket needs (`components/ticket/ticket-view.tsx`, the rules in
  * `lib/design-rules.ts`, the templates in `lib/templates`): a small section of its own, because
@@ -42,4 +44,24 @@ export const ticketCanvas = {
     textOutside: (index: number) => `O texto ${String(index)} precisa ficar inteiro dentro do ingresso.`,
     textStyle: (index: number) => `O texto ${String(index)} tem tamanho, linhas ou espaçamento fora do permitido.`,
   },
+  // Consumption tokens (ADR 0086): the editor's rules speak of a ficha.
+  tokens: {
+    issues: {
+      bodySize: (width: readonly [number, number], height: readonly [number, number]) =>
+        `A ficha precisa ter de ${String(width[0])} a ${String(width[1])} mm de largura e de ${String(height[0])} a ${String(height[1])} mm de altura.`,
+      a4: "Com o canhoto, a ficha não cabe numa folha A4.",
+      numberOutside: "O número precisa ficar inteiro dentro da ficha.",
+      qrOutside: "O QR code precisa ficar inteiro dentro da ficha.",
+      stubTooShort: (height: number) => `Com esses campos no canhoto, a ficha precisa ter pelo menos ${height.toLocaleString("pt-BR")} mm de altura.`,
+      tooManyTexts: (max: number) => `A ficha aceita até ${String(max)} textos.`,
+      bandSize: (range: readonly [number, number]) => `A faixa do produto vai de ${String(range[0])} a ${String(range[1])} mm.`,
+      bandOverQr: "A faixa do produto não pode cobrir o QR code: mude a borda da faixa ou mova o QR.",
+      sponsorsOutside: "A faixa de patrocinadores precisa ficar inteira dentro da ficha.",
+      textOutside: (index: number) => `O texto ${String(index)} precisa ficar inteiro dentro da ficha.`,
+    },
+  },
 } as const;
+
+/** Fails to compile when a consumption-token text has no ticket text or other parameters. */
+type Checked<T extends Overrides<typeof ticketCanvas> & Known<T, typeof ticketCanvas>> = T;
+export type TicketCanvasTokenTexts = Checked<typeof ticketCanvas.tokens>;

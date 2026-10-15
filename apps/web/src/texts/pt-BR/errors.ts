@@ -34,6 +34,7 @@ export const errors = {
   already_sold: "Algum desses números já foi marcado como vendido.",
   already_reserved: "Algum desses números já está reservado para outra pessoa.",
   box_office_seller: "A bilheteria vende na porta: não tem reservas nem meta.",
+  pix_received: "Um desses números já teve o Pix recebido: ele foi vendido. Desfaça o recebimento em Conferir Pix antes.",
   invalid_goal: "A meta vai de 1 a 100.000 ingressos.",
   invalid_expiry: "Escolha um prazo no futuro e antes de o evento terminar.",
   invalid_holder_phone: "O telefone tem no máximo 30 caracteres, numa linha só.",

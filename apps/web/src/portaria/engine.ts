@@ -57,6 +57,8 @@ export interface DoorState {
   insideCount: number;
   /** This phone reads the exit (re-entry, ADR 0083); only while the event allows it. */
   exitMode: boolean;
+  /** The organizer turned re-entry off while this phone read the exit: it reads entries again. */
+  exitEnded: boolean;
   lastSyncOkAt: number | null;
   /** Since when sync has been failing (null while it works). */
   offlineSince: number | null;
@@ -90,6 +92,7 @@ const INITIAL: DoorState = {
   entryCount: 0,
   insideCount: 0,
   exitMode: false,
+  exitEnded: false,
   lastSyncOkAt: null,
   offlineSince: null,
   result: null,
@@ -787,6 +790,16 @@ export class DoorEngine {
     }
     this.#set({ manifest: stored, ...(this.#core === null ? { entryCount: 0, insideCount: 0 } : this.#counts(this.#core)) });
     this.#countBoxOffice();
+    // Re-entry turned off while this phone read the exit: it would let the people leaving "in".
+    if (this.#state.exitMode && !reentryOf(stored)) {
+      await this.setExitMode(false);
+      this.#set({ exitEnded: true });
+    }
+  }
+
+  /** The doorkeeper saw that this phone reads entries again. */
+  dismissExitEnded(): void {
+    this.#set({ exitEnded: false });
   }
 
   /** A fresh core for new keys: verifier, voids, re-entry and every known movement. */

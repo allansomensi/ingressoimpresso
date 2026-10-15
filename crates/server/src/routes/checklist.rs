@@ -53,6 +53,8 @@ pub(crate) struct Facts {
     pub public_verify: bool,
     /// The organization's profile has a WhatsApp or a contact e-mail (ADR 0064).
     pub contact: bool,
+    /// Consumption tokens (ADR 0084): products are needed, a guest list is not.
+    pub tokens: bool,
 }
 
 /// Whether the checklist applies: the event has not ended and is neither archived nor
@@ -71,6 +73,7 @@ pub(crate) async fn facts(pool: &PgPool, ids: &[Uuid]) -> ApiResult<HashMap<Uuid
                   e.venue is not null as "has_venue!",
                   e.address is not null as "has_address!",
                   e.public_verify,
+                  e.kind = 'tokens' as "tokens!",
                   d.found is not null as "designed!",
                   coalesce(art.images, 0) as "images!",
                   coalesce(art.flagged, 0) as "flagged!",
@@ -135,6 +138,7 @@ pub(crate) async fn facts(pool: &PgPool, ids: &[Uuid]) -> ApiResult<HashMap<Uuid
                     guests: row.guests,
                     public_verify: row.public_verify,
                     contact: row.contact,
+                    tokens: row.tokens,
                 },
             )
         })
@@ -274,11 +278,16 @@ pub(crate) fn items(
             &can,
         ),
         art,
+        // A ficha says which product it buys: a token event needs its products (ADR 0084).
         item(
             Key::Categories,
             Some(TeamArea::Manage),
-            true,
-            optional(facts.categories),
+            !facts.tokens,
+            if facts.tokens {
+                required(facts.categories)
+            } else {
+                optional(facts.categories)
+            },
             &can,
         ),
         item(
@@ -315,7 +324,11 @@ pub(crate) fn items(
             Key::Guests,
             Some(TeamArea::Door),
             true,
-            optional(facts.guests),
+            if facts.tokens {
+                NotApplicable
+            } else {
+                optional(facts.guests)
+            },
             &can,
         ),
         item(
@@ -405,7 +418,30 @@ mod tests {
             guests: false,
             public_verify: false,
             contact: true,
+            tokens: false,
         }
+    }
+
+    #[test]
+    fn token_events_need_products_and_no_guest_list() {
+        let facts = Facts {
+            tokens: true,
+            ..ready()
+        };
+        let list = items(&facts, |_| true);
+        assert_eq!(
+            state_of(&list, ChecklistKey::Categories),
+            ChecklistState::Missing
+        );
+        assert_eq!(
+            state_of(&list, ChecklistKey::Guests),
+            ChecklistState::NotApplicable
+        );
+        assert_eq!(missing(&list), 1);
+        assert_eq!(
+            state_of(&items(&ready(), |_| true), ChecklistKey::Categories),
+            ChecklistState::Optional
+        );
     }
 
     fn state_of(items: &[ChecklistItemDto], key: ChecklistKey) -> ChecklistState {

@@ -1,3 +1,5 @@
+import type { Known, Overrides } from "@/lib/event-kind";
+
 export const ticket = {
   metaTitle: "Seu ingresso",
   metaDescription: "Mostre o QR code na entrada do evento.",
@@ -39,8 +41,19 @@ export const ticket = {
   ],
   // A consumption token sent by link (ADR 0084): the words that change.
   tokens: {
+    metaTitle: "Sua ficha",
+    poweredBy: "Ficha gerada com",
     number: "Ficha",
     show: "Mostre este QR code na barraca",
+    valid: "Válida",
+    saved: "Imagem salva. Ela funciona na barraca mesmo sem internet.",
+    artTitle: "Ficha com a arte",
+    artAlt: (number: string) => `Ficha nº ${number} com a arte do evento`,
+    image: { ticket: "FICHA", show: "Mostre este QR code na barraca" },
+    calendarDescription: (number: string, seat: string | null, organizer: string) =>
+      `Ficha nº ${number}${seat === null ? "" : ` · ${seat}`}\nOrganizado por ${organizer}\nNa barraca, mostre o QR code da ficha.`,
+    calendarAlarm: (event: string) => `${event}: separe a sua ficha.`,
+    contactMessage: (event: string, number: string) => `Olá! Tenho a ficha nº ${number} de ${event}.`,
     entered: (when: string) => `Já usada ${when}`,
     enteredNote: "Esta ficha já foi usada numa barraca.",
     voided: "Ficha cancelada",
@@ -79,3 +92,7 @@ export const ticket = {
   contactSite: "Site",
   contactInstagram: "Instagram",
 } as const;
+
+/** Fails to compile when a consumption-token text has no ticket text or other parameters. */
+type Checked<T extends Overrides<typeof ticket> & Known<T, typeof ticket>> = T;
+export type TicketTokenTexts = Checked<typeof ticket.tokens>;

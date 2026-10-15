@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update ticket_categories set check_document = false, document_note = null\n               where event_id = $1 and check_document",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "a0cb4094142bf69796e7a1338a28b6583819887ed00f32294c9d4879905a74b2"
+}
