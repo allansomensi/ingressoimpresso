@@ -284,6 +284,89 @@ async fn tickets_go_out_and_come_back(pool: PgPool) {
 }
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
+async fn a_batch_is_classified_in_the_order_things_happened(pool: PgPool) {
+    let app = TestApp::new(pool).await;
+    let token = app.login("formatura@exemplo.com").await;
+    let event = paid_event(&app, &token).await;
+    let (_, access) = create_link(&app, &token, &event).await;
+    let gate = register(&app, &access, "Portão").await;
+    let other = register(&app, &access, "Lateral").await;
+    set_reentry(&app, &token, &event, true).await;
+
+    // One phone without signal: 42 enters, goes out and comes back; the batch goes up in any order.
+    let batch = upload(
+        &app,
+        &gate,
+        vec![
+            scan(
+                "00000000-0000-4000-8000-00000000c003",
+                Some(42),
+                "readmitted",
+                90 * MINUTE,
+            ),
+            scan(
+                "00000000-0000-4000-8000-00000000c001",
+                Some(42),
+                "admitted",
+                0,
+            ),
+            scan(
+                "00000000-0000-4000-8000-00000000c002",
+                Some(42),
+                "exited",
+                60 * MINUTE,
+            ),
+        ],
+        false,
+    )
+    .await;
+    assert_eq!(batch["results"][0]["class"], "reentry");
+    assert_eq!(batch["results"][1]["class"], "first_entry");
+    assert!(batch["results"][2]["class"].is_null());
+
+    // 42 goes out again; the owner comes back through the gate and, later in the upload, a copy
+    // let in earlier by a phone without signal: one exit lets one return in.
+    upload(
+        &app,
+        &gate,
+        vec![scan(
+            "00000000-0000-4000-8000-00000000c004",
+            Some(42),
+            "exited",
+            120 * MINUTE,
+        )],
+        false,
+    )
+    .await;
+    let owner = upload(
+        &app,
+        &gate,
+        vec![scan(
+            "00000000-0000-4000-8000-00000000c005",
+            Some(42),
+            "readmitted",
+            150 * MINUTE,
+        )],
+        true,
+    )
+    .await;
+    assert_eq!(owner["results"][0]["class"], "reentry");
+    let copy = upload(
+        &app,
+        &other,
+        vec![scan(
+            "00000000-0000-4000-8000-00000000c006",
+            Some(42),
+            "readmitted",
+            135 * MINUTE,
+        )],
+        false,
+    )
+    .await;
+    assert_eq!(copy["results"][0]["class"], "duplicate_entry");
+}
+
+#[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
 async fn exits_need_an_authentic_number(pool: PgPool) {
     let app = TestApp::new(pool).await;
     let token = app.login("formatura@exemplo.com").await;

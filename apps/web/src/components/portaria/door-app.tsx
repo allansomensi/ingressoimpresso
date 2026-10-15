@@ -333,6 +333,18 @@ function Door({ engine, state }: { engine: DoorEngine; state: DoorState }) {
 
   return (
     <div className="flex min-h-dvh flex-col">
+      {state.exitEnded && (
+        <button
+          type="button"
+          role="alert"
+          onClick={() => {
+            engine.dismissExitEnded();
+          }}
+          className="relative z-30 bg-amber-400 px-4 pt-[max(0.5rem,env(safe-area-inset-top))] pb-2 text-center text-sm font-bold text-black"
+        >
+          {t.mode.exitEnded}
+        </button>
+      )}
       {banner !== null && (
         <div
           role="status"

@@ -142,7 +142,7 @@ export function LiveTab({ eventId, onSelect }: { eventId: string; onSelect: Sele
 
       {/* Exit and return (ADR 0083): who is in the room now, not only who ever entered. */}
       {data.reentry !== null && (
-        <div className="grid grid-cols-3 gap-2 sm:gap-4">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-4">
           <Stat label={t.insideNow} value={count(data.reentry.inside)} hint={t.insideHint(count(data.entries))} icon={LogIn} tone="success" />
           <Stat
             label={t.outNow}
