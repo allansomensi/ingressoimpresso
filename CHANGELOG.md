@@ -46,6 +46,14 @@ e não acompanha estes números.
 
 ### Alterado
 
+- O painel ficou mais fácil de entender: as seções do evento (Visão geral, Ingresso, Lotes,
+  Vendedores, Portaria…) aparecem agrupadas pela ordem do trabalho numa lista ao lado do conteúdo,
+  com um ponto na seção onde ainda falta algo; no celular, uma barra mostra a seção atual e abre
+  todas elas com o que cada uma faz. Cada seção começa pelo nome, uma linha do que ela faz, um
+  `?` com a explicação completa e os botões de criar (lote, vendedor, ingresso no celular, link da
+  portaria, arquivo, cancelamento), que agora abrem uma janela em vez de ocupar o alto da tela. O
+  cartão de cada vendedor mostra os números, o dinheiro e o link, e o resto (acerto, meta,
+  reservas, histórico) abre pelo pé do cartão. A administração usa a mesma navegação.
 - Links do site mandados no WhatsApp, no Facebook ou no X mostram o título, a descrição e a
   imagem da própria página, e não mais os da página inicial.
 - Os preços aparecem assim que a página inicial e a de preços abrem, sem o bloco de carregamento
