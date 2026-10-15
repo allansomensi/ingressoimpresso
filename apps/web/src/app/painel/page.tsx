@@ -108,10 +108,6 @@ function EventCard({ event, now }: { event: EventDto; now: number }) {
         </div>
       </div>
       <ChevronRight className="size-5 shrink-0 text-fg-subtle sm:hidden" aria-hidden />
-      <span className="mt-auto flex items-center gap-1 text-sm font-medium text-brand max-sm:hidden">
-        {eventTexts.overview.go}
-        <ChevronRight className="size-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
-      </span>
     </Link>
   );
 }

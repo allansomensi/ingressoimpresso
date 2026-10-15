@@ -10,7 +10,7 @@ import type {
   SellerDto,
 } from "@ingressoimpresso/api-types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ClipboardList, Download, FileDown, FolderArchive, Home, Layers, MessageCircle, Printer, type LucideIcon } from "lucide-react";
+import { ClipboardList, Download, FileDown, FolderArchive, Home, Layers, MessageCircle, Plus, Printer, type LucideIcon } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
@@ -19,12 +19,10 @@ import {
   Alert,
   Badge,
   Button,
-  Card,
-  CardHeader,
+  Dialog,
   EmptyState,
   ErrorMessage,
   Field,
-  Lead,
   LoadingBlock,
   Select,
   Spinner,
@@ -35,8 +33,10 @@ import {
 import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { shortDateTime } from "@/lib/format";
+import { common as commonTexts } from "@/texts/pt-BR/common";
 import { errors as errorsTexts } from "@/texts/pt-BR/errors";
 
+import { TabHeader } from "./tab-header";
 import type { SelectTab } from "./tabs";
 
 const KINDS: readonly ExportKind[] = ["home", "print", "control", "whatsapp"];
@@ -78,9 +78,155 @@ function decodeScope(value: string): ExportScope {
   return { type: "all" };
 }
 
-export function FilesTab({ eventId, onSelect }: { eventId: string; onSelect: SelectTab }) {
+/** What to generate: the kind of file, which tickets and the print options (ADR 0087). */
+function NewFileDialog({
+  eventId,
+  open,
+  onClose,
+  onSelect,
+  paidBatches,
+  sellers,
+}: {
+  eventId: string;
+  open: boolean;
+  onClose: () => void;
+  onSelect: SelectTab;
+  paidBatches: BatchDto[];
+  sellers: SellerDto[];
+}) {
   const t = useEventTexts().files;
   const queryClient = useQueryClient();
+  const [kind, setKind] = useState<ExportKind>("home");
+  const [scope, setScope] = useState<ExportScope>({ type: "all" });
+  const [cropMarks, setCropMarks] = useState(true);
+  const generate = useMutation({
+    mutationFn: () => {
+      const body: CreateExportBody = { kind, scope, cropMarks };
+      return api<ExportDto>(`/api/events/${eventId}/exports`, { method: "POST", body });
+    },
+    onSuccess: () => {
+      toast.success(t.queuedToast);
+      void queryClient.invalidateQueries({ queryKey: ["exports", eventId] });
+      onClose();
+    },
+  });
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    generate.mutate();
+  };
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title={t.newFile}
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>
+            {commonTexts.cancel}
+          </Button>
+          <Button type="submit" form="new-file-form" icon={<FileDown />} loading={generate.isPending}>
+            {generate.isPending ? t.generating : t.generate}
+          </Button>
+        </>
+      }
+    >
+      <form id="new-file-form" onSubmit={submit} className="flex flex-col gap-5">
+        <fieldset className="flex flex-col gap-2">
+          <legend className="mb-2 text-sm font-medium text-fg">{t.kind}</legend>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {KINDS.map((item) => {
+              const Icon = KIND_ICONS[item];
+              const selected = kind === item;
+              return (
+                <label
+                  key={item}
+                  className={cn(
+                    "flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand",
+                    selected ? "border-brand bg-brand-soft/60" : "border-border hover:border-border-strong active:bg-surface-2",
+                  )}
+                >
+                  <input
+                    type="radio"
+                    name="kind"
+                    value={item}
+                    checked={selected}
+                    onChange={() => {
+                      setKind(item);
+                    }}
+                    className="sr-only"
+                  />
+                  <span
+                    className={cn(
+                      "flex size-9 shrink-0 items-center justify-center rounded-lg",
+                      selected ? "bg-brand-solid text-brand-fg" : "bg-surface-2 text-fg-muted",
+                    )}
+                  >
+                    <Icon className="size-[18px]" aria-hidden />
+                  </span>
+                  <span className="flex flex-col gap-0.5">
+                    <span className="text-sm font-semibold text-fg">{t.kinds[item]}</span>
+                    <span className="text-xs leading-relaxed text-fg-muted">{t.kindHints[item]}</span>
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+        </fieldset>
+        <Field label={t.scope}>
+          <Select
+            value={encodeScope(scope)}
+            onChange={(e) => {
+              setScope(decodeScope(e.target.value));
+            }}
+          >
+            <option value="all">{t.scopeAll}</option>
+            {paidBatches.map((batch) => (
+              <option key={batch.id} value={`batch:${batch.id}`}>
+                {t.scopeBatch(batch.first, batch.last)}
+              </option>
+            ))}
+            {sellers.map((seller) => (
+              <option key={seller.id} value={`seller:${seller.id}`}>
+                {t.scopeSeller(seller.name)}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        {kind === "print" && (
+          <div className="rounded-xl border border-border px-4 py-3">
+            <Switch label={t.cropMarks} description={t.cropMarksHint} checked={cropMarks} onChange={setCropMarks} />
+          </div>
+        )}
+        {kind === "whatsapp" && (
+          <>
+            <Alert tone="warning">{t.whatsappWarning}</Alert>
+            <Alert
+              tone="brand"
+              action={
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => {
+                    onClose();
+                    onSelect("digital");
+                  }}
+                >
+                  {t.digitalTipAction}
+                </Button>
+              }
+            >
+              {t.digitalTip}
+            </Alert>
+          </>
+        )}
+        <ErrorMessage error={generate.error} />
+      </form>
+    </Dialog>
+  );
+}
+
+export function FilesTab({ eventId, onSelect }: { eventId: string; onSelect: SelectTab }) {
+  const t = useEventTexts().files;
   const { can } = useEventAccess();
   const key = ["exports", eventId];
   const exports = useQuery({
@@ -92,20 +238,8 @@ export function FilesTab({ eventId, onSelect }: { eventId: string; onSelect: Sel
   });
   const batches = useQuery({ queryKey: ["batches", eventId], queryFn: () => api<BatchDto[]>(`/api/events/${eventId}/batches`) });
   const sellers = useQuery({ queryKey: ["sellers", eventId], queryFn: () => api<SellerDto[]>(`/api/events/${eventId}/sellers`) });
-  const [kind, setKind] = useState<ExportKind>("home");
-  const [scope, setScope] = useState<ExportScope>({ type: "all" });
-  const [cropMarks, setCropMarks] = useState(true);
+  const [creating, setCreating] = useState(false);
 
-  const generate = useMutation({
-    mutationFn: () => {
-      const body: CreateExportBody = { kind, scope, cropMarks };
-      return api<ExportDto>(`/api/events/${eventId}/exports`, { method: "POST", body });
-    },
-    onSuccess: () => {
-      toast.success(t.queuedToast);
-      void queryClient.invalidateQueries({ queryKey: key });
-    },
-  });
   const download = useMutation({
     mutationFn: (id: string) => api<DownloadLinkDto>(`/api/exports/${id}/link`, { method: "POST" }),
     onSuccess: (link) => {
@@ -120,125 +254,53 @@ export function FilesTab({ eventId, onSelect }: { eventId: string; onSelect: Sel
     },
   });
 
-  const submit = (event: FormEvent) => {
-    event.preventDefault();
-    generate.mutate();
-  };
   const paidBatches = (batches.data ?? []).filter((batch) => batch.status === "paid");
   const sellerList = sellers.data ?? [];
   const noPaid = batches.data !== undefined && paidBatches.length === 0;
+  const newButton = can("delivery") && !noPaid && (
+    <Button
+      icon={<Plus />}
+      onClick={() => {
+        setCreating(true);
+      }}
+    >
+      {t.newFile}
+    </Button>
+  );
 
   return (
     <div className="flex flex-col gap-6">
-      <Lead>{t.intro}</Lead>
+      <TabHeader tab="files" help={t.intro} actions={newButton} />
       {!can("delivery") ? (
         <ReadOnlyNotice eventId={eventId} area="delivery" />
-      ) : noPaid ? (
-        <EmptyState
-          icon={Layers}
-          title={t.noPaidTitle}
-          description={t.noPaid}
-          action={
-            <Button
-              onClick={() => {
-                onSelect("batches");
-              }}
-            >
-              {t.goToBatches}
-            </Button>
-          }
-        />
       ) : (
-        <Card>
-          <CardHeader title={t.newFile} icon={FileDown} />
-          <form onSubmit={submit} className="flex flex-col gap-5">
-            <fieldset className="flex flex-col gap-2">
-              <legend className="mb-2 text-sm font-medium text-fg">{t.kind}</legend>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {KINDS.map((item) => {
-                  const Icon = KIND_ICONS[item];
-                  const selected = kind === item;
-                  return (
-                    <label
-                      key={item}
-                      className={cn(
-                        "flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand",
-                        selected ? "border-brand bg-brand-soft/60 ring-2 ring-brand/20" : "border-border hover:border-border-strong hover:bg-surface-2 active:bg-surface-2",
-                      )}
-                    >
-                      <input
-                        type="radio"
-                        name="kind"
-                        value={item}
-                        checked={selected}
-                        onChange={() => {
-                          setKind(item);
-                        }}
-                        className="sr-only"
-                      />
-                      <span
-                        className={cn(
-                          "flex size-9 shrink-0 items-center justify-center rounded-lg",
-                          selected ? "bg-brand-solid text-brand-fg" : "bg-surface-2 text-fg-muted",
-                        )}
-                      >
-                        <Icon className="size-[18px]" aria-hidden />
-                      </span>
-                      <span className="flex flex-col gap-0.5">
-                        <span className="text-sm font-semibold text-fg">{t.kinds[item]}</span>
-                        <span className="text-xs leading-relaxed text-fg-muted">{t.kindHints[item]}</span>
-                      </span>
-                    </label>
-                  );
-                })}
-              </div>
-            </fieldset>
-            <div className="grid gap-4 sm:grid-cols-2 sm:items-end">
-              <Field label={t.scope}>
-                <Select value={encodeScope(scope)} onChange={(e) => { setScope(decodeScope(e.target.value)); }}>
-                  <option value="all">{t.scopeAll}</option>
-                  {paidBatches.map((batch) => (
-                    <option key={batch.id} value={`batch:${batch.id}`}>{t.scopeBatch(batch.first, batch.last)}</option>
-                  ))}
-                  {sellerList.map((seller) => (
-                    <option key={seller.id} value={`seller:${seller.id}`}>{t.scopeSeller(seller.name)}</option>
-                  ))}
-                </Select>
-              </Field>
-              {kind === "print" && (
-                <div className="rounded-xl border border-border px-4 py-3">
-                  <Switch label={t.cropMarks} description={t.cropMarksHint} checked={cropMarks} onChange={setCropMarks} />
-                </div>
-              )}
-            </div>
-            {kind === "whatsapp" && (
-              <>
-                <Alert tone="warning">{t.whatsappWarning}</Alert>
-                <Alert
-                  tone="brand"
-                  action={
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => {
-                        onSelect("digital");
-                      }}
-                    >
-                      {t.digitalTipAction}
-                    </Button>
-                  }
-                >
-                  {t.digitalTip}
-                </Alert>
-              </>
-            )}
-            <ErrorMessage error={generate.error} />
-            <Button type="submit" icon={<FileDown />} loading={generate.isPending} className="w-full sm:w-fit">
-              {generate.isPending ? t.generating : t.generate}
-            </Button>
-          </form>
-        </Card>
+        noPaid && (
+          <EmptyState
+            icon={Layers}
+            title={t.noPaidTitle}
+            description={t.noPaid}
+            action={
+              <Button
+                onClick={() => {
+                  onSelect("batches");
+                }}
+              >
+                {t.goToBatches}
+              </Button>
+            }
+          />
+        )
       )}
+      <NewFileDialog
+        eventId={eventId}
+        open={creating}
+        onClose={() => {
+          setCreating(false);
+        }}
+        onSelect={onSelect}
+        paidBatches={paidBatches}
+        sellers={sellerList}
+      />
 
       <section className="flex flex-col gap-3">
         <h2 className="text-base font-semibold tracking-tight text-fg">{t.history}</h2>

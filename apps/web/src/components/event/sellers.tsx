@@ -64,10 +64,10 @@ import {
   Button,
   Card,
   CardHeader,
+  Dialog,
   ErrorMessage,
   Field,
   Input,
-  Lead,
   LoadingBlock,
   Menu,
   MenuItem,
@@ -89,6 +89,7 @@ import { common as commonTexts } from "@/texts/pt-BR/common";
 import { errors as errorsTexts } from "@/texts/pt-BR/errors";
 import { pix as pixTexts } from "@/texts/pt-BR/pix";
 
+import { TabHeader } from "./tab-header";
 
 type AssignMode = "pick" | "rest";
 
@@ -576,8 +577,8 @@ function SellerLink({ seller, event, onChange }: { seller: SellerDto; event: Eve
   const firstName = seller.name.trim().split(/\s+/)[0] ?? seller.name;
 
   return (
-    <div className="flex flex-col gap-3 rounded-xl bg-surface-2 p-3 sm:flex-row sm:items-center">
-      <div className="flex min-w-0 flex-1 items-start gap-2.5">
+    <div className="flex flex-wrap items-center gap-3 rounded-xl bg-surface-2 p-3">
+      <div className="flex min-w-0 flex-1 basis-44 items-start gap-2.5">
         <span
           className={cn(
             "flex size-8 shrink-0 items-center justify-center rounded-lg",
@@ -598,7 +599,7 @@ function SellerLink({ seller, event, onChange }: { seller: SellerDto; event: Eve
           {l.create}
         </Button>
       ) : (
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 max-sm:w-full max-sm:*:flex-1">
           <a
             href={whatsappLink(seller.phone, l.message(firstName, event.name, link.url))}
             target="_blank"
@@ -711,7 +712,8 @@ function SellerCard({
   const cash = can("money");
   const [assigning, setAssigning] = useState(false);
   const [dialog, setDialog] = useState<"payment" | "return" | "goal" | "reserve" | "pix" | null>(null);
-  const [showHistory, setShowHistory] = useState(false);
+  // The card shows what matters at a glance (numbers, money, the link); the rest unfolds.
+  const [open, setOpen] = useState(false);
   const remove = useMutation({
     mutationFn: (path: string) => api<undefined>(path, { method: "DELETE" }),
     onSuccess: onChange,
@@ -743,6 +745,7 @@ function SellerCard({
     row === undefined
       ? ""
       : settlementMessage({ seller: seller.name, eventName: event.name, ranges: seller.ranges, row, priceCents: event.ticketPriceCents });
+  const canReserveNow = delivery && !seller.boxOffice && event.change.canceledAt === null && canReserve(seller, row);
 
   return (
     <Card className="flex flex-col gap-4">
@@ -774,7 +777,7 @@ function SellerCard({
                   <span className="truncate">{seller.phone}</span>
                 </>
               )}
-              {/* With numbers, "Levou" below already says how many. */}
+              {/* With numbers, the money line below already says how many. */}
               {seller.phone !== null && total > 0 ? null : (
                 <span className="whitespace-nowrap">
                   {seller.phone !== null && <span aria-hidden>· </span>}
@@ -785,12 +788,7 @@ function SellerCard({
           </div>
         </div>
         {(delivery || cash || (row !== undefined && total > 0)) && (
-        <div className="flex shrink-0 items-center">
-          <Menu
-            label={t.menu(seller.name)}
-            trigger={<MoreHorizontal />}
-            triggerClassName={buttonClass({ variant: "ghost", size: "icon-sm" })}
-          >
+          <Menu label={t.menu(seller.name)} trigger={<MoreHorizontal />} triggerClassName={buttonClass({ variant: "ghost", size: "icon-sm" })}>
             {row !== undefined && total > 0 && (
               <>
                 <MenuItem
@@ -813,6 +811,26 @@ function SellerCard({
                   {t.copySummary}
                 </MenuItem>
               </>
+            )}
+            {canReserveNow && (
+              <MenuItem
+                icon={<BookmarkPlus />}
+                onSelect={() => {
+                  setDialog("reserve");
+                }}
+              >
+                {t.reservations.new}
+              </MenuItem>
+            )}
+            {delivery && !seller.boxOffice && total > 0 && (
+              <MenuItem
+                icon={<Tag />}
+                onSelect={() => {
+                  setDialog("goal");
+                }}
+              >
+                {seller.goal === null ? t.goal.set : t.goal.change}
+              </MenuItem>
             )}
             {/* Where this seller's buyers pay by Pix: the money part's call (ADR 0085). */}
             {cash && pixSeller && (
@@ -838,28 +856,27 @@ function SellerCard({
               </MenuItem>
             )}
             {delivery && (
-            <MenuItem
-              icon={<Trash2 />}
-              tone="danger"
-              onSelect={() => {
-                void confirm({ title: t.removeConfirmTitle(seller.name), description: t.removeConfirmBody, confirmLabel: commonTexts.remove }).then(
-                  (ok) => {
-                    if (ok) {
-                      remove.mutate(`/api/sellers/${seller.id}`, {
-                        onSuccess: () => {
-                          toast.success(t.removedToast);
-                        },
-                      });
-                    }
-                  },
-                );
-              }}
-            >
-              {t.remove}
-            </MenuItem>
+              <MenuItem
+                icon={<Trash2 />}
+                tone="danger"
+                onSelect={() => {
+                  void confirm({ title: t.removeConfirmTitle(seller.name), description: t.removeConfirmBody, confirmLabel: commonTexts.remove }).then(
+                    (ok) => {
+                      if (ok) {
+                        remove.mutate(`/api/sellers/${seller.id}`, {
+                          onSuccess: () => {
+                            toast.success(t.removedToast);
+                          },
+                        });
+                      }
+                    },
+                  );
+                }}
+              >
+                {t.remove}
+              </MenuItem>
             )}
           </Menu>
-        </div>
         )}
       </div>
 
@@ -870,30 +887,30 @@ function SellerCard({
           return (
             <span
               key={range.id}
-              className="inline-flex items-center gap-1 rounded-lg border border-border bg-surface-2 py-1 pr-1 pl-2.5 font-mono text-sm text-fg tabular"
+              className="inline-flex items-center gap-1 rounded-lg bg-surface-2 py-1 pr-1 pl-2.5 font-mono text-sm text-fg tabular"
             >
               {ticketNumber(range.first)}–{ticketNumber(range.last)}
               {delivery && (
-              <button
-                type="button"
-                aria-label={t.removeRange(label)}
-                className="relative flex size-5 items-center justify-center rounded-md text-fg-subtle transition touch-target hover:bg-danger-soft hover:text-danger-fg active:bg-danger-soft active:text-danger-fg"
-                onClick={() => {
-                  void confirm({ title: t.removeRangeConfirmTitle(label), description: t.removeRangeConfirmBody, confirmLabel: commonTexts.remove }).then(
-                    (ok) => {
-                      if (ok) {
-                        remove.mutate(`/api/ranges/${range.id}`, {
-                          onSuccess: () => {
-                            toast.success(t.rangeRemovedToast);
-                          },
-                        });
-                      }
-                    },
-                  );
-                }}
-              >
-                <X className="size-3.5" />
-              </button>
+                <button
+                  type="button"
+                  aria-label={t.removeRange(label)}
+                  className="relative flex size-5 items-center justify-center rounded-md text-fg-subtle transition touch-target hover:bg-danger-soft hover:text-danger-fg active:bg-danger-soft active:text-danger-fg"
+                  onClick={() => {
+                    void confirm({ title: t.removeRangeConfirmTitle(label), description: t.removeRangeConfirmBody, confirmLabel: commonTexts.remove }).then(
+                      (ok) => {
+                        if (ok) {
+                          remove.mutate(`/api/ranges/${range.id}`, {
+                            onSuccess: () => {
+                              toast.success(t.rangeRemovedToast);
+                            },
+                          });
+                        }
+                      },
+                    );
+                  }}
+                >
+                  <X className="size-3.5" />
+                </button>
               )}
             </span>
           );
@@ -927,89 +944,41 @@ function SellerCard({
 
       {total > 0 &&
         (row === undefined ? (
-          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-20 w-full" />
         ) : (
           <div className="flex flex-col gap-4 border-t border-border pt-4">
-            <Equation row={row} />
-            {!row.boxOffice && (seller.link !== null || row.markedSold > 0) && (
-              <p className="flex items-center gap-2 text-sm text-fg-muted">
-                <CheckCircle2 aria-hidden className="size-4 shrink-0 text-brand" />
-                {t.marked(row.markedSold, row.declaredSold)}
-              </p>
-            )}
-            {!row.boxOffice && (
-              <GoalLine
-                seller={seller}
-                sold={row.markedSold}
-                editable={delivery}
-                onEdit={() => {
-                  setDialog("goal");
-                }}
-              />
-            )}
-            {!row.boxOffice && (
-              <SellerReservations seller={seller} event={event} reservations={reservations} editable={delivery} onChange={onChange} />
-            )}
             <MoneyBar row={row} />
             <div className="flex flex-wrap items-center gap-2">
               {cash && (
-              <>
-              <Button
-                size="sm"
-                icon={<HandCoins />}
-                className="flex-1 sm:flex-none"
-                onClick={() => {
-                  setDialog("payment");
-                }}
-              >
-                {t.pay}
-              </Button>
-              {!seller.boxOffice && (
-              <Button
-                variant="secondary"
-                size="sm"
-                icon={<Undo2 />}
-                className="flex-1 sm:flex-none"
-                onClick={() => {
-                  setDialog("return");
-                }}
-              >
-                {t.giveBack}
-              </Button>
+                <Button
+                  size="sm"
+                  icon={<HandCoins />}
+                  className="flex-1 sm:flex-none"
+                  onClick={() => {
+                    setDialog("payment");
+                  }}
+                >
+                  {t.pay}
+                </Button>
               )}
-              </>
-              )}
-              {delivery && !seller.boxOffice && event.change.canceledAt === null && canReserve(seller, row) && (
+              {cash && !seller.boxOffice && (
                 <Button
                   variant="secondary"
                   size="sm"
-                  icon={<BookmarkPlus />}
+                  icon={<Undo2 />}
                   className="flex-1 sm:flex-none"
                   onClick={() => {
-                    setDialog("reserve");
+                    setDialog("return");
                   }}
                 >
-                  {t.reservations.new}
+                  {t.giveBack}
                 </Button>
               )}
-              <Button
-                variant="ghost"
-                size="sm"
-                aria-expanded={showHistory}
-                className="w-full sm:ml-auto sm:w-auto"
-                onClick={() => {
-                  setShowHistory(!showHistory);
-                }}
-              >
-                {historyCount > 0 ? t.historyCount(historyCount) : t.history}
-                <ChevronDown aria-hidden className={cn("transition-transform", showHistory && "rotate-180")} />
-              </Button>
             </div>
-            {showHistory && <History seller={seller} payments={payments} voids={voids} editable={cash} onChange={onChange} />}
           </div>
         ))}
 
-      {seller.boxOffice && (
+      {seller.boxOffice && total === 0 && (
         <p className="flex items-start gap-2.5 rounded-xl bg-brand-soft px-3.5 py-3 text-sm leading-relaxed text-brand-soft-fg">
           <Store aria-hidden className="mt-0.5 size-4 shrink-0" />
           {t.boxOffice.toggleOn}
@@ -1017,6 +986,73 @@ function SellerCard({
       )}
 
       {delivery && total > 0 && <SellerLink seller={seller} event={event} onChange={onChange} />}
+
+      {total > 0 && row !== undefined && (
+        <>
+          {/* The rest of the story (the count, goal, reservations, history) unfolds from the foot of the card. */}
+          <button
+            type="button"
+            aria-expanded={open}
+            onClick={() => {
+              setOpen(!open);
+            }}
+            className={cn(
+              "-mx-5 flex min-h-11 items-center justify-center gap-1.5 border-t border-border text-sm font-medium text-fg-muted transition hover:bg-surface-2 hover:text-fg active:bg-surface-2 sm:-mx-6",
+              open ? "-mb-1" : "-mb-5 rounded-b-2xl sm:-mb-6",
+            )}
+          >
+            {open ? t.hideDetails : historyCount > 0 ? t.detailsCount(historyCount) : t.details}
+            <ChevronDown aria-hidden className={cn("size-4 transition-transform", open && "rotate-180")} />
+          </button>
+          {open && (
+            <div className="flex flex-col gap-4 animate-fade-in">
+              <Equation row={row} />
+              {!row.boxOffice && (seller.link !== null || row.markedSold > 0) && (
+                <p className="flex items-center gap-2 text-sm text-fg-muted">
+                  <CheckCircle2 aria-hidden className="size-4 shrink-0 text-brand" />
+                  {t.marked(row.markedSold, row.declaredSold)}
+                </p>
+              )}
+              {!row.boxOffice && (
+                <GoalLine
+                  seller={seller}
+                  sold={row.markedSold}
+                  editable={delivery}
+                  onEdit={() => {
+                    setDialog("goal");
+                  }}
+                />
+              )}
+              {!row.boxOffice && (
+                <SellerReservations seller={seller} event={event} reservations={reservations} editable={delivery} onChange={onChange} />
+              )}
+              {canReserveNow && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  icon={<BookmarkPlus />}
+                  className="w-fit"
+                  onClick={() => {
+                    setDialog("reserve");
+                  }}
+                >
+                  {t.reservations.new}
+                </Button>
+              )}
+              {seller.boxOffice && (
+                <p className="flex items-start gap-2.5 rounded-xl bg-brand-soft px-3.5 py-3 text-sm leading-relaxed text-brand-soft-fg">
+                  <Store aria-hidden className="mt-0.5 size-4 shrink-0" />
+                  {t.boxOffice.toggleOn}
+                </p>
+              )}
+              <div className="flex flex-col gap-2">
+                <h4 className="text-xs font-semibold tracking-wider text-fg-subtle uppercase">{t.history}</h4>
+                <History seller={seller} payments={payments} voids={voids} editable={cash} onChange={onChange} />
+              </div>
+            </div>
+          )}
+        </>
+      )}
 
       <PaymentDialog
         open={dialog === "payment"}
@@ -1083,7 +1119,7 @@ function SettlementSummary({ rows }: { rows: readonly ReportRowDto[] }) {
     <Card>
       <CardHeader title={t.summaryTitle} description={t.summaryHint} icon={Wallet} />
       <div className="flex flex-col gap-5">
-        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
           <Stat label={s.due} value={money(totals.dueCents)} hint={s.dueHint} icon={CircleDollarSign} />
           <Stat label={s.received} value={money(totals.receivedCents)} hint={s.receivedHint(percent)} icon={HandCoins} tone="success" />
           <Stat
@@ -1158,11 +1194,11 @@ function SellerSettings({ eventId }: { eventId: string }) {
   );
 }
 
-function HowItWorks() {
+function HowItWorks({ action }: { action: ReactNode }) {
   const t = useEventTexts().sellers;
   return (
     <Card>
-      <CardHeader title={t.howTitle} description={t.empty} icon={Users} />
+      <CardHeader title={t.howTitle} description={t.empty} icon={Users} actions={action} />
       <ol className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {t.how.map((step, index) => {
           const Icon = HOW_ICONS[index] ?? Ticket;
@@ -1201,12 +1237,11 @@ function NoPriceNotice({ onEditEvent }: { onEditEvent: () => void }) {
   );
 }
 
-/** The new-seller form: a card on its own while there are no sellers, a tile in the grid after. */
-function NewSeller({ eventId, onCreated, tile }: { eventId: string; onCreated: () => void; tile: boolean }) {
+/** Registers a seller: the name, the WhatsApp and, for the money part, the box office (ADR 0087). */
+function NewSellerDialog({ eventId, open, onClose, onCreated }: { eventId: string; open: boolean; onClose: () => void; onCreated: () => void }) {
   const t = useEventTexts().sellers;
   const kind = useEventKind();
   const { can } = useEventAccess();
-  const [open, setOpen] = useState(!tile);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [boxOffice, setBoxOffice] = useState(false);
@@ -1221,34 +1256,32 @@ function NewSeller({ eventId, onCreated, tile }: { eventId: string; onCreated: (
       setBoxOffice(false);
       toast.success(t.createdToast);
       onCreated();
+      onClose();
     },
   });
   const submit = (formEvent: FormEvent) => {
     formEvent.preventDefault();
     create.mutate();
   };
-
-  if (!open) {
-    return (
-      <button
-        type="button"
-        onClick={() => {
-          setOpen(true);
-        }}
-        className="group flex min-h-40 flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-border-strong p-6 text-center transition hover:border-brand/50 hover:bg-brand-soft/40"
-      >
-        <span className="flex size-10 items-center justify-center rounded-full bg-brand-soft text-brand-soft-fg transition group-hover:scale-105">
-          <UserPlus aria-hidden className="size-5" />
-        </span>
-        <span className="font-semibold text-fg">{t.newSeller}</span>
-        <span className="text-sm text-fg-muted">{t.newSellerHint}</span>
-      </button>
-    );
-  }
   return (
-    <Card className={cn(tile && "animate-fade-in")}>
-      <CardHeader title={t.newSeller} icon={UserPlus} />
-      <form onSubmit={submit} className={cn("grid gap-4", tile ? "" : "sm:grid-cols-[1fr_1fr_auto] sm:items-end")}>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title={t.newSeller}
+      description={t.newSellerHint}
+      size="sm"
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>
+            {commonTexts.cancel}
+          </Button>
+          <Button type="submit" form="new-seller-form" loading={create.isPending} icon={<Plus />} disabled={name.trim() === ""}>
+            {t.create}
+          </Button>
+        </>
+      }
+    >
+      <form id="new-seller-form" onSubmit={submit} className="flex flex-col gap-4">
         <Field label={t.name}>
           <Input
             value={name}
@@ -1258,11 +1291,10 @@ function NewSeller({ eventId, onCreated, tile }: { eventId: string; onCreated: (
             placeholder={t.namePlaceholder}
             required
             maxLength={60}
-            autoFocus={tile}
+            autoFocus
           />
         </Field>
-        {/* In the wide row the hint goes under the whole form, so the fields stay aligned. */}
-        <Field label={t.phone} optional hint={tile ? t.phoneHint : undefined}>
+        <Field label={t.phone} optional hint={t.phoneHint}>
           <Input
             value={phone}
             onChange={(e) => {
@@ -1274,31 +1306,12 @@ function NewSeller({ eventId, onCreated, tile }: { eventId: string; onCreated: (
             maxLength={30}
           />
         </Field>
-        <div className={cn("flex gap-2", tile && "justify-end")}>
-          {tile && (
-            <Button
-              variant="ghost"
-              onClick={() => {
-                setOpen(false);
-                create.reset();
-              }}
-            >
-              {commonTexts.cancel}
-            </Button>
-          )}
-          <Button type="submit" loading={create.isPending} icon={<Plus />}>
-            {t.create}
-          </Button>
-        </div>
         {can("money") && kind !== "tokens" && (
-          <div className="sm:col-span-full">
-            <Switch checked={boxOffice} onChange={setBoxOffice} label={t.boxOffice.newLabel} description={t.boxOffice.newHint} />
-          </div>
+          <Switch checked={boxOffice} onChange={setBoxOffice} label={t.boxOffice.newLabel} description={t.boxOffice.newHint} />
         )}
+        <ErrorMessage error={create.error} />
       </form>
-      {!tile && <p className="mt-3 text-xs text-fg-muted">{t.phoneHint}</p>}
-      <ErrorMessage error={create.error} className="mt-4" />
-    </Card>
+    </Dialog>
   );
 }
 
@@ -1307,6 +1320,7 @@ export function SellersTab({ eventId, event, onEditEvent }: { eventId: string; e
   const queryClient = useQueryClient();
   const { can } = useEventAccess();
   const delivery = can("delivery");
+  const [creating, setCreating] = useState(false);
   const sellers = useQuery({ queryKey: ["sellers", eventId], queryFn: () => api<SellerDto[]>(`/api/events/${eventId}/sellers`) });
   const report = useQuery({ queryKey: ["report", eventId], queryFn: () => api<EventReportDto>(`/api/events/${eventId}/report`) });
   const payments = useQuery({
@@ -1334,18 +1348,24 @@ export function SellersTab({ eventId, event, onEditEvent }: { eventId: string; e
   const rows = new Map((report.data?.sellers ?? []).map((row) => [row.sellerId, row]));
   const list = sellers.data ?? [];
   const holding = list.some((seller) => seller.ranges.length > 0);
+  const open = event.status !== "closed";
+  const newButton = delivery && open && (
+    <Button
+      icon={<UserPlus />}
+      onClick={() => {
+        setCreating(true);
+      }}
+    >
+      {t.newSeller}
+    </Button>
+  );
   let content: ReactNode;
   if (sellers.isPending) {
     content = <LoadingBlock rows={2} />;
   } else if (sellers.isError) {
     content = <ErrorMessage error={sellers.error} />;
   } else if (list.length === 0) {
-    content = (
-      <>
-        {delivery && <NewSeller eventId={eventId} onCreated={refresh} tile={false} />}
-        <HowItWorks />
-      </>
-    );
+    content = <HowItWorks action={newButton} />;
   } else {
     content = (
       <div className="grid items-start gap-4 lg:grid-cols-2">
@@ -1364,39 +1384,37 @@ export function SellersTab({ eventId, event, onEditEvent }: { eventId: string; e
             onChange={refresh}
           />
         ))}
-        {delivery && <NewSeller eventId={eventId} onCreated={refresh} tile />}
       </div>
-    );
-  }
-  if (list.length > 0 && delivery && event.status !== "closed") {
-    content = (
-      <>
-        {content}
-        <SellerSettings eventId={eventId} />
-      </>
-    );
-  }
-  // How buyers pay by Pix (ADR 0085): read by the whole team, changed by the money part. Also
-  // without sellers: digital tickets sent by the team are paid by Pix too.
-  if (sellers.isSuccess) {
-    content = (
-      <>
-        {content}
-        <PixCard eventId={eventId} editable={can("money") && event.status !== "closed"} />
-      </>
     );
   }
 
   return (
     <div className="flex flex-col gap-6">
-      <Lead>{t.intro}</Lead>
+      <TabHeader tab="sellers" help={t.intro} actions={list.length > 0 && newButton} />
       {!delivery && !can("money") && <ReadOnlyNotice eventId={eventId} area="delivery" />}
       {holding && event.ticketPriceCents === null && can("manage") && <NoPriceNotice onEditEvent={onEditEvent} />}
       {holding && report.data !== undefined && event.ticketPriceCents !== null && <SettlementSummary rows={report.data.sellers} />}
-      {holding && report.data !== undefined && (
-        <RankingCard eventId={eventId} sellers={list} rows={rows} editable={delivery && event.status !== "closed"} onChange={refresh} />
-      )}
       {content}
+      {holding && report.data !== undefined && (
+        <RankingCard eventId={eventId} sellers={list} rows={rows} editable={delivery && open} onChange={refresh} />
+      )}
+      {/* How the sale works for everybody: read by the whole team, changed by the parts that own
+          it (sending tickets: delivery; how buyers pay by Pix: money, ADR 0085). */}
+      {sellers.isSuccess && (list.length > 0 || can("money")) && (
+        <section className="flex flex-col gap-4">
+          <h3 className="text-xs font-semibold tracking-wider text-fg-subtle uppercase">{t.settingsTitle}</h3>
+          {list.length > 0 && delivery && open && <SellerSettings eventId={eventId} />}
+          <PixCard eventId={eventId} editable={can("money") && open} />
+        </section>
+      )}
+      <NewSellerDialog
+        eventId={eventId}
+        open={creating}
+        onClose={() => {
+          setCreating(false);
+        }}
+        onCreated={refresh}
+      />
     </div>
   );
 }

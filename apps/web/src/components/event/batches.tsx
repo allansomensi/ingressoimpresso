@@ -12,12 +12,10 @@ import {
   Alert,
   Badge,
   Button,
-  Card,
-  CardHeader,
+  Dialog,
   EmptyState,
   ErrorMessage,
   Field,
-  Lead,
   LoadingBlock,
   NumberInput,
   Skeleton,
@@ -37,8 +35,10 @@ import { useSession } from "@/lib/session";
 import { errors as errorsTexts } from "@/texts/pt-BR/errors";
 import { useEventTexts } from "@/components/event/access";
 import { event as eventTexts } from "@/texts/pt-BR/event";
+import { common as commonTexts } from "@/texts/pt-BR/common";
 import { landing as landingTexts } from "@/texts/pt-BR/landing";
 
+import { TabHeader } from "./tab-header";
 import type { SelectTab } from "./tabs";
 
 const MAX_BATCH = 5_000;
@@ -58,7 +58,20 @@ function quantityOf(batch: BatchDto): number {
   return batch.last - batch.first + 1;
 }
 
-function NewBatch({ eventId, pricing, nextNumber }: { eventId: string; pricing: PricingDto | undefined; nextNumber: number }) {
+/** How many tickets, what they cost and the free ones; creating is paying next (ADR 0087). */
+function NewBatchDialog({
+  eventId,
+  pricing,
+  nextNumber,
+  open,
+  onClose,
+}: {
+  eventId: string;
+  pricing: PricingDto | undefined;
+  nextNumber: number;
+  open: boolean;
+  onClose: () => void;
+}) {
   const t = useEventTexts().batches;
   const queryClient = useQueryClient();
   const account = useQuery({ queryKey: ["account"], queryFn: () => api<AccountDto>("/api/account") });
@@ -80,6 +93,7 @@ function NewBatch({ eventId, pricing, nextNumber }: { eventId: string; pricing: 
       void queryClient.invalidateQueries({ queryKey: ["account"] });
       void queryClient.invalidateQueries({ queryKey: ["quote", eventId] });
       void queryClient.invalidateQueries({ queryKey: ["credits"] });
+      onClose();
     },
   });
   const submit = (event: FormEvent) => {
@@ -101,14 +115,27 @@ function NewBatch({ eventId, pricing, nextNumber }: { eventId: string; pricing: 
   const freeHere = breakdown !== null ? breakdown.freeTickets : valid ? Math.min(freeLeft, quantity) : 0;
 
   return (
-    <Card>
-      <CardHeader title={t.newBatch} icon={Plus} />
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title={t.newBatch}
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>
+            {commonTexts.cancel}
+          </Button>
+          <Button type="submit" form="new-batch-form" disabled={!valid} loading={create.isPending}>
+            {create.isPending ? t.creating : total === 0 ? (breakdown !== null && breakdown.creditCents > 0 ? t.createWithCredit : t.createFree) : t.create}
+          </Button>
+        </>
+      }
+    >
       {freeLeft > 0 && (
         <Alert tone="success" className="mb-5" title={t.freeTitle(freeLeft)}>
           {t.freeBody}
         </Alert>
       )}
-      <form onSubmit={submit} className="grid gap-6 md:grid-cols-[1fr_auto] md:items-end">
+      <form id="new-batch-form" onSubmit={submit} className="flex flex-col gap-5">
         <div className="flex flex-col gap-3">
           <Field label={t.quantity} hint={valid ? t.numbering(nextNumber, nextNumber + quantity - 1) : errorsTexts.invalid_quantity}>
             <NumberInput value={quantity} step={1} min={1} max={MAX_BATCH} onChange={setQuantity} />
@@ -133,7 +160,7 @@ function NewBatch({ eventId, pricing, nextNumber }: { eventId: string; pricing: 
             ))}
           </div>
         </div>
-        <div className="flex flex-col gap-3 rounded-2xl bg-surface-2 p-4 md:min-w-64">
+        <div className="flex flex-col gap-3 rounded-2xl bg-surface-2 p-4">
           <div className="flex items-baseline justify-between gap-4">
             <span className="text-sm text-fg-muted">{t.total}</span>
             {pricing === undefined ? (
@@ -180,12 +207,9 @@ function NewBatch({ eventId, pricing, nextNumber }: { eventId: string; pricing: 
               </span>
             )
           )}
-          <Button type="submit" disabled={!valid} loading={create.isPending}>
-            {create.isPending ? t.creating : total === 0 ? (breakdown !== null && breakdown.creditCents > 0 ? t.createWithCredit : t.createFree) : t.create}
-          </Button>
         </div>
+        <ErrorMessage error={create.error} />
       </form>
-      <ErrorMessage error={create.error} className="mt-4" />
       {pricing !== undefined && (
         <div className="mt-4 border-t border-border pt-4">
           <button
@@ -210,7 +234,7 @@ function NewBatch({ eventId, pricing, nextNumber }: { eventId: string; pricing: 
           )}
         </div>
       )}
-    </Card>
+    </Dialog>
   );
 }
 
@@ -524,23 +548,30 @@ export function BatchesTab({ eventId, onSelect }: { eventId: string; onSelect: S
   const nextNumber = list.filter((batch) => batch.status !== "canceled").reduce((max, batch) => Math.max(max, batch.last + 1), 1);
   const onlinePayment = pricing.data?.onlinePayment ?? false;
   const hasUnpaid = list.some((batch) => batch.status === "awaiting_payment");
+  const [creating, setCreating] = useState(false);
+  const newButton = !closed && event.data !== undefined && (
+    <Button
+      icon={<Plus />}
+      onClick={() => {
+        setCreating(true);
+      }}
+    >
+      {t.newBatch}
+    </Button>
+  );
 
   return (
     <div className="flex flex-col gap-6">
-      <Lead>{t.intro}</Lead>
+      <TabHeader tab="batches" help={t.intro} actions={list.length > 0 && newButton} />
       <PaymentReturn batches={list} eventId={eventId} onSelect={onSelect} />
-      {closed ? (
-        <Alert tone="warning">{eventTexts.actions.archivedNote}</Alert>
-      ) : (
-        <NewBatch eventId={eventId} pricing={pricing.data} nextNumber={nextNumber} />
-      )}
+      {closed && <Alert tone="warning">{eventTexts.actions.archivedNote}</Alert>}
       {pricing.data !== undefined && !onlinePayment && hasUnpaid && !isAdmin && <Alert tone="warning">{t.paymentDisabled}</Alert>}
       {batches.isPending ? (
         <LoadingBlock rows={2} />
       ) : batches.isError ? (
         <ErrorMessage error={batches.error} />
       ) : list.length === 0 ? (
-        <EmptyState icon={Layers} title={t.emptyTitle} description={t.empty} />
+        <EmptyState icon={Layers} title={t.emptyTitle} description={t.empty} action={newButton} />
       ) : (
         <ul className="divide-y divide-border rounded-2xl border border-border bg-surface shadow-xs">
           {list.map((batch) => (
@@ -574,6 +605,15 @@ export function BatchesTab({ eventId, onSelect }: { eventId: string; onSelect: S
           </p>
         </div>
       )}
+      <NewBatchDialog
+        eventId={eventId}
+        pricing={pricing.data}
+        nextNumber={nextNumber}
+        open={creating}
+        onClose={() => {
+          setCreating(false);
+        }}
+      />
     </div>
   );
 }

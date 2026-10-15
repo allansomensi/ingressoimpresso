@@ -9,7 +9,8 @@ import { toast } from "sonner";
 import { ReadOnlyNotice, useEventAccess } from "@/components/event/access";
 import { TablesSection } from "@/components/event/tables";
 import type { SelectTab } from "@/components/event/tabs";
-import { Alert, Badge, Button, Card, Dialog, ErrorMessage, Field, Input, Lead, LoadingBlock, Menu, MenuItem, Switch, buttonClass, errorMessage, useConfirm } from "@/components/ui";
+import { TabHeader } from "@/components/event/tab-header";
+import { Alert, Badge, Button, Card, Dialog, ErrorMessage, Field, Input, LoadingBlock, Menu, MenuItem, Switch, buttonClass, errorMessage, useConfirm } from "@/components/ui";
 import { api } from "@/lib/api";
 import { CATEGORY_COLORS, nextColor, presetPriceText, uncategorized } from "@/lib/categories";
 import { cn } from "@/lib/cn";
@@ -72,23 +73,23 @@ function CategoriesSection({ eventId, event, editable, onSelect }: { eventId: st
 
   return (
     <section className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex max-w-2xl flex-col gap-1">
-          <h2 className="text-lg font-semibold tracking-tight text-fg">{t.title}</h2>
-          <Lead>{t.intro}</Lead>
-        </div>
-        {editable && list.length > 0 && (
-          <Button
-            icon={<Plus />}
-            onClick={() => {
-              setDialog({ category: null });
-            }}
-            className="w-full sm:w-fit"
-          >
-            {t.add}
-          </Button>
-        )}
-      </div>
+      <TabHeader
+        tab="categories"
+        help={t.intro}
+        actions={
+          editable &&
+          list.length > 0 && (
+            <Button
+              icon={<Plus />}
+              onClick={() => {
+                setDialog({ category: null });
+              }}
+            >
+              {t.add}
+            </Button>
+          )
+        }
+      />
       {!editable && <ReadOnlyNotice eventId={eventId} area="manage" />}
 
       {list.length === 0 ? (

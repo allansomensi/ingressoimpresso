@@ -9,18 +9,15 @@ import { toast } from "sonner";
 import {
   Badge,
   Button,
-  Card,
-  CardHeader,
+  Dialog,
   EmptyState,
   ErrorMessage,
   Field,
   Input,
-  Lead,
   LoadingBlock,
   NumberInput,
   Select,
   errorMessage,
-  useConfirm,
   type Tone,
 } from "@/components/ui";
 import { api } from "@/lib/api";
@@ -30,37 +27,105 @@ import { common as commonTexts } from "@/texts/pt-BR/common";
 import { errors as errorsTexts } from "@/texts/pt-BR/errors";
 import { useEventTexts } from "@/components/event/access";
 
+import { TabHeader } from "./tab-header";
 import type { SelectTab } from "./tabs";
 
 const REASON_TONE: Record<VoidReason, Tone> = { unsold: "neutral", lost: "danger", revoked: "warning" };
 
-export function VoidsTab({ eventId, onSelect }: { eventId: string; onSelect: SelectTab }) {
+/** Cancels a range of numbers: the dialog itself asks for the confirmation (ADR 0087). */
+function VoidDialog({ eventId, open, onClose, onSaved }: { eventId: string; open: boolean; onClose: () => void; onSaved: () => void }) {
   const t = useEventTexts().voids;
-  const queryClient = useQueryClient();
-  const confirm = useConfirm();
-  const key = ["voids", eventId];
-  const voids = useQuery({ queryKey: key, queryFn: () => api<VoidDto[]>(`/api/events/${eventId}/voids`) });
   const [first, setFirst] = useState(1);
   const [last, setLast] = useState(1);
   const [reason, setReason] = useState<VoidReason>("unsold");
   const [note, setNote] = useState("");
-  const refresh = () =>
-    Promise.all([
-      queryClient.invalidateQueries({ queryKey: key }),
-      queryClient.invalidateQueries({ queryKey: ["report", eventId] }),
-    ]);
-
   const create = useMutation({
     mutationFn: () => {
       const body: CreateVoidBody = { first, last, reason, note: note.trim() === "" ? null : note.trim() };
       return api<VoidDto>(`/api/events/${eventId}/voids`, { method: "POST", body });
     },
     onSuccess: () => {
-      setNote("");
       toast.success(t.createdToast);
-      void refresh();
+      onSaved();
+      onClose();
     },
   });
+  const valid = Number.isInteger(first) && Number.isInteger(last) && first >= 1 && last >= first;
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    if (valid) {
+      create.mutate();
+    }
+  };
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title={t.newVoid}
+      description={t.createConfirmBody}
+      size="sm"
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>
+            {commonTexts.cancel}
+          </Button>
+          <Button type="submit" form="void-form" variant="danger" icon={<Ban />} loading={create.isPending} disabled={!valid}>
+            {valid ? t.createRange(commonTexts.range(first, last)) : t.create}
+          </Button>
+        </>
+      }
+    >
+      {/* First and last number side by side even on phones: two short numbers, one range. */}
+      <form id="void-form" onSubmit={submit} className="grid grid-cols-2 gap-4">
+        <Field label={commonTexts.first}>
+          <NumberInput value={first} step={1} min={1} onChange={setFirst} required />
+        </Field>
+        <Field label={commonTexts.last}>
+          <NumberInput value={last} step={1} min={1} onChange={setLast} required />
+        </Field>
+        <Field label={t.reason} className="col-span-2">
+          <Select
+            value={reason}
+            onChange={(e) => {
+              setReason(e.target.value as VoidReason);
+            }}
+          >
+            {(Object.keys(t.reasons) as VoidReason[]).map((item) => (
+              <option key={item} value={item}>
+                {t.reasons[item]}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field label={t.note} optional className="col-span-2">
+          <Input
+            value={note}
+            onChange={(e) => {
+              setNote(e.target.value);
+            }}
+            placeholder={t.notePlaceholder}
+            maxLength={200}
+          />
+        </Field>
+        {!valid && <p className="col-span-2 text-xs text-danger-fg">{errorsTexts.invalid_range}</p>}
+        <ErrorMessage error={create.error} className="col-span-2" />
+      </form>
+    </Dialog>
+  );
+}
+
+export function VoidsTab({ eventId, onSelect }: { eventId: string; onSelect: SelectTab }) {
+  const t = useEventTexts().voids;
+  const queryClient = useQueryClient();
+  const key = ["voids", eventId];
+  const voids = useQuery({ queryKey: key, queryFn: () => api<VoidDto[]>(`/api/events/${eventId}/voids`) });
+  const [creating, setCreating] = useState(false);
+  const refresh = () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: key }),
+      queryClient.invalidateQueries({ queryKey: ["report", eventId] }),
+    ]);
+
   const undo = useMutation({
     mutationFn: (id: string) => api<VoidDto>(`/api/voids/${id}/undo`, { method: "POST" }),
     onSuccess: () => {
@@ -72,22 +137,24 @@ export function VoidsTab({ eventId, onSelect }: { eventId: string; onSelect: Sel
     },
   });
 
-  const valid = Number.isInteger(first) && Number.isInteger(last) && first >= 1 && last >= first;
-  const submit = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!valid) {
-      return;
-    }
-    const range = commonTexts.range(first, last);
-    if (await confirm({ title: t.createConfirmTitle(range), description: t.createConfirmBody, confirmLabel: t.create })) {
-      create.mutate();
-    }
-  };
-
   return (
     <div className="flex flex-col gap-6">
-      <Lead>{t.intro}</Lead>
-      <p className="-mt-3 text-sm text-fg-muted">
+      <TabHeader
+        tab="voids"
+        help={t.intro}
+        actions={
+          <Button
+            variant="secondary"
+            icon={<Ban />}
+            onClick={() => {
+              setCreating(true);
+            }}
+          >
+            {t.newVoid}
+          </Button>
+        }
+      />
+      <p className="-mt-2 text-sm text-fg-muted">
         {t.replaceTip}{" "}
         <button
           type="button"
@@ -99,35 +166,16 @@ export function VoidsTab({ eventId, onSelect }: { eventId: string; onSelect: Sel
           {t.replaceTipLink}
         </button>
       </p>
-      <Card>
-        <CardHeader title={t.newVoid} icon={Ban} />
-        {/* First and last number side by side even on phones: two short numbers, one range. */}
-        <form onSubmit={(event) => void submit(event)} className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <Field label={commonTexts.first}>
-            <NumberInput value={first} step={1} min={1} onChange={setFirst} required />
-          </Field>
-          <Field label={commonTexts.last}>
-            <NumberInput value={last} step={1} min={1} onChange={setLast} required />
-          </Field>
-          <Field label={t.reason} className="max-sm:col-span-2">
-            <Select value={reason} onChange={(e) => { setReason(e.target.value as VoidReason); }}>
-              {(Object.keys(t.reasons) as VoidReason[]).map((item) => (
-                <option key={item} value={item}>{t.reasons[item]}</option>
-              ))}
-            </Select>
-          </Field>
-          <Field label={t.note} optional className="max-sm:col-span-2">
-            <Input value={note} onChange={(e) => { setNote(e.target.value); }} placeholder={t.notePlaceholder} maxLength={200} />
-          </Field>
-          <div className="col-span-2 lg:col-span-4">
-            {!valid && <p className="mb-3 text-xs text-danger-fg">{errorsTexts.invalid_range}</p>}
-            <Button type="submit" variant="danger" icon={<Ban />} loading={create.isPending} disabled={!valid}>
-              {t.create}
-            </Button>
-          </div>
-        </form>
-        <ErrorMessage error={create.error} className="mt-4" />
-      </Card>
+      <VoidDialog
+        eventId={eventId}
+        open={creating}
+        onClose={() => {
+          setCreating(false);
+        }}
+        onSaved={() => {
+          void refresh();
+        }}
+      />
       {voids.isPending ? (
         <LoadingBlock rows={2} />
       ) : voids.isError ? (

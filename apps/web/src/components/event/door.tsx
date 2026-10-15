@@ -19,9 +19,11 @@ import {
   Copy,
   Download,
   Link2,
+  Link2Off,
   LogIn,
   LogOut,
   MessageCircle,
+  MoreHorizontal,
   Plus,
   QrCode as QrCodeIcon,
   Smartphone,
@@ -41,8 +43,9 @@ import {
   ErrorMessage,
   Field,
   Input,
-  Lead,
   LoadingBlock,
+  Menu,
+  MenuItem,
   Stat,
   Switch,
   buttonClass,
@@ -53,8 +56,10 @@ import { api, fetchBlobUrl } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { shortDateTime } from "@/lib/format";
 import { useEventTexts } from "@/components/event/access";
+import { common as commonTexts } from "@/texts/pt-BR/common";
 
 import { useLivePolling } from "./live-polling";
+import { TabHeader } from "./tab-header";
 
 /** A phone that synced this recently is shown as online (it syncs every few seconds). */
 const ONLINE_MS = 60_000;
@@ -69,6 +74,80 @@ function accessState(access: DoorAccessDto, now: number): "active" | "expired" |
     return "revoked";
   }
   return Date.parse(access.expiresAt) <= now ? "expired" : "active";
+}
+
+/** A link for the people at one door: its name and, if the event has them, the categories it lets in. */
+function NewLinkDialog({
+  eventId,
+  open,
+  categories,
+  onClose,
+  onCreated,
+}: {
+  eventId: string;
+  open: boolean;
+  categories: CategoryDto[];
+  onClose: () => void;
+  onCreated: (result: CreatedDoorAccess) => void;
+}) {
+  const t = useEventTexts().door;
+  const [label, setLabel] = useState<string>(t.defaultLabel);
+  const [chosen, setChosen] = useState<string[]>([]);
+  const create = useMutation({
+    mutationFn: () => {
+      const body: CreateDoorAccessBody = { label: label.trim(), categoryIds: chosen };
+      return api<CreatedDoorAccess>(`/api/events/${eventId}/door/accesses`, { method: "POST", body });
+    },
+    onSuccess: (result) => {
+      onCreated(result);
+      setChosen([]);
+      onClose();
+    },
+  });
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    create.mutate();
+  };
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title={t.newLink}
+      description={t.newLinkHint}
+      size="sm"
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>
+            {commonTexts.cancel}
+          </Button>
+          <Button type="submit" form="new-door-link-form" icon={<Plus />} loading={create.isPending} disabled={label.trim() === ""}>
+            {t.create}
+          </Button>
+        </>
+      }
+    >
+      <form id="new-door-link-form" onSubmit={submit} className="flex flex-col gap-4">
+        <Field label={t.label}>
+          <Input
+            value={label}
+            maxLength={60}
+            autoFocus
+            onChange={(e) => {
+              setLabel(e.target.value);
+            }}
+          />
+        </Field>
+        {categories.length > 0 && (
+          <fieldset className="flex flex-col gap-2">
+            <legend className="mb-2 text-sm font-medium text-fg">{t.categories}</legend>
+            <CategoryChips categories={categories} chosen={chosen} onChange={setChosen} />
+            <p className="text-xs leading-relaxed text-fg-muted">{t.categoriesHint}</p>
+          </fieldset>
+        )}
+        <ErrorMessage error={create.error} />
+      </form>
+    </Dialog>
+  );
 }
 
 export function DoorTab({ eventId, kind = "tickets" }: { eventId: string; kind?: EventKind }) {
@@ -86,8 +165,7 @@ export function DoorTab({ eventId, kind = "tickets" }: { eventId: string; kind?:
     queryKey: ["categories", eventId],
     queryFn: () => api<CategoryDto[]>(`/api/events/${eventId}/categories`),
   });
-  const [label, setLabel] = useState<string>(t.defaultLabel);
-  const [chosen, setChosen] = useState<string[]>([]);
+  const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<DoorAccessDto | null>(null);
   const [created, setCreated] = useState<{ url: string; label: string; renewed: boolean } | null>(null);
   const createdRef = useRef<HTMLDivElement | null>(null);
@@ -97,18 +175,6 @@ export function DoorTab({ eventId, kind = "tickets" }: { eventId: string; kind?:
     toast.error(errorMessage(error));
   };
 
-  const create = useMutation({
-    mutationFn: () => {
-      const body: CreateDoorAccessBody = { label: label.trim(), categoryIds: chosen };
-      return api<CreatedDoorAccess>(`/api/events/${eventId}/door/accesses`, { method: "POST", body });
-    },
-    onSuccess: (result) => {
-      setCreated({ url: doorUrl(result.token), label: result.access.label, renewed: false });
-      setCopied(false);
-      setChosen([]);
-      void refresh();
-    },
-  });
   // Only the hash of a link is stored (ADR 0007): showing it again means issuing a new one.
   const renewLink = useMutation({
     mutationFn: (id: string) => api<CreatedDoorAccess>(`/api/door-accesses/${id}/link`, { method: "POST" }),
@@ -167,10 +233,6 @@ export function DoorTab({ eventId, kind = "tickets" }: { eventId: string; kind?:
     onError,
   });
 
-  const submit = (event: FormEvent) => {
-    event.preventDefault();
-    create.mutate();
-  };
   const copy = async (url: string) => {
     try {
       await navigator.clipboard.writeText(url);
@@ -198,7 +260,33 @@ export function DoorTab({ eventId, kind = "tickets" }: { eventId: string; kind?:
 
   return (
     <div className="flex flex-col gap-6">
-      <Lead>{t.intro}</Lead>
+      <TabHeader
+        tab="door"
+        help={t.intro}
+        actions={
+          <Button
+            icon={<Plus />}
+            onClick={() => {
+              setCreating(true);
+            }}
+          >
+            {t.newLink}
+          </Button>
+        }
+      />
+      <NewLinkDialog
+        eventId={eventId}
+        open={creating}
+        categories={eventCategories}
+        onClose={() => {
+          setCreating(false);
+        }}
+        onCreated={(result) => {
+          setCreated({ url: doorUrl(result.token), label: result.access.label, renewed: false });
+          setCopied(false);
+          void refresh();
+        }}
+      />
       <div className="grid grid-cols-3 gap-2 sm:gap-4">
         <Stat
           label={t.entriesLabel}
@@ -210,39 +298,6 @@ export function DoorTab({ eventId, kind = "tickets" }: { eventId: string; kind?:
         <Stat label={t.devicesOnline} value={overview.data.devices.filter(online).length} icon={Smartphone} />
         <Stat label={t.linksActive} value={activeLinks} icon={Link2} />
       </div>
-
-      {/* A consumption token is used once: no exit and return (ADR 0084). */}
-      {kind !== "tokens" && (
-      <Card className="flex flex-col gap-4">
-        <div className="flex items-start gap-3">
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-brand-soft-fg">
-            <LogOut className="size-5" aria-hidden />
-          </span>
-          <div className="min-w-0 flex-1">
-            <Switch
-              checked={reentry.isPending ? reentry.variables : overview.data.reentry}
-              onChange={(allowed) => {
-                reentry.mutate(allowed);
-              }}
-              label={t.reentry}
-              description={t.reentryHint}
-            />
-          </div>
-        </div>
-        {overview.data.reentry && (
-          <ol className="grid gap-2 sm:grid-cols-3">
-            {t.reentrySteps.map((step, index) => (
-              <li key={step} className="flex items-start gap-2.5 rounded-xl bg-surface-2 p-3 text-sm leading-relaxed text-fg-muted">
-                <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-brand-solid text-xs font-bold text-white tabular">
-                  {index + 1}
-                </span>
-                {step}
-              </li>
-            ))}
-          </ol>
-        )}
-      </Card>
-      )}
 
       {created !== null && (
         <div ref={createdRef} className="scroll-mt-32">
@@ -286,22 +341,6 @@ export function DoorTab({ eventId, kind = "tickets" }: { eventId: string; kind?:
       <div className="grid items-start gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader title={t.links} icon={Link2} />
-          <form onSubmit={submit} className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end">
-            <Field label={t.label} className="flex-1">
-              <Input value={label} maxLength={60} onChange={(e) => { setLabel(e.target.value); }} />
-            </Field>
-            <Button type="submit" icon={<Plus />} loading={create.isPending} disabled={label.trim() === ""}>
-              {t.create}
-            </Button>
-          </form>
-          {eventCategories.length > 0 && (
-            <fieldset className="-mt-2 mb-5 flex flex-col gap-2">
-              <legend className="mb-2 text-sm font-medium text-fg">{t.categories}</legend>
-              <CategoryChips categories={eventCategories} chosen={chosen} onChange={setChosen} />
-              <p className="text-xs leading-relaxed text-fg-muted">{t.categoriesHint}</p>
-            </fieldset>
-          )}
-          <ErrorMessage error={create.error} className="mb-4" />
           {overview.data.accesses.length === 0 ? (
             <p className="text-sm text-fg-subtle">{t.noLinks}</p>
           ) : (
@@ -354,36 +393,37 @@ export function DoorTab({ eventId, kind = "tickets" }: { eventId: string; kind?:
                         {t.showLink}
                       </Button>
                     )}
-                    {state === "active" && eventCategories.length > 0 && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        icon={<Tags />}
-                        onClick={() => {
-                          setEditing(access);
-                        }}
-                      >
-                        {t.editCategories}
-                      </Button>
-                    )}
+                    {/* The rarer actions wait in a menu: the row keeps to the name and the link. */}
                     {state === "active" ? (
-                      <Button
-                        variant="danger-ghost"
-                        size="sm"
-                        onClick={() => {
-                          void confirm({
-                            title: t.revokeLinkConfirmTitle(access.label),
-                            description: t.revokeLinkConfirmBody,
-                            confirmLabel: t.revokeLink,
-                          }).then((ok) => {
-                            if (ok) {
-                              revokeAccess.mutate(access.id);
-                            }
-                          });
-                        }}
-                      >
-                        {t.revokeLink}
-                      </Button>
+                      <Menu label={t.linkMenu(access.label)} trigger={<MoreHorizontal />} triggerClassName={buttonClass({ variant: "ghost", size: "icon-sm" })}>
+                        {eventCategories.length > 0 && (
+                          <MenuItem
+                            icon={<Tags />}
+                            onSelect={() => {
+                              setEditing(access);
+                            }}
+                          >
+                            {t.editCategories}
+                          </MenuItem>
+                        )}
+                        <MenuItem
+                          icon={<Link2Off />}
+                          tone="danger"
+                          onSelect={() => {
+                            void confirm({
+                              title: t.revokeLinkConfirmTitle(access.label),
+                              description: t.revokeLinkConfirmBody,
+                              confirmLabel: t.revokeLink,
+                            }).then((ok) => {
+                              if (ok) {
+                                revokeAccess.mutate(access.id);
+                              }
+                            });
+                          }}
+                        >
+                          {t.revokeLink}
+                        </MenuItem>
+                      </Menu>
                     ) : (
                       <Badge>{state === "expired" ? t.expired : t.revoked}</Badge>
                     )}
@@ -452,6 +492,39 @@ export function DoorTab({ eventId, kind = "tickets" }: { eventId: string; kind?:
           )}
         </Card>
       </div>
+
+      {/* A consumption token is used once: no exit and return (ADR 0084). */}
+      {kind !== "tokens" && (
+      <Card className="flex flex-col gap-4">
+        <div className="flex items-start gap-3">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-brand-soft-fg">
+            <LogOut className="size-5" aria-hidden />
+          </span>
+          <div className="min-w-0 flex-1">
+            <Switch
+              checked={reentry.isPending ? reentry.variables : overview.data.reentry}
+              onChange={(allowed) => {
+                reentry.mutate(allowed);
+              }}
+              label={t.reentry}
+              description={t.reentryHint}
+            />
+          </div>
+        </div>
+        {overview.data.reentry && (
+          <ol className="grid gap-2 sm:grid-cols-3">
+            {t.reentrySteps.map((step, index) => (
+              <li key={step} className="flex items-start gap-2.5 rounded-xl bg-surface-2 p-3 text-sm leading-relaxed text-fg-muted">
+                <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-brand-solid text-xs font-bold text-white tabular">
+                  {index + 1}
+                </span>
+                {step}
+              </li>
+            ))}
+          </ol>
+        )}
+      </Card>
+      )}
 
       <RehearsalSheet eventId={eventId} />
 

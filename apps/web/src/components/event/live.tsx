@@ -21,6 +21,7 @@ import {
 import { useEffect, useEffectEvent, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
+import { TabHeader } from "@/components/event/tab-header";
 import { Badge, Button, Card, CardHeader, EmptyState, ErrorMessage, LoadingBlock, Stat, useScrollLock } from "@/components/ui";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
@@ -93,31 +94,33 @@ export function LiveTab({ eventId, onSelect }: { eventId: string; onSelect: Sele
   const refusals = refusalCount(data.refusals);
 
   const updated = (
-    <p className="flex items-center gap-2 text-sm text-fg-muted" aria-live="polite">
+    <span className="inline-flex items-center gap-2 text-sm text-fg-muted" aria-live="polite">
       <span className="relative flex size-2.5">
         <span className="absolute inline-flex size-full animate-ping rounded-full bg-success opacity-60" />
         <span className="relative inline-flex size-2.5 rounded-full bg-success" />
       </span>
       {t.updated(agoLabel(clock - live.dataUpdatedAt))}
-    </p>
+    </span>
   );
 
   const board = (
     <div className="flex flex-col gap-6">
       {!fullscreen && (
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          {updated}
-          <Button
-            variant="secondary"
-            size="sm"
-            icon={<Maximize2 />}
-            onClick={() => {
-              setFullscreen(true);
-            }}
-          >
-            {t.fullscreen}
-          </Button>
-        </div>
+        <TabHeader
+          tab="live"
+          description={updated}
+          actions={
+            <Button
+              variant="secondary"
+              icon={<Maximize2 />}
+              onClick={() => {
+                setFullscreen(true);
+              }}
+            >
+              {t.fullscreen}
+            </Button>
+          }
+        />
       )}
 
       {stale.length > 0 && (
@@ -154,7 +157,7 @@ export function LiveTab({ eventId, onSelect }: { eventId: string; onSelect: Sele
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 sm:gap-4 xl:grid-cols-4">
         <Stat
           label={t.guests}
           value={data.guests.guests === 0 ? "—" : t.guestsValue(count(data.guests.arrivedPeople), count(data.guests.people))}

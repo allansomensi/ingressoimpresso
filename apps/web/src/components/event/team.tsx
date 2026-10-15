@@ -32,7 +32,6 @@ import {
   ErrorMessage,
   Field,
   Input,
-  Lead,
   LoadingBlock,
   Menu,
   MenuItem,
@@ -46,6 +45,7 @@ import { whatsappLink } from "@/lib/settlement";
 import { PART_AREAS, TEAM_AREAS, areaList, displayName, personInitials, normalizeAreas, responsibleFor } from "@/lib/team";
 import { common as commonTexts } from "@/texts/pt-BR/common";
 
+import { TabHeader } from "./tab-header";
 
 export const AREA_ICONS: Record<TeamArea, LucideIcon> = {
   manage: Crown,
@@ -93,22 +93,22 @@ export function TeamTab({ eventId, event }: { eventId: string; event: EventDto }
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="max-w-2xl">
-          <Lead>{t.intro}</Lead>
-        </div>
-        {canManage && (
-          <Button
-            icon={<UserPlus />}
-            onClick={() => {
-              setDialog({ mode: "add", area: null });
-            }}
-            className="w-full sm:w-fit"
-          >
-            {t.add}
-          </Button>
-        )}
-      </div>
+      <TabHeader
+        tab="team"
+        help={t.intro}
+        actions={
+          canManage && (
+            <Button
+              icon={<UserPlus />}
+              onClick={() => {
+                setDialog({ mode: "add", area: null });
+              }}
+            >
+              {t.add}
+            </Button>
+          )
+        }
+      />
 
       <Card>
         <CardHeader title={t.whoTitle} description={t.whoHint} icon={UsersRound} />

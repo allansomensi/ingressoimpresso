@@ -62,7 +62,7 @@ export function ChecklistCard({ list, onSelect, onEditEvent }: { list: Checklist
   const total = list.required;
   const ready = requiredDone(list);
   return (
-    <Card className="max-lg:order-2">
+    <Card>
       <CardHeader
         title={t.title}
         description={t.subtitle}

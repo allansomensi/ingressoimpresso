@@ -5,7 +5,7 @@ export const admin = {
   openPanel: "Painel de administração",
   forbiddenTitle: "Área restrita",
   forbidden: "Só administradores veem esta página.",
-  sections: "Seção",
+  sections: "Seções da administração",
   moderationPending: (count: number) => (count === 1 ? "1 imagem para revisar" : `${String(count)} imagens para revisar`),
   groups: {
     overview: "Resumo",
