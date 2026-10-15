@@ -285,6 +285,7 @@ async fn generate(state: &AppState, export: &ExportRow) -> Result<(i32, String, 
         i32::try_from(tickets.len()).map_err(|error| JobError::Retry(error.into()))?;
     let details = crate::routes::event_details(&state.pool, &event).await?;
     let event_name = event.name.clone();
+    let tokens = event.tokens();
     let first_seller = tickets.first().and_then(|ticket| ticket.seller.clone());
     let path = export_path(&state.config.export_dir, export.id, kind);
     let crop_marks = export.crop_marks;
@@ -293,6 +294,7 @@ async fn generate(state: &AppState, export: &ExportRow) -> Result<(i32, String, 
     tokio::task::spawn_blocking(move || {
         let rendered = sign_tickets(&tickets, &issuers, &tags)?;
         let job = RenderJob {
+            tokens,
             details,
             design,
             art,

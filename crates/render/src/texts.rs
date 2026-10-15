@@ -34,6 +34,12 @@ pub(crate) const PT_BR: Texts = Texts {
     continued: "(continuação)",
 };
 
+/// The same texts for consumption tokens (ADRs 0084, 0086): the control sheet counts fichas.
+pub(crate) const PT_BR_TOKENS: Texts = Texts {
+    tickets: "fichas",
+    ..PT_BR
+};
+
 /// Month names for text fields (`fields.rs`), January first.
 pub(crate) const MONTHS: [&str; 12] = [
     "janeiro",

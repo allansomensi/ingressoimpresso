@@ -437,7 +437,7 @@ pub async fn add(
         &emails::TeamInvite {
             inviter: &inviter,
             event_name: &access.event.name,
-            areas: &texts::team_areas(&areas),
+            areas: &texts::team_areas(&areas, access.event.tokens()),
             url: &url,
         },
         &state.config.public_web_url,

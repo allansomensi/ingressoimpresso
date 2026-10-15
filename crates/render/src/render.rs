@@ -19,7 +19,7 @@ use crate::fields::{self, EventDetails};
 use crate::layout::{Grid, a4_grid};
 use crate::merge::PdfMerger;
 use crate::qr::{self, QrError};
-use crate::texts::{PT_BR, Texts};
+use crate::texts::{PT_BR, PT_BR_TOKENS, Texts};
 use crate::world::MemoryWorld;
 
 const TICKET_TEMPLATE: &str = include_str!("../templates/ticket.typ");
@@ -219,6 +219,8 @@ pub struct RenderJob {
     pub details: EventDetails,
     /// Tickets, in printing order.
     pub tickets: Vec<TicketToRender>,
+    /// Consumption tokens (ADR 0084): the control sheet speaks of fichas (ADR 0086).
+    pub tokens: bool,
 }
 
 /// Options of the print-shop file.
@@ -649,7 +651,7 @@ struct TemplateData<'a> {
 impl<'a> TemplateData<'a> {
     fn new(job: &'a RenderJob, tickets: &[TicketToRender]) -> Self {
         Self {
-            texts: PT_BR,
+            texts: if job.tokens { PT_BR_TOKENS } else { PT_BR },
             event_name: job.event_name.trim(),
             design: &job.design,
             bleed_mm: BLEED_MM,
@@ -940,6 +942,20 @@ mod tests {
         assert_eq!(folder_name(None), PT_BR.no_seller);
     }
 
+    #[test]
+    fn token_control_sheets_count_fichas() {
+        let mut job = signed_job(1);
+        assert_eq!(
+            TemplateData::new(&job, &job.tickets).texts.tickets,
+            "ingressos"
+        );
+        job.tokens = true;
+        assert_eq!(
+            TemplateData::new(&job, &job.tickets).texts.tickets,
+            "fichas"
+        );
+    }
+
     fn signed_job(count: u32) -> RenderJob {
         let issuer = ticket_core::TicketIssuer::new(
             ticket_core::EventId::from_bytes([1; 16]),
@@ -948,6 +964,7 @@ mod tests {
             ticket_core::EventSigningKey::from_seed(&[3; 32]),
         );
         RenderJob {
+            tokens: false,
             design: TicketDesign::default_v1(),
             art: None,
             sponsors: Vec::new(),

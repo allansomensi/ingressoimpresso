@@ -97,6 +97,11 @@ impl EventRow {
         crate::api::EventKind::from_db(&self.kind).unwrap_or_default()
     }
 
+    /// Consumption tokens: the files, e-mails and labels speak of fichas (ADR 0086).
+    pub fn tokens(&self) -> bool {
+        self.kind() == crate::api::EventKind::Tokens
+    }
+
     /// The event's UTC offset (Brasília time if the stored value were ever out of range).
     pub fn offset(&self) -> UtcOffset {
         UtcOffset::from_whole_seconds(i32::from(self.utc_offset_minutes) * 60).unwrap_or(BRASILIA)

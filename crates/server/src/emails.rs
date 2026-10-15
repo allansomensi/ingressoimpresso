@@ -177,21 +177,33 @@ pub struct BatchPaid<'a> {
     pub amount: &'a str,
     /// Where to generate the files.
     pub files_url: &'a str,
+    /// Consumption tokens (ADR 0084): the e-mail speaks of fichas (ADR 0086).
+    pub tokens: bool,
 }
 
 /// A batch paid online (Stripe): the files can be generated.
 pub fn batch_paid(paid: &BatchPaid<'_>, site: &str) -> Email {
     let quantity = paid.last - paid.first + 1;
-    let tickets = if quantity == 1 {
-        "1 ingresso".to_owned()
+    let (one, many, label, freed) = if paid.tokens {
+        ("ficha", "fichas", "Fichas", "As fichas já estão liberadas")
     } else {
-        format!("{} ingressos", thousands(quantity))
+        (
+            "ingresso",
+            "ingressos",
+            "Ingressos",
+            "Os ingressos já estão liberados",
+        )
+    };
+    let tickets = if quantity == 1 {
+        format!("1 {one}")
+    } else {
+        format!("{} {many}", thousands(quantity))
     };
     let subject = format!("Pagamento confirmado: {}", paid.event_name);
     let text = format!(
         "Pagamento confirmado!\n\n\
-         Evento: {event}\nIngressos: {tickets} (nº {first} a {last})\nValor: {amount}\n\n\
-         Os ingressos já estão liberados. Gere os arquivos para imprimir ou enviar:\n{url}\n\n\
+         Evento: {event}\n{label}: {tickets} (nº {first} a {last})\nValor: {amount}\n\n\
+         {freed}. Gere os arquivos para imprimir ou enviar:\n{url}\n\n\
          Ingresso Impresso\n{site}\n",
         event = paid.event_name,
         first = paid.first,
@@ -200,8 +212,13 @@ pub fn batch_paid(paid: &BatchPaid<'_>, site: &str) -> Email {
         url = paid.files_url,
     );
     let mut content = heading("Pagamento confirmado");
+    let (lead, freed_html) = if paid.tokens {
+        ("As fichas de", "estão liberadas")
+    } else {
+        ("Os ingressos de", "estão liberados")
+    };
     content.push_str(&paragraph(&format!(
-        "Os ingressos de <strong class=\"ink\" style=\"color:{INK};\">{}</strong> estão liberados. Agora é só gerar os arquivos para imprimir ou enviar pelo WhatsApp.",
+        "{lead} <strong class=\"ink\" style=\"color:{INK};\">{}</strong> {freed_html}. Agora é só gerar os arquivos para imprimir ou enviar pelo WhatsApp.",
         escape(paid.event_name)
     )));
     let row = |label: &str, value: &str| {
@@ -214,7 +231,7 @@ pub fn batch_paid(paid: &BatchPaid<'_>, site: &str) -> Email {
     let _ = write!(
         content,
         r#"<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:4px 0 24px 0;">{}{}{}</table>"#,
-        row("Ingressos", &tickets),
+        row(label, &tickets),
         row(
             "Numeração",
             &format!("{} a {}", thousands(paid.first), thousands(paid.last))
@@ -378,6 +395,7 @@ mod tests {
                 last: 1500,
                 amount: &money(12_990),
                 files_url: "https://exemplo.com.br/painel/eventos/x?aba=arquivos&y=1",
+                tokens: false,
             },
             "https://exemplo.com.br",
         );
@@ -386,6 +404,25 @@ mod tests {
         assert!(email.html.contains("aba=arquivos&amp;y=1"));
         assert!(email.text.contains("1.500 ingressos (nº 1 a 1500)"));
         assert!(email.text.contains("R$ 129,90"));
+    }
+
+    #[test]
+    fn batch_paid_speaks_of_fichas_for_tokens() {
+        let email = batch_paid(
+            &BatchPaid {
+                event_name: "Festa junina",
+                first: 1,
+                last: 1,
+                amount: &money(990),
+                files_url: "https://exemplo.com.br/painel",
+                tokens: true,
+            },
+            "https://exemplo.com.br",
+        );
+        assert!(email.text.contains("Fichas: 1 ficha (nº 1 a 1)"));
+        assert!(email.text.contains("As fichas já estão liberadas"));
+        assert!(email.html.contains("As fichas de"));
+        assert!(!email.text.to_lowercase().contains("ingressos"));
     }
 
     #[test]

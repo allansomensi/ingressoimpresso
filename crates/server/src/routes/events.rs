@@ -1188,6 +1188,7 @@ pub async fn preview(
     // Samples show the band of the event's categories and seats, as printed (ADR 0056).
     let tags = super::categories::NumberTags::load(&state.pool, event_id).await?;
     let job = RenderJob {
+        tokens: event.tokens(),
         details: super::event_details(&state.pool, &event).await?,
         design: body.design,
         art,

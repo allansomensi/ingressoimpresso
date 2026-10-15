@@ -337,7 +337,7 @@ fn optional_brl(cents: Option<i64>) -> String {
 }
 
 fn document(data: &Accountability) -> ReportDocument {
-    let t = &texts::ACCOUNTABILITY;
+    let t = texts::accountability(data.event.tokens());
     let s = &data.summary;
     let spent = s.expenses_cents + s.platform_cents;
     let mut sections = vec![
@@ -374,7 +374,7 @@ fn document(data: &Accountability) -> ReportDocument {
     ];
     sections.extend(category_section(data));
     sections.extend(seller_section(data));
-    sections.push(cash_section(s));
+    sections.push(cash_section(t, s));
     ReportDocument {
         kicker: t.kicker.to_owned(),
         title: data.event.name.clone(),
@@ -399,7 +399,7 @@ fn table_section(title: &str, table: ReportTable) -> ReportSection {
 }
 
 fn category_section(data: &Accountability) -> Option<ReportSection> {
-    let t = &texts::ACCOUNTABILITY;
+    let t = texts::accountability(data.event.tokens());
     (!data.report.categories.is_empty()).then(|| {
         table_section(
             t.by_category,
@@ -430,7 +430,7 @@ fn category_section(data: &Accountability) -> Option<ReportSection> {
 }
 
 fn seller_section(data: &Accountability) -> Option<ReportSection> {
-    let t = &texts::ACCOUNTABILITY;
+    let t = texts::accountability(data.event.tokens());
     let s = &data.summary;
     let rows = &data.report.sellers;
     (!rows.is_empty()).then(|| {
@@ -469,8 +469,7 @@ fn seller_section(data: &Accountability) -> Option<ReportSection> {
 }
 
 /// Money in and out: what sellers handed over, the platform, then the team's entries by day.
-fn cash_section(s: &AccountabilityDto) -> ReportSection {
-    let t = &texts::ACCOUNTABILITY;
+fn cash_section(t: &texts::AccountabilityTexts, s: &AccountabilityDto) -> ReportSection {
     let mut rows = vec![vec![
         String::new(),
         t.received_line.to_owned(),
@@ -541,7 +540,7 @@ fn money(cents: Option<i64>) -> Cell {
 }
 
 fn workbook(data: &Accountability) -> Workbook {
-    let t = &texts::ACCOUNTABILITY;
+    let t = texts::accountability(data.event.tokens());
     let s = &data.summary;
     let label = |text: &str| Cell::Text(text.to_owned());
     let resumo = Sheet {
