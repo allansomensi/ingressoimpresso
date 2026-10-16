@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update payments set status = 'failed'\n           where batch_id = $1 and status = 'processing'\n             and created_at < now() - make_interval(days => $2::int)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "fdb5ecb0a44b27f8846cf69125c037b5e981f0f6217897833e83bfc3e403533c"
+}

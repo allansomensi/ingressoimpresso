@@ -12,6 +12,51 @@ e não acompanha estes números.
 
 ## [Não lançado]
 
+## [1.6.2] - 2026-10-16
+
+### Alterado
+
+- O admin não dá mais a um lote um preço de poucos centavos, que a Stripe recusaria na hora de
+  pagar: ou o lote fica grátis, ou custa a partir de R$ 0,50. Um lote que o admin torna grátis
+  devolve à organização o crédito gasto nele, como quando o lote é cancelado.
+
+### Corrigido
+
+- Um Pix mostrado e nunca pago não trava mais o lote para sempre quando o aviso da Stripe se perde:
+  depois de três dias a transferência é dada como falha e o lote volta a aceitar pagamento,
+  cancelamento e a marcação pelo admin.
+- Cancelar um evento fecha na Stripe as páginas de pagamento abertas dos seus lotes: ninguém paga
+  por um evento cancelado numa aba deixada aberta.
+- Um aviso da Stripe reenviado depois de um estorno não faz o pagamento voltar a aparecer como pago.
+- Um arquivo que falha por um tropeço do banco espera alguns segundos antes de cada nova tentativa,
+  em vez de gastar as três em um segundo; um deploy no meio de um arquivo espera ele terminar antes
+  de reiniciar a API, e o arquivo não fica mais "gerando" por quinze minutos.
+- A mensagem do limite da arte diz 24 megapixels, que é o limite de verdade.
+
+### Segurança
+
+- O link privado de um vendedor (com ele se marcam vendas e reservas e se mandam ingressos digitais
+  em nome do vendedor) só aparece na seção Vendedores para quem pode entregá-lo: a organização e
+  quem cuida da entrega na equipe. Quem está na equipe só pela arte, pelo dinheiro ou pela portaria
+  vê os vendedores sem o link.
+- Chamar pessoas para a equipe tem limite por conta (40 por hora): cada chamada manda um e-mail e a
+  cota diária de e-mails é de todo mundo.
+- A arte enviada perde os metadados do arquivo (EXIF, XMP, IPTC e comentários: onde e quando a
+  foto foi tirada, o aparelho) antes de ser guardada, impressa ou vista por alguém; os pixels e o
+  perfil de cor ficam como estavam.
+- No celular, o ingresso digital guardado para abrir sem internet fica sob um hash do token do link,
+  nunca o token; a medição de velocidade da Vercel recebe só o caminho da página, sem o token do
+  ingresso digital ou do link do vendedor (como as estatísticas de acesso já faziam); o painel
+  recusa caminhos da API com codificação percentual ou um segundo `?`.
+- Cada requisição da API ganha um identificador (`x-request-id`, devolvido na resposta) que aparece
+  nas linhas de log dela, com o método e a rota (os tokens dos links de download e dos convites
+  ficam mascarados): um "erro inesperado" relatado por um organizador pode ser encontrado no log.
+- Consultas ao banco têm um tempo máximo (60 s) e as imagens dos ingressos são lidas do banco uma
+  vez por instância; a prévia da arte tem limite por conta. Cada ação e imagem usadas pelo CI e
+  pelo build da API ficam presas ao commit ou ao digest exato (Dependabot os atualiza), não a uma
+  tag que pode ser movida; o token da Vercel não passa mais pela linha de comando; um push no `main`
+  ou no `staging` não cancela mais o deploy ou a release que o anterior ainda estava fazendo.
+
 ## [1.6.1] - 2026-10-16
 
 ### Alterado
@@ -402,7 +447,8 @@ Primeira versão numerada: o produto que já estava em produção, das fases 0 a
 - Política de segurança de conteúdo (CSP) com nonce por requisição em todo o site (ADR 0048).
 - Verificação anti-robô antes do envio do código de login (ADR 0044).
 
-[Não lançado]: https://github.com/allansomensi/ingressoimpresso/compare/v1.6.1...HEAD
+[Não lançado]: https://github.com/allansomensi/ingressoimpresso/compare/v1.6.2...HEAD
+[1.6.2]: https://github.com/allansomensi/ingressoimpresso/compare/v1.6.1...v1.6.2
 [1.6.1]: https://github.com/allansomensi/ingressoimpresso/compare/v1.6.0...v1.6.1
 [1.6.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.4.0...v1.5.0

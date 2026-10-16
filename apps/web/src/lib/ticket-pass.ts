@@ -7,6 +7,7 @@ import { encode } from "uqr";
 
 import { NO_CHANGE } from "@/lib/event-change";
 import { wallClockDate } from "@/lib/event-time";
+import { tokenKey } from "@/lib/token-key";
 
 const STORE_KEY = "ingressoimpresso.tickets";
 /** Tickets kept per browser (the oldest go first). */
@@ -22,6 +23,14 @@ function readStore(): Stored {
   } catch {
     return {};
   }
+}
+
+/** Writes the store, keeping the newest tickets up to the limit. */
+function writeStore(store: Stored): void {
+  const kept = Object.entries(store)
+    .sort(([, a], [, b]) => b.savedAt - a.savedAt)
+    .slice(0, MAX_STORED);
+  window.localStorage.setItem(STORE_KEY, JSON.stringify(Object.fromEntries(kept)));
 }
 
 /**
@@ -68,21 +77,35 @@ export function normalizePass(pass: TicketPassDto): TicketPassDto {
   };
 }
 
-/** The ticket saved for `token`, if this browser opened it before. */
-export function storedPass(token: string): TicketPassDto | null {
-  const pass = readStore()[token]?.pass;
+/**
+ * The ticket saved for `token`, if this browser opened it before. Tickets are kept under a hash
+ * of the token (`lib/token-key.ts`), never the token itself; one saved by an earlier version
+ * under the token moves to its hash here.
+ */
+export async function storedPass(token: string): Promise<TicketPassDto | null> {
+  const key = await tokenKey(token);
+  const store = readStore();
+  const legacy = store[token];
+  if (legacy !== undefined) {
+    delete store[token];
+    store[key] = legacy;
+    try {
+      writeStore(store);
+    } catch {
+      // Storage blocked: it still opens from memory below.
+    }
+  }
+  const pass = store[key]?.pass;
   return pass === undefined ? null : normalizePass(pass);
 }
 
 /** Keeps the latest version of a ticket (and drops the oldest beyond the limit). */
-export function storePass(token: string, pass: TicketPassDto): void {
+export async function storePass(token: string, pass: TicketPassDto): Promise<void> {
+  const key = await tokenKey(token);
   try {
     const store = readStore();
-    store[token] = { pass, savedAt: Date.now() };
-    const kept = Object.entries(store)
-      .sort(([, a], [, b]) => b.savedAt - a.savedAt)
-      .slice(0, MAX_STORED);
-    window.localStorage.setItem(STORE_KEY, JSON.stringify(Object.fromEntries(kept)));
+    store[key] = { pass, savedAt: Date.now() };
+    writeStore(store);
   } catch {
     // Storage full or blocked: the ticket still shows, it just will not open offline.
   }
@@ -124,14 +147,14 @@ export function storeLogo(path: string, data: string): void {
 }
 
 /** Forgets a ticket whose link was revoked. */
-export function forgetPass(token: string): void {
+export async function forgetPass(token: string): Promise<void> {
+  const key = await tokenKey(token);
   try {
     const store = readStore();
-    if (token in store) {
-      window.localStorage.setItem(
-        STORE_KEY,
-        JSON.stringify(Object.fromEntries(Object.entries(store).filter(([key]) => key !== token))),
-      );
+    if (key in store || token in store) {
+      delete store[key];
+      delete store[token];
+      writeStore(store);
     }
   } catch {
     // Nothing to forget.

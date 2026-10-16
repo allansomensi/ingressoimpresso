@@ -215,17 +215,17 @@ export function TicketPass() {
   });
 
   const load = useCallback(async (current: string) => {
-    const cached = storedPass(current);
+    const cached = await storedPass(current);
     if (cached !== null) {
       setState({ status: "ready", pass: cached, offline: false });
     }
     try {
       const pass = normalizePass(await api<TicketPassDto>("/api/ticket", { method: "POST", body: { token: current } }));
-      storePass(current, pass);
+      await storePass(current, pass);
       setState({ status: "ready", pass, offline: false });
     } catch (error) {
       if (error instanceof ApiError && error.status === 404) {
-        forgetPass(current);
+        await forgetPass(current);
         setState({ status: "not-found" });
       } else if (cached !== null) {
         setState({ status: "ready", pass: cached, offline: true });

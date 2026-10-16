@@ -2010,7 +2010,7 @@ dependencies = [
 
 [[package]]
 name = "ii-cli"
-version = "1.6.1"
+version = "1.6.2"
 dependencies = [
  "anyhow",
  "clap",
@@ -2082,7 +2082,7 @@ checksum = "a588916bfdfd92e71cacef98a63d9b1f0d74d6599980d11894290e7ddefffcf7"
 
 [[package]]
 name = "ingressoimpresso-server"
-version = "1.6.1"
+version = "1.6.2"
 dependencies = [
  "anyhow",
  "axum",
@@ -4077,7 +4077,7 @@ dependencies = [
 
 [[package]]
 name = "ticket-core"
-version = "1.6.1"
+version = "1.6.2"
 dependencies = [
  "curve25519-dalek",
  "ed25519-dalek",
@@ -4092,7 +4092,7 @@ dependencies = [
 
 [[package]]
 name = "ticket-render"
-version = "1.6.1"
+version = "1.6.2"
 dependencies = [
  "image",
  "lopdf",
@@ -4115,7 +4115,7 @@ dependencies = [
 
 [[package]]
 name = "ticket-wasm"
-version = "1.6.1"
+version = "1.6.2"
 dependencies = [
  "serde",
  "serde-wasm-bindgen",

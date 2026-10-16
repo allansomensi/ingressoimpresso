@@ -66,5 +66,6 @@ updates:
       time: "06:00"
       timezone: America/Sao_Paulo
     ignore:
-      # The build image's Rust must match rust-toolchain.toml: both move together, by hand.
-      - dependency-name: rust
+      # The build image's Rust must match rust-toolchain.toml: tag and digest move together with
+      # it, by hand (deploy/api.Dockerfile says how).
+      - dependency-name: lukemathwalker/cargo-chef

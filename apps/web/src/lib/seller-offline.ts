@@ -240,20 +240,8 @@ const PREFIX = "ingressoimpresso.seller.";
 /** Links whose last view is kept (a seller of several events); the oldest go first. */
 const MAX_LINKS = 5;
 
-/** The storage key of a link: a hash of its token, never the token. */
-export async function storageKey(token: string): Promise<string> {
-  try {
-    const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token));
-    return Array.from(new Uint8Array(digest).slice(0, 16), (byte) => byte.toString(16).padStart(2, "0")).join("");
-  } catch {
-    // No SubtleCrypto (plain http outside localhost): FNV-1a, still not the token.
-    let hash = 0x811c9dc5;
-    for (const char of token) {
-      hash = Math.imul(hash ^ (char.codePointAt(0) ?? 0), 0x01000193) >>> 0;
-    }
-    return `fnv${hash.toString(16)}`;
-  }
-}
+// The storage key of a link is a hash of its token, never the token: `tokenKey` in
+// `lib/token-key.ts`, shared with the digital tickets.
 
 type Saved = { view: SellerViewDto; savedAt: string };
 /** A view as an older version of the page may have saved it. */

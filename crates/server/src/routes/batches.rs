@@ -240,6 +240,32 @@ pub(crate) fn provider_error(error: &PaymentError) -> ApiError {
     }
 }
 
+/// A Pix shown and never paid keeps its payment `processing` (ADR 0020) until Stripe says the
+/// transfer failed, which locks the batch: no new checkout, no cancel, no mark-paid. Stripe's Pix
+/// code is paid within a day; when that webhook was lost (the API down for longer than Stripe
+/// retries, the event missing from the endpoint), a transfer older than this is given up as
+/// failed, as the webhook would have, and the batch moves on. A transfer that still lands is
+/// recorded by `apply_session` all the same.
+const PROCESSING_MAX_AGE_DAYS: i32 = 3;
+
+/// Gives up the batch's transfers past [`PROCESSING_MAX_AGE_DAYS`].
+async fn give_up_stale_processing(state: &AppState, batch_id: Uuid) -> ApiResult<()> {
+    let given_up = sqlx::query!(
+        r#"update payments set status = 'failed'
+           where batch_id = $1 and status = 'processing'
+             and created_at < now() - make_interval(days => $2::int)"#,
+        batch_id,
+        PROCESSING_MAX_AGE_DAYS,
+    )
+    .execute(&state.pool)
+    .await?
+    .rows_affected();
+    if given_up > 0 {
+        tracing::warn!(%batch_id, "pending Pix older than the limit given up as failed");
+    }
+    Ok(())
+}
+
 fn payment_pending() -> ApiError {
     ApiError::Conflict(
         "payment_pending",
@@ -278,6 +304,7 @@ pub async fn checkout(
     if batch.status != BatchStatus::AwaitingPayment.db() {
         return Err(not_payable());
     }
+    give_up_stale_processing(&state, batch_id).await?;
     let open = sqlx::query!(
         r#"select status, checkout_url, expires_at > now() + make_interval(mins => $2) as "fresh!"
            from payments where batch_id = $1 and status in ('open', 'processing')
@@ -432,10 +459,12 @@ pub async fn apply_session(state: &AppState, session: &CheckoutSession) -> ApiRe
     }
 
     let mut tx = state.pool.begin().await?;
+    // A webhook Stripe sends again after the admin refunded the payment must not make it look
+    // paid again: the batch stays refunded either way (invariant 10), the row says what happened.
     sqlx::query!(
         r#"update payments set status = 'paid', paid_at = coalesce(paid_at, now()),
                   payment_intent_id = coalesce($2, payment_intent_id)
-           where id = $1"#,
+           where id = $1 and status <> 'refunded'"#,
         payment.id,
         session.payment_intent,
     )
@@ -534,6 +563,7 @@ async fn needs_refund(state: &AppState, batch_id: Uuid) -> ApiResult<bool> {
 /// nobody pays for it afterwards. Returns `true` if one turned out to be paid already; fails with
 /// `payment_pending` while a Pix transfer may still arrive. Call with the batch lock held.
 pub(crate) async fn close_open_checkouts(state: &AppState, batch_id: Uuid) -> ApiResult<bool> {
+    give_up_stale_processing(state, batch_id).await?;
     let unsettled = sqlx::query!(
         "select id, status, checkout_session_id from payments where batch_id = $1 and status in ('open', 'processing')",
         batch_id
