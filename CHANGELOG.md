@@ -12,6 +12,8 @@ e não acompanha estes números.
 
 ## [Não lançado]
 
+## [1.6.2] - 2026-10-16
+
 ### Alterado
 
 - O admin não dá mais a um lote um preço de poucos centavos, que a Stripe recusaria na hora de
@@ -445,7 +447,8 @@ Primeira versão numerada: o produto que já estava em produção, das fases 0 a
 - Política de segurança de conteúdo (CSP) com nonce por requisição em todo o site (ADR 0048).
 - Verificação anti-robô antes do envio do código de login (ADR 0044).
 
-[Não lançado]: https://github.com/allansomensi/ingressoimpresso/compare/v1.6.1...HEAD
+[Não lançado]: https://github.com/allansomensi/ingressoimpresso/compare/v1.6.2...HEAD
+[1.6.2]: https://github.com/allansomensi/ingressoimpresso/compare/v1.6.1...v1.6.2
 [1.6.1]: https://github.com/allansomensi/ingressoimpresso/compare/v1.6.0...v1.6.1
 [1.6.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.4.0...v1.5.0
