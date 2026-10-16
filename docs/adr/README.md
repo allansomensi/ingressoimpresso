@@ -97,3 +97,4 @@ feita e as consequências.
 | [0085](0085-pix-copia-e-cola.md) | Pix copia e cola do organizador | Aceito |
 | [0086](0086-palavras-das-fichas.md) | As palavras das fichas em todo o produto | Aceito |
 | [0087](0087-painel-por-secoes.md) | Painel organizado por seções | Aceito |
+| [0088](0088-novidades-lidas-na-conta.md) | Novidades lidas ficam na conta | Aceito |

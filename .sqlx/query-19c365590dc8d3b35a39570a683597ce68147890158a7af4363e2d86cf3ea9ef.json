@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select news_seen_at from users where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "news_seen_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "users",
+            "name": "news_seen_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "19c365590dc8d3b35a39570a683597ce68147890158a7af4363e2d86cf3ea9ef"
+}

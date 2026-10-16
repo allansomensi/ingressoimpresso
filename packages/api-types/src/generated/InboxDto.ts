@@ -17,4 +17,9 @@ notifications: Array<NotificationDto>,
 /**
  * Unseen announcements plus unread notifications.
  */
-unread: number, };
+unread: number, 
+/**
+ * Publication time of the newest release note the account has seen (ADR 0088); `null`:
+ * none yet.
+ */
+newsSeenAt: string | null, };

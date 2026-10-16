@@ -12,6 +12,16 @@ e não acompanha estes números.
 
 ## [Não lançado]
 
+### Alterado
+
+- O botão do financeiro do admin que relê os reembolsos na Stripe agora se chama **Sincronizar com
+  a Stripe**.
+
+### Corrigido
+
+- O sino do painel lembra das novidades já lidas na sua conta: sair e entrar de novo, ou abrir em
+  outro navegador ou celular, não mostra outra vez como não lidas as que você já viu.
+
 ## [1.6.0] - 2026-10-15
 
 ### Adicionado

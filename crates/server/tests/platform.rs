@@ -287,6 +287,51 @@ fn svix_headers(secret_key: &[u8], body: &[u8]) -> Vec<(&'static str, String)> {
 }
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
+async fn seen_release_notes_follow_the_account(pool: PgPool) {
+    let app = TestApp::new(pool).await;
+    let token = app.login("banda@exemplo.com").await;
+    let inbox = app.get("/api/inbox", &token).await.json();
+    assert_eq!(inbox["newsSeenAt"], json!(null));
+
+    let read = app
+        .post(
+            "/api/inbox/read",
+            &token,
+            json!({ "announcements": [], "notifications": [], "newsSeenAt": "2026-10-10T12:00:00Z" }),
+        )
+        .await;
+    assert_eq!(read.status, StatusCode::NO_CONTENT);
+    // An older time never moves it back, and a later sign-in (another browser) sees the same.
+    app.post(
+        "/api/inbox/read",
+        &token,
+        json!({ "announcements": [], "notifications": [], "newsSeenAt": "2026-10-01T12:00:00Z" }),
+    )
+    .await;
+    let again = app.login("banda@exemplo.com").await;
+    let inbox = app.get("/api/inbox", &again).await.json();
+    assert_eq!(inbox["newsSeenAt"], "2026-10-10T12:00:00Z");
+
+    // Without the field, the release notes stay as they were; a future time is capped at now.
+    app.post(
+        "/api/inbox/read",
+        &token,
+        json!({ "announcements": [], "notifications": [] }),
+    )
+    .await;
+    let inbox = app.get("/api/inbox", &token).await.json();
+    assert_eq!(inbox["newsSeenAt"], "2026-10-10T12:00:00Z");
+    app.post(
+        "/api/inbox/read",
+        &token,
+        json!({ "announcements": [], "notifications": [], "newsSeenAt": "2999-01-01T00:00:00Z" }),
+    )
+    .await;
+    let inbox = app.get("/api/inbox", &token).await.json();
+    assert!(inbox["newsSeenAt"].as_str().unwrap() < "2999");
+}
+
+#[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
 async fn the_mail_log_follows_each_message(pool: PgPool) {
     let key = b"0123456789abcdef0123456789abcdef";
     let secret = format!(
