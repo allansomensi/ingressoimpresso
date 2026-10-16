@@ -2,7 +2,7 @@
  * What the panel needs to know about the service (ADR 0037) and the signed-in user's inbox
  * (ADR 0038): maintenance, sign-ups, a running promotion, announcements and notifications.
  */
-import type { InboxDto, PlatformStatusDto } from "@ingressoimpresso/api-types";
+import type { InboxDto, InboxReadBody, PlatformStatusDto } from "@ingressoimpresso/api-types";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 
@@ -41,9 +41,12 @@ export function useInbox(enabled: boolean) {
   });
 }
 
-/** Marks everything in the inbox as seen/read. */
-export async function markInboxRead(): Promise<void> {
-  await api<undefined>("/api/inbox/read", { method: "POST", body: { announcements: [], notifications: [] } });
+/**
+ * Marks everything in the inbox as seen/read, and the release notes up to `newsSeenAt` (ADR 0088).
+ */
+export async function markInboxRead(newsSeenAt: string | null = null): Promise<void> {
+  const body: InboxReadBody = { announcements: [], notifications: [], ...(newsSeenAt === null ? {} : { newsSeenAt }) };
+  await api<undefined>("/api/inbox/read", { method: "POST", body });
 }
 
 /** A site path or an https address (what announcements may link to), else `null`. */

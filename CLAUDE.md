@@ -40,7 +40,7 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
 - **Fase 8 (abertura): implementada.** Ingresso digital por link no celular, que abre offline
   (`/ingresso#token`, aba Digitais, ADR 0030); login com Google e e-mails em HTML com cota diária
   e limite por IP (ADRs 0028, 0029); Termos, Privacidade e Reembolso, aceite gravado no login,
-  exportar e excluir a conta (ADR 0033); novidades (ADR 0031); modo suporte do admin com
+  exportar e excluir a conta (ADR 0033); novidades (ADR 0031; lidas guardadas na conta, ADR 0088); modo suporte do admin com
   auditoria, suspensão, estorno e preço de lote (ADR 0032); resultados do organizador e
   financeiro do admin (ADR 0034); rifas sem sorteio (ADR 0035); tema do site no rodapé (ADR 0036).
   Falta o que depende do mantenedor: revisão jurídica dos textos.
@@ -67,7 +67,7 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   (`apps/web/src/proxy.ts`, ADR 0048: toda página é dinâmica). Do lado do mantenedor já estão
   feitos: duas etapas na conta admin, rulesets e Environments no GitHub (Production, Staging,
   Preview, Backup), backup com `verify-full` e chave da Resend separada no staging.
-- **Versionamento (ADR 0049): implementado, versão atual 1.6.0.** Uma versão SemVer para o produto
+- **Versionamento (ADR 0049): implementado, versão atual 1.6.1.** Uma versão SemVer para o produto
   inteiro (todos os manifestos, conferidos por `scripts/release.mjs check`), `CHANGELOG.md` em
   português (Keep a Changelog), `just release` no `staging` e tag `vX.Y.Z` + GitHub Release pelo
   job **Release** do CI no `main`; versão em Minha conta, em `/sobre`, em `/status` (site e API) e
@@ -118,7 +118,7 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   idempotente; reembolso total estorna o lote como o admin (`refunds::refund_batch`: números
   cancelados na porta, registro em Cancelamentos e auditoria `batch_refund_stripe`); a view
   `revenue_entries` dá bruta, reembolsos e líquida na visão geral do admin (total e 30 dias) e no
-  financeiro; **Conferir reembolsos no Stripe** (`POST /api/admin/payments/sync-refunds`) corrige
+  financeiro; **Sincronizar com a Stripe** (`POST /api/admin/payments/sync-refunds`) corrige
   os antigos. Remetente único dos e-mails em `config::DEFAULT_MAIL_FROM`
   (`contato@ingressoimpresso.com.br`), `MAIL_FROM` sobrescreve; o domínio raiz já envia nos dois
   ambientes. Falta o que depende do mantenedor: `charge.refunded` no webhook da Stripe.

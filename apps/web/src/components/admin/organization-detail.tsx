@@ -17,7 +17,7 @@ import {
   ShieldAlert,
   ShieldCheck,
   Ticket,
-  Users,
+  UserRound,
 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
@@ -389,7 +389,7 @@ export function OrganizationDetail({ organizationId }: { organizationId: string 
         <div className="flex flex-col gap-6">
           <OrganizationCredits organizationId={organizationId} />
           <Card>
-            <CardHeader icon={Users} title={t.members} />
+            <CardHeader icon={UserRound} title={t.members} description={t.membersHint} />
             <ul className="flex flex-col gap-4">
               {d.members.map((member) => (
                 <li key={member.userId} className="flex flex-wrap items-start justify-between gap-3">

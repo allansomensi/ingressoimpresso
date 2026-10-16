@@ -97,7 +97,7 @@ pub async fn overview(
         r#"select
              (select count(*) from organizations) as "organizations!",
              (select count(*) from organizations where created_at > now() - interval '30 days') as "new_organizations!",
-             (select count(*) from users) as "users!",
+             (select count(*) from users where last_login_at > now() - interval '30 days') as "active_accounts!",
              (select count(*) from events) as "events!",
              (select count(*) from events where ends_at > now()) as "upcoming_events!",
              (select coalesce(sum(upper(numbers) - lower(numbers)), 0) from ticket_batches
@@ -143,7 +143,7 @@ pub async fn overview(
     Ok(Json(AdminOverviewDto {
         organizations: totals.organizations,
         new_organizations: totals.new_organizations,
-        users: totals.users,
+        active_accounts: totals.active_accounts,
         events: totals.events,
         upcoming_events: totals.upcoming_events,
         paid_tickets: totals.paid_tickets,

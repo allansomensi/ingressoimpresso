@@ -475,9 +475,10 @@ dto! {
         /// Organizations created in the last 30 days.
         #[cfg_attr(feature = "ts", ts(type = "number"))]
         pub new_organizations: i64,
-        /// Users.
+        /// Accounts that signed in during the last 30 days (each organization has one account, so
+        /// a total would repeat `organizations`).
         #[cfg_attr(feature = "ts", ts(type = "number"))]
-        pub users: i64,
+        pub active_accounts: i64,
         /// Events.
         #[cfg_attr(feature = "ts", ts(type = "number"))]
         pub events: i64,
@@ -3069,6 +3070,11 @@ dto! {
         pub notifications: Vec<NotificationDto>,
         /// Unseen announcements plus unread notifications.
         pub unread: i32,
+        /// Publication time of the newest release note the account has seen (ADR 0088); `null`:
+        /// none yet.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub news_seen_at: Option<OffsetDateTime>,
     }
 
     /// `POST /api/inbox/read`: marks things as seen/read (empty lists: everything).
@@ -3079,6 +3085,10 @@ dto! {
         /// Notifications read.
         #[cfg_attr(feature = "ts", ts(type = "string[]"))]
         pub notifications: Vec<Uuid>,
+        /// Release notes seen up to this publication time (ADR 0088); never moves back.
+        #[serde(default, with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(optional, type = "string"))]
+        pub news_seen_at: Option<OffsetDateTime>,
     }
 
     /// Reads of an announcement.

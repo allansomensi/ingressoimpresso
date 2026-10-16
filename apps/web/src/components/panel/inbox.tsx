@@ -19,11 +19,11 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { ChangelogEntry } from "@/components/changelog/changelog-page";
 import { Popover } from "@/components/ui";
-import { markSeen, unreadCount, useChangelog, useSeenAt } from "@/lib/changelog";
+import { latestSeen, markSeen, unreadCount, useChangelog, useSeenAt } from "@/lib/changelog";
 import { cn } from "@/lib/cn";
 import { spokenDate } from "@/lib/event-change";
 import { money, shortDateTime } from "@/lib/format";
@@ -183,10 +183,25 @@ export function Inbox() {
   const client = useQueryClient();
   const inbox = useInbox(true);
   const changelog = useChangelog();
-  const seenAt = useSeenAt();
+  const localSeen = useSeenAt();
   const [view, setView] = useState<"alerts" | "news">("alerts");
   const news = changelog.data ?? [];
+  // The account's "seen" (ADR 0088), or this browser's when it is later (the public page, or a
+  // browser that saw the notes before the account kept them). Nothing counts until both are known.
+  const accountSeen = inbox.data?.newsSeenAt;
+  const seenAt = localSeen === undefined || accountSeen === undefined ? undefined : latestSeen(accountSeen, localSeen);
   const newsUnread = seenAt === undefined ? 0 : unreadCount(news, seenAt);
+  // Seen here but not on the account yet (opening the bell marks this browser first): tell the
+  // account, so other browsers and the next sign-in agree.
+  const behind = seenAt !== undefined && seenAt !== null && seenAt !== accountSeen ? seenAt : null;
+
+  useEffect(() => {
+    if (behind !== null) {
+      void markInboxRead(behind)
+        .then(() => client.invalidateQueries({ queryKey: ["inbox"] }))
+        .catch(() => undefined);
+    }
+  }, [behind, client]);
   const alerts = [
     ...(inbox.data?.announcements ?? []).map((item) => ({ at: item.startsAt, node: <AnnouncementItem key={`a-${item.id}`} item={item} /> })),
     ...(inbox.data?.notifications ?? []).map((item) => ({ at: item.createdAt, node: <NotificationItem key={`n-${item.id}`} item={item} /> })),

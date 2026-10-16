@@ -1,8 +1,9 @@
 /**
  * "Novidades" (ADR 0031): published notes, and which ones this browser has already seen.
  *
- * "Seen" is the publication time of the newest note the person opened, kept in localStorage: no
- * account data, and a new browser simply shows the latest notes as new.
+ * "Seen" is the publication time of the newest note the person opened. Signed in, it belongs to the
+ * account (ADR 0088: `newsSeenAt` of the inbox); this browser also keeps it in localStorage, for
+ * the public page and for a session that has not loaded the inbox yet.
  */
 import type { ChangelogEntryDto, ChangelogKind } from "@ingressoimpresso/api-types";
 import { useQuery } from "@tanstack/react-query";
@@ -58,6 +59,14 @@ export function markSeen(publishedAt: string): void {
   for (const listener of listeners) {
     listener();
   }
+}
+
+/** The later of two "seen" times (`null`: nothing seen); `a` on a tie. */
+export function latestSeen(a: string | null, b: string | null): string | null {
+  if (a === null || b === null) {
+    return a ?? b;
+  }
+  return Date.parse(a) >= Date.parse(b) ? a : b;
 }
 
 /** Notes published after `seenAt` (all of them, at most `cap`, when nothing was seen yet). */
