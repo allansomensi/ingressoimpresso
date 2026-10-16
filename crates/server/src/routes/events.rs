@@ -42,6 +42,9 @@ const MAX_ART_BYTES_PER_ORGANIZATION: i64 = 200 * 1024 * 1024;
 const PREVIEW_DPI: u32 = 110;
 /// Width of the art shown in the editor's live preview.
 const ART_PREVIEW_WIDTH_PX: u32 = 1600;
+/// Art previews one user may ask for per minute (the editor asks once per upload; browsers keep
+/// the answer).
+const ART_PREVIEWS_PER_MINUTE: usize = 60;
 /// Longest street address of a venue (ADR 0066).
 const MAX_ADDRESS: usize = 200;
 
@@ -994,6 +997,9 @@ pub async fn upload_art(
             "content type does not match the file",
         ));
     }
+    // A phone photo says where and when it was taken: EXIF, XMP, IPTC and comments go before
+    // the bytes are hashed, stored or printed (`art::strip_metadata`, lossless).
+    let body = Bytes::from(crate::art::strip_metadata(&body));
     // Reads only the header: refuses decompression bombs before Typst ever decodes the image.
     let (width, height) = image::ImageReader::new(Cursor::new(&body))
         .with_guessed_format()
@@ -1008,7 +1014,7 @@ pub async fn upload_art(
     {
         return Err(bad_request(
             "art_too_large",
-            "art must be at most 10000 px per side and 40 MP",
+            "art must be at most 10000 px per side and 24 MP",
         ));
     }
     let digest = Sha256::digest(&body).to_vec();
@@ -1121,37 +1127,52 @@ async fn blob_exists(state: &AppState, event_id: Uuid, digest: &[u8]) -> ApiResu
     .await?)
 }
 
-/// Loads art bytes for rendering.
+/// Loads art bytes for rendering (from the instance's disk after the first read, `art::bytes`).
 pub async fn load_art(state: &AppState, event_id: Uuid, art_id: Uuid) -> ApiResult<Art> {
-    let data = sqlx::query_scalar!(
-        "select data from blobs where id = $1 and event_id = $2",
-        art_id,
-        event_id
-    )
-    .fetch_optional(&state.pool)
-    .await?
-    .ok_or_else(|| bad_request("unknown_art", "art does not belong to this event"))?;
+    let data = crate::art::bytes(state, event_id, art_id)
+        .await?
+        .ok_or_else(|| bad_request("unknown_art", "art does not belong to this event"))?;
     Art::from_bytes(data).map_err(|error| ApiError::Internal(error.into()))
 }
 
-/// Loads the bytes of several arts of the event in one read, in the order given.
+/// Loads the bytes of several arts of the event, in the order given: the ones read before come
+/// from the instance's disk, the rest from the database in one read (and go to the disk).
 pub async fn load_arts(state: &AppState, event_id: Uuid, ids: &[Uuid]) -> ApiResult<Vec<Art>> {
     if ids.is_empty() {
         return Ok(Vec::new());
     }
-    let rows = sqlx::query!(
-        "select id, data from blobs where event_id = $1 and id = any($2)",
-        event_id,
-        ids
-    )
-    .fetch_all(&state.pool)
-    .await?;
+    let mut bytes_by_id: HashMap<Uuid, Vec<u8>> = HashMap::new();
+    let mut missing = Vec::new();
+    for id in ids {
+        if bytes_by_id.contains_key(id) || missing.contains(id) {
+            continue;
+        }
+        match crate::art::cached(state, event_id, *id).await {
+            Some(bytes) => {
+                bytes_by_id.insert(*id, bytes);
+            }
+            None => missing.push(*id),
+        }
+    }
+    if !missing.is_empty() {
+        let rows = sqlx::query!(
+            "select id, data from blobs where event_id = $1 and id = any($2)",
+            event_id,
+            &missing
+        )
+        .fetch_all(&state.pool)
+        .await?;
+        for row in rows {
+            crate::art::keep(state, event_id, row.id, &row.data).await;
+            bytes_by_id.insert(row.id, row.data);
+        }
+    }
     // The same image may be used more than once (a sponsor twice): decoded once, cloned after.
-    let by_id: HashMap<Uuid, Art> = rows
+    let by_id: HashMap<Uuid, Art> = bytes_by_id
         .into_iter()
-        .map(|row| {
-            Art::from_bytes(row.data)
-                .map(|art| (row.id, art))
+        .map(|(id, data)| {
+            Art::from_bytes(data)
+                .map(|art| (id, art))
                 .map_err(|error| ApiError::Internal(error.into()))
         })
         .collect::<ApiResult<_>>()?;
@@ -1255,18 +1276,33 @@ pub async fn art_preview(
     Path((event_id, art_id)): Path<(Uuid, Uuid)>,
 ) -> ApiResult<Response> {
     authorize_event(&state.pool, &user, event_id).await?;
+    // Browsers keep the answer for good; a script asking again and again would cost a decode
+    // each time.
+    if !state
+        .attempt(
+            &format!("art-preview:{}", user.id),
+            ART_PREVIEWS_PER_MINUTE,
+            std::time::Duration::from_mins(1),
+        )
+        .await
+    {
+        return Err(ApiError::TooManyRequests);
+    }
     let blob = sqlx::query!(
-        "select content_type, width_px, data from blobs where id = $1 and event_id = $2",
+        "select content_type, width_px from blobs where id = $1 and event_id = $2",
         art_id,
         event_id
     )
     .fetch_optional(&state.pool)
     .await?
     .ok_or(ApiError::NotFound)?;
+    let data = crate::art::bytes(&state, event_id, art_id)
+        .await?
+        .ok_or(ApiError::NotFound)?;
     let small_jpeg = blob.content_type == "image/jpeg"
         && u32::try_from(blob.width_px).is_ok_and(|width| width <= ART_PREVIEW_WIDTH_PX);
     let jpeg = if small_jpeg {
-        blob.data
+        data
     } else {
         let _permit = state
             .render_permits
@@ -1274,7 +1310,7 @@ pub async fn art_preview(
             .acquire_owned()
             .await
             .map_err(anyhow::Error::from)?;
-        tokio::task::spawn_blocking(move || shrink_to_jpeg(&blob.data, ART_PREVIEW_WIDTH_PX))
+        tokio::task::spawn_blocking(move || shrink_to_jpeg(&data, ART_PREVIEW_WIDTH_PX))
             .await
             .map_err(anyhow::Error::from)?
             .map_err(anyhow::Error::from)?

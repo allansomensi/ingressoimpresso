@@ -1,11 +1,14 @@
 "use client";
 
-import { Analytics, type BeforeSendEvent } from "@vercel/analytics/next";
+import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { usePathname } from "next/navigation";
 
-/** Sends only the path: queries carry batch ids and the door link carries a token in the hash. */
-function scrub(event: BeforeSendEvent): BeforeSendEvent {
+/**
+ * Sends only the path: queries carry batch ids, and the door, digital ticket and seller links
+ * carry their token in the hash. Both scripts hand their events here before sending them.
+ */
+function scrub<T extends { url: string }>(event: T): T {
   const url = new URL(event.url);
   return { ...event, url: `${url.origin}${url.pathname}` };
 }
@@ -23,7 +26,7 @@ export function SiteAnalytics() {
   return (
     <>
       <Analytics beforeSend={scrub} />
-      <SpeedInsights />
+      <SpeedInsights beforeSend={scrub} />
     </>
   );
 }

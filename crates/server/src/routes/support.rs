@@ -15,6 +15,7 @@ use uuid::Uuid;
 
 use super::admin::{audit, like_pattern, load_organization, require_admin};
 use super::batches::{close_open_checkouts, load_batch};
+use crate::api::CreditReason;
 use crate::api::{
     AdminBatchPriceBody, AdminEventDto, AdminMemberDto, AdminOrganizationDetailDto,
     AdminRefundBody, AdminRenameBody, AdminSuspensionBody, AuditEntryDto, AuditPageDto, BatchDto,
@@ -637,10 +638,17 @@ pub async fn set_price(
 ) -> ApiResult<Json<BatchDto>> {
     require_admin(&user)?;
     let (event_id, organization_id) = batch_context(&state, batch_id).await?;
-    if !(0..=10_000_000).contains(&body.price_cents) {
+    // Free, or at least what Stripe can charge: a price of a few centavos would leave the
+    // organizer with a checkout that Stripe refuses.
+    if !(0..=10_000_000).contains(&body.price_cents)
+        || (body.price_cents > 0 && body.price_cents < crate::pricing::STRIPE_MINIMUM_CENTS)
+    {
         return Err(bad_request(
             "invalid_price",
-            "price must be 0-10000000 centavos",
+            format!(
+                "price must be 0 or {}-10000000 centavos",
+                crate::pricing::STRIPE_MINIMUM_CENTS
+            ),
         ));
     }
     let _guard = state.batch_lock(batch_id).await;
@@ -651,6 +659,7 @@ pub async fn set_price(
         ));
     }
     // A zero price frees the batch at once, like the free tickets do.
+    let mut tx = state.pool.begin().await?;
     let previous = sqlx::query_scalar!(
         r#"update ticket_batches b
            set price_cents = $2,
@@ -663,12 +672,24 @@ pub async fn set_price(
         batch_id,
         body.price_cents,
     )
-    .fetch_optional(&state.pool)
+    .fetch_optional(&mut *tx)
     .await?
     .ok_or(ApiError::Conflict(
         "batch_not_payable",
         "batch is not awaiting payment".to_owned(),
     ))?;
+    if body.price_cents == 0 {
+        // The batch costs nothing now: credit spent on it at creation goes back (ADR 0040), as
+        // it does when the batch is canceled.
+        super::billing::give_back(
+            &mut tx,
+            batch_id,
+            CreditReason::AdminAdjustment,
+            Some(user.id),
+        )
+        .await?;
+    }
+    tx.commit().await?;
     audit(
         &state,
         &user,

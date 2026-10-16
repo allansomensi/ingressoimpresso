@@ -16,6 +16,7 @@ use tower_http::catch_panic::CatchPanicLayer;
 use tower_http::compression::CompressionLayer;
 use tower_http::compression::predicate::{DefaultPredicate, NotForContentType, Predicate as _};
 use tower_http::cors::{AllowOrigin, CorsLayer};
+use tower_http::request_id::{MakeRequestUuid, PropagateRequestIdLayer, SetRequestIdLayer};
 use tower_http::timeout::TimeoutLayer;
 use tower_http::trace::TraceLayer;
 
@@ -409,6 +410,9 @@ pub fn router(state: AppState) -> Router {
     );
 
     let production = state.config.production;
+    // Every request gets an id (`x-request-id`, answered back to the client): the log lines it
+    // writes, an "unexpected error" included, carry it with the method and the route, so a report
+    // from an organizer can be matched to what happened. Tokens never reach the span (below).
     Router::new()
         .route("/healthz", get(alive))
         .route("/readyz", get(ready))
@@ -417,14 +421,60 @@ pub fn router(state: AppState) -> Router {
         .layer(middleware::map_response(move |response| async move {
             security_headers(response, production)
         }))
+        .layer(PropagateRequestIdLayer::x_request_id())
         .layer(compression)
         .layer(cors)
-        .layer(TraceLayer::new_for_http())
+        .layer(TraceLayer::new_for_http().make_span_with(request_span))
         .layer(TimeoutLayer::with_status_code(
             StatusCode::REQUEST_TIMEOUT,
             REQUEST_TIMEOUT,
         ))
         .layer(CatchPanicLayer::new())
+        .layer(SetRequestIdLayer::x_request_id(MakeRequestUuid))
+        // Always ours: a client may not choose what goes into the logs under that name.
+        .layer(middleware::map_request(drop_client_request_id))
+}
+
+async fn drop_client_request_id(
+    mut request: axum::http::Request<axum::body::Body>,
+) -> axum::http::Request<axum::body::Body> {
+    request.headers_mut().remove("x-request-id");
+    request
+}
+
+/// The span every log line of a request is written in: method, the path with its capability
+/// tokens masked, and the request id. Query strings stay out too.
+fn request_span(request: &axum::http::Request<axum::body::Body>) -> tracing::Span {
+    let id = request
+        .headers()
+        .get("x-request-id")
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or("-");
+    tracing::info_span!(
+        "request",
+        method = %request.method(),
+        path = %loggable_path(request.uri().path()),
+        request_id = %id,
+    )
+}
+
+/// A path as it may be logged: the segment after `downloads/` (a download link, invariant 7's
+/// cousin: the token is the capability) and `referrals/` (an invitation code) is masked.
+fn loggable_path(path: &str) -> String {
+    let mut out = String::with_capacity(path.len());
+    let mut mask_next = false;
+    for (index, segment) in path.split('/').enumerate() {
+        if index > 0 {
+            out.push('/');
+        }
+        if mask_next && !segment.is_empty() {
+            out.push_str("<masked>");
+        } else {
+            out.push_str(segment);
+        }
+        mask_next = matches!(segment, "downloads" | "referrals");
+    }
+    out
 }
 
 /// Browser-facing hardening on every answer (ADR 0047): the API is never framed or sniffed, it
@@ -505,5 +555,28 @@ async fn ready(State(state): State<AppState>) -> StatusCode {
             tracing::error!(%error, "health check failed");
             StatusCode::SERVICE_UNAVAILABLE
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::loggable_path;
+
+    #[test]
+    fn capability_tokens_stay_out_of_the_logs() {
+        assert_eq!(
+            loggable_path("/api/downloads/abc-DEF_123"),
+            "/api/downloads/<masked>"
+        );
+        assert_eq!(
+            loggable_path("/api/referrals/BANDA42"),
+            "/api/referrals/<masked>"
+        );
+        assert_eq!(
+            loggable_path("/api/events/8f1d6a52-3c1e-4b6f-9a2d-6c0e5b7a9d01/report"),
+            "/api/events/8f1d6a52-3c1e-4b6f-9a2d-6c0e5b7a9d01/report"
+        );
+        assert_eq!(loggable_path("/api/downloads/"), "/api/downloads/");
+        assert_eq!(loggable_path("/healthz"), "/healthz");
     }
 }

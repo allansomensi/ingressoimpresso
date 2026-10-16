@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update payments set status = 'paid', paid_at = coalesce(paid_at, now()),\n                  payment_intent_id = coalesce($2, payment_intent_id)\n           where id = $1 and status <> 'refunded'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "27a8b870594a499179c80125b62c87f1abf90fca772ea2ad3576eee11e50d1b5"
+}

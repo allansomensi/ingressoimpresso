@@ -8,7 +8,7 @@ import { toast } from "sonner";
 
 import { AuditLine } from "@/components/admin/organization-detail";
 import { Button, EmptyState, ErrorMessage, Field, Input, Lead, List, LoadingBlock, Select, errorMessage } from "@/components/ui";
-import { API_URL, ApiError, api, readToken } from "@/lib/api";
+import { api, fetchBlobUrl } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { admin as adminTexts } from "@/texts/pt-BR/admin";
 
@@ -106,13 +106,7 @@ export function AdminAudit() {
   const download = async () => {
     setExporting(true);
     try {
-      const response = await fetch(`${API_URL}/api/admin/audit/export?${filters}`, {
-        headers: { Authorization: `Bearer ${readToken() ?? ""}` },
-      });
-      if (!response.ok) {
-        throw new ApiError(response.status, "generic");
-      }
-      const url = URL.createObjectURL(await response.blob());
+      const url = await fetchBlobUrl(`/api/admin/audit/export?${filters}`);
       const link = document.createElement("a");
       link.href = url;
       link.download = t.csvFile;

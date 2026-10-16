@@ -18,7 +18,6 @@ import {
   readNotices,
   readQueue,
   readSaved,
-  storageKey,
   syncNotices,
   writeNotices,
   writeQueue,
@@ -26,6 +25,7 @@ import {
   type QueuedOp,
   type SyncNotice,
 } from "@/lib/seller-offline";
+import { tokenKey } from "@/lib/token-key";
 import { sellerPage as sellerPageTexts } from "@/texts/pt-BR/seller-page";
 
 const t = sellerPageTexts;
@@ -160,7 +160,7 @@ export function useSellerSync() {
         setPhase("no-token");
         return;
       }
-      const key = await storageKey(current);
+      const key = await tokenKey(current);
       if (cancelled) {
         return;
       }

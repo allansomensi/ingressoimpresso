@@ -43,13 +43,15 @@ fn validate(body: &SellerBody) -> ApiResult<(String, Option<String>)> {
     Ok((name, phone))
 }
 
-/// `GET /api/events/{id}/sellers`.
+/// `GET /api/events/{id}/sellers`. The sellers' links are credentials (ADR 0053: whoever has
+/// one marks sales, reserves numbers and sends digital tickets as that seller), so they come
+/// back only to who may hand them out: the organization and the team's `delivery` people.
 pub async fn list(
     State(state): State<AppState>,
     user: AuthUser,
     Path(event_id): Path<Uuid>,
 ) -> ApiResult<Json<Vec<SellerDto>>> {
-    authorize_event(&state.pool, &user, event_id).await?;
+    let access = event_access(&state.pool, &user, event_id).await?;
     let sellers = sqlx::query!(
         r#"select id, name, phone, box_office, goal, pix_key_type, pix_key, pix_name, pix_city
            from sellers where event_id = $1 order by name"#,
@@ -63,7 +65,11 @@ pub async fn list(
     )
     .fetch_all(&state.pool)
     .await?;
-    let mut links = super::seller_links::active_links(&state, event_id).await?;
+    let mut links = if access.can(TeamArea::Delivery) {
+        super::seller_links::active_links(&state, event_id).await?
+    } else {
+        HashMap::new()
+    };
     let mut ranges: HashMap<Uuid, Vec<RangeDto>> = HashMap::new();
     for assignment in assignments {
         let (first, last) = bounds(&assignment.numbers)?;

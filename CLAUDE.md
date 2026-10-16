@@ -67,6 +67,12 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   (`apps/web/src/proxy.ts`, ADR 0048: toda página é dinâmica). Do lado do mantenedor já estão
   feitos: duas etapas na conta admin, rulesets e Environments no GitHub (Production, Staging,
   Preview, Backup), backup com `verify-full` e chave da Resend separada no staging.
+  Auditoria de 2026-10-16: links de vendedor só para quem tem `delivery`; convites à equipe com
+  limite por conta; metadados das imagens removidos no upload e bytes guardados no disco da
+  instância (`art.rs`); `x-request-id` e rota mascarada em todo log de requisição; `statement_timeout`
+  no pool; worker de exportação supervisionado, com pausa entre tentativas e drenado no shutdown;
+  Pix pendente há 3 dias dado como falho; cancelar o evento fecha os checkouts; ações do CI presas
+  por SHA e imagens do Docker por digest.
 - **Versionamento (ADR 0049): implementado, versão atual 1.6.1.** Uma versão SemVer para o produto
   inteiro (todos os manifestos, conferidos por `scripts/release.mjs check`), `CHANGELOG.md` em
   português (Keep a Changelog), `just release` no `staging` e tag `vX.Y.Z` + GitHub Release pelo
@@ -301,7 +307,8 @@ crates/server        API (pacote `ingressoimpresso-server`, binário `ingressoim
                      google.rs, anti-robô do código em captcha.rs (Turnstile), duas etapas em
                      two_factor.rs (TOTP, recuperação; tentativas em second_factor_attempts) +
                      routes/two_factor.rs, limites por endereço em ratelimit.rs (ADR 0047),
-                     e-mails (HTML + texto) em emails.rs, cota em state.rs (send_mail)
+                     e-mails (HTML + texto) em emails.rs, cota em state.rs (send_mail),
+                     imagens enviadas em art.rs (metadados fora, bytes guardados em EXPORT_DIR)
 packages/api-types   tipos TS da API gerados (src/generated + src/index.ts, NÃO editar)
 apps/web             landing em src/app/page.tsx (+ src/components/marketing: simulador de preços em
                      pricing.tsx, exemplos de uso em use-cases.tsx, SectionHeading e FaqList
@@ -434,7 +441,7 @@ docs/deploy.md       domínio próprio: Neon, Resend, DNS (Registro.br), Render,
   `mail.` saiu); DNS no Registro.br.
 - **API:** Rust no Render, região Virginia. O Blueprint (`render.yaml`) compila
   `deploy/api.Dockerfile` (cargo-chef) e só implanta com o CI verde; o job `api-image` do CI
-  compila e sobe a mesma imagem. `/healthz` não toca no banco (é o health check), `/readyz` toca.
+  compila a mesma imagem (sem publicá-la), para um PR não quebrar o build do Render. `/healthz` não toca no banco (é o health check), `/readyz` toca.
   Variáveis `sync: false` (incluindo `ALLOWED_ORIGINS`) vivem no painel do Render; em produção a
   API não sobe sem origens, `PUBLIC_API_URL` https e `ADMIN_EMAILS`. Sessão do painel por token
   Bearer + CORS (ADR 0016); downloads por link temporário.

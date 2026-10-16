@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select content_type, width_px, data from blobs where id = $1 and event_id = $2",
+  "query": "select content_type, width_px from blobs where id = $1 and event_id = $2",
   "describe": {
     "columns": [
       {
@@ -24,17 +24,6 @@
             "name": "width_px"
           }
         }
-      },
-      {
-        "ordinal": 2,
-        "name": "data",
-        "type_info": "Bytea",
-        "origin": {
-          "Table": {
-            "table": "blobs",
-            "name": "data"
-          }
-        }
       }
     ],
     "parameters": {
@@ -45,9 +34,8 @@
     },
     "nullable": [
       false,
-      false,
       false
     ]
   },
-  "hash": "0d60b7a44860bef9bec81e2055960ac05c4ef4c688c4392730fb9149e019cfa5"
+  "hash": "ae9c4fe6adae3596a466d94e9e3e775081dbf022fe0a88f543bbd4c64900d7c8"
 }

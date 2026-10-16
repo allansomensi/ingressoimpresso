@@ -5,8 +5,12 @@
 # download extra components during the build: bump both together. Dependencies are compiled in
 # their own layer (cargo-chef, prebuilt in its official image: compiling it from source cost a
 # couple of minutes on every cold build), so a change to our code does not rebuild ~600 crates.
+#
+# Both images are pinned by digest (ADR 0047): a tag can be moved to other contents, a digest
+# cannot, and this image compiles the binary that signs tickets. Dependabot proposes the new
+# digest of a tag; a new tag (another Rust) is a change made by hand, with rust-toolchain.toml.
 
-FROM lukemathwalker/cargo-chef:latest-rust-1.99.0-bookworm AS chef
+FROM lukemathwalker/cargo-chef:latest-rust-1.99.0-bookworm@sha256:2ee6e8edf0b91b5a7295071299596601710bccb243bd9735e0b9abf6e114582b AS chef
 WORKDIR /src
 
 FROM chef AS planner
@@ -22,7 +26,7 @@ COPY . .
 RUN cargo build --release --locked -p ingressoimpresso-server \
     && cp target/release/ingressoimpresso /usr/local/bin/ingressoimpresso
 
-FROM debian:bookworm-slim
+FROM debian:bookworm-slim@sha256:7c7b2c966bc9ee8cedfeef67e0e279108992c77681fa595db4a9d65c06ccc587
 # CA certificates: TLS to Resend (sqlx bundles its own roots for Neon).
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates \
