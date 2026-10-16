@@ -88,7 +88,7 @@ export function AdminOverview() {
         />
         <Stat label={t.stats.organizations} value={integer(o.organizations)} hint={t.stats.newOrganizations(o.newOrganizations)} icon={Building2} />
         <Stat label={t.stats.events} value={integer(o.events)} hint={t.stats.upcoming(o.upcomingEvents)} icon={CalendarDays} />
-        <Stat label={t.stats.usersLabel} value={integer(o.users)} icon={BadgeCheck} />
+        <Stat label={t.stats.activeAccounts} value={integer(o.activeAccounts)} hint={t.stats.activeAccountsHint} icon={BadgeCheck} />
         <Stat label={t.stats.freeLabel} value={integer(o.freeTickets)} hint={t.stats.freeHint} icon={Gift} />
       </div>
       <Card>

@@ -16,6 +16,9 @@ e não acompanha estes números.
 
 - O botão do financeiro do admin que relê os reembolsos na Stripe agora se chama **Sincronizar com
   a Stripe**.
+- No admin, a visão geral troca "Usuários" (que repetia o número de organizações, já que cada
+  organização tem uma conta) por **Contas ativas**, as que entraram nos últimos 30 dias; na página
+  da organização, "Pessoas" virou **Conta de acesso**.
 
 ### Corrigido
 

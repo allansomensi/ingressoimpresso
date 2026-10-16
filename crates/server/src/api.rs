@@ -475,9 +475,10 @@ dto! {
         /// Organizations created in the last 30 days.
         #[cfg_attr(feature = "ts", ts(type = "number"))]
         pub new_organizations: i64,
-        /// Users.
+        /// Accounts that signed in during the last 30 days (each organization has one account, so
+        /// a total would repeat `organizations`).
         #[cfg_attr(feature = "ts", ts(type = "number"))]
-        pub users: i64,
+        pub active_accounts: i64,
         /// Events.
         #[cfg_attr(feature = "ts", ts(type = "number"))]
         pub events: i64,
