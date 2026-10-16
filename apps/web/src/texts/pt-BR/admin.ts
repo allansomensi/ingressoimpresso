@@ -41,7 +41,7 @@ export const admin = {
     netLabel: "Receita líquida",
     gross: "Bruta",
     refunds: "Reembolsos",
-    sync: "Conferir reembolsos no Stripe",
+    sync: "Sincronizar com a Stripe",
     synced: (result: { checked: number; updated: number; refundedBatches: number; remaining: number }) => {
       const checked = result.checked === 1 ? "1 pagamento conferido" : `${result.checked.toLocaleString("pt-BR")} pagamentos conferidos`;
       const updated =
@@ -217,7 +217,7 @@ export const admin = {
       support_write: "Alterou em modo suporte",
       batch_refund: "Estornou um lote",
       batch_refund_stripe: "Lote reembolsado no Stripe (ingressos cancelados)",
-      batch_refunds_sync: "Conferiu os reembolsos no Stripe",
+      batch_refunds_sync: "Sincronizou os pagamentos com a Stripe",
       batch_price: "Mudou o preço de um lote",
       batch_mark_paid: "Marcou um lote como pago",
       organization_bonus: "Mudou a cortesia",
