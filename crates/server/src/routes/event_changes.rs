@@ -166,7 +166,41 @@ pub async fn cancel(
         .await?;
     }
     tx.commit().await?;
+    if access.event.canceled_at.is_none() {
+        close_checkouts(&state, event_id).await;
+    }
     Ok(Json(access.dto(&state.pool, row).await?))
+}
+
+/// Nobody pays for a canceled event through a payment page opened before it was canceled
+/// (ADR 0020): its batches' open checkouts are closed at Stripe. Best effort, after the commit:
+/// the event is canceled either way, and a Pix already shown may still land (the admin refunds
+/// it, as `apply_session` logs).
+async fn close_checkouts(state: &AppState, event_id: Uuid) {
+    let batches = match sqlx::query_scalar!(
+        r#"select distinct p.batch_id from payments p
+           join ticket_batches b on b.id = p.batch_id
+           where b.event_id = $1 and p.status = 'open'"#,
+        event_id
+    )
+    .fetch_all(&state.pool)
+    .await
+    {
+        Ok(batches) => batches,
+        Err(error) => {
+            tracing::warn!(%event_id, %error, "could not list the checkouts of a canceled event");
+            return;
+        }
+    };
+    for batch_id in batches {
+        let _guard = state.batch_lock(batch_id).await;
+        match super::batches::close_open_checkouts(state, batch_id).await {
+            Ok(_) | Err(ApiError::Conflict("payment_pending", _)) => {}
+            Err(error) => {
+                tracing::warn!(%batch_id, ?error, "could not close a checkout of a canceled event");
+            }
+        }
+    }
 }
 
 /// `POST /api/events/{id}/cancel/undo`: the event happens after all.

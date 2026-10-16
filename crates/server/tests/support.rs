@@ -404,3 +404,61 @@ async fn organizers_see_their_results(pool: PgPool) {
     assert_eq!(organization["months"].as_array().unwrap().len(), 12);
     assert_eq!(organization["events"][0]["grossCents"], 90_000);
 }
+
+#[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
+async fn repricing_refuses_what_stripe_cannot_charge_and_a_free_batch_returns_its_credit(
+    pool: PgPool,
+) {
+    let app = TestApp::new(pool).await;
+    let admin = app.login(ADMIN).await;
+    let token = app.login("banda@exemplo.com").await;
+    let event = app.create_event(&token, "Show").await;
+    let org = app
+        .get("/api/admin/organizations?q=banda", &admin)
+        .await
+        .json()[0]["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    app.post(
+        &format!("/api/admin/organizations/{org}/credits"),
+        &admin,
+        json!({ "amountCents": 100, "note": "Cortesia" }),
+    )
+    .await;
+    // Part of the price comes from the credit; the rest waits for payment.
+    let batch = app.create_batch(&token, &event, 10).await;
+    assert_eq!(batch["status"], "awaiting_payment");
+    assert_eq!(batch["creditCents"], 100);
+    let id = batch["id"].as_str().unwrap();
+    assert_eq!(
+        app.get("/api/account/credits", &token).await.json()["balanceCents"],
+        0
+    );
+
+    // A few centavos would leave the organizer with a checkout Stripe refuses.
+    let tiny = app
+        .put(
+            &format!("/api/admin/batches/{id}/price"),
+            &admin,
+            json!({ "priceCents": 30 }),
+        )
+        .await;
+    assert_eq!(tiny.status, StatusCode::BAD_REQUEST);
+    assert_eq!(tiny.error_code(), "invalid_price");
+
+    // Free: the batch is paid by the admin and the credit spent on it comes back.
+    let freed = app
+        .put(
+            &format!("/api/admin/batches/{id}/price"),
+            &admin,
+            json!({ "priceCents": 0 }),
+        )
+        .await
+        .json();
+    assert_eq!(freed["status"], "paid");
+    assert_eq!(freed["paidVia"], "admin");
+    let credits = app.get("/api/account/credits", &token).await.json();
+    assert_eq!(credits["balanceCents"], 100);
+    assert_eq!(credits["entries"][0]["reason"], "admin_adjustment");
+}

@@ -989,3 +989,78 @@ async fn admins_recompute_refunds_made_on_stripe(pool: PgPool) {
         json!({ "checked": 0, "updated": 0, "refundedBatches": 0, "remaining": 0 })
     );
 }
+
+#[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
+async fn a_pix_pending_for_days_is_given_up(pool: PgPool) {
+    let (app, stripe) = TestApp::with_stripe(pool).await;
+    let token = app.login("banda@exemplo.com").await;
+    let event = app.create_event(&token, "Show").await;
+    let batch_id = batch(&app, &token, &event, 10).await["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    checkout(&app, &token, &batch_id).await;
+    let session_id = open_session(&stripe);
+    let pending = stripe.lock().unwrap().show_pix(&session_id).unwrap();
+    webhook(
+        &app,
+        WEBHOOK_SECRET,
+        "checkout.session.completed",
+        &session_json(&pending),
+    )
+    .await;
+    assert_eq!(
+        checkout(&app, &token, &batch_id).await.error_code(),
+        "payment_pending"
+    );
+
+    // The webhook saying the Pix expired never came (the API was down for days): once the
+    // transfer is older than any Pix code lives, the batch is free to be paid again.
+    sqlx::query("update payments set created_at = now() - interval '4 days'")
+        .execute(&app.state.pool)
+        .await
+        .unwrap();
+    let retry = checkout(&app, &token, &batch_id).await;
+    assert_eq!(retry.status, StatusCode::OK, "{:?}", retry.json());
+    assert_eq!(stripe.lock().unwrap().sessions.len(), 2);
+    let status = batch_status(&app, &token, &event, &batch_id).await;
+    assert_eq!(status["status"], "awaiting_payment");
+    assert_eq!(status["pendingPayment"], "open");
+}
+
+#[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
+async fn canceling_the_event_closes_its_open_checkouts(pool: PgPool) {
+    let (app, stripe) = TestApp::with_stripe(pool).await;
+    let token = app.login("banda@exemplo.com").await;
+    let event = app.create_event(&token, "Show").await;
+    let batch_id = batch(&app, &token, &event, 10).await["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    checkout(&app, &token, &batch_id).await;
+    let canceled = app
+        .post(
+            &format!("/api/events/{event}/cancel"),
+            &token,
+            json!({ "reason": "Chuva" }),
+        )
+        .await;
+    assert_eq!(canceled.status, StatusCode::OK, "{:?}", canceled.json());
+    // The payment page opened before the cancellation no longer takes money.
+    assert!(
+        stripe
+            .lock()
+            .unwrap()
+            .sessions
+            .values()
+            .all(|session| session.status.as_deref() == Some("expired"))
+    );
+    assert_eq!(
+        batch_status(&app, &token, &event, &batch_id).await["pendingPayment"],
+        Value::Null
+    );
+    assert_eq!(
+        checkout(&app, &token, &batch_id).await.error_code(),
+        "event_canceled"
+    );
+}
