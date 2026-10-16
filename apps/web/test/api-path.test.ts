@@ -8,6 +8,7 @@ describe("safePath", () => {
       "/api/me",
       "/api/events/8f1d6a52-3c1e-4b6f-9a2d-6c0e5b7a9d01/batches",
       "/api/admin/audit?q=lote&page=2",
+      "/api/admin/events?q=caf%C3%A9&page=1",
       "/api/batches/8f1d6a52-3c1e-4b6f-9a2d-6c0e5b7a9d01/checkout/sync",
     ]) {
       expect(safePath(path)).toBe(path);
@@ -21,6 +22,9 @@ describe("safePath", () => {
       "/api//admin/overview",
       "/api/batches/x/mark-paid#/checkout/sync",
       "/api/x?a#b",
+      "/api/batches/%2e%2e/admin/overview",
+      "/api/batches/x%2fmark-paid",
+      "/api/batches/x?/checkout/sync?page=1",
       "/other/api/me",
       "api/me",
     ]) {

@@ -93,10 +93,19 @@ export function isUuid(value: string | null | undefined): value is string {
  * `/api/batches/<id>/checkout/sync` into `/api/admin/batches/<id>/mark-paid` with `..` or `?`.
  */
 export function safePath(path: string): string {
-  const [route, query] = path.split("?", 2) as [string, string | undefined];
+  const question = path.indexOf("?");
+  const route = question === -1 ? path : path.slice(0, question);
+  const query = question === -1 ? undefined : path.slice(question + 1);
   const valid =
-    route.startsWith("/api/") && !route.includes("//") && route.split("/").every((segment) => segment !== "." && segment !== "..");
-  if (!valid || route.includes("#") || route.includes("\\") || (query !== undefined && query.includes("#"))) {
+    route.startsWith("/api/") &&
+    !route.includes("//") &&
+    // No percent-encoding in the route either: the browser decodes `%2e%2e` and `%2f` before
+    // the request goes out, so they would dodge the checks below. Ids are hexadecimal and
+    // dashes; everything else travels in the query, encoded.
+    !/[%\\#]/.test(route) &&
+    route.split("/").every((segment) => segment !== "." && segment !== "..") &&
+    (query === undefined || !/[#?]/.test(query));
+  if (!valid) {
     throw new ApiError(0, "generic");
   }
   return path;
