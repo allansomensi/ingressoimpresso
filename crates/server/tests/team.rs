@@ -395,3 +395,96 @@ async fn deleting_an_account_leaves_every_team(pool: PgPool) {
         .unwrap();
     assert_eq!(left, 0);
 }
+
+#[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
+async fn seller_links_reach_only_who_hands_them_out(pool: PgPool) {
+    let app = TestApp::new(pool).await;
+    let owner = app.login("banda@exemplo.com").await;
+    let event = app.create_event(&owner, "Show").await;
+    let seller = app
+        .post(
+            &format!("/api/events/{event}/sellers"),
+            &owner,
+            json!({ "name": "Maria" }),
+        )
+        .await
+        .json();
+    let seller = seller["id"].as_str().unwrap().to_owned();
+    let link = app
+        .post(&format!("/api/sellers/{seller}/link"), &owner, json!({}))
+        .await
+        .json();
+    let url = link["url"].as_str().unwrap().to_owned();
+    add(&app, &owner, &event, "caio@exemplo.com", json!(["art"])).await;
+    add(
+        &app,
+        &owner,
+        &event,
+        "dani@exemplo.com",
+        json!(["delivery"]),
+    )
+    .await;
+
+    // The link is a seller's credential: whoever reads it marks sales and sends tickets as the
+    // seller. Someone on the team for the art reads the sellers without it...
+    let caio = app.login("caio@exemplo.com").await;
+    let sellers = app
+        .get(&format!("/api/events/{event}/sellers"), &caio)
+        .await;
+    assert_eq!(sellers.status, StatusCode::OK);
+    let sellers = sellers.json();
+    assert_eq!(sellers[0]["name"], "Maria");
+    assert!(sellers[0]["link"].is_null(), "{sellers}");
+
+    // ...while the organization and the delivery people, who hand it out, see it.
+    for token in [&owner, &app.login("dani@exemplo.com").await] {
+        let sellers = app
+            .get(&format!("/api/events/{event}/sellers"), token)
+            .await
+            .json();
+        assert_eq!(sellers[0]["link"]["url"], url);
+    }
+}
+
+#[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
+async fn invites_are_limited_per_account(pool: PgPool) {
+    let app = TestApp::new(pool).await;
+    let owner = app.login("banda@exemplo.com").await;
+    // Each addition e-mails an invite: an account adds at most 40 people an hour, over all its
+    // events (a team holds 30), so one account cannot spend the day's e-mail quota on it.
+    let events = [
+        app.create_event(&owner, "Show").await,
+        app.create_event(&owner, "Festa").await,
+    ];
+    for n in 0..40 {
+        let event = &events[n / 30];
+        let reply = add(
+            &app,
+            &owner,
+            event,
+            &format!("pessoa{n}@exemplo.com"),
+            json!(["art"]),
+        )
+        .await;
+        assert_eq!(reply.status, StatusCode::CREATED, "invite {n}");
+    }
+    let reply = add(
+        &app,
+        &owner,
+        &events[1],
+        "pessoa40@exemplo.com",
+        json!(["art"]),
+    )
+    .await;
+    assert_eq!(reply.status, StatusCode::TOO_MANY_REQUESTS);
+    assert_eq!(reply.error_code(), "too_many_requests");
+    // Another account is not held back by it.
+    let other = app.login("outra@exemplo.com").await;
+    let event = app.create_event(&other, "Rifa").await;
+    assert_eq!(
+        add(&app, &other, &event, "pessoa41@exemplo.com", json!(["art"]))
+            .await
+            .status,
+        StatusCode::CREATED
+    );
+}

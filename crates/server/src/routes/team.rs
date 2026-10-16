@@ -25,6 +25,9 @@ use crate::texts;
 /// Most people on one event's team (the organization's own people not counted).
 pub const MAX_TEAM: i64 = 30;
 const MAX_NAME: usize = 80;
+/// People one account may add to its teams per hour: every addition e-mails an invite written
+/// with the event's name, and the daily e-mail quota (ADR 0028) is shared by everyone.
+const INVITES_PER_HOUR: usize = 40;
 
 /// What a request on an event needs from a team member.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -362,6 +365,22 @@ async fn check_addable(
     Ok(())
 }
 
+/// Counts an addition against [`INVITES_PER_HOUR`] for the account.
+async fn within_invite_limit(state: &AppState, user: &AuthUser) -> ApiResult<()> {
+    if state
+        .attempt(
+            &format!("team-invite:{}", user.id),
+            INVITES_PER_HOUR,
+            std::time::Duration::from_hours(1),
+        )
+        .await
+    {
+        Ok(())
+    } else {
+        Err(ApiError::TooManyRequests)
+    }
+}
+
 /// `POST /api/events/{id}/team`: adds a person by e-mail. An existing account sees the event at
 /// once (and gets a notification); a new e-mail finds it on the first sign-in. Either way an
 /// e-mail goes out, within the daily quota.
@@ -381,6 +400,7 @@ pub async fn add(
             "addresses of this domain cannot create an account".to_owned(),
         ));
     }
+    within_invite_limit(&state, &user).await?;
     let mut tx = state.pool.begin().await?;
     check_addable(&mut tx, access.organization_id, event_id, &email).await?;
     let account = sqlx::query!("select id, name from users where email = $1", email)
