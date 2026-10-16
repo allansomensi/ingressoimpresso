@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select\n             (select count(*) from organizations) as \"organizations!\",\n             (select count(*) from organizations where created_at > now() - interval '30 days') as \"new_organizations!\",\n             (select count(*) from users) as \"users!\",\n             (select count(*) from events) as \"events!\",\n             (select count(*) from events where ends_at > now()) as \"upcoming_events!\",\n             (select coalesce(sum(upper(numbers) - lower(numbers)), 0) from ticket_batches\n              where status = 'paid')::bigint as \"paid_tickets!\",\n             (select coalesce(sum(free_tickets), 0) from ticket_batches\n              where status = 'paid')::bigint as \"free_tickets!\",\n             (select coalesce(sum(cents), 0) from revenue_entries\n              where kind = 'gross')::bigint as \"gross_cents!\",\n             (select coalesce(sum(cents), 0) from revenue_entries\n              where kind = 'refund')::bigint as \"refunds_cents!\",\n             (select coalesce(sum(cents), 0) from revenue_entries\n              where kind = 'gross' and at > now() - interval '30 days')::bigint as \"gross_30d_cents!\",\n             (select coalesce(sum(cents), 0) from revenue_entries\n              where kind = 'refund' and at > now() - interval '30 days')::bigint as \"refunds_30d_cents!\",\n             (select count(*) from ticket_batches where status = 'awaiting_payment') as \"awaiting_batches!\",\n             (select count(*) from payments where status = 'processing') as \"processing_payments!\"",
+  "query": "select\n             (select count(*) from organizations) as \"organizations!\",\n             (select count(*) from organizations where created_at > now() - interval '30 days') as \"new_organizations!\",\n             (select count(*) from users where last_login_at > now() - interval '30 days') as \"active_accounts!\",\n             (select count(*) from events) as \"events!\",\n             (select count(*) from events where ends_at > now()) as \"upcoming_events!\",\n             (select coalesce(sum(upper(numbers) - lower(numbers)), 0) from ticket_batches\n              where status = 'paid')::bigint as \"paid_tickets!\",\n             (select coalesce(sum(free_tickets), 0) from ticket_batches\n              where status = 'paid')::bigint as \"free_tickets!\",\n             (select coalesce(sum(cents), 0) from revenue_entries\n              where kind = 'gross')::bigint as \"gross_cents!\",\n             (select coalesce(sum(cents), 0) from revenue_entries\n              where kind = 'refund')::bigint as \"refunds_cents!\",\n             (select coalesce(sum(cents), 0) from revenue_entries\n              where kind = 'gross' and at > now() - interval '30 days')::bigint as \"gross_30d_cents!\",\n             (select coalesce(sum(cents), 0) from revenue_entries\n              where kind = 'refund' and at > now() - interval '30 days')::bigint as \"refunds_30d_cents!\",\n             (select count(*) from ticket_batches where status = 'awaiting_payment') as \"awaiting_batches!\",\n             (select count(*) from payments where status = 'processing') as \"processing_payments!\"",
   "describe": {
     "columns": [
       {
@@ -17,7 +17,7 @@
       },
       {
         "ordinal": 2,
-        "name": "users!",
+        "name": "active_accounts!",
         "type_info": "Int8",
         "origin": "Expression"
       },
@@ -101,5 +101,5 @@
       null
     ]
   },
-  "hash": "73ba6ccacd9f9dd51dd384cc82877e37aa7f5c0f2e44ee4cda50510d98b312cb"
+  "hash": "60ef02f9f5a9be576dbe9595d8d1e1e7e04373150f285f0bc19fc23df36b73b5"
 }

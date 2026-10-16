@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update users set news_seen_at = greatest(news_seen_at, least($2, now())) where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1b5c6c5afbaf5689b753e97fd916d67b659e05ec377604292550931541f931e4"
+}

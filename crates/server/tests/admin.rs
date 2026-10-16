@@ -87,8 +87,9 @@ async fn admins_see_totals_organizations_and_batches(pool: PgPool) {
     }
     assert_eq!(overview["awaitingBatches"], 1);
     assert_eq!(overview["events"], 1);
-    // Both sign-ins created an organization.
+    // Both sign-ins created an organization, and both accounts signed in just now.
     assert_eq!(overview["organizations"], 2);
+    assert_eq!(overview["activeAccounts"], 2);
     let days = overview["days"].as_array().unwrap();
     assert_eq!(days.len(), 30);
     assert_eq!(days.last().unwrap()["tickets"], 100);

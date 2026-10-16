@@ -12,6 +12,21 @@ e não acompanha estes números.
 
 ## [Não lançado]
 
+## [1.6.1] - 2026-10-16
+
+### Alterado
+
+- O botão do financeiro do admin que relê os reembolsos na Stripe agora se chama **Sincronizar com
+  a Stripe**.
+- No admin, a visão geral troca "Usuários" (que repetia o número de organizações, já que cada
+  organização tem uma conta) por **Contas ativas**, as que entraram nos últimos 30 dias; na página
+  da organização, "Pessoas" virou **Conta de acesso**.
+
+### Corrigido
+
+- O sino do painel lembra das novidades já lidas na sua conta: sair e entrar de novo, ou abrir em
+  outro navegador ou celular, não mostra outra vez como não lidas as que você já viu.
+
 ## [1.6.0] - 2026-10-15
 
 ### Adicionado
@@ -387,7 +402,8 @@ Primeira versão numerada: o produto que já estava em produção, das fases 0 a
 - Política de segurança de conteúdo (CSP) com nonce por requisição em todo o site (ADR 0048).
 - Verificação anti-robô antes do envio do código de login (ADR 0044).
 
-[Não lançado]: https://github.com/allansomensi/ingressoimpresso/compare/v1.6.0...HEAD
+[Não lançado]: https://github.com/allansomensi/ingressoimpresso/compare/v1.6.1...HEAD
+[1.6.1]: https://github.com/allansomensi/ingressoimpresso/compare/v1.6.0...v1.6.1
 [1.6.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.3.0...v1.4.0

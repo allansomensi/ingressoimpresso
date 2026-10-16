@@ -14,9 +14,10 @@ organizations: number,
  */
 newOrganizations: number, 
 /**
- * Users.
+ * Accounts that signed in during the last 30 days (each organization has one account, so
+ * a total would repeat `organizations`).
  */
-users: number, 
+activeAccounts: number, 
 /**
  * Events.
  */

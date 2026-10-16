@@ -303,7 +303,7 @@ guarda quanto voltou e quando, e a **Visão geral** do admin mostra receita brut
 líquida. Um reembolso parcial só desconta da receita; um reembolso total faz o mesmo que o
 **Estornar** (lote **Estornado**, números cancelados na porta, registro em **Cancelamentos** do
 evento e na auditoria, com o autor "Stripe"). Para reembolsos feitos antes de o webhook ouvir
-`charge.refunded`, ou entregas perdidas: **Admin** → **Visão geral** → **Conferir reembolsos no
+`charge.refunded`, ou entregas perdidas: **Admin** → **Visão geral** → **Sincronizar com a
 Stripe** (a chave precisa de leitura em **Refunds**). Ele relê até 100 pagamentos por clique; se
 sobrar algum, clique de novo.
 

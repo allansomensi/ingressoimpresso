@@ -107,6 +107,9 @@ pub async fn inbox(State(state): State<AppState>, user: AuthUser) -> ApiResult<J
     )
     .fetch_one(&state.pool)
     .await?;
+    let news_seen_at = sqlx::query_scalar!("select news_seen_at from users where id = $1", user.id)
+        .fetch_one(&state.pool)
+        .await?;
     let unseen = announcements.iter().filter(|item| !item.seen).count();
     let unread = i32::try_from(unread_notifications)
         .unwrap_or(i32::MAX)
@@ -115,11 +118,13 @@ pub async fn inbox(State(state): State<AppState>, user: AuthUser) -> ApiResult<J
         announcements,
         notifications,
         unread,
+        news_seen_at,
     }))
 }
 
 /// `POST /api/inbox/read`: marks announcements as seen and notifications as read (both lists
-/// empty: everything running now).
+/// empty: everything running now), and the release notes up to `newsSeenAt` (ADR 0088: never
+/// moves back nor past now).
 pub async fn read(
     State(state): State<AppState>,
     user: AuthUser,
@@ -146,6 +151,15 @@ pub async fn read(
     )
     .execute(&state.pool)
     .await?;
+    if let Some(seen) = body.news_seen_at {
+        sqlx::query!(
+            "update users set news_seen_at = greatest(news_seen_at, least($2, now())) where id = $1",
+            user.id,
+            seen,
+        )
+        .execute(&state.pool)
+        .await?;
+    }
     Ok(StatusCode::NO_CONTENT)
 }
 

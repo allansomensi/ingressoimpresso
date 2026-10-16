@@ -11,4 +11,8 @@ announcements: string[],
 /**
  * Notifications read.
  */
-notifications: string[], };
+notifications: string[], 
+/**
+ * Release notes seen up to this publication time (ADR 0088); never moves back.
+ */
+newsSeenAt?: string, };
