@@ -25,6 +25,14 @@ use crate::routes::exports::ExportRow;
 use crate::state::AppState;
 
 const MAX_ATTEMPTS: i16 = 3;
+/// Wait before starting the worker again after it died ([`supervise`]).
+const RESTART_PAUSE: Duration = Duration::from_secs(5);
+/// Pause before a failed export is tried again, per attempt made: a database or disk hiccup
+/// would otherwise burn every attempt within a second.
+const RETRY_PAUSE: Duration = Duration::from_secs(5);
+/// Rows of `exports` are kept this long (their files last a day, ADR 0008): the panel lists only
+/// the recent ones, and the table must not grow forever.
+const EXPORT_ROWS_MAX_AGE_DAYS: i32 = 30;
 /// New exports wake the worker at once (`AppState::jobs`); this slow poll only recovers jobs left
 /// behind by a failure. Each poll wakes Neon for its 5 idle minutes: hourly costs ~15 CU-hours a
 /// month of the Free plan's 100.
@@ -59,11 +67,35 @@ pub const fn content_type(kind: ExportKind) -> &'static str {
     }
 }
 
-/// Runs forever: processes queued exports, waking on notification or every [`IDLE_POLL`].
+/// Keeps the worker running: in a build that unwinds (development, tests), a panic inside a job
+/// would otherwise end the task silently, leaving every export queued until the next deploy, with
+/// the status page only noticing an hour later. The worker is started again after a pause; it
+/// returns on its own only when the process is stopping. (The release profile aborts on panic:
+/// there the whole process restarts, which recovers the worker too.)
+pub async fn supervise(state: AppState) {
+    loop {
+        match tokio::spawn(run_worker(state.clone())).await {
+            Ok(()) => return,
+            Err(error) => {
+                tracing::error!(
+                    ?error,
+                    "export worker stopped unexpectedly; starting it again"
+                );
+                tokio::time::sleep(RESTART_PAUSE).await;
+            }
+        }
+    }
+}
+
+/// Processes queued exports, waking on notification or every [`IDLE_POLL`], until the process
+/// stops ([`AppState::begin_shutdown`]): the job in hand is finished, no other is claimed.
 pub async fn run_worker(state: AppState) {
     let mut last_cleanup = std::time::Instant::now();
     cleanup(&state.config.export_dir).await;
     loop {
+        if state.shutting_down() {
+            return;
+        }
         state.worker_tick();
         match process_next(&state).await {
             Ok(true) => continue,
@@ -166,6 +198,7 @@ async fn process_next(state: &AppState) -> ApiResult<bool> {
         Err(JobError::Final(code)) => fail(&state.pool, export.id, code).await?,
         Err(JobError::Retry(error)) => {
             tracing::error!(export_id = %export.id, ?error, "export failed, will retry");
+            tokio::time::sleep(RETRY_PAUSE * u32::try_from(attempts).unwrap_or(1).max(1)).await;
             sqlx::query!(
                 "update exports set status = 'queued', locked_at = null where id = $1",
                 export.id
@@ -290,6 +323,14 @@ async fn generate(state: &AppState, export: &ExportRow) -> Result<(i32, String, 
     let path = export_path(&state.config.export_dir, export.id, kind);
     let crop_marks = export.crop_marks;
     let write_path = path.clone();
+    // Rendering shares the two slots of the design previews and the ticket images: the single
+    // instance never decodes and draws more than two big jobs at once (memory, ADR 0015).
+    let _permit = state
+        .render_permits
+        .clone()
+        .acquire_owned()
+        .await
+        .map_err(|error| JobError::Retry(error.into()))?;
     // Signing thousands of tickets is CPU work like the rendering: both stay off the runtime.
     tokio::task::spawn_blocking(move || {
         let rendered = sign_tickets(&tickets, &issuers, &tags)?;
@@ -585,6 +626,26 @@ async fn prune(pool: &PgPool) -> ApiResult<()> {
     sqlx::query!("delete from seller_sync_ops where created_at < now() - interval '30 days'")
         .execute(pool)
         .await?;
+    // Old export rows (their files went long ago; the download links go with them).
+    sqlx::query!(
+        "delete from exports where created_at < now() - make_interval(days => $1::int)",
+        EXPORT_ROWS_MAX_AGE_DAYS,
+    )
+    .execute(pool)
+    .await?;
+    // Art nobody saved in a design (an abandoned try, a replaced upload), once the editor's undo
+    // no longer needs it. Uploads do the same for their own event; this covers every event, so
+    // one organization's trials never fill its quota or the database (images under review or
+    // refused stay for the admins).
+    sqlx::query!(
+        r#"delete from blobs b where b.event_id is not null
+           and b.created_at < now() - interval '2 hours'
+           and b.moderation_status not in ('flagged', 'rejected')
+           and not exists (select 1 from ticket_designs d
+                           where d.art_blob_id = b.id or b.id = any(d.sponsor_blob_ids))"#
+    )
+    .execute(pool)
+    .await?;
     Ok(())
 }
 

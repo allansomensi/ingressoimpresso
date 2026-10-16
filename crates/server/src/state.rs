@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicI64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
 use std::time::Instant;
 
 use sqlx::PgPool;
@@ -44,6 +44,8 @@ pub struct AppState {
     pub settings: SettingsCache,
     /// Unix time of the export worker's last loop (status page, ADR 0043).
     pub worker_heartbeat: Arc<AtomicI64>,
+    /// The process is stopping (see [`Self::begin_shutdown`]).
+    shutdown: Arc<AtomicBool>,
     /// When the process started.
     pub started_at: Instant,
     /// Image classifier of uploaded art (ADR 0042); off without a key.
@@ -72,11 +74,24 @@ impl AppState {
             batch_locks: Arc::new(std::array::from_fn(|_| Mutex::new(()))),
             settings: SettingsCache::default(),
             worker_heartbeat: Arc::new(AtomicI64::new(0)),
+            shutdown: Arc::new(AtomicBool::new(false)),
             started_at: Instant::now(),
             classifier: None,
             attempts: Arc::new(Mutex::new(HashMap::new())),
             status_cache: Arc::new(tokio::sync::RwLock::new(None)),
         }
+    }
+
+    /// Tells the export worker to finish the job in hand and stop claiming others: the process
+    /// is stopping (a deploy), and a job claimed now would die with it and wait for a retry.
+    pub fn begin_shutdown(&self) {
+        self.shutdown.store(true, Ordering::Relaxed);
+        self.jobs.notify_one();
+    }
+
+    /// Whether [`Self::begin_shutdown`] was called.
+    pub fn shutting_down(&self) -> bool {
+        self.shutdown.load(Ordering::Relaxed)
     }
 
     /// Records the worker's loop for the status page.
