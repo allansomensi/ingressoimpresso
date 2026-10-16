@@ -8,6 +8,7 @@
 
 pub mod api;
 pub mod app;
+pub mod art;
 pub mod auth;
 pub mod captcha;
 pub mod config;
