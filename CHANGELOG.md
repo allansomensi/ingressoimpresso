@@ -12,6 +12,12 @@ e não acompanha estes números.
 
 ## [Não lançado]
 
+### Corrigido
+
+- O histórico de ações dos admins não registra mais "Alterou em modo suporte" quando o admin só
+  olha o evento de outra organização: o orçamento de um lote e a prévia do ingresso são leituras.
+  A aba Lotes também só calcula o preço do lote novo quando o diálogo está aberto.
+
 ## [1.6.2] - 2026-10-16
 
 ### Alterado
