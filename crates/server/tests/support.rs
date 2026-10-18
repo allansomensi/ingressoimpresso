@@ -41,7 +41,15 @@ async fn admins_support_any_event_and_it_is_audited(pool: PgPool) {
         StatusCode::NOT_FOUND
     );
 
-    // Reading leaves no trace; a change does.
+    // Reading leaves no trace, POSTs that only read (a quote) included; a change does.
+    let quote = app
+        .post(
+            &format!("/api/events/{event}/batches/quote"),
+            &admin,
+            json!({ "quantity": 100 }),
+        )
+        .await;
+    assert_eq!(quote.status, StatusCode::OK);
     let batch = app.create_batch(&admin, &event, 10).await;
     assert_eq!(batch["first"], 1);
     let audit = app.get("/api/admin/audit", &admin).await.json();

@@ -234,7 +234,9 @@ pub async fn event_access(
             return Err(ApiError::Suspended);
         }
     }
-    if support && writing {
+    // Previews and quotes are POSTs that only read: looking around in support mode leaves no
+    // trace, a change does.
+    if support && writing && team::need(&user.method, &user.path) != team::Need::Read {
         admin::audit_with(
             pool,
             user,

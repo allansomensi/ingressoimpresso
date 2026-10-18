@@ -106,7 +106,7 @@ function NewBatchDialog({
   const priced = useQuery({
     queryKey: ["quote", eventId, asked],
     queryFn: () => api<BatchQuoteDto>(`/api/events/${eventId}/batches/quote`, { method: "POST", body: { quantity: asked } }),
-    enabled: Number.isInteger(asked) && asked >= 1 && asked <= MAX_BATCH,
+    enabled: open && Number.isInteger(asked) && asked >= 1 && asked <= MAX_BATCH,
     placeholderData: keepPreviousData,
     staleTime: 15_000,
   });
