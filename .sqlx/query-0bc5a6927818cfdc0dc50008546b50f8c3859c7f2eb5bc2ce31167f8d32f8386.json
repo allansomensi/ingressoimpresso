@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into event_days (event_id, position, starts_at, ends_at)\n           select $1, ordinality::int2, s, e\n           from unnest($2::timestamptz[], $3::timestamptz[]) with ordinality as d(s, e, ordinality)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "TimestamptzArray",
+        "TimestamptzArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "0bc5a6927818cfdc0dc50008546b50f8c3859c7f2eb5bc2ce31167f8d32f8386"
+}

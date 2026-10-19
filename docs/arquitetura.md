@@ -154,7 +154,8 @@ Regras do decodificador (todas cobertas por testes de propriedade):
 - Aceita só base45 canônico em maiúsculas. Rejeita qualquer comprimento diferente de 111 e
   `version` desconhecida.
 - Verifica com `verify_strict` (sem maleabilidade). Mesmo assim, **a chave de deduplicação é
-  `(evento, número)`, nunca os bytes do QR**.
+  `(evento, número)` dentro de um livro, nunca os bytes do QR** (o livro é o dia ou o evento todo,
+  a entrada ou um ponto de controle; ADRs 0091 e 0092).
 - Nunca entra em pânico com entrada arbitrária. Sem `unwrap` e sem indexação direta no
   `ticket-core` (o lint `clippy::indexing_slicing` fica como erro nesse crate).
 - As assinaturas Ed25519 são determinísticas (RFC 8032): o mesmo ingresso sempre gera o mesmo QR.
@@ -430,6 +431,19 @@ create table entries (                                -- primeira entrada de cad
 -- box_office (vendido = entrou).
 create table door_access_categories (door_access_id uuid references door_accesses,
   category_id uuid references ticket_categories, primary key (door_access_id, category_id));
+-- Vários dias e pontos de controle (ADRs 0089–0092): ticket_categories ganha door_instruction,
+-- day_rule ('every','days','any_one') e valid_days; scans ganha checkpoint_id, day, ledger_day e
+-- exception_kind; door_accesses ganha checkpoint_id.
+create table event_days (event_id uuid references events, position smallint, starts_at timestamptz,
+  ends_at timestamptz, primary key (event_id, position));
+create table event_checkpoints (id uuid primary key, event_id uuid references events, name text,
+  instruction text, per_day boolean, position smallint, unique (event_id, name));
+create table checkpoint_categories (checkpoint_id uuid references event_checkpoints,
+  category_id uuid references ticket_categories, primary key (checkpoint_id, category_id));
+create table door_ledger_entries (                    -- o cadeado de cada livro
+  event_id uuid, ticket_number integer, checkpoint uuid,  -- nil: a entrada
+  ledger_day smallint,                                    -- 0: o evento todo
+  first_scan_id uuid references scans, primary key (event_id, ticket_number, checkpoint, ledger_day));
 create table guest_list (id uuid primary key, event_id uuid not null references events,
   name text not null, companions smallint not null, note text, category_id uuid,
   created_by uuid, created_at timestamptz not null, updated_at timestamptz not null);

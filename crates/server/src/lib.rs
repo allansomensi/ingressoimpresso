@@ -14,6 +14,7 @@ pub mod captcha;
 pub mod config;
 pub mod emails;
 pub mod error;
+pub mod event_days;
 pub mod google;
 pub mod jobs;
 pub mod keys;

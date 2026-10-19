@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into entries (event_id, ticket_number, first_scan_id) values ($1, $2, $3)\n                       on conflict do nothing",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "fc6f59727084cd0467d465c85d287fbe44f5735efaf52a7759f758ad0b537c47"
+}

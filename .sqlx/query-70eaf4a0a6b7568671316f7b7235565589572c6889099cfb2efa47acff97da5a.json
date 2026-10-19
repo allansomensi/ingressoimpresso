@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into event_checkpoints (id, event_id, name, instruction, per_day, position)\n               values ($1, $2, $3, $4, $5, $6)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Text",
+        "Bool",
+        "Int2"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "70eaf4a0a6b7568671316f7b7235565589572c6889099cfb2efa47acff97da5a"
+}

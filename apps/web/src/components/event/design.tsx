@@ -365,6 +365,11 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
     [issues],
   );
   const issueMessages = [...new Set(issues.map((issue) => issue.message))];
+  // An event of several days (ADR 0091) whose ticket prints only the first date.
+  const firstDateOnly =
+    event.days.length > 1 &&
+    design.texts.some((block) => /\{data(_extenso)?\}/.test(block.text)) &&
+    !design.texts.some((block) => block.text.includes("{dias}"));
 
   const artId = art?.id ?? null;
   const artUrl = useQuery({
@@ -846,6 +851,28 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
               }
             >
               {t.startBody}
+            </Alert>
+          )}
+          {firstDateOnly && (
+            <Alert
+              tone="brand"
+              title={t.daysTitle}
+              action={
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => {
+                    update((current) => ({
+                      ...current,
+                      texts: current.texts.map((block) => ({ ...block, text: block.text.replace(/\{data(_extenso)?\}/g, "{dias}") })),
+                    }));
+                  }}
+                >
+                  {t.daysAction}
+                </Button>
+              }
+            >
+              {t.daysBody}
             </Alert>
           )}
           {issueMessages.length > 0 && (

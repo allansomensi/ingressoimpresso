@@ -55,6 +55,9 @@ pub(crate) struct Facts {
     pub contact: bool,
     /// Consumption tokens (ADR 0084): products are needed, a guest list is not.
     pub tokens: bool,
+    /// Checkpoints (ADR 0092), and how many of them have an open link.
+    pub checkpoints: i32,
+    pub linked_checkpoints: i32,
 }
 
 /// Whether the checklist applies: the event has not ended and is neither archived nor
@@ -92,8 +95,12 @@ pub(crate) async fn facts(pool: &PgPool, ids: &[Uuid]) -> ApiResult<HashMap<Uuid
                                 where l.seller_id = a.seller_id and l.revoked_at is null))::int4 as "linked!",
                   (exists(select 1 from exports x where x.event_id = e.id and x.status = 'done')
                    or exists(select 1 from ticket_links l where l.event_id = e.id and l.revoked_at is null)) as "delivered!",
-                  exists(select 1 from door_accesses a where a.event_id = e.id
+                  exists(select 1 from door_accesses a where a.event_id = e.id and a.checkpoint_id is null
                          and a.revoked_at is null and a.expires_at > now()) as "door_link!",
+                  (select count(*) from event_checkpoints c where c.event_id = e.id)::int4 as "checkpoints!",
+                  (select count(*) from event_checkpoints c where c.event_id = e.id
+                     and exists(select 1 from door_accesses a where a.checkpoint_id = c.id
+                                and a.revoked_at is null and a.expires_at > now()))::int4 as "linked_checkpoints!",
                   exists(select 1 from door_devices v where v.event_id = e.id and v.revoked_at is null) as "devices!",
                   exists(select 1 from door_devices v where v.event_id = e.id and v.revoked_at is null
                          and v.rehearsed_at is not null) as "rehearsed!",
@@ -139,6 +146,8 @@ pub(crate) async fn facts(pool: &PgPool, ids: &[Uuid]) -> ApiResult<HashMap<Uuid
                     public_verify: row.public_verify,
                     contact: row.contact,
                     tokens: row.tokens,
+                    checkpoints: row.checkpoints,
+                    linked_checkpoints: row.linked_checkpoints,
                 },
             )
         })
@@ -267,6 +276,24 @@ pub(crate) fn items(
     if !facts.rehearsed && !facts.devices {
         rehearsal.hint = Some(ChecklistHint::NoDevices);
     }
+    // Each checkpoint needs phones at it (ADR 0092): a link per checkpoint.
+    let mut checkpoint_links = item(
+        Key::CheckpointLinks,
+        Some(TeamArea::Door),
+        false,
+        if facts.checkpoints == 0 {
+            NotApplicable
+        } else {
+            required(facts.linked_checkpoints >= facts.checkpoints)
+        },
+        &can,
+    );
+    if facts.checkpoints > 0 {
+        checkpoint_links.progress = Some(ChecklistProgressDto {
+            done: facts.linked_checkpoints.min(facts.checkpoints),
+            total: facts.checkpoints,
+        });
+    }
 
     vec![
         details,
@@ -319,6 +346,7 @@ pub(crate) fn items(
             required(facts.door_link),
             &can,
         ),
+        checkpoint_links,
         rehearsal,
         item(
             Key::Guests,
@@ -419,6 +447,8 @@ mod tests {
             public_verify: false,
             contact: true,
             tokens: false,
+            checkpoints: 0,
+            linked_checkpoints: 0,
         }
     }
 

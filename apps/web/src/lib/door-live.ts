@@ -61,7 +61,7 @@ export function niceMax(max: number, floor = 4): number {
 
 /** Readings that let nobody in. */
 export function refusalCount(refusals: DoorLiveRefusalsDto): number {
-  return refusals.blockedCopies + refusals.invalid + refusals.otherEvent + refusals.voided + refusals.wrongDoor;
+  return refusals.blockedCopies + refusals.invalid + refusals.otherEvent + refusals.voided + refusals.wrongDoor + refusals.wrongDay;
 }
 
 /** Whether the event's door is open about now (the overview shows the live card). */

@@ -37,7 +37,9 @@ describe("result dismissal", () => {
       viewOf({ kind: "voided", number: 7, reason: "lost" }, context),
       viewOf({ kind: "invalid", reason: "bad_signature" }, context),
       viewOf({ kind: "other_event", eventTag: 3 }, context),
-      { ...admit, tone: "warn", override: true },
+      { ...admit, tone: "warn", action: { label: "Deixar entrar mesmo assim", hint: "" } },
+      { ...admit, instruction: { label: "Faça antes de liberar", text: "Pulseira laranja" } },
+      { ...admit, check: true },
       { ...admit, charge: "Bilheteria · cobrar R$ 20,00" },
       { ...admit, charge: "Bilheteria · cortesia" },
     ];

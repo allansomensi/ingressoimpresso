@@ -26,6 +26,7 @@ export const checklist = {
     seller_links: { title: "Link de cada vendedor", body: "No link, o vendedor marca o que vendeu e vê o próprio acerto." },
     delivery: { title: "Ingressos entregues", body: "Gere os arquivos para imprimir ou mande ingressos no celular." },
     door_link: { title: "Link da portaria", body: "Os celulares da porta entram por ele no dia." },
+    checkpoint_links: { title: "Link de cada ponto de controle", body: "Janta, kit, open bar: cada ponto precisa de um link para os seus celulares." },
     rehearsal: { title: "Ensaio da portaria", body: "Opcional: teste a leitura num celular antes de abrir a porta." },
     guests: { title: "Lista de nomes", body: "Convidados que entram sem ingresso." },
     public_verify: { title: "Conferência pública", body: "Quem compra de outra pessoa confere o ingresso antes." },
@@ -40,6 +41,7 @@ export const checklist = {
     no_devices: "Nenhum celular entrou pelo link ainda.",
   },
   sellerLinks: (done: number, total: number) => `${String(done)} de ${String(total)} vendedores com link`,
+  checkpointLinks: (done: number, total: number) => `${String(done)} de ${String(total)} pontos com link`,
   // Consumption tokens (ADR 0086).
   tokens: {
     items: {

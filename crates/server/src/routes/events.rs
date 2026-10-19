@@ -23,6 +23,7 @@ use crate::api::{
 };
 use crate::auth::AuthUser;
 use crate::error::{ApiError, ApiResult, bad_request};
+use crate::event_days;
 use crate::keys;
 use crate::state::AppState;
 use crate::texts;
@@ -84,6 +85,7 @@ impl EventRow {
             series: None,
             checklist_missing: None,
             kind,
+            days: Vec::new(),
         })
     }
 }
@@ -92,7 +94,9 @@ impl EventAccess {
     /// The DTO of the event (as a handler just read or changed it) as this user sees it: their
     /// place on the team, support mode and the series of dates (ADR 0077).
     pub(crate) async fn dto(&self, pool: &PgPool, row: EventRow) -> ApiResult<EventDto> {
+        let offset = row.offset();
         let mut event = row.into_dto(self.organization_name.clone())?;
+        event.days = event_days::of_event(pool, event.id, offset).await?;
         event.support_access = self.support;
         event.team = self.team.clone().map(|areas| EventTeamAccessDto {
             areas,
@@ -103,12 +107,16 @@ impl EventAccess {
     }
 }
 
-/// A valid event body: name, venue, address and UTC offset (minutes).
+/// A valid event body: name, venue, address, UTC offset (minutes) and days (ADR 0091).
 struct ValidEvent {
     name: String,
     venue: Option<String>,
     address: Option<String>,
     offset: i16,
+    starts_at: OffsetDateTime,
+    ends_at: OffsetDateTime,
+    /// `None`: as they are; empty: one day.
+    days: Option<Vec<event_days::Day>>,
 }
 
 /// An optional one-line text of at most `max` characters (blank is `None`).
@@ -165,15 +173,30 @@ fn validate_event(body: &EventBody) -> ApiResult<ValidEvent> {
         one_line(venue, "invalid_venue")?;
     }
     let address = short_text(body.address.clone(), MAX_ADDRESS, "invalid_address")?;
-    let offset = validate_dates(body.starts_at, body.ends_at)?;
+    let days = body.days.as_deref().map(event_days::validate).transpose()?;
+    // With days, the event runs from the start of the first to the end of the last.
+    let (starts_at, ends_at) = match days.as_deref() {
+        Some([first, .., last]) => (first.starts_at, last.ends_at),
+        _ => (body.starts_at, body.ends_at),
+    };
+    let offset = validate_dates(starts_at, ends_at)?;
     if body.ticket_price_cents.is_some_and(|price| price < 0) {
         return Err(bad_request("invalid_price", "price must not be negative"));
+    }
+    if days.as_ref().is_some_and(|days| !days.is_empty()) && body.kind == Some(EventKind::Tokens) {
+        return Err(bad_request(
+            "days_tokens",
+            "consumption tokens have no days",
+        ));
     }
     Ok(ValidEvent {
         name,
         venue,
         address,
         offset,
+        starts_at,
+        ends_at,
+        days,
     })
 }
 
@@ -238,6 +261,12 @@ pub async fn list(State(state): State<AppState>, user: AuthUser) -> ApiResult<Js
         &events.iter().map(|(event, ..)| event).collect::<Vec<_>>(),
     )
     .await?;
+    let offsets: HashMap<Uuid, time::UtcOffset> = events
+        .iter()
+        .map(|(event, ..)| (event.id, event.offset()))
+        .collect();
+    let ids: Vec<Uuid> = offsets.keys().copied().collect();
+    let mut days = event_days::of_events(&state.pool, &ids, &offsets).await?;
     events
         .into_iter()
         .map(|(event, organization, areas, series)| {
@@ -246,6 +275,7 @@ pub async fn list(State(state): State<AppState>, user: AuthUser) -> ApiResult<Js
             event.team = areas.map(|areas| team_access(&areas, organization));
             event.series = series;
             event.checklist_missing = missing.get(&id).copied();
+            event.days = days.remove(&id).unwrap_or_default();
             Ok(event)
         })
         .collect::<ApiResult<Vec<_>>>()
@@ -356,19 +386,22 @@ pub async fn create(
             name: &valid.name,
             venue: valid.venue.as_deref(),
             address: valid.address.as_deref(),
-            starts_at: body.starts_at,
-            ends_at: body.ends_at,
+            starts_at: valid.starts_at,
+            ends_at: valid.ends_at,
             ticket_price_cents: body.ticket_price_cents,
             utc_offset_minutes: valid.offset,
             kind: body.kind.unwrap_or_default(),
         },
     )
     .await?;
+    if let Some(days) = valid.days.as_deref().filter(|days| !days.is_empty()) {
+        event_days::replace(&mut tx, event.id, days).await?;
+    }
     tx.commit().await?;
-    Ok((
-        StatusCode::CREATED,
-        Json(event.into_dto(organization.name)?),
-    ))
+    let offset = event.offset();
+    let mut dto = event.into_dto(organization.name)?;
+    dto.days = event_days::of_event(&state.pool, dto.id, offset).await?;
+    Ok((StatusCode::CREATED, Json(dto)))
 }
 
 /// The name of a copy: "Show (cópia)", cut to fit 100 characters.
@@ -410,7 +443,12 @@ pub async fn duplicate(
     copied.check_art(&state);
     Ok((
         StatusCode::CREATED,
-        Json(copied.event.into_dto(access.organization_name)?),
+        Json({
+            let offset = copied.event.offset();
+            let mut dto = copied.event.into_dto(access.organization_name)?;
+            dto.days = event_days::of_event(&state.pool, dto.id, offset).await?;
+            dto
+        }),
     ))
 }
 
@@ -447,6 +485,10 @@ impl Copied {
 /// sellers without ranges, the team, categories with their numbers, tables without guests and
 /// the event's switches. Never batches, ranges, door links, files or keys: the copy has its own
 /// QR tag and signing key.
+#[expect(
+    clippy::too_many_lines,
+    reason = "every part of an event the copy takes, in one place"
+)]
 pub(crate) async fn copy_event(
     state: &AppState,
     tx: &mut Transaction<'_, Postgres>,
@@ -528,7 +570,18 @@ pub(crate) async fn copy_event(
     .execute(&mut **tx)
     .await?;
     super::team::copy(tx, event_id, copy.id, to.user_id).await?;
-    copy_categories_and_tables(tx, event_id, copy.id).await?;
+    let categories = copy_categories_and_tables(tx, event_id, copy.id).await?;
+    super::checkpoints::copy(tx, event_id, copy.id, &categories).await?;
+    // The days move with the start (ADR 0091): the copy runs from its first to its last day.
+    event_days::shift(tx, event_id, copy.id, to.starts_at - source.starts_at).await?;
+    sqlx::query!(
+        r#"update events set starts_at = d.first, ends_at = d.last
+           from (select min(starts_at) as first, max(ends_at) as last from event_days where event_id = $1) d
+           where id = $1 and d.first is not null"#,
+        copy.id,
+    )
+    .execute(&mut **tx)
+    .await?;
     // The event's switches are setup too: sellers sending tickets (ADR 0061), the sellers'
     // ranking (ADR 0073), the public check (ADR 0075) and exit and return (ADR 0083).
     sqlx::query!(
@@ -549,20 +602,25 @@ pub(crate) async fn copy_event(
 }
 
 /// Categories (with their numbers) and tables (without guests) go to the copy (ADR 0056, 0057).
+/// Returns the copy of each category, for what refers to them (checkpoints, ADR 0092).
 async fn copy_categories_and_tables(
     tx: &mut Transaction<'_, Postgres>,
     from: Uuid,
     to: Uuid,
-) -> ApiResult<()> {
+) -> ApiResult<HashMap<Uuid, Uuid>> {
     let categories = sqlx::query!("select id from ticket_categories where event_id = $1", from)
         .fetch_all(&mut **tx)
         .await?;
+    let mut copies = HashMap::with_capacity(categories.len());
     for category in categories {
         let new_id = Uuid::new_v4();
+        copies.insert(category.id, new_id);
         sqlx::query!(
             r#"insert into ticket_categories (id, event_id, name, color, price_cents, position,
-                                             check_document, document_note)
-               select $3, $2, name, color, price_cents, position, check_document, document_note
+                                             check_document, document_note, door_instruction,
+                                             day_rule, valid_days)
+               select $3, $2, name, color, price_cents, position, check_document, document_note,
+                      door_instruction, day_rule, valid_days
                from ticket_categories where id = $1"#,
             category.id,
             to,
@@ -588,7 +646,7 @@ async fn copy_categories_and_tables(
     )
     .execute(&mut **tx)
     .await?;
-    Ok(())
+    Ok(copies)
 }
 
 /// Copies an art blob to another event of the same organization, within its art quota. The
@@ -750,6 +808,26 @@ pub async fn update(
     let access = event_access(&state.pool, &user, event_id).await?;
     let valid = validate_event(&body)?;
     let mut tx = state.pool.begin().await?;
+    let (starts_at, ends_at) = match &valid.days {
+        Some(days) => {
+            event_days::replace(&mut tx, event_id, days).await?;
+            (valid.starts_at, valid.ends_at)
+        }
+        // Days kept as they are: the event still runs from the first to the last.
+        None => match event_days::load(&mut tx, event_id).await?.as_slice() {
+            [first, .., last] => (first.starts_at, last.ends_at),
+            _ => (valid.starts_at, valid.ends_at),
+        },
+    };
+    let tokens = body
+        .kind
+        .map_or(access.event.tokens(), |kind| kind == EventKind::Tokens);
+    if tokens && event_days::load(&mut tx, event_id).await?.len() > 1 {
+        return Err(bad_request(
+            "days_tokens",
+            "consumption tokens have no days",
+        ));
+    }
     let row = sqlx::query_as!(
         EventRow,
         r#"update events set name = $2, venue = $3, starts_at = $4, ends_at = $5, ticket_price_cents = $6,
@@ -763,8 +841,8 @@ pub async fn update(
         event_id,
         valid.name,
         valid.venue,
-        body.starts_at,
-        body.ends_at,
+        starts_at,
+        ends_at,
         body.ticket_price_cents,
         valid.offset,
         valid.address,

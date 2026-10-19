@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update ticket_categories\n           set name = $2, color = $3, price_cents = $4, check_document = $5, document_note = $6,\n               door_instruction = $7, day_rule = coalesce($8, day_rule),\n               valid_days = coalesce($9, valid_days)\n           where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Int4",
+        "Bool",
+        "Text",
+        "Text",
+        "Text",
+        "Int2Array"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "bef6bcf8fd54768db3e01917da3bcd7e2b7e6e81b81b691c41a2e890ed5058b8"
+}

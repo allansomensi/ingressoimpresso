@@ -225,7 +225,7 @@ pub async fn event(
                   (select count(*) from ticket_links where event_id = $1 and revoked_at is null) as "digital!",
                   (select count(*) from ticket_links where event_id = $1 and revoked_at is null
                    and first_opened_at is not null) as "digital_opened!",
-                  (select count(*) from scans where event_id = $1
+                  (select count(*) from scans where event_id = $1 and checkpoint_id is null
                    and (local_outcome = 'rejected_used'
                         or (server_class = 'duplicate_entry' and confirmed_online))) as "blocked!""#,
         event_id

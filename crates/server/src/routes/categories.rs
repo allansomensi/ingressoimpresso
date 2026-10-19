@@ -11,9 +11,10 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use super::{authorize_event, bounds, one_line, range};
-use crate::api::{CategoryBody, CategoryDto, RangeBody, RangeDto};
+use crate::api::{CategoryBody, CategoryDto, DayRule, RangeBody, RangeDto};
 use crate::auth::AuthUser;
 use crate::error::{ApiError, ApiResult, bad_request};
+use crate::event_days;
 use crate::state::AppState;
 
 /// Most categories per event.
@@ -22,6 +23,8 @@ const MAX_NAME: usize = 30;
 const MAX_PRICE_CENTS: i32 = 100_000_000;
 /// Longest note on which documents count (ADR 0082): it has to fit the door's screen.
 const MAX_DOCUMENT_NOTE: usize = 80;
+/// Longest instruction at the door (ADR 0089): read in large type on the green screen.
+pub(crate) const MAX_DOOR_INSTRUCTION: usize = 60;
 
 /// A category's fields, checked.
 struct ValidCategory {
@@ -29,9 +32,52 @@ struct ValidCategory {
     color: String,
     check_document: bool,
     document_note: Option<String>,
+    door_instruction: Option<String>,
+    /// `None`: as it is (an update from a panel that does not know the days).
+    day_rule: Option<(DayRule, Vec<i16>)>,
 }
 
-fn validate(body: &CategoryBody, tokens: bool) -> ApiResult<ValidCategory> {
+/// An instruction for the door (ADR 0089): one line, at most [`MAX_DOOR_INSTRUCTION`].
+pub(crate) fn door_instruction(
+    value: Option<String>,
+    code: &'static str,
+) -> ApiResult<Option<String>> {
+    let value = super::optional_text(value);
+    if let Some(text) = &value {
+        if text.chars().count() > MAX_DOOR_INSTRUCTION {
+            return Err(bad_request(
+                code,
+                format!("up to {MAX_DOOR_INSTRUCTION} characters"),
+            ));
+        }
+        one_line(text, code)?;
+    }
+    Ok(value)
+}
+
+/// What the event is: consumption tokens, and how many days it has (ADR 0091).
+struct EventShape {
+    tokens: bool,
+    days: usize,
+}
+
+async fn event_shape(pool: &PgPool, event_id: Uuid) -> ApiResult<EventShape> {
+    let row = sqlx::query!(
+        r#"select kind = 'tokens' as "tokens!",
+                  (select count(*) from event_days where event_id = $1) as "days!"
+           from events where id = $1"#,
+        event_id
+    )
+    .fetch_one(pool)
+    .await?;
+    Ok(EventShape {
+        tokens: row.tokens,
+        days: usize::try_from(row.days).unwrap_or(0),
+    })
+}
+
+fn validate(body: &CategoryBody, shape: &EventShape) -> ApiResult<ValidCategory> {
+    let tokens = shape.tokens;
     let name = body.name.trim().to_owned();
     if name.is_empty() || name.chars().count() > MAX_NAME {
         return Err(bad_request(
@@ -66,11 +112,28 @@ fn validate(body: &CategoryBody, tokens: bool) -> ApiResult<ValidCategory> {
         }
         one_line(note, "invalid_document_note")?;
     }
+    let door_instruction =
+        door_instruction(body.door_instruction.clone(), "invalid_door_instruction")?;
+    // A ficha has no days (ADR 0084): it is valid until it is used.
+    let day_rule = match body.day_rule {
+        _ if tokens => Some((DayRule::Every, Vec::new())),
+        Some(rule) => Some((
+            rule,
+            event_days::validate_rule(
+                rule,
+                body.valid_days.as_deref().unwrap_or_default(),
+                shape.days,
+            )?,
+        )),
+        None => None,
+    };
     Ok(ValidCategory {
         name,
         color,
         check_document,
         document_note,
+        door_instruction,
+        day_rule,
     })
 }
 
@@ -87,7 +150,8 @@ fn renamed(error: sqlx::Error) -> ApiError {
 /// Categories of an event with their ranges, in the order they were created.
 pub(crate) async fn load(pool: &PgPool, event_id: Uuid) -> ApiResult<Vec<CategoryDto>> {
     let categories = sqlx::query!(
-        r#"select id, name, color, price_cents, check_document, document_note
+        r#"select id, name, color, price_cents, check_document, document_note, door_instruction,
+                  day_rule, valid_days
            from ticket_categories where event_id = $1 order by position, created_at"#,
         event_id
     )
@@ -110,14 +174,20 @@ pub(crate) async fn load(pool: &PgPool, event_id: Uuid) -> ApiResult<Vec<Categor
     }
     Ok(categories
         .into_iter()
-        .map(|row| CategoryDto {
-            ranges: ranges.remove(&row.id).unwrap_or_default(),
-            id: row.id,
-            name: row.name,
-            color: row.color,
-            price_cents: row.price_cents,
-            check_document: row.check_document,
-            document_note: row.document_note,
+        .map(|row| {
+            let (day_rule, valid_days) = event_days::rule_of(&row.day_rule, &row.valid_days);
+            CategoryDto {
+                ranges: ranges.remove(&row.id).unwrap_or_default(),
+                id: row.id,
+                name: row.name,
+                color: row.color,
+                price_cents: row.price_cents,
+                check_document: row.check_document,
+                document_note: row.document_note,
+                door_instruction: row.door_instruction,
+                day_rule,
+                valid_days,
+            }
         })
         .collect())
 }
@@ -139,8 +209,12 @@ pub async fn create(
     Path(event_id): Path<Uuid>,
     Json(body): Json<CategoryBody>,
 ) -> ApiResult<(StatusCode, Json<CategoryDto>)> {
-    let event = authorize_event(&state.pool, &user, event_id).await?;
-    let valid = validate(&body, event.tokens())?;
+    authorize_event(&state.pool, &user, event_id).await?;
+    let valid = validate(&body, &event_shape(&state.pool, event_id).await?)?;
+    let (day_rule, valid_days) = valid
+        .day_rule
+        .clone()
+        .unwrap_or((DayRule::Every, Vec::new()));
     let count = sqlx::query_scalar!(
         r#"select count(*) as "count!" from ticket_categories where event_id = $1"#,
         event_id
@@ -156,8 +230,9 @@ pub async fn create(
     let id = Uuid::new_v4();
     sqlx::query!(
         r#"insert into ticket_categories (id, event_id, name, color, price_cents, position,
-                                         check_document, document_note)
-           values ($1, $2, $3, $4, $5, $6, $7, $8)"#,
+                                         check_document, document_note, door_instruction,
+                                         day_rule, valid_days)
+           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)"#,
         id,
         event_id,
         valid.name,
@@ -166,6 +241,9 @@ pub async fn create(
         i16::try_from(count).unwrap_or(i16::MAX),
         valid.check_document,
         valid.document_note,
+        valid.door_instruction,
+        day_rule.db(),
+        &valid_days,
     )
     .execute(&state.pool)
     .await
@@ -179,6 +257,12 @@ pub async fn create(
             price_cents: body.price_cents,
             check_document: valid.check_document,
             document_note: valid.document_note,
+            door_instruction: valid.door_instruction,
+            day_rule,
+            valid_days: valid_days
+                .iter()
+                .filter_map(|day| u8::try_from(*day).ok())
+                .collect(),
             ranges: Vec::new(),
         }),
     ))
@@ -204,16 +288,15 @@ pub async fn update(
     Json(body): Json<CategoryBody>,
 ) -> ApiResult<StatusCode> {
     let event_id = category_event(&state, &user, category_id).await?;
-    let tokens = sqlx::query_scalar!(
-        r#"select kind = 'tokens' as "tokens!" from events where id = $1"#,
-        event_id
-    )
-    .fetch_one(&state.pool)
-    .await?;
-    let valid = validate(&body, tokens)?;
+    let valid = validate(&body, &event_shape(&state.pool, event_id).await?)?;
+    let (day_rule, valid_days) = valid
+        .day_rule
+        .map_or((None, None), |(rule, days)| (Some(rule.db()), Some(days)));
     sqlx::query!(
         r#"update ticket_categories
-           set name = $2, color = $3, price_cents = $4, check_document = $5, document_note = $6
+           set name = $2, color = $3, price_cents = $4, check_document = $5, document_note = $6,
+               door_instruction = $7, day_rule = coalesce($8, day_rule),
+               valid_days = coalesce($9, valid_days)
            where id = $1"#,
         category_id,
         valid.name,
@@ -221,6 +304,9 @@ pub async fn update(
         body.price_cents,
         valid.check_document,
         valid.document_note,
+        valid.door_instruction,
+        day_rule,
+        valid_days.as_deref(),
     )
     .execute(&state.pool)
     .await
@@ -305,6 +391,8 @@ struct TaggedRange {
     category: ticket_render::TicketCategory,
     check_document: bool,
     document_note: Option<String>,
+    day_rule: DayRule,
+    valid_days: Vec<u8>,
 }
 
 /// What each number prints and costs: category ranges with name, colour and price.
@@ -319,7 +407,8 @@ impl NumberTags {
     pub(crate) async fn load(pool: &PgPool, event_id: Uuid) -> ApiResult<Self> {
         let mut categories = Vec::new();
         for row in sqlx::query!(
-            r#"select r.numbers, c.name, c.color, c.price_cents, c.check_document, c.document_note
+            r#"select r.numbers, c.name, c.color, c.price_cents, c.check_document, c.document_note,
+                      c.day_rule, c.valid_days
                from category_ranges r
                join ticket_categories c on c.id = r.category_id where r.event_id = $1"#,
             event_id
@@ -338,6 +427,8 @@ impl NumberTags {
                 },
                 check_document: row.check_document,
                 document_note: row.document_note,
+                day_rule: event_days::rule_of(&row.day_rule, &row.valid_days).0,
+                valid_days: event_days::rule_of(&row.day_rule, &row.valid_days).1,
             });
         }
         let seats = sqlx::query!(
@@ -381,6 +472,8 @@ impl NumberTags {
                 color: range.category.color.clone(),
                 check_document: range.check_document,
                 document_note: range.document_note.clone(),
+                day_rule: range.day_rule,
+                valid_days: range.valid_days.clone(),
             })
     }
 

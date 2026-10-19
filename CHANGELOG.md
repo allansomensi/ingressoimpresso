@@ -12,6 +12,26 @@ e não acompanha estes números.
 
 ## [Não lançado]
 
+### Adicionado
+
+- Evento de vários dias: no formulário do evento, "O evento dura mais de um dia" define os dias
+  (festival, encontro, campeonato). O mesmo ingresso vale em vários dias, e cada categoria diz em
+  quais: todos os dias (uma entrada por dia), só em alguns dias ou "um dia, à escolha" (uma entrada
+  só). A portaria troca de dia sozinha, mostra "Sábado 21/11 · dia 1 de 2" no topo e responde
+  "NÃO VALE HOJE" com o dia certo, com a opção de deixar entrar como exceção. O ingresso digital e
+  a página Conferir ingresso dizem em que dias o ingresso vale, e o campo `{dias}` imprime "21 e 22
+  de novembro de 2026" no ingresso.
+- Pontos de controle (janta, kit, open bar), na seção Portaria: o mesmo QR do ingresso é lido de
+  novo num ponto com registro próprio, uma vez por dia ou uma vez no evento, só para as categorias
+  com direito. A tela diz "LIBERADO", "JÁ USOU" (com hora e celular) ou "SEM DIREITO", e o Ao vivo
+  mostra quem usou cada ponto. O card O que falta cobra um link para cada ponto.
+- Instrução na portaria por categoria ("Pulseira laranja", "Entregar o kit"): aparece em destaque
+  na tela verde da primeira entrada e espera o porteiro tocar.
+- Modo Conferir no app da portaria, para rondas: lê o ingresso e diz "PASSOU PELA ENTRADA" ou "NÃO
+  PASSOU", sem registrar nada, com o botão "Registrar a entrada agora" quando faltou passar. A tela
+  é verde-azulada para não ser confundida com a entrada.
+- O Ao vivo mostra as entradas de cada dia e as recusas por dia errado.
+
 ### Corrigido
 
 - O histórico de ações dos admins não registra mais "Alterou em modo suporte" quando o admin só

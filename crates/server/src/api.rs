@@ -184,6 +184,38 @@ dto! {
         #[serde(default)]
         #[cfg_attr(feature = "ts", ts(optional))]
         pub kind: Option<EventKind>,
+        /// The days of an event of several days (ADR 0091), in order: two or more set them (the
+        /// event then starts with the first and ends with the last), an empty list makes it an
+        /// event of one day again, missing leaves them as they are.
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional))]
+        pub days: Option<Vec<EventDayBody>>,
+    }
+
+    /// One day of an event of several days (ADR 0091).
+    pub struct EventDayBody {
+        /// When the day starts.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub starts_at: OffsetDateTime,
+        /// When it ends (after the start, at most 48 hours later).
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub ends_at: OffsetDateTime,
+    }
+
+    /// A day of an event of several days (ADR 0091), with the event's offset.
+    pub struct EventDayDto {
+        /// 1 for the first day.
+        pub position: u8,
+        /// Start.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub starts_at: OffsetDateTime,
+        /// End.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub ends_at: OffsetDateTime,
     }
 
     /// `PUT /api/events/{id}/status`: archive (`closed`) or reopen (`active`).
@@ -231,6 +263,9 @@ dto! {
         pub checklist_missing: Option<i32>,
         /// Tickets or consumption tokens (ADR 0084).
         pub kind: EventKind,
+        /// The days of an event of several days (ADR 0091); empty for an event of one day.
+        #[serde(default)]
+        pub days: Vec<EventDayDto>,
     }
 
     /// The current user's place on the team of an event of another organization (ADR 0055).
@@ -1047,6 +1082,12 @@ dto! {
         /// Which documents count.
         #[serde(default)]
         pub document_note: Option<String>,
+        /// On which days of an event of several days it is valid (ADR 0091).
+        #[serde(default)]
+        pub day_rule: DayRule,
+        /// The days of `days` (1 for the first).
+        #[serde(default)]
+        pub valid_days: Vec<u8>,
     }
 
     /// The event on a digital ticket.
@@ -1078,6 +1119,9 @@ dto! {
         /// Tickets or consumption tokens (ADR 0084).
         #[serde(default)]
         pub kind: EventKind,
+        /// The days of an event of several days (ADR 0091).
+        #[serde(default)]
+        pub days: Vec<EventDayDto>,
     }
 
     /// `GET /api/analytics`: results of every event of the organization (ADR 0034).
@@ -1848,6 +1892,12 @@ dto! {
         pub check_document: bool,
         /// Which documents count ("Carteira de estudante, RG de idoso…"); `null`: any proof.
         pub document_note: Option<String>,
+        /// What the door hands over or checks when it enters (ADR 0089): "Pulseira laranja".
+        pub door_instruction: Option<String>,
+        /// On which days of an event of several days it is valid (ADR 0091).
+        pub day_rule: DayRule,
+        /// The days of `days` (1 for the first), in order.
+        pub valid_days: Vec<u8>,
         /// Numbers in the category, ordered.
         pub ranges: Vec<RangeDto>,
     }
@@ -1868,6 +1918,19 @@ dto! {
         #[serde(default)]
         #[cfg_attr(feature = "ts", ts(optional = nullable))]
         pub document_note: Option<String>,
+        /// What the door hands over or checks (ADR 0089), up to 60 characters; missing or blank:
+        /// none.
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional = nullable))]
+        pub door_instruction: Option<String>,
+        /// On which days it is valid (ADR 0091); missing: every day.
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional))]
+        pub day_rule: Option<DayRule>,
+        /// The days of `days` (1 for the first); ignored by the other rules.
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional))]
+        pub valid_days: Option<Vec<u8>>,
     }
 
     /// A table on the event's map (ADR 0057).
@@ -2103,6 +2166,10 @@ dto! {
         #[serde(default)]
         #[cfg_attr(feature = "ts", ts(optional, as = "Option<Vec<String>>"))]
         pub category_ids: Option<Vec<Uuid>>,
+        /// A link of a checkpoint (ADR 0092) instead of the entrance; missing: the entrance.
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional, as = "Option<String>"))]
+        pub checkpoint_id: Option<Uuid>,
     }
 
     /// A door access link (ADR 0007). The token itself is shown only once, at creation.
@@ -2127,6 +2194,9 @@ dto! {
         /// Categories this door admits (ADR 0068); empty: every ticket.
         #[cfg_attr(feature = "ts", ts(type = "string[]"))]
         pub category_ids: Vec<Uuid>,
+        /// The checkpoint the link reads (ADR 0092); `null`: the entrance.
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub checkpoint_id: Option<Uuid>,
     }
 
     /// A new access link with its token (never retrievable again).
@@ -2185,6 +2255,9 @@ dto! {
         pub entry_count: i64,
         /// Whether a ticket that went out may come back in (ADR 0083).
         pub reentry: bool,
+        /// The event's checkpoints (ADR 0092).
+        #[serde(default)]
+        pub checkpoints: Vec<CheckpointDto>,
     }
 
     /// `PUT /api/events/{id}/door-settings`: how the door works (ADR 0083).
@@ -2212,6 +2285,25 @@ dto! {
         pub device_secret: String,
         /// The event.
         pub event: DoorEventInfo,
+        /// The checkpoint this phone reads (ADR 0092); `null`: the entrance.
+        #[serde(default)]
+        pub checkpoint: Option<DoorCheckpointDto>,
+    }
+
+    /// The checkpoint a door phone reads (ADR 0092).
+    pub struct DoorCheckpointDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// Name ("Janta").
+        pub name: String,
+        /// What to hand over ("Entregar o prato").
+        pub instruction: Option<String>,
+        /// One use per day the ticket is valid; otherwise one use in the whole event.
+        pub per_day: bool,
+        /// Categories entitled to it; empty: every ticket.
+        #[cfg_attr(feature = "ts", ts(type = "string[]"))]
+        pub category_ids: Vec<Uuid>,
     }
 
     /// The event as the door shows it.
@@ -2250,6 +2342,9 @@ dto! {
         /// Tickets or consumption tokens (ADR 0084): the door speaks of a ficha at a stall.
         #[serde(default)]
         pub kind: EventKind,
+        /// The days of an event of several days (ADR 0091); empty: one day.
+        #[serde(default)]
+        pub days: Vec<EventDayDto>,
     }
 
     /// What `DoorCore` needs to verify tickets; same shape as ticket-core's `DoorEventDto`.
@@ -2317,6 +2412,15 @@ dto! {
         /// Which documents count.
         #[serde(default)]
         pub document_note: Option<String>,
+        /// What to hand over or check when it enters (ADR 0089).
+        #[serde(default)]
+        pub door_instruction: Option<String>,
+        /// On which days it is valid (ADR 0091).
+        #[serde(default)]
+        pub day_rule: DayRule,
+        /// The days of `days` (1 for the first).
+        #[serde(default)]
+        pub valid_days: Vec<u8>,
     }
 
     /// The table and seat of a ticket, for the door.
@@ -2339,6 +2443,12 @@ dto! {
         pub at_unix_ms: i64,
         /// Name of the phone that scanned it.
         pub device_name: String,
+        /// The event day it was read on (ADR 0091); `null` for an event of one day.
+        #[serde(default)]
+        pub day: Option<u8>,
+        /// The day of the book it counts in; `null`: the whole event.
+        #[serde(default)]
+        pub ledger_day: Option<u8>,
     }
 
     /// `GET /api/door/manifest?since=<cursor>`: everything needed to decide offline.
@@ -2392,6 +2502,10 @@ dto! {
         /// from one of another event. Their tickets never enter here.
         #[serde(default)]
         pub sessions: Vec<DoorSessionDto>,
+        /// The checkpoint this phone reads (ADR 0092); `null`: the entrance. A checkpoint's
+        /// `entries` are its uses, never the entrance's.
+        #[serde(default)]
+        pub checkpoint: Option<DoorCheckpointDto>,
     }
 
     /// Another date of the event's series.
@@ -2422,6 +2536,18 @@ dto! {
         #[serde(default)]
         #[cfg_attr(feature = "ts", ts(optional))]
         pub exception: Option<bool>,
+        /// Why it was let in anyway (ADRs 0091, 0092); missing with `exception`: the wrong door.
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional))]
+        pub exception_kind: Option<ExceptionKind>,
+        /// The event day the phone was on (ADR 0091).
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional))]
+        pub day: Option<u8>,
+        /// The day of the book it was decided in; missing: the whole event.
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional))]
+        pub ledger_day: Option<u8>,
     }
 
     /// `POST /api/door/scans`.
@@ -2756,6 +2882,34 @@ dto_enum! {
         Exited,
         /// Yellow: read again on the way out; nothing recorded.
         RejectedAlreadyOut,
+        /// Yellow: its category is not valid today (ADR 0091); no entry recorded.
+        RejectedWrongDay,
+        /// Green, at a checkpoint (ADR 0092): the benefit was handed over.
+        BenefitGranted,
+        /// Red, at a checkpoint: already used.
+        RejectedBenefitUsed,
+        /// Yellow, at a checkpoint: its category has no right to it.
+        RejectedNotEntitled,
+    }
+
+    /// Why a ticket was let in anyway.
+    pub enum ExceptionKind {
+        /// A door that does not take its category (ADR 0068).
+        WrongDoor,
+        /// A day its category is not valid on (ADR 0091).
+        WrongDay,
+        /// A checkpoint its category has no right to (ADR 0092).
+        NotEntitled,
+    }
+
+    /// On which days of an event of several days a category is valid (ADR 0091).
+    pub enum DayRule {
+        /// Every day, one entry a day.
+        Every,
+        /// Only on the chosen days, one entry on each.
+        Days,
+        /// One day of the holder's choice: one entry in the whole event.
+        AnyOne,
     }
 
     /// Kind of a changelog note.
@@ -2927,7 +3081,21 @@ db_enum!(ScanOutcome {
     Readmitted => "readmitted",
     Exited => "exited",
     RejectedAlreadyOut => "rejected_already_out",
+    RejectedWrongDay => "rejected_wrong_day",
+    BenefitGranted => "benefit_granted",
+    RejectedBenefitUsed => "rejected_benefit_used",
+    RejectedNotEntitled => "rejected_not_entitled",
 });
+db_enum!(ExceptionKind { WrongDoor => "wrong_door", WrongDay => "wrong_day", NotEntitled => "not_entitled" });
+db_enum!(DayRule { Every => "every", Days => "days", AnyOne => "any_one" });
+
+/// A category is valid every day unless it says otherwise (ADR 0091); manifests and pages saved
+/// before it get that.
+impl Default for DayRule {
+    fn default() -> Self {
+        Self::Every
+    }
+}
 db_enum!(ScanClass {
     FirstEntry => "first_entry",
     DuplicateEntry => "duplicate_entry",
@@ -4220,6 +4388,15 @@ dto! {
         pub box_office: DoorLiveBoxOfficeDto,
         /// Exit and return (ADR 0083); `null` when the event does not allow it and nobody went out.
         pub reentry: Option<DoorLiveReentryDto>,
+        /// Entries per day of an event of several days (ADR 0091); empty for one day.
+        #[serde(default)]
+        pub days: Vec<DoorLiveDayDto>,
+        /// The day the door is on now (1 for the first); `null` for an event of one day.
+        #[serde(default)]
+        pub today: Option<u8>,
+        /// Uses of each checkpoint (ADR 0092).
+        #[serde(default)]
+        pub checkpoints: Vec<DoorLiveCheckpointDto>,
         /// Server clock.
         #[serde(with = "time::serde::rfc3339")]
         #[cfg_attr(feature = "ts", ts(type = "string"))]
@@ -4344,6 +4521,96 @@ dto! {
         /// Let in anyway at a door that does not take their category.
         #[cfg_attr(feature = "ts", ts(type = "number"))]
         pub wrong_door_admitted: i64,
+        /// Turned away on a day their category is not valid (ADR 0091).
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub wrong_day: i64,
+        /// Let in anyway on a day their category is not valid.
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub wrong_day_admitted: i64,
+    }
+
+    /// Entries of one day (ADR 0091).
+    pub struct DoorLiveDayDto {
+        /// 1 for the first day.
+        pub position: u8,
+        /// Start of the day, with the event's offset.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub starts_at: OffsetDateTime,
+        /// Tickets that entered on that day.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub entries: i64,
+    }
+
+    /// One checkpoint at the door (ADR 0092).
+    pub struct DoorLiveCheckpointDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// Name.
+        pub name: String,
+        /// One use per day (else one in the whole event).
+        pub per_day: bool,
+        /// Sold tickets with the right to it.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub entitled: i64,
+        /// Uses in the whole event (first uses of each ticket and book).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub used: i64,
+        /// Uses today (an event of several days) or `null`.
+        #[cfg_attr(feature = "ts", ts(type = "number | null"))]
+        pub used_today: Option<i64>,
+        /// Second tries with a ticket that already used it.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub repeats: i64,
+        /// Tickets without the right turned away.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub not_entitled: i64,
+        /// Handed over anyway (no right, or a day it is not valid).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub exceptions: i64,
+        /// Open links of the checkpoint.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub links: i64,
+    }
+
+    /// A checkpoint (ADR 0092), as the panel manages it.
+    pub struct CheckpointDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// Name ("Janta").
+        pub name: String,
+        /// What to hand over ("Entregar o prato").
+        pub instruction: Option<String>,
+        /// One use per day the ticket is valid; otherwise one use in the whole event.
+        pub per_day: bool,
+        /// Categories entitled to it; empty: every ticket.
+        #[cfg_attr(feature = "ts", ts(type = "string[]"))]
+        pub category_ids: Vec<Uuid>,
+        /// Uses recorded so far.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub uses: i64,
+        /// Open links that read it.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub links: i64,
+    }
+
+    /// `POST /api/events/{id}/checkpoints`, `PUT /api/checkpoints/{id}`.
+    pub struct CheckpointBody {
+        /// Name (1–30 characters).
+        pub name: String,
+        /// What to hand over (up to 60 characters); blank: none.
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional = nullable))]
+        pub instruction: Option<String>,
+        /// One use per day the ticket is valid; otherwise one use in the whole event.
+        pub per_day: bool,
+        /// Categories entitled to it; empty: every ticket.
+        #[cfg_attr(feature = "ts", ts(as = "Vec<String>"))]
+        pub category_ids: Vec<Uuid>,
     }
 
     /// The guest list at the door.
@@ -4668,6 +4935,10 @@ dto! {
         pub in_series: bool,
         /// Tickets or consumption tokens (ADR 0084).
         pub kind: EventKind,
+        /// The days of an event of several days (ADR 0091): the page says when the ticket is
+        /// valid.
+        #[serde(default)]
+        pub days: Vec<EventDayDto>,
     }
 
     /// `GET|PUT /api/events/{id}/verify-settings`.
@@ -5048,6 +5319,8 @@ dto_enum! {
         PublicVerify,
         /// The organization's profile has a contact (ADR 0064).
         OrganizationContact,
+        /// Every checkpoint has an open link (ADR 0092).
+        CheckpointLinks,
     }
 
     /// Where an item stands.

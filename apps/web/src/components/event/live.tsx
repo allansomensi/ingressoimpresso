@@ -4,6 +4,8 @@ import type { DoorLiveDeviceDto, DoorLiveDto, EventDto } from "@ingressoimpresso
 import { useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle,
+  BadgeCheck,
+  CalendarDays,
   CheckCircle2,
   CloudOff,
   DoorOpen,
@@ -25,6 +27,7 @@ import { TabHeader } from "@/components/event/tab-header";
 import { Badge, Button, Card, CardHeader, EmptyState, ErrorMessage, LoadingBlock, Stat, useScrollLock } from "@/components/ui";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
+import { dayLabel } from "@/lib/event-days";
 import { agoLabel, deviceHealth, LIVE_REFRESH_MS, occupancy, refusalCount } from "@/lib/door-live";
 import { money } from "@/lib/format";
 import { useWakeLock } from "@/lib/wake-lock";
@@ -154,6 +157,57 @@ export function LiveTab({ eventId, onSelect }: { eventId: string; onSelect: Sele
             icon={LogOut}
           />
           <Stat label={t.returned} value={count(data.reentry.returns)} hint={t.returnedHint} icon={RotateCcw} />
+        </div>
+      )}
+
+      {(data.days.length > 0 || data.checkpoints.length > 0) && (
+        <div className="grid items-start gap-6 lg:grid-cols-2">
+          {/* An event of several days (ADR 0091): who came in on each day. */}
+          {data.days.length > 0 && (
+            <Card>
+              <CardHeader title={t.byDay} description={t.byDayHint} icon={CalendarDays} />
+              <BarList
+                rows={data.days.map((day) => ({
+                  key: String(day.position),
+                  label: t.dayRow(day.position, dayLabel(day.startsAt)),
+                  detail: day.position === data.today ? t.today : "",
+                  value: day.entries,
+                  max: Math.max(1, ...data.days.map((item) => item.entries)),
+                  muted: data.today !== null && day.position > data.today,
+                }))}
+              />
+            </Card>
+          )}
+          {/* Checkpoints (ADR 0092): who used each one, against who has the right. */}
+          {data.checkpoints.length > 0 && (
+            <Card className={cn(data.days.length === 0 && "lg:col-span-2")}>
+              <CardHeader title={t.checkpoints} icon={BadgeCheck} />
+              <ul className="flex flex-col gap-4">
+                {data.checkpoints.map((checkpoint) => (
+                  <li key={checkpoint.id} className="flex flex-col gap-1.5">
+                    <div className="flex items-baseline justify-between gap-3 text-sm">
+                      <span className="flex min-w-0 flex-col">
+                        <span className="truncate font-medium text-fg">{checkpoint.name}</span>
+                        <span className="truncate text-xs text-fg-subtle">
+                          {[
+                            checkpoint.usedToday === null ? null : t.checkpointToday(count(checkpoint.usedToday)),
+                            checkpoint.repeats > 0 ? t.checkpointRepeats(checkpoint.repeats) : null,
+                            checkpoint.notEntitled > 0 ? t.checkpointNotEntitled(checkpoint.notEntitled) : null,
+                            checkpoint.exceptions > 0 ? t.checkpointExceptions(checkpoint.exceptions) : null,
+                            checkpoint.links === 0 ? t.checkpointNoLink : null,
+                          ]
+                            .filter((part) => part !== null)
+                            .join(" · ")}
+                        </span>
+                      </span>
+                      <span className="shrink-0 font-semibold text-fg tabular">{t.checkpointUsed(count(checkpoint.used), count(checkpoint.entitled))}</span>
+                    </div>
+                    <Meter value={occupancy(checkpoint.used, checkpoint.entitled)} label={t.checkpointUsedLabel(checkpoint.name)} className="h-2" />
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
         </div>
       )}
 
@@ -350,6 +404,8 @@ function RefusalsCard({ refusals }: { refusals: DoorLiveDto["refusals"] }) {
     ["voidEntries", refusals.voidEntries],
     ["wrongDoor", refusals.wrongDoor],
     ["wrongDoorAdmitted", refusals.wrongDoorAdmitted],
+    ["wrongDay", refusals.wrongDay],
+    ["wrongDayAdmitted", refusals.wrongDayAdmitted],
     ["otherEvent", refusals.otherEvent],
   ] as const;
   return (

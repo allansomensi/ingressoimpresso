@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update ticket_categories\n           set valid_days = array(select d from unnest(valid_days) as d where d <= $2 order by d),\n               day_rule = case when day_rule = 'days'\n                                and not exists (select 1 from unnest(valid_days) as d where d <= $2)\n                               then 'every' else day_rule end\n           where event_id = $1 and day_rule = 'days'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int2"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "17f7381472c2ee9e74b4df85a34763cb19919f613d8982b26554294d0df38cbd"
+}

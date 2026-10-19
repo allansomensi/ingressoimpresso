@@ -77,7 +77,10 @@ export function RecentScans({ engine, state, onClose }: { engine: DoorEngine; st
             </h2>
             {data !== null && (
               <p className="mt-2 flex flex-wrap gap-1.5 text-sm font-semibold tabular-nums">
-                <span className="rounded-full bg-emerald-400/15 px-2.5 py-0.5 text-emerald-300">{words.admitted(data.summary.admitted)}</span>
+                <span className="rounded-full bg-emerald-400/15 px-2.5 py-0.5 text-emerald-300">
+                  {/* A checkpoint hands over (ADR 0092). */}
+                  {(engine.checkpoint === null ? words.admitted : t.granted)(data.summary.admitted)}
+                </span>
                 {data.summary.exits > 0 && (
                   <span className="rounded-full bg-sky-400/15 px-2.5 py-0.5 text-sky-300">{t.exits(data.summary.exits)}</span>
                 )}

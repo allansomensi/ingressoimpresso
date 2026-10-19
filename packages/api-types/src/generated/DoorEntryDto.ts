@@ -19,4 +19,12 @@ atUnixMs: number,
 /**
  * Name of the phone that scanned it.
  */
-deviceName: string, };
+deviceName: string, 
+/**
+ * The event day it was read on (ADR 0091); `null` for an event of one day.
+ */
+day: number | null, 
+/**
+ * The day of the book it counts in; `null`: the whole event.
+ */
+ledgerDay: number | null, };

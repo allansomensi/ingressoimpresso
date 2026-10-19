@@ -1,0 +1,31 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select first_scan_id from door_ledger_entries\n                   where event_id = $1 and ticket_number = $2 and checkpoint = $3 and ledger_day = $4\n                   for update",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "first_scan_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "door_ledger_entries",
+            "name": "first_scan_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4",
+        "Uuid",
+        "Int2"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "116b2535ef849293acab3910b391170048ccc32ab135a82bb0e438e9950f5b05"
+}

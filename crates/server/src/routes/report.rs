@@ -183,6 +183,9 @@ pub(crate) async fn build(state: &AppState, event: &EventRow) -> ApiResult<Event
                   count(*) filter (where s.local_outcome in ('rejected_invalid', 'rejected_other_event')) as "invalid!"
            from door_devices d left join scans s on s.device_id = d.id
            where d.event_id = $1
+             -- The entrance's phones: a checkpoint's uses are not entries (ADR 0092).
+             and not exists (select 1 from door_accesses a
+                             where a.id = d.door_access_id and a.checkpoint_id is not null)
            group by d.id, d.name
            order by d.name"#,
         event_id
@@ -192,7 +195,7 @@ pub(crate) async fn build(state: &AppState, event: &EventRow) -> ApiResult<Event
     let rejected = sqlx::query!(
         r#"select count(*) filter (where local_outcome = 'rejected_invalid') as "invalid!",
                   count(*) filter (where local_outcome = 'rejected_other_event') as "other_event!"
-           from scans where event_id = $1"#,
+           from scans where event_id = $1 and checkpoint_id is null"#,
         event_id
     )
     .fetch_one(&state.pool)
@@ -269,6 +272,7 @@ async fn counts_by_seller(
                                          or (s.server_class = 'duplicate_entry' and s.confirmed_online)) as blocked_copies,
                       count(*) filter (where s.server_class = 'void_entry') as void_entries
                from scans s where s.event_id = $1 and s.ticket_number is not null
+                 and s.checkpoint_id is null
                group by s.ticket_number
            )
            select a.seller_id as "seller_id?",

@@ -375,6 +375,8 @@ pub(crate) async fn door_list(
                 color,
                 check_document: false,
                 document_note: None,
+                day_rule: crate::api::DayRule::Every,
+                valid_days: Vec::new(),
             }),
     })
     .collect();

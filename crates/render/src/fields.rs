@@ -22,6 +22,7 @@ pub const FIELDS: &[&str] = &[
     "preco",
     "organizacao",
     "categoria",
+    "dias",
 ];
 
 /// What text blocks can print about the event, besides its name.
@@ -38,6 +39,9 @@ pub struct EventDetails {
     /// The ticket's category (`{categoria}`, ADR 0084): the product of a consumption token.
     /// Known per ticket only; a ticket without one hides the block.
     pub category: Option<String>,
+    /// Start of each day of an event of several days (`{dias}`, ADR 0091), in the wall-clock time
+    /// of the event's place; empty for an event of one day.
+    pub days: Vec<PrimitiveDateTime>,
 }
 
 /// `text` with its fields replaced. `None` when a field it uses has no value (an event without
@@ -131,8 +135,64 @@ fn value(name: &str, event_name: &str, details: &EventDetails) -> Option<String>
             .unwrap_or_default()
             .trim()
             .to_owned(),
+        // The days of the event; an event of one day prints its date.
+        "dias" => {
+            if details.days.is_empty() {
+                date().map(|d| days_text(&[d])).unwrap_or_default()
+            } else {
+                days_text(&details.days)
+            }
+        }
         _ => return None,
     })
+}
+
+/// "a, b e c": a list as written in Portuguese.
+fn join_list(items: &[String]) -> String {
+    match items {
+        [] => String::new(),
+        [only] => only.clone(),
+        [head @ .., last] => format!("{} e {last}", head.join(", ")),
+    }
+}
+
+/// The days of one month of one year, for [`days_text`].
+type MonthDays = (time::Month, Vec<u8>);
+
+/// The days of an event: "21 e 22 de novembro de 2026", "30 de novembro e 1 de dezembro de 2026",
+/// "31 de dezembro de 2026 e 1 de janeiro de 2027". Days in order; repeats print once.
+fn days_text(days: &[PrimitiveDateTime]) -> String {
+    let mut sorted: Vec<time::Date> = days.iter().map(|day| day.date()).collect();
+    sorted.sort_unstable();
+    sorted.dedup();
+    let mut years: Vec<(i32, Vec<MonthDays>)> = Vec::new();
+    for date in sorted {
+        match years.last_mut() {
+            Some((year, months)) if *year == date.year() => match months.last_mut() {
+                Some((month, numbers)) if *month == date.month() => numbers.push(date.day()),
+                _ => months.push((date.month(), vec![date.day()])),
+            },
+            _ => years.push((date.year(), vec![(date.month(), vec![date.day()])])),
+        }
+    }
+    let year_parts: Vec<String> = years
+        .iter()
+        .map(|(year, months)| {
+            let month_parts: Vec<String> = months
+                .iter()
+                .map(|(month, numbers)| {
+                    let name = MONTHS
+                        .get(usize::from(u8::from(*month) - 1))
+                        .copied()
+                        .unwrap_or_default();
+                    let numbers: Vec<String> = numbers.iter().map(ToString::to_string).collect();
+                    format!("{} de {name}", join_list(&numbers))
+                })
+                .collect();
+            format!("{} de {year}", join_list(&month_parts))
+        })
+        .collect();
+    join_list(&year_parts)
 }
 
 /// `R$ 1.234,50`; zero is [`FREE_PRICE`].
@@ -165,6 +225,7 @@ mod tests {
             price_cents: Some(2_500),
             organization: Some(" Banda Os Vizinhos ".to_owned()),
             category: Some(" Pastel ".to_owned()),
+            days: Vec::new(),
         }
     }
 
@@ -187,6 +248,7 @@ mod tests {
             ("Realização: {organizacao}", "Realização: Banda Os Vizinhos"),
             ("{categoria}", "Pastel"),
             ("1 {categoria} · {preco}", "1 Pastel · R$ 25,00"),
+            ("{dias}", "14 de março de 2026"),
         ];
         for (text, expected) in cases {
             assert_eq!(
@@ -205,6 +267,7 @@ mod tests {
             price_cents: Some(123_456_789),
             organization: None,
             category: None,
+            days: Vec::new(),
         };
         assert_eq!(resolve("{hora}", "", &details).as_deref(), Some("9h30"));
         assert_eq!(resolve("{dia}", "", &details).as_deref(), Some("05"));
@@ -221,6 +284,49 @@ mod tests {
             ..details
         };
         assert_eq!(resolve("{preco}", "", &free).as_deref(), Some("Gratuito"));
+    }
+
+    #[test]
+    fn prints_the_days_of_an_event() {
+        let with = |days: Vec<PrimitiveDateTime>| EventDetails {
+            starts_at: days.first().copied(),
+            days,
+            ..EventDetails::default()
+        };
+        let cases = [
+            (
+                vec![datetime!(2026-11-21 18:00), datetime!(2026-11-22 12:00)],
+                "21 e 22 de novembro de 2026",
+            ),
+            (
+                vec![
+                    datetime!(2026-11-07 18:00),
+                    datetime!(2026-11-14 18:00),
+                    datetime!(2026-11-21 18:00),
+                ],
+                "7, 14 e 21 de novembro de 2026",
+            ),
+            (
+                vec![datetime!(2026-11-30 20:00), datetime!(2026-12-01 20:00)],
+                "30 de novembro e 1 de dezembro de 2026",
+            ),
+            (
+                vec![datetime!(2026-12-31 20:00), datetime!(2027-01-01 20:00)],
+                "31 de dezembro de 2026 e 1 de janeiro de 2027",
+            ),
+            // A night that goes past midnight is still one day.
+            (
+                vec![datetime!(2026-11-21 18:00), datetime!(2026-11-21 23:00)],
+                "21 de novembro de 2026",
+            ),
+        ];
+        for (days, expected) in cases {
+            assert_eq!(
+                resolve("{dias}", "", &with(days)).as_deref(),
+                Some(expected)
+            );
+        }
+        assert_eq!(resolve("{dias}", "", &EventDetails::default()), None);
     }
 
     #[test]

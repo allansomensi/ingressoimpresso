@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select utc_offset_minutes from events where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "utc_offset_minutes",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "utc_offset_minutes"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "08808dfdf36abd1761eb070b6fda1c74044db4514a9f9d7cbb78d901b67349b0"
+}

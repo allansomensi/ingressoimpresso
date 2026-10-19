@@ -75,6 +75,9 @@ entrou ou quem vendeu. O Ingresso Impresso resolve isso sem exigir internet nem 
   WebAssembly.
 - Vários celulares na mesma porta, sincronizando quando há rede.
 - Categorias que pedem documento (meia-entrada) e saída e volta com o mesmo ingresso.
+- Eventos de vários dias com um ingresso só (todos os dias, alguns dias ou um dia à escolha),
+  instrução por categoria na tela verde ("Pulseira laranja"), pontos de controle (janta, kit,
+  open bar) com registro próprio e modo Conferir para rondas, que não registra nada.
 
 **Para quem administra a plataforma**
 - Métricas, financeiro, organizações, cortesias, estornos e modo suporte com auditoria.

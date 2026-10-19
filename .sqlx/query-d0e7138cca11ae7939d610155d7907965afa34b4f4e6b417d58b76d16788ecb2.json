@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select id from event_checkpoints where id = $1 and event_id = $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "event_checkpoints",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "d0e7138cca11ae7939d610155d7907965afa34b4f4e6b417d58b76d16788ecb2"
+}

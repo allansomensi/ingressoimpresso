@@ -1,0 +1,112 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select r.numbers, c.name, c.color, c.price_cents, c.check_document, c.document_note,\n                      c.day_rule, c.valid_days\n               from category_ranges r\n               join ticket_categories c on c.id = r.category_id where r.event_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "numbers",
+        "type_info": "Int4Range",
+        "origin": {
+          "Table": {
+            "table": "category_ranges",
+            "name": "numbers"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ticket_categories",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "color",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ticket_categories",
+            "name": "color"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "price_cents",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "ticket_categories",
+            "name": "price_cents"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "check_document",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "ticket_categories",
+            "name": "check_document"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "document_note",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ticket_categories",
+            "name": "document_note"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "day_rule",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ticket_categories",
+            "name": "day_rule"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "valid_days",
+        "type_info": "Int2Array",
+        "origin": {
+          "Table": {
+            "table": "ticket_categories",
+            "name": "valid_days"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "46abf77dcda0fa43ca45ed9e730212f6142a1560653bcf567c4ec4c1a12e8647"
+}

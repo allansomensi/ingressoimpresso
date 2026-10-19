@@ -23,9 +23,9 @@ use uuid::Uuid;
 
 use super::{EventRow, MAX_TICKET_NUMBER, authorize_event, one_line, optional_text};
 use crate::api::{
-    CreateTicketLinkBody, CreateTicketLinksBody, OpenTicketBody, PassTableDto, PassTableMapDto,
-    ReplaceTicketBody, TableShape, TicketLinkDto, TicketLinksDto, TicketPassDto, TicketPassEvent,
-    TicketReplacementDto, TicketState, UpdateTicketLinkBody,
+    CreateTicketLinkBody, CreateTicketLinksBody, EventDayDto, OpenTicketBody, PassTableDto,
+    PassTableMapDto, ReplaceTicketBody, TableShape, TicketLinkDto, TicketLinksDto, TicketPassDto,
+    TicketPassEvent, TicketReplacementDto, TicketState, UpdateTicketLinkBody,
 };
 use crate::auth::{AuthUser, new_token, token_hash};
 use crate::error::{ApiError, ApiResult, bad_request};
@@ -898,6 +898,31 @@ async fn open_link(state: &AppState, token: &str, count: bool) -> ApiResult<Open
     row.ok_or(ApiError::NotFound)
 }
 
+/// The days of an event of several days (ADR 0091) and the one it is on now (0: one day).
+async fn days_and_today(state: &AppState, event_id: Uuid) -> ApiResult<(Vec<EventDayDto>, i16)> {
+    let offset = sqlx::query_scalar!(
+        "select utc_offset_minutes from events where id = $1",
+        event_id
+    )
+    .fetch_one(&state.pool)
+    .await?;
+    let days = crate::event_days::of_event(
+        &state.pool,
+        event_id,
+        time::UtcOffset::from_whole_seconds(i32::from(offset) * 60).unwrap_or(time::UtcOffset::UTC),
+    )
+    .await?;
+    let spans: Vec<crate::event_days::Day> = days
+        .iter()
+        .map(|day| crate::event_days::Day {
+            starts_at: day.starts_at,
+            ends_at: day.ends_at,
+        })
+        .collect();
+    let today = crate::event_days::current(&spans, OffsetDateTime::now_utc()).unwrap_or(0);
+    Ok((days, i16::from(today)))
+}
+
 /// `POST /api/ticket` (no login; the token is the credential, sent in the body so it stays out
 /// of access logs): what the holder's phone shows.
 pub async fn open(
@@ -907,18 +932,25 @@ pub async fn open(
 ) -> ApiResult<Response> {
     crate::ratelimit::by_ip(&state, &headers, crate::ratelimit::TICKET_OPEN).await?;
     let link = open_link(&state, &body.token, true).await?;
+    let (days, today) = days_and_today(&state, link.event_id).await?;
     let event = sqlx::query!(
         r#"select e.name, e.venue, e.starts_at, e.ends_at, e.utc_offset_minutes, o.name as organizer,
                   coalesce((select spec ->> 'backgroundColor' from ticket_designs d
                             where d.event_id = e.id order by version desc limit 1), '#ffffff') as "background!",
                   exists(select 1 from ticket_voids v where v.event_id = e.id and v.undone_at is null
                          and v.numbers @> $2::int4) as "voided!",
-                  (select s.scanned_at from entries en join scans s on s.id = en.first_scan_id
-                   where en.event_id = e.id and en.ticket_number = $2) as "entered_at?"
+                  -- Used today: in an event of several days a pass enters again the next day
+                  -- (ADR 0091), so only today's book or the whole event's counts.
+                  (select s.scanned_at from door_ledger_entries en join scans s on s.id = en.first_scan_id
+                   where en.event_id = e.id and en.ticket_number = $2
+                     and en.checkpoint = '00000000-0000-0000-0000-000000000000'
+                     and (en.ledger_day = 0 or en.ledger_day = $3)
+                   order by s.scanned_at limit 1) as "entered_at?"
            from events e join organizations o on o.id = e.organization_id
            where e.id = $1"#,
         link.event_id,
         link.ticket_number,
+        today,
     )
     .fetch_one(&state.pool)
     .await?;
@@ -952,6 +984,7 @@ pub async fn open(
             change: row.change(),
             in_series: super::series::in_series(&state.pool, link.event_id).await?,
             kind: row.kind(),
+            days,
         },
         organization: super::organization::event_organization(&state.pool, link.event_id).await?,
         table_map: table_map(&state, link.event_id, link.ticket_number).await?,

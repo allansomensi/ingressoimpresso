@@ -1,0 +1,95 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select a.id, a.label, a.expires_at, a.revoked_at, a.created_at,\n                  array(select c.category_id from door_access_categories c\n                        where c.door_access_id = a.id order by c.category_id) as \"category_ids!\",\n                  a.checkpoint_id\n           from door_accesses a where a.event_id = $1 order by a.created_at desc",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "door_accesses",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "label",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "door_accesses",
+            "name": "label"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "expires_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "door_accesses",
+            "name": "expires_at"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "revoked_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "door_accesses",
+            "name": "revoked_at"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "door_accesses",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "category_ids!",
+        "type_info": "UuidArray",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "checkpoint_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "door_accesses",
+            "name": "checkpoint_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      null,
+      true
+    ]
+  },
+  "hash": "a6a4c8bd90f95bf9c10b969f8310a9c0e049eab82635cbf1e768a087780e626b"
+}

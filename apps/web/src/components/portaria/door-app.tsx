@@ -2,11 +2,15 @@
 
 import {
   AlertTriangle,
+  BadgeCheck,
+  CalendarDays,
   CheckCircle2,
   Circle,
   ClipboardCheck,
+  Clock3,
   Flashlight,
   FlashlightOff,
+  HandHelping,
   History,
   IdCard,
   LogIn,
@@ -14,6 +18,7 @@ import {
   MoreVertical,
   Pause,
   ScanLine,
+  SearchCheck,
   Store,
   UsersRound,
   Volume2,
@@ -30,10 +35,11 @@ import { RecentScans } from "@/components/portaria/recent-scans";
 import { Scanner } from "@/portaria/camera";
 import { useClock } from "@/portaria/clock";
 import { DoorApiError } from "@/portaria/client";
-import { DoorEngine, type DoorState } from "@/portaria/engine";
+import { DoorEngine, type DoorMode, type DoorState } from "@/portaria/engine";
 import { announce, rehearseFeedback, unlockAudio } from "@/portaria/feedback";
 import { accessTokenFromHash, clearHash, noAccessToken, subscribeHash } from "@/portaria/hash";
 import { inkFor } from "@/lib/design-rules";
+import { currentDay, dayLabel } from "@/lib/event-days";
 import { money } from "@/lib/format";
 import { sessionLabel } from "@/lib/series";
 import { HOLD_MS, OFFLINE_WARNING_MS, canRehearse, clockTime, dismissPolicy, doorWords, type ResultView } from "@/portaria/logic";
@@ -306,17 +312,47 @@ function Door({ engine, state }: { engine: DoorEngine; state: DoorState }) {
 
   const manifest = state.manifest;
   const event = manifest?.event ?? state.device?.event;
-  const hasGuests = (manifest?.guests?.length ?? 0) > 0;
+  // A checkpoint's phone (ADR 0092): no guest list, no exit, its own banner and counter.
+  const checkpoint = engine.checkpoint;
+  const hasGuests = (manifest?.guests?.length ?? 0) > 0 && checkpoint === null;
   const rehearsing = state.rehearsing;
   // Exit and return (ADR 0083): this phone may read the exit while the event allows it.
-  const reentry = manifest?.event.reentry === true;
-  const exitMode = reentry && state.exitMode;
-  const banner = rehearsing ? t.rehearsal.banner : exitMode ? t.mode.exitBanner : null;
+  const reentry = manifest?.event.reentry === true && checkpoint === null;
+  const mode: DoorMode = engine.mode;
+  const exitMode = mode === "exit";
+  const checkMode = mode === "check";
+  // Entrance (or the checkpoint), exit with re-entry, and check (ADR 0090) for tickets.
+  const modes: DoorMode[] = ["entrance", ...(reentry ? (["exit"] as const) : []), ...(engine.canCheck ? (["check"] as const) : [])];
+  const banner = rehearsing
+    ? { text: t.rehearsal.banner, className: "bg-amber-400 text-black" }
+    : checkMode
+      ? { text: t.mode.checkBanner, className: "bg-[#0f766e] text-white" }
+      : exitMode
+        ? { text: t.mode.exitBanner, className: "bg-[#2563eb] text-white" }
+        : checkpoint !== null
+          ? { text: t.checkpoint.banner(checkpoint.name), className: "bg-[#6d28d9] text-white" }
+          : null;
   // A stall that takes fichas, for consumption tokens (ADR 0084).
   const words = doorWords(event?.kind);
-  // With re-entry, who is inside now says more than how many ever entered.
-  const counter = reentry ? t.insideCount(state.insideCount) : words.entries(state.entryCount);
-  const frame = exitMode ? "border-[#60a5fa]" : "border-white/90";
+  // With re-entry, who is inside now says more than how many ever entered; in an event of several
+  // days, today's (ADR 0091); at a checkpoint, its uses.
+  const counter =
+    checkpoint !== null
+      ? state.todayCount === null
+        ? t.checkpoint.uses(state.entryCount)
+        : t.checkpoint.usesToday(state.todayCount)
+      : reentry
+        ? t.insideCount(state.insideCount)
+        : state.todayCount === null
+          ? words.entries(state.entryCount)
+          : t.entriesToday(state.todayCount);
+  const frame = checkMode ? "border-[#2dd4bf]" : exitMode ? "border-[#60a5fa]" : "border-white/90";
+  const scanLine = checkMode
+    ? "bg-[#2dd4bf] shadow-[0_0_16px_4px_rgba(45,212,191,0.6)]"
+    : exitMode
+      ? "bg-[#60a5fa] shadow-[0_0_16px_4px_rgba(96,165,250,0.6)]"
+      : "bg-[#7c66ff] shadow-[0_0_16px_4px_rgba(124,102,255,0.6)]";
+  const days = event?.days ?? [];
 
   const startRehearsal = () => {
     setMenuOpen(false);
@@ -348,9 +384,9 @@ function Door({ engine, state }: { engine: DoorEngine; state: DoorState }) {
       {banner !== null && (
         <div
           role="status"
-          className={`sticky top-0 z-20 px-4 pt-[max(0.5rem,env(safe-area-inset-top))] pb-2 text-center text-sm font-black tracking-wide ${rehearsing ? "bg-amber-400 text-black" : "bg-[#2563eb] text-white"}`}
+          className={`sticky top-0 z-20 px-4 pt-[max(0.5rem,env(safe-area-inset-top))] pb-2 text-center text-sm font-black tracking-wide ${banner.className}`}
         >
-          {banner}
+          {banner.text}
         </div>
       )}
       <header
@@ -397,17 +433,28 @@ function Door({ engine, state }: { engine: DoorEngine; state: DoorState }) {
           <span>{state.device?.deviceName}</span>
           {/* One of several dates (ADR 0077): which session this phone lets in. */}
           {event?.inSeries === true && <span className="basis-full font-semibold text-white">{sessionLabel(event.startsAt)}</span>}
+          {/* An event of several days (ADR 0091): the day the door is on. */}
+          {days.length > 1 && <DayLine days={days} offsetMs={manifest?.offsetMs ?? 0} />}
           {state.pending > 0 && (
             <span className="rounded-full bg-amber-400/15 px-2 py-0.5 text-xs font-semibold text-amber-200">{t.pending(state.pending)}</span>
           )}
         </p>
-        {reentry && (
+        {modes.length > 1 && !rehearsing && (
           <ModeSwitch
-            exit={exitMode}
-            onChange={(exit) => {
-              void engine.setExitMode(exit);
+            mode={mode}
+            modes={modes}
+            checkpoint={checkpoint !== null}
+            onChange={(next) => {
+              void engine.setMode(next);
             }}
           />
+        )}
+        {/* The door already uses the server's clock; a phone clock far off still confuses people. */}
+        {days.length > 1 && manifest !== null && Math.abs(manifest.offsetMs) > CLOCK_SKEW_MS && (
+          <p className="flex items-start gap-2 rounded-xl bg-amber-400/15 px-3 py-2 text-sm text-amber-100">
+            <Clock3 className="mt-0.5 size-4 shrink-0" aria-hidden />
+            {t.day.clockSkew(Math.round(Math.abs(manifest.offsetMs) / 60_000))}
+          </p>
         )}
         {state.offlineSince !== null && <OfflineWarning text={words.oneLineOffline} offlineSince={state.offlineSince} />}
         {state.storageFailed && <p className="rounded-xl bg-red-600 px-3 py-2 text-sm font-semibold">{t.storageError}</p>}
@@ -435,20 +482,22 @@ function Door({ engine, state }: { engine: DoorEngine; state: DoorState }) {
           <>
           <button type="button" aria-hidden tabIndex={-1} className="fixed inset-0 z-20 cursor-default" onClick={() => { setMenuOpen(false); }} />
           <div className="fixed top-[calc(3.75rem+env(safe-area-inset-top))] right-3 z-30 flex w-64 flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#17151f] py-1 shadow-2xl">
-            <button
-              type="button"
-              onClick={() => {
-                setMenuOpen(false);
-                setShowGuests(true);
-              }}
-              className="flex min-h-12 items-center gap-3 px-4 text-left active:bg-white/10"
-            >
-              <UsersRound className="size-5 text-white/70" aria-hidden />
-              <span className="font-semibold">{t.guests.title}</span>
-            </button>
+            {checkpoint === null && (
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuOpen(false);
+                  setShowGuests(true);
+                }}
+                className="flex min-h-12 items-center gap-3 px-4 text-left active:bg-white/10"
+              >
+                <UsersRound className="size-5 text-white/70" aria-hidden />
+                <span className="font-semibold">{t.guests.title}</span>
+              </button>
+            )}
             {/* Rehearsal stays out of the way of the real work (ADR 0067): last, quiet, and gone
                 once the first ticket entered. */}
-            {canRehearse(state.entryCount, rehearsing) && (
+            {canRehearse(state.entryCount, rehearsing) && !checkMode && (
               <button
                 type="button"
                 onClick={startRehearsal}
@@ -472,12 +521,10 @@ function Door({ engine, state }: { engine: DoorEngine; state: DoorState }) {
             <span className={`absolute top-0 right-0 size-10 rounded-tr-2xl border-t-4 border-r-4 ${frame}`} />
             <span className={`absolute bottom-0 left-0 size-10 rounded-bl-2xl border-b-4 border-l-4 ${frame}`} />
             <span className={`absolute right-0 bottom-0 size-10 rounded-br-2xl border-r-4 border-b-4 ${frame}`} />
-            <span
-              className={`absolute inset-x-3 top-1/2 h-0.5 animate-pulse rounded-full ${exitMode ? "bg-[#60a5fa] shadow-[0_0_16px_4px_rgba(96,165,250,0.6)]" : "bg-[#7c66ff] shadow-[0_0_16px_4px_rgba(124,102,255,0.6)]"}`}
-            />
+            <span className={`absolute inset-x-3 top-1/2 h-0.5 animate-pulse rounded-full ${scanLine}`} />
           </div>
           <p className="absolute inset-x-0 bottom-4 text-center text-sm font-medium text-white/85 drop-shadow">
-            {rehearsing ? words.rehearsal.readHint : exitMode ? t.mode.exitHint : words.scanHint}
+            {rehearsing ? words.rehearsal.readHint : checkMode ? t.mode.checkHint : exitMode ? t.mode.exitHint : words.scanHint}
           </p>
         </div>
         {cameraFailed && <p role="alert" className="w-full max-w-md rounded-xl bg-red-500/15 px-3 py-2 text-center text-red-300">{t.cameraError}</p>}
@@ -532,14 +579,22 @@ function Door({ engine, state }: { engine: DoorEngine; state: DoorState }) {
           />
         ) : (
           !running && (
-            <Readiness
-              texts={words.readiness}
-              app={checks.app}
-              dataAt={manifest?.syncedAt ?? null}
-              camera={checks.camera}
-              storage={checks.storage}
-              testScan={state.testScanDone}
-            />
+            <>
+              {checkpoint !== null && (
+                <p className="flex w-full max-w-md items-start gap-2.5 rounded-2xl border border-[#a78bfa]/30 bg-[#6d28d9]/15 px-4 py-3 text-sm leading-relaxed text-white/85">
+                  <BadgeCheck className="mt-0.5 size-5 shrink-0 text-[#c4b5fd]" aria-hidden />
+                  {t.checkpoint.intro(checkpoint.name)}
+                </p>
+              )}
+              <Readiness
+                texts={words.readiness}
+                app={checks.app}
+                dataAt={manifest?.syncedAt ?? null}
+                camera={checks.camera}
+                storage={checks.storage}
+                testScan={state.testScanDone}
+              />
+            </>
           )
         )}
       </div>
@@ -566,8 +621,8 @@ function Door({ engine, state }: { engine: DoorEngine; state: DoorState }) {
           onDismiss={(byUser) => {
             engine.dismissResult(byUser);
           }}
-          onOverride={() => {
-            void engine.admitAnyway();
+          onAction={() => {
+            void engine.act();
           }}
         />
       )}
@@ -584,36 +639,66 @@ function Door({ engine, state }: { engine: DoorEngine; state: DoorState }) {
   );
 }
 
+/** A phone clock this far from the server's gets a warning in an event of several days. */
+const CLOCK_SKEW_MS = 5 * 60_000;
+
 /**
- * Entrance or exit (ADR 0083): a two-way switch big enough for a thumb in the dark. The exit is
- * blue everywhere (switch, banner, camera frame, result) so it is never mistaken for the entrance.
+ * Entrance (or the checkpoint), exit (ADR 0083) and check (ADR 0090): a switch big enough for a
+ * thumb in the dark. The exit is blue and the check teal everywhere (switch, banner, camera frame)
+ * so neither is ever mistaken for the entrance.
  */
-function ModeSwitch({ exit, onChange }: { exit: boolean; onChange: (exit: boolean) => void }) {
-  const options = [
-    { value: false, label: t.mode.entrance, Icon: LogIn, on: "bg-white text-[#0b0a12] shadow" },
-    { value: true, label: t.mode.exit, Icon: LogOut, on: "bg-[#2563eb] text-white shadow" },
-  ] as const;
+function ModeSwitch(props: { mode: DoorMode; modes: readonly DoorMode[]; checkpoint: boolean; onChange: (mode: DoorMode) => void }) {
+  const looks = {
+    entrance: props.checkpoint
+      ? { label: t.mode.use, Icon: BadgeCheck, on: "bg-white text-[#0b0a12] shadow" }
+      : { label: t.mode.entrance, Icon: LogIn, on: "bg-white text-[#0b0a12] shadow" },
+    exit: { label: t.mode.exit, Icon: LogOut, on: "bg-[#2563eb] text-white shadow" },
+    check: { label: t.mode.check, Icon: SearchCheck, on: "bg-[#0f766e] text-white shadow" },
+  } as const;
   return (
-    <div role="radiogroup" aria-label={t.mode.label} className="grid grid-cols-2 gap-1 rounded-2xl bg-white/[0.07] p-1">
-      {options.map(({ value, label, Icon, on }) => {
-        const active = value === exit;
+    <div
+      role="radiogroup"
+      aria-label={t.mode.label}
+      className={`grid gap-1 rounded-2xl bg-white/[0.07] p-1 ${props.modes.length === 3 ? "grid-cols-3" : "grid-cols-2"}`}
+    >
+      {props.modes.map((value) => {
+        const { label, Icon, on } = looks[value];
+        const active = value === props.mode;
         return (
           <button
-            key={label}
+            key={value}
             type="button"
             role="radio"
             aria-checked={active}
             onClick={() => {
-              onChange(value);
+              props.onChange(value);
             }}
-            className={`flex min-h-11 items-center justify-center gap-2 rounded-xl text-base font-bold transition active:scale-[0.98] ${active ? on : "text-white/70 active:bg-white/10"}`}
+            className={`flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-1 text-base font-bold transition active:scale-[0.98] ${active ? on : "text-white/70 active:bg-white/10"}`}
           >
-            <Icon className="size-5" aria-hidden />
-            {label}
+            <Icon className="size-5 shrink-0" aria-hidden />
+            <span className="truncate">{label}</span>
           </button>
         );
       })}
     </div>
+  );
+}
+
+/** "Sábado 21/11 · dia 1 de 2", by the server's clock: it turns at the border between days. */
+function DayLine({ days, offsetMs }: { days: readonly { position: number; startsAt: string; endsAt: string }[]; offsetMs: number }) {
+  // The clock ticks every second once mounted; until then the first day stands in.
+  const now = useClock();
+  const today = now === 0 ? (days[0]?.position ?? null) : currentDay(days, now + offsetMs);
+  const day = days.find((item) => item.position === today);
+  if (day === undefined) {
+    return null;
+  }
+  const label = dayLabel(day.startsAt);
+  return (
+    <span className="flex basis-full items-center gap-1.5 font-semibold text-white" title={t.day.hint}>
+      <CalendarDays className="size-4 shrink-0 text-white/70" aria-hidden />
+      {t.day.header(label.charAt(0).toLocaleUpperCase("pt-BR") + label.slice(1), day.position, days.length)}
+    </span>
   );
 }
 
@@ -786,7 +871,7 @@ const TICK_MS = 100;
  * stops while the screen is held (and, after a long press, until the next tap); anything else
  * stays until tapped (`dismissPolicy`).
  */
-function Result({ view, onDismiss, onOverride }: { view: ResultView; onDismiss: (byUser: boolean) => void; onOverride: () => void }) {
+function Result({ view, onDismiss, onAction }: { view: ResultView; onDismiss: (byUser: boolean) => void; onAction: () => void }) {
   const Icon = TONE_ICON[view.tone];
   const policy = dismissPolicy(view);
   const autoMs = policy.auto ? policy.ms : null;
@@ -867,6 +952,17 @@ function Result({ view, onDismiss, onOverride }: { view: ResultView; onDismiss: 
           {t.rehearsal.note}
         </span>
       )}
+      {/* A check (ADR 0090) is never mistaken for an entry: it says nothing was recorded. */}
+      {view.check === true && (
+        <span className="pointer-events-none relative flex items-center gap-1.5 rounded-full bg-black/80 px-4 py-1.5 text-sm font-black tracking-wide text-[#5eead4]">
+          <SearchCheck className="size-4" aria-hidden />
+          {t.check.note}
+        </span>
+      )}
+      {/* The checkpoint (ADR 0092): what this screen is about. */}
+      {view.place !== undefined && view.place !== null && (
+        <span className="pointer-events-none relative rounded-full bg-black/25 px-4 py-1 text-lg font-black tracking-wide uppercase">{view.place}</span>
+      )}
       <Icon className="pointer-events-none relative size-24 animate-pop" strokeWidth={2.25} aria-hidden />
       <span className="pointer-events-none relative text-[clamp(2.25rem,12vw,3rem)] leading-tight font-black tracking-tight text-balance">{view.title}</span>
       {view.number !== null && <span className="pointer-events-none relative font-mono text-4xl font-bold">{view.number}</span>}
@@ -878,6 +974,17 @@ function Result({ view, onDismiss, onOverride }: { view: ResultView; onDismiss: 
           </span>
           <span className="text-lg leading-snug font-semibold text-balance">{view.document.note ?? t.result.documentAny}</span>
           <span className="text-sm leading-snug font-medium text-[#713f12]/80 text-balance">{t.result.documentHint}</span>
+        </span>
+      )}
+      {/* What the organizer asks the door to do (ADR 0089), or what a check looks at. */}
+      {view.instruction !== undefined && view.instruction !== null && (
+        <span className="pointer-events-none relative flex w-full max-w-sm flex-col items-center gap-1 rounded-2xl bg-white px-5 py-4 text-[#1e1b4b] shadow-lg ring-4 ring-[#a78bfa]">
+          <span className="flex items-center gap-1.5 text-sm font-bold tracking-wide uppercase opacity-80">
+            <HandHelping className="size-5 shrink-0" strokeWidth={2.5} aria-hidden />
+            {view.instruction.label}
+          </span>
+          <span className="text-[clamp(1.5rem,7.5vw,2.125rem)] leading-tight font-black tracking-tight text-balance uppercase">{view.instruction.text}</span>
+          {view.check !== true && <span className="text-sm leading-snug font-medium opacity-70">{t.result.instructionHint}</span>}
         </span>
       )}
       {view.charge !== undefined && view.charge !== null && (
@@ -900,16 +1007,19 @@ function Result({ view, onDismiss, onOverride }: { view: ResultView; onDismiss: 
         </span>
       )}
       {view.seller !== null && <span className="pointer-events-none relative text-xl opacity-90">{view.seller}</span>}
-      {view.override === true && (
+      {view.note !== undefined && view.note !== null && (
+        <span className="pointer-events-none relative max-w-sm text-sm leading-snug font-semibold text-balance opacity-85">{view.note}</span>
+      )}
+      {view.action !== undefined && view.action !== null && (
         <span className="relative mt-4 flex w-full max-w-sm flex-col items-center gap-1.5">
           <button
             type="button"
-            onClick={onOverride}
+            onClick={onAction}
             className="flex min-h-14 w-full items-center justify-center rounded-2xl bg-black px-4 text-lg font-bold text-white shadow-lg transition active:scale-[0.98]"
           >
-            {t.result.letInAnyway}
+            {view.action.label}
           </button>
-          <span className="text-sm font-medium opacity-80">{t.result.letInAnywayHint}</span>
+          <span className="text-sm font-medium text-balance opacity-80">{view.action.hint}</span>
         </span>
       )}
       <span
