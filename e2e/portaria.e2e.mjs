@@ -438,7 +438,7 @@ assert.equal(result.tone, "warn", result.text);
 assert.match(result.text, /NÃO VALE HOJE[\s\S]*Nº 0003[\s\S]*vale só/);
 await h.page.getByRole("button", { name: "Deixar entrar mesmo assim" }).click();
 await h.page.locator('[data-tone="ok"]').waitFor({ timeout: TIMEOUT });
-await h.browser.close();
+// H stays open: its refusal goes up with the next sync (the exception was confirmed online).
 console.log("ok: days, the wristband and a day the ticket is not valid");
 
 // A check (ADR 0090): the pass is there; the "1 dia" is not, and is recorded on request.
@@ -477,7 +477,6 @@ await register(l, dinnerUrl, "Janta L");
 result = await readOnce(l, "l-dinner-again");
 assert.equal(result.tone, "bad", result.text);
 assert.match(result.text, /JÁ USOU[\s\S]*Janta K/);
-await l.browser.close();
 const m = await phone(oneDayCamera);
 await register(m, dinnerUrl, "Janta M");
 result = await readOnce(m, "m-no-right");
@@ -488,7 +487,9 @@ const weekendLive = await until("the live view of the weekend", async () => {
   const janta = view.checkpoints.find((item) => item.id === dinner.id);
   return janta !== undefined && janta.repeats === 1 && janta.notEntitled === 1 && view.refusals.wrongDay === 1 ? view : null;
 });
-await m.browser.close();
+for (const device of [h, l, m]) {
+  await device.browser.close();
+}
 assert.equal(weekendLive.today, 2);
 assert.deepEqual(
   weekendLive.days.map((day) => day.entries),
