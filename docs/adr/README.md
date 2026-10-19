@@ -98,3 +98,7 @@ feita e as consequências.
 | [0086](0086-palavras-das-fichas.md) | As palavras das fichas em todo o produto | Aceito |
 | [0087](0087-painel-por-secoes.md) | Painel organizado por seções | Aceito |
 | [0088](0088-novidades-lidas-na-conta.md) | Novidades lidas ficam na conta | Aceito |
+| [0089](0089-instrucao-na-entrada.md) | Instrução na entrada por categoria | Aceito |
+| [0090](0090-modo-conferencia.md) | Modo conferência (ronda) | Aceito |
+| [0091](0091-evento-de-varios-dias.md) | Evento de vários dias | Aceito |
+| [0092](0092-pontos-de-controle.md) | Pontos de controle (janta, kit, open bar) | Aceito |

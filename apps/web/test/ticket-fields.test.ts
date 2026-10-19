@@ -32,9 +32,25 @@ describe("resolveFields", () => {
       ["Realização: {organizacao}", "Realização: Banda Os Vizinhos"],
       ["{categoria}", "Pastel"],
       ["1 {categoria} · {preco}", "1 Pastel · R$ 25,00"],
+      ["{dias}", "14 de março de 2026"],
     ];
     for (const [text, expected] of cases) {
       expect(resolveFields(text, event)).toBe(expected);
+    }
+  });
+
+  it("prints the days of an event (ADR 0091)", () => {
+    const days = (...starts: string[]) => ({ ...event, startsAt: starts[0] ?? "", days: starts.map((startsAt) => ({ startsAt })) });
+    const cases: [EventFields, string][] = [
+      [days("2026-11-21T18:00:00-03:00", "2026-11-22T12:00:00-03:00"), "21 e 22 de novembro de 2026"],
+      [days("2026-11-07T18:00:00-03:00", "2026-11-14T18:00:00-03:00", "2026-11-21T18:00:00-03:00"), "7, 14 e 21 de novembro de 2026"],
+      [days("2026-11-30T20:00:00-03:00", "2026-12-01T20:00:00-03:00"), "30 de novembro e 1 de dezembro de 2026"],
+      [days("2026-12-31T20:00:00-03:00", "2027-01-01T20:00:00-03:00"), "31 de dezembro de 2026 e 1 de janeiro de 2027"],
+      // A night that goes past midnight is still one day.
+      [days("2026-11-21T18:00:00-03:00", "2026-11-21T23:00:00-03:00"), "21 de novembro de 2026"],
+    ];
+    for (const [fields, expected] of cases) {
+      expect(resolveFields("{dias}", fields)).toBe(expected);
     }
   });
 

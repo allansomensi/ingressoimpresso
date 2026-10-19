@@ -1,13 +1,14 @@
 "use client";
 
 import type { VerifiedTicketDto, VerifyResultDto } from "@ingressoimpresso/api-types";
-import { CalendarClock, CalendarDays, IdCard, Lock, MapPin, RotateCcw, ShieldCheck, ShieldX, type LucideIcon } from "lucide-react";
+import { CalendarCheck, CalendarClock, CalendarDays, IdCard, Lock, MapPin, RotateCcw, ShieldCheck, ShieldX, type LucideIcon } from "lucide-react";
 
 import { EventChangeNotice, OrganizationContact, OrganizationLogo } from "@/components/organization/organization";
 import { Alert, Button } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { spokenDate } from "@/lib/event-change";
 import { forKind } from "@/lib/event-kind";
+import { validityText } from "@/lib/event-days";
 import { sessionLabel } from "@/lib/series";
 import { verdictTone, type VerdictTone } from "@/lib/verify";
 import { series as seriesTexts } from "@/texts/pt-BR/series";
@@ -25,6 +26,8 @@ function TicketSummary({ ticket }: { ticket: VerifiedTicketDto }) {
   const t = forKind(verifyPageTexts, verifyPageTexts.tokens, ticket.event.kind);
   const { event, organization } = ticket;
   const where = [event.venue, event.address].filter((part) => part !== null && part !== "").join(" · ");
+  // A server before ADR 0091 sends no days.
+  const validity = validityText(ticket.category?.dayRule ?? "every", ticket.category?.validDays ?? [], (event.days as typeof event.days | undefined) ?? []);
   return (
     <article className="overflow-hidden rounded-2xl border border-border bg-bg">
       <div className="flex items-center gap-3 border-b border-border px-4 py-3">
@@ -49,6 +52,14 @@ function TicketSummary({ ticket }: { ticket: VerifiedTicketDto }) {
             <CalendarDays aria-hidden className="mt-0.5 size-4 shrink-0 text-fg-subtle" />
             <dd className="text-fg first-letter:uppercase">{spokenDate(event.startsAt)}</dd>
           </div>
+          {/* An event of several days (ADR 0091): on which days this ticket enters. */}
+          {validity !== null && (
+            <div className="flex items-start gap-2.5">
+              <dt className="sr-only">{t.when}</dt>
+              <CalendarCheck aria-hidden className="mt-0.5 size-4 shrink-0 text-fg-subtle" />
+              <dd className="font-medium text-fg">{validity}</dd>
+            </div>
+          )}
           {where !== "" && (
             <div className="flex items-start gap-2.5">
               <dt className="sr-only">{t.where}</dt>

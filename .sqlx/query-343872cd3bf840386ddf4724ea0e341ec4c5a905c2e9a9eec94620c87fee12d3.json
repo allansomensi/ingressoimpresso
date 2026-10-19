@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into event_days (event_id, position, starts_at, ends_at)\n           select $2, position, starts_at + make_interval(secs => $3), ends_at + make_interval(secs => $3)\n           from event_days where event_id = $1\n           on conflict (event_id, position) do update\n               set starts_at = excluded.starts_at, ends_at = excluded.ends_at",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Float8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "343872cd3bf840386ddf4724ea0e341ec4c5a905c2e9a9eec94620c87fee12d3"
+}

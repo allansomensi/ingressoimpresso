@@ -20,6 +20,7 @@ import { ApiError, api, isUuid } from "@/lib/api";
 import { checklistTarget } from "@/lib/checklist";
 import { isDoorDay } from "@/lib/door-live";
 import { changeKind } from "@/lib/event-change";
+import { dayLabel } from "@/lib/event-days";
 import { forKind } from "@/lib/event-kind";
 import { eventDateTime, money } from "@/lib/format";
 import { positionLabel } from "@/lib/series";
@@ -29,6 +30,7 @@ import { admin as adminTexts } from "@/texts/pt-BR/admin";
 import { common as commonTexts } from "@/texts/pt-BR/common";
 import { event as eventTexts } from "@/texts/pt-BR/event";
 import { eventChange as eventChangeTexts } from "@/texts/pt-BR/event-change";
+import { eventDays as dayTexts } from "@/texts/pt-BR/event-days";
 import { meta as metaTexts } from "@/texts/pt-BR/meta";
 import { panel as panelTexts } from "@/texts/pt-BR/panel";
 import { series as seriesTexts } from "@/texts/pt-BR/series";
@@ -254,6 +256,12 @@ function EventView() {
               <span className="flex items-center gap-1.5">
                 <CalendarDays className="size-4 shrink-0 text-fg-subtle" aria-hidden />
                 {eventDateTime(data.startsAt)}
+                {/* An event of several days (ADR 0091): how many, and which. */}
+                {data.days.length > 1 && (
+                  <Badge tone="brand" className="ml-1">
+                    <span title={dayTexts.list(data.days.map((day) => dayLabel(day.startsAt)))}>{panelTexts.days.badge(data.days.length)}</span>
+                  </Badge>
+                )}
               </span>
               {/* On phones the place takes a line of its own (and is cut if too long). */}
               <span className="flex min-w-0 items-center gap-1.5 max-sm:order-last max-sm:w-full">
@@ -346,7 +354,7 @@ function EventView() {
             {tab === "files" && <FilesTab eventId={eventId} onSelect={select} />}
             {tab === "door" && (
               <AreaGate eventId={eventId} area="door">
-                <DoorTab eventId={eventId} kind={data.kind} />
+                <DoorTab eventId={eventId} kind={data.kind} days={data.days} />
               </AreaGate>
             )}
             {tab === "live" && <LiveTab eventId={eventId} onSelect={select} />}

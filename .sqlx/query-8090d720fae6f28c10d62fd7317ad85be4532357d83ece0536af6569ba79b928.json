@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update events set starts_at = d.first, ends_at = d.last\n           from (select min(starts_at) as first, max(ends_at) as last from event_days where event_id = $1) d\n           where id = $1 and d.first is not null",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "8090d720fae6f28c10d62fd7317ad85be4532357d83ece0536af6569ba79b928"
+}

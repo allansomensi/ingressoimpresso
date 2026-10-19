@@ -426,6 +426,7 @@ fn text_blocks_print_their_fields_inside_their_box_in_every_font() {
             price_cents: None,
             organization: None,
             category: None,
+            days: Vec::new(),
         };
         let dark = dark_text_pixels(&job);
         assert!(

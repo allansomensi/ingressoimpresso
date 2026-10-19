@@ -1,0 +1,57 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with latest as (\n               select distinct on (s.ticket_number, s.ledger_day) s.ticket_number, s.local_outcome\n               from scans s join door_devices d on d.id = s.device_id\n               where s.event_id = $1 and s.checkpoint_id is null\n                 and s.local_outcome in ('admitted', 'readmitted', 'exited')\n                 and ($2::int2 is null or s.day = $2)\n               order by s.ticket_number, s.ledger_day, s.scanned_at desc, d.name desc,\n                        (s.local_outcome = 'exited') desc\n           ), entered as (\n               select l.local_outcome from latest l\n               where exists (select 1 from door_ledger_entries n\n                             where n.event_id = $1 and n.ticket_number = l.ticket_number\n                               and n.checkpoint = '00000000-0000-0000-0000-000000000000')\n           )\n           select e.reentry,\n                  (select count(*) from entered where local_outcome <> 'exited') as \"inside!\",\n                  (select count(*) from entered where local_outcome = 'exited') as \"out!\",\n                  (select count(*) from scans where event_id = $1 and local_outcome = 'exited'\n                     and ($2::int2 is null or day = $2)) as \"exits!\",\n                  (select count(*) from scans where event_id = $1 and server_class = 'reentry'\n                     and checkpoint_id is null and ($2::int2 is null or day = $2)) as \"returns!\"\n           from events e where e.id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "reentry",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "reentry"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "inside!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "out!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "exits!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "returns!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int2"
+      ]
+    },
+    "nullable": [
+      false,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "86ee0b1efa0ec4befc4e207a4f3b8a7023ef413e0c6049551442cdaaa0fabead"
+}

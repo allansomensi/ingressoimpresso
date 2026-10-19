@@ -4,6 +4,7 @@
  */
 import type {
   DoorCategoryRangeDto,
+  DoorCheckpointDto,
   DoorGuestArrivalDto,
   DoorGuestDto,
   DoorGuestUpload,
@@ -15,6 +16,7 @@ import type {
   DoorSellerRangeDto,
   DoorVerifierDto,
   DoorVoidDto,
+  ExceptionKind,
   ScanOutcome,
   VoidReason,
 } from "@ingressoimpresso/api-types";
@@ -29,6 +31,8 @@ export interface StoredDevice {
   deviceName: string;
   secret: string;
   event: DoorEventInfo;
+  /** The checkpoint its link reads (ADR 0092); missing or `null`: the entrance. */
+  checkpoint?: DoorCheckpointDto | null;
 }
 
 /** The last manifest, minus its entries (kept in their own store). */
@@ -47,6 +51,8 @@ export interface StoredManifest {
   guestsVersion?: string;
   /** Missing in manifests stored before an event could have several dates (ADR 0077). */
   sessions?: DoorSessionDto[];
+  /** The checkpoint this phone reads (ADR 0092); missing in manifests stored before it. */
+  checkpoint?: DoorCheckpointDto | null;
   cursor: string;
   /** Local time of the last successful sync. */
   syncedAt: number;
@@ -61,8 +67,14 @@ export interface StoredScan {
   outcome: ScanOutcome;
   scannedAtMs: number;
   synced: 0 | 1;
-  /** Let in at a door that does not take its category (ADR 0068). */
+  /** Let in at a door that does not take its category (ADR 0068), or anyway (ADRs 0091, 0092). */
   exception?: boolean;
+  /** Why it was let in anyway; missing on scans stored before ADR 0091 (the wrong door). */
+  exceptionKind?: ExceptionKind;
+  /** The event day the phone was on (ADR 0091); missing in an event of one day. */
+  day?: number;
+  /** The day of the book it was decided in; missing: the whole event. */
+  ledgerDay?: number;
   /**
    * Why it was refused, for this phone's history only (never uploaded): the void or invalid
    * reason. Missing on scans stored by older apps.
@@ -91,7 +103,8 @@ export interface StoredArrival extends GuestArrival {
 /**
  * A movement of any phone: an admitted scan (first entry or return), or an exit of re-entry
  * (ADR 0083), what `DoorCore.recordEntries`/`recordExits` need plus its scan id. Exits share the
- * store, so no new database version is needed; entries stored by older apps have no `exit`.
+ * store, so no new database version is needed; entries stored by older apps have no `exit`, nor
+ * a day (ADR 0091): they count in the whole event's book, as on the server.
  */
 export interface StoredEntry {
   scanId: string;
@@ -99,6 +112,10 @@ export interface StoredEntry {
   atUnixMs: number;
   deviceName: string;
   exit?: true;
+  /** The event day it was read on. */
+  day?: number | null;
+  /** The day of its book; missing or `null`: the whole event. */
+  ledgerDay?: number | null;
 }
 
 interface DoorDb extends DBSchema {
@@ -259,8 +276,17 @@ export async function addEntries(entries: readonly StoredEntry[]): Promise<Store
 
 /** The upload form of a stored scan. */
 export function toUpload(scan: StoredScan): DoorScanUpload {
-  const upload: DoorScanUpload = { id: scan.id, number: scan.number, keyId: null, outcome: scan.outcome, scannedAtMs: scan.scannedAtMs };
-  return scan.exception === true ? { ...upload, exception: true } : upload;
+  return {
+    id: scan.id,
+    number: scan.number,
+    keyId: null,
+    outcome: scan.outcome,
+    scannedAtMs: scan.scannedAtMs,
+    ...(scan.exception === true ? { exception: true } : {}),
+    ...(scan.exception === true && scan.exceptionKind !== undefined ? { exceptionKind: scan.exceptionKind } : {}),
+    ...(scan.day === undefined ? {} : { day: scan.day }),
+    ...(scan.ledgerDay === undefined ? {} : { ledgerDay: scan.ledgerDay }),
+  };
 }
 
 // --- Guest arrivals (ADR 0070) ----------------------------------------------------------
@@ -362,8 +388,11 @@ export function toArrivalUpload(arrival: StoredArrival): DoorGuestUpload {
 
 // --- Flags -------------------------------------------------------------------------------
 
-/** `rehearsalPending`: a finished rehearsal not yet told; `exitMode`: this phone reads exits. */
-export type Flag = "rehearsalPending" | "exitMode";
+/**
+ * `rehearsalPending`: a finished rehearsal not yet told; `exitMode`: this phone reads exits;
+ * `checkMode`: this phone only checks (ADR 0090).
+ */
+export type Flag = "rehearsalPending" | "exitMode" | "checkMode";
 
 export async function readFlag(key: Flag): Promise<boolean> {
   return (await (await db()).get("meta", key)) ?? false;

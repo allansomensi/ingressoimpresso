@@ -47,6 +47,7 @@ import { inkFor } from "@/lib/design-rules";
 import { changeKind } from "@/lib/event-change";
 import { shortDateTime } from "@/lib/format";
 import { pixReference } from "@/lib/pix";
+import { validityText } from "@/lib/event-days";
 import { sessionLabel } from "@/lib/series";
 import { SITE_URL } from "@/lib/site";
 import { forgetPass, normalizePass, passBand, passDate, passImage, saveImage, storePass, storedPass, textOn } from "@/lib/ticket-pass";
@@ -296,6 +297,7 @@ export function TicketPass() {
   const fileName = `ingresso-${pass.numberLabel}.png`;
   // Passes saved on the phone before categories and seats existed have neither (ADR 0056).
   const category = pass.category ?? null;
+  const validity = validityText(category?.dayRule ?? "every", category?.validDays ?? [], pass.event.days);
   // A consumption token speaks of a ficha at a stall (ADR 0084).
   const words = forKind(t, t.tokens, pass.event.kind);
   const seat = pass.seat ?? null;
@@ -358,6 +360,8 @@ export function TicketPass() {
             <CalendarDays className="mt-0.5 size-4 shrink-0" aria-hidden />
             <span className={cn("first-letter:uppercase", canceled && "line-through")}>{passDate(pass.event.startsAt)}</span>
           </p>
+          {/* An event of several days (ADR 0091): on which days this ticket enters. */}
+          {validity !== null && <p className="rounded-xl bg-black/15 px-3 py-2 text-sm leading-snug font-semibold">{validity}</p>}
           {(pass.event.venue !== null || pass.event.address !== null) && (
             <p className="flex items-start gap-2 text-sm opacity-90">
               <MapPin className="mt-0.5 size-4 shrink-0" aria-hidden />

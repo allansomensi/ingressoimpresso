@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
-import { Button, Dialog, ErrorMessage, Field, Input, LoadingBlock } from "@/components/ui";
+import { Alert, Button, Dialog, ErrorMessage, Field, Input, LoadingBlock } from "@/components/ui";
 import { api } from "@/lib/api";
 import { offsetMinutes, wallClockInput, withOffset } from "@/lib/event-time";
 import { addDays, nextDateStart } from "@/lib/series";
@@ -81,6 +81,8 @@ function AddDateForm({ event, siblings, onClose }: { event: EventDto; siblings: 
 
   return (
     <form onSubmit={submit} className="flex flex-col gap-4">
+      {/* Sessions with their own audience here; one ticket for several days is ADR 0091. */}
+      {event.kind === "tickets" && <Alert tone="brand">{t.daysInstead}</Alert>}
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label={t.newStart}>
           <Input

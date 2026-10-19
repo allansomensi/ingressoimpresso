@@ -1,0 +1,85 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select c.id, c.name, c.instruction, c.per_day,\n                  array(select cc.category_id from checkpoint_categories cc\n                        where cc.checkpoint_id = c.id order by cc.category_id) as \"category_ids!\",\n                  (select count(*) from door_ledger_entries l\n                   where l.event_id = c.event_id and l.checkpoint = c.id) as \"uses!\",\n                  (select count(*) from door_accesses a\n                   where a.checkpoint_id = c.id and a.revoked_at is null and a.expires_at > now()) as \"links!\"\n           from event_checkpoints c where c.event_id = $1 order by c.position, c.created_at",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "event_checkpoints",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "event_checkpoints",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "instruction",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "event_checkpoints",
+            "name": "instruction"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "per_day",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "event_checkpoints",
+            "name": "per_day"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "category_ids!",
+        "type_info": "UuidArray",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "uses!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "links!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "19313f0a88f714cc5cdb54c48c97744c8ecca45defc700c26861c00fc158e20e"
+}

@@ -3,8 +3,10 @@
  * confirmation is worth waiting for (ADR 0006). No browser APIs here, so it is unit tested.
  */
 import type {
+  DayRule,
   EventKind,
   DoorCategoryRangeDto,
+  DoorCheckpointDto,
   DoorGuestArrivalDto,
   DoorGuestDto,
   DoorRouteDto,
@@ -16,10 +18,12 @@ import type {
 } from "@ingressoimpresso/api-types";
 import type { DecisionDto } from "@ingressoimpresso/ticket-core-wasm";
 
+import { currentDay, daysOf, ledgerDay, onDayLabel, validOn, type EventDay } from "@/lib/event-days";
 import { forKind } from "@/lib/event-kind";
 import { money } from "@/lib/format";
 import { sessionLabel } from "@/lib/series";
 import { errors as errorsTexts } from "@/texts/pt-BR/errors";
+import { eventDays as dayTexts } from "@/texts/pt-BR/event-days";
 import { portaria as portariaTexts } from "@/texts/pt-BR/portaria";
 
 /** Sync period while the door screen is open. */
@@ -84,19 +88,36 @@ export interface ResultView {
   charge?: string | null;
   /** The category asks for a document (ADR 0082): which one, before letting in. */
   document?: DocumentCheck | null;
-  /** Wrong door (ADR 0068): the doorkeeper may let the guest in anyway. */
-  override?: boolean;
+  /**
+   * What the organizer asks the door to do (ADR 0089), or the checkpoint to hand over (ADR 0092);
+   * in a check (ADR 0090), what to look at. The screen waits for a tap.
+   */
+  instruction?: { label: string; text: string } | null;
+  /** The checkpoint this phone reads (ADR 0092), above the title. */
+  place?: string | null;
+  /**
+   * The button of the screen: let in anyway at the wrong door or day (ADRs 0068, 0091), hand
+   * over anyway without the right (ADR 0092), or record what a check found missing (ADR 0090).
+   */
+  action?: { label: string; hint: string } | null;
+  /** A last line in small print (a check made without a recent sync). */
+  note?: string | null;
   /** Rehearsal (ADR 0067): what would happen; nothing was recorded. */
   rehearsal?: boolean;
+  /** Check (ADR 0090): only looked; nothing was recorded. */
+  check?: boolean;
   /** The same code seen again while still in front of the camera: shown without a sound. */
   repeat?: boolean;
 }
 
-/** The outcome stored and uploaded for a decision. */
-export function outcomeOf(decision: DecisionDto): ScanOutcome {
+/**
+ * The outcome stored and uploaded for a decision. At a checkpoint (ADR 0092) a first use is a
+ * benefit handed over, and a second one a benefit already used.
+ */
+export function outcomeOf(decision: DecisionDto, checkpoint = false): ScanOutcome {
   switch (decision.kind) {
     case "admit":
-      return "admitted";
+      return checkpoint ? "benefit_granted" : "admitted";
     case "readmit":
       return "readmitted";
     case "exit":
@@ -104,7 +125,7 @@ export function outcomeOf(decision: DecisionDto): ScanOutcome {
     case "already_out":
       return "rejected_already_out";
     case "already_entered":
-      return "rejected_used";
+      return checkpoint ? "rejected_benefit_used" : "rejected_used";
     case "voided":
       return "rejected_void";
     case "other_event":
@@ -135,11 +156,18 @@ export type DoorSeller = Omit<DoorSellerRangeDto, "boxOffice"> & { boxOffice?: b
  * A category's range as stored: manifests saved by older apps lack `id` and `priceCents`, and
  * those saved before ADR 0082 the document check.
  */
-export type DoorCategory = Omit<DoorCategoryRangeDto, "id" | "priceCents" | "checkDocument" | "documentNote"> & {
+export type DoorCategory = Omit<
+  DoorCategoryRangeDto,
+  "id" | "priceCents" | "checkDocument" | "documentNote" | "doorInstruction" | "dayRule" | "validDays"
+> & {
   id?: string;
   priceCents?: number | null;
   checkDocument?: boolean;
   documentNote?: string | null;
+  /** Missing in manifests stored before ADRs 0089 and 0091. */
+  doorInstruction?: string | null;
+  dayRule?: DayRule;
+  validDays?: readonly number[];
 };
 
 /** What the doorkeeper asks to see before letting a ticket in (ADR 0082). */
@@ -168,6 +196,89 @@ export interface DoorContext {
   reentry?: boolean;
   /** Tickets or consumption tokens (ADR 0084): the words of the result. */
   kind?: EventKind;
+  /** The days of an event of several days (ADR 0091); empty: one day. */
+  days?: readonly EventDay[];
+  /** The day the door is on now (its position); `null`: an event of one day. */
+  today?: number | null;
+  /** The checkpoint this phone reads (ADR 0092); `null`: the entrance. */
+  checkpoint?: DoorCheckpointDto | null;
+}
+
+/** The day the door is on at `serverNowMs` (ADR 0091): `null` for an event of one day. */
+export function todayOf(days: readonly EventDay[], serverNowMs: number): number | null {
+  return currentDay(days, serverNowMs);
+}
+
+/** The day rule of `number`'s category; a number without a category is valid every day. */
+export function ruleOf(context: DoorContext, number: number): { rule: DayRule; validDays: readonly number[] } {
+  const range = categoryRangeOf(context.categories, number);
+  return { rule: range?.dayRule ?? "every", validDays: range?.validDays ?? [] };
+}
+
+/**
+ * The book `number` is checked in now (ADR 0091): today's (its position), or `null` for the
+ * whole event ("one day of their choice", a checkpoint used once, an event of one day).
+ */
+export function bookOf(context: DoorContext, number: number): number | null {
+  return ledgerDay(ruleOf(context, number).rule, context.today ?? null, context.checkpoint?.perDay ?? true);
+}
+
+/** The engine's key of a book. */
+export function bookKey(book: number | null): string {
+  return book === null ? "" : `d${String(book)}`;
+}
+
+/**
+ * The days `number` is valid on, when its category is not valid today (ADR 0091); `null` when
+ * it is (always, in an event of one day).
+ */
+export function wrongDay(context: DoorContext, number: number): EventDay[] | null {
+  const { rule, validDays } = ruleOf(context, number);
+  return validOn(rule, validDays, context.today ?? null) ? null : daysOf(rule, validDays, context.days ?? []);
+}
+
+/**
+ * At a checkpoint that only some categories have a right to (ADR 0092), the category of a
+ * `number` without it (`null` name: a number without a category); `null` when it has the right.
+ */
+export function notEntitled(context: DoorContext, number: number): { category: string | null } | null {
+  const checkpoint = context.checkpoint;
+  if (checkpoint === undefined || checkpoint === null || checkpoint.categoryIds.length === 0) {
+    return null;
+  }
+  const range = categoryRangeOf(context.categories, number);
+  return range?.id !== undefined && checkpoint.categoryIds.includes(range.id) ? null : { category: range?.name ?? null };
+}
+
+/** What to do for `number` (ADR 0089): its category's instruction, or the checkpoint's. */
+export function instructionOf(context: DoorContext, number: number): string | null {
+  if (context.checkpoint !== undefined && context.checkpoint !== null) {
+    return context.checkpoint.instruction;
+  }
+  return categoryRangeOf(context.categories, number)?.doorInstruction ?? null;
+}
+
+/**
+ * When a movement happened, as the door says it: "às 18:10", or in an event of several days
+ * "hoje às 18:10" and "no sábado 21/11 às 18:10".
+ */
+export function whenText(context: DoorContext, atUnixMs: number): string {
+  const time = clockTime(atUnixMs);
+  const days = context.days ?? [];
+  const day = currentDay(days, atUnixMs);
+  if (day === null) {
+    return t.at(time);
+  }
+  if (day === (context.today ?? null)) {
+    return t.todayAt(time);
+  }
+  const item = days.find((candidate) => candidate.position === day);
+  return item === undefined ? t.at(time) : t.onDayAt(onDayLabel(item.startsAt), time);
+}
+
+/** The checkpoint's name for the screen, if this phone reads one. */
+function placeOf(context: DoorContext): { place: string } | Record<string, never> {
+  return context.checkpoint === undefined || context.checkpoint === null ? {} : { place: context.checkpoint.name };
 }
 
 /** The session of another date of the series a QR tag belongs to, if any (ADR 0077). */
@@ -283,8 +394,16 @@ export function viewOf(
     seat: number === null ? null : seatOf(context.seats, number),
   };
   const none = { category: null, seat: null };
+  const checkpoint = context.checkpoint !== undefined && context.checkpoint !== null;
   switch (decision.kind) {
     case "admit": {
+      const instruction = instructionOf(context, decision.number);
+      const todoLabel = checkpoint ? t.checkpointInstructionLabel : t.instructionLabel;
+      const todo = instruction === null ? {} : { instruction: { label: todoLabel, text: instruction } };
+      // A checkpoint hands over what it is for (ADR 0092): no charge, no document.
+      if (checkpoint) {
+        return { tone: "ok", title: t.granted, number: label, detail: null, seller: sellerLine, ...tags, ...placeOf(context), ...todo };
+      }
       const price = boxOfficePrice(context, decision.number);
       const document = documentOf(context.categories, decision.number);
       return {
@@ -296,20 +415,31 @@ export function viewOf(
         ...tags,
         ...(price === undefined ? {} : { charge: chargeLine(price) }),
         ...(document === null ? {} : { document }),
+        ...todo,
       };
     }
-    case "already_entered":
+    case "already_entered": {
+      const when = whenText(context, decision.firstEntry.atUnixMs);
+      if (checkpoint) {
+        return {
+          tone: "bad",
+          title: t.used,
+          number: label,
+          detail: t.usedAt(when, decision.firstEntry.deviceName),
+          seller: sellerLine,
+          ...tags,
+          ...placeOf(context),
+        };
+      }
       return {
         tone: "bad",
         title: context.reentry === true ? w.inside : w.alreadyEntered,
         number: label,
-        detail: (context.reentry === true ? w.insideSince : w.alreadyEnteredAt)(
-          clockTime(decision.firstEntry.atUnixMs),
-          decision.firstEntry.deviceName,
-        ),
+        detail: (context.reentry === true ? w.insideSince : w.alreadyEnteredAt)(when, decision.firstEntry.deviceName),
         seller: sellerLine,
         ...tags,
       };
+    }
     // Re-entry (ADR 0083): a return was checked on the way in; no document, no charge again.
     case "readmit":
       return {
@@ -332,7 +462,7 @@ export function viewOf(
         ...tags,
       };
     case "voided":
-      return { tone: "bad", title: w.voided, number: label, detail: t.voidReasons[decision.reason], seller: sellerLine, ...tags };
+      return { tone: "bad", title: w.voided, number: label, detail: t.voidReasons[decision.reason], seller: sellerLine, ...tags, ...placeOf(context) };
     case "other_event": {
       // A ticket of another date of the same event never enters here, but the door says which.
       const session = otherSession(context, decision.eventTag);
@@ -356,8 +486,119 @@ export function wrongDoorView(number: number, wrong: { category: string; doors: 
     seller: null,
     category: categoryOf(context.categories, number),
     seat: seatOf(context.seats, number),
-    override: true,
+    action: { label: w.letInAnyway, hint: t.letInAnywayHint },
   };
+}
+
+/**
+ * Yellow screen of a ticket whose category is not valid today (ADR 0091), with the days it is
+ * valid on. `action`: the door may let it in anyway (never in a rehearsal or a check).
+ */
+export function wrongDayView(number: number, valid: readonly EventDay[], context: DoorContext, action: boolean): ResultView {
+  const w = resultWords(context.kind);
+  const checkpoint = context.checkpoint !== undefined && context.checkpoint !== null;
+  return {
+    tone: "warn",
+    title: t.wrongDay,
+    number: t.number(padNumber(number, context.digits)),
+    detail: valid.length === 0 ? t.wrongDayNone : t.wrongDayOn(dayTexts.list(valid.map((day) => onDayLabel(day.startsAt)))),
+    seller: null,
+    category: categoryOf(context.categories, number),
+    seat: seatOf(context.seats, number),
+    ...placeOf(context),
+    action: action ? { label: checkpoint ? t.grantAnyway : w.letInAnyway, hint: t.letInAnywayDay } : null,
+  };
+}
+
+/**
+ * Yellow screen of a ticket without the right to the checkpoint (ADR 0092). `action`: it may be
+ * handed over anyway, as an exception.
+ */
+export function notEntitledView(number: number, category: string | null, context: DoorContext, action: boolean): ResultView {
+  const place = context.checkpoint?.name ?? "";
+  return {
+    tone: "warn",
+    title: t.notEntitled,
+    number: t.number(padNumber(number, context.digits)),
+    detail: category === null ? t.notEntitledNone(place) : t.notEntitledCategory(category, place),
+    seller: null,
+    category: categoryOf(context.categories, number),
+    seat: seatOf(context.seats, number),
+    ...placeOf(context),
+    action: action ? { label: t.grantAnyway, hint: t.letInAnywayHint } : null,
+  };
+}
+
+/** Words of a check (ADR 0090). */
+const c = portariaTexts.check;
+
+/**
+ * What a check shows (ADR 0090), from the decision of the book the ticket would be checked in
+ * now (nothing is recorded): it passed the entrance (or used the checkpoint), it did not (with a
+ * button that records it now), it is outside, or the same refusal as the door. `stale`: the note
+ * of a phone that has not synced for a while (entries of other phones may be missing).
+ */
+export function checkView(decision: DecisionDto, context: DoorContext, stale: string | null): ResultView {
+  const note = stale === null ? {} : { note: stale };
+  const checkpoint = context.checkpoint !== undefined && context.checkpoint !== null;
+  const place = context.checkpoint?.name ?? "";
+  const number = numberOf(decision);
+  // "Today" only for a ticket checked in day by day; "1 dia, à escolha" has one book (ADR 0091).
+  const today = (context.today ?? null) !== null && number !== null && bookOf(context, number) !== null;
+  const base = {
+    number: number === null ? null : t.number(padNumber(number, context.digits)),
+    seller: number === null ? null : (sellerOf(context.sellers, number) === null ? null : t.seller(sellerOf(context.sellers, number) ?? "")),
+    category: number === null ? null : categoryOf(context.categories, number),
+    seat: number === null ? null : seatOf(context.seats, number),
+    check: true,
+    ...placeOf(context),
+  };
+  switch (decision.kind) {
+    case "already_entered": {
+      const when = whenText(context, decision.firstEntry.atUnixMs);
+      if (checkpoint) {
+        return { ...base, tone: "bad", title: c.used, detail: t.usedAt(when, decision.firstEntry.deviceName), ...note };
+      }
+      const instruction = instructionOf(context, decision.number);
+      return {
+        ...base,
+        tone: "ok",
+        title: c.passed,
+        detail: c.passedAt(when, decision.firstEntry.deviceName),
+        ...(instruction === null ? {} : { instruction: { label: c.instructionLabel, text: instruction } }),
+        ...note,
+      };
+    }
+    case "admit":
+      return checkpoint
+        ? {
+            ...base,
+            tone: "warn",
+            title: c.notUsed,
+            detail: today ? c.notUsedToday(place) : c.notUsedEver(place),
+            action: { label: c.registerUse, hint: c.registerUseHint },
+            ...note,
+          }
+        : {
+            ...base,
+            tone: "warn",
+            title: c.notPassed,
+            detail: today ? c.notPassedToday : c.notPassedEver,
+            action: { label: c.register, hint: c.registerHint },
+            ...note,
+          };
+    case "readmit":
+      return {
+        ...base,
+        tone: "warn",
+        title: c.outside,
+        detail: c.outsideAt(whenText(context, decision.exited.atUnixMs), decision.exited.deviceName),
+        action: { label: c.registerReturn, hint: c.registerHint },
+        ...note,
+      };
+    default:
+      return { ...viewOf(decision, context), check: true };
+  }
 }
 
 /**
@@ -375,13 +616,22 @@ export function rehearsalView(text: string, decision: DecisionDto, context: Door
     return { ...base, tone: "warn", title: r.otherQrTitle, detail: r.otherQrDetail };
   }
   if (isEntry(decision)) {
-    const wrong = wrongDoor(context, decision.number);
+    const valid = wrongDay(context, decision.number);
+    if (valid !== null) {
+      return { ...wrongDayView(decision.number, valid, context, false), rehearsal: true };
+    }
+    const missing = notEntitled(context, decision.number);
+    if (missing !== null) {
+      return { ...notEntitledView(decision.number, missing.category, context, false), rehearsal: true };
+    }
+    const wrong = context.checkpoint === undefined || context.checkpoint === null ? wrongDoor(context, decision.number) : null;
     if (wrong !== null) {
-      return { ...wrongDoorView(decision.number, wrong, context), override: false, rehearsal: true };
+      return { ...wrongDoorView(decision.number, wrong, context), action: null, rehearsal: true };
     }
     // Never the green "PODE ENTRAR" of real work: a volunteer who forgot the rehearsal on could
     // let people in without an entry.
-    return { ...viewOf(decision, context), tone: "warn", title: r.wouldAdmit, rehearsal: true };
+    const title = context.checkpoint === undefined || context.checkpoint === null ? r.wouldAdmit : portariaTexts.rehearsal.wouldGrant;
+    return { ...viewOf(decision, context), tone: "warn", title, rehearsal: true };
   }
   if (decision.kind === "exit") {
     return { ...viewOf(decision, context), tone: "warn", title: r.wouldExit, rehearsal: true };
@@ -413,15 +663,17 @@ export type DismissPolicy = { auto: true; ms: number } | { auto: false };
 
 /**
  * Only a plain "enter" leaves by itself, so the queue keeps moving. Anything to read or act on
- * (a refusal, a warning, a box office charge, a wrong door, a document to check) stays until the
- * doorkeeper taps.
+ * (a refusal, a warning, a box office charge, a wrong door, a document to check, an instruction,
+ * a check) stays until the doorkeeper taps.
  */
 export function dismissPolicy(view: ResultView): DismissPolicy {
   if (
     (view.tone !== "ok" && view.tone !== "exit") ||
-    view.override === true ||
+    (view.action !== undefined && view.action !== null) ||
     (view.charge !== undefined && view.charge !== null) ||
-    (view.document !== undefined && view.document !== null)
+    (view.document !== undefined && view.document !== null) ||
+    (view.instruction !== undefined && view.instruction !== null) ||
+    view.check === true
   ) {
     return { auto: false };
   }
@@ -452,6 +704,18 @@ export function voidedView(
   context: DoorContext,
 ): ResultView {
   return viewOf({ kind: "voided", number, reason }, context);
+}
+
+/**
+ * The note of a check made on a phone that has not synced for a while (ADR 0090): entries of
+ * other phones after `syncedAt` may be missing. `null` when the data is recent.
+ */
+export function staleNote(syncedAt: number | null, now: number): string | null {
+  if (syncedAt === null) {
+    return portariaTexts.check.neverSynced;
+  }
+  const age = now - syncedAt;
+  return age > OFFLINE_WARNING_MS ? portariaTexts.check.stale(Math.floor(age / 60_000)) : null;
 }
 
 /** Screen for an unexpected failure while handling a scan. */

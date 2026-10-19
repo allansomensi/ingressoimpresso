@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select starts_at, ends_at from event_days where event_id = $1 order by position",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "starts_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "event_days",
+            "name": "starts_at"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "ends_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "event_days",
+            "name": "ends_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "355d3b123b04af6f612fa748dffb1081c4dd36f0f38f9313c72732457eb03547"
+}

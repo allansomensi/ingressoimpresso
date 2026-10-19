@@ -94,6 +94,15 @@ pub async fn postpone(
     let original = event.postponed_from_starts_at.unwrap_or(event.starts_at);
     let back_to_original = body.starts_at == original;
     let mut tx = state.pool.begin().await?;
+    // An event of several days moves whole (ADR 0091): every day by the same time as the start.
+    let delta = body.starts_at - event.starts_at;
+    let has_days = !crate::event_days::load(&mut tx, event_id).await?.is_empty();
+    let ends_at = if has_days {
+        crate::event_days::shift(&mut tx, event_id, event_id, delta).await?;
+        event.ends_at + delta
+    } else {
+        body.ends_at
+    };
     let row = sqlx::query_as!(
         EventRow,
         r#"update events
@@ -107,7 +116,7 @@ pub async fn postpone(
                      postpone_reason, canceled_at, cancel_reason, kind"#,
         event_id,
         body.starts_at,
-        body.ends_at,
+        ends_at,
         back_to_original,
         original,
         reason,

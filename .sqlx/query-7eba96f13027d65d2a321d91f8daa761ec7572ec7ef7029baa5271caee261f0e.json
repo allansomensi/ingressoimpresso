@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "delete from checkpoint_categories where checkpoint_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "7eba96f13027d65d2a321d91f8daa761ec7572ec7ef7029baa5271caee261f0e"
+}

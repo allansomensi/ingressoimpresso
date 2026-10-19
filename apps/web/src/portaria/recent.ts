@@ -40,11 +40,26 @@ export interface RecentSummary {
   pending: number;
 }
 
-/** The first entry of `number` other than `scanId`'s own, if it came before `at` (exits aside). */
-function earlierEntry(entries: readonly StoredEntry[], number: number, scanId: string, at: number): StoredEntry | null {
+/**
+ * The first entry of `number` other than `scanId`'s own, if it came before `at` (exits aside), in
+ * the same book (ADR 0091: a pass that entered on Saturday is not a copy on Sunday).
+ */
+function earlierEntry(
+  entries: readonly StoredEntry[],
+  number: number,
+  scanId: string,
+  at: number,
+  book: number | null,
+): StoredEntry | null {
   let first: StoredEntry | null = null;
   for (const entry of entries) {
-    if (entry.exit === true || entry.number !== number || entry.scanId === scanId || entry.atUnixMs > at) {
+    if (
+      entry.exit === true ||
+      entry.number !== number ||
+      entry.scanId === scanId ||
+      entry.atUnixMs > at ||
+      (entry.ledgerDay ?? null) !== book
+    ) {
       continue;
     }
     if (first === null || entry.atUnixMs < first.atUnixMs) {
@@ -54,11 +69,11 @@ function earlierEntry(entries: readonly StoredEntry[], number: number, scanId: s
   return first;
 }
 
-/** The latest exit of `number` before `at` (ADR 0083): where a return came from. */
-function exitBefore(entries: readonly StoredEntry[], number: number, at: number): StoredEntry | null {
+/** The latest exit of `number` before `at` (ADR 0083), in the same book: where a return came from. */
+function exitBefore(entries: readonly StoredEntry[], number: number, at: number, book: number | null): StoredEntry | null {
   let latest: StoredEntry | null = null;
   for (const entry of entries) {
-    if (entry.exit !== true || entry.number !== number || entry.atUnixMs > at) {
+    if (entry.exit !== true || entry.number !== number || entry.atUnixMs > at || (entry.ledgerDay ?? null) !== book) {
       continue;
     }
     if (latest === null || entry.atUnixMs > latest.atUnixMs) {
@@ -100,10 +115,13 @@ export function recentScanOf(
   };
   const first = (entry: { atUnixMs: number; deviceName: string } | null) =>
     entry === null ? null : t.firstEntry(clockTime(entry.atUnixMs), entry.deviceName);
+  const book = scan.ledgerDay ?? null;
+  const earlier = () => (number === null ? null : earlierEntry(entries, number, scan.id, scan.scannedAtMs, book));
 
   // The online confirmation was stricter than the local decision: the screen said this.
   if (scan.verdict?.kind === "already_entered") {
-    return { ...base, tone: "bad", label: t.outcomes.rejected_used, detail: first(scan.verdict) };
+    const used = scan.outcome === "benefit_granted" ? t.outcomes.rejected_benefit_used : t.outcomes.rejected_used;
+    return { ...base, tone: "bad", label: used, detail: first(scan.verdict) };
   }
   if (scan.verdict?.kind === "voided") {
     return { ...base, tone: "bad", label: t.outcomes.rejected_void, detail: r.voidReasons[scan.verdict.reason] };
@@ -112,16 +130,39 @@ export function recentScanOf(
   switch (scan.outcome) {
     case "admitted": {
       // Another phone let the same number in earlier, offline: a copy found after the fact.
-      const earlier = number === null ? null : earlierEntry(entries, number, scan.id, scan.scannedAtMs);
+      const copy = earlier();
       return {
         ...base,
         tone: "ok",
         label: scan.exception === true ? t.outcomes.exception : t.outcomes.admitted,
-        detail: earlier === null ? null : t.copyOf(clockTime(earlier.atUnixMs), earlier.deviceName),
+        detail: copy === null ? null : t.copyOf(clockTime(copy.atUnixMs), copy.deviceName),
       };
     }
+    // A checkpoint (ADR 0092): handed over, already used, or no right.
+    case "benefit_granted": {
+      const copy = earlier();
+      return {
+        ...base,
+        tone: "ok",
+        label: scan.exception === true ? t.outcomes.benefitException : t.outcomes.benefit_granted,
+        detail: copy === null ? null : t.copyOf(clockTime(copy.atUnixMs), copy.deviceName),
+      };
+    }
+    case "rejected_benefit_used": {
+      const use = earlier();
+      return {
+        ...base,
+        tone: "bad",
+        label: t.outcomes.rejected_benefit_used,
+        detail: use === null ? null : t.firstUse(clockTime(use.atUnixMs), use.deviceName),
+      };
+    }
+    case "rejected_not_entitled":
+      return { ...base, tone: "warn", label: t.outcomes.rejected_not_entitled, detail: null };
+    case "rejected_wrong_day":
+      return { ...base, tone: "warn", label: t.outcomes.rejected_wrong_day, detail: null };
     case "readmitted": {
-      const exited = number === null ? null : exitBefore(entries, number, scan.scannedAtMs);
+      const exited = number === null ? null : exitBefore(entries, number, scan.scannedAtMs, book);
       return {
         ...base,
         tone: "ok",
@@ -138,7 +179,7 @@ export function recentScanOf(
         ...base,
         tone: "bad",
         label: t.outcomes.rejected_used,
-        detail: first(number === null ? null : earlierEntry(entries, number, scan.id, scan.scannedAtMs)),
+        detail: first(earlier()),
       };
     case "rejected_void":
       return { ...base, tone: "bad", label: t.outcomes.rejected_void, detail: voidReasonOf(scan, voids) };
@@ -175,7 +216,10 @@ export function recentScans(
 export function recentSummary(scans: readonly StoredScan[]): RecentSummary {
   const summary = { admitted: 0, exits: 0, refused: 0, pending: 0 };
   for (const scan of scans) {
-    if ((scan.outcome === "admitted" || scan.outcome === "readmitted") && scan.verdict === undefined) {
+    if (
+      (scan.outcome === "admitted" || scan.outcome === "readmitted" || scan.outcome === "benefit_granted") &&
+      scan.verdict === undefined
+    ) {
       summary.admitted += 1;
     } else if (scan.outcome === "exited") {
       summary.exits += 1;

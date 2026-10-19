@@ -2,6 +2,8 @@
 import type { DoorLiveBoxOfficeDto } from "./DoorLiveBoxOfficeDto";
 import type { DoorLiveBucketDto } from "./DoorLiveBucketDto";
 import type { DoorLiveCategoryDto } from "./DoorLiveCategoryDto";
+import type { DoorLiveCheckpointDto } from "./DoorLiveCheckpointDto";
+import type { DoorLiveDayDto } from "./DoorLiveDayDto";
 import type { DoorLiveDeviceDto } from "./DoorLiveDeviceDto";
 import type { DoorLiveDoorDto } from "./DoorLiveDoorDto";
 import type { DoorLiveGuestsDto } from "./DoorLiveGuestsDto";
@@ -64,6 +66,18 @@ boxOffice: DoorLiveBoxOfficeDto,
  * Exit and return (ADR 0083); `null` when the event does not allow it and nobody went out.
  */
 reentry: DoorLiveReentryDto | null, 
+/**
+ * Entries per day of an event of several days (ADR 0091); empty for one day.
+ */
+days: Array<DoorLiveDayDto>, 
+/**
+ * The day the door is on now (1 for the first); `null` for an event of one day.
+ */
+today: number | null, 
+/**
+ * Uses of each checkpoint (ADR 0092).
+ */
+checkpoints: Array<DoorLiveCheckpointDto>, 
 /**
  * Server clock.
  */

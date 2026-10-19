@@ -135,15 +135,18 @@ fn area(method: &str, shape: &str) -> Need {
             | "door-accesses/{id}/link"
             | "door-devices/{id}/revoke"
             | "events/{id}/guests"
-            | "events/{id}/guests/bulk",
+            | "events/{id}/guests/bulk"
+            // Checkpoints (ADR 0092).
+            | "events/{id}/checkpoints",
         )
         | (
             "PUT",
             "door-accesses/{id}/categories" | "guests/{id}"
             // Exit and return (ADR 0083).
-            | "events/{id}/door-settings",
+            | "events/{id}/door-settings"
+            | "checkpoints/{id}",
         )
-        | ("DELETE", "guests/{id}") => Need::Area(TeamArea::Door),
+        | ("DELETE", "guests/{id}" | "checkpoints/{id}") => Need::Area(TeamArea::Door),
         // Categories set prices, so they belong to coordination.
         ("PUT", "events/{id}" | "team-members/{id}" | "categories/{id}")
         | (
@@ -620,6 +623,7 @@ mod tests {
     }
 
     #[test]
+    #[expect(clippy::too_many_lines, reason = "one table of every route")]
     fn requests_map_to_areas() {
         let cases = [
             (Method::GET, "events/{id}/sellers", Need::Read),
@@ -661,6 +665,17 @@ mod tests {
             (
                 Method::POST,
                 "events/{id}/door/accesses",
+                Need::Area(TeamArea::Door),
+            ),
+            (
+                Method::POST,
+                "events/{id}/checkpoints",
+                Need::Area(TeamArea::Door),
+            ),
+            (Method::PUT, "checkpoints/{id}", Need::Area(TeamArea::Door)),
+            (
+                Method::DELETE,
+                "checkpoints/{id}",
                 Need::Area(TeamArea::Door),
             ),
             (Method::PUT, "events/{id}", Need::Area(TeamArea::Manage)),

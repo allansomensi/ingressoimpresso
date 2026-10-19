@@ -63,7 +63,7 @@ describe("rehearsal (ADR 0067)", () => {
   it("shows what would happen to a real ticket, without the way around the wrong door", () => {
     // Never the green of real work: the volunteer cannot mistake it for an entry.
     expect(rehearsalView("x", { kind: "admit", number: 20 }, context)).toMatchObject({ tone: "warn", title: "ENTRARIA", rehearsal: true });
-    expect(rehearsalView("x", { kind: "admit", number: 3 }, context)).toMatchObject({ tone: "warn", override: false, rehearsal: true });
+    expect(rehearsalView("x", { kind: "admit", number: 3 }, context)).toMatchObject({ tone: "warn", action: null, rehearsal: true });
     expect(rehearsalView("x", { kind: "invalid", reason: "bad_signature" }, context)).toMatchObject({ tone: "bad", rehearsal: true });
   });
 });

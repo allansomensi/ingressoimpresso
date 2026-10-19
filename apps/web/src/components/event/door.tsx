@@ -2,6 +2,7 @@
 
 import type {
   CategoryDto,
+  CheckpointDto,
   CreateDoorAccessBody,
   CreatedDoorAccess,
   DoorAccessCategoriesBody,
@@ -9,10 +10,12 @@ import type {
   DoorDeviceDto,
   DoorOverviewDto,
   DoorSettingsBody,
+  EventDayDto,
   EventKind,
 } from "@ingressoimpresso/api-types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  BadgeCheck,
   Check,
   ChevronDown,
   ClipboardCheck,
@@ -55,7 +58,8 @@ import {
 import { api, fetchBlobUrl } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { shortDateTime } from "@/lib/format";
-import { useEventTexts } from "@/components/event/access";
+import { useEventAccess, useEventTexts } from "@/components/event/access";
+import { CheckpointsCard } from "@/components/event/checkpoints";
 import { common as commonTexts } from "@/texts/pt-BR/common";
 
 import { useLivePolling } from "./live-polling";
@@ -76,26 +80,36 @@ function accessState(access: DoorAccessDto, now: number): "active" | "expired" |
   return Date.parse(access.expiresAt) <= now ? "expired" : "active";
 }
 
-/** A link for the people at one door: its name and, if the event has them, the categories it lets in. */
+/**
+ * A link for the people at one door: its name and, if the event has them, the categories it lets
+ * in; or a link of a checkpoint (ADR 0092), whose rules are the checkpoint's.
+ */
 function NewLinkDialog({
   eventId,
   open,
   categories,
+  checkpoints,
+  initialCheckpoint,
   onClose,
   onCreated,
 }: {
   eventId: string;
   open: boolean;
   categories: CategoryDto[];
+  checkpoints: readonly CheckpointDto[];
+  /** Opened from a checkpoint: its link. */
+  initialCheckpoint: CheckpointDto | null;
   onClose: () => void;
   onCreated: (result: CreatedDoorAccess) => void;
 }) {
   const t = useEventTexts().door;
-  const [label, setLabel] = useState<string>(t.defaultLabel);
+  const [checkpointId, setCheckpointId] = useState<string | null>(initialCheckpoint?.id ?? null);
+  const [label, setLabel] = useState<string>(initialCheckpoint?.name ?? t.defaultLabel);
   const [chosen, setChosen] = useState<string[]>([]);
   const create = useMutation({
     mutationFn: () => {
-      const body: CreateDoorAccessBody = { label: label.trim(), categoryIds: chosen };
+      const body: CreateDoorAccessBody =
+        checkpointId === null ? { label: label.trim(), categoryIds: chosen } : { label: label.trim(), categoryIds: [], checkpointId };
       return api<CreatedDoorAccess>(`/api/events/${eventId}/door/accesses`, { method: "POST", body });
     },
     onSuccess: (result) => {
@@ -127,6 +141,43 @@ function NewLinkDialog({
       }
     >
       <form id="new-door-link-form" onSubmit={submit} className="flex flex-col gap-4">
+        {checkpoints.length > 0 && (
+          <fieldset className="flex flex-col gap-2">
+            <legend className="mb-2 text-sm font-medium text-fg">{t.linkFor}</legend>
+            {[null, ...checkpoints].map((checkpoint) => {
+              const id = checkpoint?.id ?? null;
+              const selected = checkpointId === id;
+              return (
+                <label
+                  key={id ?? "entrance"}
+                  className={cn(
+                    "flex cursor-pointer items-start gap-3 rounded-xl border p-3 text-sm transition has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand",
+                    selected ? "border-brand bg-brand-soft/60 text-fg" : "border-border text-fg-muted hover:border-border-strong",
+                  )}
+                >
+                  <input
+                    type="radio"
+                    name="door-link-for"
+                    className="mt-0.5 size-4 accent-brand"
+                    checked={selected}
+                    onChange={() => {
+                      // The name follows the choice until it is typed by hand.
+                      const names = [t.defaultLabel, ...checkpoints.map((item) => item.name)];
+                      if (names.includes(label.trim())) {
+                        setLabel(checkpoint?.name ?? t.defaultLabel);
+                      }
+                      setCheckpointId(id);
+                    }}
+                  />
+                  <span className="flex flex-col gap-0.5">
+                    <span className="font-medium text-fg">{checkpoint === null ? t.linkEntrance : checkpoint.name}</span>
+                    <span className="text-xs leading-relaxed">{checkpoint === null ? t.linkEntranceHint : t.linkCheckpointHint(checkpoint.name)}</span>
+                  </span>
+                </label>
+              );
+            })}
+          </fieldset>
+        )}
         <Field label={t.label}>
           <Input
             value={label}
@@ -137,7 +188,8 @@ function NewLinkDialog({
             }}
           />
         </Field>
-        {categories.length > 0 && (
+        {checkpointId !== null && <p className="text-xs leading-relaxed text-fg-muted">{t.checkpointLinkHint}</p>}
+        {categories.length > 0 && checkpointId === null && (
           <fieldset className="flex flex-col gap-2">
             <legend className="mb-2 text-sm font-medium text-fg">{t.categories}</legend>
             <CategoryChips categories={categories} chosen={chosen} onChange={setChosen} />
@@ -150,8 +202,9 @@ function NewLinkDialog({
   );
 }
 
-export function DoorTab({ eventId, kind = "tickets" }: { eventId: string; kind?: EventKind }) {
+export function DoorTab({ eventId, kind = "tickets", days = [] }: { eventId: string; kind?: EventKind; days?: readonly EventDayDto[] }) {
   const t = useEventTexts().door;
+  const { can } = useEventAccess();
   const queryClient = useQueryClient();
   const confirm = useConfirm();
   const key = ["door", eventId];
@@ -165,7 +218,8 @@ export function DoorTab({ eventId, kind = "tickets" }: { eventId: string; kind?:
     queryKey: ["categories", eventId],
     queryFn: () => api<CategoryDto[]>(`/api/events/${eventId}/categories`),
   });
-  const [creating, setCreating] = useState(false);
+  // The new link dialog, opened for the entrance or for a checkpoint (ADR 0092).
+  const [creating, setCreating] = useState<{ checkpoint: CheckpointDto | null } | null>(null);
   const [editing, setEditing] = useState<DoorAccessDto | null>(null);
   const [created, setCreated] = useState<{ url: string; label: string; renewed: boolean } | null>(null);
   const createdRef = useRef<HTMLDivElement | null>(null);
@@ -257,6 +311,9 @@ export function DoorTab({ eventId, kind = "tickets" }: { eventId: string; kind?:
     device.revokedAt === null && device.lastSeenAt !== null && now - Date.parse(device.lastSeenAt) < ONLINE_MS;
   const activeLinks = overview.data.accesses.filter((access) => accessState(access, now) === "active").length;
   const eventCategories = categories.data ?? [];
+  // Checkpoints (ADR 0092); servers before them send none.
+  const checkpoints = (overview.data.checkpoints as CheckpointDto[] | undefined) ?? [];
+  const checkpointNames = new Map(checkpoints.map((checkpoint) => [checkpoint.id, checkpoint.name]));
 
   return (
     <div className="flex flex-col gap-6">
@@ -267,7 +324,7 @@ export function DoorTab({ eventId, kind = "tickets" }: { eventId: string; kind?:
           <Button
             icon={<Plus />}
             onClick={() => {
-              setCreating(true);
+              setCreating({ checkpoint: null });
             }}
           >
             {t.newLink}
@@ -275,11 +332,14 @@ export function DoorTab({ eventId, kind = "tickets" }: { eventId: string; kind?:
         }
       />
       <NewLinkDialog
+        key={creating?.checkpoint?.id ?? "entrance"}
         eventId={eventId}
-        open={creating}
+        open={creating !== null}
         categories={eventCategories}
+        checkpoints={checkpoints}
+        initialCheckpoint={creating?.checkpoint ?? null}
         onClose={() => {
-          setCreating(false);
+          setCreating(null);
         }}
         onCreated={(result) => {
           setCreated({ url: doorUrl(result.token), label: result.access.label, renewed: false });
@@ -354,7 +414,14 @@ export function DoorTab({ eventId, kind = "tickets" }: { eventId: string; kind?:
                       <span className="text-xs text-fg-muted">
                         {state === "active" ? t.activeUntil(shortDateTime(access.expiresAt)) : state === "expired" ? t.expired : t.revoked}
                       </span>
-                      {eventCategories.length > 0 && (
+                      {access.checkpointId !== null ? (
+                        <span className="flex">
+                          <Badge tone="brand">
+                            <BadgeCheck className="size-3.5" aria-hidden />
+                            {t.checkpointBadge(checkpointNames.get(access.checkpointId) ?? "")}
+                          </Badge>
+                        </span>
+                      ) : eventCategories.length > 0 && (
                         <span className="flex flex-wrap gap-1">
                           {access.categoryIds.length === 0 ? (
                             <span className="text-xs text-fg-subtle">{t.allCategories}</span>
@@ -396,7 +463,7 @@ export function DoorTab({ eventId, kind = "tickets" }: { eventId: string; kind?:
                     {/* The rarer actions wait in a menu: the row keeps to the name and the link. */}
                     {state === "active" ? (
                       <Menu label={t.linkMenu(access.label)} trigger={<MoreHorizontal />} triggerClassName={buttonClass({ variant: "ghost", size: "icon-sm" })}>
-                        {eventCategories.length > 0 && (
+                        {eventCategories.length > 0 && access.checkpointId === null && (
                           <MenuItem
                             icon={<Tags />}
                             onSelect={() => {
@@ -492,6 +559,20 @@ export function DoorTab({ eventId, kind = "tickets" }: { eventId: string; kind?:
           )}
         </Card>
       </div>
+
+      {/* A consumption token is the consumption itself: no checkpoints (ADR 0092). */}
+      {kind !== "tokens" && (
+        <CheckpointsCard
+          eventId={eventId}
+          checkpoints={checkpoints}
+          categories={eventCategories}
+          days={days}
+          editable={can("door")}
+          onCreateLink={(checkpoint) => {
+            setCreating({ checkpoint });
+          }}
+        />
+      )}
 
       {/* A consumption token is used once: no exit and return (ADR 0084). */}
       {kind !== "tokens" && (
