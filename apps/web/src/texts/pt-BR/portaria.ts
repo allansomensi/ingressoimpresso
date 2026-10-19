@@ -141,6 +141,8 @@ export const portaria = {
     notEntitledCategory: (category: string, place: string) => `A categoria ${category} não dá direito a “${place}”.`,
     notEntitledNone: (place: string) => `Este ingresso não tem uma categoria com direito a “${place}”.`,
     grantAnyway: "Liberar mesmo assim",
+    // Already handed over: the checkpoint's own words (ADR 0092).
+    checkpointInstructionLabel: "Instrução do ponto",
     // Result screen timing: only "enter" goes back to the camera by itself.
     autoHint: "Volta sozinho para a câmera · segure para ler com calma",
     held: "Parado · toque para continuar",

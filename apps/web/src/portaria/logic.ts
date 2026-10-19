@@ -398,7 +398,8 @@ export function viewOf(
   switch (decision.kind) {
     case "admit": {
       const instruction = instructionOf(context, decision.number);
-      const todo = instruction === null ? {} : { instruction: { label: t.instructionLabel, text: instruction } };
+      const todoLabel = checkpoint ? t.checkpointInstructionLabel : t.instructionLabel;
+      const todo = instruction === null ? {} : { instruction: { label: todoLabel, text: instruction } };
       // A checkpoint hands over what it is for (ADR 0092): no charge, no document.
       if (checkpoint) {
         return { tone: "ok", title: t.granted, number: label, detail: null, seller: sellerLine, ...tags, ...placeOf(context), ...todo };
@@ -541,8 +542,9 @@ export function checkView(decision: DecisionDto, context: DoorContext, stale: st
   const note = stale === null ? {} : { note: stale };
   const checkpoint = context.checkpoint !== undefined && context.checkpoint !== null;
   const place = context.checkpoint?.name ?? "";
-  const today = (context.today ?? null) !== null;
   const number = numberOf(decision);
+  // "Today" only for a ticket checked in day by day; "1 dia, à escolha" has one book (ADR 0091).
+  const today = (context.today ?? null) !== null && number !== null && bookOf(context, number) !== null;
   const base = {
     number: number === null ? null : t.number(padNumber(number, context.digits)),
     seller: number === null ? null : (sellerOf(context.sellers, number) === null ? null : t.seller(sellerOf(context.sellers, number) ?? "")),
