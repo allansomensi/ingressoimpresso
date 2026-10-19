@@ -36,8 +36,19 @@ describe("live door", () => {
 
   it("adds the refusals that let nobody in", () => {
     expect(
-      refusalCount({ blockedCopies: 2, offlineDuplicates: 9, invalid: 1, otherEvent: 1, voided: 3, voidEntries: 9, wrongDoor: 4, wrongDoorAdmitted: 9 }),
-    ).toBe(11);
+      refusalCount({
+        blockedCopies: 2,
+        offlineDuplicates: 9,
+        invalid: 1,
+        otherEvent: 1,
+        voided: 3,
+        voidEntries: 9,
+        wrongDoor: 4,
+        wrongDoorAdmitted: 9,
+        wrongDay: 5,
+        wrongDayAdmitted: 9,
+      }),
+    ).toBe(16);
   });
 
   it("shows the live card on the day of the event", () => {

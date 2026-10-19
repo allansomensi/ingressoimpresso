@@ -129,16 +129,21 @@ function FoldButton({ open, onClick, children }: { open: boolean; onClick: () =>
   );
 }
 
+/** "3 de 4 vendedores com link", "1 de 2 pontos com link" (ADR 0092). */
+function progressText(t: typeof checklistTexts, item: ChecklistItemDto, progress: { done: number; total: number }): string {
+  return (item.key === "checkpoint_links" ? t.checkpointLinks : t.sellerLinks)(progress.done, progress.total);
+}
+
 /** What the row says under the title: why it is missing, how far, or who takes care of it. */
 function detail(t: typeof checklistTexts, item: ChecklistItemDto): string {
   if (item.state === "done") {
-    return item.progress === null ? t.items[item.key].body : t.sellerLinks(item.progress.done, item.progress.total);
+    return item.progress === null ? t.items[item.key].body : progressText(t, item, item.progress);
   }
   if (item.hint !== null) {
     return t.hints[item.hint];
   }
   if (item.progress !== null) {
-    return t.sellerLinks(item.progress.done, item.progress.total);
+    return progressText(t, item, item.progress);
   }
   return t.items[item.key].body;
 }

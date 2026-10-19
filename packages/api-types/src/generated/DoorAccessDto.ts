@@ -27,4 +27,8 @@ createdAt: string,
 /**
  * Categories this door admits (ADR 0068); empty: every ticket.
  */
-categoryIds: string[], };
+categoryIds: string[], 
+/**
+ * The checkpoint the link reads (ADR 0092); `null`: the entrance.
+ */
+checkpointId: string | null, };

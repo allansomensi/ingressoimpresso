@@ -204,8 +204,10 @@ pub async fn add_date(
     .await?;
     tx.commit().await?;
     copied.check_art(&state);
+    let offset = copied.event.offset();
     let mut event = copied.event.into_dto(access.organization_name)?;
     event.series = of_event(&state.pool, event.id).await?;
+    event.days = crate::event_days::of_event(&state.pool, event.id, offset).await?;
     Ok((StatusCode::CREATED, Json(event)))
 }
 
@@ -456,7 +458,9 @@ async fn build(state: &AppState, user: &AuthUser, access: SeriesAccess) -> ApiRe
             }
         }
         shown.push(event.clone());
+        let offset = event.offset();
         let mut dto = event.into_dto(access.organization_name.clone())?;
+        dto.days = crate::event_days::of_event(&state.pool, dto.id, offset).await?;
         dto.support_access = access.support;
         dto.team = team.map(|areas| EventTeamAccessDto {
             areas,

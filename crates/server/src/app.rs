@@ -31,7 +31,7 @@ use crate::routes::{
     seller_links, seller_sync, sellers, settlement, status, support, tables, team, tickets,
     two_factor, voids,
 };
-use crate::routes::{checklist, pix, series};
+use crate::routes::{checklist, checkpoints, pix, series};
 use crate::routes::{referrals, verify};
 use crate::state::AppState;
 
@@ -301,6 +301,14 @@ pub fn router(state: AppState) -> Router {
         .route("/door-accesses/{id}/revoke", post(door::revoke_access))
         .route("/door-accesses/{id}/link", post(door::new_link))
         .route("/door-devices/{id}/revoke", post(door::revoke_device))
+        .route(
+            "/events/{id}/checkpoints",
+            get(checkpoints::list).post(checkpoints::create),
+        )
+        .route(
+            "/checkpoints/{id}",
+            put(checkpoints::update).delete(checkpoints::delete),
+        )
         .route("/door/register", post(door::register))
         .route("/door/manifest", get(door::manifest))
         .route("/door/scans", post(door::upload_scans))

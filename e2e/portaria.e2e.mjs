@@ -5,7 +5,9 @@
 // registration, manifest, camera + zxing reading, local decision, online confirmation of a copy,
 // the app opening offline from the service worker, an offline decision, sync on reconnect and
 // convergence of the first entry across phones; then the door features (ADRs 0067–0071):
-// rehearsal, a door limited to a category, the guest list and the live view.
+// rehearsal, a door limited to a category, the guest list and the live view; and an event of
+// several days (ADRs 0089–0092): a day a ticket is not valid on, the instruction on the green
+// screen, a check that records nothing (and records on request) and a checkpoint.
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -198,23 +200,32 @@ const event = await api("/api/events", {
     ticketPriceCents: 2000,
   },
 });
-const batch = await api(`/api/events/${event.id}/batches`, { token, body: { quantity: 5 } });
-// Free tickets (ADR 0039) may cover the batch already; otherwise the admin marks it as paid.
-if (batch.status !== "paid") {
-  await enableTwoFactor(token);
-  await api(`/api/admin/batches/${batch.id}/mark-paid`, { token, method: "POST" });
-}
-const seller = await api(`/api/events/${event.id}/sellers`, { token, body: { name: "João" } });
-await api(`/api/sellers/${seller.id}/ranges`, { token, body: { first: 1, last: 5 } });
+let twoFactor = false;
 
-const exported = await api(`/api/events/${event.id}/exports`, {
-  token,
-  body: { kind: "whatsapp", scope: { type: "all" } },
-});
-await until("WhatsApp export", async () => (await api(`/api/exports/${exported.id}`, { token })).status === "done");
-const link = await api(`/api/exports/${exported.id}/link`, { token, method: "POST" });
-const zip = unzip(await (await fetch(link.url)).arrayBuffer().then((bytes) => Buffer.from(bytes)));
-const ticket = (number) => zip.get(`João/${String(number).padStart(4, "0")}.jpg`);
+/** Five paid tickets of `eventId`, all with the seller João; returns each ticket's image. */
+async function fiveTickets(eventId) {
+  const batch = await api(`/api/events/${eventId}/batches`, { token, body: { quantity: 5 } });
+  // Free tickets (ADR 0039) may cover the batch already; otherwise the admin marks it as paid.
+  if (batch.status !== "paid") {
+    if (!twoFactor) {
+      await enableTwoFactor(token);
+      twoFactor = true;
+    }
+    await api(`/api/admin/batches/${batch.id}/mark-paid`, { token, method: "POST" });
+  }
+  const seller = await api(`/api/events/${eventId}/sellers`, { token, body: { name: "João" } });
+  await api(`/api/sellers/${seller.id}/ranges`, { token, body: { first: 1, last: 5 } });
+  const exported = await api(`/api/events/${eventId}/exports`, {
+    token,
+    body: { kind: "whatsapp", scope: { type: "all" } },
+  });
+  await until("WhatsApp export", async () => (await api(`/api/exports/${exported.id}`, { token })).status === "done");
+  const link = await api(`/api/exports/${exported.id}/link`, { token, method: "POST" });
+  const zip = unzip(await (await fetch(link.url)).arrayBuffer().then((bytes) => Buffer.from(bytes)));
+  return (number) => zip.get(`João/${String(number).padStart(4, "0")}.jpg`);
+}
+
+const ticket = await fiveTickets(event.id);
 assert.ok(ticket(1) && ticket(2), "the ZIP holds the tickets");
 
 const access = await api(`/api/events/${event.id}/door/accesses`, { token, body: { label: "Ensaio" } });
@@ -368,4 +379,125 @@ console.log("ok: report counts the door");
 for (const device of [a, b, c, d, e, f]) {
   await device.browser.close();
 }
+
+// 7. An event of two days (ADR 0091): yesterday and today. Passes enter every day and get a
+// wristband (ADR 0089); "Sábado" was valid only yesterday; "1 dia" enters once. A check (ADR
+// 0090) records nothing until asked; dinner (ADR 0092) is for passes, once a day.
+const hour = 3_600_000;
+const iso = (ms) => new Date(ms).toISOString();
+const now = Date.now();
+const days = [
+  { startsAt: iso(now - 26 * hour), endsAt: iso(now - 20 * hour) },
+  { startsAt: iso(now - hour), endsAt: iso(now + 6 * hour) },
+];
+const weekend = await api("/api/events", {
+  token,
+  body: { name: "Encontro de dois dias", venue: "Sítio", startsAt: days[0].startsAt, endsAt: days[1].endsAt, ticketPriceCents: 5000, days },
+});
+assert.equal(weekend.days.length, 2);
+const category = async (name, color, first, last, extra) => {
+  const created = await api(`/api/events/${weekend.id}/categories`, { token, body: { name, color, priceCents: null, ...extra } });
+  await api(`/api/categories/${created.id}/ranges`, { token, body: { first, last } });
+  return created;
+};
+const pass = await category("Passe", "#ea580c", 1, 2, { doorInstruction: "Pulseira laranja" });
+await category("Sábado", "#2563eb", 3, 3, { dayRule: "days", validDays: [1] });
+await category("1 dia", "#16a34a", 4, 5, { dayRule: "any_one" });
+const dinner = await api(`/api/events/${weekend.id}/checkpoints`, {
+  token,
+  body: { name: "Janta", instruction: "Entregar o prato", perDay: true, categoryIds: [pass.id] },
+});
+const gate = await api(`/api/events/${weekend.id}/door/accesses`, { token, body: { label: "Portão" } });
+const dinnerLink = await api(`/api/events/${weekend.id}/door/accesses`, { token, body: { label: "Janta", checkpointId: dinner.id } });
+assert.equal(dinnerLink.access.checkpointId, dinner.id);
+const weekendTicket = await fiveTickets(weekend.id);
+const tools = await chromium.launch();
+const passCamera = await cameraFile(tools, weekendTicket(1), "weekend-1");
+const saturdayCamera = await cameraFile(tools, weekendTicket(3), "weekend-3");
+const oneDayCamera = await cameraFile(tools, weekendTicket(4), "weekend-4");
+await tools.close();
+const gateLink = `${WEB}/portaria#acesso=${gate.token}`;
+const dinnerUrl = `${WEB}/portaria#acesso=${dinnerLink.token}`;
+
+// A pass enters today with its wristband: the green screen waits for the tap.
+const g = await phone(passCamera);
+await register(g, gateLink, "Portão G");
+await g.page.getByText(/dia 2 de 2/).waitFor({ timeout: TIMEOUT });
+result = await readOnce(g, "g-pass");
+assert.equal(result.tone, "ok", result.text);
+assert.match(result.text, /PODE ENTRAR[\s\S]*Nº 0001[\s\S]*pulseira laranja/i);
+await g.page.waitForTimeout(2_500);
+assert.equal(await g.page.locator('[data-tone="ok"]').count(), 1, "the instruction holds the screen");
+await g.browser.close();
+
+// "Sábado" was valid yesterday only: turned away, then let in as an exception.
+const h = await phone(saturdayCamera);
+await register(h, gateLink, "Portão H");
+result = await readOnce(h, "h-wrong-day");
+assert.equal(result.tone, "warn", result.text);
+assert.match(result.text, /NÃO VALE HOJE[\s\S]*Nº 0003[\s\S]*vale só/);
+await h.page.getByRole("button", { name: "Deixar entrar mesmo assim" }).click();
+await h.page.locator('[data-tone="ok"]').waitFor({ timeout: TIMEOUT });
+await h.browser.close();
+console.log("ok: days, the wristband and a day the ticket is not valid");
+
+// A check (ADR 0090): the pass is there; the "1 dia" is not, and is recorded on request.
+const i = await phone(passCamera);
+await register(i, gateLink, "Ronda I");
+await i.page.getByRole("radio", { name: "Conferir" }).click();
+await i.page.getByText("CONFERÊNCIA · só consulta, nada é registrado").waitFor({ timeout: TIMEOUT });
+result = await readOnce(i, "i-check-passed");
+assert.equal(result.tone, "ok", result.text);
+assert.match(result.text, /Conferência: nada foi registrado[\s\S]*PASSOU PELA ENTRADA[\s\S]*Portão G/);
+await i.browser.close();
+const j = await phone(oneDayCamera);
+await register(j, gateLink, "Ronda J");
+await j.page.getByRole("radio", { name: "Conferir" }).click();
+result = await readOnce(j, "j-check-missing");
+assert.equal(result.tone, "warn", result.text);
+assert.match(result.text, /NÃO PASSOU PELA ENTRADA[\s\S]*Nº 0004/);
+const before = (await api(`/api/events/${weekend.id}/door`, { token })).entryCount;
+assert.equal(before, 2, "a check records nothing");
+await j.page.getByRole("button", { name: "Registrar a entrada agora" }).click();
+await j.page.locator('[data-tone="ok"]').waitFor({ timeout: TIMEOUT });
+assert.match(await j.page.locator("[data-tone]").innerText(), /PODE ENTRAR[\s\S]*Nº 0004/);
+await j.browser.close();
+console.log("ok: a check records nothing, and records on request");
+
+// Dinner (ADR 0092): the pass gets it once; a second phone says it was used; "1 dia" has no right.
+const k = await phone(passCamera);
+await register(k, dinnerUrl, "Janta K");
+await k.page.getByText("PONTO DE CONTROLE · Janta").waitFor({ timeout: TIMEOUT });
+result = await readOnce(k, "k-dinner");
+assert.equal(result.tone, "ok", result.text);
+assert.match(result.text, /JANTA[\s\S]*LIBERADO[\s\S]*entregar o prato/i);
+await k.browser.close();
+const l = await phone(passCamera);
+await register(l, dinnerUrl, "Janta L");
+result = await readOnce(l, "l-dinner-again");
+assert.equal(result.tone, "bad", result.text);
+assert.match(result.text, /JÁ USOU[\s\S]*Janta K/);
+await l.browser.close();
+const m = await phone(oneDayCamera);
+await register(m, dinnerUrl, "Janta M");
+result = await readOnce(m, "m-no-right");
+assert.equal(result.tone, "warn", result.text);
+assert.match(result.text, /SEM DIREITO[\s\S]*1 dia/);
+const weekendLive = await until("the live view of the weekend", async () => {
+  const view = await api(`/api/events/${weekend.id}/door/live`, { token });
+  const janta = view.checkpoints.find((item) => item.id === dinner.id);
+  return janta !== undefined && janta.repeats === 1 && janta.notEntitled === 1 && view.refusals.wrongDay === 1 ? view : null;
+});
+await m.browser.close();
+assert.equal(weekendLive.today, 2);
+assert.deepEqual(
+  weekendLive.days.map((day) => day.entries),
+  [0, 3],
+);
+assert.equal(weekendLive.entries, 3, "a dinner is never an entry");
+assert.equal(weekendLive.refusals.wrongDayAdmitted, 1);
+assert.equal(weekendLive.checkpoints[0].used, 1);
+assert.equal(weekendLive.checkpoints[0].entitled, 2);
+console.log("ok: a checkpoint with its own book, and the live view of the days");
+
 console.log("door e2e: all checks passed");

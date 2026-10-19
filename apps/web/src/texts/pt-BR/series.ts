@@ -20,6 +20,9 @@ export const series = {
   ownTitle: "Cada data tem os seus",
   ownItems: ["Números, lotes e arquivos", "Portaria, celulares e QR próprios", "Acerto e relatório"],
   ownNote: "Um ingresso de uma data nunca entra na portaria de outra.",
+  // Several days (ADR 0091) is the other way: one ticket for every day.
+  daysInstead:
+    "O mesmo público volta nos outros dias com o mesmo ingresso (festival, passe de 2 dias, “1 dia à escolha”)? Não crie outra data: em Editar evento, ligue “O evento dura mais de um dia”.",
   add: "Adicionar data",
   added: "Data adicionada. Você está na nova data.",
   leave: "Tirar desta série",

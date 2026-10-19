@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select max(day) from scans where event_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "max",
+        "type_info": "Int2",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "129c408948b36b2bbe426d8d6a37e4498b48579d85919cad03a5bb90f6ab3abd"
+}

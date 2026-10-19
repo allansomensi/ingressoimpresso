@@ -93,8 +93,8 @@ describe("exit and return (ADR 0083)", () => {
 
   it("says who is inside instead of who entered", () => {
     const decision = { kind: "already_entered", number: 12, firstEntry: { atUnixMs: at("23:00"), deviceName: "Porta 2" } } as const;
-    expect(viewOf(decision, reentry)).toMatchObject({ title: r.inside, detail: r.insideSince("23:00", "Porta 2") });
-    expect(viewOf(decision, context)).toMatchObject({ title: r.alreadyEntered, detail: r.alreadyEnteredAt("23:00", "Porta 2") });
+    expect(viewOf(decision, reentry)).toMatchObject({ title: r.inside, detail: r.insideSince("às 23:00", "Porta 2") });
+    expect(viewOf(decision, context)).toMatchObject({ title: r.alreadyEntered, detail: r.alreadyEnteredAt("às 23:00", "Porta 2") });
   });
 
   it("never shows a rehearsal exit as the real thing", () => {

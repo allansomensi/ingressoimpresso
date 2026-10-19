@@ -3,7 +3,7 @@
  * (crates/render/src/fields.rs). Used by the live preview; both sides test the same examples.
  */
 
-import type { EventDto } from "@ingressoimpresso/api-types";
+import type { EventDayDto, EventDto } from "@ingressoimpresso/api-types";
 
 import { wallClock } from "@/lib/event-time";
 
@@ -21,6 +21,7 @@ export const FIELDS = [
   "preco",
   "organizacao",
   "categoria",
+  "dias",
 ] as const;
 
 export type Field = (typeof FIELDS)[number];
@@ -49,6 +50,8 @@ const FREE_PRICE = "Gratuito";
 export type EventFields = Pick<EventDto, "name" | "venue" | "startsAt" | "ticketPriceCents"> & {
   organizationName?: string | null | undefined;
   categoryName?: string | null | undefined;
+  /** The days of an event of several days (`{dias}`, ADR 0091). */
+  days?: readonly Pick<EventDayDto, "startsAt">[] | undefined;
 };
 
 function isField(name: string): name is Field {
@@ -66,6 +69,38 @@ function money(cents: number): string {
   return `${cents < 0 ? "-" : ""}R$ ${reais},${pad(Math.abs(cents) % 100)}`;
 }
 
+/** "a, b e c": a list as written in Portuguese. */
+function joinList(items: readonly string[]): string {
+  return items.length <= 1 ? (items[0] ?? "") : `${items.slice(0, -1).join(", ")} e ${items.at(-1) ?? ""}`;
+}
+
+/**
+ * The days of an event: "21 e 22 de novembro de 2026", "30 de novembro e 1 de dezembro de 2026",
+ * "31 de dezembro de 2026 e 1 de janeiro de 2027". Days in order; repeats print once.
+ */
+function daysText(starts: readonly string[]): string {
+  const dates = [...new Set(starts.map((start) => start.slice(0, 10)))].sort().map((date) => wallClock(date));
+  const years: { year: number; months: { month: number; days: number[] }[] }[] = [];
+  for (const date of dates) {
+    const year = years.at(-1);
+    if (year?.year !== date.year) {
+      years.push({ year: date.year, months: [{ month: date.month, days: [date.day] }] });
+      continue;
+    }
+    const month = year.months.at(-1);
+    if (month?.month === date.month) {
+      month.days.push(date.day);
+    } else {
+      year.months.push({ month: date.month, days: [date.day] });
+    }
+  }
+  return joinList(
+    years.map(({ year, months }) =>
+      `${joinList(months.map(({ month, days }) => `${joinList(days.map(String))} de ${MONTHS[month - 1] ?? ""}`))} de ${String(year)}`,
+    ),
+  );
+}
+
 function value(field: Field, event: EventFields): string {
   if (field === "evento") {
     return event.name.trim();
@@ -81,6 +116,11 @@ function value(field: Field, event: EventFields): string {
   }
   if (field === "categoria") {
     return (event.categoryName ?? "").trim();
+  }
+  if (field === "dias") {
+    // An event of one day prints its date.
+    const days = event.days ?? [];
+    return daysText(days.length === 0 ? [event.startsAt] : days.map((day) => day.startsAt));
   }
   const d = wallClock(event.startsAt);
   const month = MONTHS[d.month - 1] ?? "";

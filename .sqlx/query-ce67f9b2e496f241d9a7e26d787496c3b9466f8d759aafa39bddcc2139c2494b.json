@@ -1,0 +1,46 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select s.scanned_at, d.name from scans s\n                   join door_devices d on d.id = s.device_id\n                   where s.id = coalesce(\n                       (select m.id from scans m join door_devices md on md.id = m.device_id\n                        where (select reentry from events where id = $1) and $6::uuid is null\n                          and m.event_id = $1 and m.ticket_number = $2 and m.id <> $3\n                          and m.checkpoint_id is null and m.ledger_day is not distinct from $7\n                          and m.local_outcome in ('admitted', 'readmitted')\n                          and (m.scanned_at, md.name) <= ($4, $5)\n                        order by m.scanned_at desc, md.name desc limit 1),\n                       (select first_scan_id from door_ledger_entries\n                        where event_id = $1 and ticket_number = $2\n                          and checkpoint = coalesce($6, '00000000-0000-0000-0000-000000000000'::uuid)\n                          and ledger_day = coalesce($7, 0)))",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "scanned_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "scans",
+            "name": "scanned_at"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "door_devices",
+            "name": "name"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4",
+        "Uuid",
+        "Timestamptz",
+        "Text",
+        "Uuid",
+        "Int2"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "ce67f9b2e496f241d9a7e26d787496c3b9466f8d759aafa39bddcc2139c2494b"
+}

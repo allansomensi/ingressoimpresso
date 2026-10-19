@@ -1,0 +1,86 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select count(*) filter (where local_outcome = 'rejected_used'\n                                     or (server_class = 'duplicate_entry' and confirmed_online)) as \"blocked_copies!\",\n                  count(*) filter (where server_class = 'duplicate_entry' and not confirmed_online) as \"offline_duplicates!\",\n                  count(*) filter (where local_outcome = 'rejected_invalid') as \"invalid!\",\n                  count(*) filter (where local_outcome = 'rejected_other_event') as \"other_event!\",\n                  count(*) filter (where local_outcome = 'rejected_void') as \"voided!\",\n                  count(*) filter (where server_class = 'void_entry') as \"void_entries!\",\n                  count(*) filter (where local_outcome = 'rejected_wrong_door') as \"wrong_door!\",\n                  count(*) filter (where door_exception\n                                     and coalesce(exception_kind, 'wrong_door') = 'wrong_door') as \"wrong_door_admitted!\",\n                  count(*) filter (where local_outcome = 'rejected_wrong_day') as \"wrong_day!\",\n                  count(*) filter (where door_exception and exception_kind = 'wrong_day') as \"wrong_day_admitted!\"\n           -- The entrance only: a checkpoint's refusals are its own (ADR 0092).\n           from scans where event_id = $1 and checkpoint_id is null",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "blocked_copies!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "offline_duplicates!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "invalid!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "other_event!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "voided!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "void_entries!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "wrong_door!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 7,
+        "name": "wrong_door_admitted!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 8,
+        "name": "wrong_day!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 9,
+        "name": "wrong_day_admitted!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "976f8b84cfda87c205370f4eb560c015629b48e132ab753da7246f3e0639b0eb"
+}

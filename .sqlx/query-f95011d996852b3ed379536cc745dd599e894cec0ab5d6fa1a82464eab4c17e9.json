@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update ticket_categories set valid_days = '{}' where event_id = $1 and day_rule = 'every' and cardinality(valid_days) > 0",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f95011d996852b3ed379536cc745dd599e894cec0ab5d6fa1a82464eab4c17e9"
+}

@@ -9,6 +9,7 @@ pub mod billing;
 pub mod categories;
 pub mod changelog;
 pub mod checklist;
+pub mod checkpoints;
 pub mod door;
 pub mod door_live;
 pub mod door_rehearsal;
@@ -116,6 +117,7 @@ impl EventRow {
             price_cents: self.ticket_price_cents.map(i64::from),
             organization: Some(organization),
             category: None,
+            days: Vec::new(),
         }
     }
 
@@ -144,7 +146,14 @@ pub async fn event_details(pool: &PgPool, event: &EventRow) -> ApiResult<EventDe
     )
     .fetch_one(pool)
     .await?;
-    Ok(event.details(organization))
+    let mut details = event.details(organization);
+    // `{dias}` (ADR 0091): the local start of each day.
+    details.days = crate::event_days::of_event(pool, event.id, event.offset())
+        .await?
+        .into_iter()
+        .map(|day| PrimitiveDateTime::new(day.starts_at.date(), day.starts_at.time()))
+        .collect();
+    Ok(details)
 }
 
 /// An event the user may access, and how.

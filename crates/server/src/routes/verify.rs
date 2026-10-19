@@ -164,6 +164,7 @@ pub async fn verify(
     let tags = super::categories::NumberTags::load(&state.pool, event.id).await?;
     let offset = event.offset();
     let in_series = super::series::in_series(&state.pool, event.id).await?;
+    let days = crate::event_days::of_event(&state.pool, event.id, offset).await?;
     let result = VerifyResultDto {
         verdict: verdict(
             event.canceled_at.is_some(),
@@ -191,6 +192,7 @@ pub async fn verify(
                 starts_at: event.starts_at.to_offset(offset),
                 ends_at: event.ends_at.to_offset(offset),
                 in_series,
+                days,
             },
         }),
     };

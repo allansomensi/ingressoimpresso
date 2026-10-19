@@ -37,6 +37,24 @@ export const panel = {
   tokensBadge: "Fichas",
   pricePlaceholder: "30,00",
   priceInvalid: "Valor inválido. Use só números, como 30 ou 30,50.",
+  // Events of several days (ADR 0091).
+  days: {
+    toggle: "O evento dura mais de um dia",
+    badge: (count: number) => `${String(count)} dias`,
+    toggleHint: "Festival, encontro, campeonato: o mesmo ingresso vale em vários dias, e cada categoria diz em quais.",
+    day: (position: number) => `Dia ${String(position)}`,
+    add: "Adicionar dia",
+    remove: (position: number) => `Tirar o dia ${String(position)}`,
+    hint: "O evento começa no primeiro dia e termina no último. No dia, a portaria troca de dia sozinha.",
+    seriesHint: "Sessões com públicos e ingressos diferentes (uma peça em três noites)? Use Outra data, no menu do evento.",
+    max: "Um evento tem até 31 dias.",
+    problems: {
+      missing: (day: number) => `Preencha o início e o fim do dia ${String(day)}.`,
+      end_before_start: (day: number) => `O dia ${String(day)} termina antes de começar.`,
+      too_long: (day: number) => `O dia ${String(day)} passa de 48 horas: divida em dois dias.`,
+      overlap: (day: number) => `O dia ${String(day)} começa antes do dia anterior terminar.`,
+    },
+  },
   timeZoneHint: (zone: string) => `Horários no fuso deste aparelho (${zone.replace(/_/g, " ")}).`,
   eventTimeZoneHint: (minutes: number) => {
     const hours = Math.abs(minutes) / 60;

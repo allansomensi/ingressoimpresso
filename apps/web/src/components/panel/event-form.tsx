@@ -6,9 +6,11 @@ import { Coins, Sparkles, Ticket } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
-import { Button, Dialog, ErrorMessage, Field, Input, LoadingBlock } from "@/components/ui";
+import { EventDaysEditor } from "@/components/panel/event-days";
+import { Button, Dialog, ErrorMessage, Field, Input, LoadingBlock, Switch } from "@/components/ui";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
+import { daysProblem, nextDayInput, type DayInput } from "@/lib/event-days";
 import { browserOffset, offsetMinutes, wallClockInput, withOffset } from "@/lib/event-time";
 import { parseMoney } from "@/lib/format";
 import { common as commonTexts } from "@/texts/pt-BR/common";
@@ -92,6 +94,15 @@ function EventForm({
   const [kind, setKind] = useState<EventKind>(event?.kind ?? "tickets");
   // The end follows the start (+5 h) until it is edited by hand.
   const [endTouched, setEndTouched] = useState(event !== undefined);
+  // An event of several days (ADR 0091): its days replace the start and the end.
+  const hadDays = (event?.days.length ?? 0) > 1;
+  const [multiDay, setMultiDay] = useState(hadDays);
+  const [days, setDays] = useState<DayInput[]>(
+    event?.days.map((day) => ({ startsAt: wallClockInput(day.startsAt), endsAt: wallClockInput(day.endsAt) })) ?? [],
+  );
+  const [triedSave, setTriedSave] = useState(false);
+  const severalDays = multiDay && kind === "tickets";
+  const problem = severalDays ? daysProblem(days) : null;
   const parsedPrice = parseMoney(price);
   const timeZone =
     event === undefined ? t.timeZoneHint(Intl.DateTimeFormat().resolvedOptions().timeZone) : t.eventTimeZoneHint(offsetMinutes(event.startsAt));
@@ -99,15 +110,24 @@ function EventForm({
   const save = useMutation({
     mutationFn: () => {
       // An edited event keeps its offset; a new one takes the browser's.
-      const offset = event === undefined ? browserOffset(startsAt) : offsetMinutes(event.startsAt);
+      const first = severalDays ? days[0] : undefined;
+      const last = severalDays ? days.at(-1) : undefined;
+      const start = first?.startsAt ?? startsAt;
+      const offset = event === undefined ? browserOffset(start) : offsetMinutes(event.startsAt);
       const body: EventBody = {
         name: name.trim(),
         venue: venue.trim() === "" ? null : venue.trim(),
         address: address.trim() === "" ? null : address.trim(),
-        startsAt: withOffset(startsAt, offset),
-        endsAt: withOffset(endsAt, offset),
+        startsAt: withOffset(start, offset),
+        endsAt: withOffset(last?.endsAt ?? endsAt, offset),
         ticketPriceCents: parsedPrice.ok ? parsedPrice.cents : null,
         kind,
+        // Days set, or taken away (the event is of one day again); otherwise left as they are.
+        ...(severalDays
+          ? { days: days.map((day) => ({ startsAt: withOffset(day.startsAt, offset), endsAt: withOffset(day.endsAt, offset) })) }
+          : hadDays
+            ? { days: [] }
+            : {}),
       };
       return event === undefined
         ? api<EventDto>("/api/events", { method: "POST", body })
@@ -125,7 +145,24 @@ function EventForm({
 
   const submit = (formEvent: FormEvent) => {
     formEvent.preventDefault();
+    setTriedSave(true);
+    if (problem !== null) {
+      return;
+    }
     save.mutate();
+  };
+
+  const toggleDays = (on: boolean) => {
+    setMultiDay(on);
+    if (on && days.length < 2) {
+      // The first day is the event as typed so far; the second, the day after at the same times.
+      const day = { startsAt, endsAt };
+      setDays([day, nextDayInput(day)]);
+    } else if (!on && days[0] !== undefined) {
+      // Back to one day: the first one.
+      setStartsAt(days[0].startsAt);
+      setEndsAt(days[0].endsAt);
+    }
   };
 
   return (
@@ -180,35 +217,40 @@ function EventForm({
           enterKeyHint="next"
         />
       </Field>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field label={t.startsAt}>
-          <Input
-            type="datetime-local"
-            value={startsAt}
-            onChange={(e) => {
-              setStartsAt(e.target.value);
-              const end = addHours(e.target.value, 5);
-              if (!endTouched && end !== null) {
-                // Suggest a five-hour event.
-                setEndsAt(end);
-              }
-            }}
-            required
-          />
-        </Field>
-        <Field label={t.endsAt}>
-          <Input
-            type="datetime-local"
-            value={endsAt}
-            min={startsAt}
-            onChange={(e) => {
-              setEndsAt(e.target.value);
-              setEndTouched(true);
-            }}
-            required
-          />
-        </Field>
-      </div>
+      {kind === "tickets" && <Switch checked={multiDay} onChange={toggleDays} label={t.days.toggle} description={t.days.toggleHint} />}
+      {severalDays ? (
+        <EventDaysEditor days={days} onChange={setDays} problem={triedSave ? problem : null} />
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label={t.startsAt}>
+            <Input
+              type="datetime-local"
+              value={startsAt}
+              onChange={(e) => {
+                setStartsAt(e.target.value);
+                const end = addHours(e.target.value, 5);
+                if (!endTouched && end !== null) {
+                  // Suggest a five-hour event.
+                  setEndsAt(end);
+                }
+              }}
+              required
+            />
+          </Field>
+          <Field label={t.endsAt}>
+            <Input
+              type="datetime-local"
+              value={endsAt}
+              min={startsAt}
+              onChange={(e) => {
+                setEndsAt(e.target.value);
+                setEndTouched(true);
+              }}
+              required
+            />
+          </Field>
+        </div>
+      )}
       <p className="-mt-2 text-xs text-fg-muted">{timeZone}</p>
       <Field
         label={kind === "tokens" ? t.tokenPrice : t.price}

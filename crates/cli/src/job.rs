@@ -277,6 +277,7 @@ impl JobFile {
             price_cents: self.event.price_cents,
             organization: self.event.organization.clone(),
             category: None,
+            days: Vec::new(),
         })
     }
 

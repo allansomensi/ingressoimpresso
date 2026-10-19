@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into checkpoint_categories (checkpoint_id, category_id)\n           select $1, unnest($2::uuid[]) on conflict do nothing",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "UuidArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "cfdfb50115213887bab824cd39baf13ed8ca449a1910b06bd127a9aeabe30685"
+}

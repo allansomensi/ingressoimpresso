@@ -1,0 +1,136 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select c.id, c.name, c.color, c.price_cents, c.check_document, c.document_note,\n                  c.door_instruction, c.day_rule, c.valid_days, r.numbers\n           from category_ranges r\n           join ticket_categories c on c.id = r.category_id\n           where r.event_id = $1 order by lower(r.numbers)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "ticket_categories",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ticket_categories",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "color",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ticket_categories",
+            "name": "color"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "price_cents",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "ticket_categories",
+            "name": "price_cents"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "check_document",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "ticket_categories",
+            "name": "check_document"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "document_note",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ticket_categories",
+            "name": "document_note"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "door_instruction",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ticket_categories",
+            "name": "door_instruction"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "day_rule",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ticket_categories",
+            "name": "day_rule"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "valid_days",
+        "type_info": "Int2Array",
+        "origin": {
+          "Table": {
+            "table": "ticket_categories",
+            "name": "valid_days"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "numbers",
+        "type_info": "Int4Range",
+        "origin": {
+          "Table": {
+            "table": "category_ranges",
+            "name": "numbers"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      true,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "00291beecc55867cad3378a3202dc37fc5d8274092b33e79f3525e94d9b23bd3"
+}

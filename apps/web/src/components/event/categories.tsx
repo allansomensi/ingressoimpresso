@@ -1,8 +1,8 @@
 "use client";
 
-import type { BatchDto, CategoryBody, CategoryDto, EventDto, EventKind, RangeDto } from "@ingressoimpresso/api-types";
+import type { BatchDto, CategoryBody, CategoryDto, DayRule, EventDayDto, EventDto, EventKind, RangeDto } from "@ingressoimpresso/api-types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, IdCard, MoreHorizontal, Pencil, Plus, Sparkles, Tags, Trash2, X } from "lucide-react";
+import { CalendarDays, Check, HandHelping, IdCard, MoreHorizontal, Pencil, Plus, Sparkles, Tags, Trash2, X } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
@@ -14,12 +14,14 @@ import { Alert, Badge, Button, Card, Dialog, ErrorMessage, Field, Input, Loading
 import { api } from "@/lib/api";
 import { CATEGORY_COLORS, nextColor, presetPriceText, uncategorized } from "@/lib/categories";
 import { cn } from "@/lib/cn";
+import { dayLabel, ruleShort } from "@/lib/event-days";
 import { forKind } from "@/lib/event-kind";
 import { money, parseMoney, ticketNumber } from "@/lib/format";
 import { NUMBER_LIST_INPUT, formatRanges, parseNumberList } from "@/lib/number-list";
 import { common as commonTexts } from "@/texts/pt-BR/common";
 import { errors as errorsTexts } from "@/texts/pt-BR/errors";
 import { event as eventTexts } from "@/texts/pt-BR/event";
+import { eventDays as dayTexts } from "@/texts/pt-BR/event-days";
 import { portaria as portariaTexts } from "@/texts/pt-BR/portaria";
 
 type CategoryTexts = typeof eventTexts.categories;
@@ -128,6 +130,7 @@ function CategoriesSection({ eventId, event, editable, onSelect }: { eventId: st
                 t={t}
                 category={category}
                 eventPrice={event.ticketPriceCents}
+                days={event.days}
                 editable={editable}
                 onEdit={(focusPrice) => {
                   setDialog({ category, focusPrice });
@@ -157,6 +160,7 @@ function CategoriesSection({ eventId, event, editable, onSelect }: { eventId: st
           tokens={event.kind === "tokens"}
           eventId={eventId}
           eventPrice={event.ticketPriceCents}
+          days={event.days}
           category={dialog.category}
           focusPrice={dialog.focusPrice ?? false}
           used={list}
@@ -185,6 +189,7 @@ function CategoryCard({
   t,
   category,
   eventPrice,
+  days,
   editable,
   onEdit,
   onChange,
@@ -192,6 +197,8 @@ function CategoryCard({
   t: CategoryTexts;
   category: CategoryDto;
   eventPrice: number | null;
+  /** The days of an event of several days (ADR 0091). */
+  days: readonly EventDayDto[];
   editable: boolean;
   onEdit: (focusPrice: boolean) => void;
   onChange: () => void;
@@ -249,6 +256,22 @@ function CategoryCard({
                   {t.documentBadge}
                 </Badge>
                 <span className="text-xs leading-relaxed text-fg-muted">{t.documentBadgeHint(category.documentNote ?? portariaTexts.result.documentAny)}</span>
+              </span>
+            )}
+            {(category.doorInstruction !== null || days.length > 1) && (
+              <span className="mt-1.5 flex flex-wrap gap-1.5">
+                {days.length > 1 && (
+                  <Badge tone="brand" className="w-fit">
+                    <CalendarDays className="size-3.5" aria-hidden />
+                    {ruleShort(category.dayRule, category.validDays, days)}
+                  </Badge>
+                )}
+                {category.doorInstruction !== null && (
+                  <Badge tone="neutral" className="w-fit">
+                    <HandHelping className="size-3.5" aria-hidden />
+                    {t.instructionBadge(category.doorInstruction)}
+                  </Badge>
+                )}
               </span>
             )}
           </div>
@@ -357,6 +380,7 @@ function CategoryDialog({
   tokens,
   eventId,
   eventPrice,
+  days,
   category,
   focusPrice,
   used,
@@ -368,6 +392,8 @@ function CategoryDialog({
   tokens: boolean;
   eventId: string;
   eventPrice: number | null;
+  /** The days of an event of several days (ADR 0091): the category says on which it is valid. */
+  days: readonly EventDayDto[];
   category: CategoryDto | null;
   focusPrice: boolean;
   used: readonly CategoryDto[];
@@ -381,9 +407,14 @@ function CategoryDialog({
   const [priceText, setPriceText] = useState(category?.priceCents ? (category.priceCents / 100).toFixed(2).replace(".", ",") : "");
   const [checkDocument, setCheckDocument] = useState(category?.checkDocument ?? false);
   const [documentNote, setDocumentNote] = useState(category?.documentNote ?? "");
+  const [instruction, setInstruction] = useState(category?.doorInstruction ?? "");
+  const [dayRule, setDayRule] = useState<DayRule>(category?.dayRule ?? "every");
+  const [validDays, setValidDays] = useState<number[]>(category?.validDays ?? []);
   const price = parseMoney(priceText);
   const priceCents = mode === "event" ? null : mode === "free" ? 0 : price.ok ? price.cents : null;
-  const valid = name.trim() !== "" && (mode !== "own" || (price.ok && price.cents !== null));
+  const severalDays = days.length > 1 && !tokens;
+  const daysMissing = severalDays && dayRule === "days" && validDays.length === 0;
+  const valid = name.trim() !== "" && (mode !== "own" || (price.ok && price.cents !== null)) && !daysMissing;
   const save = useMutation({
     mutationFn: () => {
       const note = documentNote.trim();
@@ -393,6 +424,8 @@ function CategoryDialog({
         priceCents,
         checkDocument,
         documentNote: checkDocument && note !== "" ? note : null,
+        doorInstruction: instruction.trim() === "" ? null : instruction.trim(),
+        ...(severalDays ? { dayRule, validDays: dayRule === "days" ? validDays : [] } : {}),
       };
       return category === null
         ? api<CategoryDto>(`/api/events/${eventId}/categories`, { method: "POST", body })
@@ -512,8 +545,93 @@ function CategoryDialog({
             />
           )}
         </fieldset>
+        {severalDays && (
+          <fieldset className="flex flex-col gap-2">
+            <legend className="text-sm font-medium text-fg">{t.validity}</legend>
+            <p className="mb-1 text-xs leading-relaxed text-fg-muted">{t.validityHint}</p>
+            <div className="grid gap-2">
+              {(["every", "days", "any_one"] as const).map((rule) => (
+                <label
+                  key={rule}
+                  className={cn(
+                    "flex cursor-pointer items-start gap-3 rounded-xl border p-3 text-sm transition has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand",
+                    dayRule === rule ? "border-brand bg-brand-soft/60 text-fg" : "border-border text-fg-muted hover:border-border-strong",
+                  )}
+                >
+                  <input
+                    type="radio"
+                    name="day-rule"
+                    className="mt-0.5 size-4 accent-brand"
+                    checked={dayRule === rule}
+                    onChange={() => {
+                      setDayRule(rule);
+                    }}
+                  />
+                  <span className="flex flex-col gap-0.5">
+                    <span className="font-medium text-fg">{dayTexts.rules[rule]}</span>
+                    <span className="text-xs leading-relaxed">{dayTexts.ruleHints[rule]}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+            {dayRule === "days" && (
+              <div role="group" aria-label={t.validDays} className="flex flex-wrap gap-2 pt-1">
+                {days.map((day) => {
+                  const on = validDays.includes(day.position);
+                  return (
+                    <label
+                      key={day.position}
+                      className={cn(
+                        "flex min-h-10 cursor-pointer items-center gap-2 rounded-xl border px-3 text-sm transition has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand",
+                        on ? "border-brand bg-brand-soft/60 font-medium text-fg" : "border-border text-fg-muted hover:border-border-strong active:bg-surface-2",
+                      )}
+                    >
+                      <input
+                        type="checkbox"
+                        className="size-4 accent-brand"
+                        checked={on}
+                        onChange={() => {
+                          setValidDays(on ? validDays.filter((item) => item !== day.position) : [...validDays, day.position].sort((a, b) => a - b));
+                        }}
+                      />
+                      {dayLabel(day.startsAt)}
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+            {daysMissing && <p className="text-sm text-danger-fg">{t.validDaysMissing}</p>}
+          </fieldset>
+        )}
         {!tokens && (
         <div className="flex flex-col gap-3 rounded-xl border border-border p-4">
+          <span className="text-sm font-semibold text-fg">{t.doorSection}</span>
+          <Field label={t.instruction} hint={t.instructionHint} optional>
+            <Input
+              value={instruction}
+              maxLength={60}
+              placeholder={t.instructionPlaceholder}
+              onChange={(changeEvent) => {
+                setInstruction(changeEvent.target.value);
+              }}
+            />
+          </Field>
+          {instruction.trim() === "" && (
+            <div className="-mt-1 flex flex-wrap gap-1.5">
+              {t.instructionExamples.map((example) => (
+                <button
+                  key={example}
+                  type="button"
+                  onClick={() => {
+                    setInstruction(example);
+                  }}
+                  className="relative rounded-full border border-border px-3 py-1 text-xs text-fg-muted transition touch-target hover:bg-surface-2 hover:text-fg active:bg-surface-3"
+                >
+                  {example}
+                </button>
+              ))}
+            </div>
+          )}
           <Switch checked={checkDocument} onChange={setCheckDocument} label={t.document} description={t.documentHint} />
           {checkDocument && (
             <Field label={t.documentNote} hint={t.documentNoteHint} optional>

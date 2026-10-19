@@ -23,6 +23,8 @@ export const portaria = {
   torchOn: "Acender lanterna",
   torchOff: "Apagar lanterna",
   entries: (count: number) => (count === 1 ? "1 entrada" : `${String(count)} entradas`),
+  // Events of several days (ADR 0091): who came in today.
+  entriesToday: (count: number) => (count === 1 ? "1 entrada hoje" : `${String(count)} entradas hoje`),
   // Exit and return (ADR 0083).
   insideCount: (count: number) => `${String(count)} dentro`,
   mode: {
@@ -33,6 +35,27 @@ export const portaria = {
     exitEnded: "A organização desligou a saída e volta: este celular voltou a ler ENTRADAS. Toque para continuar.",
     exitHint: "Aponte para o QR de quem vai sair",
     switched: (exit: boolean) => (exit ? "Lendo saídas" : "Lendo entradas"),
+    // Check (ADR 0090): only looks, never records.
+    check: "Conferir",
+    checkBanner: "CONFERÊNCIA · só consulta, nada é registrado",
+    checkHint: "Aponte para o QR de quem você quer conferir",
+    // At a checkpoint (ADR 0092), the main mode hands the benefit over.
+    use: "Liberar",
+  },
+  // Events of several days (ADR 0091).
+  day: {
+    /** "Sábado 21/11 · dia 1 de 2". */
+    header: (day: string, position: number, total: number) => `${day} · dia ${String(position)} de ${String(total)}`,
+    hint: "A portaria troca de dia sozinha, pela hora do servidor.",
+    clockSkew: (minutes: number) =>
+      `O relógio deste celular está ${String(minutes)} min diferente da hora certa. A portaria usa a hora do servidor e continua certa, mas acerte o relógio nas configurações do celular.`,
+  },
+  // Checkpoints (ADR 0092): dinner, kit, open bar.
+  checkpoint: {
+    banner: (name: string) => `PONTO DE CONTROLE · ${name}`,
+    uses: (count: number) => (count === 1 ? "1 liberado" : `${String(count)} liberados`),
+    usesToday: (count: number) => (count === 1 ? "1 liberado hoje" : `${String(count)} liberados hoje`),
+    intro: (name: string) => `Este celular libera “${name}”. Cada ingresso com direito é liberado uma vez; a entrada do evento é registrada em outro celular.`,
   },
   syncedAgo: (seconds: number) => (seconds < 5 ? "sincronizado agora" : `sincronizado há ${String(seconds)} s`),
   offlineFor: (minutes: number) => (minutes < 1 ? "sem sinal" : `sem sinal há ${String(minutes)} min`),
@@ -60,10 +83,14 @@ export const portaria = {
   result: {
     admit: "PODE ENTRAR",
     alreadyEntered: "JÁ ENTROU",
-    alreadyEnteredAt: (time: string, device: string) => `às ${time} por ${device}`,
+    alreadyEnteredAt: (when: string, device: string) => `${when} por ${device}`,
+    /** When something happened: "às 18:10", "hoje às 18:10", "no sábado 21/11 às 18:10". */
+    at: (time: string) => `às ${time}`,
+    todayAt: (time: string) => `hoje às ${time}`,
+    onDayAt: (day: string, time: string) => `${day} às ${time}`,
     // Exit and return (ADR 0083).
     inside: "JÁ ESTÁ LÁ DENTRO",
-    insideSince: (time: string, device: string) => `Entrou às ${time} por ${device} e não saiu`,
+    insideSince: (when: string, device: string) => `Entrou ${when} por ${device} e não saiu`,
     returning: (time: string, device: string) => `Voltando · saiu às ${time} por ${device}`,
     exit: "SAÍDA REGISTRADA",
     exitDetail: "Pode voltar com este ingresso",
@@ -98,11 +125,51 @@ export const portaria = {
     documentTitle: (category: string) => `${category}: peça o documento`,
     documentAny: "Comprovante do direito ao benefício, com foto",
     documentHint: "Sem documento, cobre a diferença ou chame a organização.",
+    // What the organizer asks the door to do for the category (ADR 0089).
+    instructionLabel: "Faça antes de liberar",
+    instructionHint: "Toque na tela quando terminar.",
+    // Events of several days (ADR 0091).
+    wrongDay: "NÃO VALE HOJE",
+    wrongDayOn: (days: string) => `Este ingresso vale só ${days}.`,
+    wrongDayNone: "A categoria deste ingresso não vale em nenhum dia do evento. Chame a organização.",
+    letInAnywayDay: "Se a organização autorizou, deixe entrar: fica registrado como exceção.",
+    // Checkpoints (ADR 0092).
+    granted: "LIBERADO",
+    used: "JÁ USOU",
+    usedAt: (when: string, device: string) => `${when} em ${device}`,
+    notEntitled: "SEM DIREITO",
+    notEntitledCategory: (category: string, place: string) => `A categoria ${category} não dá direito a “${place}”.`,
+    notEntitledNone: (place: string) => `Este ingresso não tem uma categoria com direito a “${place}”.`,
+    grantAnyway: "Liberar mesmo assim",
     // Result screen timing: only "enter" goes back to the camera by itself.
     autoHint: "Volta sozinho para a câmera · segure para ler com calma",
     held: "Parado · toque para continuar",
     repeat: "Mesmo QR lido de novo",
     continueIn: "Voltando para a câmera",
+  },
+  // Check (ADR 0090): what the screen says after only looking.
+  check: {
+    passed: "PASSOU PELA ENTRADA",
+    passedAt: (when: string, device: string) => `Entrou ${when} por ${device}`,
+    notPassed: "NÃO PASSOU PELA ENTRADA",
+    notPassedToday: "Não há entrada deste ingresso hoje.",
+    notPassedEver: "Não há entrada registrada deste ingresso.",
+    outside: "ESTÁ FORA",
+    outsideAt: (when: string, device: string) => `Saiu ${when} por ${device}`,
+    register: "Registrar a entrada agora",
+    registerReturn: "Registrar a volta agora",
+    registerHint: "Faz a entrada como na portaria (e mostra a instrução, se houver).",
+    used: "JÁ USOU",
+    notUsed: "AINDA NÃO USOU",
+    notUsedToday: (place: string) => `Ninguém liberou “${place}” para este ingresso hoje.`,
+    notUsedEver: (place: string) => `Ninguém liberou “${place}” para este ingresso.`,
+    registerUse: "Registrar o uso agora",
+    registerUseHint: "Libera e registra, como no ponto.",
+    instructionLabel: "Confira",
+    note: "Conferência: nada foi registrado",
+    stale: (minutes: number) =>
+      `Este celular não sincroniza há ${String(minutes)} min: entradas feitas em outros celulares depois disso podem não aparecer.`,
+    neverSynced: "Este celular ainda não sincronizou: entradas de outros celulares podem não aparecer.",
   },
   // This phone's latest scans (tap the entries counter).
   history: {
@@ -112,6 +179,7 @@ export const portaria = {
     loading: "Carregando…",
     failed: "Não foi possível ler o histórico deste celular.",
     admitted: (count: number) => (count === 1 ? "1 entrou" : `${String(count)} entraram`),
+    granted: (count: number) => (count === 1 ? "1 liberado" : `${String(count)} liberados`),
     exits: (count: number) => (count === 1 ? "1 saída" : `${String(count)} saídas`),
     exitedAt: (time: string, device: string) => `Tinha saído às ${time} por ${device}`,
     refused: (count: number) => (count === 1 ? "1 recusado" : `${String(count)} recusados`),
@@ -129,7 +197,14 @@ export const portaria = {
       rejected_other_event: "Outro evento",
       otherSession: "Outra data",
       rejected_wrong_door: "Outra porta",
+      // ADRs 0091, 0092.
+      rejected_wrong_day: "Não valia no dia",
+      benefit_granted: "Liberado",
+      benefitException: "Liberado como exceção",
+      rejected_benefit_used: "Já tinha usado",
+      rejected_not_entitled: "Sem direito",
     },
+    firstUse: (time: string, device: string) => `Primeiro uso às ${time} em ${device}`,
     firstEntry: (time: string, device: string) => `Primeira entrada às ${time} por ${device}`,
     copyOf: (time: string, device: string) => `Cópia: este número já tinha entrado às ${time} por ${device}`,
     synced: "Enviada",
@@ -164,6 +239,7 @@ export const portaria = {
     cancel: "Sair sem concluir",
     wouldAdmit: "ENTRARIA",
     wouldExit: "SAIRIA",
+    wouldGrant: "LIBERARIA",
     sampleTitle: "AMOSTRA LIDA",
     sampleDetail: "A câmera está boa.",
     otherQrTitle: "NÃO É UM INGRESSO",
@@ -218,7 +294,7 @@ export const portaria = {
     result: {
       admit: "FICHA VÁLIDA",
       alreadyEntered: "FICHA JÁ USADA",
-      alreadyEnteredAt: (time: string, device: string) => `às ${time} em ${device}`,
+      alreadyEnteredAt: (when: string, device: string) => `${when} em ${device}`,
       voided: "FICHA CANCELADA",
       otherEvent: "FICHA DE OUTRO EVENTO",
       otherSession: "FICHA DE OUTRA DATA",

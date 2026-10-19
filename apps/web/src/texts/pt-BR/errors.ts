@@ -176,4 +176,18 @@ export const errors = {
   date_taken: "A série já tem uma data começando nesse horário. Escolha outro.",
   series_full: "Uma série pode ter até 60 datas.",
   not_in_series: "Esta data não faz parte de uma série.",
+  invalid_door_categories: "Escolha categorias deste evento.",
+  // Instruction, days and checkpoints (ADRs 0089–0092).
+  invalid_door_instruction: "A instrução da portaria tem até 60 caracteres, numa linha só.",
+  invalid_days:
+    "Confira os dias: de 2 a 31, cada um com o fim depois do início, no máximo 48 horas, sem um começar antes do anterior terminar.",
+  day_has_entries: "Esse dia já tem entradas na portaria e não pode sair. Mude só os horários dele.",
+  days_tokens: "Fichas de consumo não têm dias: crie outra data do evento.",
+  invalid_day_rule: "Escolha pelo menos um dia do evento para a categoria valer.",
+  invalid_checkpoint: "Esse ponto de controle não existe mais. Recarregue a página.",
+  invalid_checkpoint_name: "Nome do ponto com até 30 caracteres, numa linha só (ex.: Janta).",
+  invalid_checkpoint_categories: "Escolha categorias deste evento.",
+  checkpoint_exists: "Já existe um ponto de controle com esse nome.",
+  too_many_checkpoints: "Um evento pode ter até 10 pontos de controle.",
+  checkpoints_tokens: "Fichas de consumo não têm pontos de controle: cada ficha já é o consumo.",
 } as const;

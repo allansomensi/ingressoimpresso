@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select kind = 'tokens' as \"tokens!\",\n                  (select count(*) from event_days where event_id = $1) as \"days!\"\n           from events where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "tokens!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "days!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "0c991de801fa830fd43f22d81b5c0c2c65310a5a3bf18aeddb34967c83930edb"
+}

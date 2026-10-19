@@ -11,4 +11,8 @@ label: string,
 /**
  * Categories this door admits (ADR 0068); empty or missing: every ticket.
  */
-categoryIds?: Array<string>, };
+categoryIds?: Array<string>, 
+/**
+ * A link of a checkpoint (ADR 0092) instead of the entrance; missing: the entrance.
+ */
+checkpointId?: string, };

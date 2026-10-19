@@ -35,4 +35,12 @@ wrongDoor: number,
 /**
  * Let in anyway at a door that does not take their category.
  */
-wrongDoorAdmitted: number, };
+wrongDoorAdmitted: number, 
+/**
+ * Turned away on a day their category is not valid (ADR 0091).
+ */
+wrongDay: number, 
+/**
+ * Let in anyway on a day their category is not valid.
+ */
+wrongDayAdmitted: number, };

@@ -1,0 +1,61 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select a.id, a.label, (a.revoked_at is not null or a.expires_at <= now()) as \"closed!\",\n                  array(select c.name from door_access_categories dc\n                        join ticket_categories c on c.id = dc.category_id\n                        where dc.door_access_id = a.id order by c.position, c.name) as \"categories!\",\n                  (select count(*) from door_ledger_entries e join scans s on s.id = e.first_scan_id\n                   join door_devices d on d.id = s.device_id\n                   where e.event_id = a.event_id and d.door_access_id = a.id) as \"entries!\"\n           -- Doors are the entrance's links; a checkpoint has its own block (ADR 0092).\n           from door_accesses a where a.event_id = $1 and a.checkpoint_id is null order by a.created_at",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "door_accesses",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "label",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "door_accesses",
+            "name": "label"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "closed!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "categories!",
+        "type_info": "TextArray",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "entries!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "8e4267ee591c0f82cccb2613399361453f347dd3d9f9223f64ceb46d5c5b25b9"
+}

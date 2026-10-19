@@ -1,0 +1,35 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select s.day as \"day!\", count(*) as \"entries!\"\n           from door_ledger_entries e join scans s on s.id = e.first_scan_id\n           where e.event_id = $1 and e.checkpoint = '00000000-0000-0000-0000-000000000000'\n             and s.day is not null\n           group by s.day",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "day!",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "scans",
+            "name": "day"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "entries!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true,
+      null
+    ]
+  },
+  "hash": "be58c580a40916caa5ca8def98fdb9851f62339b3eb86a46072cc6cd4c05d5c8"
+}

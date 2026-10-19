@@ -57,7 +57,14 @@ export function normalizePass(pass: TicketPassDto): TicketPassDto {
     category:
       category === null || category === undefined
         ? null
-        : { ...category, checkDocument: category.checkDocument ?? false, documentNote: category.documentNote ?? null },
+        : {
+            ...category,
+            checkDocument: category.checkDocument ?? false,
+            documentNote: category.documentNote ?? null,
+            // Saved before an event could have several days (ADR 0091).
+            dayRule: category.dayRule ?? "every",
+            validDays: category.validDays ?? [],
+          },
     seat: partial.seat ?? null,
     organization,
     tableMap: partial.tableMap ?? null,
@@ -73,6 +80,8 @@ export function normalizePass(pass: TicketPassDto): TicketPassDto {
       inSeries: event.inSeries ?? false,
       // Saved before consumption tokens (ADR 0084).
       kind: event.kind ?? "tickets",
+      // Saved before an event could have several days (ADR 0091).
+      days: event.days ?? [],
     },
   };
 }

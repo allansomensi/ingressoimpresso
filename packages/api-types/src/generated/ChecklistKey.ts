@@ -3,4 +3,4 @@
 /**
  * An item of the checklist.
  */
-export type ChecklistKey = "details" | "design" | "art" | "categories" | "batch" | "sellers" | "seller_links" | "delivery" | "door_link" | "rehearsal" | "guests" | "public_verify" | "organization_contact";
+export type ChecklistKey = "details" | "design" | "art" | "categories" | "batch" | "sellers" | "seller_links" | "delivery" | "door_link" | "rehearsal" | "guests" | "public_verify" | "organization_contact" | "checkpoint_links";

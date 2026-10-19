@@ -20,6 +20,7 @@ const TARGETS: Record<ChecklistKey, ChecklistTarget> = {
   seller_links: { kind: "tab", tab: "sellers" },
   delivery: { kind: "tab", tab: "files" },
   door_link: { kind: "tab", tab: "door" },
+  checkpoint_links: { kind: "tab", tab: "door" },
   rehearsal: { kind: "tab", tab: "door" },
   guests: { kind: "tab", tab: "guests" },
   public_verify: { kind: "tab", tab: "digital" },
