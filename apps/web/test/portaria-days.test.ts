@@ -125,7 +125,12 @@ describe("a checkpoint (ADR 0092)", () => {
 
   it("speaks of the checkpoint on its screens", () => {
     const granted = viewOf({ kind: "admit", number: 5 }, atDinner);
-    expect(granted).toMatchObject({ tone: "ok", title: r.granted, place: "Janta", instruction: { text: "Entregar o prato" } });
+    expect(granted).toMatchObject({
+      tone: "ok",
+      title: r.granted,
+      place: "Janta",
+      instruction: { label: r.checkpointInstructionLabel, text: "Entregar o prato" },
+    });
     expect(granted.charge).toBeUndefined();
     const used = viewOf({ kind: "already_entered", number: 5, firstEntry: { atUnixMs: saturday("20:15"), deviceName: "Balcão 1" } }, atDinner);
     expect(used).toMatchObject({ tone: "bad", title: r.used, detail: "hoje às 20:15 em Balcão 1" });
@@ -149,6 +154,8 @@ describe("a check (ADR 0090)", () => {
     const view = checkView({ kind: "admit", number: 5 }, days, null);
     expect(view).toMatchObject({ tone: "warn", title: c.notPassed, detail: c.notPassedToday, action: { label: c.register } });
     expect(checkView({ kind: "admit", number: 5 }, { ...days, days: [], today: null }, null).detail).toBe(c.notPassedEver);
+    // "1 dia, à escolha" has no entry in the whole event, not only today.
+    expect(checkView({ kind: "admit", number: 90 }, sunday, null).detail).toBe(c.notPassedEver);
     const out = checkView({ kind: "readmit", number: 5, exited: { atUnixMs: saturday("21:00"), deviceName: "Saída" } }, days, null);
     expect(out).toMatchObject({ title: c.outside, action: { label: c.registerReturn } });
     const notUsed = checkView({ kind: "admit", number: 5 }, atDinner, null);
