@@ -237,6 +237,27 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   começa por `TabHeader` (nome, uma linha, `?` com a explicação, ações); criar é um diálogo;
   cartões mostram o essencial e dobram o resto (vendedor). Container `max-w-7xl`.
 
+- **Vários dias, pontos de controle, instrução e conferência (ADRs 0089–0092): implementados.**
+  - Instrução na portaria por categoria (`ticket_categories.door_instruction`, até 60): caixa na
+    tela verde da primeira entrada, que espera o toque (`ResultView.instruction`).
+  - Conferência (ADR 0090): terceiro modo do app (`DoorMode` = `entrance`/`exit`/`check`, flag
+    `checkMode`), só `evaluate`, nada gravado; "Registrar a entrada agora" faz a entrada normal
+    (`DoorEngine.act`). Verde-azulado em tudo.
+  - Evento de vários dias (ADR 0091): `event_days` (2 a 31 dias, até 48 h cada, sem sobrepor;
+    `event_days.rs` + `lib/event-days.ts`, a mesma regra do dia: a fronteira é o meio entre o fim
+    de um dia e o início do próximo, pelo relógio do servidor); regra da categoria em
+    `day_rule`/`valid_days` (`every`, `days`, `any_one`). O app guarda um `DoorCore` por **livro**
+    (`bookOf`: o dia, ou o evento todo para `any_one`); o servidor deduplica em
+    `door_ledger_entries (event_id, ticket_number, checkpoint, ledger_day)` e `entries` segue
+    "entrou no evento". `scans.day`/`ledger_day`/`exception_kind`; `rejected_wrong_day`. Duplicar,
+    outra data e adiar deslocam os dias (`event_days::shift`); campo `{dias}` nos dois lados.
+  - Pontos de controle (ADR 0092): `event_checkpoints` (até 10, `per_day`),
+    `checkpoint_categories`, `door_accesses.checkpoint_id` (`routes/checkpoints.rs`, parte
+    `door`); desfechos `benefit_granted`/`rejected_benefit_used`/`rejected_not_entitled`, nunca
+    contados como entrada; o manifesto de um ponto só traz os usos dele. Painel em
+    `components/event/checkpoints.tsx` (seção Portaria), Ao vivo com dias e pontos, item
+    `checkpoint_links` em O que falta. Fichas de consumo não têm dias nem pontos.
+
 Plano completo em `docs/arquitetura.md` §12.
 
 ## Onde está cada coisa
@@ -293,7 +314,9 @@ crates/server        API (pacote `ingressoimpresso-server`, binário `ingressoim
                      perfil da organização e logo público em routes/organization.rs (ADR 0064),
                      adiar/cancelar em routes/event_changes.rs (ADR 0065; links da portaria por
                      door::extend_accesses),
-                     conferir ingresso (público, ADR 0075) em routes/verify.rs, Pix copia e cola
+                     conferir ingresso (público, ADR 0075) em routes/verify.rs, dias do evento
+                     (ADR 0091) em event_days.rs, pontos de controle (ADR 0092) em
+                     routes/checkpoints.rs, Pix copia e cola
                      (chaves, quem recebe, conferência, ADR 0085) em routes/pix.rs com as regras
                      das chaves em pix.rs, indique e
                      ganhe (código, vínculo no cadastro, recompensa e revogação) em
@@ -412,8 +435,14 @@ apps/web             landing em src/app/page.tsx (+ src/components/marketing: si
                      indique e ganhe: app/i/[code] (guarda o código, lib/referral.ts), convite em
                      app/entrar, cartão em components/account/referrals.tsx, admin em
                      components/admin/referrals.tsx;
-                     menus e popovers em components/ui/popover.tsx (portal; folha no celular)
-e2e/                 portaria.e2e.mjs: 5 "celulares" Chromium com câmera falsa (`just e2e`);
+                     menus e popovers em components/ui/popover.tsx (portal; folha no celular);
+                     vários dias (ADR 0091): regras em lib/event-days.ts (o dia, o livro, a
+                     validade; textos em texts/pt-BR/event-days.ts), dias no formulário em
+                     components/panel/event-days.tsx; pontos de controle (ADR 0092) em
+                     components/event/checkpoints.tsx; na portaria, livros, conferência e pontos
+                     em portaria/engine.ts + logic.ts (bookOf, wrongDay, notEntitled, checkView)
+e2e/                 portaria.e2e.mjs: "celulares" Chromium com câmera falsa (`just e2e`), também
+                     dois dias, ponto de controle e conferência (ADRs 0089–0092);
                      vendedor.e2e.mjs: link do vendedor sem internet, fila e conflito (ADR 0074);
                      csp.e2e.mjs: toda página com nonce e nada recusado (ADR 0048)
 packages/ticket-core-wasm  wrapper TS tipado (src/), tipos gerados (src/generated/, NÃO editar),
@@ -540,7 +569,8 @@ just backup-restore-test <dump.age> <chave-age>   # restaura um backup num banco
 2. **Só lotes pagos são assinados.** Prévias usam QR de amostra inválido e marca d'água. Um lote só
    vira `paid` por webhook da Stripe com assinatura válida, por sessão lida da própria Stripe (valor
    conferido) ou pelo admin.
-3. **A deduplicação usa `(event_id, ticket_number)`**, nunca os bytes do QR.
+3. **A deduplicação usa `(event_id, ticket_number)` dentro de um livro** (o dia ou o evento todo,
+   a entrada ou um ponto de controle; ADRs 0091, 0092), nunca os bytes do QR.
 4. **A chave privada nunca sai do servidor.** O `ticket-wasm` depende do `ticket-core` sem
    `signing`, e a chave mestra (`TICKET_KEY_ENCRYPTION_KEY`) nunca vai para o banco nem para os
    logs.
