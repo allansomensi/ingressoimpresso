@@ -73,7 +73,7 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   no pool; worker de exportação supervisionado, com pausa entre tentativas e drenado no shutdown;
   Pix pendente há 3 dias dado como falho; cancelar o evento fecha os checkouts; ações do CI presas
   por SHA e imagens do Docker por digest.
-- **Versionamento (ADR 0049): implementado, versão atual 1.6.1.** Uma versão SemVer para o produto
+- **Versionamento (ADR 0049): implementado, versão atual 1.7.0.** Uma versão SemVer para o produto
   inteiro (todos os manifestos, conferidos por `scripts/release.mjs check`), `CHANGELOG.md` em
   português (Keep a Changelog), `just release` no `staging` e tag `vX.Y.Z` + GitHub Release pelo
   job **Release** do CI no `main`; versão em Minha conta, em `/sobre`, em `/status` (site e API) e
