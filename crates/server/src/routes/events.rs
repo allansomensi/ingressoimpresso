@@ -947,6 +947,7 @@ pub async fn get_design(
     Path(event_id): Path<Uuid>,
 ) -> ApiResult<Json<DesignResponse>> {
     let event = authorize_event(&state.pool, &user, event_id).await?;
+    let organization = super::organization::event_organization(&state.pool, event_id).await?;
     let latest = sqlx::query!(
         "select version, spec, art_blob_id, sponsor_blob_ids from ticket_designs where event_id = $1 order by version desc limit 1",
         event_id
@@ -960,6 +961,7 @@ pub async fn get_design(
             design: TicketDesign::default_for(event.tokens()),
             art: None,
             sponsors: Vec::new(),
+            organization,
         }));
     };
     let design: TicketDesign = serde_json::from_value(latest.spec).map_err(anyhow::Error::from)?;
@@ -977,6 +979,7 @@ pub async fn get_design(
         design,
         art,
         sponsors,
+        organization,
     }))
 }
 
@@ -1034,6 +1037,7 @@ pub async fn save_design(
         design: body.design,
         art: art.map(Into::into),
         sponsors: sponsors.into_iter().map(Into::into).collect(),
+        organization: super::organization::event_organization(&state.pool, event_id).await?,
     }))
 }
 

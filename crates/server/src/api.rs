@@ -371,6 +371,8 @@ dto! {
         pub art: Option<ArtDto>,
         /// Sponsors' logos, in order (ADR 0059).
         pub sponsors: Vec<ArtDto>,
+        /// The organization's colour and logo, for the templates in its colours (ADR 0100).
+        pub organization: PublicOrganizationDto,
     }
 
     /// `PUT /api/events/{id}/design` and `POST /api/events/{id}/design/preview`.

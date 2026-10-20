@@ -51,6 +51,7 @@ import { ArtPicker } from "@/components/event/art-picker";
 import { NumberInspector, QrInspector, TextInspector } from "@/components/event/design-inspectors";
 import { AlignBar, SelectionInspector, ShortcutsHelp, useMarquee } from "@/components/event/design-tools";
 import { TabHeader } from "@/components/event/tab-header";
+import { useLogo } from "@/components/organization/organization";
 import { TicketView, type ElementChange } from "@/components/ticket/ticket-view";
 import {
   Alert,
@@ -103,6 +104,7 @@ import {
   type Box,
   type TicketElement,
 } from "@/lib/design-selection";
+import { artWithLogo } from "@/lib/brand-palette";
 import { rasterizeBackground } from "@/lib/rasterize";
 import { sampleFileName, sampleMockup } from "@/lib/sample-image";
 import type { Palette, TicketTemplate } from "@/lib/templates/catalog";
@@ -338,6 +340,8 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
   const initialDraft = useMemo<Draft>(() => ({ design: initial.design, art: initial.art, sponsors: initial.sponsors }), [initial]);
   const { draft, change, undo, redo, canUndo, canRedo } = useDraftHistory(initialDraft);
   const { design, art, sponsors } = draft;
+  // The organization's logo for the templates in its colours (ADR 0100), kept on the device.
+  const organizationLogo = useLogo(initial.organization.logoPath);
   const sponsorUrls = useQueries({
     queries: sponsors.map((logo) => ({
       queryKey: ["art", eventId, logo.id],
@@ -460,9 +464,11 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
     onError: (error) => toast.error(errorMessage(error)),
   });
   const applyTemplate = useMutation({
-    mutationFn: async ({ template, palette }: { template: TicketTemplate; palette: Palette }) => {
+    mutationFn: async ({ template, palette, logo }: { template: TicketTemplate; palette: Palette; logo: string | null }) => {
       const built = template.build(palette);
-      const file = await rasterizeBackground(built.background, built.design.widthMm, built.design.heightMm);
+      // The organization's logo on a free corner (ADR 0100), drawn into the art.
+      const background = artWithLogo(built.background, built.design, logo);
+      const file = await rasterizeBackground(background, built.design.widthMm, built.design.heightMm);
       const uploaded = await upload<ArtDto>(`/api/events/${eventId}/art`, file);
       return { template, design: built.design, file, uploaded };
     },
@@ -779,7 +785,7 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
     void loadGallery().catch(() => undefined);
   };
 
-  const chooseTemplate = async (template: TicketTemplate, palette: Palette) => {
+  const chooseTemplate = async (template: TicketTemplate, palette: Palette, logo: string | null) => {
     const customized = saved.version > 0 || dirty;
     if (
       customized &&
@@ -787,7 +793,7 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
     ) {
       return;
     }
-    applyTemplate.mutate({ template, palette });
+    applyTemplate.mutate({ template, palette, logo });
   };
 
   const status = dirty ? (
@@ -1373,8 +1379,10 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
             event={event}
             kind={event.kind}
             applying={applyTemplate.isPending ? (applyTemplate.variables?.template.id ?? null) : null}
-            onApply={(template, palette) => {
-              void chooseTemplate(template, palette);
+            brandColor={initial.organization.brandColor}
+            logo={organizationLogo}
+            onApply={(template, palette, logo) => {
+              void chooseTemplate(template, palette, logo);
             }}
           />
         </Suspense>

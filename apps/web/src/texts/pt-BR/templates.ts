@@ -10,6 +10,24 @@ export const templates = {
   replaceBody: "A arte, as posições e os textos atuais serão substituídos. Nada é salvo até você clicar em Salvar.",
   replaceConfirm: "Usar o modelo",
   colors: "Cores",
+  // Templates in the organization's colours and from a flyer (ADR 0100).
+  brand: {
+    label: "Cores do ingresso",
+    template: "Do modelo",
+    organization: "Da organização",
+    flyer: "Do cartaz",
+    flyerPick: "Escolher o cartaz",
+    flyerChange: "Trocar o cartaz",
+    flyerReading: "Lendo as cores…",
+    flyerFailed: "Não deu para ler esta imagem. Tente um JPG ou PNG.",
+    flyerHint: "A imagem fica só no seu aparelho: dela saem só as cores. Toque numa cor para ela ser a principal.",
+    main: (color: string) => `Usar ${color} como cor principal`,
+    organizationHint: "Com a cor e o logo de Minha organização. Os tons de cada modelo mudam o fundo: claro ou escuro.",
+    noOrganization: "Defina a cor e o logo da organização em Minha organização para usar aqui.",
+    logo: "Pôr o logo da organização",
+    logoHint: "Num canto livre do ingresso, sobre um fundo branco.",
+    logoNoRoom: "Sem espaço livre para o logo neste modelo.",
+  },
   // The product shown on the ficha templates when the event has none yet (ADR 0084).
   sampleCategory: "Pastel",
   format: (width: number, height: number, stub: boolean) =>

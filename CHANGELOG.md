@@ -60,6 +60,11 @@ e não acompanha estes números.
   venda (funciona sem internet). O turno mostra quanto deveria ter na gaveta e **Fechar caixa**
   guarda o dinheiro contado e a diferença. A seção Vendedores tem o relatório de cada caixa, com
   os fechamentos, e a organização pode fechar o caixa de quem saiu sem fechar.
+- **Modelos nas suas cores**: na galeria de modelos, escolha **Da organização** para ver todos os
+  modelos com a cor (e as cores do logo) de Minha organização e o logo num canto livre do
+  ingresso, num toque. Ou **Do cartaz**: escolha a imagem do cartaz do evento e os modelos ganham
+  as cores dele (a imagem não sai do aparelho). O fundo continua claro ou escuro como no modelo, e
+  os textos são ajustados para dar leitura.
 
 ### Alterado
 
