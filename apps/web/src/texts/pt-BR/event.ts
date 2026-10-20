@@ -723,7 +723,7 @@ export const event = {
       hintTouch: "Toque num elemento para editar. Arraste para mover e puxe o canto para redimensionar.",
     },
     startTitle: "Comece por um modelo",
-    startBody: "16 modelos prontos para shows, festas juninas, formaturas, igrejas, rifas e mais, já com os dados do seu evento.",
+    startBody: "Mais de 70 modelos prontos para shows, festas juninas, formaturas, aniversários, igrejas, rifas e mais, já com os dados do seu evento.",
     startAction: "Ver modelos",
     elements: "Elementos",
     elementsHint: "Clique num elemento aqui ou no ingresso para editar. Com Shift, selecione vários.",

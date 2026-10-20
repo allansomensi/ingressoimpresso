@@ -8,9 +8,11 @@ import { MobileCta } from "@/components/marketing/mobile-cta";
 import { SiteFooter } from "@/components/marketing/site-footer";
 import { SiteHeader } from "@/components/marketing/site-header";
 import { TemplateCard } from "@/components/marketing/template-card";
+import { TemplateFilter } from "@/components/marketing/template-filter";
 import { ButtonLink } from "@/components/ui";
 import { templateSeoPages } from "@/content/seo-templates";
 import { pageMetadata } from "@/lib/seo";
+import { templateById } from "@/lib/templates/catalog";
 import { eventPages as eventPagesTexts } from "@/texts/pt-BR/event-pages";
 import { landing as landingTexts } from "@/texts/pt-BR/landing";
 import { templateGallery as templateGalleryTexts } from "@/texts/pt-BR/template-gallery";
@@ -19,7 +21,7 @@ const t = templateGalleryTexts;
 
 export const metadata: Metadata = pageMetadata({ title: t.metaTitle, shareTitle: t.title, description: t.metaDescription, path: "/modelos" });
 
-/** Every ticket template, each linking to its own page (ADR 0062). */
+/** Every ticket template, each linking to its own page (ADR 0062), filtered by kind of event. */
 export default function TemplateGalleryPage() {
   return (
     <div className="flex min-h-dvh flex-col">
@@ -40,13 +42,15 @@ export default function TemplateGalleryPage() {
           </div>
         </section>
         <section className="border-t border-border bg-bg">
-          <ul className="mx-auto grid max-w-6xl gap-4 px-4 py-14 sm:grid-cols-2 sm:px-6 lg:grid-cols-3 lg:py-20">
-            {templateSeoPages.map((page) => (
-              <li key={page.id}>
-                <TemplateCard page={page} />
-              </li>
-            ))}
-          </ul>
+          <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6 lg:py-20">
+            <TemplateFilter
+              items={templateSeoPages.map((page) => ({
+                key: page.id,
+                categories: templateById(page.id)?.categories ?? [],
+                card: <TemplateCard page={page} />,
+              }))}
+            />
+          </div>
         </section>
         <FinalCta title={landingTexts.finalTitle} />
       </main>

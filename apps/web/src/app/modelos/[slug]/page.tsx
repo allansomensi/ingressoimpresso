@@ -16,7 +16,7 @@ import { TemplateSample } from "@/components/marketing/template-sample";
 import { ButtonLink } from "@/components/ui";
 import { eventSeoPage } from "@/content/seo-event-pages";
 import { guidesForTemplate } from "@/content/seo-guides";
-import { eventSlugForTemplate, templateSeoBySlug, templateSeoPages } from "@/content/seo-templates";
+import { eventSlugForTemplate, relatedTemplatePages, templateSeoBySlug, templateSeoPages } from "@/content/seo-templates";
 import { pageMetadata } from "@/lib/seo";
 import { templateById } from "@/lib/templates/catalog";
 import { eventPages as eventPagesTexts } from "@/texts/pt-BR/event-pages";
@@ -57,8 +57,7 @@ export default async function TemplatePage({ params }: Props) {
   const format = design === null ? "" : templatesTexts.format(design.widthMm, design.heightMm, design.stub !== null);
   const eventSlug = eventSlugForTemplate(page.id);
   const event = eventSlug === undefined ? undefined : eventSeoPage(eventSlug);
-  const position = templateSeoPages.findIndex((other) => other.id === page.id);
-  const others = [1, 2, 3].map((step) => templateSeoPages[(position + step) % templateSeoPages.length]).filter((other) => other !== undefined);
+  const others = relatedTemplatePages(page.id);
   // A tall template (the graduation invitation) gets a narrower preview.
   const tall = design !== null && design.heightMm > design.widthMm;
   const guides = guidesForTemplate(page.id);
