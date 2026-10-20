@@ -35,7 +35,7 @@ use crate::routes::{
     admin_insights, alerts, cashier, checklist, checkpoints, courtesies, crm, disputes, history,
     pix, public_page, series,
 };
-use crate::routes::{referrals, verify};
+use crate::routes::{referrals, revenue_reports, verify};
 use crate::state::AppState;
 
 /// JSON bodies are small; only art uploads get a bigger limit.
@@ -145,6 +145,18 @@ pub fn router(state: AppState) -> Router {
         .route("/admin/funnel", get(admin_insights::funnel))
         .route("/admin/live", get(admin_insights::live))
         .route("/admin/finance", get(analytics::finance))
+        // Revenue reports for the accountant (ADR 0106).
+        .route("/admin/reports/closing", get(revenue_reports::closing))
+        .route(
+            "/admin/reports/closing/xlsx",
+            get(revenue_reports::closing_xlsx),
+        )
+        .route(
+            "/admin/reports/closing/csv",
+            get(revenue_reports::closing_csv),
+        )
+        .route("/admin/reports/cohorts", get(revenue_reports::cohorts))
+        .route("/admin/reports/coupons", get(revenue_reports::coupons))
         .route("/admin/organizations", get(admin::organizations))
         // The admins' file on an organization (ADR 0105).
         .route("/admin/organizations/tags", get(crm::tags))

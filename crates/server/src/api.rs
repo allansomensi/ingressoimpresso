@@ -6312,3 +6312,208 @@ db_enum!(TimelineKind {
     BatchRefunded => "batch_refunded", Dispute => "dispute", Email => "email", Credit => "credit",
     Coupon => "coupon", Admin => "admin", Note => "note"
 });
+
+dto! {
+    /// `GET /api/admin/reports/closing?month=YYYY-MM`: the month's money for the accountant
+    /// (ADR 0106), in Brasília time. Payments and refunds count on their own dates.
+    pub struct AdminClosingDto {
+        /// `YYYY-MM`.
+        pub month: String,
+        /// Money received.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub gross_cents: i64,
+        /// Money given back (refunds, partial ones included).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub refunds_cents: i64,
+        /// Received minus given back.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub net_cents: i64,
+        /// Received through Stripe.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub stripe_cents: i64,
+        /// Received outside Stripe (batches an admin marked paid).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub manual_cents: i64,
+        /// List price of the batches paid in the month, before discounts and credit.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub list_cents: i64,
+        /// Discounts (promotions and discount codes) of those batches.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub discount_cents: i64,
+        /// Credit used to pay them.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub credit_used_cents: i64,
+        /// Credit given in the month (codes, admins, referrals).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub credit_issued_cents: i64,
+        /// Credit the organizations still had at the end of the month (owed in tickets).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub credit_balance_cents: i64,
+        /// Batches paid.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub batches: i64,
+        /// Their tickets.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub tickets: i64,
+        /// Of them, free ones.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub free_tickets: i64,
+        /// Disputes lost in the month.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub disputes_lost_cents: i64,
+        /// Received by way of payment (`stripe`, `admin`, `credit`, `free`).
+        pub methods: Vec<AdminClosingMethodDto>,
+        /// Per organization, most net first.
+        pub organizations: Vec<AdminClosingOrganizationDto>,
+        /// Every payment and refund, oldest first.
+        pub lines: Vec<AdminClosingLineDto>,
+    }
+
+    /// Batches paid in the month by one way of payment.
+    pub struct AdminClosingMethodDto {
+        /// `stripe`, `admin`, `credit` or `free`.
+        pub method: String,
+        /// Batches.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub batches: i64,
+        /// Money received.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub cents: i64,
+    }
+
+    /// One organization's month.
+    pub struct AdminClosingOrganizationDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// Name.
+        pub name: String,
+        /// Batches paid.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub batches: i64,
+        /// Received.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub gross_cents: i64,
+        /// Given back.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub refunds_cents: i64,
+    }
+
+    /// A payment or a refund of a batch.
+    pub struct AdminClosingLineDto {
+        /// When the money moved.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub at: OffsetDateTime,
+        /// Payment or refund.
+        pub kind: ClosingLineKind,
+        /// The amount (always positive; `kind` says the direction).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub cents: i64,
+        /// The batch.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub batch_id: Uuid,
+        /// Its first number.
+        pub first: i32,
+        /// Its last number.
+        pub last: i32,
+        /// Free tickets in it.
+        pub free_tickets: i32,
+        /// List price, before discounts and credit.
+        pub list_cents: Option<i32>,
+        /// Discount.
+        pub discount_cents: i32,
+        /// Credit used.
+        pub credit_cents: i32,
+        /// How it was paid.
+        pub method: Option<String>,
+        /// Stripe's payment id, when paid there.
+        pub reference: Option<String>,
+        /// The event.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub event_id: Uuid,
+        /// Its name.
+        pub event_name: String,
+        /// The organization.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub organization_id: Uuid,
+        /// Its name.
+        pub organization_name: String,
+    }
+
+    /// Organizations created in one month and the money they brought since
+    /// (`GET /api/admin/reports/cohorts`).
+    pub struct AdminCohortDto {
+        /// `YYYY-MM` of the sign-up.
+        pub month: String,
+        /// Organizations created.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub signups: i64,
+        /// Of them, with a paid batch (free ones included).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub activated: i64,
+        /// Of them, that paid money.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub paying: i64,
+        /// Net money they brought, to date.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub revenue_cents: i64,
+        /// Net money in the month of the sign-up (0), the next (1)… up to this month.
+        #[cfg_attr(feature = "ts", ts(type = "number[]"))]
+        pub by_month: Vec<i64>,
+    }
+
+    /// What a coupon or a promotion cost and brought (`GET /api/admin/reports/coupons`).
+    pub struct AdminCouponReturnDto {
+        /// A code or an automatic promotion.
+        pub source: CouponSource,
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// The code, or the promotion's name.
+        pub name: String,
+        /// `credit`, `free_tickets`, `discount` or `promotion`.
+        pub kind: String,
+        /// When it was created.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub created_at: OffsetDateTime,
+        /// Organizations that used it.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub organizations: i64,
+        /// Of them, that paid money afterwards (in the batch itself, for a promotion).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub paying: i64,
+        /// Credit given.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub credit_cents: i64,
+        /// Discounts given.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub discount_cents: i64,
+        /// Free tickets given.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub free_tickets: i64,
+        /// Net money paid afterwards by the organizations that used it (for a promotion: by
+        /// its batches).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub revenue_cents: i64,
+    }
+}
+
+dto_enum! {
+    /// A line of the month's closing.
+    pub enum ClosingLineKind {
+        /// Money received.
+        Payment,
+        /// Money given back.
+        Refund,
+    }
+
+    /// Where a discount came from.
+    pub enum CouponSource {
+        /// A code typed by the organizer.
+        Code,
+        /// An automatic promotion.
+        Promotion,
+    }
+}

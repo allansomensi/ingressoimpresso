@@ -109,6 +109,7 @@ export const errors = {
   export_queue_full: "Espere os arquivos que já estão sendo gerados antes de pedir outro.",
   cannot_suspend_own: "Você não pode suspender a organização da qual faz parte.",
   invalid_hour: "Escolha uma hora de 0 a 23.",
+  invalid_month: "Mês inválido.",
   invalid_threshold: "Use de 1 a 100.000 ingressos.",
   dispute_without_batch: "Esta contestação não está ligada a nenhum lote.",
   dispute_already_blocked: "Os números deste lote já estão bloqueados.",

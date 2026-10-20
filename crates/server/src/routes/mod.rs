@@ -37,6 +37,7 @@ pub mod referrals;
 pub mod refunds;
 pub mod report;
 pub mod reservations;
+pub mod revenue_reports;
 pub mod seller_goals;
 pub mod seller_links;
 pub mod seller_ops;

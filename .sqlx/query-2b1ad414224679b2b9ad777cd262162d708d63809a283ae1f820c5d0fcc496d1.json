@@ -1,0 +1,44 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with start as (\n             select ((date_trunc('month', now() at time zone 'America/Sao_Paulo') - make_interval(months => $1::int - 1))\n                     at time zone 'America/Sao_Paulo') as at\n           ),\n           months as (\n             select to_char(m, 'YYYY-MM') as month\n             from start, generate_series(start.at at time zone 'America/Sao_Paulo',\n                                         now() at time zone 'America/Sao_Paulo', interval '1 month') m\n           ),\n           cohort as (\n             select o.id, to_char(o.created_at at time zone 'America/Sao_Paulo', 'YYYY-MM') as month,\n                    exists (select 1 from ticket_batches b join events e on e.id = b.event_id\n                            where e.organization_id = o.id and b.status in ('paid', 'refunded')) as activated,\n                    exists (select 1 from ticket_batches b join events e on e.id = b.event_id\n                            where e.organization_id = o.id and b.status in ('paid', 'refunded')\n                              and b.price_cents > 0) as paying\n             from organizations o, start where o.created_at >= start.at\n           )\n           select m.month as \"month!\", count(c.id) as \"signups!\",\n                  count(c.id) filter (where c.activated) as \"activated!\",\n                  count(c.id) filter (where c.paying) as \"paying!\"\n           from months m left join cohort c on c.month = m.month\n           group by m.month order by m.month desc",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "month!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "signups!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "activated!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "paying!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "2b1ad414224679b2b9ad777cd262162d708d63809a283ae1f820c5d0fcc496d1"
+}
