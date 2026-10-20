@@ -22,6 +22,9 @@ e não acompanha estes números.
 - **Meus ingressos** no celular: a página do ingresso digital, aberta sem link, lista os ingressos
   e fichas já abertos naquele aparelho (os próximos primeiro), que abrem mesmo sem internet. Não é
   mais preciso achar a mensagem no WhatsApp na hora da entrada.
+- Portaria: tela **Fim do evento** (no menu ⋮ e num aviso depois do horário de término) com
+  quantos entraram, quantas cópias foram barradas, os outros recusados e as leituras que ainda não
+  foram enviadas, com um botão para enviar e o aviso de quando já dá para fechar o app.
 
 ### Alterado
 

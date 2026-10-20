@@ -57,7 +57,7 @@ import {
   type DoorContext,
   type ResultView,
 } from "./logic";
-import { RECENT_LIMIT, recentScans, recentSummary, type RecentScan, type RecentSummary } from "./recent";
+import { RECENT_LIMIT, endSummary, recentScans, recentSummary, type EndSummary, type RecentScan, type RecentSummary } from "./recent";
 import * as storage from "./storage";
 
 const UPLOAD_BATCH = 500;
@@ -760,6 +760,11 @@ export class DoorEngine {
       scans: recentScans(scans, entries, this.#context(), this.#state.manifest?.voids ?? [], limit),
       summary: recentSummary(scans),
     };
+  }
+
+  /** This phone's totals for the "Fim do evento" sheet (ADR 0101), from the local database. */
+  async endSummary(): Promise<EndSummary> {
+    return endSummary(await storage.allScans());
   }
 
   // --- Rehearsal (ADR 0067) ------------------------------------------------------------
