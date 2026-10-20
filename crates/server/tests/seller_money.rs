@@ -197,10 +197,7 @@ async fn courtesies_are_owed_by_nobody_and_respect_each_limit(pool: PgPool) {
         )
         .await;
     assert_eq!(reply.status, StatusCode::CREATED);
-    let giver = reply.json()["givers"][0]["id"]
-        .as_str()
-        .unwrap()
-        .to_owned();
+    let giver = reply.json()["givers"][0]["id"].as_str().unwrap().to_owned();
     let reply = app
         .post(
             &format!("/api/events/{event}/courtesy-givers"),
@@ -256,9 +253,9 @@ async fn courtesies_are_owed_by_nobody_and_respect_each_limit(pool: PgPool) {
     let page = seller_page(&app, &secret).await;
     let lines = page["summary"]["dueLines"].as_array().unwrap();
     assert!(
-        lines
-            .iter()
-            .any(|line| line["courtesy"] == true && line["tickets"] == 2 && line["priceCents"] == 0)
+        lines.iter().any(|line| line["courtesy"] == true
+            && line["tickets"] == 2
+            && line["priceCents"] == 0)
     );
     assert_eq!(page["summary"]["amountDueCents"], 24000);
     let summary = app
@@ -290,7 +287,10 @@ async fn courtesies_are_owed_by_nobody_and_respect_each_limit(pool: PgPool) {
         .delete(&format!("/api/courtesy-givers/{giver}"), &token, None)
         .await;
     assert_eq!(reply.status, StatusCode::OK);
-    assert_eq!(row(&report(&app, &token, &event).await, "Maria")["amountDueCents"], 30000);
+    assert_eq!(
+        row(&report(&app, &token, &event).await, "Maria")["amountDueCents"],
+        30000
+    );
 
     // Another organization sees none of it.
     let stranger = app.login("outra@exemplo.com").await;
@@ -321,7 +321,10 @@ async fn the_notice_reaches_every_seller_link(pool: PgPool) {
         "Acerto sábado às 10h\nna secretaria"
     );
     let page = seller_page(&app, &secret).await;
-    assert_eq!(page["notice"]["text"], "Acerto sábado às 10h\nna secretaria");
+    assert_eq!(
+        page["notice"]["text"],
+        "Acerto sábado às 10h\nna secretaria"
+    );
 
     for text in ["x".repeat(281), "a\u{7}b".to_owned()] {
         let reply = app

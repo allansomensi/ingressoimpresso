@@ -1,0 +1,93 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with cohort as (\n               select o.id, o.created_at from organizations o\n               where $1::int is null or o.created_at > now() - make_interval(days => $1::int)\n           ),\n           reached as (\n               select c.created_at,\n                      (select min(e.created_at) from events e where e.organization_id = c.id) as event_at,\n                      (select min(d.created_at) from ticket_designs d join events e on e.id = d.event_id\n                       where e.organization_id = c.id) as design_at,\n                      (select min(b.paid_at) from ticket_batches b join events e on e.id = b.event_id\n                       where e.organization_id = c.id and b.status in ('paid', 'refunded')) as batch_at,\n                      (select min(b.paid_at) from ticket_batches b join events e on e.id = b.event_id\n                       where e.organization_id = c.id and b.status in ('paid', 'refunded')\n                         and b.paid_via in ('stripe', 'admin') and b.price_cents > 0) as paid_at,\n                      (select min(s.scanned_at) from scans s join events e on e.id = s.event_id\n                       where e.organization_id = c.id) as door_at\n               from cohort c\n           )\n           select count(*) as \"signup!\",\n                  count(event_at) as \"event!\", count(design_at) as \"design!\", count(batch_at) as \"batch!\",\n                  count(paid_at) as \"paid!\", count(door_at) as \"door!\",\n                  percentile_cont(0.5) within group (order by extract(epoch from event_at - created_at) / 86400) as \"event_days?\",\n                  percentile_cont(0.5) within group (order by extract(epoch from design_at - created_at) / 86400) as \"design_days?\",\n                  percentile_cont(0.5) within group (order by extract(epoch from batch_at - created_at) / 86400) as \"batch_days?\",\n                  percentile_cont(0.5) within group (order by extract(epoch from paid_at - created_at) / 86400) as \"paid_days?\",\n                  percentile_cont(0.5) within group (order by extract(epoch from door_at - created_at) / 86400) as \"door_days?\"\n           from reached",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "signup!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "event!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "design!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "batch!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "paid!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "door!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "event_days?",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 7,
+        "name": "design_days?",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 8,
+        "name": "batch_days?",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 9,
+        "name": "paid_days?",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 10,
+        "name": "door_days?",
+        "type_info": "Float8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "1d76806aa5dbb6568fd38056c3b3f98f51f174677dee15a3df4d85c1e5a180d4"
+}

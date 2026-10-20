@@ -181,12 +181,32 @@ fn area(method: &str, shape: &str) -> Need {
 /// Areas of the endpoints added after the first table (ADRs 0096 on): method, shape, need.
 const LATER: &[(&str, &str, Need)] = &[
     // Commissions and courtesies change what sellers owe (ADR 0096).
-    ("POST", "events/{id}/sellers/commission", Need::Area(TeamArea::Money)),
-    ("POST", "events/{id}/courtesy-givers", Need::Area(TeamArea::Money)),
-    ("POST", "events/{id}/courtesies", Need::Area(TeamArea::Money)),
-    ("PUT", "sellers/{id}/commission", Need::Area(TeamArea::Money)),
+    (
+        "POST",
+        "events/{id}/sellers/commission",
+        Need::Area(TeamArea::Money),
+    ),
+    (
+        "POST",
+        "events/{id}/courtesy-givers",
+        Need::Area(TeamArea::Money),
+    ),
+    (
+        "POST",
+        "events/{id}/courtesies",
+        Need::Area(TeamArea::Money),
+    ),
+    (
+        "PUT",
+        "sellers/{id}/commission",
+        Need::Area(TeamArea::Money),
+    ),
     ("PUT", "courtesy-givers/{id}", Need::Area(TeamArea::Money)),
-    ("DELETE", "courtesy-givers/{id}", Need::Area(TeamArea::Money)),
+    (
+        "DELETE",
+        "courtesy-givers/{id}",
+        Need::Area(TeamArea::Money),
+    ),
     ("DELETE", "courtesies/{id}", Need::Area(TeamArea::Money)),
 ];
 

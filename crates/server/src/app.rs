@@ -31,7 +31,7 @@ use crate::routes::{
     seller_links, seller_sync, sellers, settlement, status, support, tables, team, tickets,
     two_factor, voids,
 };
-use crate::routes::{checklist, checkpoints, courtesies, history, pix, series};
+use crate::routes::{admin_insights, checklist, checkpoints, courtesies, history, pix, series};
 use crate::routes::{referrals, verify};
 use crate::state::AppState;
 
@@ -128,6 +128,9 @@ pub fn router(state: AppState) -> Router {
         .route("/admin/payments/sync-refunds", post(refunds::sync))
         .route("/admin/batches/{id}/price", put(support::set_price))
         .route("/admin/overview", get(admin::overview))
+        // The funnel and the events around now (ADR 0099).
+        .route("/admin/funnel", get(admin_insights::funnel))
+        .route("/admin/live", get(admin_insights::live))
         .route("/admin/finance", get(analytics::finance))
         .route("/admin/organizations", get(admin::organizations))
         .route(

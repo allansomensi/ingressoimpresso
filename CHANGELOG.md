@@ -36,6 +36,10 @@ e não acompanha estes números.
   autorizou.
 - **Histórico do evento** na seção Equipe: quem da organização, da equipe ou do suporte mudou o
   quê, e quando, com o filtro "Só a equipe". Só alterações que deram certo entram.
+- Administração: **Funil** (criou a conta → criou evento → montou o ingresso → gerou lote → pagou
+  lote → usou a portaria, por período, com o passo onde mais gente desiste e quanto tempo cada
+  passo leva) e **Acontecendo agora** (eventos do momento, celulares da portaria que não
+  sincronizam, leituras acumuladas, rajadas de códigos inválidos e eventos sem celular na porta).
 
 ### Alterado
 

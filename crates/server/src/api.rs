@@ -5525,3 +5525,127 @@ dto! {
         pub more: bool,
     }
 }
+
+dto_enum! {
+    /// A step of the admin funnel (ADR 0099), in order.
+    pub enum FunnelStep {
+        /// Created the account (the organization).
+        Signup,
+        /// Created an event.
+        Event,
+        /// Saved a ticket design (a template or their own art).
+        Design,
+        /// Got a batch of tickets (the free ones included).
+        Batch,
+        /// Paid a batch (Stripe or confirmed by an admin, above zero).
+        Paid,
+        /// Read tickets at the door.
+        Door,
+    }
+
+    /// Where an event of the day stands.
+    pub enum LiveEventState {
+        /// Starts within the next hours.
+        Upcoming,
+        /// Happening now.
+        Live,
+        /// Ended a little while ago.
+        Ended,
+    }
+
+    /// Something wrong at an event's door (ADR 0099).
+    pub enum LiveProblemKind {
+        /// A phone has not synced for a while during the event.
+        Stale,
+        /// A phone holds many reads not sent yet.
+        Pending,
+        /// A phone read many invalid or other-event codes lately (a wrong link, fake tickets).
+        Invalid,
+        /// The event starts soon (or started) with paid tickets and no phone at the door.
+        NoDevices,
+    }
+}
+
+dto! {
+    /// One step of the funnel.
+    pub struct FunnelStepDto {
+        /// The step.
+        pub step: FunnelStep,
+        /// Organizations of the cohort that reached it.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub organizations: i64,
+        /// Median days from the signup to the step, among those that reached it.
+        pub median_days: Option<f64>,
+    }
+
+    /// `GET /api/admin/funnel?days=`: organizations created in the last `days` (all without it),
+    /// and how far they went.
+    pub struct AdminFunnelDto {
+        /// The cohort's window; `null`: every organization.
+        pub days: Option<i32>,
+        /// The steps, in order (the first is the cohort's size).
+        pub steps: Vec<FunnelStepDto>,
+    }
+
+    /// Something wrong at an event's door.
+    pub struct LiveProblemDto {
+        /// What.
+        pub kind: LiveProblemKind,
+        /// The phone, when it is about one.
+        pub device: Option<String>,
+        /// Minutes without a sync (`stale`), reads not sent (`pending`) or invalid reads in the
+        /// last 30 minutes (`invalid`).
+        #[cfg_attr(feature = "ts", ts(type = "number | null"))]
+        pub value: Option<i64>,
+    }
+
+    /// An event happening around now.
+    pub struct AdminLiveEventDto {
+        /// Event id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// Name.
+        pub name: String,
+        /// Organization.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub organization_id: Uuid,
+        /// Organization's name.
+        pub organization: String,
+        /// Start.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub starts_at: OffsetDateTime,
+        /// End.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub ends_at: OffsetDateTime,
+        /// Upcoming, live or ended.
+        pub state: LiveEventState,
+        /// Tickets or consumption tokens.
+        pub kind: EventKind,
+        /// Paid tickets.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub paid_tickets: i64,
+        /// Tickets that entered.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub entries: i64,
+        /// Door phones registered (not revoked).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub devices: i64,
+        /// Of those, synced in the last 10 minutes.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub devices_online: i64,
+        /// What needs a look, worst first.
+        pub problems: Vec<LiveProblemDto>,
+    }
+
+    /// `GET /api/admin/live`: events from 2 hours ago to 6 hours ahead, those with problems first.
+    pub struct AdminLiveDto {
+        /// The events.
+        pub events: Vec<AdminLiveEventDto>,
+        /// When it was computed.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub generated_at: OffsetDateTime,
+    }
+}

@@ -2,6 +2,7 @@
 
 pub mod account;
 pub mod admin;
+pub mod admin_insights;
 pub mod analytics;
 pub mod announcements;
 pub mod batches;
