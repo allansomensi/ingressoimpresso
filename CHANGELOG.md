@@ -22,11 +22,20 @@ e não acompanha estes números.
   em preto e branco), cada um em várias cores.
 - Galeria de modelos com os tipos de evento Aniversário e Gastronomia, e a página `/modelos` com a
   mesma escolha por tipo de evento.
+- Imagem de amostra do ingresso: em "Ver como fica", um ingresso de amostra com a arte, as fontes
+  e as cores como saem no arquivo, para baixar ou mandar para alguém dar uma opinião. A folha A4
+  continua na mesma janela.
 
 ### Alterado
 
 - No editor de um evento de ingressos, "Todos" mostra só os modelos de ingresso (as fichas ficam
   na categoria Fichas), e a página de cada modelo sugere outros do mesmo tipo de evento.
+- O editor do ingresso abre travado: toque em **Editar** para mover e redimensionar, e nada sai do
+  lugar sem querer ao rolar a tela no celular.
+- Portaria mais calma e fácil de ler: a cor da tela continua dizendo a resposta, e os dados do
+  ingresso (número, categoria, mesa, documento, instrução) ficam juntos num cartão branco; a tela
+  inicial ganhou um botão grande para começar a ler e uma lista de preparo mais discreta.
+- Indique e ganhe ocupa um cartão pequeno em Minha conta, ao lado do crédito.
 
 ## [1.7.0] - 2026-10-19
 

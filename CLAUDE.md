@@ -265,6 +265,13 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   (`marketing/template-filter.tsx`), "outros modelos" do mesmo tipo (`relatedTemplatePages`), seis
   modelos por tipo de evento (`EVENT_TEMPLATES`) e uma seleção na landing (`SHOWCASE`).
 
+- **Editor travado, amostra e portaria mais calma (ADR 0094): implementados.** O editor do ingresso
+  abre parado (`editing` em `event/design.tsx`; Editar/Concluir); "Ver como fica" mostra um
+  ingresso de AMOSTRA (`POST /api/events/{id}/design/sample`, `sample_job` em `routes/events.rs`,
+  montado em `lib/sample-image.ts`) e a folha A4; a tela de resultado da portaria está em
+  `components/portaria/result-screen.tsx` (a cor é a resposta, os dados num cartão branco), fundo
+  neutro `#0c0c10` no app; Indique e ganhe é um cartão pequeno ao lado do crédito.
+
 Plano completo em `docs/arquitetura.md` §12.
 
 ## Onde está cada coisa
@@ -387,6 +394,7 @@ apps/web             landing em src/app/page.tsx (+ src/components/marketing: si
                      e regras em lib/categories.ts; prestação de contas em
                      components/event/accountability.tsx (no Relatório);
                      portaria em src/app/portaria + src/portaria (engine, storage, camera, logic) +
+                     components/portaria (door-app, result-screen, recent-scans, guest-list) +
                      public/portaria-sw.js (ADR 0018); Vitest em test/; ensaio, porta por
                      categoria, bilheteria e lista no app (logic.ts, engine.ts, IndexedDB v2 com
                      arrivals/meta, components/portaria/guest-list.tsx); no painel, aba Ao vivo em
