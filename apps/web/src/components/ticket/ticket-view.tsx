@@ -70,21 +70,57 @@ function useFontsVersion(): number {
 
 const JUSTIFY: Record<TextAlign, string> = { left: "flex-start", center: "center", right: "flex-end" };
 
+/** Lines a laid-out text takes at `line-height: 1`. */
+function linesOf(element: HTMLElement, em: number): number {
+  return Math.max(1, Math.round(element.offsetHeight / em));
+}
+
+/**
+ * `value` cut with "…" to at most `lines` lines, like `clamp` in templates/ticket.typ: the longest
+ * start (whole grapheme clusters) that still fits, found with a binary search on `probe`, a hidden
+ * copy of the text as wide as the box.
+ */
+function clampText(probe: HTMLElement, value: string, lines: number, em: number): string {
+  probe.textContent = value;
+  if (linesOf(probe, em) <= lines) {
+    return value;
+  }
+  const chars = Array.from(new Intl.Segmenter("pt-BR", { granularity: "grapheme" }).segment(value), (part) => part.segment);
+  let [low, high] = [0, chars.length];
+  while (low < high) {
+    const mid = Math.floor((low + high + 1) / 2);
+    probe.textContent = `${chars.slice(0, mid).join("")}…`;
+    if (linesOf(probe, em) <= lines) {
+      low = mid;
+    } else {
+      high = mid - 1;
+    }
+  }
+  return `${chars.slice(0, low).join("").trim()}…`;
+}
+
 /**
  * Text shrunk (never enlarged) to fit its box, like `fit` and `clamp` in templates/ticket.typ:
  * one line, or up to `lines` lines cut with "…". Heights follow Typst's metrics (cap height and
  * 0.3 em leading), so the preview shrinks a text when the printed file would.
+ *
+ * Nothing is clipped, as on paper: a script capital's swash (the "J" of "Júlia") reaches past
+ * its line, and cutting the text with `overflow: hidden` used to leave only a "(" of it. The
+ * extra lines are cut from the text itself instead.
  */
 function FitText({ value, lines, align, style }: { value: string; lines: number; align: TextAlign; style: CSSProperties }) {
   const box = useRef<HTMLDivElement>(null);
   const inner = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(1);
+  const probe = useRef<HTMLDivElement>(null);
+  const [fitted, setFitted] = useState({ scale: 1, shown: value });
   const fonts = useFontsVersion();
   const key = JSON.stringify([value, lines, style]);
+  const multi = lines > 1;
 
   useLayoutEffect(() => {
     const outer = box.current;
     const text = inner.current;
+    const copy = probe.current;
     if (outer === null || text === null) {
       return;
     }
@@ -95,11 +131,21 @@ function FitText({ value, lines, align, style }: { value: string; lines: number;
       if (width === 0 || !(em > 0)) {
         return;
       }
-      const rendered = Math.max(1, Math.round(text.offsetHeight / em));
+      let shown = value;
+      let rendered: number;
+      let textWidth: number;
+      if (multi && copy !== null) {
+        shown = clampText(copy, value, lines, em);
+        copy.textContent = shown;
+        rendered = linesOf(copy, em);
+        textWidth = width;
+      } else {
+        rendered = linesOf(text, em);
+        textWidth = text.offsetWidth;
+      }
       const textHeight = (rendered - 0.3) * em;
-      const textWidth = lines === 1 ? text.offsetWidth : width;
-      const next = Math.min(1, width / Math.max(textWidth, 0.01), height / Math.max(textHeight, 0.01));
-      setScale((current) => (Math.abs(current - next) < 0.002 ? current : next));
+      const scale = Math.min(1, width / Math.max(textWidth, 0.01), height / Math.max(textHeight, 0.01));
+      setFitted((current) => (current.shown === shown && Math.abs(current.scale - scale) < 0.002 ? current : { scale, shown }));
     };
     measure();
     const observer = new ResizeObserver(measure);
@@ -107,33 +153,23 @@ function FitText({ value, lines, align, style }: { value: string; lines: number;
     return () => {
       observer.disconnect();
     };
-  }, [key, lines, fonts]);
+  }, [key, value, lines, multi, fonts]);
 
-  const multi = lines > 1;
+  const wrapping: CSSProperties = { width: "100%", textAlign: align, overflowWrap: "anywhere" };
   return (
-    <div ref={box} className="flex size-full items-center overflow-visible" style={{ justifyContent: JUSTIFY[align] }}>
+    <div ref={box} className="relative flex size-full items-center overflow-visible" style={{ justifyContent: JUSTIFY[align] }}>
+      {multi && <div ref={probe} aria-hidden className="pointer-events-none invisible absolute top-0 left-0" style={{ ...style, ...wrapping, lineHeight: 1 }} />}
       <div
         ref={inner}
         style={{
           ...style,
           lineHeight: 1,
-          transform: `scale(${String(scale)})`,
+          transform: `scale(${String(fitted.scale)})`,
           transformOrigin: `${align} center`,
-          ...(multi
-            ? {
-                width: "100%",
-                flexShrink: 0,
-                textAlign: align,
-                display: "-webkit-box",
-                WebkitBoxOrient: "vertical",
-                WebkitLineClamp: lines,
-                overflow: "hidden",
-                overflowWrap: "anywhere",
-              }
-            : { whiteSpace: "pre", flexShrink: 0 }),
+          ...(multi ? { ...wrapping, flexShrink: 0 } : { whiteSpace: "pre", flexShrink: 0 }),
         }}
       >
-        {value}
+        {multi ? fitted.shown : value}
       </div>
     </div>
   );
