@@ -4,7 +4,7 @@
 use axum::Json;
 use axum::extract::State;
 
-use crate::api::{AccountBody, AccountDto};
+use crate::api::{AccountBody, AccountDto, AccountPreferencesBody};
 use crate::auth::AuthUser;
 use crate::error::{ApiError, ApiResult, bad_request};
 use crate::state::AppState;
@@ -42,10 +42,27 @@ pub async fn update(
     load(&state, &user).await.map(Json)
 }
 
+/// `PUT /api/account/preferences`: the account's own choices (announcement e-mails, ADR 0107).
+pub async fn preferences(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Json(body): Json<AccountPreferencesBody>,
+) -> ApiResult<Json<AccountDto>> {
+    sqlx::query!(
+        "update users set announcement_emails = $2 where id = $1",
+        user.id,
+        body.announcement_emails,
+    )
+    .execute(&state.pool)
+    .await?;
+    load(&state, &user).await.map(Json)
+}
+
 async fn load(state: &AppState, user: &AuthUser) -> ApiResult<AccountDto> {
     let row = sqlx::query!(
         r#"select o.id as organization_id, o.name, o.bonus_free_tickets, o.suspended_reason, o.suspended_at,
                   (select terms_accepted_at from users where id = $1) as terms_accepted_at,
+                  (select announcement_emails from users where id = $1) as "announcement_emails!",
                   (select coalesce(sum(b.free_tickets), 0) from ticket_batches b
                    join events e on e.id = b.event_id
                    where e.organization_id = o.id and b.status <> 'canceled')::int as "free_used!",
@@ -75,5 +92,6 @@ async fn load(state: &AppState, user: &AuthUser) -> ApiResult<AccountDto> {
             .suspended_at
             .map(|_| row.suspended_reason.unwrap_or_default()),
         terms_accepted_at: row.terms_accepted_at,
+        announcement_emails: row.announcement_emails,
     })
 }

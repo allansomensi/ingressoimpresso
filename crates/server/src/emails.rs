@@ -16,6 +16,8 @@ pub struct Email {
     pub text: String,
     /// HTML body.
     pub html: String,
+    /// One-click unsubscribe address (RFC 8058), for announcements only (ADR 0107).
+    pub list_unsubscribe: Option<String>,
 }
 
 const BRAND: &str = "#5b3df5";
@@ -158,6 +160,7 @@ pub fn login_code(code: &str, minutes: i64, site: &str) -> Email {
         "Você recebeu este e-mail porque este endereço foi usado para entrar no Ingresso Impresso.",
     );
     Email {
+        list_unsubscribe: None,
         subject,
         text,
         html,
@@ -250,6 +253,7 @@ pub fn batch_paid(paid: &BatchPaid<'_>, site: &str) -> Email {
         "Você recebeu este e-mail porque pagou um lote de ingressos no Ingresso Impresso.",
     );
     Email {
+        list_unsubscribe: None,
         subject,
         text,
         html,
@@ -307,6 +311,7 @@ pub fn team_invite(invite: &TeamInvite<'_>, site: &str) -> Email {
         "Você recebeu este e-mail porque alguém adicionou este endereço à equipe de um evento no Ingresso Impresso.",
     );
     Email {
+        list_unsubscribe: None,
         subject,
         text,
         html,
@@ -331,6 +336,7 @@ pub fn test_message(admin: &str, site: &str) -> Email {
         paragraph("Se você recebeu, os códigos de acesso e os avisos de pagamento estão chegando."),
     );
     Email {
+        list_unsubscribe: None,
         html: layout(
             site,
             "Teste de envio",
@@ -426,6 +432,7 @@ pub fn admin_alert(alert: &AdminAlert<'_>, site: &str) -> Email {
     }
     content.push_str(&button(alert.url, "Ver no painel"));
     Email {
+        list_unsubscribe: None,
         html: layout(
             site,
             &subject,
@@ -473,6 +480,7 @@ pub fn admin_summary(summary: &AdminSummary<'_>, site: &str) -> Email {
     let _ = write!(text, "\n\nPainel: {}", summary.url);
     content.push_str(&button(summary.url, "Abrir o painel"));
     Email {
+        list_unsubscribe: None,
         html: layout(
             site,
             &subject,
@@ -557,5 +565,60 @@ mod tests {
         assert_eq!(money(5), "R$ 0,05");
         assert_eq!(money(290), "R$ 2,90");
         assert_eq!(money(123_456), "R$ 1.234,56");
+    }
+}
+
+/// An announcement sent by e-mail (ADR 0107).
+#[derive(Debug)]
+pub struct AnnouncementMail<'a> {
+    /// The title (also the subject).
+    pub title: &'a str,
+    /// The text; blank lines split paragraphs.
+    pub body: &'a str,
+    /// The button: label and absolute address.
+    pub cta: Option<(&'a str, &'a str)>,
+    /// Where the recipient stops these e-mails (the page with the token in its fragment).
+    pub unsubscribe_url: &'a str,
+    /// One-click unsubscribe of the mail clients (RFC 8058).
+    pub one_click_url: &'a str,
+}
+
+/// An announcement to the organizers, with the way out of these e-mails.
+pub fn announcement(mail: &AnnouncementMail<'_>, site: &str) -> Email {
+    let paragraphs: Vec<&str> = mail
+        .body
+        .split("\n\n")
+        .map(str::trim)
+        .filter(|part| !part.is_empty())
+        .collect();
+    let mut text = format!("{}\n\n{}\n\n", mail.title, paragraphs.join("\n\n"));
+    if let Some((label, url)) = mail.cta {
+        let _ = write!(text, "{label}: {url}\n\n");
+    }
+    let _ = write!(
+        text,
+        "Ingresso Impresso\n{site}\n\nNão quer mais receber comunicados por e-mail? {}\n",
+        mail.unsubscribe_url
+    );
+    let mut content = heading(mail.title);
+    for part in &paragraphs {
+        content.push_str(&paragraph(&escape(part).replace('\n', "<br>")));
+    }
+    if let Some((label, url)) = mail.cta {
+        content.push_str(&button(url, label));
+    }
+    let preheader: String = paragraphs
+        .first()
+        .map(|part| part.chars().take(120).collect())
+        .unwrap_or_default();
+    let footer = format!(
+        "Você recebe comunicados porque tem uma conta no Ingresso Impresso. Códigos de acesso e avisos de pagamento continuam chegando sempre.<br><a href=\"{}\" style=\"color:{MUTED};text-decoration:underline;\">Parar de receber comunicados</a>",
+        escape(mail.unsubscribe_url)
+    );
+    Email {
+        subject: mail.title.to_owned(),
+        html: layout(site, &preheader, &content, &footer),
+        text,
+        list_unsubscribe: Some(mail.one_click_url.to_owned()),
     }
 }

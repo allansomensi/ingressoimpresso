@@ -50,6 +50,8 @@ pub enum MailKind {
     TeamInvite,
     /// An alert or the daily summary to the admins (ADR 0103).
     Alert,
+    /// An announcement sent by e-mail (ADR 0107).
+    Announcement,
 }
 
 impl MailKind {
@@ -62,6 +64,7 @@ impl MailKind {
             Self::Test => "test",
             Self::TeamInvite => "team_invite",
             Self::Alert => "alert",
+            Self::Announcement => "announcement",
         }
     }
 }
@@ -121,6 +124,8 @@ struct ResendEmail<'a> {
     subject: &'a str,
     text: &'a str,
     html: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    headers: Option<serde_json::Value>,
 }
 
 impl Mailer {
@@ -185,6 +190,12 @@ impl Mailer {
                         subject,
                         text: body,
                         html: &email.html,
+                        headers: email.list_unsubscribe.as_ref().map(|url| {
+                            serde_json::json!({
+                                "List-Unsubscribe": format!("<{url}>"),
+                                "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+                            })
+                        }),
                     })
                     .send()
                     .await
@@ -277,6 +288,7 @@ mod tests {
         let mailer =
             Mailer::resend_at(endpoint, "re_test".to_owned(), "A <a@b.c>".to_owned()).unwrap();
         let email = Email {
+            list_unsubscribe: None,
             subject: "Assunto".to_owned(),
             text: "Corpo".to_owned(),
             html: "<p>Corpo</p>".to_owned(),

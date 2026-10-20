@@ -1,0 +1,38 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update announcement_mail_recipients r set status = 'sending', sent_at = now()\n           from (select r2.mailing_id, r2.user_id from announcement_mail_recipients r2\n                 join announcement_mailings m on m.id = r2.mailing_id\n                 where r2.status = 'pending' and m.canceled_at is null\n                 order by m.created_at, r2.user_id\n                 limit 1 for update of r2 skip locked) next\n           where r.mailing_id = next.mailing_id and r.user_id = next.user_id\n           returning r.mailing_id, r.user_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "mailing_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "announcement_mail_recipients",
+            "name": "mailing_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "user_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "announcement_mail_recipients",
+            "name": "user_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "5f1a0c51b4daad7da191c15b7daefa2f76b9caca8d652731a053312cf48e0b8e"
+}

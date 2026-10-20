@@ -496,6 +496,8 @@ dto! {
         #[serde(with = "time::serde::rfc3339::option")]
         #[cfg_attr(feature = "ts", ts(type = "string | null"))]
         pub terms_accepted_at: Option<OffsetDateTime>,
+        /// Receives the platform's announcements by e-mail (ADR 0107).
+        pub announcement_emails: bool,
     }
 
     /// `PUT /api/account`.
@@ -3464,6 +3466,8 @@ dto! {
         pub published_at: Option<OffsetDateTime>,
         /// Reads.
         pub stats: AnnouncementStatsDto,
+        /// The latest sending by e-mail (ADR 0107).
+        pub mailing: Option<AnnouncementMailingDto>,
         /// Author.
         pub created_by: Option<String>,
         /// Creation time.
@@ -6515,5 +6519,116 @@ dto_enum! {
         Code,
         /// An automatic promotion.
         Promotion,
+    }
+}
+
+dto_enum! {
+    /// Who gets an announcement by e-mail (ADR 0107).
+    pub enum AnnouncementAudience {
+        /// Every account.
+        All,
+        /// The owners of the organizations.
+        Owners,
+        /// Members of organizations that paid for tickets.
+        Paying,
+        /// Accounts that signed in within 90 days.
+        Recent,
+        /// Members of organizations with an admin label (`tag`).
+        Tagged,
+    }
+}
+
+db_enum!(AnnouncementAudience {
+    All => "all", Owners => "owners", Paying => "paying", Recent => "recent", Tagged => "tagged"
+});
+
+dto! {
+    /// `POST /api/admin/announcements/{id}/email` (and the preview's query).
+    pub struct AnnouncementEmailBody {
+        /// Who.
+        pub audience: AnnouncementAudience,
+        /// The label, for `tagged`.
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional))]
+        pub tag: Option<String>,
+    }
+
+    /// How many an audience reaches (`GET /api/admin/announcements/{id}/email`).
+    pub struct AnnouncementAudienceDto {
+        /// Accounts that will get it.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub recipients: i64,
+        /// Accounts of the audience that stopped these e-mails.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub opted_out: i64,
+        /// Accounts of the audience that already got this announcement.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub already: i64,
+        /// Announcement e-mails a day within the quota; none without a daily limit.
+        pub daily_budget: Option<i32>,
+    }
+
+    /// A sending of an announcement by e-mail.
+    pub struct AnnouncementMailingDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// Who.
+        pub audience: AnnouncementAudience,
+        /// The label, for `tagged`.
+        pub tag: Option<String>,
+        /// Recipients.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub total: i64,
+        /// Sent.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub sent: i64,
+        /// Refused by the provider.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub failed: i64,
+        /// Left out: stopped these e-mails after it was queued.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub skipped: i64,
+        /// Still to send.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub pending: i64,
+        /// Who sent it.
+        pub created_by: Option<String>,
+        /// When.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub created_at: OffsetDateTime,
+        /// When the last one went out.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub finished_at: Option<OffsetDateTime>,
+        /// Stopped by an admin.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub canceled_at: Option<OffsetDateTime>,
+    }
+
+    /// `PUT /api/account/preferences`.
+    pub struct AccountPreferencesBody {
+        /// Receive the platform's announcements by e-mail.
+        pub announcement_emails: bool,
+    }
+
+    /// `POST /api/email/unsubscribe`: the link of an announcement e-mail (no session).
+    pub struct UnsubscribeBody {
+        /// The token of the link.
+        pub token: String,
+        /// `false` stops them (the default); `true` undoes it.
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional))]
+        pub subscribed: Option<bool>,
+    }
+
+    /// What the unsubscribe page shows.
+    pub struct UnsubscribeDto {
+        /// The address, partly hidden (`an•••@gmail.com`).
+        pub email: String,
+        /// Receives announcements now.
+        pub subscribed: bool,
     }
 }

@@ -35,7 +35,7 @@ use crate::routes::{
     admin_insights, alerts, cashier, checklist, checkpoints, courtesies, crm, disputes, history,
     pix, public_page, series,
 };
-use crate::routes::{referrals, revenue_reports, verify};
+use crate::routes::{mailings, referrals, revenue_reports, verify};
 use crate::state::AppState;
 
 /// JSON bodies are small; only art uploads get a bigger limit.
@@ -208,6 +208,16 @@ pub fn router(state: AppState) -> Router {
             "/admin/announcements/{id}",
             put(announcements::update).delete(announcements::delete),
         )
+        // Announcements by e-mail (ADR 0107).
+        .route(
+            "/admin/announcements/{id}/email",
+            get(mailings::preview).post(mailings::send),
+        )
+        .route("/admin/announcements/{id}/email/test", post(mailings::test))
+        .route("/admin/mailings/{id}/cancel", post(mailings::cancel))
+        .route("/email/unsubscribe", post(mailings::unsubscribe))
+        .route("/email/unsubscribe/{token}", post(mailings::one_click))
+        .route("/account/preferences", put(account::preferences))
         .route(
             "/admin/prices",
             get(billing::admin_prices).post(billing::create_prices),

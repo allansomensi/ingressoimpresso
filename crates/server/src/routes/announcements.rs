@@ -237,10 +237,16 @@ async fn load_admin(state: &AppState, id: Option<Uuid>) -> ApiResult<Vec<AdminAn
     let audience = sqlx::query_scalar!(r#"select count(*) as "count!" from users"#)
         .fetch_one(&state.pool)
         .await?;
+    // The latest sending by e-mail of each one (ADR 0107), newest first.
+    let mut mailings = crate::mailings::load(state, id, None).await?;
     let now = OffsetDateTime::now_utc();
     Ok(rows
         .into_iter()
         .map(|row| AdminAnnouncementDto {
+            mailing: mailings
+                .iter()
+                .position(|(announcement, _)| *announcement == row.id)
+                .map(|index| mailings.swap_remove(index).1),
             status: status_of(&row, now),
             id: row.id,
             level: AnnouncementLevel::from_db(&row.level).unwrap_or(AnnouncementLevel::Info),
@@ -264,7 +270,7 @@ async fn load_admin(state: &AppState, id: Option<Uuid>) -> ApiResult<Vec<AdminAn
         .collect())
 }
 
-async fn load_one(state: &AppState, id: Uuid) -> ApiResult<AdminAnnouncementDto> {
+pub(crate) async fn load_one(state: &AppState, id: Uuid) -> ApiResult<AdminAnnouncementDto> {
     load_admin(state, Some(id))
         .await?
         .into_iter()

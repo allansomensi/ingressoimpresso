@@ -27,6 +27,7 @@ pub mod guests;
 pub mod history;
 pub mod ledger;
 pub mod mail_admin;
+pub mod mailings;
 pub mod moderation;
 pub mod organization;
 pub mod pix;

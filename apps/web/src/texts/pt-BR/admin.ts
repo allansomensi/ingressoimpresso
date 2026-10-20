@@ -678,6 +678,9 @@ export const admin = {
       dispute_unblock: "Desbloqueou os números de uma contestação",
       dispute_settle: "Estornou o lote de uma contestação perdida",
       report_export: "Baixou o fechamento do mês",
+      announcement_email: "Enviou um pronunciamento por e-mail",
+      announcement_email_cancel:
+        "Parou o envio de um pronunciamento por e-mail",
       organization_note_create: "Escreveu uma anotação",
       organization_note_update: "Editou uma anotação",
       organization_note_delete: "Apagou uma anotação",
@@ -789,6 +792,69 @@ export const admin = {
       "Ele está no ar agora e some do sininho de todo mundo. O histórico de leituras fica guardado.",
     deleteTitle: "Excluir este rascunho?",
     deleteBody: "Ele ainda não foi publicado; ninguém viu.",
+    email: {
+      send: "Enviar por e-mail",
+      test: "Enviar teste para mim",
+      testSent: "Teste enviado para o seu e-mail.",
+      title: "Enviar por e-mail",
+      description:
+        "O pronunciamento vai também para a caixa de entrada, com o botão e um link para parar de receber. Quem já recebeu este pronunciamento fica de fora.",
+      audience: "Para quem",
+      audiences: {
+        all: "Todas as contas",
+        owners: "Responsáveis pelas organizações",
+        paying: "Clientes que já pagaram",
+        recent: "Quem entrou nos últimos 90 dias",
+        tagged: "Organizações com uma etiqueta",
+      } as Record<string, string>,
+      audienceHints: {
+        all: "Cada pessoa com conta, inclusive quem foi chamado para uma equipe.",
+        owners: "Só o e-mail principal de cada organização.",
+        paying: "Pessoas das organizações que já compraram lotes pagos.",
+        recent: "Bom para avisos de uso; deixa de fora contas paradas.",
+        tagged: "Use as etiquetas da ficha de cada organização.",
+      } as Record<string, string>,
+      tag: "Etiqueta",
+      noTags:
+        "Nenhuma organização tem etiqueta ainda. Crie na ficha da organização.",
+      recipients: (count: number) =>
+        count === 1
+          ? "1 pessoa vai receber"
+          : `${count.toLocaleString("pt-BR")} pessoas vão receber`,
+      optedOut: (count: number) =>
+        count === 1
+          ? "1 parou de receber comunicados"
+          : `${count.toLocaleString("pt-BR")} pararam de receber comunicados`,
+      already: (count: number) =>
+        count === 1
+          ? "1 já recebeu"
+          : `${count.toLocaleString("pt-BR")} já receberam`,
+      pace: (perDay: number, days: number) =>
+        days <= 1
+          ? `Sai hoje: até ${perDay.toLocaleString("pt-BR")} comunicados por dia, para sobrar cota para os códigos de acesso.`
+          : `Leva cerca de ${String(days)} dias: até ${perDay.toLocaleString("pt-BR")} comunicados por dia, para sobrar cota para os códigos de acesso.`,
+      noBudget:
+        "A cota diária de e-mails é pequena demais para comunicados: aumente MAIL_DAILY_LIMIT.",
+      confirm: (count: number) =>
+        count === 1
+          ? "Enviar para 1 pessoa"
+          : `Enviar para ${count.toLocaleString("pt-BR")} pessoas`,
+      queued: "Envio começou. Acompanhe o progresso na lista.",
+      progress: (sent: number, total: number) =>
+        `E-mail: ${sent.toLocaleString("pt-BR")} de ${total.toLocaleString("pt-BR")}`,
+      done: (sent: number) =>
+        sent === 1
+          ? "E-mail: enviado para 1 pessoa"
+          : `E-mail: enviado para ${sent.toLocaleString("pt-BR")} pessoas`,
+      failed: (count: number) => `${count.toLocaleString("pt-BR")} com falha`,
+      skipped: (count: number) => `${count.toLocaleString("pt-BR")} fora`,
+      canceled: "envio parado",
+      cancel: "Parar o envio",
+      cancelTitle: "Parar o envio por e-mail?",
+      cancelBody:
+        "Quem ainda não recebeu fica sem receber. O que já saiu não volta.",
+      canceledToast: "Envio parado.",
+    },
   },
   billing: {
     pricesIntro:
@@ -968,6 +1034,8 @@ export const admin = {
       batch_paid: "Pagamento confirmado",
       test: "Teste",
       team_invite: "Convite de equipe",
+      alert: "Alerta dos admins",
+      announcement: "Pronunciamento",
     },
     statuses: {
       sending: "Enviando",

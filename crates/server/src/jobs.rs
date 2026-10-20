@@ -92,6 +92,8 @@ pub async fn supervise(state: AppState) {
 pub async fn run_worker(state: AppState) {
     let mut last_cleanup = std::time::Instant::now();
     cleanup(&state.config.export_dir).await;
+    // Announcement e-mails left waiting by a restart (ADR 0107).
+    crate::mailings::wake(&state);
     loop {
         if state.shutting_down() {
             return;
@@ -115,6 +117,8 @@ pub async fn run_worker(state: AppState) {
             if let Err(error) = crate::alerts::maybe_send_summary(&state).await {
                 tracing::error!(?error, "daily summary failed");
             }
+            // Announcement e-mails held for the quota go on as the day's count goes down.
+            crate::mailings::wake(&state);
             last_cleanup = std::time::Instant::now();
         }
         let wait = match next_stale(&state).await {

@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update announcement_mail_recipients set status = 'pending', sent_at = null where mailing_id = $1 and user_id = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "40103a4ca6d8f8c1ef10c0a456f554907540dbea59b47cde9e99288e3238dee9"
+}

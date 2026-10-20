@@ -58,6 +58,8 @@ pub struct AppState {
     pub telegram: crate::alerts::Telegram,
     /// When the latest unexpected errors (500) happened, for the error alert (ADR 0103).
     server_errors: Arc<Mutex<std::collections::VecDeque<Instant>>>,
+    /// An announcement sender is running (ADR 0107; see `mailings::wake`).
+    pub mailing: Arc<AtomicBool>,
 }
 
 /// Number of batch locks: unrelated batches rarely share one, and the set never grows.
@@ -86,6 +88,7 @@ impl AppState {
             status_cache: Arc::new(tokio::sync::RwLock::new(None)),
             telegram: crate::alerts::Telegram::from_config(config_telegram.as_ref()),
             server_errors: Arc::new(Mutex::new(std::collections::VecDeque::new())),
+            mailing: Arc::new(AtomicBool::new(false)),
         }
     }
 
