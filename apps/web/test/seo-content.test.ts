@@ -8,7 +8,7 @@ import sitemap from "@/app/sitemap";
 import { llmsText } from "@/content/llms";
 import { eventSeoPages } from "@/content/seo-event-pages";
 import { guideWordCount, seoGuides } from "@/content/seo-guides";
-import { EVENT_TEMPLATES, templateImagePath, templateSeoPages } from "@/content/seo-templates";
+import { EVENT_TEMPLATES, relatedTemplatePages, templateImagePath, templateSeoPages } from "@/content/seo-templates";
 import { richTextLinks } from "@/lib/rich-text";
 import { pageMetadata } from "@/lib/seo";
 import { SITE_URL } from "@/lib/site";
@@ -99,6 +99,18 @@ describe("template pages (/modelos)", () => {
     expect(unique(templateSeoPages.map((page) => page.slug))).toBe(true);
     expect(unique(templateSeoPages.map((page) => page.title))).toBe(true);
     expect(templateSeoPages.flatMap(snippetIssues)).toEqual([]);
+  });
+
+  it("suggest other templates of the same kind of event first", () => {
+    for (const page of templateSeoPages) {
+      const related = relatedTemplatePages(page.id);
+      expect(related, page.slug).toHaveLength(3);
+      expect(unique(related.map((other) => other.id)), page.slug).toBe(true);
+      expect(related.some((other) => other.id === page.id), page.slug).toBe(false);
+    }
+    const main = TEMPLATES.find((template) => template.id === "rock")?.categories[0];
+    const rock = relatedTemplatePages("rock").map((other) => TEMPLATES.find((template) => template.id === other.id));
+    expect(rock.every((template) => main !== undefined && (template?.categories.includes(main) ?? false))).toBe(true);
   });
 
   it("have their picture, made by `just template-images`", () => {

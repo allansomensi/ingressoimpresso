@@ -41,6 +41,8 @@ const PREVIEWS_PER_MINUTE: usize = 30;
 /// Art an organization may keep (every event, every saved version): ten large files.
 const MAX_ART_BYTES_PER_ORGANIZATION: i64 = 200 * 1024 * 1024;
 const PREVIEW_DPI: u32 = 110;
+/// Width of the sample picture of one ticket: sharp on a phone, light enough to share.
+const SAMPLE_WIDTH_PX: u32 = 1600;
 /// Width of the art shown in the editor's live preview.
 const ART_PREVIEW_WIDTH_PX: u32 = 1600;
 /// Art previews one user may ask for per minute (the editor asks once per upload; browsers keep
@@ -1264,15 +1266,17 @@ pub async fn load_arts(state: &AppState, event_id: Uuid, ids: &[Uuid]) -> ApiRes
         .collect()
 }
 
-/// `POST /api/events/{id}/design/preview`: first home A4 sheet with SAMPLE tickets (watermark,
-/// invalid QR), as JPEG. Never signs anything.
-pub async fn preview(
-    State(state): State<AppState>,
-    user: AuthUser,
-    Path(event_id): Path<Uuid>,
-    Json(body): Json<DesignBody>,
-) -> ApiResult<Response> {
-    let event = authorize_event(&state.pool, &user, event_id).await?;
+/// The job of a design preview: the event's details and art with `count` SAMPLE tickets (invalid
+/// QR, watermark), numbered from 1. Checks access, the design, the art and the rate limit shared
+/// by every kind of preview. Never signs anything.
+async fn sample_job(
+    state: &AppState,
+    user: &AuthUser,
+    event_id: Uuid,
+    body: DesignBody,
+    count: u32,
+) -> ApiResult<RenderJob> {
+    let event = authorize_event(&state.pool, user, event_id).await?;
     validate_design(&body.design)?;
     if !state
         .attempt(
@@ -1285,7 +1289,7 @@ pub async fn preview(
         return Err(ApiError::TooManyRequests);
     }
     if let Some(art_id) = body.art_id
-        && art_of_event(&state, event_id, art_id)
+        && art_of_event(state, event_id, art_id)
             .await?
             .moderation_status
             == "rejected"
@@ -1296,21 +1300,21 @@ pub async fn preview(
         ));
     }
     let art = match body.art_id {
-        Some(art_id) => Some(load_art(&state, event_id, art_id).await?),
+        Some(art_id) => Some(load_art(state, event_id, art_id).await?),
         None => None,
     };
-    sponsors_of(&state, event_id, &body.sponsor_ids).await?;
-    let sponsors = load_arts(&state, event_id, &body.sponsor_ids).await?;
+    sponsors_of(state, event_id, &body.sponsor_ids).await?;
+    let sponsors = load_arts(state, event_id, &body.sponsor_ids).await?;
     // Samples show the band of the event's categories and seats, as printed (ADR 0056).
     let tags = super::categories::NumberTags::load(&state.pool, event_id).await?;
-    let job = RenderJob {
+    Ok(RenderJob {
         tokens: event.tokens(),
         details: super::event_details(&state.pool, &event).await?,
         design: body.design,
         art,
         sponsors,
         event_name: event.name,
-        tickets: (1..=200)
+        tickets: (1..=count)
             .map(|number| TicketToRender {
                 qr: TicketQr::Sample { number },
                 seller: None,
@@ -1318,32 +1322,78 @@ pub async fn preview(
                 seat: tags.seat(i32::try_from(number).unwrap_or(i32::MAX)),
             })
             .collect(),
-    };
+    })
+}
+
+/// Runs a render of samples on the blocking pool, one at a time with the other renders.
+async fn render_samples<T: Send + 'static>(
+    state: &AppState,
+    job: RenderJob,
+    render: impl FnOnce(&RenderJob) -> Result<T, ticket_render::RenderError> + Send + 'static,
+) -> ApiResult<T> {
     let _permit = state
         .render_permits
         .clone()
         .acquire_owned()
         .await
         .map_err(anyhow::Error::from)?;
-    let sheets =
-        tokio::task::spawn_blocking(move || ticket_render::home_sheet_jpegs(&job, PREVIEW_DPI, 1))
-            .await
-            .map_err(anyhow::Error::from)?
-            .map_err(|error| match error {
-                ticket_render::RenderError::TooLargeForA4 => {
-                    bad_request("too_large_for_a4", "ticket does not fit on A4")
-                }
-                other => ApiError::Internal(other.into()),
-            })?;
+    tokio::task::spawn_blocking(move || render(&job))
+        .await
+        .map_err(anyhow::Error::from)?
+        .map_err(|error| match error {
+            ticket_render::RenderError::TooLargeForA4 => {
+                bad_request("too_large_for_a4", "ticket does not fit on A4")
+            }
+            other => ApiError::Internal(other.into()),
+        })
+}
+
+fn jpeg_response(jpeg: Vec<u8>) -> Response {
+    (
+        [(CONTENT_TYPE, HeaderValue::from_static("image/jpeg"))],
+        jpeg,
+    )
+        .into_response()
+}
+
+/// `POST /api/events/{id}/design/preview`: first home A4 sheet with SAMPLE tickets (watermark,
+/// invalid QR), as JPEG. Never signs anything.
+pub async fn preview(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(event_id): Path<Uuid>,
+    Json(body): Json<DesignBody>,
+) -> ApiResult<Response> {
+    let job = sample_job(&state, &user, event_id, body, 200).await?;
+    let sheets = render_samples(&state, job, |job| {
+        ticket_render::home_sheet_jpegs(job, PREVIEW_DPI, 1)
+    })
+    .await?;
     let jpeg = sheets
         .into_iter()
         .next()
         .ok_or_else(|| anyhow::anyhow!("no preview sheet"))?;
-    Ok((
-        [(CONTENT_TYPE, HeaderValue::from_static("image/jpeg"))],
-        jpeg,
-    )
-        .into_response())
+    Ok(jpeg_response(jpeg))
+}
+
+/// `POST /api/events/{id}/design/sample`: one SAMPLE ticket (watermark, invalid QR) as a JPEG
+/// image of its body, the way the WhatsApp images come out, for the editor's sample picture.
+pub async fn sample(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(event_id): Path<Uuid>,
+    Json(body): Json<DesignBody>,
+) -> ApiResult<Response> {
+    let job = sample_job(&state, &user, event_id, body, 1).await?;
+    let images = render_samples(&state, job, |job| {
+        ticket_render::ticket_images(job, SAMPLE_WIDTH_PX)
+    })
+    .await?;
+    let image = images
+        .into_iter()
+        .next()
+        .ok_or_else(|| anyhow::anyhow!("no sample image"))?;
+    Ok(jpeg_response(image.jpeg))
 }
 
 /// `GET /api/events/{id}/art/{art_id}`: the art as a JPEG at most 1600 px wide, for the editor's

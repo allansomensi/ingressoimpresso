@@ -72,7 +72,7 @@ export function GuestList({ engine, state, onClose }: { engine: DoorEngine; stat
   };
 
   return (
-    <div className="fixed inset-0 z-20 flex flex-col bg-[#0b0a12] text-neutral-50" role="dialog" aria-modal="true" aria-label={t.title}>
+    <div className="fixed inset-0 z-20 flex flex-col bg-[#0c0c10] text-neutral-50" role="dialog" aria-modal="true" aria-label={t.title}>
       <header className="flex flex-col gap-3 border-b border-white/10 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 [&>*]:mx-auto [&>*]:w-full [&>*]:max-w-2xl">
         <div className="flex items-center gap-2">
           <button
@@ -183,7 +183,7 @@ export function GuestList({ engine, state, onClose }: { engine: DoorEngine; stat
                         onClick={() => {
                           tapArrive(guest, status);
                         }}
-                        className="flex min-h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-white px-4 text-lg font-bold text-[#0b0a12] transition active:scale-[0.98]"
+                        className="flex min-h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-white px-4 text-lg font-bold text-[#0c0c10] transition active:scale-[0.98]"
                       >
                         <Check className="size-5" strokeWidth={3} aria-hidden />
                         {status.people === 0 ? t.arrive : t.arriveMore(missing)}
@@ -215,7 +215,7 @@ export function GuestList({ engine, state, onClose }: { engine: DoorEngine; stat
 
       {snack !== null && (
         <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30 flex justify-center px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-          <div role="status" className="pointer-events-auto flex w-full max-w-md items-center gap-3 rounded-2xl bg-white px-4 py-2.5 text-[#0b0a12] shadow-2xl">
+          <div role="status" className="pointer-events-auto flex w-full max-w-md items-center gap-3 rounded-2xl bg-white px-4 py-2.5 text-[#0c0c10] shadow-2xl">
             <Check className="size-5 shrink-0 text-emerald-600" strokeWidth={3} aria-hidden />
             <span className="flex min-w-0 flex-1 flex-col leading-tight">
               <span className="truncate font-semibold">{snack.name}</span>
@@ -270,7 +270,7 @@ function PeopleSheet({
         role="dialog"
         aria-modal="true"
         aria-label={t.howMany}
-        className="w-full max-w-md rounded-t-3xl border border-white/10 bg-[#17151f] p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] text-white shadow-2xl sm:rounded-3xl"
+        className="w-full max-w-md rounded-t-3xl border border-white/10 bg-[#18181d] p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] text-white shadow-2xl sm:rounded-3xl"
         onClick={(event) => {
           event.stopPropagation();
         }}
@@ -287,7 +287,7 @@ function PeopleSheet({
               onClick={() => {
                 setPeople(count);
               }}
-              className={`flex h-14 items-center justify-center rounded-2xl text-2xl font-bold tabular-nums transition active:scale-95 ${people === count ? "bg-white text-[#0b0a12]" : "border border-white/15 bg-white/5 text-white"}`}
+              className={`flex h-14 items-center justify-center rounded-2xl text-2xl font-bold tabular-nums transition active:scale-95 ${people === count ? "bg-white text-[#0c0c10]" : "border border-white/15 bg-white/5 text-white"}`}
             >
               {count}
             </button>

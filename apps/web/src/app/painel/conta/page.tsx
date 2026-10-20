@@ -255,8 +255,10 @@ export default function AccountPage() {
           {t.suspendedBody(a.suspendedReason)}
         </Alert>
       )}
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="flex min-w-0 flex-col gap-6">
+      {/* Phones: organization, money, security. Larger screens: organization and security on the
+          left, money on the right. */}
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:grid-rows-[auto_1fr]">
+        <div className="flex min-w-0 flex-col gap-6 lg:col-start-1 lg:row-start-1">
           <Card>
             <CardHeader icon={Building2} title={t.organization} description={t.organizationHint} />
             <OrganizationForm key={a.organizationName} account={a} />
@@ -284,10 +286,8 @@ export default function AccountPage() {
               </div>
             </dl>
           </Card>
-          {/* Refer and earn (ADR 0076). */}
-          <ReferralsCard />
         </div>
-        <div className="flex min-w-0 flex-col gap-6">
+        <div className="flex min-w-0 flex-col gap-6 lg:col-start-2 lg:row-span-2 lg:row-start-1">
           {a.freeTicketsTotal > 0 && (
             <Card>
               <CardHeader icon={Gift} title={t.free} />
@@ -309,9 +309,15 @@ export default function AccountPage() {
             </Card>
           )}
           <CreditsCard />
-          {session.status === "signed-in" && <TwoFactorCard email={session.user.email} />}
-          {session.status === "signed-in" && <PrivacyCard account={a} email={session.user.email} />}
+          {/* Refer and earn (ADR 0076): beside the credits it pays, not in the way. */}
+          <ReferralsCard />
         </div>
+        {session.status === "signed-in" && (
+          <div className="flex min-w-0 flex-col gap-6 lg:col-start-1 lg:row-start-2">
+            <TwoFactorCard email={session.user.email} />
+            <PrivacyCard account={a} email={session.user.email} />
+          </div>
+        )}
       </div>
       {/* The version, for support: plain text, at the very end of the account page (ADR 0054). */}
       <p className="text-center text-xs text-fg-subtle tabular">{panelTexts.version(VERSION_LABEL)}</p>

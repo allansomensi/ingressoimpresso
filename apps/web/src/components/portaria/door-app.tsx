@@ -10,9 +10,7 @@ import {
   Clock3,
   Flashlight,
   FlashlightOff,
-  HandHelping,
   History,
-  IdCard,
   LogIn,
   LogOut,
   MoreVertical,
@@ -31,6 +29,7 @@ import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent, type
 import { LogoMark } from "@/components/brand";
 import { GuestList } from "@/components/portaria/guest-list";
 import { RecentScans } from "@/components/portaria/recent-scans";
+import { Result } from "@/components/portaria/result-screen";
 
 import { Scanner } from "@/portaria/camera";
 import { useClock } from "@/portaria/clock";
@@ -38,11 +37,10 @@ import { DoorApiError } from "@/portaria/client";
 import { DoorEngine, type DoorMode, type DoorState } from "@/portaria/engine";
 import { announce, rehearseFeedback, unlockAudio } from "@/portaria/feedback";
 import { accessTokenFromHash, clearHash, noAccessToken, subscribeHash } from "@/portaria/hash";
-import { inkFor } from "@/lib/design-rules";
 import { currentDay, dayLabel } from "@/lib/event-days";
 import { money } from "@/lib/format";
 import { sessionLabel } from "@/lib/series";
-import { HOLD_MS, OFFLINE_WARNING_MS, canRehearse, clockTime, dismissPolicy, doorWords, type ResultView } from "@/portaria/logic";
+import { OFFLINE_WARNING_MS, canRehearse, clockTime, dismissPolicy, doorWords, type ResultView } from "@/portaria/logic";
 import { cameraGranted, keepOffline, keepScreenOn, persistStorage, whenIdle } from "@/portaria/offline";
 import { errors as errorsTexts } from "@/texts/pt-BR/errors";
 import { portaria as portariaTexts } from "@/texts/pt-BR/portaria";
@@ -78,7 +76,7 @@ export function DoorApp() {
   const words = doorWords((state.manifest?.event ?? state.device?.event)?.kind);
 
   return (
-    <main className="flex min-h-dvh flex-col bg-[#0b0a12] bg-[radial-gradient(80%_50%_at_50%_0%,rgba(91,61,245,0.18),transparent)] text-neutral-50">
+    <main className="flex min-h-dvh flex-col bg-[#0c0c10] bg-[radial-gradient(90%_45%_at_50%_0%,rgba(255,255,255,0.06),transparent)] text-neutral-50">
       {state.phase === "loading" && <Centered>{words.loading}</Centered>}
       {state.phase === "failed" && <Centered>{errorsTexts.generic}</Centered>}
       {state.phase === "revoked" && <Revoked engine={engine} forgetConfirm={words.forgetConfirm} />}
@@ -106,7 +104,7 @@ function Centered({ children }: { children: ReactNode }) {
 const fieldClass =
   "w-full rounded-2xl border border-white/15 bg-white/5 px-4 py-3.5 text-lg text-white placeholder:text-white/35 focus:border-[#7c66ff] focus:ring-4 focus:ring-[#7c66ff]/30 focus:outline-none";
 const buttonClass =
-  "flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3.5 text-lg font-bold text-[#0b0a12] shadow-lg transition active:scale-[0.98] disabled:opacity-40 [&_svg]:size-5";
+  "flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3.5 text-lg font-bold text-[#0c0c10] shadow-lg transition active:scale-[0.98] disabled:opacity-40 [&_svg]:size-5";
 const secondaryClass =
   "flex w-full items-center justify-center gap-2 rounded-2xl border border-white/20 bg-white/5 px-4 py-3.5 text-lg font-semibold transition active:scale-[0.98] disabled:opacity-40 [&_svg]:size-5";
 
@@ -390,7 +388,7 @@ function Door({ engine, state }: { engine: DoorEngine; state: DoorState }) {
         </div>
       )}
       <header
-        className={`sticky z-10 flex flex-col gap-2 border-b border-white/10 bg-[#0b0a12]/85 px-4 pb-3 backdrop-blur-xl ${banner !== null ? "top-[calc(2.25rem+env(safe-area-inset-top))] pt-3" : "top-0 pt-[max(0.75rem,env(safe-area-inset-top))]"}`}
+        className={`sticky z-10 flex flex-col gap-2 border-b border-white/10 bg-[#0c0c10]/85 px-4 pb-3 backdrop-blur-xl ${banner !== null ? "top-[calc(2.25rem+env(safe-area-inset-top))] pt-3" : "top-0 pt-[max(0.75rem,env(safe-area-inset-top))]"}`}
       >
         <div className="flex items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-2.5">
@@ -481,7 +479,7 @@ function Door({ engine, state }: { engine: DoorEngine; state: DoorState }) {
         {menuOpen && (
           <>
           <button type="button" aria-hidden tabIndex={-1} className="fixed inset-0 z-20 cursor-default" onClick={() => { setMenuOpen(false); }} />
-          <div className="fixed top-[calc(3.75rem+env(safe-area-inset-top))] right-3 z-30 flex w-64 flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#17151f] py-1 shadow-2xl">
+          <div className="fixed top-[calc(3.75rem+env(safe-area-inset-top))] right-3 z-30 flex w-64 flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#18181d] py-1 shadow-2xl">
             {checkpoint === null && (
               <button
                 type="button"
@@ -513,7 +511,26 @@ function Door({ engine, state }: { engine: DoorEngine; state: DoorState }) {
           </div>
           </>
         )}
-      <div className="relative flex flex-1 flex-col items-center justify-center gap-4 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+      <div className="relative flex flex-1 flex-col items-center gap-4 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        {/* Not reading yet: one big target that opens the camera, where the camera will be. */}
+        {!running && (
+          <button
+            type="button"
+            aria-label={t.start}
+            disabled={state.manifest === null}
+            onClick={() => {
+              unlockAudio();
+              setRunning(true);
+            }}
+            className="flex w-full max-w-md flex-col items-center justify-center gap-3 rounded-3xl border border-white/10 bg-white/[0.04] px-6 py-10 transition active:scale-[0.99] active:bg-white/[0.08] disabled:opacity-40"
+          >
+            <span className="flex size-20 items-center justify-center rounded-full bg-white text-[#0c0c10] shadow-lg">
+              <ScanLine className="size-9" aria-hidden />
+            </span>
+            <span className="text-2xl font-bold tracking-tight">{t.start}</span>
+            <span className="text-sm text-white/60">{rehearsing ? words.rehearsal.readHint : checkMode ? t.mode.checkHint : exitMode ? t.mode.exitHint : words.scanHint}</span>
+          </button>
+        )}
         <div className={`relative w-full max-w-md ${running ? "" : "hidden"}`}>
           <video ref={videoRef} className="aspect-square w-full rounded-3xl bg-black object-cover" muted playsInline />
           <div aria-hidden className="pointer-events-none absolute inset-[14%]">
@@ -528,40 +545,40 @@ function Door({ engine, state }: { engine: DoorEngine; state: DoorState }) {
           </p>
         </div>
         {cameraFailed && <p role="alert" className="w-full max-w-md rounded-xl bg-red-500/15 px-3 py-2 text-center text-red-300">{t.cameraError}</p>}
-        <div className="flex w-full max-w-md gap-2">
-          <button
-            type="button"
-            className={buttonClass}
-            disabled={state.manifest === null}
-            onClick={() => {
-              if (!running) {
-                unlockAudio();
-              }
-              setRunning(!running);
-            }}
-          >
-            {running ? <Pause aria-hidden /> : <ScanLine aria-hidden />}
-            {running ? t.stop : t.start}
-          </button>
-          {running && torch !== null && (
-            <button type="button" className={secondaryClass} onClick={toggleTorch}>
-              {torch ? <FlashlightOff aria-hidden /> : <Flashlight aria-hidden />}
-              {torch ? t.torchOff : t.torchOn}
-            </button>
-          )}
-          {!rehearsing && hasGuests && (
-            <button
-              type="button"
-              className={secondaryClass.replace("w-full", "w-auto shrink-0 px-5")}
-              onClick={() => {
-                setShowGuests(true);
-              }}
-            >
-              <UsersRound aria-hidden />
-              <span className={running && torch !== null ? "sr-only" : ""}>{t.guests.open}</span>
-            </button>
-          )}
-        </div>
+        {(running || (!rehearsing && hasGuests)) && (
+          <div className="flex w-full max-w-md gap-2">
+            {running && (
+              <button
+                type="button"
+                className={buttonClass}
+                onClick={() => {
+                  setRunning(false);
+                }}
+              >
+                <Pause aria-hidden />
+                {t.stop}
+              </button>
+            )}
+            {running && torch !== null && (
+              <button type="button" className={secondaryClass} onClick={toggleTorch}>
+                {torch ? <FlashlightOff aria-hidden /> : <Flashlight aria-hidden />}
+                {torch ? t.torchOff : t.torchOn}
+              </button>
+            )}
+            {!rehearsing && hasGuests && (
+              <button
+                type="button"
+                className={running ? secondaryClass.replace("w-full", "w-auto shrink-0 px-5") : secondaryClass}
+                onClick={() => {
+                  setShowGuests(true);
+                }}
+              >
+                <UsersRound aria-hidden />
+                <span className={running && torch !== null ? "sr-only" : ""}>{t.guests.open}</span>
+              </button>
+            )}
+          </div>
+        )}
         {rehearsing ? (
           <RehearsalPanel
             texts={words.rehearsal}
@@ -650,8 +667,8 @@ const CLOCK_SKEW_MS = 5 * 60_000;
 function ModeSwitch(props: { mode: DoorMode; modes: readonly DoorMode[]; checkpoint: boolean; onChange: (mode: DoorMode) => void }) {
   const looks = {
     entrance: props.checkpoint
-      ? { label: t.mode.use, Icon: BadgeCheck, on: "bg-white text-[#0b0a12] shadow" }
-      : { label: t.mode.entrance, Icon: LogIn, on: "bg-white text-[#0b0a12] shadow" },
+      ? { label: t.mode.use, Icon: BadgeCheck, on: "bg-white text-[#0c0c10] shadow" }
+      : { label: t.mode.entrance, Icon: LogIn, on: "bg-white text-[#0c0c10] shadow" },
     exit: { label: t.mode.exit, Icon: LogOut, on: "bg-[#2563eb] text-white shadow" },
     check: { label: t.mode.check, Icon: SearchCheck, on: "bg-[#0f766e] text-white shadow" },
   } as const;
@@ -827,214 +844,34 @@ function Readiness(props: {
     [props.testScan, r.testScan],
   ];
   const done = items.filter(([ok]) => ok).length;
+  const ready = done === items.length;
+  // Everything done: one quiet line that still opens the list.
   return (
-    <section className="w-full max-w-md rounded-3xl border border-white/10 bg-white/[0.04] p-4" aria-label={r.title}>
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <h2 className="font-semibold">{r.title}</h2>
-        <span
-          className={`rounded-full px-2.5 py-0.5 text-xs font-semibold tabular-nums ${done === items.length ? "bg-emerald-400/15 text-emerald-300" : "bg-white/10 text-white/70"}`}
-        >
-          {r.progress(done, items.length)}
-        </span>
-      </div>
-      <ul className="flex flex-col gap-2 text-sm">
-        {items.map(([ok, label]) => (
-          <li key={label} data-ok={ok} className="flex items-start gap-2.5">
-            {ok ? (
-              <CheckCircle2 className="mt-px size-[18px] shrink-0 text-emerald-400" aria-hidden />
-            ) : (
-              <Circle className="mt-px size-[18px] shrink-0 text-amber-300/80" aria-hidden />
-            )}
-            <span className={ok ? "text-white/90" : "text-white/60"}>{label}</span>
-          </li>
-        ))}
-      </ul>
-      <p className="mt-3 border-t border-white/10 pt-3 text-xs leading-relaxed text-white/55">{r.hint}</p>
-    </section>
-  );
-}
-
-const TONE_CLASS = {
-  ok: "bg-[#15803d] text-white",
-  bad: "bg-[#c81e1e] text-white",
-  warn: "bg-[#f5b70b] text-black",
-  exit: "bg-[#1d4ed8] text-white",
-} as const;
-
-const TONE_ICON = { ok: CheckCircle2, bad: XCircle, warn: AlertTriangle, exit: LogOut } as const;
-
-/** How often the countdown of a result that leaves by itself moves. */
-const TICK_MS = 100;
-
-/**
- * A result. A plain "enter" goes back to the camera by itself, with a visible countdown that
- * stops while the screen is held (and, after a long press, until the next tap); anything else
- * stays until tapped (`dismissPolicy`).
- */
-function Result({ view, onDismiss, onAction }: { view: ResultView; onDismiss: (byUser: boolean) => void; onAction: () => void }) {
-  const Icon = TONE_ICON[view.tone];
-  const policy = dismissPolicy(view);
-  const autoMs = policy.auto ? policy.ms : null;
-  const [held, setHeld] = useState(false);
-  const [pinned, setPinned] = useState(false);
-  const [elapsed, setElapsed] = useState(0);
-  const pressedAt = useRef<number | null>(null);
-  const skipClick = useRef(false);
-  const dismissed = useRef(false);
-  const counting = autoMs !== null && !held && !pinned;
-
-  useEffect(() => {
-    if (!counting) {
-      return;
-    }
-    const timer = setInterval(() => {
-      setElapsed((current) => current + TICK_MS);
-    }, TICK_MS);
-    return () => {
-      clearInterval(timer);
-    };
-  }, [counting]);
-
-  useEffect(() => {
-    if (autoMs !== null && counting && elapsed >= autoMs && !dismissed.current) {
-      dismissed.current = true;
-      onDismiss(false);
-    }
-  }, [autoMs, counting, elapsed, onDismiss]);
-
-  const release = () => {
-    if (pressedAt.current !== null && performance.now() - pressedAt.current >= HOLD_MS && autoMs !== null) {
-      // A long press means "let me read": keep it until the next tap.
-      setPinned(true);
-      skipClick.current = true;
-    }
-    pressedAt.current = null;
-    setHeld(false);
-  };
-  const left = autoMs === null ? 0 : Math.max(0, 1 - elapsed / autoMs);
-  const hint = autoMs === null ? t.tapToContinue : held || pinned ? t.result.held : t.result.autoHint;
-
-  return (
-    <div
-      className={`fixed inset-0 z-30 flex flex-col items-center justify-center gap-4 overflow-x-hidden overflow-y-auto p-6 pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))] text-center [&>*]:max-w-full ${TONE_CLASS[view.tone]}`}
-      role="alert"
-      data-tone={view.tone}
-    >
-      {/* The whole screen dismisses (holding it stops the countdown); the override button sits above it. */}
-      <button
-        type="button"
-        onPointerDown={() => {
-          pressedAt.current = performance.now();
-          setHeld(true);
-        }}
-        onPointerUp={release}
-        onPointerCancel={release}
-        onPointerLeave={release}
-        onContextMenu={(event) => {
-          event.preventDefault();
-        }}
-        onClick={() => {
-          if (skipClick.current) {
-            skipClick.current = false;
-            return;
-          }
-          dismissed.current = true;
-          onDismiss(true);
-        }}
-        aria-label={t.tapToContinue}
-        className="absolute inset-0 cursor-default touch-manipulation select-none [-webkit-touch-callout:none]"
-      />
-      {view.repeat === true && (
-        <span className="pointer-events-none relative rounded-full bg-black/25 px-3 py-1 text-sm font-semibold">{t.result.repeat}</span>
-      )}
-      {view.rehearsal === true && (
-        <span className="pointer-events-none relative rounded-full bg-black/80 px-4 py-1.5 text-sm font-black tracking-wide text-amber-300">
-          {t.rehearsal.note}
-        </span>
-      )}
-      {/* A check (ADR 0090) is never mistaken for an entry: it says nothing was recorded. */}
-      {view.check === true && (
-        <span className="pointer-events-none relative flex items-center gap-1.5 rounded-full bg-black/80 px-4 py-1.5 text-sm font-black tracking-wide text-[#5eead4]">
-          <SearchCheck className="size-4" aria-hidden />
-          {t.check.note}
-        </span>
-      )}
-      {/* The checkpoint (ADR 0092): what this screen is about. */}
-      {view.place !== undefined && view.place !== null && (
-        <span className="pointer-events-none relative rounded-full bg-black/25 px-4 py-1 text-lg font-black tracking-wide uppercase">{view.place}</span>
-      )}
-      <Icon className="pointer-events-none relative size-24 animate-pop" strokeWidth={2.25} aria-hidden />
-      <span className="pointer-events-none relative text-[clamp(2.25rem,12vw,3rem)] leading-tight font-black tracking-tight text-balance">{view.title}</span>
-      {view.number !== null && <span className="pointer-events-none relative font-mono text-4xl font-bold">{view.number}</span>}
-      {view.document !== undefined && view.document !== null && (
-        <span className="pointer-events-none relative flex w-full max-w-sm flex-col items-center gap-1.5 rounded-2xl bg-white px-5 py-4 text-[#422006] shadow-lg ring-4 ring-amber-300">
-          <span className="flex items-center gap-2 text-[clamp(1.375rem,6.5vw,1.75rem)] leading-tight font-black tracking-tight text-balance uppercase">
-            <IdCard className="size-7 shrink-0" strokeWidth={2.5} aria-hidden />
-            {t.result.documentTitle(view.document.category)}
-          </span>
-          <span className="text-lg leading-snug font-semibold text-balance">{view.document.note ?? t.result.documentAny}</span>
-          <span className="text-sm leading-snug font-medium text-[#713f12]/80 text-balance">{t.result.documentHint}</span>
-        </span>
-      )}
-      {/* What the organizer asks the door to do (ADR 0089), or what a check looks at. */}
-      {view.instruction !== undefined && view.instruction !== null && (
-        <span className="pointer-events-none relative flex w-full max-w-sm flex-col items-center gap-1 rounded-2xl bg-white px-5 py-4 text-[#1e1b4b] shadow-lg ring-4 ring-[#a78bfa]">
-          <span className="flex items-center gap-1.5 text-sm font-bold tracking-wide uppercase opacity-80">
-            <HandHelping className="size-5 shrink-0" strokeWidth={2.5} aria-hidden />
-            {view.instruction.label}
-          </span>
-          <span className="text-[clamp(1.5rem,7.5vw,2.125rem)] leading-tight font-black tracking-tight text-balance uppercase">{view.instruction.text}</span>
-          {view.check !== true && <span className="text-sm leading-snug font-medium opacity-70">{t.result.instructionHint}</span>}
-        </span>
-      )}
-      {view.charge !== undefined && view.charge !== null && (
-        <span className="pointer-events-none relative rounded-2xl bg-white px-5 py-3 text-[clamp(1.5rem,7vw,1.875rem)] leading-tight font-black text-balance text-[#14532d] shadow-lg">
-          {view.charge}
-        </span>
-      )}
-      {view.detail !== null && <span className="pointer-events-none relative text-2xl text-balance">{view.detail}</span>}
-      {(view.category !== null || view.seat !== null) && (
-        <span className="pointer-events-none relative flex flex-wrap items-center justify-center gap-3">
-          {view.category !== null && (
-            <span
-              className="rounded-2xl px-5 py-2 text-3xl font-black tracking-wide uppercase shadow-lg ring-4 ring-white/70"
-              style={{ backgroundColor: view.category.color, color: inkFor(view.category.color) }}
-            >
-              {view.category.name}
-            </span>
-          )}
-          {view.seat !== null && <span className="rounded-2xl bg-black/15 px-4 py-2 text-2xl font-bold">{view.seat}</span>}
-        </span>
-      )}
-      {view.seller !== null && <span className="pointer-events-none relative text-xl opacity-90">{view.seller}</span>}
-      {view.note !== undefined && view.note !== null && (
-        <span className="pointer-events-none relative max-w-sm text-sm leading-snug font-semibold text-balance opacity-85">{view.note}</span>
-      )}
-      {view.action !== undefined && view.action !== null && (
-        <span className="relative mt-4 flex w-full max-w-sm flex-col items-center gap-1.5">
-          <button
-            type="button"
-            onClick={onAction}
-            className="flex min-h-14 w-full items-center justify-center rounded-2xl bg-black px-4 text-lg font-bold text-white shadow-lg transition active:scale-[0.98]"
-          >
-            {view.action.label}
-          </button>
-          <span className="text-sm font-medium text-balance opacity-80">{view.action.hint}</span>
-        </span>
-      )}
-      <span
-        className={`pointer-events-none relative mt-6 overflow-hidden rounded-full px-5 py-2 font-semibold ${autoMs === null ? "bg-black/25 text-base" : "bg-black/15 text-sm"}`}
-      >
-        {/* The countdown: the bar empties as the screen goes back to the camera. */}
-        {autoMs !== null && (
-          <span
-            aria-hidden
-            className="absolute inset-y-0 left-0 bg-black/25 transition-[width] duration-100 ease-linear"
-            style={{ width: `${String(left * 100)}%` }}
-          />
+    <details className="group w-full max-w-md rounded-2xl border border-white/10 bg-white/[0.03]" open={!ready} aria-label={r.title}>
+      <summary className="flex min-h-12 cursor-pointer list-none items-center gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
+        {ready ? (
+          <CheckCircle2 className="size-5 shrink-0 text-emerald-400" aria-hidden />
+        ) : (
+          <span className="relative size-5 shrink-0 rounded-full border-2 border-white/25" aria-hidden />
         )}
-        <span className="relative">{hint}</span>
-      </span>
-    </div>
+        <span className="flex-1 text-sm font-semibold">{ready ? r.ready : r.title}</span>
+        <span className="text-xs font-semibold text-white/55 tabular-nums">{r.progress(done, items.length)}</span>
+      </summary>
+      <div className="flex flex-col gap-3 border-t border-white/10 px-4 py-3">
+        <ul className="flex flex-col gap-2 text-sm">
+          {items.map(([ok, label]) => (
+            <li key={label} data-ok={ok} className="flex items-start gap-2.5">
+              {ok ? (
+                <CheckCircle2 className="mt-px size-[18px] shrink-0 text-emerald-400" aria-hidden />
+              ) : (
+                <Circle className="mt-px size-[18px] shrink-0 text-white/30" aria-hidden />
+              )}
+              <span className={ok ? "text-white/85" : "text-white/55"}>{label}</span>
+            </li>
+          ))}
+        </ul>
+        <p className="text-xs leading-relaxed text-white/45">{r.hint}</p>
+      </div>
+    </details>
   );
 }

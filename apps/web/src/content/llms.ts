@@ -30,7 +30,7 @@ export const LLMS_PAGES = {
     { path: "/", name: "Página inicial", about: "Como funciona, recursos, exemplos de uso e perguntas frequentes." },
     { path: "/precos", name: "Preços", about: "Tabela de preços por lote, simulador e dúvidas sobre pagamento." },
     { path: "/ingresso-para", name: "Tipos de evento", about: "Uma página para cada tipo de evento, com passo a passo e perguntas." },
-    { path: "/modelos", name: "Modelos de ingresso", about: "Galeria dos 16 modelos prontos para imprimir." },
+    { path: "/modelos", name: "Modelos de ingresso", about: "Galeria com mais de 70 modelos de ingresso e ficha prontos para imprimir." },
     { path: "/guias", name: "Guias", about: "Artigos práticos para quem organiza evento e vende ingresso." },
     { path: "/conferir", name: "Conferir ingresso", about: "Verificar se o QR code de um ingresso é verdadeiro antes de comprar, sem cadastro." },
     { path: "/entrar", name: "Criar conta", about: "Cadastro grátis, sem senha, com Google ou código por e-mail." },

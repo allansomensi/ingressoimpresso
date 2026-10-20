@@ -102,3 +102,5 @@ feita e as consequências.
 | [0090](0090-modo-conferencia.md) | Modo conferência (ronda) | Aceito |
 | [0091](0091-evento-de-varios-dias.md) | Evento de vários dias | Aceito |
 | [0092](0092-pontos-de-controle.md) | Pontos de controle (janta, kit, open bar) | Aceito |
+| [0093](0093-catalogo-ampliado-de-modelos.md) | Catálogo ampliado de modelos | Aceito |
+| [0094](0094-editor-travado-amostra-e-portaria-mais-calma.md) | Editor travado, imagem de amostra e uma portaria mais calma | Aceito |

@@ -31,7 +31,7 @@ Quem organiza um show na garagem, uma festa junina ou um culto especial costuma 
 papel, um a um, por vários vendedores. Na porta, ninguém sabe se aquele papel é original, se já
 entrou ou quem vendeu. O Ingresso Impresso resolve isso sem exigir internet nem equipamento:
 
-1. **Monte o ingresso** no editor visual, a partir de 16 modelos, com a sua arte.
+1. **Monte o ingresso** no editor visual, a partir de mais de 70 modelos, ou com a sua arte.
 2. **Pague só pelo lote de números** que vai usar (Pix ou cartão). Cada número sai com um QR code
    assinado digitalmente, que não dá para falsificar nem copiar sem ser pego.
 3. **Imprima** em casa (A4), na gráfica (PDF com sangria) ou **mande pelo WhatsApp** como imagem ou

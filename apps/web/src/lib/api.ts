@@ -168,15 +168,20 @@ export async function upload<T>(path: string, file: Blob): Promise<T> {
   return (await response.json()) as T;
 }
 
-/** Binary response (preview PNG, art) as an object URL; revoke it when replaced. GET without a body. */
-export async function fetchBlobUrl(path: string, body?: unknown): Promise<string> {
+/** Binary response (preview, art, sample picture). GET without a body, POST with one. */
+export async function fetchBlob(path: string, body?: unknown): Promise<Blob> {
   const response = await send(
     path,
     body === undefined
       ? { method: "GET" }
       : { method: "POST", body: JSON.stringify(body), headers: { "Content-Type": "application/json" } },
   );
-  return URL.createObjectURL(await response.blob());
+  return response.blob();
+}
+
+/** Binary response (preview PNG, art) as an object URL; revoke it when replaced. GET without a body. */
+export async function fetchBlobUrl(path: string, body?: unknown): Promise<string> {
+  return URL.createObjectURL(await fetchBlob(path, body));
 }
 
 /** A small image of the API as a `data:` URL, to keep in the browser for offline use (logos). */

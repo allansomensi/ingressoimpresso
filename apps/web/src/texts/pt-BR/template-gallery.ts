@@ -2,11 +2,12 @@ export const templateGallery = {
   title: "Modelos de ingresso prontos para imprimir",
   metaTitle: "Modelos de ingresso para imprimir, com número e QR code",
   metaDescription:
-    "16 modelos de ingresso numerados e com QR code: festa junina, formatura, show, teatro, rifa e mais. Personalize e imprima em casa ou na gráfica.",
+    "Mais de 70 modelos de ingresso e ficha com número e QR code: show, festa junina, formatura, 15 anos, rifa e mais. Personalize e imprima.",
   breadcrumb: "Modelos",
   eyebrow: "Modelos de ingresso",
   lead: "Escolha o modelo do seu tipo de evento. O nome, a data, o local e o preço entram sozinhos, cada ingresso sai com o seu número e um QR que não dá para copiar, e tudo pode ser editado.",
   see: "Ver modelo",
+  filterLabel: "Tipo de evento",
   colors: (count: number) => (count === 1 ? "1 combinação de cores" : `${String(count)} combinações de cores`),
   imageAlt: (h1: string) => `${h1}, preenchido com um evento de exemplo`,
   // Template page.

@@ -97,6 +97,7 @@ pub fn router(state: AppState) -> Router {
             get(events::get_design).put(events::save_design),
         )
         .route("/events/{id}/design/preview", post(events::preview))
+        .route("/events/{id}/design/sample", post(events::sample))
         .route("/events/{id}/analytics", get(analytics::event))
         .route(
             "/events/{id}/tickets",

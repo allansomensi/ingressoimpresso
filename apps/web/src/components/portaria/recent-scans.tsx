@@ -67,7 +67,7 @@ export function RecentScans({ engine, state, onClose }: { engine: DoorEngine; st
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="relative flex max-h-[88dvh] w-full animate-sheet flex-col rounded-t-3xl border border-white/10 bg-[#17151f] text-neutral-50 shadow-2xl sm:max-w-lg sm:animate-pop sm:rounded-3xl"
+        className="relative flex max-h-[88dvh] w-full animate-sheet flex-col rounded-t-3xl border border-white/10 bg-[#18181d] text-neutral-50 shadow-2xl sm:max-w-lg sm:animate-pop sm:rounded-3xl"
       >
         <span aria-hidden className="mx-auto mt-2.5 h-1.5 w-10 rounded-full bg-white/20 sm:hidden" />
         <header className="flex items-start gap-2 px-4 pt-2 pb-3">
