@@ -16,6 +16,9 @@ e não acompanha estes números.
 
 - A imagem de amostra do ingresso ("Ver como fica") leva embaixo o logo, o nome e o endereço do
   Ingresso Impresso, para quem recebe a imagem saber de onde ela veio.
+- Lista de nomes por planilha: em **Importar lista**, cole as células do Excel ou do Google
+  Planilhas ou abra um arquivo CSV com Nome, Acompanhantes, Observação e Categoria (em qualquer
+  ordem), confira a prévia e adicione tudo de uma vez. Há uma planilha modelo para baixar.
 
 ### Alterado
 

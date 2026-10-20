@@ -2,8 +2,8 @@
 
 import type { CategoryDto, GuestBody, GuestBulkBody, GuestDto } from "@ingressoimpresso/api-types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, ClipboardPaste, ListChecks, MoreHorizontal, Pencil, Plus, Search, Trash2, UserRound, Users } from "lucide-react";
-import { useState, type FormEvent } from "react";
+import { CheckCircle2, ClipboardPaste, Download, FileSpreadsheet, ListChecks, MoreHorizontal, Pencil, Plus, Search, Trash2, UserRound, Users } from "lucide-react";
+import { useRef, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
 import {
@@ -21,6 +21,7 @@ import {
   MenuItem,
   Select,
   Stat,
+  TableScroll,
   Textarea,
   buttonClass,
   errorMessage,
@@ -34,8 +35,10 @@ import {
   MAX_GUEST_NOTE,
   MAX_PASTE,
   filterGuests,
+  guestSheetTemplate,
   guestTotals,
-  parseGuestLines,
+  parseGuestImport,
+  readSheetFile,
   type GuestFilter,
 } from "@/lib/guest-list";
 import { inkFor } from "@/lib/design-rules";
@@ -270,6 +273,7 @@ export function GuestsTab({ eventId }: { eventId: string }) {
         onSaved={() => {
           void refresh();
         }}
+        categories={categories.data ?? []}
       />
     </div>
   );
@@ -403,31 +407,81 @@ function GuestForm(props: {
   );
 }
 
-function PasteDialog(props: { eventId: string; open: boolean; onClose: () => void; onSaved: () => void }) {
+function PasteDialog(props: { eventId: string; open: boolean; onClose: () => void; onSaved: () => void; categories: readonly CategoryDto[] }) {
   return (
-    <Dialog open={props.open} onClose={props.onClose} title={t.pasteTitle} description={t.pasteHint}>
+    <Dialog open={props.open} onClose={props.onClose} title={t.pasteTitle} description={t.pasteHint} size="lg">
       {props.open && <PasteForm {...props} />}
     </Dialog>
   );
 }
 
-function PasteForm(props: { eventId: string; onClose: () => void; onSaved: () => void }) {
+/** How many imported names the preview shows. */
+const PREVIEW_ROWS = 5;
+
+function PasteForm(props: { eventId: string; onClose: () => void; onSaved: () => void; categories: readonly CategoryDto[] }) {
   const [text, setText] = useState("");
-  const parsed = parseGuestLines(text);
-  const ready = parsed.guests.slice(0, MAX_PASTE);
+  // The file the text came from, while the text is the file's (editing it turns it into a paste).
+  const [file, setFile] = useState<string | null>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const parsed = parseGuestImport(text, props.categories, file !== null);
+  const ready = parsed.guests;
+  const categoryName = new Map(props.categories.map((category) => [category.id, category.name]));
   useUnsavedChanges(text.trim() !== "");
   const save = useMutation({
-    mutationFn: () => {
-      const body: GuestBulkBody = { guests: ready.map((guest) => ({ name: guest.name, companions: guest.companions })) };
-      return api<GuestDto[]>(`/api/events/${props.eventId}/guests/bulk`, { method: "POST", body });
+    // The API takes MAX_PASTE names a request: a longer sheet goes in parts, one after the other.
+    mutationFn: async () => {
+      const added: GuestDto[] = [];
+      for (let start = 0; start < ready.length; start += MAX_PASTE) {
+        const body: GuestBulkBody = {
+          guests: ready.slice(start, start + MAX_PASTE).map(
+            (guest): GuestBody => ({
+              name: guest.name,
+              companions: guest.companions,
+              ...(guest.note === null ? {} : { note: guest.note }),
+              ...(guest.categoryId === null ? {} : { categoryId: guest.categoryId }),
+            }),
+          ),
+        };
+        try {
+          added.push(...(await api<GuestDto[]>(`/api/events/${props.eventId}/guests/bulk`, { method: "POST", body })));
+        } catch (error) {
+          if (added.length > 0) {
+            // The first parts are in: the list shows them, the error says what stopped the rest.
+            props.onSaved();
+            setText("");
+            toast.success(t.added(added.length));
+          }
+          throw error;
+        }
+      }
+      return added;
     },
     onSuccess: (added) => {
       toast.success(t.added(added.length));
       setText("");
+      setFile(null);
       props.onSaved();
       props.onClose();
     },
   });
+  const openFile = async (chosen: File) => {
+    try {
+      setText(await readSheetFile(chosen));
+      setFile(chosen.name);
+    } catch {
+      toast.error(t.importFileError);
+    }
+  };
+  const downloadTemplate = () => {
+    const url = URL.createObjectURL(guestSheetTemplate(t.importTemplateRows));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = t.importTemplateFile;
+    link.click();
+    setTimeout(() => {
+      URL.revokeObjectURL(url);
+    }, 10_000);
+  };
   return (
     <form
       className="flex flex-col gap-4"
@@ -436,20 +490,93 @@ function PasteForm(props: { eventId: string; onClose: () => void; onSaved: () =>
         save.mutate();
       }}
     >
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          icon={<FileSpreadsheet />}
+          onClick={() => {
+            fileInput.current?.click();
+          }}
+        >
+          {t.importFile}
+        </Button>
+        <Button type="button" variant="ghost" size="sm" icon={<Download />} onClick={downloadTemplate}>
+          {t.importTemplate}
+        </Button>
+        <input
+          ref={fileInput}
+          type="file"
+          accept=".csv,.txt,.tsv,text/csv,text/plain,text/tab-separated-values"
+          className="sr-only"
+          aria-label={t.importFile}
+          onChange={(event) => {
+            const chosen = event.target.files?.[0];
+            if (chosen !== undefined) {
+              void openFile(chosen);
+            }
+            event.target.value = "";
+          }}
+        />
+      </div>
+      {file !== null && (
+        <p className="flex items-center gap-2 text-sm text-fg-muted">
+          <FileSpreadsheet className="size-4 shrink-0" aria-hidden />
+          <span className="min-w-0 truncate">{t.importFrom(file)}</span>
+        </p>
+      )}
       <Textarea
         value={text}
         rows={8}
         placeholder={t.pastePlaceholder}
         aria-label={t.pasteTitle}
+        className="font-mono text-sm"
         onChange={(event) => {
           setText(event.target.value);
+          setFile(null);
         }}
         autoFocus
       />
-      <p className="text-sm text-fg-muted">{t.pasteCount(ready.length)}</p>
+      <p className="text-sm text-fg-muted">
+        {t.pasteCount(ready.length)}
+        {parsed.table && ` · ${t.importAsTable}`}
+      </p>
+      {parsed.table && ready.length > 0 && (
+        <TableScroll label={t.importPreview} className="rounded-xl border border-border px-3 py-1">
+          <table className="w-full text-left text-sm">
+            <thead className="text-xs text-fg-muted">
+              <tr>
+                <th className="py-1.5 pr-3 font-medium">{t.name}</th>
+                <th className="py-1.5 pr-3 font-medium">{t.companions}</th>
+                <th className="py-1.5 pr-3 font-medium">{t.note}</th>
+                {props.categories.length > 0 && <th className="py-1.5 font-medium">{t.category}</th>}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {ready.slice(0, PREVIEW_ROWS).map((guest, index) => (
+                <tr key={`${guest.name}-${String(index)}`}>
+                  <td className="py-1.5 pr-3 font-medium text-fg">{guest.name}</td>
+                  <td className="py-1.5 pr-3 tabular-nums">{guest.companions === 0 ? "—" : `+${String(guest.companions)}`}</td>
+                  <td className="max-w-48 truncate py-1.5 pr-3 text-fg-muted">{guest.note ?? "—"}</td>
+                  {props.categories.length > 0 && (
+                    <td className="py-1.5 text-fg-muted">{guest.categoryId === null ? "—" : (categoryName.get(guest.categoryId) ?? "—")}</td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {ready.length > PREVIEW_ROWS && <p className="pt-1.5 text-xs text-fg-subtle">{t.importMore(ready.length - PREVIEW_ROWS)}</p>}
+        </TableScroll>
+      )}
       {parsed.errors.length > 0 && (
         <p role="alert" className="rounded-xl bg-warning-soft px-3 py-2 text-sm text-warning-fg">
           {t.pasteErrors(parsed.errors)}
+        </p>
+      )}
+      {parsed.unknownCategories.length > 0 && (
+        <p role="alert" className="rounded-xl bg-warning-soft px-3 py-2 text-sm text-warning-fg">
+          {t.importUnknownCategories(parsed.unknownCategories)}
         </p>
       )}
       <ErrorMessage error={save.error} />
