@@ -32,7 +32,8 @@ use crate::routes::{
     two_factor, voids,
 };
 use crate::routes::{
-    admin_insights, cashier, checklist, checkpoints, courtesies, history, pix, public_page, series,
+    admin_insights, alerts, cashier, checklist, checkpoints, courtesies, history, pix, public_page,
+    series,
 };
 use crate::routes::{referrals, verify};
 use crate::state::AppState;
@@ -443,6 +444,12 @@ pub fn router(state: AppState) -> Router {
         .route("/events/{id}/activity", get(history::list))
         // Ready-made papers for home printing (ADR 0102).
         .route("/events/{id}/papers", get(exports::papers))
+        // The admins' alerts and daily summary (ADR 0103).
+        .route("/admin/alerts", get(alerts::list))
+        .route("/admin/alerts/settings", put(alerts::update_settings))
+        .route("/admin/alerts/test", post(alerts::test))
+        .route("/admin/alerts/summary", post(alerts::summary_now))
+        .route("/admin/alerts/{id}/resolve", post(alerts::resolve))
         // The token cashier (ADR 0098).
         .route("/events/{id}/cashiers", get(cashier::report))
         .route("/sellers/{id}/cashier/close", post(cashier::panel_close))
@@ -452,6 +459,11 @@ pub fn router(state: AppState) -> Router {
         .layer(middleware::from_fn_with_state(
             state.clone(),
             crate::activity::record,
+        ))
+        // A burst of unexpected errors reaches the admins (ADR 0103).
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            crate::alerts::watch_errors,
         ))
         .layer(DefaultBodyLimit::max(JSON_BODY_LIMIT))
         // Axum's own rejections (bad JSON, a malformed id, a body too large) answer plain text;

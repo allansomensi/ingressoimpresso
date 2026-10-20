@@ -48,6 +48,8 @@ pub enum MailKind {
     Test,
     /// Someone was added to an event's team (ADR 0055).
     TeamInvite,
+    /// An alert or the daily summary to the admins (ADR 0103).
+    Alert,
 }
 
 impl MailKind {
@@ -59,6 +61,7 @@ impl MailKind {
             Self::BatchPaid => "batch_paid",
             Self::Test => "test",
             Self::TeamInvite => "team_invite",
+            Self::Alert => "alert",
         }
     }
 }

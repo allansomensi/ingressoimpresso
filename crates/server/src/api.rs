@@ -3173,6 +3173,11 @@ db_enum!(ChangelogKind { New => "new", Improvement => "improvement", Fix => "fix
 db_enum!(PaymentMethod { Stripe => "stripe", Admin => "admin", Free => "free", Credit => "credit" });
 db_enum!(PaymentState { Open => "open", Processing => "processing" });
 db_enum!(VoidReason { Unsold => "unsold", Lost => "lost", Revoked => "revoked" });
+db_enum!(AlertKind {
+    StripeWebhook => "stripe_webhook", ExportFailed => "export_failed", MailQuota => "mail_quota",
+    DoorMissing => "door_missing", ApiErrors => "api_errors", Dispute => "dispute"
+});
+db_enum!(AlertSeverity { Warning => "warning", Critical => "critical" });
 db_enum!(PaperKind {
     Plain => "plain", Perforated3 => "perforated3", Perforated4 => "perforated4",
     Perforated6 => "perforated6", Perforated8 => "perforated8", Perforated10 => "perforated10",
@@ -6023,5 +6028,112 @@ dto! {
         pub piece_mm: Option<(f64, f64)>,
         /// How much the ticket shrinks on it (1 = its size); `null` when it does not fit.
         pub scale: Option<f64>,
+    }
+}
+
+dto_enum! {
+    /// What an admin alert is about (ADR 0103).
+    pub enum AlertKind {
+        /// The Stripe webhook refused or failed.
+        StripeWebhook,
+        /// A file failed every attempt.
+        ExportFailed,
+        /// The daily e-mail quota is nearly or fully used.
+        MailQuota,
+        /// A large event starts soon without a door link.
+        DoorMissing,
+        /// The API answered many unexpected errors in a short time.
+        ApiErrors,
+        /// A card payment was disputed (chargeback).
+        Dispute,
+    }
+
+    /// How urgent an alert is.
+    pub enum AlertSeverity {
+        /// Look today.
+        Warning,
+        /// Look now.
+        Critical,
+    }
+}
+
+dto! {
+    /// An alert to the admins (ADR 0103).
+    pub struct AdminAlertDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// What it is about.
+        pub kind: AlertKind,
+        /// How urgent.
+        pub severity: AlertSeverity,
+        /// One line.
+        pub title: String,
+        /// More about it.
+        pub detail: Option<String>,
+        /// Where in the panel to look.
+        pub link: Option<String>,
+        /// Times it happened while open.
+        pub count: i32,
+        /// First time.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub first_at: OffsetDateTime,
+        /// Last time.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub last_at: OffsetDateTime,
+        /// When the admins were told.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub notified_at: Option<OffsetDateTime>,
+        /// When an admin marked it solved.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub resolved_at: Option<OffsetDateTime>,
+        /// Who did.
+        pub resolved_by: Option<String>,
+    }
+
+    /// How the admins are told (`PUT /api/admin/alerts/settings`).
+    pub struct AlertSettingsDto {
+        /// By e-mail, to `ADMIN_EMAILS`.
+        pub email: bool,
+        /// On Telegram, when the bot is configured.
+        pub telegram: bool,
+        /// The daily summary.
+        pub summary: bool,
+        /// Hour of the summary, in Brasília time (0–23).
+        pub summary_hour: i32,
+        /// Paid tickets from which an event without a door link raises an alert.
+        pub door_min_tickets: i32,
+    }
+
+    /// Where alerts can go.
+    pub struct AlertChannelsDto {
+        /// The admins' addresses (`ADMIN_EMAILS`).
+        pub emails: Vec<String>,
+        /// `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` are set.
+        pub telegram: bool,
+    }
+
+    /// `GET /api/admin/alerts`.
+    pub struct AdminAlertsDto {
+        /// Open alerts first, then the recently solved ones when asked.
+        pub alerts: Vec<AdminAlertDto>,
+        /// Open alerts.
+        pub open: i32,
+        /// The settings.
+        pub settings: AlertSettingsDto,
+        /// The channels.
+        pub channels: AlertChannelsDto,
+    }
+
+    /// What a test or a summary sent now reached.
+    pub struct AlertDeliveryDto {
+        /// E-mails sent.
+        pub emails: i32,
+        /// The Telegram message went out.
+        pub telegram: bool,
     }
 }

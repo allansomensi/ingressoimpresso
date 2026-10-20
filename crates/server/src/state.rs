@@ -54,6 +54,10 @@ pub struct AppState {
     pub status_cache: Arc<tokio::sync::RwLock<Option<(Instant, crate::api::StatusDto)>>>,
     /// Recent attempts per key (promo codes): a small in-memory rate limit, see [`Self::attempt`].
     attempts: Arc<Mutex<HashMap<String, Vec<Instant>>>>,
+    /// The admins' alerts on Telegram (ADR 0103); off without the bot.
+    pub telegram: crate::alerts::Telegram,
+    /// When the latest unexpected errors (500) happened, for the error alert (ADR 0103).
+    server_errors: Arc<Mutex<std::collections::VecDeque<Instant>>>,
 }
 
 /// Number of batch locks: unrelated batches rarely share one, and the set never grows.
@@ -62,6 +66,7 @@ const BATCH_LOCK_STRIPES: usize = 64;
 impl AppState {
     /// Builds the state.
     pub fn new(pool: PgPool, config: Config, mailer: Mailer) -> Self {
+        let config_telegram = config.telegram.clone();
         Self {
             pool,
             config: Arc::new(config),
@@ -79,7 +84,32 @@ impl AppState {
             classifier: None,
             attempts: Arc::new(Mutex::new(HashMap::new())),
             status_cache: Arc::new(tokio::sync::RwLock::new(None)),
+            telegram: crate::alerts::Telegram::from_config(config_telegram.as_ref()),
+            server_errors: Arc::new(Mutex::new(std::collections::VecDeque::new())),
         }
+    }
+
+    /// Telegram messages kept in memory instead of sent (tests).
+    #[must_use]
+    pub fn with_telegram_memory(mut self) -> (Self, Arc<std::sync::Mutex<Vec<String>>>) {
+        let sent = Arc::new(std::sync::Mutex::new(Vec::new()));
+        self.telegram = crate::alerts::Telegram::Memory(sent.clone());
+        (self, sent)
+    }
+
+    /// Records an unexpected error (500); `true` exactly when the latest
+    /// [`crate::alerts::ERROR_WINDOW`] reaches [`crate::alerts::ERROR_THRESHOLD`] of them.
+    pub async fn note_server_error(&self) -> bool {
+        let mut errors = self.server_errors.lock().await;
+        let now = Instant::now();
+        while errors
+            .front()
+            .is_some_and(|at| now.duration_since(*at) > crate::alerts::ERROR_WINDOW)
+        {
+            errors.pop_front();
+        }
+        errors.push_back(now);
+        errors.len() == crate::alerts::ERROR_THRESHOLD
     }
 
     /// Tells the export worker to finish the job in hand and stop claiming others: the process
@@ -204,6 +234,13 @@ impl AppState {
             .fetch_one(&self.pool)
             .await
             .map_err(db)?;
+            // The admins hear of a quota running out (ADR 0103); never about their own alerts.
+            if kind != MailKind::Alert
+                && let Some(alert) =
+                    crate::alerts::quota_alert(sent.all + 1, limit, sent.all >= limit)
+            {
+                tokio::spawn(crate::alerts::raise(self.clone(), alert));
+            }
             let signup_limit = (limit * 2 / 3).max(1);
             if sent.all >= limit || (kind == MailKind::SignupCode && sent.signups >= signup_limit) {
                 sqlx::query!(

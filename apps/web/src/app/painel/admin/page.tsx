@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   Activity,
   BadgePercent,
+  BellRing,
   Building2,
   CalendarDays,
   Coins,
@@ -28,6 +29,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, type ComponentType } from "react";
 
 import { AdminBatches, AdminOrganizations, AdminOverview } from "@/components/admin/admin-views";
+import { useOpenAlerts } from "@/components/admin/alerts";
 import { useLiveProblems } from "@/components/admin/insights";
 import { SectionNav, type NavGroup } from "@/components/panel/section-nav";
 import { EmptyState, LoadingBlock, PageHeader } from "@/components/ui";
@@ -41,6 +43,8 @@ const loading = () => <LoadingBlock rows={4} />;
 const load = (loader: () => Promise<ComponentType>) => dynamic(loader, { loading });
 const SECTIONS = {
   overview: { slug: "visao-geral", icon: LayoutDashboard, view: AdminOverview },
+  // What went wrong and reached the admins (ADR 0103).
+  alerts: { slug: "alertas", icon: BellRing, view: load(() => import("@/components/admin/alerts").then((m) => m.AdminAlerts)) },
   // The events around now and the funnel (ADR 0099).
   live: { slug: "agora", icon: RadioTower, view: load(() => import("@/components/admin/insights").then((m) => m.AdminLive)) },
   funnel: { slug: "funil", icon: Filter, view: load(() => import("@/components/admin/insights").then((m) => m.AdminFunnel)) },
@@ -69,7 +73,7 @@ const SECTIONS = {
 type Section = keyof typeof SECTIONS;
 
 const GROUPS: readonly { key: keyof typeof t.groups; sections: readonly Section[] }[] = [
-  { key: "overview", sections: ["overview", "live", "funnel", "finance"] },
+  { key: "overview", sections: ["overview", "alerts", "live", "funnel", "finance"] },
   { key: "customers", sections: ["organizations", "events", "batches"] },
   { key: "sales", sections: ["prices", "promotions", "codes", "referrals"] },
   { key: "communication", sections: ["announcements", "changelog", "emails"] },
@@ -101,6 +105,7 @@ function AdminView() {
   });
   const section = ALL.find((item) => SECTIONS[item].slug === search.get("aba")) ?? "overview";
   const troubled = useLiveProblems(isAdmin);
+  const alerts = useOpenAlerts(isAdmin);
   if (!isAdmin) {
     return <EmptyState icon={ShieldAlert} title={t.forbiddenTitle} description={t.forbidden} />;
   }
@@ -120,7 +125,9 @@ function AdminView() {
       mark:
         item === "moderation" && open > 0
           ? { kind: "count", value: open, label: t.moderationPending(open) }
-          : item === "live" && troubled > 0
+          : item === "alerts" && alerts > 0
+            ? { kind: "count", value: alerts, label: t.alerts.open(alerts) }
+            : item === "live" && troubled > 0
             ? { kind: "count", value: troubled, label: t.live.troubled(troubled) }
             : undefined,
     })),

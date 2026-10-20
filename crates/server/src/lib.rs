@@ -7,6 +7,7 @@
 )]
 
 pub mod activity;
+pub mod alerts;
 pub mod api;
 pub mod app;
 pub mod art;

@@ -107,6 +107,14 @@ pub async fn run_worker(state: AppState) {
             if let Err(error) = prune(&state.pool).await {
                 tracing::error!(?error, "pruning old rows failed");
             }
+            // The admins' hourly checks (ADR 0103): a large event about to start without a door
+            // link, and the morning summary.
+            if let Err(error) = crate::alerts::check_doors(&state).await {
+                tracing::error!(?error, "door check failed");
+            }
+            if let Err(error) = crate::alerts::maybe_send_summary(&state).await {
+                tracing::error!(?error, "daily summary failed");
+            }
             last_cleanup = std::time::Instant::now();
         }
         let wait = match next_stale(&state).await {
@@ -181,6 +189,22 @@ async fn process_next(state: &AppState) -> ApiResult<bool> {
     };
     if attempts > MAX_ATTEMPTS {
         fail(&state.pool, export.id, "too_many_attempts").await?;
+        // Every attempt failed: something the organizer cannot fix (ADR 0103).
+        crate::alerts::raise(
+            state.clone(),
+            crate::alerts::NewAlert {
+                kind: crate::api::AlertKind::ExportFailed,
+                key: format!("export_failed:{}", export.event_id),
+                severity: crate::api::AlertSeverity::Warning,
+                title: "Um arquivo de impressão falhou em todas as tentativas".to_owned(),
+                detail: Some(format!(
+                    "Arquivo {} do evento {}. Veja o log do worker no Render.",
+                    export.kind, export.event_id
+                )),
+                section: "eventos",
+            },
+        )
+        .await;
         return Ok(true);
     }
     match generate(state, &export).await {

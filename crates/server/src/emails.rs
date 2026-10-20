@@ -343,6 +343,10 @@ pub fn test_message(admin: &str, site: &str) -> Email {
 }
 
 fn thousands(value: i32) -> String {
+    thousands_long(i64::from(value))
+}
+
+fn thousands_long(value: i64) -> String {
     let digits = value.unsigned_abs().to_string();
     let mut out = String::new();
     for (index, c) in digits.chars().enumerate() {
@@ -356,9 +360,128 @@ fn thousands(value: i32) -> String {
 
 /// `R$ 1.234,50` from centavos.
 pub fn money(cents: i32) -> String {
+    money_long(i64::from(cents))
+}
+
+/// [`money`] for totals that may pass an `i32`.
+pub fn money_long(cents: i64) -> String {
     let reais = cents / 100;
     let centavos = (cents % 100).unsigned_abs();
-    format!("R$ {},{centavos:02}", thousands(reais))
+    format!("R$ {},{centavos:02}", thousands_long(reais))
+}
+
+/// Label and value rows (the admins' summary).
+fn rows(items: &[(String, String)]) -> String {
+    let mut html = format!(
+        r#"<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 20px 0;border-top:1px solid {BORDER};" class="rule">"#
+    );
+    for (label, value) in items {
+        let _ = write!(
+            html,
+            r#"<tr><td class="muted" style="padding:9px 0;border-bottom:1px solid {BORDER};color:{MUTED};font-size:15px;">{}</td><td class="ink" style="padding:9px 0;border-bottom:1px solid {BORDER};color:{INK};font-size:15px;font-weight:600;text-align:right;">{}</td></tr>"#,
+            escape(label),
+            escape(value)
+        );
+    }
+    html.push_str("</table>");
+    html
+}
+
+fn subheading(text: &str) -> String {
+    format!(
+        r#"<h2 class="ink" style="margin:8px 0 8px 0;font-size:17px;line-height:1.3;font-weight:700;color:{INK};">{}</h2>"#,
+        escape(text)
+    )
+}
+
+/// An alert to the admins (ADR 0103).
+#[derive(Debug)]
+pub struct AdminAlert<'a> {
+    /// Critical (red) or a warning.
+    pub critical: bool,
+    /// One line.
+    pub title: &'a str,
+    /// More about it.
+    pub detail: Option<&'a str>,
+    /// Where to look, a full address.
+    pub url: &'a str,
+}
+
+/// An alert to the admins (ADR 0103).
+pub fn admin_alert(alert: &AdminAlert<'_>, site: &str) -> Email {
+    let tag = if alert.critical {
+        "Urgente"
+    } else {
+        "Atenção"
+    };
+    let subject = format!("[{tag}] {}", alert.title);
+    let detail = alert.detail.unwrap_or_default();
+    let text = format!(
+        "{tag}: {}\n\n{detail}\n\nVer no painel: {}\n\nAlerta automático do Ingresso Impresso.",
+        alert.title, alert.url
+    );
+    let mut content = heading(alert.title);
+    if !detail.is_empty() {
+        content.push_str(&paragraph(&escape(detail).replace('\n', "<br>")));
+    }
+    content.push_str(&button(alert.url, "Ver no painel"));
+    Email {
+        html: layout(
+            site,
+            &subject,
+            &content,
+            "Alerta automático para os administradores.",
+        ),
+        subject,
+        text,
+    }
+}
+
+/// The admins' daily summary (ADR 0103), already in words: each section is a title and its rows.
+#[derive(Debug)]
+pub struct AdminSummary<'a> {
+    /// `20/10/2026`.
+    pub day: &'a str,
+    /// Each section's title and its label/value rows.
+    pub sections: &'a [(String, Vec<(String, String)>)],
+    /// Lines in bold before the sections ("2 alertas abertos").
+    pub highlights: &'a [String],
+    /// The panel.
+    pub url: &'a str,
+}
+
+/// The admins' daily summary (ADR 0103).
+pub fn admin_summary(summary: &AdminSummary<'_>, site: &str) -> Email {
+    let subject = format!("Resumo do dia {} · Ingresso Impresso", summary.day);
+    let mut text = format!("Resumo das últimas 24 horas ({})\n", summary.day);
+    for line in summary.highlights {
+        let _ = write!(text, "\n• {line}");
+    }
+    let mut content = heading(&format!("Resumo de {}", summary.day));
+    content.push_str(&paragraph("As últimas 24 horas da plataforma."));
+    for line in summary.highlights {
+        content.push_str(&paragraph(&format!("<strong>{}</strong>", escape(line))));
+    }
+    for (title, items) in summary.sections {
+        let _ = write!(text, "\n\n{title}");
+        for (label, value) in items {
+            let _ = write!(text, "\n  {label}: {value}");
+        }
+        content.push_str(&subheading(title));
+        content.push_str(&rows(items));
+    }
+    let _ = write!(text, "\n\nPainel: {}", summary.url);
+    content.push_str(&button(summary.url, "Abrir o painel"));
+    Email {
+        html: layout(
+            site,
+            &subject,
+            &content,
+            "Resumo diário para os administradores.",
+        ),
+        subject,
+        text,
+    }
 }
 
 #[cfg(test)]
