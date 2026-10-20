@@ -258,6 +258,13 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
     `components/event/checkpoints.tsx` (seção Portaria), Ao vivo com dias e pontos, item
     `checkpoint_links` em O que falta. Fichas de consumo não têm dias nem pontos.
 
+- **Catálogo ampliado de modelos (ADR 0093): implementado.** 76 modelos (64 de ingresso, 12 de
+  ficha): auxiliares em `lib/templates/kit.ts`, os 18 primeiros em `catalog.ts` (que lista todos em
+  `TEMPLATES`) e os novos por tema em `music.ts`, `celebrations.ts`, `community.ts`, `everyday.ts` e
+  `tokens.ts`; categorias Aniversário e Gastronomia; filtro por tipo de evento em `/modelos`
+  (`marketing/template-filter.tsx`), "outros modelos" do mesmo tipo (`relatedTemplatePages`), seis
+  modelos por tipo de evento (`EVENT_TEMPLATES`) e uma seleção na landing (`SHOWCASE`).
+
 Plano completo em `docs/arquitetura.md` §12.
 
 ## Onde está cada coisa
@@ -387,7 +394,8 @@ apps/web             landing em src/app/page.tsx (+ src/components/marketing: si
                      Lista em components/event/guests.tsx (regras em lib/guest-list.ts);
                      editor do ingresso em src/components/event/design*.tsx + prévia ao vivo em
                      src/components/ticket/ticket-view.tsx (regras espelhadas em lib/design-rules.ts),
-                     modelos em src/lib/templates (catálogo + fundos SVG em mm), fontes do ingresso
+                     modelos em src/lib/templates (catalog.ts lista todos, kit.ts os auxiliares,
+                     um arquivo por tema; fundos SVG em mm em svg.ts), fontes do ingresso
                      em public/fonts/ticket (WOFF2); admin em src/app/painel/admin +
                      src/components/admin (seções agrupadas: financeiro, organização, preços e
                      cupons em billing.tsx, pronunciamentos, e-mails, moderação, auditoria,
@@ -627,7 +635,7 @@ just backup-restore-test <dump.age> <chave-age>   # restaura um backup num banco
   `backdrop-blur`/`transform` (ele vira o bloco de contenção do `fixed`).
 - **Design do ingresso em dois lados:** regras de `design.rs` e campos de `fields.rs` têm espelho
   no painel (`lib/design-rules.ts`, `lib/ticket-fields.ts`) para a prévia ao vivo; mudou um, mude
-  o outro (os testes usam os mesmos exemplos). Modelo novo é TypeScript em `lib/templates`, e
+  o outro (os testes usam os mesmos exemplos). Modelo novo é TypeScript em `lib/templates` (no arquivo do seu tema), e
   `test/templates.test.ts` valida todo modelo em toda paleta; ele também ganha uma entrada em
   `content/seo-templates.ts` e a imagem por `just template-images` (`test/seo-content.test.ts`
   cobra as duas). Fonte nova entra nos dois lados

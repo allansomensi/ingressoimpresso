@@ -12,6 +12,22 @@ e não acompanha estes números.
 
 ## [Não lançado]
 
+### Adicionado
+
+- Mais de 70 modelos prontos: 48 modelos novos de ingresso (rock, sertanejo, samba, forró,
+  eletrônica, festival, aniversário, 15 anos, Halloween, Natal, gala, chá de bebê, colação de
+  grau, cartão de embarque, stand-up, circo, corrida, luta, games, retiro, vitral, credencial,
+  churrasco, vinhos, bingo, rifa de prêmio, minimalista e muitos outros) e 10 fichas novas
+  (bebida, comida, balada, doces, brinquedo, churrasco, carnaval, cor cheia, retrô e uma econômica
+  em preto e branco), cada um em várias cores.
+- Galeria de modelos com os tipos de evento Aniversário e Gastronomia, e a página `/modelos` com a
+  mesma escolha por tipo de evento.
+
+### Alterado
+
+- No editor de um evento de ingressos, "Todos" mostra só os modelos de ingresso (as fichas ficam
+  na categoria Fichas), e a página de cada modelo sugere outros do mesmo tipo de evento.
+
 ## [1.7.0] - 2026-10-19
 
 ### Adicionado
