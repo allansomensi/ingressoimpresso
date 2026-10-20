@@ -472,6 +472,18 @@ export const event = {
   accountability: {
     title: "Prestação de contas",
     hint: "Para mostrar os números ao grupo: o dinheiro dos ingressos, as outras receitas, as despesas e o saldo, em PDF ou planilha.",
+    // The final summary to share (ADR 0101).
+    finalSummary: {
+      open: "Resumo final",
+      title: "Resumo final",
+      description: "Uma página com o público, a arrecadação, as despesas, o saldo e o destaque dos vendedores, para mandar à comissão ou à diretoria.",
+      alt: (event: string) => `Resumo final de ${event}`,
+      share: "Compartilhar imagem",
+      pdf: "Baixar PDF",
+      note: "Os números são os da prestação de contas de agora: registre recebimentos e despesas antes de mandar.",
+      fileName: (event: string, format: string) =>
+        `resumo-final-${event.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}.${format}`,
+    },
     pdf: "PDF",
     sheet: "Planilha",
     fileName: (event: string, format: string) => `prestacao-de-contas-${event.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}.${format}`,

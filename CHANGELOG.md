@@ -48,6 +48,9 @@ e não acompanha estes números.
 - **Ingresso na carteira do celular**: botões **Adicionar à Apple Wallet** e **Salvar no Google
   Wallet** na página do ingresso digital, com o mesmo QR, que abrem sem internet e aparecem sozinhos
   na hora do evento (ligados quando a plataforma tem as credenciais de cada carteira).
+- **Resumo final** para compartilhar (Relatório → Prestação de contas): uma página com o público,
+  a arrecadação, as despesas, o saldo e o destaque dos vendedores, como imagem para mandar no grupo
+  da comissão ou como PDF, nas cores da organização.
 - Administração: **Funil** (criou a conta → criou evento → montou o ingresso → gerou lote → pagou
   lote → usou a portaria, por período, com o passo onde mais gente desiste e quanto tempo cada
   passo leva) e **Acontecendo agora** (eventos do momento, celulares da portaria que não

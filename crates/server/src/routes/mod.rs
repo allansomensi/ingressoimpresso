@@ -18,6 +18,7 @@ pub mod door_rehearsal;
 pub mod event_changes;
 pub mod events;
 pub mod exports;
+pub mod final_summary;
 pub mod guests;
 pub mod history;
 pub mod ledger;

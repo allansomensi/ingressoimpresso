@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select p.brand_color as \"color?\" from events e\n           join organization_profiles p on p.organization_id = e.organization_id where e.id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "color?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "organization_profiles",
+            "name": "brand_color"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "a540eba9cd385d7955b3021e3dbfcbe66d30e8673b3dda73c8efe229ba481780"
+}

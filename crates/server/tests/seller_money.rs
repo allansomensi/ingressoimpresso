@@ -421,3 +421,32 @@ async fn the_history_keeps_what_the_team_changed(pool: PgPool) {
         .await;
     assert_eq!(reply.error_code(), "not_your_area");
 }
+
+#[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
+async fn the_final_summary_is_one_page_and_a_picture(pool: PgPool) {
+    let app = TestApp::new(pool).await;
+    let token = app.login("banda@exemplo.com").await;
+    let (event, maria, _joao) = setup(&app, &token).await;
+    app.post(
+        &format!("/api/sellers/{maria}/payments"),
+        &token,
+        json!({ "amountCents": 10000, "method": "pix", "receivedOn": "2026-10-01", "note": null }),
+    )
+    .await;
+    let pdf = app
+        .get(&format!("/api/events/{event}/summary/pdf"), &token)
+        .await;
+    assert_eq!(pdf.status, StatusCode::OK);
+    assert!(pdf.bytes.starts_with(b"%PDF"));
+    let png = app
+        .get(&format!("/api/events/{event}/summary/png"), &token)
+        .await;
+    assert_eq!(png.status, StatusCode::OK);
+    let picture = image::load_from_memory(&png.bytes).unwrap();
+    assert_eq!((picture.width(), picture.height()), (1080, 1350));
+    let stranger = app.login("outra@exemplo.com").await;
+    let reply = app
+        .get(&format!("/api/events/{event}/summary/png"), &stranger)
+        .await;
+    assert_eq!(reply.status, StatusCode::NOT_FOUND);
+}

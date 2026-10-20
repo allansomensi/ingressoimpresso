@@ -13,6 +13,7 @@ mod qr;
 mod render;
 mod report_doc;
 mod sheet;
+mod summary_card;
 mod texts;
 mod world;
 
@@ -31,3 +32,4 @@ pub use render::{
 };
 pub use report_doc::{ReportDocument, ReportFact, ReportSection, ReportTable, report_pdf};
 pub use sheet::{Cell, Sheet, Workbook, xlsx};
+pub use summary_card::{SummaryCard, SummaryFigure, SummaryHighlight, summary_pdf, summary_png};

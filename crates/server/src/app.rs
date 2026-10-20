@@ -283,6 +283,15 @@ pub fn router(state: AppState) -> Router {
         )
         .route("/ledger/{id}", put(ledger::update).delete(ledger::delete))
         .route("/events/{id}/accountability", get(ledger::summary))
+        // The final summary to share (ADR 0101).
+        .route(
+            "/events/{id}/summary/pdf",
+            get(crate::routes::final_summary::pdf),
+        )
+        .route(
+            "/events/{id}/summary/png",
+            get(crate::routes::final_summary::picture),
+        )
         .route("/events/{id}/accountability/pdf", get(ledger::pdf))
         .route("/events/{id}/accountability/xlsx", get(ledger::spreadsheet))
         .route("/events/{id}/team", get(team::list).post(team::add))

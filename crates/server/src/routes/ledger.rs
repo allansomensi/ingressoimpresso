@@ -45,7 +45,7 @@ pub(crate) fn brl(cents: i64) -> String {
     format!("{sign}R$ {grouped},{:02}", cents % 100)
 }
 
-fn whole(value: i64) -> String {
+pub(crate) fn whole(value: i64) -> String {
     brl(value * 100)
         .trim_start_matches("R$ ")
         .trim_end_matches(",00")
@@ -220,14 +220,14 @@ pub async fn delete(
 }
 
 /// Everything the accountability shows, computed once for the summary, the PDF and the sheet.
-struct Accountability {
-    event: EventRow,
-    organizer: String,
-    report: EventReportDto,
-    summary: AccountabilityDto,
+pub(crate) struct Accountability {
+    pub(crate) event: EventRow,
+    pub(crate) organizer: String,
+    pub(crate) report: EventReportDto,
+    pub(crate) summary: AccountabilityDto,
 }
 
-async fn accountability(state: &AppState, event: EventRow) -> ApiResult<Accountability> {
+pub(crate) async fn accountability(state: &AppState, event: EventRow) -> ApiResult<Accountability> {
     let report = report::build(state, &event).await?;
     let entries_list = entries(state, event.id).await?;
     let platform_cents = sqlx::query_scalar!(
@@ -327,7 +327,7 @@ pub async fn summary(
     Ok(Json(accountability(&state, event).await?.summary))
 }
 
-fn subtitle(data: &Accountability) -> String {
+pub(crate) fn subtitle(data: &Accountability) -> String {
     let start = data.event.starts_at.to_offset(data.event.offset());
     let mut parts = vec![start.format(MOMENT_FORMAT).unwrap_or_default()];
     if let Some(venue) = &data.event.venue {
@@ -337,7 +337,7 @@ fn subtitle(data: &Accountability) -> String {
     parts.join(" · ")
 }
 
-fn generated_line() -> String {
+pub(crate) fn generated_line() -> String {
     // Brasília time: the footer only says when the file was made.
     let now = OffsetDateTime::now_utc().to_offset(time::macros::offset!(-3));
     texts::ACCOUNTABILITY_GENERATED
@@ -663,7 +663,7 @@ fn workbook(data: &Accountability) -> Workbook {
     Workbook { sheets }
 }
 
-fn attachment(name: &str, content_type: &'static str, bytes: Vec<u8>) -> Response {
+pub(crate) fn attachment(name: &str, content_type: &'static str, bytes: Vec<u8>) -> Response {
     (
         [
             (CONTENT_TYPE, content_type.to_owned()),
