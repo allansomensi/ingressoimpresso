@@ -15,7 +15,9 @@ import type {
 } from "@ingressoimpresso/api-types";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  Check,
   ChevronLeft,
+  Download,
   Eye,
   Handshake,
   Hash,
@@ -24,6 +26,7 @@ import {
   LayoutTemplate,
   Layers,
   MousePointerClick,
+  Pencil,
   Plus,
   QrCode,
   Redo2,
@@ -32,6 +35,7 @@ import {
   Save,
   SquareMousePointer,
   Scissors,
+  Share2,
   Tags,
   Trash2,
   Type,
@@ -68,7 +72,7 @@ import {
   errorMessage,
   useConfirm,
 } from "@/components/ui";
-import { api, fetchBlobUrl, upload } from "@/lib/api";
+import { api, fetchBlob, fetchBlobUrl, upload } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { bandText, seatLabel } from "@/lib/categories";
 import {
@@ -101,6 +105,7 @@ import {
   type TicketElement,
 } from "@/lib/design-selection";
 import { rasterizeBackground } from "@/lib/rasterize";
+import { sampleFileName, sampleMockup } from "@/lib/sample-image";
 import type { Palette, TicketTemplate } from "@/lib/templates/catalog";
 import { canDo } from "@/lib/team";
 import { blockValue } from "@/lib/ticket-fields";
@@ -339,7 +344,20 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
     .map((query) => query.data)
     .filter((url): url is string => url !== undefined);
   const [saved, setSaved] = useState<{ version: number; draft: Draft }>({ version: initial.version, draft: initialDraft });
-  const [chosen, setSelected] = useState<TicketElement[]>([]);
+  const [chosen, setChosen] = useState<TicketElement[]>([]);
+  // The canvas stays still until "Editar": a tap or a scroll over the ticket never moves anything.
+  // Choosing something to edit (in the list, a new text, a template) unlocks it too.
+  const [editing, setEditing] = useState(false);
+  const setSelected = useCallback((elements: TicketElement[]) => {
+    if (elements.length > 0) {
+      setEditing(true);
+    }
+    setChosen(elements);
+  }, []);
+  const stopEditing = () => {
+    setEditing(false);
+    setChosen([]);
+  };
   // What is selected and still exists (an undo can take a text away).
   const selection = useMemo(() => existingSelection(design, chosen), [design, chosen]);
   const selected = selection.length === 1 ? (selection[0] ?? null) : null;
@@ -351,7 +369,9 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
   const marquee = useMarquee({ ref: pasteboardRef, design, selection, additive, onSelect: setSelected });
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewView, setPreviewView] = useState<"sample" | "sheet">("sample");
   const [preview, setPreview] = useState<string | null>(null);
+  const [sample, setSample] = useState<{ url: string; blob: Blob } | null>(null);
   // The stub fields as typed (spaces, an empty line being typed); the design keeps the clean list.
   const [stubText, setStubText] = useState(initial.design.stub?.fields.join("\n") ?? "");
   const dirty = draft !== saved.draft && JSON.stringify(draft) !== JSON.stringify(saved.draft);
@@ -386,6 +406,14 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
       }
     },
     [preview],
+  );
+  useEffect(
+    () => () => {
+      if (sample !== null) {
+        URL.revokeObjectURL(sample.url);
+      }
+    },
+    [sample],
   );
 
   const body = (): DesignBody => ({ design, artId, sponsorIds: sponsors.map((logo) => logo.id) });
@@ -462,6 +490,42 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
       setPreview(url);
     },
   });
+  // One SAMPLE ticket drawn by the server, laid on a backdrop here (lib/sample-image.ts).
+  const renderSample = useMutation({
+    mutationFn: async (payload: DesignBody) => sampleMockup(await fetchBlob(`/api/events/${eventId}/design/sample`, payload)),
+    onSuccess: (blob) => {
+      setSample({ url: URL.createObjectURL(blob), blob });
+    },
+  });
+  const sampleName = sampleFileName(event.name);
+  const downloadSample = () => {
+    if (sample === null) {
+      return;
+    }
+    const link = document.createElement("a");
+    link.href = sample.url;
+    link.download = sampleName;
+    link.click();
+  };
+  const sampleFile = sample === null ? null : new File([sample.blob], sampleName, { type: "image/png" });
+  const canShareSample = sampleFile !== null && typeof navigator.canShare === "function" && navigator.canShare({ files: [sampleFile] });
+  const shareSample = async () => {
+    if (sampleFile === null) {
+      return;
+    }
+    try {
+      await navigator.share({ files: [sampleFile], title: event.name });
+    } catch {
+      // Closed by the person, or refused: nothing to say.
+    }
+  };
+  const renderView = (view: "sample" | "sheet") => {
+    if (view === "sample") {
+      renderSample.mutate(body());
+    } else {
+      renderPreview.mutate(body());
+    }
+  };
 
   const canSave = issues.length === 0 && !save.isPending;
   const doSave = () => {
@@ -616,8 +680,10 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
         return;
       }
       if (mod && letter === "a") {
-        key.preventDefault();
-        setSelected(designElements(design));
+        if (editing) {
+          key.preventDefault();
+          setSelected(designElements(design));
+        }
         return;
       }
       if (selection.length === 0) {
@@ -752,10 +818,27 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
                 the second. Larger screens: one row that wraps only if it must. */}
             <div className="flex flex-col gap-2 border-b border-border px-3 py-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:px-4">
               <div className="flex items-center gap-1.5">
-                <Button variant="secondary" size="sm" icon={<LayoutTemplate />} onClick={openGallery}>
-                  {t.toolbar.templates}
+                {editing ? (
+                  <Button variant="secondary" size="sm" icon={<Check />} onClick={stopEditing}>
+                    {t.toolbar.done}
+                  </Button>
+                ) : (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    icon={<Pencil />}
+                    className="border-brand/40 bg-brand-soft text-brand-soft-fg hover:bg-brand-soft/80 active:bg-brand-soft/70"
+                    onClick={() => {
+                      setEditing(true);
+                    }}
+                  >
+                    {t.toolbar.edit}
+                  </Button>
+                )}
+                <Button variant="secondary" size="sm" icon={<LayoutTemplate />} aria-label={t.toolbar.templates} onClick={openGallery}>
+                  <span className="max-sm:sr-only">{t.toolbar.templates}</span>
                 </Button>
-                <Button variant="secondary" size="sm" icon={<Plus />} onClick={addText} disabled={design.texts.length >= MAX_TEXT_BLOCKS}>
+                <Button variant="secondary" size="sm" icon={<Plus />} className="max-sm:hidden" onClick={addText} disabled={design.texts.length >= MAX_TEXT_BLOCKS}>
                   {t.toolbar.addText}
                 </Button>
                 <span className="mx-1 hidden h-5 w-px bg-border sm:block" aria-hidden />
@@ -773,7 +856,7 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
                 <Button variant="ghost" size="icon-sm" aria-label={t.toolbar.redo} title={`${t.toolbar.redo} (Ctrl+Shift+Z)`} disabled={!canRedo} onClick={redo}>
                   <Redo2 />
                 </Button>
-                <span className="hidden pointer-coarse:contents">
+                <span className={cn("hidden", editing && "pointer-coarse:contents")}>
                   <Button
                     variant="ghost"
                     size="icon-sm"
@@ -800,7 +883,7 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
                     disabled={issues.length > 0}
                     onClick={() => {
                       setPreviewOpen(true);
-                      renderPreview.mutate(body());
+                      renderView(previewView);
                     }}
                   >
                     <span className="hidden sm:inline">{t.toolbar.printPreview}</span>
@@ -812,8 +895,15 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
                 </div>
               </div>
             </div>
-            <div ref={pasteboardRef} {...marquee.handlers} className="relative flex items-center justify-center bg-surface-2 bg-dots px-4 py-8 sm:px-8 sm:py-12">
-              {marquee.overlay}
+            <div
+              ref={pasteboardRef}
+              {...(editing ? marquee.handlers : {})}
+              className={cn(
+                "relative flex items-center justify-center bg-surface-2 bg-dots px-4 py-8 sm:px-8 sm:py-12",
+                editing && "ring-2 ring-brand/40 ring-inset",
+              )}
+            >
+              {editing && marquee.overlay}
               <div
                 aria-label={t.canvas.label}
                 role="group"
@@ -826,18 +916,26 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
                   artUrl={artUrl.data ?? null}
                   tag={tag}
                   sponsorUrls={sponsorUrls}
-                  selected={selection}
+                  selected={editing ? selection : []}
                   additive={additive}
                   problems={problems}
-                  onSelect={setSelected}
-                  onChange={placeAll}
+                  {...(editing ? { onSelect: setSelected, onChange: placeAll } : {})}
                 />
               </div>
             </div>
             <p className="flex items-center gap-2 border-t border-border px-4 py-2.5 text-xs text-fg-muted">
-              <MousePointerClick className="size-3.5 shrink-0" aria-hidden />
-              <span className="pointer-coarse:hidden">{t.canvas.hint}</span>
-              <span className="hidden pointer-coarse:inline">{additive ? t.selection.multiTouchHint : t.canvas.hintTouch}</span>
+              {editing ? (
+                <>
+                  <MousePointerClick className="size-3.5 shrink-0" aria-hidden />
+                  <span className="pointer-coarse:hidden">{t.canvas.hint}</span>
+                  <span className="hidden pointer-coarse:inline">{additive ? t.selection.multiTouchHint : t.canvas.hintTouch}</span>
+                </>
+              ) : (
+                <>
+                  <Pencil className="size-3.5 shrink-0" aria-hidden />
+                  <span>{t.canvas.locked}</span>
+                </>
+              )}
             </p>
           </Card>
           {saved.version === 0 && art === null && design.texts.length === 0 && (
@@ -1252,34 +1350,96 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
           setPreviewOpen(false);
         }}
         title={t.previewTitle}
-        description={t.previewDescription}
+        description={previewView === "sample" ? t.sampleDescription : t.previewDescription}
         size="lg"
         footer={
-          <Button
-            variant="secondary"
-            icon={<RefreshCw />}
-            loading={renderPreview.isPending}
-            onClick={() => {
-              renderPreview.mutate(body());
-            }}
-          >
-            {t.preview}
-          </Button>
+          previewView === "sample" ? (
+            <>
+              <Button
+                variant="ghost"
+                icon={<RefreshCw />}
+                loading={renderSample.isPending}
+                onClick={() => {
+                  renderSample.mutate(body());
+                }}
+              >
+                {t.sampleAgain}
+              </Button>
+              {canShareSample && (
+                <Button variant="secondary" icon={<Share2 />} onClick={() => void shareSample()}>
+                  {t.sampleShare}
+                </Button>
+              )}
+              <Button icon={<Download />} disabled={sample === null || renderSample.isPending} onClick={downloadSample}>
+                {t.sampleDownload}
+              </Button>
+            </>
+          ) : (
+            <Button
+              variant="secondary"
+              icon={<RefreshCw />}
+              loading={renderPreview.isPending}
+              onClick={() => {
+                renderPreview.mutate(body());
+              }}
+            >
+              {t.preview}
+            </Button>
+          )
         }
       >
-        <div className="relative mx-auto flex aspect-[210/297] max-h-[70vh] items-center justify-center overflow-hidden rounded-xl border border-border bg-surface-2">
-          {preview !== null && (
-            // eslint-disable-next-line @next/next/no-img-element -- blob URL of a server-rendered preview
-            <img src={preview} alt={t.previewAlt} className="size-full bg-white object-contain" />
-          )}
-          {renderPreview.isPending && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-surface/80 text-sm font-medium text-fg-muted backdrop-blur-sm">
-              <Spinner className="size-6 text-brand" />
-              {t.previewing}
+        <div className="flex flex-col gap-4">
+          <div role="radiogroup" aria-label={t.previewTitle} className="inline-flex self-start rounded-xl bg-surface-2 p-1">
+            {(["sample", "sheet"] as const).map((view) => (
+              <button
+                key={view}
+                type="button"
+                role="radio"
+                aria-checked={previewView === view}
+                onClick={() => {
+                  setPreviewView(view);
+                  if ((view === "sample" ? sample : preview) === null) {
+                    renderView(view);
+                  }
+                }}
+                className={cn(
+                  "rounded-lg px-3.5 py-1.5 text-sm font-medium transition pointer-coarse:py-2.5",
+                  previewView === view ? "bg-surface text-fg shadow-sm" : "text-fg-muted hover:text-fg active:text-fg",
+                )}
+              >
+                {t.views[view]}
+              </button>
+            ))}
+          </div>
+          {previewView === "sample" ? (
+            <div className="relative flex min-h-48 items-center justify-center overflow-hidden rounded-xl border border-border bg-surface-2">
+              {sample !== null && (
+                // eslint-disable-next-line @next/next/no-img-element -- blob URL of a picture drawn here
+                <img src={sample.url} alt={t.sampleAlt} className="max-h-[60vh] w-full object-contain" />
+              )}
+              {renderSample.isPending && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-surface/80 text-sm font-medium text-fg-muted backdrop-blur-sm">
+                  <Spinner className="size-6 text-brand" />
+                  {t.sampling}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="relative mx-auto flex aspect-[210/297] max-h-[60vh] items-center justify-center overflow-hidden rounded-xl border border-border bg-surface-2">
+              {preview !== null && (
+                // eslint-disable-next-line @next/next/no-img-element -- blob URL of a server-rendered preview
+                <img src={preview} alt={t.previewAlt} className="size-full bg-white object-contain" />
+              )}
+              {renderPreview.isPending && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-surface/80 text-sm font-medium text-fg-muted backdrop-blur-sm">
+                  <Spinner className="size-6 text-brand" />
+                  {t.previewing}
+                </div>
+              )}
             </div>
           )}
+          <ErrorMessage error={previewView === "sample" ? renderSample.error : renderPreview.error} />
         </div>
-        <ErrorMessage error={renderPreview.error} className="mt-4" />
       </Dialog>
     </div>
   );

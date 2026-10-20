@@ -380,9 +380,19 @@ async fn events_keep_their_local_time_and_designs_print_texts(pool: PgPool) {
     );
     assert_eq!(saved.json()["design"]["texts"][0]["font"], "script");
     let preview = app
-        .post(&format!("/api/events/{id}/design/preview"), &token, body)
+        .post(
+            &format!("/api/events/{id}/design/preview"),
+            &token,
+            body.clone(),
+        )
         .await;
     assert_eq!(preview.status, StatusCode::OK);
+    // The sample picture: one ticket body, as a JPEG image.
+    let sample = app
+        .post(&format!("/api/events/{id}/design/sample"), &token, body)
+        .await;
+    assert_eq!(sample.status, StatusCode::OK);
+    assert!(sample.bytes.starts_with(&[0xFF, 0xD8]), "a JPEG");
 }
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
