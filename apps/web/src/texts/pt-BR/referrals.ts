@@ -14,6 +14,8 @@ export const referrals = {
   message: (url: string, amount: string) =>
     `Oi! Eu faço os ingressos dos meus eventos no Ingresso Impresso: numerados, com QR code que não dá para copiar e portaria pelo celular, mesmo sem internet. Crie sua conta pelo meu link e ganhe ${amount} de crédito no primeiro lote: ${url}`,
   howTitle: "Como funciona",
+  moreTitle: "Como funciona e suas indicações",
+  none: "Ninguém chegou pelo seu link ainda.",
   steps: (referrer: string, referred: string, min: string) => [
     { title: "Mande o seu link", body: "Pelo WhatsApp, num grupo ou onde preferir." },
     { title: "A pessoa cria a conta", body: "Pelo seu link, com um e-mail que ainda não tem conta aqui." },
@@ -22,7 +24,6 @@ export const referrals = {
   rules: (limit: number) =>
     `Até ${limit.toLocaleString("pt-BR")} ${limit === 1 ? "recompensa" : "recompensas"} a cada 30 dias. O crédito é usado sozinho nos próximos lotes e não vira dinheiro. Se o lote que valeu for estornado, o crédito que sobrou sai. Indicar a si mesmo, a outro e-mail seu ou à sua equipe não conta.`,
   listTitle: "Suas indicações",
-  empty: "Ninguém chegou pelo seu link ainda. Mande para quem também faz eventos!",
   earned: (amount: string) => `${amount} ganhos`,
   count: (count: number) => (count === 1 ? "1 indicação" : `${count.toLocaleString("pt-BR")} indicações`),
   status: {

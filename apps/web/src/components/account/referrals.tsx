@@ -2,11 +2,11 @@
 
 import type { ReferralDto, ReferralsDto } from "@ingressoimpresso/api-types";
 import { useQuery } from "@tanstack/react-query";
-import { Check, Copy, Gift, MessageCircle, Share2, UserRoundPlus } from "lucide-react";
+import { Check, ChevronDown, Copy, Gift, MessageCircle, Share2 } from "lucide-react";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 
-import { Alert, Badge, Button, ErrorMessage, Skeleton, buttonClass, type Tone } from "@/components/ui";
+import { Alert, Badge, Button, Card, CardHeader, ErrorMessage, Skeleton, buttonClass, type Tone } from "@/components/ui";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { money } from "@/lib/format";
@@ -51,32 +51,24 @@ function useCanShare(): boolean {
 function ReferralRow({ referral }: { referral: ReferralDto }) {
   const state = referralState(referral);
   return (
-    <li className="flex items-start gap-3 py-3">
-      <span
-        aria-hidden
-        className={cn(
-          "flex size-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold uppercase",
-          state === "rewarded" ? "bg-success-soft text-success-fg" : "bg-surface-2 text-fg-muted",
-        )}
-      >
-        {referral.emailHint === "" ? "–" : referral.emailHint.slice(0, 2)}
-      </span>
-      <span className="flex min-w-0 flex-1 flex-col items-start gap-1">
-        <span className="flex w-full items-baseline justify-between gap-3">
-          <span className={cn("truncate text-sm font-medium", referral.emailHint === "" ? "text-fg-muted italic" : "text-fg")}>
-            {referral.emailHint === "" ? t.deletedAccount : referral.emailHint}
-          </span>
-          <span className="shrink-0 text-xs text-fg-subtle tabular">{t.joined(new Date(referral.createdAt).toLocaleDateString("pt-BR"))}</span>
+    <li className="flex flex-col items-start gap-1 py-2.5">
+      <span className="flex w-full items-baseline justify-between gap-3">
+        <span className={cn("truncate text-sm font-medium", referral.emailHint === "" ? "text-fg-muted italic" : "text-fg")}>
+          {referral.emailHint === "" ? t.deletedAccount : referral.emailHint}
         </span>
-        <Badge tone={STATE_TONE[state]} dot={state === "pending"}>
-          {stateLabel(referral)}
-        </Badge>
+        <span className="shrink-0 text-xs text-fg-subtle tabular">{t.joined(new Date(referral.createdAt).toLocaleDateString("pt-BR"))}</span>
       </span>
+      <Badge tone={STATE_TONE[state]} dot={state === "pending"}>
+        {stateLabel(referral)}
+      </Badge>
     </li>
   );
 }
 
-/** "Indique e ganhe" (ADR 0076): the organization's link, how it works and who came through it. */
+/**
+ * "Indique e ganhe" (ADR 0076): a small card beside the account's settings. The link and the ways
+ * to send it stay at hand; how it works and who came through it fold away.
+ */
 export function ReferralsCard() {
   const referrals = useQuery({ queryKey: ["referrals"], queryFn: () => api<ReferralsDto>("/api/account/referrals") });
   const [copied, setCopied] = useState(false);
@@ -121,36 +113,16 @@ export function ReferralsCard() {
   const invited = data?.invitedBy ?? null;
 
   return (
-    <section id="indique" aria-labelledby="indique-title" className="scroll-mt-24 overflow-hidden rounded-2xl border border-border bg-surface shadow-xs">
-      <div className="relative overflow-hidden bg-brand-solid px-5 py-6 text-white sm:px-6">
-        <div aria-hidden className="absolute inset-0 bg-[radial-gradient(70%_120%_at_100%_0%,rgba(255,255,255,0.22),transparent)]" />
-        <div className="relative flex items-start gap-4">
-          <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-white/15 ring-1 ring-white/25">
-            <Gift aria-hidden className="size-6" />
-          </span>
-          <div className="flex min-w-0 flex-col gap-1">
-            <p className="text-xs font-semibold tracking-wide text-white/75 uppercase">{t.title}</p>
-            {data === undefined ? (
-              <Skeleton className="h-7 w-56 bg-white/20" />
-            ) : (
-              <h2 id="indique-title" className="text-xl leading-snug font-semibold tracking-tight text-balance sm:text-2xl">
-                {t.headline(referrer)}
-              </h2>
-            )}
-            {data !== undefined && <p className="max-w-xl text-sm leading-relaxed text-white/85">{t.hint(referrer, referred, minimum)}</p>}
-          </div>
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-6 p-5 sm:p-6">
+    <div id="indique" className="scroll-mt-24">
+      <Card>
+        <CardHeader icon={Gift} title={t.title} description={data === undefined ? undefined : t.headline(referrer)} className="mb-4" />
         {data === undefined ? (
-          <div className="flex flex-col gap-3">
-            <Skeleton className="h-11 w-full" />
-            <Skeleton className="h-11 w-full" />
-            <Skeleton className="h-24 w-full" />
+          <div className="flex flex-col gap-2">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-4 w-40" />
           </div>
         ) : (
-          <>
+          <div className="flex flex-col gap-3">
             {!data.enabled && <Alert tone="warning">{t.off}</Alert>}
             {invited !== null && (
               <Alert tone={invited.status === "revoked" ? "warning" : "success"} title={t.invitedTitle}>
@@ -162,86 +134,73 @@ export function ReferralsCard() {
               </Alert>
             )}
 
-            <div className="flex flex-col gap-2">
-              <span className="text-sm font-medium text-fg">{t.linkLabel}</span>
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <output
-                  title={url}
-                  className="flex h-11 min-w-0 flex-1 items-center rounded-xl border border-border bg-surface-2 px-3.5 text-[15px] font-medium text-fg select-all"
-                >
-                  <span className="truncate">{url.replace(/^https?:\/\//, "")}</span>
-                </output>
-                <Button variant="secondary" icon={copied ? <Check /> : <Copy />} onClick={() => void copy()} className="sm:w-auto">
-                  {t.copy}
-                </Button>
-              </div>
-              <div className={cn("grid gap-2", canShare && "sm:grid-cols-2")}>
-                <a
-                  href={whatsappUrl(message)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={buttonClass({ variant: "primary", className: "w-full" })}
-                >
-                  <MessageCircle />
-                  {t.whatsapp}
-                </a>
-                {canShare && (
-                  <Button variant="secondary" icon={<Share2 />} onClick={() => void share()} className="w-full">
-                    {t.share}
-                  </Button>
-                )}
-              </div>
+            <div className="flex items-center gap-2">
+              <output
+                title={url}
+                aria-label={t.linkLabel}
+                className="flex h-9 min-w-0 flex-1 items-center rounded-lg border border-border bg-surface-2 px-3 text-sm font-medium text-fg select-all pointer-coarse:h-11"
+              >
+                <span className="truncate">{url.replace(/^https?:\/\//, "")}</span>
+              </output>
+              <Button variant="secondary" size="icon" icon={copied ? <Check /> : <Copy />} aria-label={t.copy} title={t.copy} onClick={() => void copy()} />
+              <a
+                href={whatsappUrl(message)}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={t.whatsapp}
+                title={t.whatsapp}
+                className={buttonClass({ variant: "secondary", size: "icon" })}
+              >
+                <MessageCircle />
+              </a>
+              {canShare && <Button variant="secondary" size="icon" icon={<Share2 />} aria-label={t.share} title={t.share} onClick={() => void share()} />}
             </div>
 
-            <div className="flex flex-col gap-3">
-              <h3 className="text-sm font-semibold text-fg">{t.howTitle}</h3>
-              <ol className="grid gap-2 sm:grid-cols-3">
-                {t.steps(referrer, referred, minimum).map((step, index) => (
-                  <li key={step.title} className="flex gap-3 rounded-xl bg-surface-2 p-3.5 sm:flex-col sm:gap-2">
-                    <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-brand-solid text-xs font-semibold text-brand-fg">
-                      {index + 1}
-                    </span>
-                    <span className="flex min-w-0 flex-col gap-0.5">
-                      <span className="text-sm font-semibold text-fg">{step.title}</span>
-                      <span className="text-[13px] leading-relaxed text-fg-muted">{step.body}</span>
-                    </span>
-                  </li>
-                ))}
-              </ol>
-              <p className="text-xs leading-relaxed text-fg-muted">{t.rules(data.monthlyLimit)}</p>
-            </div>
-
-            <div className="flex flex-col gap-1 border-t border-border pt-5">
-              <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                <h3 className="text-sm font-semibold text-fg">{t.listTitle}</h3>
-                {data.referrals.length > 0 && (
-                  <span className="text-xs text-fg-muted tabular">
-                    {t.count(data.referrals.length)}
-                    {data.earnedCents > 0 && (
-                      <>
-                        {" · "}
-                        <span className="font-semibold text-success-fg">{t.earned(money(data.earnedCents))}</span>
-                      </>
-                    )}
-                  </span>
-                )}
-              </div>
-              {data.referrals.length === 0 ? (
-                <div className="mt-2 flex items-center gap-3 rounded-xl border border-dashed border-border-strong px-4 py-4 text-sm text-fg-muted">
-                  <UserRoundPlus aria-hidden className="size-5 shrink-0 text-fg-subtle" />
-                  {t.empty}
-                </div>
-              ) : (
-                <ul className="flex flex-col divide-y divide-border">
-                  {data.referrals.map((referral) => (
-                    <ReferralRow key={referral.id} referral={referral} />
-                  ))}
-                </ul>
+            <p className="text-xs text-fg-muted tabular">
+              {data.referrals.length === 0 ? t.none : t.count(data.referrals.length)}
+              {data.earnedCents > 0 && (
+                <>
+                  {" · "}
+                  <span className="font-semibold text-success-fg">{t.earned(money(data.earnedCents))}</span>
+                </>
               )}
-            </div>
-          </>
+            </p>
+
+            <details className="group -mx-1 border-t border-border pt-1">
+              <summary className="flex min-h-10 cursor-pointer list-none items-center gap-2 rounded-lg px-1 text-sm font-medium text-fg-muted transition hover:text-fg active:bg-surface-2 [&::-webkit-details-marker]:hidden">
+                <span className="flex-1">{data.referrals.length === 0 ? t.howTitle : t.moreTitle}</span>
+                <ChevronDown aria-hidden className="size-4 shrink-0 text-fg-subtle transition group-open:rotate-180" />
+              </summary>
+              <div className="flex flex-col gap-3 px-1 pt-2 pb-1">
+                <p className="text-sm leading-relaxed text-fg-muted">{t.hint(referrer, referred, minimum)}</p>
+                <ol className="flex flex-col gap-2">
+                  {t.steps(referrer, referred, minimum).map((step, index) => (
+                    <li key={step.title} className="flex gap-2.5 text-[13px] leading-relaxed text-fg-muted">
+                      <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-surface-3 text-[11px] font-semibold text-fg">
+                        {index + 1}
+                      </span>
+                      <span>
+                        <span className="font-semibold text-fg">{step.title}.</span> {step.body}
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+                <p className="text-xs leading-relaxed text-fg-subtle">{t.rules(data.monthlyLimit)}</p>
+                {data.referrals.length > 0 && (
+                  <div className="flex flex-col border-t border-border pt-2">
+                    <h3 className="text-sm font-semibold text-fg">{t.listTitle}</h3>
+                    <ul className="flex flex-col divide-y divide-border">
+                      {data.referrals.map((referral) => (
+                        <ReferralRow key={referral.id} referral={referral} />
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </details>
+          </div>
         )}
-      </div>
-    </section>
+      </Card>
+    </div>
   );
 }
