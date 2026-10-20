@@ -10,7 +10,7 @@ import {
   type DoorContext,
   type ResultView,
 } from "@/portaria/logic";
-import { recentScanOf, recentScans, recentSummary } from "@/portaria/recent";
+import { endSummary, recentScanOf, recentScans, recentSummary } from "@/portaria/recent";
 import type { StoredEntry, StoredScan } from "@/portaria/storage";
 
 const context: DoorContext = {
@@ -156,5 +156,17 @@ describe("recent scans of this phone", () => {
         scan({ id: "4", outcome: "admitted", verdict: { kind: "voided", reason: "lost" } }),
       ]),
     ).toEqual({ admitted: 2, exits: 0, refused: 2, pending: 2 });
+  });
+
+  it("separates the copies stopped from the other refusals for the end of the event", () => {
+    expect(
+      endSummary([
+        scan({ id: "1", outcome: "admitted" }),
+        scan({ id: "2", outcome: "rejected_used", synced: 0 }),
+        scan({ id: "3", outcome: "admitted", verdict: { kind: "already_entered", atUnixMs: 1, deviceName: "Porta 2" } }),
+        scan({ id: "4", outcome: "rejected_invalid" }),
+        scan({ id: "5", outcome: "exited" }),
+      ]),
+    ).toEqual({ admitted: 1, copies: 2, refused: 1, exits: 1, pending: 1 });
   });
 });

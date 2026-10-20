@@ -390,6 +390,48 @@ pedir nada à pessoa.
 Teste: em `/entrar`, peça um código. O botão mostra "Verificando…" por um instante e o código
 chega. No Cloudflare, **Turnstile** → widget → **Analytics** mostra as verificações.
 
+## 5.7 Ingresso na carteira do celular (opcional, ADR 0097)
+
+Com estas chaves, a página do ingresso digital mostra **Adicionar à Apple Wallet** (no iPhone) e
+**Salvar no Google Wallet** (no Android). O passe leva o mesmo QR do papel, abre sem internet e
+aparece sozinho na tela de bloqueio na hora do evento. Cada carteira liga sozinha: dá para ter só
+uma. Sem as chaves, os botões não aparecem.
+
+**Apple Wallet** (precisa de uma conta do Apple Developer Program):
+
+1. Em `https://developer.apple.com/account` → **Certificates, Identifiers & Profiles** →
+   **Identifiers** → **+** → **Pass Type IDs**: crie, por exemplo, `pass.br.com.ingressoimpresso`.
+2. No Pass Type ID, **Create Certificate**: envie um CSR (no Mac, **Acesso às Chaves** →
+   **Assistente de Certificado** → **Solicitar um certificado de uma autoridade**), baixe o `.cer`,
+   abra-o no Acesso às Chaves e exporte certificado e chave juntos como `pass.p12`.
+3. Baixe o certificado intermediário **Apple Worldwide Developer Relations (G4)** em
+   `https://www.apple.com/certificateauthority/`.
+4. Converta para PEM:
+
+   ```
+   openssl pkcs12 -in pass.p12 -clcerts -nokeys -out pass-cert.pem
+   openssl pkcs12 -in pass.p12 -nocerts -nodes | openssl pkcs8 -topk8 -nocrypt -out pass-key.pem
+   openssl x509 -inform DER -in AppleWWDRCAG4.cer -out wwdr.pem
+   ```
+
+5. No Render → serviço → **Environment**: `APPLE_WALLET_PASS_TYPE_ID` (o identificador do passo 1),
+   `APPLE_WALLET_TEAM_ID` (o Team ID, no canto da conta), `APPLE_WALLET_CERTIFICATE` (conteúdo de
+   `pass-cert.pem`), `APPLE_WALLET_KEY` (conteúdo de `pass-key.pem`) e `APPLE_WALLET_WWDR`
+   (conteúdo de `wwdr.pem`). As cinco juntas: com uma faltando, a API não sobe e diz qual.
+
+O certificado vence em um ano: renove no mesmo lugar e troque as variáveis.
+
+**Google Wallet:**
+
+1. Em `https://pay.google.com/business/console`, crie a conta de emissor (**Google Wallet API**) e
+   anote o **Issuer ID**.
+2. No Google Cloud (o mesmo projeto do passo 5.2), ative a **Google Wallet API**, crie uma **conta
+   de serviço** e baixe uma **chave JSON** dela.
+3. No console do Google Pay & Wallet → **Users**, convide o e-mail da conta de serviço como
+   **Developer**.
+4. No Render: `GOOGLE_WALLET_ISSUER_ID` e `GOOGLE_WALLET_SERVICE_ACCOUNT` (o conteúdo do JSON, em
+   uma linha). Até o Google aprovar a conta de emissor, só os e-mails de teste conseguem salvar.
+
 ## 6. Vercel (site, painel e portaria)
 
 O build da Vercel não tem Rust, e a portaria precisa do WebAssembly do núcleo. Por isso quem
@@ -801,6 +843,8 @@ O endereço pode ser outro: crie a variável `VERCEL_STAGING_ALIAS` em **GitHub*
 | Segredo do webhook da Resend | `RESEND_WEBHOOK_SECRET` (opcional) | | | |
 | Chave do Google Cloud Vision | `MODERATION_VISION_API_KEY` (opcional) | | | |
 | Chaves do Cloudflare Turnstile | `TURNSTILE_SITE_KEY` e `TURNSTILE_SECRET_KEY` (recomendado) | | | |
+| Apple Wallet | `APPLE_WALLET_PASS_TYPE_ID`, `APPLE_WALLET_TEAM_ID`, `APPLE_WALLET_CERTIFICATE`, `APPLE_WALLET_KEY`, `APPLE_WALLET_WWDR` (opcional) | | | `pass.p12` |
+| Google Wallet | `GOOGLE_WALLET_ISSUER_ID` e `GOOGLE_WALLET_SERVICE_ACCOUNT` (opcional) | | | JSON da conta de serviço |
 | Token e IDs da Vercel | | | `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` (environments Production, Staging e Preview) | token |
 | Papel de backup | | | `BACKUP_DATABASE_URL` (environment Backup) | sim |
 | Chave pública do backup | | | `BACKUP_AGE_RECIPIENT` (environment Backup) | |

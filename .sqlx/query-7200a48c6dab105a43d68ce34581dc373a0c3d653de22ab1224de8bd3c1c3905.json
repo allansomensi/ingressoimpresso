@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update sellers set cashier = false where event_id = $1 and cashier",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "7200a48c6dab105a43d68ce34581dc373a0c3d653de22ab1224de8bd3c1c3905"
+}

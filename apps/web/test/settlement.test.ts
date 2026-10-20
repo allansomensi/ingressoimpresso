@@ -19,6 +19,8 @@ function row(overrides: Partial<ReportRowDto>): ReportRowDto {
     voidEntries: 0,
     amountDueCents: 68000,
     pixCents: 0,
+    commissionCents: null,
+    courtesies: 0,
     receivedCents: 50000,
     balanceCents: 18000,
     markedSold: 0,

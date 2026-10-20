@@ -56,6 +56,9 @@ pub struct Config {
     /// keys (the staging environment). Production refuses them otherwise: a test card would buy
     /// real signed tickets.
     pub stripe_allow_test_mode: bool,
+    /// `APPLE_WALLET_*` and `GOOGLE_WALLET_*` (ADR 0097): digital tickets in the phone's wallet;
+    /// each wallet is off without its credentials.
+    pub wallets: std::sync::Arc<crate::wallet::Wallets>,
 }
 
 /// Master keys that appear in the repository (CI, the door's end-to-end test): never in
@@ -94,6 +97,7 @@ impl std::fmt::Debug for Config {
             .field("moderation_daily_limit", &self.moderation_daily_limit)
             .field("google_client_id", &self.google_client_id)
             .field("mail_daily_limit", &self.mail_daily_limit)
+            .field("wallets", &self.wallets)
             .finish_non_exhaustive()
     }
 }
@@ -340,6 +344,7 @@ impl Config {
             turnstile,
             mail_daily_limit,
             stripe_allow_test_mode,
+            wallets: std::sync::Arc::new(crate::wallet::Wallets::from_lookup(get)?),
         })
     }
 

@@ -8,12 +8,14 @@ import {
   Building2,
   CalendarDays,
   Coins,
+  Filter,
   Gift,
   History,
   LayoutDashboard,
   Mail,
   Megaphone,
   Radio,
+  RadioTower,
   Settings2,
   ShieldAlert,
   Ticket,
@@ -26,6 +28,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, type ComponentType } from "react";
 
 import { AdminBatches, AdminOrganizations, AdminOverview } from "@/components/admin/admin-views";
+import { useLiveProblems } from "@/components/admin/insights";
 import { SectionNav, type NavGroup } from "@/components/panel/section-nav";
 import { EmptyState, LoadingBlock, PageHeader } from "@/components/ui";
 import { api } from "@/lib/api";
@@ -38,6 +41,9 @@ const loading = () => <LoadingBlock rows={4} />;
 const load = (loader: () => Promise<ComponentType>) => dynamic(loader, { loading });
 const SECTIONS = {
   overview: { slug: "visao-geral", icon: LayoutDashboard, view: AdminOverview },
+  // The events around now and the funnel (ADR 0099).
+  live: { slug: "agora", icon: RadioTower, view: load(() => import("@/components/admin/insights").then((m) => m.AdminLive)) },
+  funnel: { slug: "funil", icon: Filter, view: load(() => import("@/components/admin/insights").then((m) => m.AdminFunnel)) },
   finance: { slug: "financeiro", icon: Wallet, view: load(() => import("@/components/admin/finance").then((m) => m.AdminFinance)) },
   organizations: { slug: "organizacoes", icon: Building2, view: AdminOrganizations },
   // Any event of any organization, opened in support mode (ADR 0079).
@@ -63,7 +69,7 @@ const SECTIONS = {
 type Section = keyof typeof SECTIONS;
 
 const GROUPS: readonly { key: keyof typeof t.groups; sections: readonly Section[] }[] = [
-  { key: "overview", sections: ["overview", "finance"] },
+  { key: "overview", sections: ["overview", "live", "funnel", "finance"] },
   { key: "customers", sections: ["organizations", "events", "batches"] },
   { key: "sales", sections: ["prices", "promotions", "codes", "referrals"] },
   { key: "communication", sections: ["announcements", "changelog", "emails"] },
@@ -94,6 +100,7 @@ function AdminView() {
     refetchInterval: 60_000,
   });
   const section = ALL.find((item) => SECTIONS[item].slug === search.get("aba")) ?? "overview";
+  const troubled = useLiveProblems(isAdmin);
   if (!isAdmin) {
     return <EmptyState icon={ShieldAlert} title={t.forbiddenTitle} description={t.forbidden} />;
   }
@@ -110,7 +117,12 @@ function AdminView() {
       key: item,
       label: t.tabs[item],
       icon: SECTIONS[item].icon,
-      mark: item === "moderation" && open > 0 ? { kind: "count", value: open, label: t.moderationPending(open) } : undefined,
+      mark:
+        item === "moderation" && open > 0
+          ? { kind: "count", value: open, label: t.moderationPending(open) }
+          : item === "live" && troubled > 0
+            ? { kind: "count", value: troubled, label: t.live.troubled(troubled) }
+            : undefined,
     })),
   }));
 

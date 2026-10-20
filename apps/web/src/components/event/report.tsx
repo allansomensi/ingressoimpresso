@@ -1,6 +1,6 @@
 "use client";
 
-import type { EventReportDto, ReportCategoryDto, ReportRowDto } from "@ingressoimpresso/api-types";
+import type { CourtesiesDto, EventReportDto, ReportCategoryDto, ReportRowDto } from "@ingressoimpresso/api-types";
 import { useQuery } from "@tanstack/react-query";
 import { CheckCircle2, Download, HandCoins, Info, RefreshCw, Smartphone, Ticket, Users, Wallet } from "lucide-react";
 
@@ -35,6 +35,7 @@ function lineName(t: EventTexts["report"], row: ReportRowDto, kind: LineKind): s
 function sellersTotal(rows: readonly ReportRowDto[]): ReportRowDto {
   const sum = (pick: (row: ReportRowDto) => number) => rows.reduce((total, row) => total + pick(row), 0);
   const due = rows.some((row) => row.amountDueCents !== null) ? sum((row) => row.amountDueCents ?? 0) : null;
+  const commission = rows.some((row) => row.commissionCents !== null) ? sum((row) => row.commissionCents ?? 0) : null;
   return {
     sellerId: null,
     seller: null,
@@ -50,7 +51,9 @@ function sellersTotal(rows: readonly ReportRowDto[]): ReportRowDto {
     amountDueCents: due,
     receivedCents: sum((row) => row.receivedCents),
     pixCents: sum((row) => row.pixCents),
-    balanceCents: due === null ? null : due - sum((row) => row.receivedCents),
+    commissionCents: commission,
+    courtesies: sum((row) => row.courtesies),
+    balanceCents: due === null ? null : due - (commission ?? 0) - sum((row) => row.receivedCents),
     markedSold: sum((row) => row.markedSold),
     reserved: sum((row) => row.reserved),
     boxOffice: false,
@@ -74,6 +77,8 @@ function toCsv(t: EventTexts["report"], report: EventReportDto): string {
     t.seller,
     ...SETTLEMENT_COLUMNS.map((column) => t.columns[column]),
     t.amountDue,
+    t.courtesiesColumn,
+    t.commission,
     t.received,
     t.balance,
     ...DOOR_COLUMNS.map((column) => t.columns[column]),
@@ -83,6 +88,8 @@ function toCsv(t: EventTexts["report"], report: EventReportDto): string {
       quote(lineName(t, row, kind)),
       ...SETTLEMENT_COLUMNS.map((column) => String(row[column])),
       amount(row.amountDueCents),
+      String(row.courtesies),
+      amount(row.commissionCents),
       amount(row.receivedCents),
       amount(row.balanceCents),
       ...DOOR_COLUMNS.map((column) => String(row[column])),
@@ -175,6 +182,8 @@ export function ReportTab({ eventId, onSelect }: { eventId: string; onSelect: Se
   const generated = new Date(data.generatedAt).toLocaleTimeString("pt-BR", { timeStyle: "short" });
   // Amounts exist with an event price or category prices (ADR 0056).
   const priced = data.ticketPriceCents !== null || data.sellers.some((row) => row.amountDueCents !== null);
+  // Commissions (ADR 0096) get a column only when some seller has one.
+  const commissions = data.sellers.some((row) => row.commissionCents !== null);
 
   return (
     <div className="flex flex-col gap-6">
@@ -247,6 +256,8 @@ export function ReportTab({ eventId, onSelect }: { eventId: string; onSelect: Se
 
       {data.categories.length > 0 && <CategoryTable rows={data.categories} />}
 
+      <CourtesyReport eventId={eventId} />
+
       <Card padded={false} className="overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-2 px-5 pt-5 pb-4">
           <h2 className="text-base font-semibold tracking-tight text-fg">{t.sellersTitle}</h2>
@@ -261,6 +272,7 @@ export function ReportTab({ eventId, onSelect }: { eventId: string; onSelect: Se
                   <HeaderCell key={column} column={column} />
                 ))}
                 <th className="px-2 py-2.5 text-right font-medium">{t.amountDue}</th>
+                {commissions && <th className="px-2 py-2.5 text-right font-medium">{t.commission}</th>}
                 <th className="px-2 py-2.5 text-right font-medium">{t.received}</th>
                 <th className="py-2.5 pr-5 pl-2 text-right font-medium" title={t.balanceHint}>
                   <span className="cursor-help border-b border-dotted border-fg-subtle/60">{t.balance}</span>
@@ -270,7 +282,7 @@ export function ReportTab({ eventId, onSelect }: { eventId: string; onSelect: Se
             <tbody className="divide-y divide-border">
               {data.sellers.length === 0 && (
                 <tr>
-                  <td colSpan={SETTLEMENT_COLUMNS.length + 4} className="px-5 py-6 text-center text-fg-muted">
+                  <td colSpan={SETTLEMENT_COLUMNS.length + (commissions ? 5 : 4)} className="px-5 py-6 text-center text-fg-muted">
                     {t.noSellers}
                   </td>
                 </tr>
@@ -284,6 +296,11 @@ export function ReportTab({ eventId, onSelect }: { eventId: string; onSelect: Se
                     </td>
                   ))}
                   <td className="px-2 py-3 text-right font-mono whitespace-nowrap text-fg tabular">{money(row.amountDueCents)}</td>
+                  {commissions && (
+                    <td className="px-2 py-3 text-right font-mono whitespace-nowrap text-fg-muted tabular">
+                      {row.commissionCents === null ? "—" : `− ${formatMoney(row.commissionCents)}`}
+                    </td>
+                  )}
                   <td className="px-2 py-3 text-right font-mono whitespace-nowrap text-fg tabular">{formatMoney(row.receivedCents)}</td>
                   <td className="py-3 pr-5 pl-2 text-right font-mono whitespace-nowrap tabular">
                     {kind === "totals" ? (
@@ -448,6 +465,55 @@ function CategoryTable({ rows }: { rows: readonly ReportCategoryDto[] }) {
               <td className="px-2 py-2.5 text-right tabular">{total.sold.toLocaleString("pt-BR")}</td>
               <td className="px-2 py-2.5 text-right tabular">{total.entries.toLocaleString("pt-BR")}</td>
               <td className="py-2.5 pr-5 pl-2 text-right tabular">{money(total.amount)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </TableScroll>
+    </Card>
+  );
+}
+
+/** Courtesies by who authorized them (ADR 0096), apart from the sales. */
+function CourtesyReport({ eventId }: { eventId: string }) {
+  const t = useEventTexts().report;
+  const c = t.courtesies;
+  const data = useQuery({ queryKey: ["courtesies", eventId], queryFn: () => api<CourtesiesDto>(`/api/events/${eventId}/courtesies`) });
+  const givers = (data.data?.givers ?? []).filter((giver) => giver.given > 0);
+  if (givers.length === 0) {
+    return null;
+  }
+  const given = givers.reduce((sum, giver) => sum + giver.given, 0);
+  const entered = givers.reduce((sum, giver) => sum + giver.entered, 0);
+  return (
+    <Card padded={false} className="overflow-hidden">
+      <div className="flex flex-wrap items-baseline justify-between gap-2 px-5 pt-5 pb-4">
+        <h2 className="text-base font-semibold tracking-tight text-fg">{c.title}</h2>
+        <span className="text-xs text-fg-subtle">{c.description}</span>
+      </div>
+      <TableScroll label={c.title}>
+        <table aria-label={c.title} className="w-full min-w-[28rem] text-sm">
+          <thead className="border-y border-border bg-surface-2 text-left text-xs font-medium text-fg-muted">
+            <tr>
+              <th className="py-2.5 pr-2 pl-5 font-medium">{c.giver}</th>
+              <th className="px-2 py-2.5 text-right font-medium">{c.given}</th>
+              <th className="px-2 py-2.5 text-right font-medium">{c.quota}</th>
+              <th className="py-2.5 pr-5 pl-2 text-right font-medium">{c.entered}</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {givers.map((giver) => (
+              <tr key={giver.id}>
+                <td className="py-2.5 pr-2 pl-5 font-medium text-fg">{giver.name}</td>
+                <td className="px-2 py-2.5 text-right tabular">{giver.given.toLocaleString("pt-BR")}</td>
+                <td className="px-2 py-2.5 text-right text-fg-muted tabular">{giver.quota === null ? c.none : giver.quota.toLocaleString("pt-BR")}</td>
+                <td className="py-2.5 pr-5 pl-2 text-right tabular">{giver.entered.toLocaleString("pt-BR")}</td>
+              </tr>
+            ))}
+            <tr className="bg-surface-2 font-semibold">
+              <td className="py-2.5 pr-2 pl-5">{c.total}</td>
+              <td className="px-2 py-2.5 text-right tabular">{given.toLocaleString("pt-BR")}</td>
+              <td />
+              <td className="py-2.5 pr-5 pl-2 text-right tabular">{entered.toLocaleString("pt-BR")}</td>
             </tr>
           </tbody>
         </table>

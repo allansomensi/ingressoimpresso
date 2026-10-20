@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update sellers set commission_kind = $2, commission_value = $3 where event_id = $1 and not box_office",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "43b995d36378779f07efff963f111b61e71f89c3acf7fdd0e2254a6e6588d8b8"
+}

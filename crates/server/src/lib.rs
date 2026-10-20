@@ -6,6 +6,7 @@
     reason = "HTTP handlers fail with ApiError, whose variants and status codes are documented once in error.rs"
 )]
 
+pub mod activity;
 pub mod api;
 pub mod app;
 pub mod art;
@@ -29,6 +30,7 @@ pub mod routes;
 pub mod state;
 mod texts;
 pub mod two_factor;
+pub mod wallet;
 
 /// Version of the product (ADR 0049): one Semantic Versioning number for the API, the site and
 /// the tools, set in `[workspace.package]` and tagged `vX.Y.Z` when it reaches production.

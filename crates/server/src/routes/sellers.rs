@@ -11,8 +11,8 @@ use super::{
     EventAccess, authorize_event, bounds, event_access, is_issued, one_line, optional_text, range,
 };
 use crate::api::{
-    AssignRemainingBody, AvailableNumbersDto, NumberRangeDto, RangeBody, RangeDto, SellerBody,
-    SellerDto, TeamArea,
+    AssignRemainingBody, AvailableNumbersDto, CommissionBody, CommissionDto, CommissionKind,
+    NumberRangeDto, RangeBody, RangeDto, SellerBody, SellerDto, TeamArea,
 };
 use crate::auth::AuthUser;
 use crate::error::{ApiError, ApiResult, bad_request};
@@ -53,7 +53,8 @@ pub async fn list(
 ) -> ApiResult<Json<Vec<SellerDto>>> {
     let access = event_access(&state.pool, &user, event_id).await?;
     let sellers = sqlx::query!(
-        r#"select id, name, phone, box_office, goal, pix_key_type, pix_key, pix_name, pix_city
+        r#"select id, name, phone, box_office, cashier, goal, pix_key_type, pix_key, pix_name, pix_city,
+                  commission_kind, commission_value
            from sellers where event_id = $1 order by name"#,
         event_id
     )
@@ -92,12 +93,17 @@ pub async fn list(
                 name: seller.name,
                 phone: seller.phone,
                 box_office: seller.box_office,
+                cashier: seller.cashier,
                 goal: seller.goal,
                 pix: super::pix::account(
                     seller.pix_key_type.as_deref(),
                     seller.pix_key,
                     seller.pix_name,
                     seller.pix_city,
+                ),
+                commission: super::report::commission(
+                    seller.commission_kind.as_deref(),
+                    seller.commission_value,
                 ),
             })
             .collect(),
@@ -116,6 +122,18 @@ fn no_box_office_for_tokens(event: &super::EventRow) -> ApiResult<()> {
     Ok(())
 }
 
+/// The token cashier (ADR 0098) sells fichas on the spot; a ticket event has the box office.
+fn cashier_only_for_tokens(event: &super::EventRow) -> ApiResult<()> {
+    if event.tokens() {
+        Ok(())
+    } else {
+        Err(bad_request(
+            "cashier_tickets",
+            "only consumption tokens have a cashier",
+        ))
+    }
+}
+
 /// `POST /api/events/{id}/sellers`.
 pub async fn create(
     State(state): State<AppState>,
@@ -130,14 +148,20 @@ pub async fn create(
         need_money(&access)?;
         no_box_office_for_tokens(&access.event)?;
     }
+    let cashier = body.cashier.unwrap_or(false);
+    if cashier {
+        need_money(&access)?;
+        cashier_only_for_tokens(&access.event)?;
+    }
     let id = Uuid::new_v4();
     sqlx::query!(
-        "insert into sellers (id, event_id, name, phone, box_office) values ($1, $2, $3, $4, $5)",
+        "insert into sellers (id, event_id, name, phone, box_office, cashier) values ($1, $2, $3, $4, $5, $6)",
         id,
         event_id,
         name,
         phone,
         box_office,
+        cashier,
     )
     .execute(&state.pool)
     .await
@@ -158,6 +182,8 @@ pub async fn create(
             box_office,
             goal: None,
             pix: None,
+            commission: None,
+            cashier,
         }),
     ))
 }
@@ -216,14 +242,30 @@ pub async fn update(
             need_money(&access)?;
         }
     }
+    // The cashier (ADR 0098) closes a drawer of the organization's money: the money part's call.
+    if body.cashier == Some(true) {
+        cashier_only_for_tokens(&access.event)?;
+    }
+    if let Some(wanted) = body.cashier {
+        let current = sqlx::query_scalar!("select cashier from sellers where id = $1", seller_id)
+            .fetch_one(&mut *tx)
+            .await?;
+        if wanted != current {
+            need_money(&access)?;
+        }
+    }
     let box_office = sqlx::query_scalar!(
         r#"update sellers set name = $2, phone = $3, box_office = coalesce($4, box_office),
-                              goal = case when coalesce($4, box_office) then null else goal end
+                              cashier = coalesce($5, cashier),
+                              goal = case when coalesce($4, box_office) then null else goal end,
+                              commission_kind = case when coalesce($4, box_office) then null else commission_kind end,
+                              commission_value = case when coalesce($4, box_office) then null else commission_value end
            where id = $1 returning box_office"#,
         seller_id,
         name,
         phone,
         body.box_office,
+        body.cashier,
     )
     .fetch_one(&mut *tx)
     .await?;
@@ -237,6 +279,76 @@ pub async fn update(
     }
     tx.commit().await?;
     Ok(StatusCode::NO_CONTENT)
+}
+
+/// A commission within its limits (ADR 0096): 0.01–100% or R$ 0,01–10.000,00 per ticket.
+fn check_commission(commission: Option<&CommissionDto>) -> ApiResult<()> {
+    let Some(commission) = commission else {
+        return Ok(());
+    };
+    let limit = match commission.kind {
+        CommissionKind::Percent => 10_000,
+        CommissionKind::PerTicket => 1_000_000,
+    };
+    if !(1..=limit).contains(&commission.value) {
+        return Err(bad_request(
+            "invalid_commission",
+            format!("the commission must be 1–{limit}"),
+        ));
+    }
+    Ok(())
+}
+
+/// `PUT /api/sellers/{id}/commission` (ADR 0096): what the seller keeps of what they sold; a
+/// box office keeps nothing.
+pub async fn set_commission(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(seller_id): Path<Uuid>,
+    Json(body): Json<CommissionBody>,
+) -> ApiResult<StatusCode> {
+    seller_event(&state, &user, seller_id).await?;
+    check_commission(body.commission.as_ref())?;
+    let box_office = sqlx::query_scalar!("select box_office from sellers where id = $1", seller_id)
+        .fetch_one(&state.pool)
+        .await?;
+    if box_office && body.commission.is_some() {
+        return Err(bad_request(
+            "commission_box_office",
+            "a box office has no commission",
+        ));
+    }
+    sqlx::query!(
+        "update sellers set commission_kind = $2, commission_value = $3 where id = $1",
+        seller_id,
+        body.commission.as_ref().map(|c| c.kind.db()),
+        body.commission.as_ref().map(|c| c.value),
+    )
+    .execute(&state.pool)
+    .await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// `POST /api/events/{id}/sellers/commission` (ADR 0096): the same commission for every seller
+/// but the box office. Answers how many sellers changed.
+pub async fn set_commission_all(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(event_id): Path<Uuid>,
+    Json(body): Json<CommissionBody>,
+) -> ApiResult<Json<u64>> {
+    authorize_event(&state.pool, &user, event_id).await?;
+    check_commission(body.commission.as_ref())?;
+    let changed = sqlx::query!(
+        "update sellers set commission_kind = $2, commission_value = $3 where event_id = $1 and not box_office",
+        event_id,
+        body.commission.as_ref().map(|c| c.kind.db()),
+        body.commission.as_ref().map(|c| c.value),
+    )
+    .execute(&state.pool)
+    .await?
+    .rows_affected();
+    Ok(Json(changed))
 }
 
 /// `DELETE /api/sellers/{id}` (also removes their ranges).

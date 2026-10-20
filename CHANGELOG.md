@@ -12,6 +12,76 @@ e não acompanha estes números.
 
 ## [Não lançado]
 
+### Adicionado
+
+- A imagem de amostra do ingresso ("Ver como fica") leva embaixo o logo, o nome e o endereço do
+  Ingresso Impresso, para quem recebe a imagem saber de onde ela veio.
+- Lista de nomes por planilha: em **Importar lista**, cole as células do Excel ou do Google
+  Planilhas ou abra um arquivo CSV com Nome, Acompanhantes, Observação e Categoria (em qualquer
+  ordem), confira a prévia e adicione tudo de uma vez. Há uma planilha modelo para baixar.
+- **Meus ingressos** no celular: a página do ingresso digital, aberta sem link, lista os ingressos
+  e fichas já abertos naquele aparelho (os próximos primeiro), que abrem mesmo sem internet. Não é
+  mais preciso achar a mensagem no WhatsApp na hora da entrada.
+- Portaria: tela **Fim do evento** (no menu ⋮ e num aviso depois do horário de término) com
+  quantos entraram, quantas cópias foram barradas, os outros recusados e as leituras que ainda não
+  foram enviadas, com um botão para enviar e o aviso de quando já dá para fechar o app.
+- **Aviso para os vendedores**: um recado fixo no topo do link de cada vendedor ("acerto sábado às
+  10h na secretaria"), escrito na seção Vendedores.
+- **Comissão por vendedor**: percentual ou valor por ingresso, para um vendedor ou para todos de
+  uma vez, já descontada no acerto, no relatório, no resumo do WhatsApp e no link do vendedor; a
+  prestação de contas mostra o total das comissões.
+- **Cortesias com controle**: cadastre quem pode autorizar cortesias e o limite de cada um, dê
+  cortesias com o número, para quem e o motivo. Ninguém paga por elas no acerto, o vendedor que
+  estava com o número vê "cortesia, não paga" e o relatório mostra as cortesias à parte, por quem
+  autorizou.
+- **Histórico do evento** na seção Equipe: quem da organização, da equipe ou do suporte mudou o
+  quê, e quando, com o filtro "Só a equipe". Só alterações que deram certo entram.
+- **Página do evento** (`/e/nome-do-evento`): um link só para divulgar, com data, local com mapa
+  (carregado só quando a pessoa toca), preço de cada categoria, os vendedores escolhidos com botão
+  de WhatsApp, "adicionar à agenda", o selo **Esgotado** (marcado pelo organizador ou sozinho quando
+  todos os números acabam) e, no pé, o convite para conhecer o Ingresso Impresso. Imagem de
+  compartilhamento própria com o nome, a data e a cor da organização.
+- **Transferir o ingresso digital**: quem recebeu o ingresso no celular passa para outra pessoa
+  pela própria página (até 3 vezes, antes do evento e enquanto não foi usado). O link antigo para de
+  abrir e avisa que foi transferido; o número e o QR continuam os mesmos. A organização pode
+  desligar na aba Digitais.
+- **Ingresso na carteira do celular**: botões **Adicionar à Apple Wallet** e **Salvar no Google
+  Wallet** na página do ingresso digital, com o mesmo QR, que abrem sem internet e aparecem sozinhos
+  na hora do evento (ligados quando a plataforma tem as credenciais de cada carteira).
+- **Resumo final** para compartilhar (Relatório → Prestação de contas): uma página com o público,
+  a arrecadação, as despesas, o saldo e o destaque dos vendedores, como imagem para mandar no grupo
+  da comissão ou como PDF, nas cores da organização.
+- Administração: **Funil** (criou a conta → criou evento → montou o ingresso → gerou lote → pagou
+  lote → usou a portaria, por período, com o passo onde mais gente desiste e quanto tempo cada
+  passo leva) e **Acontecendo agora** (eventos do momento, celulares da portaria que não
+  sincronizam, leituras acumuladas, rajadas de códigos inválidos e eventos sem celular na porta).
+- **Caixa de fichas**: num evento de fichas, marque um vendedor como caixa. No link dele, os
+  produtos viram botões grandes: toque, escolha dinheiro, Pix ou cartão, veja o troco e registre a
+  venda (funciona sem internet). O turno mostra quanto deveria ter na gaveta e **Fechar caixa**
+  guarda o dinheiro contado e a diferença. A seção Vendedores tem o relatório de cada caixa, com
+  os fechamentos, e a organização pode fechar o caixa de quem saiu sem fechar.
+- **Modelos nas suas cores**: na galeria de modelos, escolha **Da organização** para ver todos os
+  modelos com a cor (e as cores do logo) de Minha organização e o logo num canto livre do
+  ingresso, num toque. Ou **Do cartaz**: escolha a imagem do cartaz do evento e os modelos ganham
+  as cores dele (a imagem não sai do aparelho). O fundo continua claro ou escuro como no modelo, e
+  os textos são ajustados para dar leitura.
+- **Papéis prontos** no arquivo para imprimir em casa: além do A4 comum com marcas de corte, A4
+  picotado em 3, 4, 6, 8 ou 10 partes e as folhas de etiquetas A4 mais vendidas (21, 14, 8 ou 2
+  etiquetas). Um ingresso ou ficha por pedaço, no tamanho real ou reduzido quando precisa, e o
+  painel avisa em quais papéis o seu modelo não cabe sem o QR ficar pequeno demais.
+
+### Alterado
+
+- O editor do ingresso abre mais rápido: a galeria de modelos só carrega quando você toca em
+  **Modelos**.
+- A vitrine de modelos da página inicial mostra as imagens prontas de cada modelo, bem mais leves
+  no celular, e cada uma leva à página do modelo.
+
+### Corrigido
+
+- Na prévia do editor, uma letra cursiva que passa da linha (o "J" de "Júlia" num nome de duas
+  linhas) não é mais cortada. O arquivo impresso já saía certo.
+
 ## [1.8.0] - 2026-10-20
 
 ### Adicionado

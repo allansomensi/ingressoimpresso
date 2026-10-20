@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update ticket_sales s set closing_id = $3\n           where s.event_id = $1 and s.seller_id = $2 and s.closing_id is null\n             and not exists (select 1 from ticket_voids v\n                             where v.event_id = $1 and v.undone_at is null\n                               and v.numbers @> s.ticket_number)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1efa658a329382548fe920266a2badcb56191daf92e4c8f95665b99c064d11a5"
+}

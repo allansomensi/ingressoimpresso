@@ -220,7 +220,7 @@ describe("page titles and descriptions", () => {
 
   it("each have their own share image", () => {
     // A page that sets `openGraph` (pageMetadata) loses the root's image, so each brings its own.
-    const dirs = [...STATIC_PAGES.map((path) => (path === "/" ? "" : path)), "/ingresso-para/[slug]", "/modelos/[slug]", "/guias/[slug]"];
+    const dirs = [...STATIC_PAGES.map((path) => (path === "/" ? "" : path)), "/ingresso-para/[slug]", "/modelos/[slug]", "/guias/[slug]", "/e/[slug]"];
     const missing = dirs.filter((dir) => !existsSync(`${APP}${dir}/opengraph-image.tsx`) && !existsSync(`${APP}${dir}/opengraph-image.png`));
     expect(missing).toEqual([]);
   });

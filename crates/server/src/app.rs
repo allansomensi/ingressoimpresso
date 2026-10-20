@@ -31,7 +31,9 @@ use crate::routes::{
     seller_links, seller_sync, sellers, settlement, status, support, tables, team, tickets,
     two_factor, voids,
 };
-use crate::routes::{checklist, checkpoints, pix, series};
+use crate::routes::{
+    admin_insights, cashier, checklist, checkpoints, courtesies, history, pix, public_page, series,
+};
 use crate::routes::{referrals, verify};
 use crate::state::AppState;
 
@@ -52,6 +54,8 @@ pub fn router(state: AppState) -> Router {
         .route("/status", get(status::public))
         .route("/changelog", get(changelog::public))
         .route("/pricing", get(batches::pricing_table))
+        // The event's public page (ADR 0095).
+        .route("/public/events/{slug}", get(public_page::public))
         .route_layer(middleware::map_response(short_public_cache));
     let api = Router::new()
         .merge(public)
@@ -109,6 +113,14 @@ pub fn router(state: AppState) -> Router {
         .route("/ticket-links/{id}/revoke", post(tickets::revoke))
         .route("/ticket", post(tickets::open))
         .route("/ticket/image", post(tickets::image))
+        // Transfer and the phone's wallets (ADR 0097).
+        .route("/ticket/transfer", post(tickets::transfer))
+        .route("/ticket/wallet/apple", post(tickets::wallet_apple))
+        .route("/ticket/wallet/google", post(tickets::wallet_google))
+        .route(
+            "/events/{id}/ticket-settings",
+            get(tickets::settings).put(tickets::update_settings),
+        )
         .route(
             "/events/{id}/art",
             post(events::upload_art).layer(DefaultBodyLimit::max(MAX_ART_BYTES)),
@@ -128,6 +140,9 @@ pub fn router(state: AppState) -> Router {
         .route("/admin/payments/sync-refunds", post(refunds::sync))
         .route("/admin/batches/{id}/price", put(support::set_price))
         .route("/admin/overview", get(admin::overview))
+        // The funnel and the events around now (ADR 0099).
+        .route("/admin/funnel", get(admin_insights::funnel))
+        .route("/admin/live", get(admin_insights::live))
         .route("/admin/finance", get(analytics::finance))
         .route("/admin/organizations", get(admin::organizations))
         .route(
@@ -268,6 +283,15 @@ pub fn router(state: AppState) -> Router {
         )
         .route("/ledger/{id}", put(ledger::update).delete(ledger::delete))
         .route("/events/{id}/accountability", get(ledger::summary))
+        // The final summary to share (ADR 0101).
+        .route(
+            "/events/{id}/summary/pdf",
+            get(crate::routes::final_summary::pdf),
+        )
+        .route(
+            "/events/{id}/summary/png",
+            get(crate::routes::final_summary::picture),
+        )
         .route("/events/{id}/accountability/pdf", get(ledger::pdf))
         .route("/events/{id}/accountability/xlsx", get(ledger::spreadsheet))
         .route("/events/{id}/team", get(team::list).post(team::add))
@@ -388,7 +412,47 @@ pub fn router(state: AppState) -> Router {
         .route("/events/{id}/pix-settings", put(pix::update_settings))
         .route("/events/{id}/pix/receipts", post(pix::set_receipts))
         .route("/seller/pix", post(pix::seller_receipt))
+        // Notice to the sellers, commissions and courtesies (ADR 0096).
+        .route(
+            "/events/{id}/seller-notice",
+            put(seller_links::update_notice),
+        )
+        .route("/sellers/{id}/commission", put(sellers::set_commission))
+        .route(
+            "/events/{id}/sellers/commission",
+            post(sellers::set_commission_all),
+        )
+        .route(
+            "/events/{id}/courtesies",
+            get(courtesies::list).post(courtesies::create),
+        )
+        .route("/courtesies/{id}", delete(courtesies::delete))
+        .route(
+            "/events/{id}/courtesy-givers",
+            post(courtesies::create_giver),
+        )
+        .route(
+            "/courtesy-givers/{id}",
+            put(courtesies::update_giver).delete(courtesies::delete_giver),
+        )
+        .route(
+            "/events/{id}/public-page",
+            get(public_page::settings).put(public_page::update),
+        )
+        // The event's history (ADR 0099).
+        .route("/events/{id}/activity", get(history::list))
+        // Ready-made papers for home printing (ADR 0102).
+        .route("/events/{id}/papers", get(exports::papers))
+        // The token cashier (ADR 0098).
+        .route("/events/{id}/cashiers", get(cashier::report))
+        .route("/sellers/{id}/cashier/close", post(cashier::panel_close))
+        .route("/seller/cashier/close", post(cashier::seller_close))
         .fallback(not_found)
+        // The event's history (ADR 0099): what a handler let through and finished well.
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            crate::activity::record,
+        ))
         .layer(DefaultBodyLimit::max(JSON_BODY_LIMIT))
         // Axum's own rejections (bad JSON, a malformed id, a body too large) answer plain text;
         // the panel maps error codes, so every API error is JSON.

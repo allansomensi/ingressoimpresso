@@ -561,9 +561,9 @@ pub(crate) async fn copy_event(
         .await?;
     }
     sqlx::query!(
-        r#"insert into sellers (id, event_id, name, phone, box_office, goal,
+        r#"insert into sellers (id, event_id, name, phone, box_office, cashier, goal,
                                   pix_key_type, pix_key, pix_name, pix_city)
-           select gen_random_uuid(), $2, name, phone, box_office, goal,
+           select gen_random_uuid(), $2, name, phone, box_office, cashier, goal,
                   pix_key_type, pix_key, pix_name, pix_city
            from sellers where event_id = $1"#,
         event_id,
@@ -870,6 +870,14 @@ pub async fn update(
         )
         .execute(&mut *tx)
         .await?;
+    } else {
+        // The token cashier (ADR 0098) is for fichas; tickets have the box office.
+        sqlx::query!(
+            "update sellers set cashier = false where event_id = $1 and cashier",
+            event_id
+        )
+        .execute(&mut *tx)
+        .await?;
     }
     tx.commit().await?;
     Ok(Json(access.dto(&state.pool, row).await?))
@@ -939,6 +947,7 @@ pub async fn get_design(
     Path(event_id): Path<Uuid>,
 ) -> ApiResult<Json<DesignResponse>> {
     let event = authorize_event(&state.pool, &user, event_id).await?;
+    let organization = super::organization::event_organization(&state.pool, event_id).await?;
     let latest = sqlx::query!(
         "select version, spec, art_blob_id, sponsor_blob_ids from ticket_designs where event_id = $1 order by version desc limit 1",
         event_id
@@ -952,6 +961,7 @@ pub async fn get_design(
             design: TicketDesign::default_for(event.tokens()),
             art: None,
             sponsors: Vec::new(),
+            organization,
         }));
     };
     let design: TicketDesign = serde_json::from_value(latest.spec).map_err(anyhow::Error::from)?;
@@ -969,6 +979,7 @@ pub async fn get_design(
         design,
         art,
         sponsors,
+        organization,
     }))
 }
 
@@ -1026,6 +1037,7 @@ pub async fn save_design(
         design: body.design,
         art: art.map(Into::into),
         sponsors: sponsors.into_iter().map(Into::into).collect(),
+        organization: super::organization::event_organization(&state.pool, event_id).await?,
     }))
 }
 

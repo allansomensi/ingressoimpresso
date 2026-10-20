@@ -1,0 +1,38 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select\n               (select coalesce(sum(upper(numbers * $2) - lower(numbers * $2)), 0)\n                from ticket_batches where event_id = $1 and status = 'paid' and numbers && $2)::bigint as \"paid!\",\n               exists(select 1 from ticket_voids\n                      where event_id = $1 and undone_at is null and numbers && $2) as \"voided!\",\n               exists(select 1 from courtesies\n                      where event_id = $1 and $2::int4range @> ticket_number) as \"taken!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "paid!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "voided!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "taken!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4Range"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "b29915c89c1c87cb4b200a05307511e1c38b1cb8e2a9e5093ca73f577ed66bee"
+}

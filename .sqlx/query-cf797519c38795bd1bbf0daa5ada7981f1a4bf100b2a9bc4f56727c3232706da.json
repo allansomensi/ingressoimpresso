@@ -1,0 +1,71 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select e.id, e.public_sold_out, e.public_description, e.public_verify,\n                  o.suspended_at is not null as \"suspended!\"\n           from events e join organizations o on o.id = e.organization_id\n           where e.public_slug = $1 and e.public_page",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "public_sold_out",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "public_sold_out"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "public_description",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "public_description"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "public_verify",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "public_verify"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "suspended!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      null
+    ]
+  },
+  "hash": "cf797519c38795bd1bbf0daa5ada7981f1a4bf100b2a9bc4f56727c3232706da"
+}

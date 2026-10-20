@@ -14,9 +14,9 @@ use typst_pdf::PdfOptions;
 use typst_render::RenderOptions;
 use zip::write::SimpleFileOptions;
 
-use crate::design::{BLEED_MM, BandStyle, DesignIssue, TicketDesign};
+use crate::design::{BLEED_MM, BandStyle, DesignIssue, MIN_QR_SIZE_MM, TicketDesign};
 use crate::fields::{self, EventDetails};
-use crate::layout::{Grid, a4_grid};
+use crate::layout::{Grid, Paper, paper_grid};
 use crate::merge::PdfMerger;
 use crate::qr::{self, QrError};
 use crate::texts::{PT_BR, PT_BR_TOKENS, Texts};
@@ -77,6 +77,10 @@ pub enum RenderError {
     /// The ticket (with stub) does not fit on an A4 sheet.
     #[error("ticket does not fit on an A4 sheet")]
     TooLargeForA4,
+    /// The ticket does not fit a piece of the chosen paper without shrinking its QR too much
+    /// (ADR 0102).
+    #[error("ticket does not fit this paper")]
+    PaperTooSmall,
     /// Image width (100–4000 px) or resolution (30–600 dpi) out of range.
     #[error("image size out of range")]
     ImageWidth,
@@ -263,12 +267,39 @@ pub fn sample_qr_text() -> String {
 ///
 /// See [`RenderError`].
 pub fn home_pdf(job: &RenderJob) -> Result<Vec<u8>, RenderError> {
-    home_pdf_chunked(job, PDF_CHUNK_TICKETS)
+    home_pdf_on(job, Paper::Plain)
 }
 
-fn home_pdf_chunked(job: &RenderJob, chunk_tickets: usize) -> Result<Vec<u8>, RenderError> {
+/// A4 sheets on a ready-made paper (ADR 0102): one ticket per piece of a perforated sheet or a
+/// label, at its size or shrunk to fit; [`Paper::Plain`] is [`home_pdf`].
+///
+/// # Errors
+///
+/// See [`RenderError`]; [`RenderError::PaperTooSmall`] when the ticket does not fit a piece.
+pub fn home_pdf_on(job: &RenderJob, paper: Paper) -> Result<Vec<u8>, RenderError> {
+    home_pdf_chunked(job, paper, PDF_CHUNK_TICKETS)
+}
+
+/// How much a design shrinks on `paper` (1 when it keeps its size); `None` when it does not fit.
+#[must_use]
+pub fn paper_scale(design: &TicketDesign, paper: Paper) -> Option<f64> {
+    paper_grid(
+        paper,
+        design.total_width_mm(),
+        design.height_mm,
+        design.qr.size_mm,
+        MIN_QR_SIZE_MM,
+    )
+    .map(|grid| grid.scale)
+}
+
+fn home_pdf_chunked(
+    job: &RenderJob,
+    paper: Paper,
+    chunk_tickets: usize,
+) -> Result<Vec<u8>, RenderError> {
     validate(job)?;
-    let grid = home_grid(job)?;
+    let grid = home_grid(job, paper)?;
     // Chunks hold whole sheets, so merging never leaves a half-empty sheet in the middle.
     let per_page = grid.per_page() as usize;
     let chunk = (chunk_tickets / per_page).max(1) * per_page;
@@ -326,7 +357,7 @@ fn home_sheets(
     if !(30..=600).contains(&dpi) {
         return Err(RenderError::ImageWidth);
     }
-    let grid = home_grid(job)?;
+    let grid = home_grid(job, Paper::Plain)?;
     let tickets = job
         .tickets
         .get(
@@ -537,8 +568,19 @@ fn for_each_image(
     Ok(())
 }
 
-fn home_grid(job: &RenderJob) -> Result<Grid, RenderError> {
-    a4_grid(job.design.total_width_mm(), job.design.height_mm).ok_or(RenderError::TooLargeForA4)
+fn home_grid(job: &RenderJob, paper: Paper) -> Result<Grid, RenderError> {
+    paper_grid(
+        paper,
+        job.design.total_width_mm(),
+        job.design.height_mm,
+        job.design.qr.size_mm,
+        MIN_QR_SIZE_MM,
+    )
+    .ok_or(if paper == Paper::Plain {
+        RenderError::TooLargeForA4
+    } else {
+        RenderError::PaperTooSmall
+    })
 }
 
 fn validate(job: &RenderJob) -> Result<(), RenderError> {
@@ -1140,7 +1182,7 @@ mod tests {
             merged.len(),
             single.len()
         );
-        let home = home_pdf_chunked(&job, 5).unwrap();
+        let home = home_pdf_chunked(&job, Paper::Plain, 5).unwrap();
         assert_eq!(image_streams(&home), 2);
     }
 
@@ -1199,8 +1241,8 @@ mod tests {
         }
         // 5 tickets per sheet, one sheet per chunk. Each cell is scanned on its own: rqrr
         // misses codes now and then when a picture holds several.
-        let home = home_pdf_chunked(&job, 5).unwrap();
-        let grid = home_grid(&job).unwrap();
+        let home = home_pdf_chunked(&job, Paper::Plain, 5).unwrap();
+        let grid = home_grid(&job, Paper::Plain).unwrap();
         assert_eq!(grid.cols, 1);
         let px = |mm: f64| (mm * 200.0 / 25.4).round() as u32;
         for sheet in 0..3 {
@@ -1221,6 +1263,66 @@ mod tests {
             let first = sheet as u32 * 5 + 1;
             assert_eq!(found, (first..=(first + 4).min(12)).collect::<Vec<_>>());
         }
+    }
+
+    #[test]
+    fn fichas_print_one_per_label_and_still_scan() {
+        // The default ficha (ADR 0086) on a sheet of 21 labels (ADR 0102): 21 per page, as is.
+        let mut job = signed_job(23);
+        job.tokens = true;
+        job.design = TicketDesign::default_tokens();
+        let grid = home_grid(&job, Paper::Labels21).unwrap();
+        assert!((grid.scale - 1.0).abs() < 1e-9);
+        let pdf = home_pdf_on(&job, Paper::Labels21).unwrap();
+        let document = Document::load_mem(&pdf).unwrap();
+        assert_eq!(document.get_pages().len(), 2);
+        let image = rasterize_pdf_page(&pdf, 1);
+        let px = |mm: f64| (mm * 200.0 / 25.4).round() as u32;
+        // The last label of the first row holds number 3.
+        let cell = image::imageops::crop_imm(
+            &image,
+            px(grid.origin_x_mm + 2.0 * grid.pitch_x_mm),
+            px(grid.origin_y_mm),
+            px(grid.cell_w_mm),
+            px(grid.cell_h_mm),
+        )
+        .to_image();
+        assert_eq!(scanned_numbers(cell), [3]);
+    }
+
+    #[test]
+    fn a_shrunk_ticket_still_scans() {
+        // 120 × 55 without a stub on a 105 × 74.25 piece: shrunk to 95/120 inside the 5 mm
+        // margin, its 34 mm QR stays above the minimum.
+        let mut job = signed_job(1);
+        let design = &mut job.design;
+        design.stub = None;
+        design.width_mm = 120.0;
+        design.qr = crate::QrPlacement {
+            x_mm: 82.0,
+            y_mm: 10.0,
+            size_mm: 34.0,
+        };
+        design.number.x_mm = 5.0;
+        for text in &mut design.texts {
+            text.width_mm = text.width_mm.min(75.0 - text.x_mm);
+        }
+        assert_eq!(job.design.validate(), Ok(()));
+        let grid = home_grid(&job, Paper::Perforated8).unwrap();
+        assert!((grid.scale - 95.0 / 120.0).abs() < 1e-9);
+        let pdf = home_pdf_on(&job, Paper::Perforated8).unwrap();
+        assert_eq!(scanned_numbers(rasterize_pdf_page(&pdf, 1)), [1]);
+    }
+
+    #[test]
+    fn a_ticket_too_big_for_the_paper_is_refused() {
+        let job = signed_job(1);
+        assert!(matches!(
+            home_pdf_on(&job, Paper::Labels21),
+            Err(RenderError::PaperTooSmall)
+        ));
+        assert_eq!(paper_scale(&job.design, Paper::Labels21), None);
+        assert_eq!(paper_scale(&job.design, Paper::Perforated3), Some(1.0));
     }
 
     #[test]
@@ -1388,7 +1490,7 @@ mod tests {
     fn chunked_home_pdf_keeps_whole_sheets() {
         // 5 tickets per sheet; a 2-ticket chunk is rounded up to one whole sheet.
         let job = signed_job(12);
-        let merged = home_pdf_chunked(&job, 2).unwrap();
+        let merged = home_pdf_chunked(&job, Paper::Plain, 2).unwrap();
         let document = Document::load_mem(&merged).unwrap();
         assert_eq!(document.get_pages().len(), 3);
         for id in document.get_pages().values() {

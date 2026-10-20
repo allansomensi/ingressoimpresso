@@ -3,4 +3,4 @@
 /**
  * Why a change of the seller's page left numbers out.
  */
-export type SellerOpProblem = "already_sold" | "not_held" | "voided" | "reserved" | "expired" | "event_canceled" | "box_office" | "pix_received" | "invalid";
+export type SellerOpProblem = "already_sold" | "not_held" | "voided" | "reserved" | "expired" | "event_canceled" | "box_office" | "pix_received" | "shift_closed" | "invalid";

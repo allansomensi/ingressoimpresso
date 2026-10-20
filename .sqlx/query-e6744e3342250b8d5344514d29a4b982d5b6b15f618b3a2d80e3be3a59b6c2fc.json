@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select public_slug as \"slug!\" from events\n           where id <> $1 and public_slug is not null and public_slug like $2 || '%'",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "slug!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "public_slug"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "e6744e3342250b8d5344514d29a4b982d5b6b15f618b3a2d80e3be3a59b6c2fc"
+}

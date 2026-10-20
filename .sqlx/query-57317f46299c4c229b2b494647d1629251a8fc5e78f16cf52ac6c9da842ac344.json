@@ -1,0 +1,166 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into exports (id, event_id, requested_by, kind, scope, crop_marks, paper)\n           values ($1, $2, $3, $4, $5, $6, $7)\n           returning id, event_id, kind, scope, crop_marks, paper, status, ticket_count, file_name, byte_size, error, created_at",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "exports",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "event_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "exports",
+            "name": "event_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "exports",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "scope",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "exports",
+            "name": "scope"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "crop_marks",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "exports",
+            "name": "crop_marks"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "paper",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "exports",
+            "name": "paper"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "exports",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "ticket_count",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "exports",
+            "name": "ticket_count"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "file_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "exports",
+            "name": "file_name"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "byte_size",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "exports",
+            "name": "byte_size"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "error",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "exports",
+            "name": "error"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "exports",
+            "name": "created_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Jsonb",
+        "Bool",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      false
+    ]
+  },
+  "hash": "57317f46299c4c229b2b494647d1629251a8fc5e78f16cf52ac6c9da842ac344"
+}

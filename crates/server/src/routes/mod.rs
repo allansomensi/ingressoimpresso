@@ -2,21 +2,26 @@
 
 pub mod account;
 pub mod admin;
+pub mod admin_insights;
 pub mod analytics;
 pub mod announcements;
 pub mod batches;
 pub mod billing;
+pub mod cashier;
 pub mod categories;
 pub mod changelog;
 pub mod checklist;
 pub mod checkpoints;
+pub mod courtesies;
 pub mod door;
 pub mod door_live;
 pub mod door_rehearsal;
 pub mod event_changes;
 pub mod events;
 pub mod exports;
+pub mod final_summary;
 pub mod guests;
+pub mod history;
 pub mod ledger;
 pub mod mail_admin;
 pub mod moderation;
@@ -24,6 +29,7 @@ pub mod organization;
 pub mod pix;
 pub mod platform;
 pub mod privacy;
+pub mod public_page;
 pub mod referrals;
 pub mod refunds;
 pub mod report;
@@ -242,6 +248,17 @@ pub async fn event_access(
         if row.organization_suspended && writing && !team::leaving(&user.path) {
             return Err(ApiError::Suspended);
         }
+    }
+    // The event's history (ADR 0099): written by the API layer once the change succeeds.
+    if writing {
+        crate::activity::note(
+            row.id,
+            user.id,
+            &user.email,
+            &user.method,
+            &user.path,
+            support,
+        );
     }
     // Previews and quotes are POSTs that only read: looking around in support mode leaves no
     // trace, a change does.

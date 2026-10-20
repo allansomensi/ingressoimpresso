@@ -1,0 +1,160 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select id, name, phone, box_office, cashier, goal, pix_key_type, pix_key, pix_name, pix_city,\n                  commission_kind, commission_value\n           from sellers where event_id = $1 order by name",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "sellers",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "sellers",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "phone",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "sellers",
+            "name": "phone"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "box_office",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "sellers",
+            "name": "box_office"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "cashier",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "sellers",
+            "name": "cashier"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "goal",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "sellers",
+            "name": "goal"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "pix_key_type",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "sellers",
+            "name": "pix_key_type"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "pix_key",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "sellers",
+            "name": "pix_key"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "pix_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "sellers",
+            "name": "pix_name"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "pix_city",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "sellers",
+            "name": "pix_city"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "commission_kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "sellers",
+            "name": "commission_kind"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "commission_value",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "sellers",
+            "name": "commission_value"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "21d1d721f1a229757d7182a4274ec52c55bc43bc4b44ceacc6813ac53d8e2a6e"
+}

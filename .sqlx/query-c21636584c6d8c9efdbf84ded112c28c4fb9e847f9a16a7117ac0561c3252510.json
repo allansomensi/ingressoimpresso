@@ -1,0 +1,109 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select a.id, a.created_at, a.actor_name, a.actor_email, a.action, a.area, a.support,\n                  exists(select 1 from event_team t where t.event_id = a.event_id and t.user_id = a.user_id) as \"team!\"\n           from event_activity a\n           where a.event_id = $1 and ($2::timestamptz is null or a.created_at < $2)\n           order by a.created_at desc\n           limit $3",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "event_activity",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "event_activity",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "actor_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "event_activity",
+            "name": "actor_name"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "actor_email",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "event_activity",
+            "name": "actor_email"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "action",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "event_activity",
+            "name": "action"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "area",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "event_activity",
+            "name": "area"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "support",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "event_activity",
+            "name": "support"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "team!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Timestamptz",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      false,
+      true,
+      false,
+      null
+    ]
+  },
+  "hash": "c21636584c6d8c9efdbf84ded112c28c4fb9e847f9a16a7117ac0561c3252510"
+}

@@ -18,6 +18,8 @@ const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080").rep
 const GOOGLE_IDENTITY = "https://accounts.google.com/gsi/";
 // The anti-bot check of login codes (ADR 0044): Cloudflare Turnstile's script and its iframe.
 const TURNSTILE = "https://challenges.cloudflare.com";
+// The venue's map on an event's public page (ADR 0095), loaded only when someone taps it.
+const GOOGLE_MAPS = "https://www.google.com/maps";
 
 function policy(nonce: string): string {
   return [
@@ -27,7 +29,7 @@ function policy(nonce: string): string {
     "img-src 'self' blob: data:",
     "font-src 'self'",
     `connect-src 'self' ${API_URL} ${GOOGLE_IDENTITY}`,
-    `frame-src ${GOOGLE_IDENTITY} ${TURNSTILE}`,
+    `frame-src ${GOOGLE_IDENTITY} ${TURNSTILE} ${GOOGLE_MAPS}`,
     "worker-src 'self'",
     "object-src 'none'",
     "base-uri 'none'",

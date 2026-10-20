@@ -1,0 +1,59 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with open as (\n               select s.payment_method,\n                      coalesce(tc.price_cents, e.ticket_price_cents, 0)::bigint as price\n               from ticket_sales s\n               join events e on e.id = s.event_id\n               left join category_ranges cr on cr.event_id = s.event_id and cr.numbers @> s.ticket_number\n               left join ticket_categories tc on tc.id = cr.category_id\n               where s.event_id = $1 and s.seller_id = $2 and s.closing_id is null\n                 and not exists (select 1 from ticket_voids v\n                                 where v.event_id = $1 and v.undone_at is null\n                                   and v.numbers @> s.ticket_number)\n           )\n           select count(*)::int as \"tokens!\",\n                  coalesce(sum(price) filter (where payment_method = 'cash'), 0)::bigint as \"cash!\",\n                  coalesce(sum(price) filter (where payment_method = 'pix'), 0)::bigint as \"pix!\",\n                  coalesce(sum(price) filter (where payment_method = 'card'), 0)::bigint as \"card!\",\n                  coalesce(sum(price) filter (where payment_method is null), 0)::bigint as \"other!\",\n                  (select max(closed_at) from cashier_closings where seller_id = $2) as since\n           from open",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "tokens!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "cash!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "pix!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "card!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "other!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "since",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "fe30c6c1ca956c393cb487485ab09f19ec8cd62af85ae6b05e5cc1da2c6d739e"
+}

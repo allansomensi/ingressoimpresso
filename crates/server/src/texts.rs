@@ -86,6 +86,7 @@ pub(crate) struct AccountabilityTexts {
     pub value: &'static str,
     pub ticket_sales: &'static str,
     pub outstanding: &'static str,
+    pub commissions: &'static str,
     pub expenses: &'static str,
     pub ledger_sheet: &'static str,
     pub ledger_sheet_headers: [&'static str; 5],
@@ -148,6 +149,7 @@ pub(crate) const ACCOUNTABILITY: AccountabilityTexts = AccountabilityTexts {
     value: "Valor",
     ticket_sales: "Valor dos ingressos dos vendedores",
     outstanding: "Falta receber dos vendedores",
+    commissions: "Comissões dos vendedores",
     expenses: "Despesas lançadas",
     ledger_sheet: "Lançamentos",
     ledger_sheet_headers: ["Data", "Descrição", "Categoria", "Tipo", "Valor"],
@@ -191,6 +193,53 @@ pub(crate) const fn accountability(tokens: bool) -> &'static AccountabilityTexts
         &ACCOUNTABILITY
     }
 }
+
+/// Words of the final summary (ADR 0101).
+pub(crate) struct SummaryTexts {
+    pub kicker: &'static str,
+    pub audience: &'static str,
+    pub audience_note: &'static str,
+    pub raised: &'static str,
+    pub raised_note: &'static str,
+    pub spent: &'static str,
+    pub balance: &'static str,
+    pub sold: &'static str,
+    pub courtesies: &'static str,
+    pub commissions: &'static str,
+    pub outstanding: &'static str,
+    pub highlights: &'static str,
+    pub sold_count: &'static str,
+    pub brand: &'static str,
+    pub file: &'static str,
+}
+
+pub(crate) const SUMMARY: SummaryTexts = SummaryTexts {
+    kicker: "Resumo final",
+    audience: "Público",
+    audience_note: "de {sold} ingressos vendidos",
+    raised: "Arrecadado",
+    raised_note: "ingressos e outras receitas",
+    spent: "Despesas",
+    balance: "Saldo",
+    sold: "Vendidos",
+    courtesies: "Cortesias",
+    commissions: "Comissões",
+    outstanding: "A receber",
+    highlights: "Destaque dos vendedores",
+    sold_count: "{count} vendidos",
+    brand: "Ingresso Impresso · ingressoimpresso.com.br",
+    file: "resumo-final",
+};
+
+/// The same words for consumption tokens (ADR 0086).
+pub(crate) const SUMMARY_TOKENS: SummaryTexts = SummaryTexts {
+    audience: "Fichas usadas",
+    audience_note: "de {sold} fichas vendidas",
+    raised_note: "fichas e outras receitas",
+    sold: "Vendidas",
+    sold_count: "{count} vendidas",
+    ..SUMMARY
+};
 
 #[cfg(test)]
 mod tests {

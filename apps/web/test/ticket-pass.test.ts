@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { TicketPassDto } from "@ingressoimpresso/api-types";
 
 import { NO_CHANGE } from "@/lib/event-change";
+import { sortMyTickets, type MyTicket } from "@/lib/my-tickets";
 import { normalizePass, passBand, passDate, textOn } from "@/lib/ticket-pass";
 
 describe("digital ticket helpers", () => {
@@ -56,5 +57,26 @@ describe("digital ticket helpers", () => {
   it("picks readable text", () => {
     expect(textOn("#5b3df5")).toBe("#ffffff");
     expect(textOn("#ffd84a")).toBe("#0e0d14");
+  });
+});
+
+describe("Meus ingressos (ADR 0097)", () => {
+  const ticket = (key: string, startsAt: string, endsAt: string, number = 1): MyTicket => ({
+    key,
+    openable: true,
+    pass: { number, event: { startsAt, endsAt } } as unknown as TicketPassDto,
+  });
+
+  it("lists the tickets ahead soonest first, then the past ones newest first", () => {
+    const now = Date.parse("2026-11-10T12:00:00Z");
+    const list = [
+      ticket("old", "2026-10-01T22:00:00Z", "2026-10-02T03:00:00Z"),
+      ticket("later", "2026-12-01T22:00:00Z", "2026-12-02T03:00:00Z"),
+      ticket("today", "2026-11-10T10:00:00Z", "2026-11-10T20:00:00Z"),
+      ticket("older", "2026-09-01T22:00:00Z", "2026-09-02T03:00:00Z"),
+    ];
+    const sorted = sortMyTickets(list, now);
+    expect(sorted.upcoming.map((item) => item.key)).toEqual(["today", "later"]);
+    expect(sorted.past.map((item) => item.key)).toEqual(["old", "older"]);
   });
 });
