@@ -23,10 +23,11 @@ pub use design::{
     TextAlign, TextBlock, TicketDesign,
 };
 pub use fields::{EventDetails, FIELDS};
+pub use layout::Paper;
 pub use qr::QrError;
 pub use render::{
     Art, MAX_TICKETS_PER_JOB, PrintOptions, RenderError, RenderJob, SLUG_MM, TicketCategory,
-    TicketImage, TicketQr, TicketToRender, WHATSAPP_WIDTH_PX, control_sheet_pdf, home_pdf,
+    TicketImage, TicketQr, TicketToRender, WHATSAPP_WIDTH_PX, control_sheet_pdf, home_pdf, home_pdf_on, paper_scale,
     home_sheet_jpegs, home_sheet_pngs, print_pdf, sample_qr_text, ticket_images, whatsapp_zip,
     write_whatsapp_zip,
 };

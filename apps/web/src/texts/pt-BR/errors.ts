@@ -19,6 +19,7 @@ export const errors = {
   payload_too_large: "Arquivo grande demais (máximo 20 MB).",
   unknown_art: "Arte não encontrada; envie de novo.",
   too_large_for_a4: "O ingresso (com canhoto) não cabe numa folha A4.",
+  paper_too_small: "O ingresso não cabe neste papel sem o QR ficar pequeno demais. Escolha outro papel.",
   invalid_quantity: "Quantidade inválida (1 a 5.000).",
   batch_not_cancelable: "Só lotes não pagos podem ser cancelados.",
   batch_not_payable: "Este lote não está aguardando pagamento.",

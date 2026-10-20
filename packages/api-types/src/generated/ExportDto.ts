@@ -2,6 +2,7 @@
 import type { ExportKind } from "./ExportKind";
 import type { ExportScope } from "./ExportScope";
 import type { ExportStatus } from "./ExportStatus";
+import type { PaperKind } from "./PaperKind";
 
 /**
  * An export (generated file).
@@ -23,6 +24,10 @@ scope: ExportScope,
  * Progress.
  */
 status: ExportStatus, 
+/**
+ * The paper of a home file (ADR 0102).
+ */
+paper: PaperKind, 
 /**
  * Tickets in the file (when done).
  */

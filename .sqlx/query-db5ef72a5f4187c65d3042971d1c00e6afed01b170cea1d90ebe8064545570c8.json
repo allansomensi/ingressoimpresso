@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "update exports set status = 'running', attempts = attempts + 1, locked_at = now()\n           where id = (\n               select id from exports\n               where status = 'queued' or (status = 'running' and locked_at < now() - interval '15 minutes')\n               order by created_at for update skip locked limit 1)\n           returning id, event_id, kind, scope, crop_marks, status, ticket_count, file_name, byte_size, error, created_at, attempts",
+  "query": "update exports set status = 'running', attempts = attempts + 1, locked_at = now()\n           where id = (\n               select id from exports\n               where status = 'queued' or (status = 'running' and locked_at < now() - interval '15 minutes')\n               order by created_at for update skip locked limit 1)\n           returning id, event_id, kind, scope, crop_marks, paper, status, ticket_count, file_name, byte_size, error, created_at, attempts",
   "describe": {
     "columns": [
       {
@@ -60,6 +60,17 @@
       },
       {
         "ordinal": 5,
+        "name": "paper",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "exports",
+            "name": "paper"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
         "name": "status",
         "type_info": "Text",
         "origin": {
@@ -70,7 +81,7 @@
         }
       },
       {
-        "ordinal": 6,
+        "ordinal": 7,
         "name": "ticket_count",
         "type_info": "Int4",
         "origin": {
@@ -81,7 +92,7 @@
         }
       },
       {
-        "ordinal": 7,
+        "ordinal": 8,
         "name": "file_name",
         "type_info": "Text",
         "origin": {
@@ -92,7 +103,7 @@
         }
       },
       {
-        "ordinal": 8,
+        "ordinal": 9,
         "name": "byte_size",
         "type_info": "Int8",
         "origin": {
@@ -103,7 +114,7 @@
         }
       },
       {
-        "ordinal": 9,
+        "ordinal": 10,
         "name": "error",
         "type_info": "Text",
         "origin": {
@@ -114,7 +125,7 @@
         }
       },
       {
-        "ordinal": 10,
+        "ordinal": 11,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -125,7 +136,7 @@
         }
       },
       {
-        "ordinal": 11,
+        "ordinal": 12,
         "name": "attempts",
         "type_info": "Int2",
         "origin": {
@@ -146,6 +157,7 @@
       false,
       false,
       false,
+      false,
       true,
       true,
       true,
@@ -154,5 +166,5 @@
       false
     ]
   },
-  "hash": "07b0263643aa7ad37629d064b246b481b354cf27052f1800e8929925a1183ef9"
+  "hash": "db5ef72a5f4187c65d3042971d1c00e6afed01b170cea1d90ebe8064545570c8"
 }

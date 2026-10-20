@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select spec from ticket_designs where event_id = $1 order by version desc limit 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "spec",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "ticket_designs",
+            "name": "spec"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "33f1fcea31a5c3dd59e67579b11ae5aa319445666a49281b9efbe5558e2328aa"
+}

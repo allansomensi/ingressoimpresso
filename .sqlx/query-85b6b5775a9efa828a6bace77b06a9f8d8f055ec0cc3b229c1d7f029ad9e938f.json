@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "insert into exports (id, event_id, requested_by, kind, scope, crop_marks)\n           values ($1, $2, $3, $4, $5, $6)\n           returning id, event_id, kind, scope, crop_marks, status, ticket_count, file_name, byte_size, error, created_at",
+  "query": "select id, event_id, kind, scope, crop_marks, paper, status, ticket_count, file_name, byte_size, error, created_at\n           from exports where event_id = $1 order by created_at desc limit 30",
   "describe": {
     "columns": [
       {
@@ -60,6 +60,17 @@
       },
       {
         "ordinal": 5,
+        "name": "paper",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "exports",
+            "name": "paper"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
         "name": "status",
         "type_info": "Text",
         "origin": {
@@ -70,7 +81,7 @@
         }
       },
       {
-        "ordinal": 6,
+        "ordinal": 7,
         "name": "ticket_count",
         "type_info": "Int4",
         "origin": {
@@ -81,7 +92,7 @@
         }
       },
       {
-        "ordinal": 7,
+        "ordinal": 8,
         "name": "file_name",
         "type_info": "Text",
         "origin": {
@@ -92,7 +103,7 @@
         }
       },
       {
-        "ordinal": 8,
+        "ordinal": 9,
         "name": "byte_size",
         "type_info": "Int8",
         "origin": {
@@ -103,7 +114,7 @@
         }
       },
       {
-        "ordinal": 9,
+        "ordinal": 10,
         "name": "error",
         "type_info": "Text",
         "origin": {
@@ -114,7 +125,7 @@
         }
       },
       {
-        "ordinal": 10,
+        "ordinal": 11,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -127,15 +138,11 @@
     ],
     "parameters": {
       "Left": [
-        "Uuid",
-        "Uuid",
-        "Uuid",
-        "Text",
-        "Jsonb",
-        "Bool"
+        "Uuid"
       ]
     },
     "nullable": [
+      false,
       false,
       false,
       false,
@@ -149,5 +156,5 @@
       false
     ]
   },
-  "hash": "172e82c07299a37882c7133ad2c40cff48cb7f06c0d89b2229f28000963673ac"
+  "hash": "85b6b5775a9efa828a6bace77b06a9f8d8f055ec0cc3b229c1d7f029ad9e938f"
 }

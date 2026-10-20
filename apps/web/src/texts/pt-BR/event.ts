@@ -317,7 +317,7 @@ export const event = {
       intro:
         "Gere os arquivos das fichas pagas. Fichas canceladas não entram. Cada arquivo leva alguns segundos (as imagens do WhatsApp, um pouco mais).",
       kindHints: {
-        home: "Várias fichas por folha, com marcas de corte.",
+        home: "Em A4 comum com marcas de corte, papel picotado ou etiquetas.",
         print: "Uma ficha por página, no tamanho final + 3 mm.",
         whatsapp: "Uma imagem por ficha, em pastas por vendedor.",
       },
@@ -327,6 +327,9 @@ export const event = {
       tickets: (count: number) => (count === 1 ? "1 ficha" : `${count.toLocaleString("pt-BR")} fichas`),
       whatsappWarning: "Envie cada imagem a um só comprador: cópias são barradas nas barracas.",
       digitalTip: "Vai mandar uma ficha por vez? Na aba Digitais você cria um link por comprador e envia direto no WhatsApp, sem baixar ZIP.",
+      paper: {
+        noFitHint: "A ficha ficaria pequena demais para o QR ser lido. Use outro papel ou um modelo menor.",
+      },
     },
     report: {
       categories: { title: "Por produto", category: "Produto", tickets: "Emitidas", sold: "Vendidas", entries: "Usadas", none: "Sem produto" },
@@ -1762,7 +1765,7 @@ export const event = {
       whatsapp: "Imagens para WhatsApp (ZIP)",
     },
     kindHints: {
-      home: "Vários ingressos por folha, com marcas de corte.",
+      home: "Em A4 comum com marcas de corte, papel picotado ou etiquetas.",
       print: "Um ingresso por página, no tamanho final + 3 mm.",
       control: "Lista de números para anotar comprador e pagamento.",
       whatsapp: "Uma imagem por ingresso, em pastas por vendedor.",
@@ -1793,6 +1796,31 @@ export const event = {
     whatsappWarning: "Envie cada imagem a um só comprador: cópias são barradas na porta.",
     digitalTip: "Vai mandar um ingresso por vez? Na aba Digitais você cria um link por comprador e envia direto no WhatsApp, sem baixar ZIP.",
     digitalTipAction: "Abrir Digitais",
+    // Ready-made papers for home printing (ADR 0102).
+    paper: {
+      label: "Papel",
+      groups: { plain: "A4 comum", perforated: "A4 picotado", labels: "Etiquetas A4" },
+      names: {
+        plain: "A4 comum, com marcas de corte",
+        perforated3: "Picotado em 3",
+        perforated4: "Picotado em 4",
+        perforated6: "Picotado em 6",
+        perforated8: "Picotado em 8",
+        perforated10: "Picotado em 10",
+        labels21: "21 etiquetas",
+        labels14: "14 etiquetas",
+        labels8: "8 etiquetas",
+        labels2: "2 etiquetas",
+      },
+      piece: (width: string, height: string) => `${width} × ${height} mm`,
+      plainHint: "Corte com tesoura ou guilhotina nas marcas.",
+      asIs: "tamanho real",
+      scaled: (percent: number) => `sai em ${String(percent)}% do tamanho`,
+      noFit: "não cabe",
+      noFitHint: "O ingresso ficaria pequeno demais para o QR ser lido. Use outro papel ou um modelo menor.",
+      tip: "Imprima em tamanho real (100%), sem “ajustar à página”. Faça uma folha de teste em papel comum e confira contra a luz antes de usar o papel especial.",
+      labelsHint: "Tamanhos das folhas de etiquetas A4 vendidas em papelarias. Confira as medidas na embalagem.",
+    },
   },
   report: {
     categories: {

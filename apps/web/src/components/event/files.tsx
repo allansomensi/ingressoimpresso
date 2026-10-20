@@ -7,6 +7,8 @@ import type {
   ExportDto,
   ExportKind,
   ExportScope,
+  PaperFitDto,
+  PaperKind,
   SellerDto,
 } from "@ingressoimpresso/api-types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -78,6 +80,81 @@ function decodeScope(value: string): ExportScope {
   return { type: "all" };
 }
 
+const PAPER_GROUPS: readonly { key: "plain" | "perforated" | "labels"; papers: readonly PaperKind[] }[] = [
+  { key: "plain", papers: ["plain"] },
+  { key: "perforated", papers: ["perforated3", "perforated4", "perforated6", "perforated8", "perforated10"] },
+  { key: "labels", papers: ["labels21", "labels14", "labels8", "labels2"] },
+];
+
+const mmText = (value: number) => value.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
+
+/**
+ * The paper of the home file (ADR 0102): plain A4 with cut marks, A4 perforated in pieces or a
+ * sheet of labels, each with how the current design sits on it.
+ */
+function PaperPicker({ eventId, value, onChange }: { eventId: string; value: PaperKind; onChange: (paper: PaperKind) => void }) {
+  const t = useEventTexts().files.paper;
+  const papers = useQuery({ queryKey: ["papers", eventId], queryFn: () => api<PaperFitDto[]>(`/api/events/${eventId}/papers`) });
+  const fits = new Map((papers.data ?? []).map((item) => [item.paper, item]));
+  const chosen = fits.get(value);
+  return (
+    <fieldset className="flex flex-col gap-3">
+      <legend className="mb-1 text-sm font-medium text-fg">{t.label}</legend>
+      {papers.isError && <ErrorMessage error={papers.error} />}
+      {PAPER_GROUPS.map((group) => (
+        <div key={group.key} className="flex flex-col gap-1.5">
+          <span className="text-xs font-semibold tracking-wide text-fg-subtle uppercase">{t.groups[group.key]}</span>
+          <div className={cn("grid gap-2", group.key !== "plain" && "sm:grid-cols-2")}>
+            {group.papers.map((paper) => {
+              const fit = fits.get(paper);
+              const scale = fit?.scale ?? null;
+              const disabled = fit !== undefined && scale === null;
+              const selected = value === paper;
+              const piece = fit?.pieceMm ?? null;
+              return (
+                <label
+                  key={paper}
+                  className={cn(
+                    "flex min-h-12 cursor-pointer items-center gap-3 rounded-xl border px-3 py-2 transition has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand",
+                    selected ? "border-brand bg-brand-soft/60" : "border-border hover:border-border-strong active:bg-surface-2",
+                    disabled && "cursor-not-allowed opacity-55 hover:border-border",
+                  )}
+                >
+                  <input
+                    type="radio"
+                    name="paper"
+                    value={paper}
+                    checked={selected}
+                    disabled={disabled || fit === undefined}
+                    onChange={() => {
+                      onChange(paper);
+                    }}
+                    className="size-4 shrink-0 accent-[var(--brand)]"
+                  />
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    <span className="text-sm font-medium text-fg">{t.names[paper]}</span>
+                    <span className="text-xs text-fg-muted">
+                      {piece === null ? t.plainHint : t.piece(mmText(piece[0]), mmText(piece[1]))}
+                    </span>
+                  </span>
+                  {fit !== undefined && piece !== null && (
+                    <Badge tone={scale === null ? "neutral" : scale >= 0.999 ? "success" : "warning"} className="shrink-0">
+                      {scale === null ? t.noFit : scale >= 0.999 ? t.asIs : t.scaled(Math.round(scale * 100))}
+                    </Badge>
+                  )}
+                </label>
+              );
+            })}
+          </div>
+          {group.key === "labels" && <p className="text-xs leading-relaxed text-fg-muted">{t.labelsHint}</p>}
+        </div>
+      ))}
+      {[...fits.values()].some((item) => item.scale === null) && <p className="text-xs leading-relaxed text-fg-muted">{t.noFitHint}</p>}
+      {value !== "plain" && chosen !== undefined && <Alert tone="brand">{t.tip}</Alert>}
+    </fieldset>
+  );
+}
+
 /** What to generate: the kind of file, which tickets and the print options (ADR 0087). */
 function NewFileDialog({
   eventId,
@@ -99,9 +176,10 @@ function NewFileDialog({
   const [kind, setKind] = useState<ExportKind>("home");
   const [scope, setScope] = useState<ExportScope>({ type: "all" });
   const [cropMarks, setCropMarks] = useState(true);
+  const [paper, setPaper] = useState<PaperKind>("plain");
   const generate = useMutation({
     mutationFn: () => {
-      const body: CreateExportBody = { kind, scope, cropMarks };
+      const body: CreateExportBody = { kind, scope, cropMarks, ...(kind === "home" ? { paper } : {}) };
       return api<ExportDto>(`/api/events/${eventId}/exports`, { method: "POST", body });
     },
     onSuccess: () => {
@@ -192,6 +270,7 @@ function NewFileDialog({
             ))}
           </Select>
         </Field>
+        {kind === "home" && open && <PaperPicker eventId={eventId} value={paper} onChange={setPaper} />}
         {kind === "print" && (
           <div className="rounded-xl border border-border px-4 py-3">
             <Switch label={t.cropMarks} description={t.cropMarksHint} checked={cropMarks} onChange={setCropMarks} />
@@ -321,7 +400,10 @@ export function FilesTab({ eventId, onSelect }: { eventId: string; onSelect: Sel
                     {working ? <Spinner className="text-brand" /> : <Icon className="size-[18px]" aria-hidden />}
                   </span>
                   <span className="flex min-w-0 flex-1 flex-col">
-                    <span className="truncate text-sm font-semibold text-fg">{t.kinds[item.kind]}</span>
+                    <span className="truncate text-sm font-semibold text-fg">
+                      {t.kinds[item.kind]}
+                      {item.kind === "home" && item.paper !== "plain" && <span className="font-normal text-fg-muted"> · {t.paper.names[item.paper]}</span>}
+                    </span>
                     <span className="truncate text-xs text-fg-muted">
                       {scopeLabel(t, item.scope, batches.data ?? [], sellerList)}
                       {item.ticketCount !== null && ` · ${t.tickets(item.ticketCount)}`}

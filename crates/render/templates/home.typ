@@ -1,4 +1,5 @@
-// Home printing: A4 sheets, tickets edge to edge with cut marks in the margins.
+// Home printing: A4 sheets, tickets edge to edge with cut marks in the margins, or one per piece
+// of a ready-made paper (perforated or labels, ADR 0102), scaled to fit when needed.
 #import "/ticket.typ": ticket, mm
 
 #let data = json("/data.json")
@@ -27,16 +28,20 @@
   }
 }
 
+#let fitted(item) = {
+  let turned = if g.rotated { rotate(90deg, reflow: true, item) } else { item }
+  if g.scale == 1 { turned } else { scale(g.scale * 100%, reflow: true, turned) }
+}
+
 #for (index, page-tickets) in data.tickets.chunks(g.cols * g.rows).enumerate() {
   if index > 0 { pagebreak() }
-  cut-marks()
+  if g.marks { cut-marks() }
   for (i, t) in page-tickets.enumerate() {
     let col = calc.rem(i, g.cols)
     let row = calc.quo(i, g.cols)
-    let item = ticket(data, t)
     place(top + left,
-      dx: mm(g.originXMm) + col * mm(g.cellWMm),
-      dy: mm(g.originYMm) + row * mm(g.cellHMm),
-      if g.rotated { rotate(90deg, reflow: true, item) } else { item })
+      dx: mm(g.originXMm) + col * mm(g.pitchXMm) + mm(g.insetXMm),
+      dy: mm(g.originYMm) + row * mm(g.pitchYMm) + mm(g.insetYMm),
+      fitted(ticket(data, t)))
   }
 }

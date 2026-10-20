@@ -441,6 +441,8 @@ pub fn router(state: AppState) -> Router {
         )
         // The event's history (ADR 0099).
         .route("/events/{id}/activity", get(history::list))
+        // Ready-made papers for home printing (ADR 0102).
+        .route("/events/{id}/papers", get(exports::papers))
         // The token cashier (ADR 0098).
         .route("/events/{id}/cashiers", get(cashier::report))
         .route("/sellers/{id}/cashier/close", post(cashier::panel_close))

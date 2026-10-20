@@ -203,6 +203,8 @@ export type * from "./generated/OpenTicketBody";
 export type * from "./generated/OrgAnalyticsDto";
 export type * from "./generated/OrganizationProfileBody";
 export type * from "./generated/OrganizationProfileDto";
+export type * from "./generated/PaperFitDto";
+export type * from "./generated/PaperKind";
 export type * from "./generated/PassTableDto";
 export type * from "./generated/PassTableMapDto";
 export type * from "./generated/PassWalletsDto";

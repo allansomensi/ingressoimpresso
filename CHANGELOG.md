@@ -65,6 +65,10 @@ e não acompanha estes números.
   ingresso, num toque. Ou **Do cartaz**: escolha a imagem do cartaz do evento e os modelos ganham
   as cores dele (a imagem não sai do aparelho). O fundo continua claro ou escuro como no modelo, e
   os textos são ajustados para dar leitura.
+- **Papéis prontos** no arquivo para imprimir em casa: além do A4 comum com marcas de corte, A4
+  picotado em 3, 4, 6, 8 ou 10 partes e as folhas de etiquetas A4 mais vendidas (21, 14, 8 ou 2
+  etiquetas). Um ingresso ou ficha por pedaço, no tamanho real ou reduzido quando precisa, e o
+  painel avisa em quais papéis o seu modelo não cabe sem o QR ficar pequeno demais.
 
 ### Alterado
 

@@ -2174,6 +2174,10 @@ dto! {
         pub scope: ExportScope,
         /// Print-shop file: draw crop marks (default true).
         pub crop_marks: Option<bool>,
+        /// Home file: the paper it is printed on (ADR 0102); plain A4 when absent.
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional))]
+        pub paper: Option<PaperKind>,
     }
 
     /// An export (generated file).
@@ -2187,6 +2191,8 @@ dto! {
         pub scope: ExportScope,
         /// Progress.
         pub status: ExportStatus,
+        /// The paper of a home file (ADR 0102).
+        pub paper: PaperKind,
         /// Tickets in the file (when done).
         pub ticket_count: Option<i32>,
         /// Suggested file name (when done).
@@ -2912,6 +2918,30 @@ dto_enum! {
         Whatsapp,
     }
 
+    /// A ready-made A4 paper for home printing (ADR 0102).
+    pub enum PaperKind {
+        /// Plain A4 with cut marks.
+        Plain,
+        /// Perforated in 3 strips of 210 × 99 mm.
+        Perforated3,
+        /// Perforated in 4 pieces of 105 × 148.5 mm.
+        Perforated4,
+        /// Perforated in 6 pieces of 105 × 99 mm.
+        Perforated6,
+        /// Perforated in 8 pieces of 105 × 74.25 mm.
+        Perforated8,
+        /// Perforated in 10 pieces of 105 × 59.4 mm.
+        Perforated10,
+        /// 21 labels of 63.5 × 38.1 mm.
+        Labels21,
+        /// 14 labels of 99.1 × 38.1 mm.
+        Labels14,
+        /// 8 labels of 99.1 × 67.7 mm.
+        Labels8,
+        /// 2 labels of 199.6 × 143.5 mm.
+        Labels2,
+    }
+
     /// Export progress.
     pub enum ExportStatus {
         /// Waiting for the worker.
@@ -3143,6 +3173,45 @@ db_enum!(ChangelogKind { New => "new", Improvement => "improvement", Fix => "fix
 db_enum!(PaymentMethod { Stripe => "stripe", Admin => "admin", Free => "free", Credit => "credit" });
 db_enum!(PaymentState { Open => "open", Processing => "processing" });
 db_enum!(VoidReason { Unsold => "unsold", Lost => "lost", Revoked => "revoked" });
+db_enum!(PaperKind {
+    Plain => "plain", Perforated3 => "perforated3", Perforated4 => "perforated4",
+    Perforated6 => "perforated6", Perforated8 => "perforated8", Perforated10 => "perforated10",
+    Labels21 => "labels21", Labels14 => "labels14", Labels8 => "labels8", Labels2 => "labels2"
+});
+
+impl PaperKind {
+    /// The renderer's paper.
+    pub const fn render(self) -> ticket_render::Paper {
+        use ticket_render::Paper;
+        match self {
+            Self::Plain => Paper::Plain,
+            Self::Perforated3 => Paper::Perforated3,
+            Self::Perforated4 => Paper::Perforated4,
+            Self::Perforated6 => Paper::Perforated6,
+            Self::Perforated8 => Paper::Perforated8,
+            Self::Perforated10 => Paper::Perforated10,
+            Self::Labels21 => Paper::Labels21,
+            Self::Labels14 => Paper::Labels14,
+            Self::Labels8 => Paper::Labels8,
+            Self::Labels2 => Paper::Labels2,
+        }
+    }
+
+    /// Every paper, in the order the panel lists them.
+    pub const ALL: [Self; 10] = [
+        Self::Plain,
+        Self::Perforated3,
+        Self::Perforated4,
+        Self::Perforated6,
+        Self::Perforated8,
+        Self::Perforated10,
+        Self::Labels21,
+        Self::Labels14,
+        Self::Labels8,
+        Self::Labels2,
+    ];
+}
+
 db_enum!(SaleMethod { Cash => "cash", Pix => "pix", Card => "card" });
 db_enum!(SellerPaymentMethod { Pix => "pix", Cash => "cash", Other => "other" });
 db_enum!(ExportKind { Home => "home", Print => "print", Control => "control", Whatsapp => "whatsapp" });
@@ -5940,5 +6009,19 @@ dto! {
         pub open: CashierShiftDto,
         /// Every closing, newest first.
         pub closings: Vec<CashierClosingDto>,
+    }
+}
+
+dto! {
+    /// One paper the design can be printed on at home (ADR 0102).
+    pub struct PaperFitDto {
+        /// The paper.
+        pub paper: PaperKind,
+        /// Tickets per sheet (0 for plain A4: as many as fit).
+        pub per_sheet: u32,
+        /// The size of one piece in millimetres (`null` for plain A4).
+        pub piece_mm: Option<(f64, f64)>,
+        /// How much the ticket shrinks on it (1 = its size); `null` when it does not fit.
+        pub scale: Option<f64>,
     }
 }
