@@ -133,6 +133,7 @@ export const sellerPage = {
     courtesies: (count: number, category: string | null) =>
       `${count === 1 ? "1 cortesia" : `${count.toLocaleString("pt-BR")} cortesias`}${category === null ? "" : ` (${category})`}`,
     courtesyFree: "não paga",
+    tickets: (count: number) => (count === 1 ? "1 ingresso" : `${count.toLocaleString("pt-BR")} ingressos`),
     perUnit: "por ingresso",
     commission: (rule: string, amount: string) => `Sua comissão (${rule}): ${amount}, já descontada do que falta passar.`,
   },
@@ -224,7 +225,12 @@ export const sellerPage = {
   },
   // Consumption tokens (ADR 0086): the same page in the words of a ficha.
   tokens: {
-    money: { byCategory: "por produto", noCategory: "sem produto", perUnit: "por ficha" },
+    money: {
+      byCategory: "por produto",
+      noCategory: "sem produto",
+      perUnit: "por ficha",
+      tickets: (count: number) => (count === 1 ? "1 ficha" : `${count.toLocaleString("pt-BR")} fichas`),
+    },
     categoriesLegend: "Produtos",
     offline: {
       ticketOffline: "Criar a ficha no celular precisa de internet. Marque a venda agora e envie a ficha quando a conexão voltar.",

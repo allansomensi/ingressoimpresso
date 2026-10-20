@@ -208,6 +208,12 @@ const LATER: &[(&str, &str, Need)] = &[
         Need::Area(TeamArea::Money),
     ),
     ("DELETE", "courtesies/{id}", Need::Area(TeamArea::Money)),
+    // The event's public page (ADR 0095) speaks for the event: coordination.
+    (
+        "PUT",
+        "events/{id}/public-page",
+        Need::Area(TeamArea::Manage),
+    ),
 ];
 
 fn later_area(method: &str, shape: &str) -> Option<Need> {

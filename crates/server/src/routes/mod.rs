@@ -27,6 +27,7 @@ pub mod organization;
 pub mod pix;
 pub mod platform;
 pub mod privacy;
+pub mod public_page;
 pub mod referrals;
 pub mod refunds;
 pub mod report;

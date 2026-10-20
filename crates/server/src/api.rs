@@ -5649,3 +5649,115 @@ dto! {
         pub generated_at: OffsetDateTime,
     }
 }
+
+dto! {
+    /// A seller as the public page settings list them (ADR 0095).
+    pub struct PublicPageSellerDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// Name.
+        pub name: String,
+        /// Has a phone that makes a WhatsApp button.
+        pub has_whatsapp: bool,
+        /// Listed on the page.
+        pub shown: bool,
+    }
+
+    /// `GET /api/events/{id}/public-page`: the event's public page (ADR 0095).
+    pub struct PublicPageSettingsDto {
+        /// The page is on.
+        pub enabled: bool,
+        /// Its address after `/e/`, once chosen.
+        pub slug: Option<String>,
+        /// A free address made from the event's name, to start with.
+        pub suggested_slug: String,
+        /// The full address (`https://…/e/<slug>`), when on.
+        pub url: Option<String>,
+        /// The organizer marked it sold out.
+        pub sold_out: bool,
+        /// Every paid number is sold, sent or given (the page says sold out by itself).
+        pub sold_out_auto: bool,
+        /// A paragraph for the page.
+        pub description: Option<String>,
+        /// The sellers, and who shows on the page.
+        pub sellers: Vec<PublicPageSellerDto>,
+    }
+
+    /// `PUT /api/events/{id}/public-page`.
+    pub struct PublicPageBody {
+        /// The page is on.
+        pub enabled: bool,
+        /// The address after `/e/` (3–60 lowercase letters, digits and hyphens).
+        pub slug: String,
+        /// Sold out, as the organizer says.
+        pub sold_out: bool,
+        /// Up to 600 characters (line breaks allowed); empty removes it.
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional))]
+        pub description: Option<String>,
+        /// Sellers listed with a WhatsApp button (their phones become public).
+        #[cfg_attr(feature = "ts", ts(type = "Array<string>"))]
+        pub seller_ids: Vec<Uuid>,
+    }
+
+    /// A category on the public page.
+    pub struct PublicCategoryDto {
+        /// Name.
+        pub name: String,
+        /// Band colour.
+        pub color: String,
+        /// Price (the category's, else the event's); 0 is free.
+        pub price_cents: Option<i32>,
+        /// Every paid number of it is gone.
+        pub sold_out: bool,
+    }
+
+    /// A seller with a WhatsApp button on the public page.
+    pub struct PublicSellerDto {
+        /// First name and initial ("Ana S.").
+        pub name: String,
+        /// WhatsApp digits with the country code.
+        pub whatsapp: String,
+    }
+
+    /// `GET /api/public/events/{slug}` (no login): the event's public page (ADR 0095).
+    pub struct PublicEventDto {
+        /// The address after `/e/`.
+        pub slug: String,
+        /// Name.
+        pub name: String,
+        /// Tickets or consumption tokens.
+        pub kind: EventKind,
+        /// Start, with the event's offset.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub starts_at: OffsetDateTime,
+        /// End, with the event's offset.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub ends_at: OffsetDateTime,
+        /// The days of an event of several days (ADR 0091).
+        pub days: Vec<EventDayDto>,
+        /// Venue.
+        pub venue: Option<String>,
+        /// Street address.
+        pub address: Option<String>,
+        /// The organizer's paragraph.
+        pub description: Option<String>,
+        /// Who runs it: name, logo, colour and contact.
+        pub organization: PublicOrganizationDto,
+        /// The event's price, without categories.
+        pub ticket_price_cents: Option<i32>,
+        /// Categories with prices (empty without categories).
+        pub categories: Vec<PublicCategoryDto>,
+        /// Where to buy.
+        pub sellers: Vec<PublicSellerDto>,
+        /// Nothing left to buy.
+        pub sold_out: bool,
+        /// Postponed or canceled (ADR 0065).
+        pub change: EventChangeDto,
+        /// Anyone may check a ticket at /conferir (ADR 0075).
+        pub public_verify: bool,
+    }
+}

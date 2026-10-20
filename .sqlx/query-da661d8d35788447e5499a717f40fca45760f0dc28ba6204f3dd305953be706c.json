@@ -1,0 +1,42 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with issued as (\n               select n as number\n               from ticket_batches b, generate_series(lower(b.numbers), upper(b.numbers) - 1) as n\n               where b.event_id = $1 and b.status = 'paid'\n           )\n           select cr.category_id as \"category_id?\",\n                  count(*) as \"issued!\",\n                  count(*) filter (where\n                      exists (select 1 from ticket_sales s where s.event_id = $1 and s.ticket_number = i.number)\n                      or exists (select 1 from ticket_links l where l.event_id = $1 and l.ticket_number = i.number and l.revoked_at is null)\n                      or exists (select 1 from courtesies c where c.event_id = $1 and c.ticket_number = i.number)\n                      or exists (select 1 from entries e where e.event_id = $1 and e.ticket_number = i.number)\n                      or exists (select 1 from ticket_voids v where v.event_id = $1 and v.undone_at is null and v.numbers @> i.number)\n                  ) as \"gone!\"\n           from issued i\n           left join category_ranges cr on cr.event_id = $1 and cr.numbers @> i.number\n           group by cr.category_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "category_id?",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "category_ranges",
+            "name": "category_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "issued!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "gone!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      null,
+      null
+    ]
+  },
+  "hash": "da661d8d35788447e5499a717f40fca45760f0dc28ba6204f3dd305953be706c"
+}

@@ -326,6 +326,9 @@ export function SellerPage() {
   const brand = view.organization.brandColor;
   const heroColor = brand !== null && textOn(brand) === "#ffffff" ? brand : null;
   const withYou = s.available + s.reserved;
+  // Courtesies (ADR 0096) are a line of their own; what is paid is the rest.
+  const paidLines = s.dueLines.filter((line) => !line.courtesy);
+  const hasCategories = s.dueLines.some((line) => line.category !== null);
   const selectedCell = selected === null ? null : (cells.find((cell) => cell.number === selected && cell.state === "sold") ?? null);
   const reservation = view.reservations.find((item) => item.id === reservationId) ?? null;
   // The digital ticket and the Pix receipt need the sale on the server and a connection.
@@ -479,7 +482,9 @@ export function SellerPage() {
               <dt className="text-[11px] font-medium text-fg-muted">{t.money.due}</dt>
               <dd className="text-base font-semibold text-fg tabular">{money(s.amountDueCents)}</dd>
               <dd className="text-[10px] text-fg-subtle tabular">
-                {s.dueLines.length === 1 && s.dueLines[0]?.priceCents != null ? t.money.dueHint(s.dueTickets, money(s.dueLines[0].priceCents)) : t.money.byCategory}
+                {paidLines.length === 1 && paidLines[0]?.priceCents != null
+                  ? t.money.dueHint(paidLines[0].tickets, money(paidLines[0].priceCents))
+                  : t.money.byCategory}
               </dd>
             </div>
             <div className="flex flex-col gap-0.5 rounded-2xl bg-surface-2 p-3">
@@ -504,7 +509,9 @@ export function SellerPage() {
                     <span className="truncate">
                       {line.courtesy
                         ? t.money.courtesies(line.tickets, line.category)
-                        : `${line.tickets.toLocaleString("pt-BR")} ${line.category ?? t.money.noCategory}`}
+                        : line.category === null && !hasCategories
+                          ? t.money.tickets(line.tickets)
+                          : `${line.tickets.toLocaleString("pt-BR")} ${line.category ?? t.money.noCategory}`}
                     </span>
                   </span>
                   <span className="shrink-0 text-fg-muted">

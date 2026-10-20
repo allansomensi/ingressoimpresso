@@ -31,7 +31,9 @@ use crate::routes::{
     seller_links, seller_sync, sellers, settlement, status, support, tables, team, tickets,
     two_factor, voids,
 };
-use crate::routes::{admin_insights, checklist, checkpoints, courtesies, history, pix, series};
+use crate::routes::{
+    admin_insights, checklist, checkpoints, courtesies, history, pix, public_page, series,
+};
 use crate::routes::{referrals, verify};
 use crate::state::AppState;
 
@@ -52,6 +54,8 @@ pub fn router(state: AppState) -> Router {
         .route("/status", get(status::public))
         .route("/changelog", get(changelog::public))
         .route("/pricing", get(batches::pricing_table))
+        // The event's public page (ADR 0095).
+        .route("/public/events/{slug}", get(public_page::public))
         .route_layer(middleware::map_response(short_public_cache));
     let api = Router::new()
         .merge(public)
@@ -413,6 +417,10 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/courtesy-givers/{id}",
             put(courtesies::update_giver).delete(courtesies::delete_giver),
+        )
+        .route(
+            "/events/{id}/public-page",
+            get(public_page::settings).put(public_page::update),
         )
         // The event's history (ADR 0099).
         .route("/events/{id}/activity", get(history::list))

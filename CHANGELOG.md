@@ -36,6 +36,11 @@ e não acompanha estes números.
   autorizou.
 - **Histórico do evento** na seção Equipe: quem da organização, da equipe ou do suporte mudou o
   quê, e quando, com o filtro "Só a equipe". Só alterações que deram certo entram.
+- **Página do evento** (`/e/nome-do-evento`): um link só para divulgar, com data, local com mapa
+  (carregado só quando a pessoa toca), preço de cada categoria, os vendedores escolhidos com botão
+  de WhatsApp, "adicionar à agenda", o selo **Esgotado** (marcado pelo organizador ou sozinho quando
+  todos os números acabam) e, no pé, o convite para conhecer o Ingresso Impresso. Imagem de
+  compartilhamento própria com o nome, a data e a cor da organização.
 - Administração: **Funil** (criou a conta → criou evento → montou o ingresso → gerou lote → pagou
   lote → usou a portaria, por período, com o passo onde mais gente desiste e quanto tempo cada
   passo leva) e **Acontecendo agora** (eventos do momento, celulares da portaria que não
