@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select id, event_id, ticket_number, holder_name, sealed from ticket_links\n               where token_hash = $1 and revoked_at is null",
+  "query": "select id, event_id, ticket_number, holder_name, sealed, seller_id, created_by, transfer_count\n               from ticket_links where token_hash = $1 and revoked_at is null",
   "describe": {
     "columns": [
       {
@@ -57,6 +57,39 @@
             "name": "sealed"
           }
         }
+      },
+      {
+        "ordinal": 5,
+        "name": "seller_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "ticket_links",
+            "name": "seller_id"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "created_by",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "ticket_links",
+            "name": "created_by"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "transfer_count",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "ticket_links",
+            "name": "transfer_count"
+          }
+        }
       }
     ],
     "parameters": {
@@ -69,8 +102,11 @@
       false,
       false,
       true,
+      false,
+      true,
+      true,
       false
     ]
   },
-  "hash": "a87160687c008394e2772b1985ee84d88382febcc30d78ea46e23d6e80b1d62a"
+  "hash": "555c274b763bbc57222d3b8c95134025337530abc65021683d971cfb21c344b3"
 }

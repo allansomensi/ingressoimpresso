@@ -30,6 +30,7 @@ pub mod routes;
 pub mod state;
 mod texts;
 pub mod two_factor;
+pub mod wallet;
 
 /// Version of the product (ADR 0049): one Semantic Versioning number for the API, the site and
 /// the tools, set in `[workspace.package]` and tagged `vX.Y.Z` when it reaches production.

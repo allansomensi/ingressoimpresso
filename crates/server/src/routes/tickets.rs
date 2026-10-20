@@ -23,9 +23,10 @@ use uuid::Uuid;
 
 use super::{EventRow, MAX_TICKET_NUMBER, authorize_event, one_line, optional_text};
 use crate::api::{
-    CreateTicketLinkBody, CreateTicketLinksBody, EventDayDto, OpenTicketBody, PassTableDto,
-    PassTableMapDto, ReplaceTicketBody, TableShape, TicketLinkDto, TicketLinksDto, TicketPassDto,
-    TicketPassEvent, TicketReplacementDto, TicketState, UpdateTicketLinkBody,
+    CreateTicketLinkBody, CreateTicketLinksBody, EventDayDto, GoogleWalletDto, OpenTicketBody,
+    PassTableDto, PassTableMapDto, PassWalletsDto, ReplaceTicketBody, TableShape, TicketLinkDto,
+    TicketLinksDto, TicketPassDto, TicketPassEvent, TicketReplacementDto, TicketSettingsDto,
+    TicketState, TransferTicketBody, TransferTicketDto, UpdateTicketLinkBody,
 };
 use crate::auth::{AuthUser, new_token, token_hash};
 use crate::error::{ApiError, ApiResult, bad_request};
@@ -864,6 +865,9 @@ struct OpenRow {
     ticket_number: i32,
     holder_name: Option<String>,
     sealed: Vec<u8>,
+    seller_id: Option<Uuid>,
+    created_by: Option<Uuid>,
+    transfer_count: i16,
 }
 
 /// The active link of a token, counting the opening.
@@ -880,7 +884,7 @@ async fn open_link(state: &AppState, token: &str, count: bool) -> ApiResult<Open
                set first_opened_at = coalesce(first_opened_at, now()), last_opened_at = now(),
                    open_count = least(open_count + 1, 1000000)
                where token_hash = $1 and revoked_at is null
-               returning id, event_id, ticket_number, holder_name, sealed"#,
+               returning id, event_id, ticket_number, holder_name, sealed, seller_id, created_by, transfer_count"#,
             hash
         )
         .fetch_optional(&state.pool)
@@ -888,14 +892,33 @@ async fn open_link(state: &AppState, token: &str, count: bool) -> ApiResult<Open
     } else {
         sqlx::query_as!(
             OpenRow,
-            r#"select id, event_id, ticket_number, holder_name, sealed from ticket_links
-               where token_hash = $1 and revoked_at is null"#,
+            r#"select id, event_id, ticket_number, holder_name, sealed, seller_id, created_by, transfer_count
+               from ticket_links where token_hash = $1 and revoked_at is null"#,
             hash
         )
         .fetch_optional(&state.pool)
         .await?
     };
-    row.ok_or(ApiError::NotFound)
+    match row {
+        Some(row) => Ok(row),
+        None => Err(gone_or_missing(state, &hash).await?),
+    }
+}
+
+/// Why a token opens nothing: passed on to someone else (ADR 0097, `410 ticket_transferred`, so
+/// the old phone says so and forgets it) or simply not there.
+async fn gone_or_missing(state: &AppState, hash: &[u8]) -> ApiResult<ApiError> {
+    let transferred = sqlx::query_scalar!(
+        r#"select exists(select 1 from ticket_links where token_hash = $1 and transferred_at is not null) as "transferred!""#,
+        hash
+    )
+    .fetch_one(&state.pool)
+    .await?;
+    Ok(if transferred {
+        ApiError::Gone("ticket_transferred")
+    } else {
+        ApiError::NotFound
+    })
 }
 
 /// The days of an event of several days (ADR 0091) and the one it is on now (0: one day).
@@ -932,7 +955,21 @@ pub async fn open(
 ) -> ApiResult<Response> {
     crate::ratelimit::by_ip(&state, &headers, crate::ratelimit::TICKET_OPEN).await?;
     let link = open_link(&state, &body.token, true).await?;
-    let (days, today) = days_and_today(&state, link.event_id).await?;
+    let pass = build_pass(&state, &link).await?;
+    Ok((
+        [(CACHE_CONTROL, HeaderValue::from_static("no-store"))],
+        Json(pass),
+    )
+        .into_response())
+}
+
+/// Transfers a holder may make in a row (ADR 0097): enough to give a ticket to a friend, few
+/// enough to keep resale chains short.
+const MAX_TRANSFERS: i16 = 3;
+
+/// What the holder's phone shows for `link`.
+async fn build_pass(state: &AppState, link: &OpenRow) -> ApiResult<TicketPassDto> {
+    let (days, today) = days_and_today(state, link.event_id).await?;
     let event = sqlx::query!(
         r#"select e.name, e.venue, e.starts_at, e.ends_at, e.utc_offset_minutes, o.name as organizer,
                   coalesce((select spec ->> 'backgroundColor' from ticket_designs d
@@ -954,8 +991,8 @@ pub async fn open(
     )
     .fetch_one(&state.pool)
     .await?;
-    let secret = unseal(&state, link.id, &link.sealed)?;
-    let (prefix, digits) = number_style(&state, link.event_id).await?;
+    let secret = unseal(state, link.id, &link.sealed)?;
+    let (prefix, digits) = number_style(state, link.event_id).await?;
     let offset = time::UtcOffset::from_whole_seconds(i32::from(event.utc_offset_minutes) * 60)
         .unwrap_or(time::UtcOffset::UTC);
     let ticket_state = state_of(event.voided, event.entered_at);
@@ -987,7 +1024,7 @@ pub async fn open(
             days,
         },
         organization: super::organization::event_organization(&state.pool, link.event_id).await?,
-        table_map: table_map(&state, link.event_id, link.ticket_number).await?,
+        table_map: table_map(state, link.event_id, link.ticket_number).await?,
         // No Pix for a ticket that is voided or of a canceled event (ADR 0085).
         pix: if ticket_state == TicketState::Voided || row.canceled_at.is_some() {
             None
@@ -997,18 +1034,249 @@ pub async fn open(
         number: link.ticket_number,
         number_label: label(link.ticket_number, digits),
         number_prefix: prefix,
-        holder_name: link.holder_name,
+        holder_name: link.holder_name.clone(),
         // A voided ticket shows why, not a QR the door would refuse anyway.
         qr_text: (ticket_state != TicketState::Voided).then_some(secret.qr_text),
         state: ticket_state,
         entered_at: event.entered_at,
         background_color: event.background,
+        transfers_left: if ticket_state == TicketState::Valid
+            && row.canceled_at.is_none()
+            && row.ends_at > OffsetDateTime::now_utc()
+            && transfers_on(state, link.event_id).await?
+        {
+            (MAX_TRANSFERS - link.transfer_count).max(0)
+        } else {
+            0
+        },
+        wallets: PassWalletsDto {
+            apple: state.config.wallets.apple.is_some() && ticket_state != TicketState::Voided,
+            google: state.config.wallets.google.is_some() && ticket_state != TicketState::Voided,
+        },
     };
+    Ok(pass)
+}
+
+async fn transfers_on(state: &AppState, event_id: Uuid) -> ApiResult<bool> {
+    Ok(sqlx::query_scalar!(
+        "select ticket_transfers from events where id = $1",
+        event_id
+    )
+    .fetch_one(&state.pool)
+    .await?)
+}
+
+/// `POST /api/ticket/transfer` (no login; the token is the credential): the holder passes the
+/// ticket on (ADR 0097). The old link stops opening (it answers "transferred"), a new one opens
+/// the same number with the same QR, re-sealed under a new token: nothing is signed again. A
+/// copy someone kept of the old QR is still that number: the first to reach the door enters, as
+/// with paper. Only a valid ticket of an event still ahead moves, a few times at most.
+pub async fn transfer(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+    Json(body): Json<TransferTicketBody>,
+) -> ApiResult<Json<TransferTicketDto>> {
+    crate::ratelimit::by_ip(&state, &headers, crate::ratelimit::TICKET_IMAGE).await?;
+    let holder = holder_name(Some(body.holder_name))?
+        .ok_or_else(|| bad_request("invalid_holder_name", "who receives the ticket?"))?;
+    let link = open_link(&state, &body.token, false).await?;
+    let pass = build_pass(&state, &link).await?;
+    if pass.transfers_left <= 0 {
+        return Err(ApiError::Conflict(
+            "transfer_not_allowed",
+            "this ticket cannot be transferred".to_owned(),
+        ));
+    }
+    let secret = unseal(&state, link.id, &link.sealed)?;
+    let id = Uuid::new_v4();
+    let (token, hash) = new_token()?;
+    let sealed = seal(&state, id, &token, &secret.qr_text)?;
+    let mut tx = state.pool.begin().await?;
+    // The old link goes first (one active link per number), and only if still active: two
+    // transfers at once cannot both win.
+    let revoked = sqlx::query!(
+        r#"update ticket_links set revoked_at = now(), transferred_at = now()
+           where id = $1 and revoked_at is null"#,
+        link.id
+    )
+    .execute(&mut *tx)
+    .await?
+    .rows_affected();
+    if revoked == 0 {
+        return Err(ApiError::Gone("ticket_transferred"));
+    }
+    sqlx::query!(
+        r#"insert into ticket_links (id, event_id, ticket_number, holder_name, token_hash, sealed,
+                                     created_by, seller_id, transfer_count, transferred_from)
+           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)"#,
+        id,
+        link.event_id,
+        link.ticket_number,
+        holder,
+        hash,
+        sealed,
+        link.created_by,
+        link.seller_id,
+        link.transfer_count + 1,
+        link.id,
+    )
+    .execute(&mut *tx)
+    .await?;
+    tx.commit().await?;
+    Ok(Json(TransferTicketDto {
+        url: link_url(&state, &token),
+        holder_name: holder,
+    }))
+}
+
+/// What a wallet pass shows, from the ticket as the holder sees it.
+fn pass_content(
+    state: &AppState,
+    link: &OpenRow,
+    pass: &TicketPassDto,
+    token: &str,
+) -> Option<crate::wallet::PassContent> {
+    let prefix = pass.number_prefix.trim();
+    // A light design gets the brand's colour (white text reads on it).
+    let color = if is_dark(&pass.background_color) {
+        pass.background_color.clone()
+    } else {
+        pass.organization
+            .brand_color
+            .clone()
+            .filter(|color| is_dark(color))
+            .unwrap_or_else(|| "#5b3df5".to_owned())
+    };
+    Some(crate::wallet::PassContent {
+        serial: link.id.to_string(),
+        event_id: link.event_id.to_string(),
+        event_name: pass.event.name.clone(),
+        organization: pass.organization.name.clone(),
+        starts_at: pass.event.starts_at,
+        ends_at: pass.event.ends_at,
+        venue: pass.event.venue.clone(),
+        address: pass.event.address.clone(),
+        number: format!(
+            "{} {}",
+            if prefix.is_empty() { "Nº" } else { prefix },
+            pass.number_label
+        ),
+        holder: pass.holder_name.clone(),
+        category: pass.category.as_ref().map(|category| category.name.clone()),
+        seat: pass.seat.clone(),
+        qr_text: pass.qr_text.clone()?,
+        color,
+        url: link_url(state, token),
+        tokens: pass.event.kind == crate::api::EventKind::Tokens,
+    })
+}
+
+/// Whether white text reads on `#rrggbb` (relative luminance below 0.4).
+fn is_dark(hex: &str) -> bool {
+    let channel = |at: usize| {
+        hex.get(at..at + 2)
+            .and_then(|pair| u8::from_str_radix(pair, 16).ok())
+            .map(|value| {
+                let c = f64::from(value) / 255.0;
+                if c <= 0.039_28 {
+                    c / 12.92
+                } else {
+                    ((c + 0.055) / 1.055).powf(2.4)
+                }
+            })
+    };
+    match (hex.len(), channel(1), channel(3), channel(5)) {
+        (7, Some(r), Some(g), Some(b)) => 0.2126 * r + 0.7152 * g + 0.0722 * b < 0.4,
+        _ => false,
+    }
+}
+
+/// The ticket of a token for a wallet: valid or used (a voided one has no QR to carry).
+async fn wallet_pass(state: &AppState, token: &str) -> ApiResult<crate::wallet::PassContent> {
+    let link = open_link(state, token, false).await?;
+    let pass = build_pass(state, &link).await?;
+    pass_content(state, &link, &pass, token.trim()).ok_or(ApiError::Conflict(
+        "ticket_voided",
+        "a voided ticket has no QR".to_owned(),
+    ))
+}
+
+/// `POST /api/ticket/wallet/apple` (no login): the ticket as an Apple Wallet pass (ADR 0097).
+pub async fn wallet_apple(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+    Json(body): Json<OpenTicketBody>,
+) -> ApiResult<Response> {
+    crate::ratelimit::by_ip(&state, &headers, crate::ratelimit::TICKET_IMAGE).await?;
+    let Some(apple) = state.config.wallets.apple.as_ref() else {
+        return Err(ApiError::NotFound);
+    };
+    let pass = wallet_pass(&state, &body.token).await?;
+    let bytes = apple
+        .pkpass(&pass, OffsetDateTime::now_utc())
+        .map_err(|error| ApiError::Internal(error.into()))?;
     Ok((
-        [(CACHE_CONTROL, HeaderValue::from_static("no-store"))],
-        Json(pass),
+        [
+            (
+                CONTENT_TYPE,
+                HeaderValue::from_static("application/vnd.apple.pkpass"),
+            ),
+            (CACHE_CONTROL, HeaderValue::from_static("no-store")),
+        ],
+        bytes,
     )
         .into_response())
+}
+
+/// `POST /api/ticket/wallet/google` (no login): the "save to Google Wallet" address (ADR 0097).
+pub async fn wallet_google(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+    Json(body): Json<OpenTicketBody>,
+) -> ApiResult<Json<GoogleWalletDto>> {
+    crate::ratelimit::by_ip(&state, &headers, crate::ratelimit::TICKET_IMAGE).await?;
+    let Some(google) = state.config.wallets.google.as_ref() else {
+        return Err(ApiError::NotFound);
+    };
+    let pass = wallet_pass(&state, &body.token).await?;
+    let url = google
+        .save_url(
+            &pass,
+            &state.config.public_web_url,
+            OffsetDateTime::now_utc(),
+        )
+        .map_err(|error| ApiError::Internal(error.into()))?;
+    Ok(Json(GoogleWalletDto { url }))
+}
+
+/// `GET /api/events/{id}/ticket-settings`.
+pub async fn settings(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(event_id): Path<Uuid>,
+) -> ApiResult<Json<TicketSettingsDto>> {
+    authorize_event(&state.pool, &user, event_id).await?;
+    Ok(Json(TicketSettingsDto {
+        transfers: transfers_on(&state, event_id).await?,
+    }))
+}
+
+/// `PUT /api/events/{id}/ticket-settings`: whether holders may pass their tickets on.
+pub async fn update_settings(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(event_id): Path<Uuid>,
+    Json(body): Json<TicketSettingsDto>,
+) -> ApiResult<Json<TicketSettingsDto>> {
+    authorize_event(&state.pool, &user, event_id).await?;
+    sqlx::query!(
+        "update events set ticket_transfers = $2 where id = $1",
+        event_id,
+        body.transfers
+    )
+    .execute(&state.pool)
+    .await?;
+    Ok(Json(body))
 }
 
 /// The room for the holder of `number` (ADR 0066): every table of the event by name, shape and

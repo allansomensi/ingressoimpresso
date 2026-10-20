@@ -70,6 +70,9 @@ export function normalizePass(pass: TicketPassDto): TicketPassDto {
     tableMap: partial.tableMap ?? null,
     // Saved before the Pix (ADR 0085).
     pix: partial.pix ?? null,
+    // Saved before transfers and wallets (ADR 0097).
+    transfersLeft: partial.transfersLeft ?? 0,
+    wallets: partial.wallets ?? { apple: false, google: false },
     event: {
       ...pass.event,
       id: event.id ?? "",

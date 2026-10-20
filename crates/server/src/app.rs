@@ -113,6 +113,14 @@ pub fn router(state: AppState) -> Router {
         .route("/ticket-links/{id}/revoke", post(tickets::revoke))
         .route("/ticket", post(tickets::open))
         .route("/ticket/image", post(tickets::image))
+        // Transfer and the phone's wallets (ADR 0097).
+        .route("/ticket/transfer", post(tickets::transfer))
+        .route("/ticket/wallet/apple", post(tickets::wallet_apple))
+        .route("/ticket/wallet/google", post(tickets::wallet_google))
+        .route(
+            "/events/{id}/ticket-settings",
+            get(tickets::settings).put(tickets::update_settings),
+        )
         .route(
             "/events/{id}/art",
             post(events::upload_art).layer(DefaultBodyLimit::max(MAX_ART_BYTES)),

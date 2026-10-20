@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "update ticket_links\n               set first_opened_at = coalesce(first_opened_at, now()), last_opened_at = now(),\n                   open_count = least(open_count + 1, 1000000)\n               where token_hash = $1 and revoked_at is null\n               returning id, event_id, ticket_number, holder_name, sealed",
+  "query": "update ticket_links\n               set first_opened_at = coalesce(first_opened_at, now()), last_opened_at = now(),\n                   open_count = least(open_count + 1, 1000000)\n               where token_hash = $1 and revoked_at is null\n               returning id, event_id, ticket_number, holder_name, sealed, seller_id, created_by, transfer_count",
   "describe": {
     "columns": [
       {
@@ -57,6 +57,39 @@
             "name": "sealed"
           }
         }
+      },
+      {
+        "ordinal": 5,
+        "name": "seller_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "ticket_links",
+            "name": "seller_id"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "created_by",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "ticket_links",
+            "name": "created_by"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "transfer_count",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "ticket_links",
+            "name": "transfer_count"
+          }
+        }
       }
     ],
     "parameters": {
@@ -69,8 +102,11 @@
       false,
       false,
       true,
+      false,
+      true,
+      true,
       false
     ]
   },
-  "hash": "6cc77a970613c3a8930987bb4ad0b7fc6912772604601b37ac344a5ffb16f092"
+  "hash": "94013c9260d899fa39511453381c9602968b3fd6924dcf7eeebf55a74c382b60"
 }

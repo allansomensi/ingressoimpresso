@@ -273,6 +273,11 @@ export const event = {
       },
     },
     digital: {
+      transfers: {
+        title: "Transferir ficha",
+        description: "Quem recebeu uma ficha no celular pode passá-la para outra pessoa: o link antigo deixa de abrir e o número continua o mesmo.",
+        on: "Ligado: até 3 transferências por ficha, antes do evento e enquanto ela não foi usada.",
+      },
       intro:
         "Para quem não vai buscar a ficha em papel: envie um link pelo WhatsApp. A pessoa abre no celular e mostra o QR na barraca, mesmo sem internet. É a mesma ficha do papel: vale uma vez só.",
       stats: { entered: "Já usadas" },
@@ -1573,6 +1578,16 @@ export const event = {
     },
   },
   digital: {
+    // Transfers by the holder (ADR 0097).
+    transfers: {
+      title: "Transferir ingresso",
+      description: "Quem recebeu um ingresso no celular pode passá-lo para outra pessoa: o link antigo deixa de abrir e o número continua o mesmo.",
+      toggle: "Permitir transferir",
+      on: "Ligado: até 3 transferências por ingresso, antes do evento e enquanto ele não foi usado.",
+      off: "Desligado: só a equipe troca de dono, pela segunda via.",
+      savedOn: "Transferências liberadas.",
+      savedOff: "Transferências desligadas.",
+    },
     intro:
       "Para quem não vai buscar o ingresso em papel: envie um link pelo WhatsApp. A pessoa abre no celular e mostra o QR na porta, mesmo sem internet. É o mesmo ingresso do papel: vale quem chegar primeiro.",
     stats: { active: "Links ativos", opened: "Já abertos", entered: "Já entraram" },

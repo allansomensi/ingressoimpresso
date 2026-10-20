@@ -29,6 +29,7 @@ import { EventChangeNotice, OrganizationContact, OrganizationLogo } from "@/comp
 import { PixCharge } from "@/components/pix/pix-charge";
 import { QrCode } from "@/components/qr";
 import { MyTicketsLink, MyTicketsList } from "@/components/ticket/my-tickets";
+import { TransferSection, WalletButtons } from "@/components/ticket/pass-actions";
 import { SeatMap } from "@/components/ticket/seat-map";
 import { Button, Dialog, Spinner, buttonClass } from "@/components/ui";
 import { ApiError, api, fetchBlobUrl } from "@/lib/api";
@@ -67,6 +68,8 @@ type State =
   | { status: "loading" }
   | { status: "no-token" }
   | { status: "not-found" }
+  // Passed on to someone else (ADR 0097): this phone no longer holds it.
+  | { status: "transferred" }
   | { status: "error" }
   // `saved`: opened from "Meus ingressos" without its link (only the copy on this phone).
   | { status: "ready"; pass: TicketPassDto; offline: boolean; saved?: boolean };
@@ -232,10 +235,10 @@ export function TicketPass() {
       await rememberLink(current);
       setState({ status: "ready", pass, offline: false });
     } catch (error) {
-      if (error instanceof ApiError && error.status === 404) {
+      if (error instanceof ApiError && (error.status === 404 || error.status === 410)) {
         await forgetPass(current);
         await forgetLink(await tokenKey(current));
-        setState({ status: "not-found" });
+        setState({ status: error.status === 410 ? "transferred" : "not-found" });
       } else if (cached !== null) {
         setState({ status: "ready", pass: cached, offline: true });
       } else {
@@ -299,9 +302,9 @@ export function TicketPass() {
       />
     );
   }
-  if (state.status === "not-found" || state.status === "error") {
-    const title = state.status === "not-found" ? t.notFoundTitle : t.errorTitle;
-    const body = state.status === "not-found" ? t.notFound : t.error;
+  if (state.status === "not-found" || state.status === "error" || state.status === "transferred") {
+    const title = state.status === "not-found" ? t.notFoundTitle : state.status === "transferred" ? t.transferredTitle : t.errorTitle;
+    const body = state.status === "not-found" ? t.notFound : state.status === "transferred" ? t.transferred : t.error;
     return (
       <Centered>
         <span className="flex size-14 items-center justify-center rounded-2xl bg-brand-soft text-brand-soft-fg">
@@ -511,11 +514,29 @@ export function TicketPass() {
         </div>
       )}
 
+      {/* The phone's wallet (ADR 0097): needs the link and a connection once. */}
+      {token !== null && pass.qrText !== null && !state.offline && <WalletButtons pass={pass} token={token} />}
+
       {pass.pix !== null && pass.state !== "voided" && !canceled && (
         <TicketPix pix={pass.pix} eventId={pass.event.id} number={pass.number} label={pass.numberLabel} tokens={pass.event.kind === "tokens"} />
       )}
 
       {!canceled && <DayPlan pass={pass} />}
+
+      {/* Passing it on (ADR 0097): online, with the link, while the ticket can still move. */}
+      {token !== null && !state.offline && pass.transfersLeft > 0 && (
+        <TransferSection
+          pass={pass}
+          token={token}
+          onTransferred={() => {
+            void forgetPass(token)
+              .then(async () => {
+                await forgetLink(await tokenKey(token));
+              })
+              .finally(showList);
+          }}
+        />
+      )}
 
       {pass.tableMap !== null && <SeatMap map={pass.tableMap} />}
 

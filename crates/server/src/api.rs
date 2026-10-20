@@ -1058,6 +1058,22 @@ dto! {
         /// the number has nothing to pay.
         #[serde(default)]
         pub pix: Option<TicketPixDto>,
+        /// Transfers this holder may still make (ADR 0097); 0 when the event does not allow them
+        /// or the ticket can no longer move (used, voided, the event over or canceled).
+        #[serde(default)]
+        pub transfers_left: i16,
+        /// The phone wallets this server can issue (ADR 0097).
+        #[serde(default)]
+        pub wallets: PassWalletsDto,
+    }
+
+    /// Which wallets a digital ticket can go to.
+    #[derive(Default)]
+    pub struct PassWalletsDto {
+        /// Apple Wallet (a signed `.pkpass`).
+        pub apple: bool,
+        /// Google Wallet (a "save to Google Wallet" link).
+        pub google: bool,
     }
 
     /// The Pix of a digital ticket.
@@ -5759,5 +5775,36 @@ dto! {
         pub change: EventChangeDto,
         /// Anyone may check a ticket at /conferir (ADR 0075).
         pub public_verify: bool,
+    }
+}
+
+dto! {
+    /// `POST /api/ticket/transfer` (no login; the token is the credential): passes the ticket on
+    /// to someone else (ADR 0097). The link changes; the number and its QR stay.
+    pub struct TransferTicketBody {
+        /// Token from the link's fragment.
+        pub token: String,
+        /// Who receives it (1–80 characters).
+        pub holder_name: String,
+    }
+
+    /// The new link of a transferred ticket: the old one stops opening.
+    pub struct TransferTicketDto {
+        /// The address to send the new holder (the token is in the fragment).
+        pub url: String,
+        /// The new holder.
+        pub holder_name: String,
+    }
+
+    /// `GET/PUT /api/events/{id}/ticket-settings`: what holders of digital tickets may do.
+    pub struct TicketSettingsDto {
+        /// Holders may pass their ticket on (ADR 0097).
+        pub transfers: bool,
+    }
+
+    /// `POST /api/ticket/wallet/google`: the "save to Google Wallet" address.
+    pub struct GoogleWalletDto {
+        /// `https://pay.google.com/gp/v/save/…`.
+        pub url: String,
     }
 }

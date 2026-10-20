@@ -48,6 +48,7 @@ tracing.workspace = true
 tracing-subscriber.workspace = true
 ts-rs = { workspace = true, optional = true }
 uuid = { workspace = true, features = ["v4", "serde"] }
+zip.workspace = true
 zeroize.workspace = true
 
 [dev-dependencies]

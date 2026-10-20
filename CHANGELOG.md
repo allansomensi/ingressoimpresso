@@ -41,6 +41,13 @@ e não acompanha estes números.
   de WhatsApp, "adicionar à agenda", o selo **Esgotado** (marcado pelo organizador ou sozinho quando
   todos os números acabam) e, no pé, o convite para conhecer o Ingresso Impresso. Imagem de
   compartilhamento própria com o nome, a data e a cor da organização.
+- **Transferir o ingresso digital**: quem recebeu o ingresso no celular passa para outra pessoa
+  pela própria página (até 3 vezes, antes do evento e enquanto não foi usado). O link antigo para de
+  abrir e avisa que foi transferido; o número e o QR continuam os mesmos. A organização pode
+  desligar na aba Digitais.
+- **Ingresso na carteira do celular**: botões **Adicionar à Apple Wallet** e **Salvar no Google
+  Wallet** na página do ingresso digital, com o mesmo QR, que abrem sem internet e aparecem sozinhos
+  na hora do evento (ligados quando a plataforma tem as credenciais de cada carteira).
 - Administração: **Funil** (criou a conta → criou evento → montou o ingresso → gerou lote → pagou
   lote → usou a portaria, por período, com o passo onde mais gente desiste e quanto tempo cada
   passo leva) e **Acontecendo agora** (eventos do momento, celulares da portaria que não

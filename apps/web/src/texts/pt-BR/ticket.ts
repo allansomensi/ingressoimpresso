@@ -22,6 +22,37 @@ export const ticket = {
     savedCopy: "Cópia salva neste celular. Para ver a versão mais nova, abra o link que você recebeu.",
     privacy: "A lista fica só neste aparelho. Quem usa o mesmo celular também vê os ingressos dela.",
   },
+  transferredTitle: "Ingresso transferido",
+  transferred: "Este ingresso foi passado para outra pessoa e não abre mais neste celular. Quem recebeu tem o link novo.",
+  // The phone's wallets (ADR 0097).
+  wallet: {
+    apple: "Adicionar à Apple Wallet",
+    google: "Salvar no Google Wallet",
+    adding: "Abrindo a carteira…",
+    hint: "Na carteira, o ingresso abre sem internet e aparece sozinho na hora do evento.",
+    failed: "Não deu para abrir a carteira agora. O QR desta página vale do mesmo jeito.",
+  },
+  // Passing the ticket on (ADR 0097).
+  transfer: {
+    title: "Passar para outra pessoa",
+    hint: (left: number) => (left === 1 ? "Ainda dá para transferir 1 vez." : `Ainda dá para transferir ${String(left)} vezes.`),
+    action: "Transferir",
+    description: "O ingresso vai para quem você indicar, com o mesmo número. Este link deixa de abrir.",
+    name: "Nome de quem vai receber",
+    namePlaceholder: "Maria Souza",
+    next: "Continuar",
+    confirm: "Transferir agora",
+    warning: (name: string) =>
+      `Depois de transferir, este celular não abre mais o ingresso: só ${name} terá o link novo. Imagens salvas deste ingresso continuam sendo o mesmo número, e vale quem chegar primeiro na porta.`,
+    note: "Para trocar o número (ingresso perdido, por exemplo), fale com a organização: ela faz a segunda via.",
+    done: (name: string) => `Pronto! O ingresso agora é de ${name}. Mande o link novo para essa pessoa.`,
+    message: (name: string, event: string, url: string) =>
+      `Oi, ${name}! Passei para você o meu ingresso de ${event}. Abra este link e mostre o QR na entrada:\n${url}\n\nDica: abra uma vez com internet para ele funcionar mesmo sem sinal.`,
+    sendWhatsapp: "Mandar o link no WhatsApp",
+    copy: "Copiar o link novo",
+    copied: "Link copiado.",
+    close: "Concluir",
+  },
   notFoundTitle: "Ingresso não encontrado",
   notFound: "O link pode ter sido trocado ou revogado pelo organizador. Peça um novo link a quem vendeu o ingresso.",
   errorTitle: "Não foi possível abrir o ingresso",
@@ -58,6 +89,17 @@ export const ticket = {
   ],
   // A consumption token sent by link (ADR 0084): the words that change.
   tokens: {
+    transferredTitle: "Ficha transferida",
+    transferred: "Esta ficha foi passada para outra pessoa e não abre mais neste celular. Quem recebeu tem o link novo.",
+    transfer: {
+      description: "A ficha vai para quem você indicar, com o mesmo número. Este link deixa de abrir.",
+      warning: (name: string) =>
+        `Depois de transferir, este celular não abre mais a ficha: só ${name} terá o link novo. Imagens salvas desta ficha continuam sendo o mesmo número, e vale quem usar primeiro.`,
+      note: "Para trocar o número (ficha perdida, por exemplo), fale com a organização.",
+      done: (name: string) => `Pronto! A ficha agora é de ${name}. Mande o link novo para essa pessoa.`,
+      message: (name: string, event: string, url: string) =>
+        `Oi, ${name}! Passei para você a minha ficha de ${event}. Abra este link e mostre o QR na barraca:\n${url}\n\nDica: abra uma vez com internet para ela funcionar mesmo sem sinal.`,
+    },
     metaTitle: "Sua ficha",
     poweredBy: "Ficha gerada com",
     number: "Ficha",
