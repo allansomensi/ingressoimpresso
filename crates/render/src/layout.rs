@@ -133,11 +133,39 @@ impl Paper {
         const fn perforated(cols: u32, rows: u32) -> PaperSpec {
             let w = A4_MM.0 / cols as f64;
             let h = A4_MM.1 / rows as f64;
-            PaperSpec { cols, rows, w, h, x: 0.0, y: 0.0, pitch_x: w, pitch_y: h, padding: 5.0 }
+            PaperSpec {
+                cols,
+                rows,
+                w,
+                h,
+                x: 0.0,
+                y: 0.0,
+                pitch_x: w,
+                pitch_y: h,
+                padding: 5.0,
+            }
         }
         // The usual A4 label layouts (the same sizes under several brands).
-        const fn labels(cols: u32, rows: u32, w: f64, h: f64, x: f64, y: f64, pitch_x: f64) -> PaperSpec {
-            PaperSpec { cols, rows, w, h, x, y, pitch_x, pitch_y: h, padding: 1.5 }
+        const fn labels(
+            cols: u32,
+            rows: u32,
+            w: f64,
+            h: f64,
+            x: f64,
+            y: f64,
+            pitch_x: f64,
+        ) -> PaperSpec {
+            PaperSpec {
+                cols,
+                rows,
+                w,
+                h,
+                x,
+                y,
+                pitch_x,
+                pitch_y: h,
+                padding: 1.5,
+            }
         }
         Some(match self {
             Self::Plain => return None,

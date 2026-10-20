@@ -86,7 +86,9 @@ async fn current_design(
     .fetch_optional(&state.pool)
     .await?;
     match spec {
-        Some(spec) => serde_json::from_value(spec).map_err(|error| ApiError::Internal(error.into())),
+        Some(spec) => {
+            serde_json::from_value(spec).map_err(|error| ApiError::Internal(error.into()))
+        }
         None => Ok(ticket_render::TicketDesign::default_for(tokens)),
     }
 }
