@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update organizations o set admin_tags = $2 from organizations old\n           where o.id = $1 and old.id = o.id returning old.admin_tags",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "admin_tags",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "organizations",
+            "name": "admin_tags"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "TextArray"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "0ce4337eed33b9d422fabde2f4fb86ca8f786e3b778e2cd8c2e8319c5313a809"
+}

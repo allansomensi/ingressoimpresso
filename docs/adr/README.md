@@ -112,3 +112,8 @@ feita e as consequências.
 | [0100](0100-modelos-nas-cores-da-organizacao.md) | Modelos nas cores da organização e do cartaz | Aceito |
 | [0101](0101-fim-do-evento-e-resumo-final.md) | Fim do evento na portaria e resumo final para compartilhar | Aceito |
 | [0102](0102-papeis-prontos.md) | Papéis prontos para imprimir em casa | Aceito |
+| [0103](0103-alertas-e-resumo-diario-dos-admins.md) | Alertas e resumo diário dos admins | Aceito |
+| [0104](0104-contestacoes-de-pagamento.md) | Contestações de pagamento | Aceito |
+| [0105](0105-ficha-da-organizacao.md) | Ficha da organização: anotações, etiquetas e linha do tempo | Aceito |
+| [0106](0106-relatorios-de-receita.md) | Relatórios de receita para a contabilidade | Aceito |
+| [0107](0107-pronunciamentos-por-email.md) | Pronunciamentos também por e-mail | Aceito |

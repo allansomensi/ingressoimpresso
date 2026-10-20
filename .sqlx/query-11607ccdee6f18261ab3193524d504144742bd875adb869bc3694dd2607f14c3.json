@@ -1,0 +1,78 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select p.id, p.name, p.created_at,\n                  count(distinct e.organization_id) as \"organizations!\",\n                  count(distinct e.organization_id) filter (where b.price_cents > 0) as \"paying!\",\n                  coalesce(sum(b.discount_cents), 0)::bigint as \"discount!\",\n                  coalesce((select sum(case when re.kind = 'gross' then re.cents else -re.cents end)\n                            from revenue_entries re join ticket_batches pb on pb.id = re.batch_id\n                            where pb.promotion_id = p.id), 0)::bigint as \"revenue!\"\n           from promotions p\n           left join ticket_batches b on b.promotion_id = p.id and b.status in ('paid', 'refunded')\n           left join events e on e.id = b.event_id\n           group by p.id\n           order by p.created_at desc",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "promotions",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "promotions",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "promotions",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "organizations!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "paying!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "discount!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "revenue!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "11607ccdee6f18261ab3193524d504144742bd875adb869bc3694dd2607f14c3"
+}

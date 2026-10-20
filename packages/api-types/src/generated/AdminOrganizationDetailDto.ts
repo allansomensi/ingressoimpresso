@@ -3,6 +3,7 @@ import type { AdminEventDto } from "./AdminEventDto";
 import type { AdminMemberDto } from "./AdminMemberDto";
 import type { AdminOrganizationDto } from "./AdminOrganizationDto";
 import type { AuditEntryDto } from "./AuditEntryDto";
+import type { OrganizationNoteDto } from "./OrganizationNoteDto";
 
 /**
  * `GET /api/admin/organizations/{id}`: one account for support.
@@ -31,4 +32,8 @@ events: Array<AdminEventDto>,
 /**
  * Latest admin actions on this organization.
  */
-audit: Array<AuditEntryDto>, };
+audit: Array<AuditEntryDto>, 
+/**
+ * The admins' internal notes, pinned first (ADR 0105).
+ */
+notes: Array<OrganizationNoteDto>, };

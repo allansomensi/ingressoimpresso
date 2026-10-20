@@ -98,6 +98,13 @@ pub const REFERRAL_INVITE: Limit = Limit {
     window: Duration::from_mins(10),
 };
 
+/// `POST /api/email/unsubscribe`: the link of an announcement e-mail (ADR 0107).
+pub const UNSUBSCRIBE: Limit = Limit {
+    name: "unsubscribe",
+    max: 30,
+    window: Duration::from_mins(10),
+};
+
 /// Counts this request against `limit` for its address. Without an address (a direct request in
 /// development or a test) nothing is counted; in production every request comes through the
 /// proxy, and one without an address shares a single bucket instead of escaping the limit.

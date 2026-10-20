@@ -1,0 +1,50 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select severity, title, count from admin_alerts where resolved_at is null\n           order by (severity = 'critical') desc, last_at desc limit 8",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "severity",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "admin_alerts",
+            "name": "severity"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "title",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "admin_alerts",
+            "name": "title"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "count",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "admin_alerts",
+            "name": "count"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "57b8a07eda6a28b15f8e89621a22066b0e846daadae173b94cb62337b2543ce5"
+}

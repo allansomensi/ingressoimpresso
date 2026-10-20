@@ -59,6 +59,26 @@ pub struct Config {
     /// `APPLE_WALLET_*` and `GOOGLE_WALLET_*` (ADR 0097): digital tickets in the phone's wallet;
     /// each wallet is off without its credentials.
     pub wallets: std::sync::Arc<crate::wallet::Wallets>,
+    /// `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` (ADR 0103): the admins' alerts also on Telegram.
+    pub telegram: Option<TelegramKeys>,
+}
+
+/// A Telegram bot and the chat it writes to (ADR 0103).
+#[derive(Clone)]
+pub struct TelegramKeys {
+    /// The bot's token (`123456:ABC…`), from `@BotFather`.
+    pub bot_token: String,
+    /// The chat (a person or a group) that receives the alerts.
+    pub chat_id: String,
+}
+
+impl std::fmt::Debug for TelegramKeys {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TelegramKeys")
+            .field("bot_token", &"<redacted>")
+            .field("chat_id", &self.chat_id)
+            .finish()
+    }
 }
 
 /// Master keys that appear in the repository (CI, the door's end-to-end test): never in
@@ -98,6 +118,7 @@ impl std::fmt::Debug for Config {
             .field("google_client_id", &self.google_client_id)
             .field("mail_daily_limit", &self.mail_daily_limit)
             .field("wallets", &self.wallets)
+            .field("telegram", &self.telegram)
             .finish_non_exhaustive()
     }
 }
@@ -288,6 +309,21 @@ impl Config {
                     .to_owned(),
             });
         }
+        let telegram = match (get("TELEGRAM_BOT_TOKEN"), get("TELEGRAM_CHAT_ID")) {
+            (Some(bot_token), Some(chat_id)) => {
+                if !bot_token.contains(':') {
+                    return Err(ConfigError::Invalid {
+                        name: "TELEGRAM_BOT_TOKEN",
+                        reason: "must be the bot token from @BotFather (digits, a colon, letters)"
+                            .to_owned(),
+                    });
+                }
+                Some(TelegramKeys { bot_token, chat_id })
+            }
+            (None, None) => None,
+            (Some(_), None) => return Err(ConfigError::Missing("TELEGRAM_CHAT_ID")),
+            (None, Some(_)) => return Err(ConfigError::Missing("TELEGRAM_BOT_TOKEN")),
+        };
         let stripe_allow_test_mode =
             get("STRIPE_ALLOW_TEST_MODE").is_some_and(|value| value == "true");
         if production {
@@ -345,6 +381,7 @@ impl Config {
             mail_daily_limit,
             stripe_allow_test_mode,
             wallets: std::sync::Arc::new(crate::wallet::Wallets::from_lookup(get)?),
+            telegram,
         })
     }
 

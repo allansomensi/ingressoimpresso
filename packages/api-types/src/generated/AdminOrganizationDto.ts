@@ -51,4 +51,12 @@ lastBatchAt: string | null,
 /**
  * Suspended by an admin.
  */
-suspended: boolean, };
+suspended: boolean, 
+/**
+ * The admins' own labels (ADR 0105), lowercase.
+ */
+tags: Array<string>, 
+/**
+ * Last sign-in of a member or last batch, whichever is later.
+ */
+lastActivityAt: string | null, };

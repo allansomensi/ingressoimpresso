@@ -1,0 +1,104 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select p.id, p.code, p.kind, p.created_at,\n                  (select count(*) from promo_redemptions r where r.promo_code_id = p.id) as \"organizations!\",\n                  (select count(*) from promo_redemptions r\n                   where r.promo_code_id = p.id\n                     and exists (select 1 from ticket_batches b join events e on e.id = b.event_id\n                                 where e.organization_id = r.organization_id and b.status in ('paid', 'refunded')\n                                   and b.price_cents > 0 and b.paid_at >= r.redeemed_at)) as \"paying!\",\n                  coalesce((select sum(c.amount_cents) from credit_ledger c\n                            where c.reason = 'promo_code' and c.reference_id = p.id), 0)::bigint as \"credit!\",\n                  coalesce((select sum(b.discount_cents) from promo_redemptions r\n                            join ticket_batches b on b.id = r.applied_batch_id\n                            where r.promo_code_id = p.id and b.status in ('paid', 'refunded')), 0)::bigint as \"discount!\",\n                  (case when p.kind = 'free_tickets' then coalesce(p.free_tickets, 0) else 0 end\n                   * (select count(*) from promo_redemptions r where r.promo_code_id = p.id))::bigint as \"free!\",\n                  coalesce((select sum(case when re.kind = 'gross' then re.cents else -re.cents end)\n                            from promo_redemptions r\n                            join events e on e.organization_id = r.organization_id\n                            join ticket_batches b on b.event_id = e.id\n                            join revenue_entries re on re.batch_id = b.id\n                            where r.promo_code_id = p.id and b.paid_at >= r.redeemed_at), 0)::bigint as \"revenue!\"\n           from promo_codes p\n           order by p.created_at desc",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "promo_codes",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "code",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "promo_codes",
+            "name": "code"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "promo_codes",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "promo_codes",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "organizations!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "paying!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "credit!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 7,
+        "name": "discount!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 8,
+        "name": "free!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 9,
+        "name": "revenue!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "d9bf523886c2f5771cb9242a7c13bf69d777b9e081630c3f277706e689b756ee"
+}

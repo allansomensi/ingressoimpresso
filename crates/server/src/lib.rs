@@ -7,6 +7,7 @@
 )]
 
 pub mod activity;
+pub mod alerts;
 pub mod api;
 pub mod app;
 pub mod art;
@@ -20,6 +21,7 @@ pub mod google;
 pub mod jobs;
 pub mod keys;
 pub mod mail;
+pub mod mailings;
 pub mod moderation;
 pub mod payments;
 pub mod pix;

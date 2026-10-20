@@ -12,6 +12,35 @@ e não acompanha estes números.
 
 ## [Não lançado]
 
+## [1.10.0] - 2026-10-20
+
+### Adicionado
+
+- Admin: **Alertas** por e-mail e, com um bot configurado, no Telegram, quando algo precisa de
+  atenção: webhook da Stripe recusado ou com erro, arquivo que falhou em todas as tentativas, cota
+  de e-mails em 80% ou cheia, muitos erros da API em poucos minutos, evento grande começando sem
+  link da portaria e contestação de pagamento. O mesmo problema não avisa duas vezes enquanto está
+  aberto.
+- Admin: **resumo diário** por e-mail e Telegram na hora escolhida, com cadastros, lotes, receita,
+  e-mails, entradas, alertas abertos e os eventos grandes das próximas 48 horas.
+- Admin: **Contestações de pagamento** (chargebacks) do cartão, com prazo para responder na Stripe,
+  alerta na hora, bloqueio dos números do lote na portaria enquanto dura e estorno do lote quando a
+  contestação é perdida.
+- Admin: **ficha da organização** com anotações internas (fixar, editar, apagar), etiquetas
+  (filtro na lista de organizações) e linha do tempo de tudo o que aconteceu com a conta: cadastro,
+  acessos, eventos, lotes, pagamentos, estornos, e-mails, crédito, cupons e ações dos admins. A
+  lista mostra a última atividade e o selo **Esfriando** para quem pagou e sumiu há mais de 60 dias.
+- Admin: **Relatórios** com o fechamento do mês para a contabilidade (recebido, devolvido, líquido,
+  descontos, crédito usado, concedido e em aberto, formas de pagamento, por organização e cada
+  lançamento), em planilha XLSX ou CSV; coortes por mês de cadastro com a receita mês a mês; e o
+  retorno de cada cupom e promoção.
+- **Pronunciamentos por e-mail**: o admin envia um pronunciamento publicado para todas as contas,
+  só os responsáveis, quem já pagou, quem entrou nos últimos 90 dias ou organizações com uma
+  etiqueta, vê quantas pessoas recebem e acompanha o envio. Ninguém recebe o mesmo duas vezes, e o
+  envio respeita a cota diária para os códigos de acesso nunca faltarem.
+- **Minha conta → E-mails**: escolha se quer receber os comunicados do Ingresso Impresso. Cada
+  comunicado também tem o link para parar de receber, sem precisar entrar.
+
 ## [1.9.0] - 2026-10-20
 
 ### Adicionado
@@ -574,7 +603,8 @@ Primeira versão numerada: o produto que já estava em produção, das fases 0 a
 - Política de segurança de conteúdo (CSP) com nonce por requisição em todo o site (ADR 0048).
 - Verificação anti-robô antes do envio do código de login (ADR 0044).
 
-[Não lançado]: https://github.com/allansomensi/ingressoimpresso/compare/v1.9.0...HEAD
+[Não lançado]: https://github.com/allansomensi/ingressoimpresso/compare/v1.10.0...HEAD
+[1.10.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.9.0...v1.10.0
 [1.9.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.8.0...v1.9.0
 [1.8.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.6.2...v1.7.0

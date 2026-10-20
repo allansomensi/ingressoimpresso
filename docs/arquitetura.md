@@ -614,6 +614,22 @@ GET /api/events/{id}/papers                papéis prontos em que o desenho cabe
 POST /api/events/{id}/exports              … + paper (só no arquivo de casa)
 ```
 
+Controle da plataforma (ADRs 0103–0107), só admins salvo o descadastro:
+
+```
+GET /api/admin/alerts?resolved=            POST /api/admin/alerts/{id}/resolve
+PUT /api/admin/alerts/settings             POST /api/admin/alerts/test|summary       (alertas, ADR 0103)
+GET /api/admin/disputes                    POST /api/admin/disputes/{id}/block|unblock|settle (ADR 0104)
+GET /api/admin/organizations?q=&tag=       GET /api/admin/organizations/tags
+PUT /api/admin/organizations/{id}/tags     GET /api/admin/organizations/{id}/timeline?before=
+POST /api/admin/organizations/{id}/notes   PUT|DELETE /api/admin/organization-notes/{id} (ficha, ADR 0105)
+GET /api/admin/reports/closing?month=      GET /api/admin/reports/closing/xlsx|csv?month=
+GET /api/admin/reports/cohorts             GET /api/admin/reports/coupons             (relatórios, ADR 0106)
+GET|POST /api/admin/announcements/{id}/email   POST /api/admin/announcements/{id}/email/test
+POST /api/admin/mailings/{id}/cancel       PUT /api/account/preferences { announcementEmails }
+POST /api/email/unsubscribe { token, subscribed? }   POST /api/email/unsubscribe/{token}  (sem login, ADR 0107)
+```
+
 Pagamento, fase 6 (ADR 0020):
 
 ```

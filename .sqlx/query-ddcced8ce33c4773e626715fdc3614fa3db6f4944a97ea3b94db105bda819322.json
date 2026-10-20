@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update announcement_mail_recipients set status = $3, sent_at = now() where mailing_id = $1 and user_id = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "ddcced8ce33c4773e626715fdc3614fa3db6f4944a97ea3b94db105bda819322"
+}

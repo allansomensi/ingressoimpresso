@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update admin_alerts set notified_at = now() where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "10f7fe88bdb40c4d21380aa47e90b47af08fa737d0b93cf4d900a5d7e09f4faa"
+}

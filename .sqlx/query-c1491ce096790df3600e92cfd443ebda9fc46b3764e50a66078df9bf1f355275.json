@@ -1,0 +1,143 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select m.id, m.announcement_id, m.audience, m.tag, m.created_at, m.finished_at,\n                  m.canceled_at, u.email::text as \"created_by?\",\n                  count(r.user_id) as \"total!\",\n                  count(r.user_id) filter (where r.status = 'sent') as \"sent!\",\n                  count(r.user_id) filter (where r.status = 'failed') as \"failed!\",\n                  count(r.user_id) filter (where r.status = 'skipped') as \"skipped!\",\n                  count(r.user_id) filter (where r.status in ('pending', 'sending')) as \"pending!\"\n           from announcement_mailings m\n           left join users u on u.id = m.created_by\n           left join announcement_mail_recipients r on r.mailing_id = m.id\n           where ($1::uuid is null or m.announcement_id = $1) and ($2::uuid is null or m.id = $2)\n           group by m.id, u.email\n           order by m.created_at desc",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "announcement_mailings",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "announcement_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "announcement_mailings",
+            "name": "announcement_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "audience",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "announcement_mailings",
+            "name": "audience"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "tag",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "announcement_mailings",
+            "name": "tag"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "announcement_mailings",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "finished_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "announcement_mailings",
+            "name": "finished_at"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "canceled_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "announcement_mailings",
+            "name": "canceled_at"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "created_by?",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 8,
+        "name": "total!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 9,
+        "name": "sent!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 10,
+        "name": "failed!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 11,
+        "name": "skipped!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 12,
+        "name": "pending!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      true,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "c1491ce096790df3600e92cfd443ebda9fc46b3764e50a66078df9bf1f355275"
+}

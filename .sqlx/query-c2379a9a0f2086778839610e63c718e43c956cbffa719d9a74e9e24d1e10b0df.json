@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update announcement_mailings set finished_at = now()\n           where id = $1 and finished_at is null\n             and not exists (select 1 from announcement_mail_recipients\n                             where mailing_id = $1 and status in ('pending', 'sending'))",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c2379a9a0f2086778839610e63c718e43c956cbffa719d9a74e9e24d1e10b0df"
+}

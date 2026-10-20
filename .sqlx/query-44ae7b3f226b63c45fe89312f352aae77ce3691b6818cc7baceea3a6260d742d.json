@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select tag as \"tag!\", count(*) as \"count!\"\n               from organizations, unnest(admin_tags) tag\n               group by tag order by count(*) desc, tag",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "tag!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "count!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "44ae7b3f226b63c45fe89312f352aae77ce3691b6818cc7baceea3a6260d742d"
+}

@@ -1,0 +1,193 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with bounds as (\n             select (($1 || '-01')::timestamp at time zone 'America/Sao_Paulo') as start,\n                    ((($1 || '-01')::timestamp + interval '1 month') at time zone 'America/Sao_Paulo') as finish\n           )\n           select r.at as \"at!\", r.kind as \"kind!\", r.cents as \"cents!\", b.id as batch_id,\n                  lower(b.numbers) as \"first!\", upper(b.numbers) - 1 as \"last!\", b.free_tickets,\n                  b.list_price_cents, b.discount_cents, b.credit_cents, b.paid_via,\n                  (select p.payment_intent_id from payments p\n                   where p.batch_id = b.id and p.status in ('paid', 'refunded')\n                   order by p.paid_at desc nulls last limit 1) as reference,\n                  e.id as event_id, e.name as event_name, o.id as organization_id,\n                  o.name as organization_name\n           from revenue_entries r cross join bounds\n           join ticket_batches b on b.id = r.batch_id\n           join events e on e.id = b.event_id\n           join organizations o on o.id = e.organization_id\n           where r.at >= bounds.start and r.at < bounds.finish\n           order by r.at, b.id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "at!",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "revenue_entries",
+            "name": "at"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "kind!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "revenue_entries",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "cents!",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "revenue_entries",
+            "name": "cents"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "batch_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "ticket_batches",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "first!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "last!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "free_tickets",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "ticket_batches",
+            "name": "free_tickets"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "list_price_cents",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "ticket_batches",
+            "name": "list_price_cents"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "discount_cents",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "ticket_batches",
+            "name": "discount_cents"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "credit_cents",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "ticket_batches",
+            "name": "credit_cents"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "paid_via",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ticket_batches",
+            "name": "paid_via"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "reference",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 12,
+        "name": "event_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "event_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 14,
+        "name": "organization_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "organizations",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 15,
+        "name": "organization_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "organizations",
+            "name": "name"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      true,
+      true,
+      true,
+      false,
+      null,
+      null,
+      false,
+      true,
+      false,
+      false,
+      true,
+      null,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "44442401a6c79e131e55fbf7a76ff3cbd8ff89a0ba5e873a920546a150036eed"
+}

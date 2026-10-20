@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update announcement_mailings set canceled_at = now()\n           where id = $1 and finished_at is null and canceled_at is null\n           returning announcement_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "announcement_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "announcement_mailings",
+            "name": "announcement_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "1296084316ecf339c96abc171dbeb59b1501899ac8e9e5e5530cd9dfcc162693"
+}

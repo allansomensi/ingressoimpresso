@@ -1,0 +1,37 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with bounds as (\n             select (($1 || '-01')::timestamp at time zone 'America/Sao_Paulo') as start,\n                    ((($1 || '-01')::timestamp + interval '1 month') at time zone 'America/Sao_Paulo') as finish\n           )\n           select\n             coalesce((select sum(amount_cents) from credit_ledger, bounds\n                       where amount_cents > 0 and reason in ('promo_code', 'admin_adjustment', 'referral')\n                         and created_at >= bounds.start and created_at < bounds.finish), 0)::bigint as \"issued!\",\n             coalesce((select sum(amount_cents) from credit_ledger, bounds\n                       where created_at < bounds.finish), 0)::bigint as \"balance!\",\n             coalesce((select sum(amount_cents) from payment_disputes, bounds\n                       where status = 'lost' and closed_at >= bounds.start and closed_at < bounds.finish), 0)::bigint as \"disputes!\"\n           ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "issued!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "balance!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "disputes!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "378067cc5b1214ea84ffe89f9fe86b121dec0f4961b51fb0f5894c0df5cebd79"
+}

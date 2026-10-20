@@ -1,7 +1,19 @@
 "use client";
 
-import type { AdminBatchDto, AdminOrganizationDto, AdminOverviewDto, BatchDto, BatchStatus } from "@ingressoimpresso/api-types";
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type {
+  AdminBatchDto,
+  AdminOrganizationDto,
+  AdminOverviewDto,
+  AdminTagCountDto,
+  BatchDto,
+  BatchStatus,
+} from "@ingressoimpresso/api-types";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import {
   BadgeCheck,
   Building2,
@@ -47,6 +59,7 @@ import {
 import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { money, parseMoney, shortDateTime } from "@/lib/format";
+import { isCooling } from "@/lib/organization-crm";
 import { admin as adminTexts } from "@/texts/pt-BR/admin";
 import { common as commonTexts } from "@/texts/pt-BR/common";
 import { event as eventTexts } from "@/texts/pt-BR/event";
@@ -57,7 +70,10 @@ const integer = (value: number) => value.toLocaleString("pt-BR");
 type Metric = "revenue" | "tickets" | "signups";
 
 export function AdminOverview() {
-  const overview = useQuery({ queryKey: ["admin", "overview"], queryFn: () => api<AdminOverviewDto>("/api/admin/overview") });
+  const overview = useQuery({
+    queryKey: ["admin", "overview"],
+    queryFn: () => api<AdminOverviewDto>("/api/admin/overview"),
+  });
   const [metric, setMetric] = useState<Metric>("revenue");
   if (overview.isPending) {
     return <LoadingBlock rows={4} />;
@@ -66,11 +82,33 @@ export function AdminOverview() {
     return <ErrorMessage error={overview.error} />;
   }
   const o = overview.data;
-  const perTicket = o.paidTickets - o.freeTickets > 0 ? o.netCents / (o.paidTickets - o.freeTickets) : 0;
-  const metrics: Record<Metric, { label: string; format: (value: number) => string; value: (day: AdminOverviewDto["days"][number]) => number }> = {
-    revenue: { label: t.chartRevenue, format: money, value: (day) => day.revenueCents },
-    tickets: { label: t.chartTickets, format: integer, value: (day) => day.tickets },
-    signups: { label: t.chartSignups, format: integer, value: (day) => day.signups },
+  const perTicket =
+    o.paidTickets - o.freeTickets > 0
+      ? o.netCents / (o.paidTickets - o.freeTickets)
+      : 0;
+  const metrics: Record<
+    Metric,
+    {
+      label: string;
+      format: (value: number) => string;
+      value: (day: AdminOverviewDto["days"][number]) => number;
+    }
+  > = {
+    revenue: {
+      label: t.chartRevenue,
+      format: money,
+      value: (day) => day.revenueCents,
+    },
+    tickets: {
+      label: t.chartTickets,
+      format: integer,
+      value: (day) => day.tickets,
+    },
+    signups: {
+      label: t.chartSignups,
+      format: integer,
+      value: (day) => day.signups,
+    },
   };
   const chosen = metrics[metric];
 
@@ -78,7 +116,12 @@ export function AdminOverview() {
     <div className="flex flex-col gap-6">
       <RevenueCard overview={o} />
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
-        <Stat label={t.stats.paidTickets} value={integer(o.paidTickets)} hint={`${t.stats.ticketShare}: ${money(Math.round(perTicket))}`} icon={Ticket} />
+        <Stat
+          label={t.stats.paidTickets}
+          value={integer(o.paidTickets)}
+          hint={`${t.stats.ticketShare}: ${money(Math.round(perTicket))}`}
+          icon={Ticket}
+        />
         <Stat
           label={t.stats.awaiting}
           value={integer(o.awaitingBatches)}
@@ -86,10 +129,30 @@ export function AdminOverview() {
           icon={Hourglass}
           tone={o.awaitingBatches > 0 ? "warning" : "brand"}
         />
-        <Stat label={t.stats.organizations} value={integer(o.organizations)} hint={t.stats.newOrganizations(o.newOrganizations)} icon={Building2} />
-        <Stat label={t.stats.events} value={integer(o.events)} hint={t.stats.upcoming(o.upcomingEvents)} icon={CalendarDays} />
-        <Stat label={t.stats.activeAccounts} value={integer(o.activeAccounts)} hint={t.stats.activeAccountsHint} icon={BadgeCheck} />
-        <Stat label={t.stats.freeLabel} value={integer(o.freeTickets)} hint={t.stats.freeHint} icon={Gift} />
+        <Stat
+          label={t.stats.organizations}
+          value={integer(o.organizations)}
+          hint={t.stats.newOrganizations(o.newOrganizations)}
+          icon={Building2}
+        />
+        <Stat
+          label={t.stats.events}
+          value={integer(o.events)}
+          hint={t.stats.upcoming(o.upcomingEvents)}
+          icon={CalendarDays}
+        />
+        <Stat
+          label={t.stats.activeAccounts}
+          value={integer(o.activeAccounts)}
+          hint={t.stats.activeAccountsHint}
+          icon={BadgeCheck}
+        />
+        <Stat
+          label={t.stats.freeLabel}
+          value={integer(o.freeTickets)}
+          hint={t.stats.freeHint}
+          icon={Gift}
+        />
       </div>
       <Card>
         <CardHeader
@@ -97,7 +160,11 @@ export function AdminOverview() {
           title={t.chartTitle}
           description={t.chartDescription}
           actions={
-            <div role="radiogroup" aria-label={t.chartTitle} className="flex rounded-full border border-border bg-surface-2 p-0.5">
+            <div
+              role="radiogroup"
+              aria-label={t.chartTitle}
+              className="flex rounded-full border border-border bg-surface-2 p-0.5"
+            >
               {(Object.keys(metrics) as Metric[]).map((option) => (
                 <button
                   key={option}
@@ -109,7 +176,9 @@ export function AdminOverview() {
                   }}
                   className={cn(
                     "rounded-full px-3 py-1 text-xs font-medium transition pointer-coarse:px-3.5 pointer-coarse:py-2",
-                    metric === option ? "bg-surface text-fg shadow-sm ring-1 ring-border" : "text-fg-muted hover:text-fg",
+                    metric === option
+                      ? "bg-surface text-fg shadow-sm ring-1 ring-border"
+                      : "text-fg-muted hover:text-fg",
                   )}
                 >
                   {metrics[option].label}
@@ -120,7 +189,10 @@ export function AdminOverview() {
         />
         <BarChart
           label={chosen.label}
-          bars={o.days.map((day) => ({ date: day.date, value: chosen.value(day) }))}
+          bars={o.days.map((day) => ({
+            date: day.date,
+            value: chosen.value(day),
+          }))}
           format={chosen.format}
           describe={t.chartBar}
         />
@@ -129,10 +201,21 @@ export function AdminOverview() {
   );
 }
 
-export function SearchBox({ value, onChange, label = t.search }: { value: string; onChange: (value: string) => void; label?: string }) {
+export function SearchBox({
+  value,
+  onChange,
+  label = t.search,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  label?: string;
+}) {
   return (
     <span className="relative flex w-full sm:max-w-sm">
-      <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-fg-subtle" aria-hidden />
+      <Search
+        className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-fg-subtle"
+        aria-hidden
+      />
       <Input
         type="search"
         value={value}
@@ -147,19 +230,31 @@ export function SearchBox({ value, onChange, label = t.search }: { value: string
   );
 }
 
-export function BonusDialog({ organization, onClose }: { organization: AdminOrganizationDto | null; onClose: () => void }) {
+export function BonusDialog({
+  organization,
+  onClose,
+}: {
+  organization: AdminOrganizationDto | null;
+  onClose: () => void;
+}) {
   const queryClient = useQueryClient();
   const [bonus, setBonus] = useState(organization?.bonusFreeTickets ?? 0);
   const save = useMutation({
     mutationFn: (value: number) =>
-      api<AdminOrganizationDto>(`/api/admin/organizations/${organization?.id ?? ""}/bonus`, { method: "PUT", body: { bonusFreeTickets: value } }),
+      api<AdminOrganizationDto>(
+        `/api/admin/organizations/${organization?.id ?? ""}/bonus`,
+        { method: "PUT", body: { bonusFreeTickets: value } },
+      ),
     onSuccess: () => {
       toast.success(t.organizations.bonusSaved);
       void queryClient.invalidateQueries({ queryKey: ["admin"] });
       onClose();
     },
   });
-  const base = organization === null ? 0 : organization.freeTotal - organization.bonusFreeTickets;
+  const base =
+    organization === null
+      ? 0
+      : organization.freeTotal - organization.bonusFreeTickets;
   return (
     <Dialog
       open={organization !== null}
@@ -193,7 +288,13 @@ export function BonusDialog({ organization, onClose }: { organization: AdminOrga
         className="flex flex-col gap-3"
       >
         <Field label={t.organizations.bonusLabel}>
-          <NumberInput value={bonus} step={10} min={0} max={100_000} onChange={setBonus} />
+          <NumberInput
+            value={bonus}
+            step={10}
+            min={0}
+            max={100_000}
+            onChange={setBonus}
+          />
         </Field>
         <ErrorMessage error={save.error} />
       </form>
@@ -205,15 +306,51 @@ export function AdminOrganizations() {
   const [query, setQuery] = useState("");
   const search = useDeferredValue(query.trim());
   const [editing, setEditing] = useState<AdminOrganizationDto | null>(null);
+  const [tag, setTag] = useState<string | null>(null);
   const organizations = useQuery({
-    queryKey: ["admin", "organizations", search],
-    queryFn: () => api<AdminOrganizationDto[]>(`/api/admin/organizations?q=${encodeURIComponent(search)}`),
+    queryKey: ["admin", "organizations", search, tag],
+    queryFn: () =>
+      api<AdminOrganizationDto[]>(
+        `/api/admin/organizations?q=${encodeURIComponent(search)}${tag === null ? "" : `&tag=${encodeURIComponent(tag)}`}`,
+      ),
     placeholderData: keepPreviousData,
+  });
+  const tags = useQuery({
+    queryKey: ["admin", "organization-tags"],
+    queryFn: () => api<AdminTagCountDto[]>("/api/admin/organizations/tags"),
   });
 
   return (
     <div className="flex flex-col gap-4">
       <SearchBox value={query} onChange={setQuery} />
+      {tags.data !== undefined && tags.data.length > 0 && (
+        <div
+          className="flex flex-wrap gap-2"
+          role="group"
+          aria-label={t.organization.tags}
+        >
+          {tags.data.map((item) => (
+            <button
+              key={item.tag}
+              type="button"
+              aria-pressed={tag === item.tag}
+              onClick={() => {
+                setTag(tag === item.tag ? null : item.tag);
+              }}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm transition pointer-coarse:py-2",
+                tag === item.tag
+                  ? "border-brand bg-brand-soft text-brand-soft-fg"
+                  : "border-border text-fg-muted hover:bg-surface-2 hover:text-fg active:bg-surface-2",
+              )}
+            >
+              <Tag className="size-3.5" aria-hidden />
+              {item.tag}
+              <span className="text-xs tabular opacity-70">{item.count}</span>
+            </button>
+          ))}
+        </div>
+      )}
       {organizations.isPending ? (
         <LoadingBlock rows={4} />
       ) : organizations.isError ? (
@@ -240,24 +377,60 @@ export function AdminOrganizations() {
                   {organization.bonusFreeTickets > 0 && (
                     <Badge tone="brand">
                       <Gift className="size-3" aria-hidden />
-                      {t.organizations.bonusBadge(organization.bonusFreeTickets)}
+                      {t.organizations.bonusBadge(
+                        organization.bonusFreeTickets,
+                      )}
                     </Badge>
                   )}
+                  {isCooling(organization) && (
+                    <span title={t.organization.coolingHint}>
+                      <Badge tone="warning">{t.organization.cooling}</Badge>
+                    </span>
+                  )}
+                  {organization.tags.map((label) => (
+                    <Badge key={label}>{label}</Badge>
+                  ))}
                 </span>
-                <span className="truncate text-sm text-fg-muted">{organization.ownerEmail ?? "—"}</span>
+                <span className="truncate text-sm text-fg-muted">
+                  {organization.ownerEmail ?? "—"}
+                </span>
                 <span className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-fg-subtle">
-                  <span>{t.organizations.created(shortDateTime(organization.createdAt))}</span>
-                  <span>{t.organizations.events(organization.eventCount)}</span>
-                  <span>{t.organizations.free(organization.freeUsed, organization.freeTotal)}</span>
                   <span>
-                    {organization.lastBatchAt === null ? t.organizations.noBatch : t.organizations.lastBatch(shortDateTime(organization.lastBatchAt))}
+                    {t.organizations.created(
+                      shortDateTime(organization.createdAt),
+                    )}
                   </span>
+                  <span>{t.organizations.events(organization.eventCount)}</span>
+                  <span>
+                    {t.organizations.free(
+                      organization.freeUsed,
+                      organization.freeTotal,
+                    )}
+                  </span>
+                  <span>
+                    {organization.lastBatchAt === null
+                      ? t.organizations.noBatch
+                      : t.organizations.lastBatch(
+                          shortDateTime(organization.lastBatchAt),
+                        )}
+                  </span>
+                  {organization.lastActivityAt !== null && (
+                    <span>
+                      {t.organization.lastActivity(
+                        shortDateTime(organization.lastActivityAt),
+                      )}
+                    </span>
+                  )}
                 </span>
               </div>
               <div className="flex items-center gap-4">
                 <div className="flex flex-col items-end text-sm">
-                  <span className="font-semibold text-fg tabular">{money(organization.revenueCents)}</span>
-                  <span className="text-xs text-fg-muted tabular">{t.organizations.tickets(organization.paidTickets)}</span>
+                  <span className="font-semibold text-fg tabular">
+                    {money(organization.revenueCents)}
+                  </span>
+                  <span className="text-xs text-fg-muted tabular">
+                    {t.organizations.tickets(organization.paidTickets)}
+                  </span>
                 </div>
                 <Button
                   variant="secondary"
@@ -288,12 +461,24 @@ export function AdminOrganizations() {
 
 type BatchFilter = BatchStatus | "all";
 
-function PriceDialog({ batch, onClose }: { batch: BatchDto | null; onClose: () => void }) {
+function PriceDialog({
+  batch,
+  onClose,
+}: {
+  batch: BatchDto | null;
+  onClose: () => void;
+}) {
   const queryClient = useQueryClient();
-  const [text, setText] = useState(batch === null ? "" : (batch.priceCents / 100).toFixed(2).replace(".", ","));
+  const [text, setText] = useState(
+    batch === null ? "" : (batch.priceCents / 100).toFixed(2).replace(".", ","),
+  );
   const parsed = parseMoney(text);
   const save = useMutation({
-    mutationFn: (cents: number) => api<BatchDto>(`/api/admin/batches/${batch?.id ?? ""}/price`, { method: "PUT", body: { priceCents: cents } }),
+    mutationFn: (cents: number) =>
+      api<BatchDto>(`/api/admin/batches/${batch?.id ?? ""}/price`, {
+        method: "PUT",
+        body: { priceCents: cents },
+      }),
     onSuccess: () => {
       toast.success(t.batches.priceSaved);
       void queryClient.invalidateQueries({ queryKey: ["admin"] });
@@ -307,7 +492,11 @@ function PriceDialog({ batch, onClose }: { batch: BatchDto | null; onClose: () =
       onClose={onClose}
       size="sm"
       title={t.batches.priceTitle}
-      description={batch === null ? undefined : t.batches.priceDescription(batch.last - batch.first + 1)}
+      description={
+        batch === null
+          ? undefined
+          : t.batches.priceDescription(batch.last - batch.first + 1)
+      }
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
@@ -353,7 +542,13 @@ function PriceDialog({ batch, onClose }: { batch: BatchDto | null; onClose: () =
   );
 }
 
-function RefundDialog({ batch, onClose }: { batch: BatchDto | null; onClose: () => void }) {
+function RefundDialog({
+  batch,
+  onClose,
+}: {
+  batch: BatchDto | null;
+  onClose: () => void;
+}) {
   const queryClient = useQueryClient();
   const [onStripe, setOnStripe] = useState(batch?.paidVia === "stripe");
   const [note, setNote] = useState("");
@@ -361,7 +556,10 @@ function RefundDialog({ batch, onClose }: { batch: BatchDto | null; onClose: () 
     mutationFn: () =>
       api<BatchDto>(`/api/admin/batches/${batch?.id ?? ""}/refund`, {
         method: "POST",
-        body: { refundOnStripe: onStripe, note: note.trim() === "" ? null : note.trim() },
+        body: {
+          refundOnStripe: onStripe,
+          note: note.trim() === "" ? null : note.trim(),
+        },
       }),
     onSuccess: () => {
       toast.success(t.batches.refunded);
@@ -381,7 +579,12 @@ function RefundDialog({ batch, onClose }: { batch: BatchDto | null; onClose: () 
           <Button variant="secondary" autoFocus onClick={onClose}>
             {commonTexts.cancel}
           </Button>
-          <Button variant="danger" icon={<Undo2 />} loading={refund.isPending} onClick={() => refund.mutate()}>
+          <Button
+            variant="danger"
+            icon={<Undo2 />}
+            loading={refund.isPending}
+            onClick={() => refund.mutate()}
+          >
             {t.batches.refund}
           </Button>
         </>
@@ -390,11 +593,17 @@ function RefundDialog({ batch, onClose }: { batch: BatchDto | null; onClose: () 
       <div className="flex flex-col gap-4">
         {batch !== null && (
           <p className="rounded-xl bg-surface-2 px-4 py-3 text-sm text-fg">
-            {t.batches.numbers(batch.first, batch.last)} · {money(batch.priceCents)}
+            {t.batches.numbers(batch.first, batch.last)} ·{" "}
+            {money(batch.priceCents)}
           </p>
         )}
         {batch?.paidVia === "stripe" && (
-          <Switch checked={onStripe} onChange={setOnStripe} label={t.batches.refundOnStripe} description={t.batches.refundOnStripeHint} />
+          <Switch
+            checked={onStripe}
+            onChange={setOnStripe}
+            label={t.batches.refundOnStripe}
+            description={t.batches.refundOnStripeHint}
+          />
         )}
         <Field label={t.batches.refundNote} optional>
           <Input
@@ -411,7 +620,12 @@ function RefundDialog({ batch, onClose }: { batch: BatchDto | null; onClose: () 
     </Dialog>
   );
 }
-const STATUS_TONE: Record<BatchStatus, Tone> = { awaiting_payment: "warning", paid: "success", canceled: "neutral", refunded: "danger" };
+const STATUS_TONE: Record<BatchStatus, Tone> = {
+  awaiting_payment: "warning",
+  paid: "success",
+  canceled: "neutral",
+  refunded: "danger",
+};
 
 export function AdminBatches() {
   const queryClient = useQueryClient();
@@ -422,11 +636,14 @@ export function AdminBatches() {
   const batches = useQuery({
     queryKey: ["admin", "batches", filter, search],
     queryFn: () =>
-      api<AdminBatchDto[]>(`/api/admin/batches?status=${filter === "all" ? "" : filter}&q=${encodeURIComponent(search)}`),
+      api<AdminBatchDto[]>(
+        `/api/admin/batches?status=${filter === "all" ? "" : filter}&q=${encodeURIComponent(search)}`,
+      ),
     placeholderData: keepPreviousData,
   });
   const markPaid = useMutation({
-    mutationFn: (batchId: string) => api(`/api/admin/batches/${batchId}/mark-paid`, { method: "POST" }),
+    mutationFn: (batchId: string) =>
+      api(`/api/admin/batches/${batchId}/mark-paid`, { method: "POST" }),
     onSuccess: () => {
       toast.success(t.batches.markedPaid);
       void queryClient.invalidateQueries({ queryKey: ["admin"] });
@@ -456,7 +673,11 @@ export function AdminBatches() {
         }}
       />
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div role="radiogroup" aria-label={adminTexts.tabs.batches} className="flex w-fit max-w-full overflow-x-auto rounded-full border border-border bg-surface-2 p-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div
+          role="radiogroup"
+          aria-label={adminTexts.tabs.batches}
+          className="flex w-fit max-w-full overflow-x-auto rounded-full border border-border bg-surface-2 p-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
           {(Object.keys(t.batches.filters) as BatchFilter[]).map((option) => (
             <button
               key={option}
@@ -468,7 +689,9 @@ export function AdminBatches() {
               }}
               className={cn(
                 "shrink-0 rounded-full px-3 py-1.5 text-sm font-medium whitespace-nowrap transition",
-                filter === option ? "bg-surface text-fg shadow-sm ring-1 ring-border" : "text-fg-muted hover:text-fg",
+                filter === option
+                  ? "bg-surface text-fg shadow-sm ring-1 ring-border"
+                  : "text-fg-muted hover:text-fg",
               )}
             >
               {t.batches.filters[option]}
@@ -485,91 +708,129 @@ export function AdminBatches() {
         <EmptyState icon={Ticket} title={t.batches.empty} />
       ) : (
         <List className={cn(batches.isPlaceholderData && "opacity-60")}>
-          {batches.data.map(({ batch, eventId, eventName, organizationName, ownerEmail }) => {
-            const quantity = batch.last - batch.first + 1;
-            const payable = batch.status === "awaiting_payment" && batch.pendingPayment !== "processing";
-            return (
-              <ListItem key={batch.id} className="justify-between">
-                <div className="flex min-w-0 flex-col gap-1">
-                  <span className="flex flex-wrap items-center gap-2">
-                    <span className="truncate font-semibold text-fg">{eventName}</span>
-                    <Badge tone={STATUS_TONE[batch.status]} dot>
-                      {b.status[batch.status]}
-                    </Badge>
-                    {batch.paidVia !== null && batch.status === "paid" && <Badge tone="neutral">{b.paidVia[batch.paidVia]}</Badge>}
-                    {batch.pendingPayment !== null && batch.status === "awaiting_payment" && (
-                      <Badge tone="brand">{b.pendingState[batch.pendingPayment]}</Badge>
-                    )}
-                  </span>
-                  <span className="truncate text-sm text-fg-muted">
-                    {organizationName}
-                    {ownerEmail === null ? "" : ` · ${ownerEmail}`}
-                  </span>
-                  <span className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-fg-subtle">
-                    <span>{t.batches.numbers(batch.first, batch.last)}</span>
-                    <span>{t.batches.created(shortDateTime(batch.createdAt))}</span>
-                    {batch.paidAt !== null && <span>{t.batches.paid(shortDateTime(batch.paidAt))}</span>}
-                    {batch.refundedAt !== null && <span>{t.batches.refundedAt(shortDateTime(batch.refundedAt))}</span>}
-                  </span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="flex flex-col items-end text-sm">
-                    <span className="font-semibold text-fg tabular">{batch.priceCents === 0 ? b.free : money(batch.priceCents)}</span>
-                    <span className="text-xs text-fg-muted tabular">{t.batches.quantity(quantity)}</span>
+          {batches.data.map(
+            ({ batch, eventId, eventName, organizationName, ownerEmail }) => {
+              const quantity = batch.last - batch.first + 1;
+              const payable =
+                batch.status === "awaiting_payment" &&
+                batch.pendingPayment !== "processing";
+              return (
+                <ListItem key={batch.id} className="justify-between">
+                  <div className="flex min-w-0 flex-col gap-1">
+                    <span className="flex flex-wrap items-center gap-2">
+                      <span className="truncate font-semibold text-fg">
+                        {eventName}
+                      </span>
+                      <Badge tone={STATUS_TONE[batch.status]} dot>
+                        {b.status[batch.status]}
+                      </Badge>
+                      {batch.paidVia !== null && batch.status === "paid" && (
+                        <Badge tone="neutral">{b.paidVia[batch.paidVia]}</Badge>
+                      )}
+                      {batch.pendingPayment !== null &&
+                        batch.status === "awaiting_payment" && (
+                          <Badge tone="brand">
+                            {b.pendingState[batch.pendingPayment]}
+                          </Badge>
+                        )}
+                    </span>
+                    <span className="truncate text-sm text-fg-muted">
+                      {organizationName}
+                      {ownerEmail === null ? "" : ` · ${ownerEmail}`}
+                    </span>
+                    <span className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-fg-subtle">
+                      <span>{t.batches.numbers(batch.first, batch.last)}</span>
+                      <span>
+                        {t.batches.created(shortDateTime(batch.createdAt))}
+                      </span>
+                      {batch.paidAt !== null && (
+                        <span>
+                          {t.batches.paid(shortDateTime(batch.paidAt))}
+                        </span>
+                      )}
+                      {batch.refundedAt !== null && (
+                        <span>
+                          {t.batches.refundedAt(
+                            shortDateTime(batch.refundedAt),
+                          )}
+                        </span>
+                      )}
+                    </span>
                   </div>
-                  <Link
-                    href={`/painel/eventos/${eventId}?aba=lotes`}
-                    aria-label={t.batches.openEvent}
-                    title={t.batches.openEvent}
-                    className="flex size-9 items-center justify-center rounded-lg text-fg-muted transition hover:bg-surface-2 active:bg-surface-2 hover:text-fg"
-                  >
-                    <ExternalLink className="size-4" aria-hidden />
-                  </Link>
-                  {(payable || batch.status === "paid") && (
-                    <Menu
-                      label={t.batches.actions}
-                      trigger={<MoreHorizontal className="size-4" aria-hidden />}
-                      triggerClassName="flex size-9 items-center justify-center rounded-lg text-fg-muted transition hover:bg-surface-2 active:bg-surface-2 hover:text-fg"
+                  <div className="flex items-center gap-3">
+                    <div className="flex flex-col items-end text-sm">
+                      <span className="font-semibold text-fg tabular">
+                        {batch.priceCents === 0
+                          ? b.free
+                          : money(batch.priceCents)}
+                      </span>
+                      <span className="text-xs text-fg-muted tabular">
+                        {t.batches.quantity(quantity)}
+                      </span>
+                    </div>
+                    <Link
+                      href={`/painel/eventos/${eventId}?aba=lotes`}
+                      aria-label={t.batches.openEvent}
+                      title={t.batches.openEvent}
+                      className="flex size-9 items-center justify-center rounded-lg text-fg-muted transition hover:bg-surface-2 active:bg-surface-2 hover:text-fg"
                     >
-                      {payable && (
-                        <MenuItem
-                          icon={<BadgeCheck />}
-                          onSelect={async () => {
-                            if (await confirm({ title: b.markPaidConfirmTitle, description: b.markPaidConfirmBody, confirmLabel: b.markPaid, danger: false })) {
-                              markPaid.mutate(batch.id);
-                            }
-                          }}
-                        >
-                          {b.markPaid}
-                        </MenuItem>
-                      )}
-                      {payable && (
-                        <MenuItem
-                          icon={<Tag />}
-                          onSelect={() => {
-                            setPricing(batch);
-                          }}
-                        >
-                          {t.batches.changePrice}
-                        </MenuItem>
-                      )}
-                      {batch.status === "paid" && (
-                        <MenuItem
-                          tone="danger"
-                          icon={<Undo2 />}
-                          onSelect={() => {
-                            setRefunding(batch);
-                          }}
-                        >
-                          {t.batches.refund}
-                        </MenuItem>
-                      )}
-                    </Menu>
-                  )}
-                </div>
-              </ListItem>
-            );
-          })}
+                      <ExternalLink className="size-4" aria-hidden />
+                    </Link>
+                    {(payable || batch.status === "paid") && (
+                      <Menu
+                        label={t.batches.actions}
+                        trigger={
+                          <MoreHorizontal className="size-4" aria-hidden />
+                        }
+                        triggerClassName="flex size-9 items-center justify-center rounded-lg text-fg-muted transition hover:bg-surface-2 active:bg-surface-2 hover:text-fg"
+                      >
+                        {payable && (
+                          <MenuItem
+                            icon={<BadgeCheck />}
+                            onSelect={async () => {
+                              if (
+                                await confirm({
+                                  title: b.markPaidConfirmTitle,
+                                  description: b.markPaidConfirmBody,
+                                  confirmLabel: b.markPaid,
+                                  danger: false,
+                                })
+                              ) {
+                                markPaid.mutate(batch.id);
+                              }
+                            }}
+                          >
+                            {b.markPaid}
+                          </MenuItem>
+                        )}
+                        {payable && (
+                          <MenuItem
+                            icon={<Tag />}
+                            onSelect={() => {
+                              setPricing(batch);
+                            }}
+                          >
+                            {t.batches.changePrice}
+                          </MenuItem>
+                        )}
+                        {batch.status === "paid" && (
+                          <MenuItem
+                            tone="danger"
+                            icon={<Undo2 />}
+                            onSelect={() => {
+                              setRefunding(batch);
+                            }}
+                          >
+                            {t.batches.refund}
+                          </MenuItem>
+                        )}
+                      </Menu>
+                    )}
+                  </div>
+                </ListItem>
+              );
+            },
+          )}
         </List>
       )}
     </div>

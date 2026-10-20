@@ -414,9 +414,10 @@ async fn the_mail_log_follows_each_message(pool: PgPool) {
     assert_eq!(summary["webhook"], true);
     assert_eq!(summary["days"].as_array().unwrap().len(), 14);
     let quota = app
-        .get("/api/admin/emails?status=quota", &admin)
+        .get("/api/admin/emails?status=quota&kind=test", &admin)
         .await
         .json();
+    // The admins' quota alerts tried too, and were refused the same way (ADR 0103).
     assert_eq!(quota["total"], 1);
 }
 
