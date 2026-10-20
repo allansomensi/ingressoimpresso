@@ -1,0 +1,107 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select c.id, c.ticket_number, c.giver_id, c.recipient, c.reason, c.created_at,\n                  s.name as \"seller?\",\n                  exists(select 1 from entries e\n                         where e.event_id = c.event_id and e.ticket_number = c.ticket_number) as \"entered!\"\n           from courtesies c\n           left join seller_assignments a on a.event_id = c.event_id and a.numbers @> c.ticket_number\n           left join sellers s on s.id = a.seller_id\n           where c.event_id = $1\n           order by c.created_at desc, c.ticket_number",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "courtesies",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "ticket_number",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "courtesies",
+            "name": "ticket_number"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "giver_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "courtesies",
+            "name": "giver_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "recipient",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "courtesies",
+            "name": "recipient"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "reason",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "courtesies",
+            "name": "reason"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "courtesies",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "seller?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "sellers",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "entered!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "86acbf7b67efe41bef11d7e2a134c6833ae25860435baf14810545a3724b1b2a"
+}

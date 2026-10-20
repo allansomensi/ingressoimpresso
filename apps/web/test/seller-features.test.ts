@@ -128,6 +128,7 @@ describe("goals and ranking", () => {
     phone: null,
     ranges,
     link: null,
+    commission: null,
     boxOffice,
     goal,
     pix: null,

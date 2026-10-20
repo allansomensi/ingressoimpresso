@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select id, name, box_office from sellers where event_id = $1 order by name",
+  "query": "select id, name, box_office, commission_kind, commission_value from sellers where event_id = $1 order by name",
   "describe": {
     "columns": [
       {
@@ -35,6 +35,28 @@
             "name": "box_office"
           }
         }
+      },
+      {
+        "ordinal": 3,
+        "name": "commission_kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "sellers",
+            "name": "commission_kind"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "commission_value",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "sellers",
+            "name": "commission_value"
+          }
+        }
       }
     ],
     "parameters": {
@@ -45,8 +67,10 @@
     "nullable": [
       false,
       false,
-      false
+      false,
+      true,
+      true
     ]
   },
-  "hash": "8f75ae89d48e90862071be6335b5962a9d796e83f2ba3f42b4270c4a0dd57052"
+  "hash": "62f232895e655e446f04fff9269a4fabd9561d601ddc974f64bb9b4905d1505a"
 }

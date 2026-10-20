@@ -45,6 +45,7 @@ import { whatsappLink } from "@/lib/settlement";
 import { PART_AREAS, TEAM_AREAS, areaList, displayName, personInitials, normalizeAreas, responsibleFor } from "@/lib/team";
 import { common as commonTexts } from "@/texts/pt-BR/common";
 
+import { EventHistory } from "./history";
 import { TabHeader } from "./tab-header";
 
 export const AREA_ICONS: Record<TeamArea, LucideIcon> = {
@@ -205,6 +206,9 @@ export function TeamTab({ eventId, event }: { eventId: string; event: EventDto }
           </div>
         )}
       </Card>
+
+      {/* Who changed what (ADR 0099): for who coordinates the event. */}
+      {canManage && <EventHistory eventId={eventId} />}
 
       {dialog !== null && (
         <MemberDialog

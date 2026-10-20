@@ -2,15 +2,18 @@
 
 import type { ReservationDto, SellerOp, SellerTicketBody, SellerViewDto } from "@ingressoimpresso/api-types";
 import {
+  Award,
   Bookmark,
   BookmarkPlus,
   CalendarDays,
   Check,
   CheckCircle2,
   Copy,
+  Gift,
   HandCoins,
   Landmark,
   MapPin,
+  Megaphone,
   MessageCircle,
   Pencil,
   Plus,
@@ -45,7 +48,7 @@ import { countNumbers, intersect } from "@/lib/number-list";
 import { pendingNumbers } from "@/lib/seller-offline";
 import { forKind } from "@/lib/event-kind";
 import { numberCells, padNumber, type NumberCell, type NumberState } from "@/lib/seller-page";
-import { whatsappLink } from "@/lib/settlement";
+import { commissionLabel, whatsappLink } from "@/lib/settlement";
 import { copyText } from "@/lib/share";
 import { sessionLabel } from "@/lib/series";
 import { listNames } from "@/lib/team";
@@ -384,6 +387,17 @@ export function SellerPage() {
 
       <EventChangeNotice change={view.event.change} startsAt={view.event.startsAt} kind={view.event.kind} forSeller />
 
+      {/* The organizer's notice to every seller (ADR 0096), pinned on top. */}
+      {view.notice !== null && (
+        <section role="note" aria-label={t.notice.title} className="flex items-start gap-3 rounded-2xl border border-warning/30 bg-warning-soft px-4 py-3.5 text-warning-fg">
+          <Megaphone aria-hidden className="mt-0.5 size-5 shrink-0" />
+          <span className="flex min-w-0 flex-col gap-1">
+            <span className="text-xs font-semibold tracking-wide uppercase opacity-85">{t.notice.title}</span>
+            <span className="text-[15px] leading-relaxed font-medium break-words whitespace-pre-line">{view.notice.text}</span>
+          </span>
+        </section>
+      )}
+
       <section
         className={cn("relative overflow-hidden rounded-3xl bg-brand-solid p-5 text-white shadow-lg", heroColor === null && "shadow-brand/25")}
         style={heroColor === null ? undefined : { backgroundColor: heroColor }}
@@ -480,17 +494,32 @@ export function SellerPage() {
           {s.dueLines.length > 1 && (
             <ul className="flex flex-col gap-1.5 rounded-2xl bg-surface-2 px-3 py-2.5 text-xs">
               {s.dueLines.map((line) => (
-                <li key={line.category ?? ""} className="flex items-center justify-between gap-2 tabular">
+                <li key={`${line.category ?? ""}-${String(line.courtesy)}`} className="flex items-center justify-between gap-2 tabular">
                   <span className="flex min-w-0 items-center gap-1.5 text-fg">
-                    <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: line.color ?? "var(--border-strong)" }} aria-hidden />
+                    {line.courtesy ? (
+                      <Gift className="size-3 shrink-0 text-fg-muted" aria-hidden />
+                    ) : (
+                      <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: line.color ?? "var(--border-strong)" }} aria-hidden />
+                    )}
                     <span className="truncate">
-                      {line.tickets.toLocaleString("pt-BR")} {line.category ?? t.money.noCategory}
+                      {line.courtesy
+                        ? t.money.courtesies(line.tickets, line.category)
+                        : `${line.tickets.toLocaleString("pt-BR")} ${line.category ?? t.money.noCategory}`}
                     </span>
                   </span>
-                  <span className="shrink-0 text-fg-muted">{line.priceCents === null ? "—" : line.priceCents === 0 ? t.money.free : `× ${money(line.priceCents)}`}</span>
+                  <span className="shrink-0 text-fg-muted">
+                    {line.courtesy ? t.money.courtesyFree : line.priceCents === null ? "—" : line.priceCents === 0 ? t.money.free : `× ${money(line.priceCents)}`}
+                  </span>
                 </li>
               ))}
             </ul>
+          )}
+          {/* What the seller keeps (ADR 0096): already off what is left to hand over. */}
+          {view.commission !== null && s.commissionCents !== null && s.commissionCents > 0 && (
+            <p className="flex items-center gap-1.5 rounded-2xl bg-success-soft px-3 py-2 text-xs font-medium text-success-fg">
+              <Award aria-hidden className="size-3.5 shrink-0" />
+              {t.money.commission(commissionLabel(view.commission, t.money.perUnit), money(s.commissionCents))}
+            </p>
           )}
           {s.pixCents > 0 && (
             <p className="flex items-center gap-1.5 text-xs text-fg-muted">

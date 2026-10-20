@@ -6,6 +6,7 @@
     reason = "HTTP handlers fail with ApiError, whose variants and status codes are documented once in error.rs"
 )]
 
+pub mod activity;
 pub mod api;
 pub mod app;
 pub mod art;

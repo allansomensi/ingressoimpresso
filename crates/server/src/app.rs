@@ -31,7 +31,7 @@ use crate::routes::{
     seller_links, seller_sync, sellers, settlement, status, support, tables, team, tickets,
     two_factor, voids,
 };
-use crate::routes::{checklist, checkpoints, pix, series};
+use crate::routes::{checklist, checkpoints, courtesies, history, pix, series};
 use crate::routes::{referrals, verify};
 use crate::state::AppState;
 
@@ -388,7 +388,37 @@ pub fn router(state: AppState) -> Router {
         .route("/events/{id}/pix-settings", put(pix::update_settings))
         .route("/events/{id}/pix/receipts", post(pix::set_receipts))
         .route("/seller/pix", post(pix::seller_receipt))
+        // Notice to the sellers, commissions and courtesies (ADR 0096).
+        .route(
+            "/events/{id}/seller-notice",
+            put(seller_links::update_notice),
+        )
+        .route("/sellers/{id}/commission", put(sellers::set_commission))
+        .route(
+            "/events/{id}/sellers/commission",
+            post(sellers::set_commission_all),
+        )
+        .route(
+            "/events/{id}/courtesies",
+            get(courtesies::list).post(courtesies::create),
+        )
+        .route("/courtesies/{id}", delete(courtesies::delete))
+        .route(
+            "/events/{id}/courtesy-givers",
+            post(courtesies::create_giver),
+        )
+        .route(
+            "/courtesy-givers/{id}",
+            put(courtesies::update_giver).delete(courtesies::delete_giver),
+        )
+        // The event's history (ADR 0099).
+        .route("/events/{id}/activity", get(history::list))
         .fallback(not_found)
+        // The event's history (ADR 0099): what a handler let through and finished well.
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            crate::activity::record,
+        ))
         .layer(DefaultBodyLimit::max(JSON_BODY_LIMIT))
         // Axum's own rejections (bad JSON, a malformed id, a body too large) answer plain text;
         // the panel maps error codes, so every API error is JSON.

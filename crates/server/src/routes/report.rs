@@ -12,7 +12,9 @@ use time::OffsetDateTime;
 use uuid::Uuid;
 
 use super::{EventRow, authorize_event};
-use crate::api::{EventReportDto, ReportCategoryDto, ReportDeviceDto, ReportRowDto};
+use crate::api::{
+    CommissionDto, CommissionKind, EventReportDto, ReportCategoryDto, ReportDeviceDto, ReportRowDto,
+};
 use crate::auth::AuthUser;
 use crate::error::ApiResult;
 use crate::state::AppState;
@@ -43,6 +45,10 @@ struct Counts {
     /// Entered numbers × their price, and how many entered without one (box office).
     entered_due_cents: i64,
     entered_unpriced: i64,
+    /// Declared sold numbers given as courtesies (ADR 0096): priced 0 above.
+    courtesies: i64,
+    /// What the seller keeps (ADR 0096); `None` without a commission.
+    commission_cents: Option<i64>,
 }
 
 impl Counts {
@@ -64,6 +70,25 @@ impl Counts {
         self.declared_sold += other.declared_sold;
         self.entered_due_cents += other.entered_due_cents;
         self.entered_unpriced += other.entered_unpriced;
+        self.courtesies += other.courtesies;
+        self.commission_cents = match (self.commission_cents, other.commission_cents) {
+            (None, None) => None,
+            (mine, theirs) => Some(mine.unwrap_or(0) + theirs.unwrap_or(0)),
+        };
+    }
+
+    /// The seller's commission on these counts (ADR 0096): a share of the amount due (`None`
+    /// while it is unknown) or an amount per ticket sold, courtesies aside.
+    fn with_commission(mut self, commission: Option<&CommissionDto>, priced: bool) -> Self {
+        self.commission_cents = commission.and_then(|commission| match commission.kind {
+            CommissionKind::Percent => {
+                (priced && self.unpriced == 0).then(|| percent_of(self.due_cents, commission.value))
+            }
+            CommissionKind::PerTicket => {
+                Some((self.declared_sold - self.courtesies).max(0) * i64::from(commission.value))
+            }
+        });
+        self
     }
 
     /// A box office sells at the door (ADR 0069): what entered is what was sold, and what it owes
@@ -86,6 +111,7 @@ impl Counts {
     ) -> ReportRowDto {
         let declared_sold = self.declared_sold;
         let amount_due_cents = (priced && self.unpriced == 0).then_some(self.due_cents);
+        let commission_cents = self.commission_cents;
         let (seller_id, seller) = seller.unzip();
         ReportRowDto {
             seller_id,
@@ -102,14 +128,29 @@ impl Counts {
             amount_due_cents,
             received_cents: self.received_cents,
             pix_cents: self.pix_cents,
+            commission_cents,
+            courtesies: self.courtesies,
             balance_cents: amount_due_cents
                 .filter(|_| owed)
-                .map(|due| due - self.received_cents),
+                .map(|due| due - commission_cents.unwrap_or(0) - self.received_cents),
             marked_sold: self.marked_sold,
             reserved: self.reserved,
             box_office,
         }
     }
+}
+
+/// `value` basis points of `cents`, rounded half up (1000 = 10%).
+pub(crate) fn percent_of(cents: i64, value: i32) -> i64 {
+    (cents * i64::from(value) + 5_000).div_euclid(10_000)
+}
+
+/// A seller's commission as stored (ADR 0096).
+pub(crate) fn commission(kind: Option<&str>, value: Option<i32>) -> Option<CommissionDto> {
+    Some(CommissionDto {
+        kind: CommissionKind::from_db(kind?)?,
+        value: value?,
+    })
 }
 
 /// `GET /api/events/{id}/report`.
@@ -138,7 +179,7 @@ pub(crate) async fn build(state: &AppState, event: &EventRow) -> ApiResult<Event
     let mut by_seller = counts_by_seller(state, event_id, price).await?;
 
     let sellers = sqlx::query!(
-        "select id, name, box_office from sellers where event_id = $1 order by name",
+        "select id, name, box_office, commission_kind, commission_value from sellers where event_id = $1 order by name",
         event_id
     )
     .fetch_all(&state.pool)
@@ -151,6 +192,9 @@ pub(crate) async fn build(state: &AppState, event: &EventRow) -> ApiResult<Event
         let mut counts = by_seller.remove(&Some(seller.id)).unwrap_or_default();
         if seller.box_office {
             counts = counts.as_box_office();
+        } else {
+            let rule = commission(seller.commission_kind.as_deref(), seller.commission_value);
+            counts = counts.with_commission(rule.as_ref(), priced);
         }
         counts.pix_cents = pix.remove(&Some(seller.id)).unwrap_or_default();
         counts.received_cents =
@@ -286,14 +330,15 @@ async fn counts_by_seller(
                   coalesce(sum(c.void_entries), 0)::bigint as "void_entries!",
                   count(ts.ticket_number) filter (where v.number is null) as "marked_sold!",
                   count(rr.ticket_number) filter (where v.number is null and ts.ticket_number is null) as "reserved!",
-                  coalesce(sum(coalesce(tc.price_cents, $2::int4))
+                  coalesce(sum(case when co.id is not null then 0 else coalesce(tc.price_cents, $2::int4) end)
                            filter (where v.reason is distinct from 'unsold' and v.reason is distinct from 'lost'), 0)::bigint as "due_cents!",
                   count(*) filter (where v.reason is distinct from 'unsold' and v.reason is distinct from 'lost'
-                                     and coalesce(tc.price_cents, $2::int4) is null) as "unpriced!",
-                  coalesce(sum(coalesce(tc.price_cents, $2::int4))
+                                     and co.id is null and coalesce(tc.price_cents, $2::int4) is null) as "unpriced!",
+                  coalesce(sum(case when co.id is not null then 0 else coalesce(tc.price_cents, $2::int4) end)
                            filter (where e.ticket_number is not null), 0)::bigint as "entered_due_cents!",
                   count(*) filter (where e.ticket_number is not null
-                                     and coalesce(tc.price_cents, $2::int4) is null) as "entered_unpriced!"
+                                     and co.id is null and coalesce(tc.price_cents, $2::int4) is null) as "entered_unpriced!",
+                  count(co.id) filter (where v.reason is distinct from 'unsold' and v.reason is distinct from 'lost') as "courtesies!"
            from issued i
            left join seller_assignments a on a.event_id = $1 and a.numbers @> i.number
            left join voided v on v.number = i.number
@@ -305,6 +350,7 @@ async fn counts_by_seller(
                                            and rr.seller_id = a.seller_id and rr.expires_at > now()
            left join category_ranges cr on cr.event_id = $1 and cr.numbers @> i.number
            left join ticket_categories tc on tc.id = cr.category_id
+           left join courtesies co on co.event_id = $1 and co.ticket_number = i.number
            group by a.seller_id"#,
         event_id,
         price,
@@ -334,6 +380,8 @@ async fn counts_by_seller(
                     declared_sold: line.tickets - line.unsold - line.lost,
                     entered_due_cents: line.entered_due_cents,
                     entered_unpriced: line.entered_unpriced,
+                    courtesies: line.courtesies,
+                    commission_cents: None,
                 },
             )
         })
@@ -363,12 +411,14 @@ pub(crate) async fn by_category(
                   coalesce(tc.price_cents, $2::int4) as "price_cents?",
                   count(*) as "tickets!",
                   count(*) filter (where v.reason is distinct from 'unsold' and v.reason is distinct from 'lost') as "sold!",
+                  count(co.id) filter (where v.reason is distinct from 'unsold' and v.reason is distinct from 'lost') as "courtesies!",
                   count(e.ticket_number) as "entries!"
            from issued i
            left join voided v on v.number = i.number
            left join entries e on e.event_id = $1 and e.ticket_number = i.number
            left join category_ranges cr on cr.event_id = $1 and cr.numbers @> i.number
            left join ticket_categories tc on tc.id = cr.category_id
+           left join courtesies co on co.event_id = $1 and co.ticket_number = i.number
            group by tc.id, tc.name, tc.color, tc.price_cents, tc.position
            order by tc.position nulls last, tc.name"#,
         event_id,
@@ -389,7 +439,11 @@ pub(crate) async fn by_category(
             tickets: row.tickets,
             sold: row.sold,
             entries: row.entries,
-            amount_cents: row.price_cents.map(|price| row.sold * i64::from(price)),
+            courtesies: row.courtesies,
+            // Courtesies (ADR 0096) are worth nothing.
+            amount_cents: row
+                .price_cents
+                .map(|price| (row.sold - row.courtesies) * i64::from(price)),
         })
         .collect())
 }

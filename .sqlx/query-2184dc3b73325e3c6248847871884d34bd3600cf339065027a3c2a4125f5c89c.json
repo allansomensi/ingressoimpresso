@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update courtesy_givers set name = $2, quota = $3 where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "2184dc3b73325e3c6248847871884d34bd3600cf339065027a3c2a4125f5c89c"
+}

@@ -49,8 +49,12 @@ pub fn need(method: &Method, path: &str) -> Need {
     if matches!(*method, Method::GET | Method::HEAD) {
         return Need::Read;
     }
-    let shape = path
-        .trim_start_matches("/api/")
+    area(method.as_str(), &shape(path))
+}
+
+/// The path's shape: `/api/sellers/{uuid}/ranges` → `sellers/{id}/ranges`.
+pub fn shape(path: &str) -> String {
+    path.trim_start_matches("/api/")
         .split('/')
         .map(|segment| {
             if Uuid::parse_str(segment).is_ok() {
@@ -60,12 +64,14 @@ pub fn need(method: &Method, path: &str) -> Need {
             }
         })
         .collect::<Vec<_>>()
-        .join("/");
-    area(method.as_str(), &shape)
+        .join("/")
 }
 
 /// The area of a request by its method and the path's shape (ids as `{id}`).
 fn area(method: &str, shape: &str) -> Need {
+    if let Some(need) = later_area(method, shape) {
+        return need;
+    }
     match (method, shape) {
         (
             "POST",
@@ -105,6 +111,8 @@ fn area(method: &str, shape: &str) -> Need {
             | "tables/{id}"
             | "events/{id}/tables/layout"
             | "events/{id}/seller-settings"
+            // The notice on the sellers' links (ADR 0096).
+            | "events/{id}/seller-notice"
             | "sellers/{id}/goal"
             // The public check of the event's tickets (ADR 0075) goes with the digital tickets.
             | "events/{id}/verify-settings",
@@ -168,6 +176,25 @@ fn area(method: &str, shape: &str) -> Need {
         }
         _ => Need::Owner,
     }
+}
+
+/// Areas of the endpoints added after the first table (ADRs 0096 on): method, shape, need.
+const LATER: &[(&str, &str, Need)] = &[
+    // Commissions and courtesies change what sellers owe (ADR 0096).
+    ("POST", "events/{id}/sellers/commission", Need::Area(TeamArea::Money)),
+    ("POST", "events/{id}/courtesy-givers", Need::Area(TeamArea::Money)),
+    ("POST", "events/{id}/courtesies", Need::Area(TeamArea::Money)),
+    ("PUT", "sellers/{id}/commission", Need::Area(TeamArea::Money)),
+    ("PUT", "courtesy-givers/{id}", Need::Area(TeamArea::Money)),
+    ("DELETE", "courtesy-givers/{id}", Need::Area(TeamArea::Money)),
+    ("DELETE", "courtesies/{id}", Need::Area(TeamArea::Money)),
+];
+
+fn later_area(method: &str, shape: &str) -> Option<Need> {
+    LATER
+        .iter()
+        .find(|(m, s, _)| *m == method && *s == shape)
+        .map(|(_, _, need)| *need)
 }
 
 /// Whether the request is a member leaving the team (allowed even on a suspended organization).

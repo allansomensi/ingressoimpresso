@@ -14,7 +14,7 @@ issued: number,
  */
 sold: number, 
 /**
- * Tickets of categories priced zero.
+ * Tickets of categories priced zero and courtesies given (ADR 0096).
  */
 courtesies: number, 
 /**
@@ -29,6 +29,10 @@ ticketSalesCents: number | null,
  * Money the sellers handed over.
  */
 receivedCents: number, 
+/**
+ * Kept by the sellers as their commission (ADR 0096).
+ */
+commissionsCents: number, 
 /**
  * Still with the sellers (`null` without prices).
  */

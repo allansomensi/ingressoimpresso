@@ -63,8 +63,17 @@ receivedCents: number,
  */
 pixCents: number, 
 /**
- * Amount due − received: positive is still owed, negative was overpaid. `null` without
- * a ticket price and on the unassigned line (nobody owes those tickets).
+ * What the seller keeps of it (ADR 0096); `null` without a commission or when the amount
+ * due is unknown.
+ */
+commissionCents: number | null, 
+/**
+ * Numbers of the line given as courtesies (ADR 0096): nobody owes them.
+ */
+courtesies: number, 
+/**
+ * Amount due − commission − received: positive is still owed, negative was overpaid.
+ * `null` without a ticket price and on the unassigned line (nobody owes those tickets).
  */
 balanceCents: number | null, 
 /**

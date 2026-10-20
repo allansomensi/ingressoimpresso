@@ -1317,6 +1317,8 @@ dto! {
         pub goal: Option<i32>,
         /// The seller's own Pix key (ADR 0085), when buyers pay them directly.
         pub pix: Option<PixAccountDto>,
+        /// What the seller keeps of what they sold (ADR 0096); never on a box office.
+        pub commission: Option<CommissionDto>,
     }
 
     /// A seller's private link, where they mark what they sold (ADR 0053).
@@ -1383,6 +1385,8 @@ dto! {
         pub send_tickets: bool,
         /// Sellers see their position and the top 5 (ADR 0073).
         pub ranking: bool,
+        /// The notice pinned on every seller's link (ADR 0096).
+        pub notice: Option<SellerNoticeDto>,
     }
 
     /// `PUT /api/events/{id}/seller-settings`: a missing field keeps its value.
@@ -1634,7 +1638,10 @@ dto! {
         #[serde(default)]
         #[cfg_attr(feature = "ts", ts(type = "number"))]
         pub pix_cents: i64,
-        /// Amount due − received, when the event has a price.
+        /// What the seller keeps (ADR 0096), when they have a commission and the amount is known.
+        #[cfg_attr(feature = "ts", ts(type = "number | null"))]
+        pub commission_cents: Option<i64>,
+        /// Amount due − commission − received, when the event has a price.
         #[cfg_attr(feature = "ts", ts(type = "number | null"))]
         pub balance_cents: Option<i64>,
     }
@@ -1649,6 +1656,9 @@ dto! {
         pub tickets: i32,
         /// Price of each.
         pub price_cents: Option<i32>,
+        /// Courtesies given from the seller's numbers (ADR 0096): price 0, nothing owed.
+        #[serde(default)]
+        pub courtesy: bool,
     }
 
     /// A category on the seller's page: which numbers it covers.
@@ -1731,6 +1741,10 @@ dto! {
         pub goal: Option<i32>,
         /// Where the seller stands among the others, when the organizer shows it (ADR 0073).
         pub ranking: Option<SellerRankingDto>,
+        /// The organizer's notice to every seller (ADR 0096).
+        pub notice: Option<SellerNoticeDto>,
+        /// The seller's commission (ADR 0096).
+        pub commission: Option<CommissionDto>,
         /// How buyers pay by Pix (ADR 0085); `null` when the event does not charge by Pix.
         #[serde(default)]
         pub pix: Option<SellerViewPixDto>,
@@ -1821,7 +1835,7 @@ dto! {
         /// Declared sold (not returned unsold nor lost), courtesies included.
         #[cfg_attr(feature = "ts", ts(type = "number"))]
         pub sold: i64,
-        /// Tickets of categories priced zero.
+        /// Tickets of categories priced zero and courtesies given (ADR 0096).
         #[cfg_attr(feature = "ts", ts(type = "number"))]
         pub courtesies: i64,
         /// Tickets that entered.
@@ -1833,6 +1847,9 @@ dto! {
         /// Money the sellers handed over.
         #[cfg_attr(feature = "ts", ts(type = "number"))]
         pub received_cents: i64,
+        /// Kept by the sellers as their commission (ADR 0096).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub commissions_cents: i64,
         /// Still with the sellers (`null` without prices).
         #[cfg_attr(feature = "ts", ts(type = "number | null"))]
         pub outstanding_cents: Option<i64>,
@@ -1872,7 +1889,10 @@ dto! {
         /// Tickets that entered.
         #[cfg_attr(feature = "ts", ts(type = "number"))]
         pub entries: i64,
-        /// Sold × price, when there is a price.
+        /// Of the sold, given as courtesies (ADR 0096).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub courtesies: i64,
+        /// (Sold − courtesies) × price, when there is a price.
         #[cfg_attr(feature = "ts", ts(type = "number | null"))]
         pub amount_cents: Option<i64>,
     }
@@ -2632,8 +2652,15 @@ dto! {
         /// Of `received_cents`, the buyers' Pix received by the organization (ADR 0085).
         #[cfg_attr(feature = "ts", ts(type = "number"))]
         pub pix_cents: i64,
-        /// Amount due − received: positive is still owed, negative was overpaid. `null` without
-        /// a ticket price and on the unassigned line (nobody owes those tickets).
+        /// What the seller keeps of it (ADR 0096); `null` without a commission or when the amount
+        /// due is unknown.
+        #[cfg_attr(feature = "ts", ts(type = "number | null"))]
+        pub commission_cents: Option<i64>,
+        /// Numbers of the line given as courtesies (ADR 0096): nobody owes them.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub courtesies: i64,
+        /// Amount due − commission − received: positive is still owed, negative was overpaid.
+        /// `null` without a ticket price and on the unassigned line (nobody owes those tickets).
         #[cfg_attr(feature = "ts", ts(type = "number | null"))]
         pub balance_cents: Option<i64>,
         /// Marked as sold by the seller on their link (ADR 0053), not voided.
@@ -5349,5 +5376,152 @@ dto_enum! {
         ArtRejected,
         /// No phone was registered at the door yet.
         NoDevices,
+    }
+}
+
+dto_enum! {
+    /// How a seller's commission is counted (ADR 0096).
+    pub enum CommissionKind {
+        /// A share of the amount the seller sold (`value` in basis points: 1000 = 10%).
+        Percent,
+        /// An amount per ticket sold (`value` in cents).
+        PerTicket,
+    }
+}
+db_enum!(CommissionKind { Percent => "percent", PerTicket => "per_ticket" });
+
+dto! {
+    /// A seller's commission (ADR 0096): taken off what they hand over.
+    pub struct CommissionDto {
+        /// Share or amount per ticket.
+        pub kind: CommissionKind,
+        /// Basis points (1–10,000) for a share, cents (1–1,000,000) per ticket.
+        pub value: i32,
+    }
+
+    /// `PUT /api/sellers/{id}/commission` and `POST /api/events/{id}/sellers/commission` (every
+    /// seller but the box office): `null` removes it.
+    pub struct CommissionBody {
+        /// The commission, or `null`.
+        pub commission: Option<CommissionDto>,
+    }
+
+    /// `PUT /api/events/{id}/seller-notice`: a notice pinned on every seller's link (ADR 0096).
+    pub struct SellerNoticeBody {
+        /// Up to 280 characters (line breaks allowed); empty or `null` removes it.
+        pub text: Option<String>,
+    }
+
+    /// The notice the sellers see on their links.
+    pub struct SellerNoticeDto {
+        /// The text.
+        pub text: String,
+        /// When it was written.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub updated_at: OffsetDateTime,
+    }
+
+    /// Someone who may give courtesies, and how many (ADR 0096).
+    pub struct CourtesyGiverDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// Name ("Diretora Ana", "Banda").
+        pub name: String,
+        /// Most courtesies they may give; `null`: no limit.
+        pub quota: Option<i32>,
+        /// Courtesies given.
+        pub given: i32,
+        /// Of those, entered the event.
+        pub entered: i32,
+    }
+
+    /// `POST /api/events/{id}/courtesy-givers` and `PUT /api/courtesy-givers/{id}`.
+    pub struct CourtesyGiverBody {
+        /// Name (1–60 characters, unique per event).
+        pub name: String,
+        /// Most courtesies (1–100,000); `null`: no limit.
+        pub quota: Option<i32>,
+    }
+
+    /// A number given as a courtesy.
+    pub struct CourtesyDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// Ticket number.
+        pub number: i32,
+        /// Who authorized it.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub giver_id: Uuid,
+        /// For whom.
+        pub recipient: String,
+        /// Why.
+        pub reason: Option<String>,
+        /// The seller holding the number, if any (they do not owe it).
+        pub seller: Option<String>,
+        /// The number entered the event.
+        pub entered: bool,
+        /// When it was given.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub created_at: OffsetDateTime,
+    }
+
+    /// `POST /api/events/{id}/courtesies`: one number or a range of paid numbers.
+    pub struct CourtesyBody {
+        /// Who authorizes.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub giver_id: Uuid,
+        /// First number.
+        pub first: i32,
+        /// Last number (inclusive; the same for one).
+        pub last: i32,
+        /// For whom (1–80 characters).
+        pub recipient: String,
+        /// Why (up to 120 characters).
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional))]
+        pub reason: Option<String>,
+    }
+
+    /// `GET /api/events/{id}/courtesies`.
+    pub struct CourtesiesDto {
+        /// Who may give them, with what each gave.
+        pub givers: Vec<CourtesyGiverDto>,
+        /// Every courtesy, newest first.
+        pub courtesies: Vec<CourtesyDto>,
+    }
+
+    /// One change in an event's history (ADR 0099).
+    pub struct ActivityEntryDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// When.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub at: OffsetDateTime,
+        /// Who: their name, else their e-mail; the platform's support for an admin.
+        pub actor: String,
+        /// Their e-mail (`null` for the support).
+        pub email: Option<String>,
+        /// On the event's team, not in its organization (ADR 0055).
+        pub team: bool,
+        /// An admin in support mode (ADR 0032).
+        pub support: bool,
+        /// The request's shape, e.g. `PUT events/{id}/design`: the panel words it.
+        pub action: String,
+        /// The part of the event it belongs to.
+        pub area: Option<TeamArea>,
+    }
+
+    /// `GET /api/events/{id}/activity?before=`: the latest changes, newest first.
+    pub struct ActivityDto {
+        /// Up to 100 changes.
+        pub entries: Vec<ActivityEntryDto>,
+        /// Older ones exist (ask again with `before` = the last `at`).
+        pub more: bool,
     }
 }

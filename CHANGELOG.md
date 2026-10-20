@@ -25,6 +25,17 @@ e não acompanha estes números.
 - Portaria: tela **Fim do evento** (no menu ⋮ e num aviso depois do horário de término) com
   quantos entraram, quantas cópias foram barradas, os outros recusados e as leituras que ainda não
   foram enviadas, com um botão para enviar e o aviso de quando já dá para fechar o app.
+- **Aviso para os vendedores**: um recado fixo no topo do link de cada vendedor ("acerto sábado às
+  10h na secretaria"), escrito na seção Vendedores.
+- **Comissão por vendedor**: percentual ou valor por ingresso, para um vendedor ou para todos de
+  uma vez, já descontada no acerto, no relatório, no resumo do WhatsApp e no link do vendedor; a
+  prestação de contas mostra o total das comissões.
+- **Cortesias com controle**: cadastre quem pode autorizar cortesias e o limite de cada um, dê
+  cortesias com o número, para quem e o motivo. Ninguém paga por elas no acerto, o vendedor que
+  estava com o número vê "cortesia, não paga" e o relatório mostra as cortesias à parte, por quem
+  autorizou.
+- **Histórico do evento** na seção Equipe: quem da organização, da equipe ou do suporte mudou o
+  quê, e quando, com o filtro "Só a equipe". Só alterações que deram certo entram.
 
 ### Alterado
 

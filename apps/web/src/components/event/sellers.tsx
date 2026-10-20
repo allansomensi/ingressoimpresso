@@ -35,6 +35,7 @@ import {
   MessageCircle,
   MoreHorizontal,
   PackageX,
+  Percent,
   Phone,
   Plus,
   QrCode,
@@ -56,6 +57,7 @@ import { toast } from "sonner";
 
 import { ReadOnlyNotice, useEventAccess, useEventKind, useEventTexts, type EventTexts } from "@/components/event/access";
 import { GoalDialog, GoalLine, RankingCard, ReserveDialog, SellerReservations } from "@/components/event/seller-extras";
+import { CommissionBadge, CommissionDialog, CourtesiesCard, SellerNoticeCard } from "@/components/event/seller-money";
 import { PaymentDialog, ReturnDialog } from "@/components/event/settlement-dialogs";
 import { PixCard, SellerPixDialog, useEventPix } from "@/components/pix/event-pix";
 import {
@@ -84,7 +86,7 @@ import { api, isUuid } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { initials, money, shortDateTime, ticketNumber } from "@/lib/format";
 import { NUMBER_LIST_INPUT, countNumbers, formatRanges, intersect, parseNumberList, type NumberRange } from "@/lib/number-list";
-import { receivedPercent, settlementMessage, settlementState, settlementTotals, shortDay, whatsappLink, type SettlementState } from "@/lib/settlement";
+import { netDue, receivedPercent, settlementMessage, settlementState, settlementTotals, shortDay, whatsappLink, type SettlementState } from "@/lib/settlement";
 import { common as commonTexts } from "@/texts/pt-BR/common";
 import { errors as errorsTexts } from "@/texts/pt-BR/errors";
 import { pix as pixTexts } from "@/texts/pt-BR/pix";
@@ -362,7 +364,8 @@ function MoneyBar({ row }: { row: ReportRowDto }) {
   const t = useEventTexts().sellers;
   const state = settlementState(row);
   const percent = receivedPercent(row);
-  if (row.amountDueCents === null) {
+  const due = netDue(row);
+  if (due === null) {
     return <p className="text-sm text-fg-muted">{t.receivedOnly(money(row.receivedCents))}</p>;
   }
   return (
@@ -370,10 +373,14 @@ function MoneyBar({ row }: { row: ReportRowDto }) {
       <div className="flex items-center justify-between gap-3 text-sm">
         <span className="text-fg-muted">
           <span className="font-semibold text-fg tabular">{money(row.receivedCents)}</span>
-          <span className="tabular"> / {money(row.amountDueCents)}</span>
+          <span className="tabular"> / {money(due)}</span>
         </span>
         <StateBadge state={state} />
       </div>
+      {/* The seller's commission (ADR 0096) is already off the amount above. */}
+      {row.commissionCents !== null && row.commissionCents > 0 && (
+        <p className="-mt-1 text-xs text-fg-muted">{t.commission.line(money(row.commissionCents))}</p>
+      )}
       {/* Pix the buyers paid straight to the organization counts as handed over (ADR 0085). */}
       {row.pixCents > 0 && <p className="-mt-1 text-xs text-fg-muted">{pixTexts.summaryPix(money(row.pixCents))}</p>}
       <div
@@ -381,7 +388,7 @@ function MoneyBar({ row }: { row: ReportRowDto }) {
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={percent}
-        aria-label={t.progressLabel(money(row.receivedCents), money(row.amountDueCents))}
+        aria-label={t.progressLabel(money(row.receivedCents), money(due))}
         className="h-2 overflow-hidden rounded-full bg-surface-3"
       >
         <div
@@ -711,7 +718,7 @@ function SellerCard({
   const delivery = can("delivery");
   const cash = can("money");
   const [assigning, setAssigning] = useState(false);
-  const [dialog, setDialog] = useState<"payment" | "return" | "goal" | "reserve" | "pix" | null>(null);
+  const [dialog, setDialog] = useState<"payment" | "return" | "goal" | "reserve" | "pix" | "commission" | null>(null);
   // The card shows what matters at a glance (numbers, money, the link); the rest unfolds.
   const [open, setOpen] = useState(false);
   const remove = useMutation({
@@ -769,6 +776,7 @@ function SellerCard({
                   {pixTexts.sellerKeyBadge}
                 </Badge>
               )}
+              {seller.commission !== null && <CommissionBadge commission={seller.commission} />}
             </span>
             <span className="flex min-w-0 items-center gap-1.5 text-sm text-fg-muted">
               {seller.phone !== null && (
@@ -830,6 +838,17 @@ function SellerCard({
                 }}
               >
                 {seller.goal === null ? t.goal.set : t.goal.change}
+              </MenuItem>
+            )}
+            {/* What the seller keeps changes what they owe: the money part's call (ADR 0096). */}
+            {cash && !seller.boxOffice && (
+              <MenuItem
+                icon={<Percent />}
+                onSelect={() => {
+                  setDialog("commission");
+                }}
+              >
+                {t.commission.menu}
               </MenuItem>
             )}
             {/* Where this seller's buyers pay by Pix: the money part's call (ADR 0085). */}
@@ -1085,6 +1104,14 @@ function SellerCard({
           onSaved={onChange}
         />
       )}
+      <CommissionDialog
+        open={dialog === "commission"}
+        onClose={() => {
+          setDialog(null);
+        }}
+        target={{ kind: "seller", seller }}
+        onSaved={onChange}
+      />
       {dialog === "pix" && (
         <SellerPixDialog
           eventId={event.id}
@@ -1114,7 +1141,7 @@ function SettlementSummary({ rows }: { rows: readonly ReportRowDto[] }) {
   const t = useEventTexts().sellers;
   const s = t.summary;
   const totals = settlementTotals(rows);
-  const percent = receivedPercent({ amountDueCents: totals.dueCents, receivedCents: totals.receivedCents });
+  const percent = receivedPercent({ amountDueCents: totals.dueCents, commissionCents: null, receivedCents: totals.receivedCents });
   return (
     <Card>
       <CardHeader title={t.summaryTitle} description={t.summaryHint} icon={Wallet} />
@@ -1189,6 +1216,41 @@ function SellerSettings({ eventId }: { eventId: string }) {
         }}
         label={t.sendTickets}
         description={on ? t.sendTicketsOn : t.sendTicketsOff}
+      />
+    </Card>
+  );
+}
+
+/** The same commission for every seller but the box office, in one go (ADR 0096). */
+function CommissionAllCard({ eventId, onSaved }: { eventId: string; onSaved: () => void }) {
+  const t = useEventTexts().sellers.commission;
+  const [open, setOpen] = useState(false);
+  return (
+    <Card>
+      <CardHeader
+        title={t.cardTitle}
+        description={t.cardDescription}
+        icon={Percent}
+        className="mb-0"
+        actions={
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              setOpen(true);
+            }}
+          >
+            {t.allAction}
+          </Button>
+        }
+      />
+      <CommissionDialog
+        open={open}
+        onClose={() => {
+          setOpen(false);
+        }}
+        target={{ kind: "all", eventId }}
+        onSaved={onSaved}
       />
     </Card>
   );
@@ -1398,12 +1460,15 @@ export function SellersTab({ eventId, event, onEditEvent }: { eventId: string; e
       {holding && report.data !== undefined && (
         <RankingCard eventId={eventId} sellers={list} rows={rows} editable={delivery && open} onChange={refresh} />
       )}
+      {holding && <CourtesiesCard eventId={eventId} editable={can("money") && open} onChange={refresh} />}
       {/* How the sale works for everybody: read by the whole team, changed by the parts that own
           it (sending tickets: delivery; how buyers pay by Pix: money, ADR 0085). */}
       {sellers.isSuccess && (list.length > 0 || can("money")) && (
         <section className="flex flex-col gap-4">
           <h3 className="text-xs font-semibold tracking-wider text-fg-subtle uppercase">{t.settingsTitle}</h3>
           {list.length > 0 && delivery && open && <SellerSettings eventId={eventId} />}
+          {list.length > 0 && <SellerNoticeCard eventId={eventId} editable={delivery && open} />}
+          {list.some((seller) => !seller.boxOffice) && can("money") && open && <CommissionAllCard eventId={eventId} onSaved={refresh} />}
           <PixCard eventId={eventId} editable={can("money") && open} />
         </section>
       )}

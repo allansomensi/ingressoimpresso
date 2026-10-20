@@ -272,11 +272,27 @@ async fn accountability(state: &AppState, event: EventRow) -> ApiResult<Accounta
         .map(|row| row.balance_cents.map(|balance| balance.max(0)))
         .sum::<Option<i64>>()
         .filter(|_| ticket_sales_cents.is_some());
+    // Free categories, plus the courtesies given from priced ones (ADR 0096).
     let courtesies = report
         .categories
         .iter()
-        .filter(|row| row.price_cents == Some(0))
-        .map(|row| row.tickets)
+        .map(|row| {
+            if row.price_cents == Some(0) {
+                row.tickets
+            } else {
+                row.courtesies
+            }
+        })
+        .sum::<i64>()
+        + if report.categories.is_empty() {
+            report.totals.courtesies
+        } else {
+            0
+        };
+    let commissions_cents = report
+        .sellers
+        .iter()
+        .filter_map(|row| row.commission_cents)
         .sum();
     let summary = AccountabilityDto {
         issued: report.totals.tickets,
@@ -285,6 +301,7 @@ async fn accountability(state: &AppState, event: EventRow) -> ApiResult<Accounta
         entries: report.totals.entries,
         ticket_sales_cents,
         received_cents,
+        commissions_cents,
         outstanding_cents,
         other_income_cents,
         expenses_cents,
@@ -349,17 +366,25 @@ fn document(data: &Accountability) -> ReportDocument {
                 .outstanding_cents
                 .filter(|cents| *cents > 0)
                 .map(|cents| t.outstanding_note.replace("{amount}", &brl(cents))),
-            facts: vec![
-                fact(t.received, brl(s.received_cents), true, None),
-                fact(t.other_income, brl(s.other_income_cents), false, None),
-                fact(t.spent, brl(spent), false, None),
-                fact(
-                    t.balance,
-                    brl(s.balance_cents),
-                    true,
-                    Some(if s.balance_cents < 0 { "bad" } else { "good" }),
-                ),
-            ],
+            facts: [
+                vec![fact(t.received, brl(s.received_cents), true, None)],
+                // Kept by the sellers (ADR 0096): never in the cash, said apart.
+                (s.commissions_cents > 0)
+                    .then(|| fact(t.commissions, brl(s.commissions_cents), false, None))
+                    .into_iter()
+                    .collect(),
+                vec![
+                    fact(t.other_income, brl(s.other_income_cents), false, None),
+                    fact(t.spent, brl(spent), false, None),
+                    fact(
+                        t.balance,
+                        brl(s.balance_cents),
+                        true,
+                        Some(if s.balance_cents < 0 { "bad" } else { "good" }),
+                    ),
+                ],
+            ]
+            .concat(),
             table: None,
         },
         ReportSection {
@@ -560,6 +585,7 @@ fn workbook(data: &Accountability) -> Workbook {
             vec![label(t.entries), Cell::Int(s.entries)],
             vec![label(t.ticket_sales), money(s.ticket_sales_cents)],
             vec![label(t.received), Cell::Money(s.received_cents)],
+            vec![label(t.commissions), Cell::Money(s.commissions_cents)],
             vec![label(t.outstanding), money(s.outstanding_cents)],
             vec![label(t.other_income), Cell::Money(s.other_income_cents)],
             vec![label(t.expenses), Cell::Money(s.expenses_cents)],

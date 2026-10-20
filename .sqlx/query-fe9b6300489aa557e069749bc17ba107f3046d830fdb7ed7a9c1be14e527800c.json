@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select quota from courtesy_givers where id = $1 and event_id = $2 for update",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "quota",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "courtesy_givers",
+            "name": "quota"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "fe9b6300489aa557e069749bc17ba107f3046d830fdb7ed7a9c1be14e527800c"
+}

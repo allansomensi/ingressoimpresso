@@ -33,6 +33,10 @@ sold: number,
  */
 entries: number, 
 /**
- * Sold × price, when there is a price.
+ * Of the sold, given as courtesies (ADR 0096).
+ */
+courtesies: number, 
+/**
+ * (Sold − courtesies) × price, when there is a price.
  */
 amountCents: number | null, };

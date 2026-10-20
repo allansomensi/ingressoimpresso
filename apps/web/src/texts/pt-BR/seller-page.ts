@@ -129,7 +129,14 @@ export const sellerPage = {
     settled: "Tudo certo, acerto quitado.",
     overpaid: (amount: string) => `Você passou ${amount} a mais.`,
     explain: "Conta com os números que estão com você. O que você devolver ao organizador sai da conta.",
+    // Courtesies and commission (ADR 0096).
+    courtesies: (count: number, category: string | null) =>
+      `${count === 1 ? "1 cortesia" : `${count.toLocaleString("pt-BR")} cortesias`}${category === null ? "" : ` (${category})`}`,
+    courtesyFree: "não paga",
+    perUnit: "por ingresso",
+    commission: (rule: string, amount: string) => `Sua comissão (${rule}): ${amount}, já descontada do que falta passar.`,
   },
+  notice: { title: "Aviso do organizador" },
   mark: "Marcar venda",
   filters: { available: "Com você", sold: "Vendidos", all: "Todos" },
   gridHint: "Toque num número para marcar a venda.",
@@ -217,7 +224,7 @@ export const sellerPage = {
   },
   // Consumption tokens (ADR 0086): the same page in the words of a ficha.
   tokens: {
-    money: { byCategory: "por produto", noCategory: "sem produto" },
+    money: { byCategory: "por produto", noCategory: "sem produto", perUnit: "por ficha" },
     categoriesLegend: "Produtos",
     offline: {
       ticketOffline: "Criar a ficha no celular precisa de internet. Marque a venda agora e envie a ficha quando a conexão voltar.",

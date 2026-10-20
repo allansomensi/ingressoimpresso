@@ -14,7 +14,9 @@ import type {
   SellerOpItem,
   SellerOpProblemDto,
   SellerOpResultDto,
+  SellerDueLineDto,
   SellerSaleDto,
+  SellerSummaryDto,
   SellerViewDto,
 } from "@ingressoimpresso/api-types";
 
@@ -245,8 +247,13 @@ const MAX_LINKS = 5;
 
 type Saved = { view: SellerViewDto; savedAt: string };
 /** A view as an older version of the page may have saved it. */
-type StoredView = Omit<SellerViewDto, "pix" | "sales"> &
-  Partial<Pick<SellerViewDto, "pix">> & { sales: (Omit<SellerSaleDto, "pixReceipt"> & Partial<Pick<SellerSaleDto, "pixReceipt">>)[] };
+type StoredSummary = Omit<SellerSummaryDto, "commissionCents" | "dueLines"> &
+  Partial<Pick<SellerSummaryDto, "commissionCents">> & { dueLines: (Omit<SellerDueLineDto, "courtesy"> & Partial<Pick<SellerDueLineDto, "courtesy">>)[] };
+type StoredView = Omit<SellerViewDto, "pix" | "sales" | "notice" | "commission" | "summary"> &
+  Partial<Pick<SellerViewDto, "pix" | "notice" | "commission">> & {
+    sales: (Omit<SellerSaleDto, "pixReceipt"> & Partial<Pick<SellerSaleDto, "pixReceipt">>)[];
+    summary: StoredSummary;
+  };
 
 function read<T>(name: string): T | null {
   try {
@@ -279,7 +286,15 @@ export function readSaved(key: string): Saved | null {
   const { view } = saved;
   return {
     savedAt: saved.savedAt,
-    view: { ...view, pix: view.pix ?? null, sales: view.sales.map((sale) => ({ ...sale, pixReceipt: sale.pixReceipt ?? null })) },
+    view: {
+      ...view,
+      pix: view.pix ?? null,
+      // Saved before the notice and the commission (ADR 0096).
+      notice: view.notice ?? null,
+      commission: view.commission ?? null,
+      summary: { ...view.summary, commissionCents: view.summary.commissionCents ?? null, dueLines: view.summary.dueLines.map((line) => ({ ...line, courtesy: line.courtesy ?? false })) },
+      sales: view.sales.map((sale) => ({ ...sale, pixReceipt: sale.pixReceipt ?? null })),
+    },
   };
 }
 

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select id, name, phone, box_office, goal, pix_key_type, pix_key, pix_name, pix_city\n           from sellers where event_id = $1 order by name",
+  "query": "select id, name, phone, box_office, goal, pix_key_type, pix_key, pix_name, pix_city,\n                  commission_kind, commission_value\n           from sellers where event_id = $1 order by name",
   "describe": {
     "columns": [
       {
@@ -101,6 +101,28 @@
             "name": "pix_city"
           }
         }
+      },
+      {
+        "ordinal": 9,
+        "name": "commission_kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "sellers",
+            "name": "commission_kind"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "commission_value",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "sellers",
+            "name": "commission_value"
+          }
+        }
       }
     ],
     "parameters": {
@@ -117,8 +139,10 @@
       true,
       true,
       true,
+      true,
+      true,
       true
     ]
   },
-  "hash": "8b8f25b737fb769b6c9eb41feb6b51b710cdf5ce71b38ff3d4808de4405f30eb"
+  "hash": "9f8646f5f2998deb012f4eea4f9795af098cd8dc1fb927a63d4b66a390888a68"
 }

@@ -683,7 +683,7 @@ async fn goals_and_the_ranking(pool: PgPool) {
         .await;
     assert_eq!(
         reply.json(),
-        json!({ "sendTickets": true, "ranking": true }),
+        json!({ "sendTickets": true, "ranking": true, "notice": null }),
         "a missing field keeps its value"
     );
     let view = sync(&app, &joao, json!([])).await.json()["view"].clone();

@@ -11,8 +11,8 @@ use super::{
     EventAccess, authorize_event, bounds, event_access, is_issued, one_line, optional_text, range,
 };
 use crate::api::{
-    AssignRemainingBody, AvailableNumbersDto, NumberRangeDto, RangeBody, RangeDto, SellerBody,
-    SellerDto, TeamArea,
+    AssignRemainingBody, AvailableNumbersDto, CommissionBody, CommissionDto, CommissionKind,
+    NumberRangeDto, RangeBody, RangeDto, SellerBody, SellerDto, TeamArea,
 };
 use crate::auth::AuthUser;
 use crate::error::{ApiError, ApiResult, bad_request};
@@ -53,7 +53,8 @@ pub async fn list(
 ) -> ApiResult<Json<Vec<SellerDto>>> {
     let access = event_access(&state.pool, &user, event_id).await?;
     let sellers = sqlx::query!(
-        r#"select id, name, phone, box_office, goal, pix_key_type, pix_key, pix_name, pix_city
+        r#"select id, name, phone, box_office, goal, pix_key_type, pix_key, pix_name, pix_city,
+                  commission_kind, commission_value
            from sellers where event_id = $1 order by name"#,
         event_id
     )
@@ -98,6 +99,10 @@ pub async fn list(
                     seller.pix_key,
                     seller.pix_name,
                     seller.pix_city,
+                ),
+                commission: super::report::commission(
+                    seller.commission_kind.as_deref(),
+                    seller.commission_value,
                 ),
             })
             .collect(),
@@ -158,6 +163,7 @@ pub async fn create(
             box_office,
             goal: None,
             pix: None,
+            commission: None,
         }),
     ))
 }
@@ -218,7 +224,9 @@ pub async fn update(
     }
     let box_office = sqlx::query_scalar!(
         r#"update sellers set name = $2, phone = $3, box_office = coalesce($4, box_office),
-                              goal = case when coalesce($4, box_office) then null else goal end
+                              goal = case when coalesce($4, box_office) then null else goal end,
+                              commission_kind = case when coalesce($4, box_office) then null else commission_kind end,
+                              commission_value = case when coalesce($4, box_office) then null else commission_value end
            where id = $1 returning box_office"#,
         seller_id,
         name,
@@ -237,6 +245,76 @@ pub async fn update(
     }
     tx.commit().await?;
     Ok(StatusCode::NO_CONTENT)
+}
+
+/// A commission within its limits (ADR 0096): 0.01–100% or R$ 0,01–10.000,00 per ticket.
+fn check_commission(commission: Option<&CommissionDto>) -> ApiResult<()> {
+    let Some(commission) = commission else {
+        return Ok(());
+    };
+    let limit = match commission.kind {
+        CommissionKind::Percent => 10_000,
+        CommissionKind::PerTicket => 1_000_000,
+    };
+    if !(1..=limit).contains(&commission.value) {
+        return Err(bad_request(
+            "invalid_commission",
+            format!("the commission must be 1–{limit}"),
+        ));
+    }
+    Ok(())
+}
+
+/// `PUT /api/sellers/{id}/commission` (ADR 0096): what the seller keeps of what they sold; a
+/// box office keeps nothing.
+pub async fn set_commission(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(seller_id): Path<Uuid>,
+    Json(body): Json<CommissionBody>,
+) -> ApiResult<StatusCode> {
+    seller_event(&state, &user, seller_id).await?;
+    check_commission(body.commission.as_ref())?;
+    let box_office = sqlx::query_scalar!("select box_office from sellers where id = $1", seller_id)
+        .fetch_one(&state.pool)
+        .await?;
+    if box_office && body.commission.is_some() {
+        return Err(bad_request(
+            "commission_box_office",
+            "a box office has no commission",
+        ));
+    }
+    sqlx::query!(
+        "update sellers set commission_kind = $2, commission_value = $3 where id = $1",
+        seller_id,
+        body.commission.as_ref().map(|c| c.kind.db()),
+        body.commission.as_ref().map(|c| c.value),
+    )
+    .execute(&state.pool)
+    .await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// `POST /api/events/{id}/sellers/commission` (ADR 0096): the same commission for every seller
+/// but the box office. Answers how many sellers changed.
+pub async fn set_commission_all(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(event_id): Path<Uuid>,
+    Json(body): Json<CommissionBody>,
+) -> ApiResult<Json<u64>> {
+    authorize_event(&state.pool, &user, event_id).await?;
+    check_commission(body.commission.as_ref())?;
+    let changed = sqlx::query!(
+        "update sellers set commission_kind = $2, commission_value = $3 where event_id = $1 and not box_office",
+        event_id,
+        body.commission.as_ref().map(|c| c.kind.db()),
+        body.commission.as_ref().map(|c| c.value),
+    )
+    .execute(&state.pool)
+    .await?
+    .rows_affected();
+    Ok(Json(changed))
 }
 
 /// `DELETE /api/sellers/{id}` (also removes their ranges).
