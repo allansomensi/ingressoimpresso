@@ -32,8 +32,8 @@ use crate::routes::{
     two_factor, voids,
 };
 use crate::routes::{
-    admin_insights, alerts, cashier, checklist, checkpoints, courtesies, disputes, history, pix,
-    public_page, series,
+    admin_insights, alerts, cashier, checklist, checkpoints, courtesies, crm, disputes, history,
+    pix, public_page, series,
 };
 use crate::routes::{referrals, verify};
 use crate::state::AppState;
@@ -146,6 +146,15 @@ pub fn router(state: AppState) -> Router {
         .route("/admin/live", get(admin_insights::live))
         .route("/admin/finance", get(analytics::finance))
         .route("/admin/organizations", get(admin::organizations))
+        // The admins' file on an organization (ADR 0105).
+        .route("/admin/organizations/tags", get(crm::tags))
+        .route("/admin/organizations/{id}/tags", put(crm::set_tags))
+        .route("/admin/organizations/{id}/timeline", get(crm::timeline))
+        .route("/admin/organizations/{id}/notes", post(crm::create_note))
+        .route(
+            "/admin/organization-notes/{id}",
+            put(crm::update_note).delete(crm::delete_note),
+        )
         .route(
             "/admin/organizations/{id}",
             get(support::organization).put(support::rename),

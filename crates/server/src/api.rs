@@ -606,6 +606,12 @@ dto! {
         pub last_batch_at: Option<OffsetDateTime>,
         /// Suspended by an admin.
         pub suspended: bool,
+        /// The admins' own labels (ADR 0105), lowercase.
+        pub tags: Vec<String>,
+        /// Last sign-in of a member or last batch, whichever is later.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub last_activity_at: Option<OffsetDateTime>,
     }
 
     /// `GET /api/admin/organizations/{id}`: one account for support.
@@ -624,6 +630,8 @@ dto! {
         pub events: Vec<AdminEventDto>,
         /// Latest admin actions on this organization.
         pub audit: Vec<AuditEntryDto>,
+        /// The admins' internal notes, pinned first (ADR 0105).
+        pub notes: Vec<OrganizationNoteDto>,
     }
 
     /// A member of an organization, as admins see it.
@@ -6189,3 +6197,118 @@ dto! {
         pub settled: bool,
     }
 }
+
+dto! {
+    /// An admin's internal note on an organization (ADR 0105); the organization never sees it.
+    pub struct OrganizationNoteDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// The text (up to 2000 characters).
+        pub body: String,
+        /// Shown first.
+        pub pinned: bool,
+        /// Who wrote it.
+        pub author_email: String,
+        /// When.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub created_at: OffsetDateTime,
+        /// Last edit.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub updated_at: OffsetDateTime,
+    }
+
+    /// `POST /api/admin/organizations/{id}/notes` and `PUT /api/admin/organization-notes/{id}`.
+    pub struct OrganizationNoteBody {
+        /// The text.
+        pub body: String,
+        /// Shown first.
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional))]
+        pub pinned: Option<bool>,
+    }
+
+    /// `PUT /api/admin/organizations/{id}/tags`: replaces the labels.
+    pub struct OrganizationTagsBody {
+        /// Up to 10, each 1–30 characters; kept lowercase.
+        pub tags: Vec<String>,
+    }
+
+    /// A label in use, with how many organizations carry it.
+    pub struct AdminTagCountDto {
+        /// The label.
+        pub tag: String,
+        /// Organizations.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub count: i64,
+    }
+
+    /// One thing that happened to an organization (`GET /api/admin/organizations/{id}/timeline`).
+    pub struct TimelineEntryDto {
+        /// When.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub at: OffsetDateTime,
+        /// What.
+        pub kind: TimelineKind,
+        /// A code the panel translates: the audit action, the credit reason, the e-mail status,
+        /// the way a batch was paid, the dispute status, a member's role.
+        pub code: Option<String>,
+        /// Free text: an e-mail's subject, a note, a coupon code, a credit note.
+        pub detail: Option<String>,
+        /// Money, in centavos.
+        #[cfg_attr(feature = "ts", ts(type = "number | null"))]
+        pub amount_cents: Option<i64>,
+        /// Tickets.
+        #[cfg_attr(feature = "ts", ts(type = "number | null"))]
+        pub count: Option<i64>,
+        /// Who: the member, the admin, the recipient.
+        pub actor: Option<String>,
+        /// The event it is about.
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub event_id: Option<Uuid>,
+        /// Its name.
+        pub event_name: Option<String>,
+    }
+}
+
+dto_enum! {
+    /// Kinds of `TimelineEntryDto`.
+    pub enum TimelineKind {
+        /// The organization was created.
+        Signup,
+        /// Someone joined it.
+        MemberJoined,
+        /// A member signed in.
+        Login,
+        /// An event was created.
+        EventCreated,
+        /// A batch was created.
+        BatchCreated,
+        /// A batch was paid.
+        BatchPaid,
+        /// A batch was refunded.
+        BatchRefunded,
+        /// A card payment was disputed.
+        Dispute,
+        /// An e-mail went to a member.
+        Email,
+        /// Credit moved.
+        Credit,
+        /// A coupon was redeemed.
+        Coupon,
+        /// An admin acted.
+        Admin,
+        /// An admin wrote a note.
+        Note,
+    }
+}
+
+db_enum!(TimelineKind {
+    Signup => "signup", MemberJoined => "member_joined", Login => "login",
+    EventCreated => "event_created", BatchCreated => "batch_created", BatchPaid => "batch_paid",
+    BatchRefunded => "batch_refunded", Dispute => "dispute", Email => "email", Credit => "credit",
+    Coupon => "coupon", Admin => "admin", Note => "note"
+});

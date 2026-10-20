@@ -378,6 +378,7 @@ pub async fn organization(
         )
         .await?
         .0,
+        notes: super::crm::load_notes(&state.pool, organization_id).await?,
     }))
 }
 
