@@ -12,6 +12,23 @@ e não acompanha estes números.
 
 ## [Não lançado]
 
+### Adicionado
+
+- A imagem de amostra do ingresso ("Ver como fica") leva embaixo o logo, o nome e o endereço do
+  Ingresso Impresso, para quem recebe a imagem saber de onde ela veio.
+
+### Alterado
+
+- O editor do ingresso abre mais rápido: a galeria de modelos só carrega quando você toca em
+  **Modelos**.
+- A vitrine de modelos da página inicial mostra as imagens prontas de cada modelo, bem mais leves
+  no celular, e cada uma leva à página do modelo.
+
+### Corrigido
+
+- Na prévia do editor, uma letra cursiva que passa da linha (o "J" de "Júlia" num nome de duas
+  linhas) não é mais cortada. O arquivo impresso já saía certo.
+
 ## [1.8.0] - 2026-10-20
 
 ### Adicionado
