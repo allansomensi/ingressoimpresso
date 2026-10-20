@@ -1,0 +1,91 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select u.email::text as \"email!\", u.announcement_emails, a.title, a.body, a.cta_label,\n                  a.cta_url, a.archived_at is not null as \"archived!\"\n           from users u, announcement_mailings m join announcements a on a.id = m.announcement_id\n           where u.id = $1 and m.id = $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "email!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "announcement_emails",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "users",
+            "name": "announcement_emails"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "title",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "announcements",
+            "name": "title"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "body",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "announcements",
+            "name": "body"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "cta_label",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "announcements",
+            "name": "cta_label"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "cta_url",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "announcements",
+            "name": "cta_url"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "archived!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null,
+      false,
+      false,
+      false,
+      true,
+      true,
+      null
+    ]
+  },
+  "hash": "828fdfc765dbe4b20f8f310d51abc66f202a67136af027c49c63ba073c000088"
+}

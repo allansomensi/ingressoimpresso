@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update announcement_mail_recipients set status = 'failed'\n           where status = 'sending' and sent_at < now() - make_interval(mins => $1)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6b9f86e452903bd4097522f78d37c9df0246a6c72b3f32be783b742b30839b45"
+}

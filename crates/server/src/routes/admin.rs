@@ -174,6 +174,9 @@ pub struct SearchQuery {
     /// Part of a name or e-mail.
     #[serde(default)]
     q: Option<String>,
+    /// Organizations with this label (ADR 0105).
+    #[serde(default)]
+    tag: Option<String>,
 }
 
 struct OrganizationRow {
@@ -188,6 +191,8 @@ struct OrganizationRow {
     bonus_free_tickets: i32,
     last_batch_at: Option<OffsetDateTime>,
     suspended: bool,
+    admin_tags: Vec<String>,
+    last_activity_at: Option<OffsetDateTime>,
 }
 
 impl OrganizationRow {
@@ -205,6 +210,8 @@ impl OrganizationRow {
             bonus_free_tickets: self.bonus_free_tickets,
             last_batch_at: self.last_batch_at,
             suspended: self.suspended,
+            tags: self.admin_tags,
+            last_activity_at: self.last_activity_at,
         }
     }
 }
@@ -219,15 +226,21 @@ pub(crate) fn like_pattern(query: Option<&str>) -> Option<String> {
     Some(format!("%{escaped}%"))
 }
 
-/// Organizations with their usage: one (`id`) or those matching `pattern`, newest first.
+/// Organizations with their usage: one (`id`) or those matching `pattern` and `tag`, newest
+/// first.
 async fn load_organizations(
     state: &AppState,
     id: Option<Uuid>,
     pattern: Option<String>,
+    tag: Option<String>,
 ) -> ApiResult<Vec<OrganizationRow>> {
     Ok(sqlx::query_as!(
         OrganizationRow,
         r#"select o.id, o.name, o.created_at, o.bonus_free_tickets, o.suspended_at is not null as "suspended!",
+                  o.admin_tags,
+                  greatest(stats.last_batch_at,
+                           (select max(u.last_login_at) from memberships m join users u on u.id = m.user_id
+                            where m.organization_id = o.id)) as last_activity_at,
                   (select u.email::text from memberships m join users u on u.id = m.user_id
                    where m.organization_id = o.id and m.role = 'owner'
                    order by m.created_at limit 1) as owner_email,
@@ -250,17 +263,19 @@ async fn load_organizations(
                   or o.name ilike $2
                   or exists (select 1 from memberships m join users u on u.id = m.user_id
                              where m.organization_id = o.id and u.email::text ilike $2))
+             and ($4::text is null or $4 = any(o.admin_tags))
            order by o.created_at desc
            limit $3"#,
         id,
         pattern,
         LIST_LIMIT,
+        tag,
     )
     .fetch_all(&state.pool)
     .await?)
 }
 
-/// `GET /api/admin/organizations?q=`: newest first, at most 200.
+/// `GET /api/admin/organizations?q=&tag=`: newest first, at most 200.
 pub async fn organizations(
     State(state): State<AppState>,
     user: AuthUser,
@@ -268,7 +283,12 @@ pub async fn organizations(
 ) -> ApiResult<Json<Vec<AdminOrganizationDto>>> {
     require_admin(&user)?;
     let pattern = like_pattern(query.q.as_deref());
-    let rows = load_organizations(&state, None, pattern).await?;
+    let tag = query
+        .tag
+        .as_deref()
+        .map(|tag| tag.trim().to_lowercase())
+        .filter(|tag| !tag.is_empty());
+    let rows = load_organizations(&state, None, pattern, tag).await?;
     let base_free = crate::pricing::current(&state.pool).await?.free_tickets;
     Ok(Json(
         rows.into_iter()
@@ -369,7 +389,7 @@ pub(crate) async fn load_organization(
     state: &AppState,
     organization_id: Uuid,
 ) -> ApiResult<AdminOrganizationDto> {
-    Ok(load_organizations(state, Some(organization_id), None)
+    Ok(load_organizations(state, Some(organization_id), None, None)
         .await?
         .into_iter()
         .next()

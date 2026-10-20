@@ -1,6 +1,9 @@
 "use client";
 
-import type { AdminOrganizationDetailDto, AuditEntryDto } from "@ingressoimpresso/api-types";
+import type {
+  AdminOrganizationDetailDto,
+  AuditEntryDto,
+} from "@ingressoimpresso/api-types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   BadgeCheck,
@@ -26,6 +29,11 @@ import { toast } from "sonner";
 import { BonusDialog } from "@/components/admin/admin-views";
 import { OrganizationCredits } from "@/components/admin/organization-credits";
 import {
+  OrganizationNotes,
+  OrganizationTags,
+  OrganizationTimeline,
+} from "@/components/admin/organization-crm";
+import {
   Alert,
   Badge,
   Button,
@@ -48,6 +56,7 @@ import {
 import { api } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { dateTime, eventDateTime, money, shortDateTime } from "@/lib/format";
+import { isCooling } from "@/lib/organization-crm";
 import { account as accountTexts } from "@/texts/pt-BR/account";
 import { admin as adminTexts } from "@/texts/pt-BR/admin";
 import { common as commonTexts } from "@/texts/pt-BR/common";
@@ -56,16 +65,29 @@ import { event as eventTexts } from "@/texts/pt-BR/event";
 const t = adminTexts.organization;
 
 /** One line of the audit log: who did what, when. */
-export function AuditLine({ entry, showOrganization = true }: { entry: AuditEntryDto; showOrganization?: boolean }) {
+export function AuditLine({
+  entry,
+  showOrganization = true,
+}: {
+  entry: AuditEntryDto;
+  showOrganization?: boolean;
+}) {
   const action = adminTexts.audit.actions[entry.action] ?? entry.action;
   const detail = entry.detail;
-  const path = typeof detail["path"] === "string" ? `${String(detail["method"] ?? "")} ${detail["path"]}` : null;
+  const path =
+    typeof detail["path"] === "string"
+      ? `${String(detail["method"] ?? "")} ${detail["path"]}`
+      : null;
   // A few details of the action (amounts, names, switches), never the request path twice.
   const facts = Object.entries(detail)
-    .filter(([key, value]) => key !== "path" && key !== "method" && value !== null && value !== "")
+    .filter(
+      ([key, value]) =>
+        key !== "path" && key !== "method" && value !== null && value !== "",
+    )
     .slice(0, 4)
     .map(([key, value]) => {
-      const text = typeof value === "object" ? JSON.stringify(value) : String(value);
+      const text =
+        typeof value === "object" ? JSON.stringify(value) : String(value);
       return `${key}: ${text.length > 60 ? `${text.slice(0, 59)}…` : text}`;
     });
   return (
@@ -74,13 +96,21 @@ export function AuditLine({ entry, showOrganization = true }: { entry: AuditEntr
         <span className="text-sm font-medium text-fg">{action}</span>
         <span className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-fg-muted">
           <span>{entry.actorEmail}</span>
-          {showOrganization && entry.organizationName !== null && entry.organizationId !== null && (
-            <Link href={`/painel/admin/organizacoes/${entry.organizationId}`} className="text-brand hover:underline">
-              {entry.organizationName}
-            </Link>
-          )}
+          {showOrganization &&
+            entry.organizationName !== null &&
+            entry.organizationId !== null && (
+              <Link
+                href={`/painel/admin/organizacoes/${entry.organizationId}`}
+                className="text-brand hover:underline"
+              >
+                {entry.organizationName}
+              </Link>
+            )}
           {entry.eventName !== null && entry.eventId !== null && (
-            <Link href={`/painel/eventos/${entry.eventId}`} className="text-brand hover:underline">
+            <Link
+              href={`/painel/eventos/${entry.eventId}`}
+              className="text-brand hover:underline"
+            >
               {entry.eventName}
             </Link>
           )}
@@ -89,29 +119,51 @@ export function AuditLine({ entry, showOrganization = true }: { entry: AuditEntr
         {facts.length > 0 && (
           <span className="flex flex-wrap gap-1 pt-0.5">
             {facts.map((fact) => (
-              <span key={fact} className="rounded-md bg-surface-2 px-1.5 py-0.5 font-mono text-[11px] text-fg-muted">
+              <span
+                key={fact}
+                className="rounded-md bg-surface-2 px-1.5 py-0.5 font-mono text-[11px] text-fg-muted"
+              >
                 {fact}
               </span>
             ))}
           </span>
         )}
       </div>
-      <time dateTime={entry.createdAt} className="text-xs text-fg-subtle tabular">
+      <time
+        dateTime={entry.createdAt}
+        className="text-xs text-fg-subtle tabular"
+      >
         {shortDateTime(entry.createdAt)}
       </time>
     </ListItem>
   );
 }
 
-function RenameDialog({ detail, open, onClose }: { detail: AdminOrganizationDetailDto; open: boolean; onClose: () => void }) {
+function RenameDialog({
+  detail,
+  open,
+  onClose,
+}: {
+  detail: AdminOrganizationDetailDto;
+  open: boolean;
+  onClose: () => void;
+}) {
   const queryClient = useQueryClient();
   const [name, setName] = useState(detail.organization.name);
   const save = useMutation({
     mutationFn: () =>
-      api<AdminOrganizationDetailDto>(`/api/admin/organizations/${detail.organization.id}`, { method: "PUT", body: { name: name.trim() } }),
+      api<AdminOrganizationDetailDto>(
+        `/api/admin/organizations/${detail.organization.id}`,
+        { method: "PUT", body: { name: name.trim() } },
+      ),
     onSuccess: (updated) => {
-      queryClient.setQueryData(["admin", "organization", updated.organization.id], updated);
-      void queryClient.invalidateQueries({ queryKey: ["admin", "organizations"] });
+      queryClient.setQueryData(
+        ["admin", "organization", updated.organization.id],
+        updated,
+      );
+      void queryClient.invalidateQueries({
+        queryKey: ["admin", "organizations"],
+      });
       toast.success(t.renamed);
       onClose();
     },
@@ -127,7 +179,11 @@ function RenameDialog({ detail, open, onClose }: { detail: AdminOrganizationDeta
           <Button variant="secondary" onClick={onClose}>
             {commonTexts.cancel}
           </Button>
-          <Button loading={save.isPending} disabled={name.trim() === ""} onClick={() => save.mutate()}>
+          <Button
+            loading={save.isPending}
+            disabled={name.trim() === ""}
+            onClick={() => save.mutate()}
+          >
             {commonTexts.save}
           </Button>
         </>
@@ -155,18 +211,37 @@ function RenameDialog({ detail, open, onClose }: { detail: AdminOrganizationDeta
   );
 }
 
-function SuspendDialog({ detail, open, onClose }: { detail: AdminOrganizationDetailDto; open: boolean; onClose: () => void }) {
+function SuspendDialog({
+  detail,
+  open,
+  onClose,
+}: {
+  detail: AdminOrganizationDetailDto;
+  open: boolean;
+  onClose: () => void;
+}) {
   const queryClient = useQueryClient();
   const [reason, setReason] = useState("");
   const suspend = useMutation({
     mutationFn: () =>
-      api<AdminOrganizationDetailDto>(`/api/admin/organizations/${detail.organization.id}/suspension`, {
-        method: "PUT",
-        body: { suspended: true, reason: reason.trim() === "" ? null : reason.trim() },
-      }),
+      api<AdminOrganizationDetailDto>(
+        `/api/admin/organizations/${detail.organization.id}/suspension`,
+        {
+          method: "PUT",
+          body: {
+            suspended: true,
+            reason: reason.trim() === "" ? null : reason.trim(),
+          },
+        },
+      ),
     onSuccess: (updated) => {
-      queryClient.setQueryData(["admin", "organization", updated.organization.id], updated);
-      void queryClient.invalidateQueries({ queryKey: ["admin", "organizations"] });
+      queryClient.setQueryData(
+        ["admin", "organization", updated.organization.id],
+        updated,
+      );
+      void queryClient.invalidateQueries({
+        queryKey: ["admin", "organizations"],
+      });
       toast.success(t.suspended);
       onClose();
     },
@@ -183,7 +258,12 @@ function SuspendDialog({ detail, open, onClose }: { detail: AdminOrganizationDet
           <Button variant="secondary" autoFocus onClick={onClose}>
             {commonTexts.cancel}
           </Button>
-          <Button variant="danger" icon={<ShieldAlert />} loading={suspend.isPending} onClick={() => suspend.mutate()}>
+          <Button
+            variant="danger"
+            icon={<ShieldAlert />}
+            loading={suspend.isPending}
+            onClick={() => suspend.mutate()}
+          >
             {t.suspend}
           </Button>
         </>
@@ -206,26 +286,40 @@ function SuspendDialog({ detail, open, onClose }: { detail: AdminOrganizationDet
   );
 }
 
-export function OrganizationDetail({ organizationId }: { organizationId: string }) {
+export function OrganizationDetail({
+  organizationId,
+}: {
+  organizationId: string;
+}) {
   const queryClient = useQueryClient();
   const confirm = useConfirm();
   const key = ["admin", "organization", organizationId];
   const detail = useQuery({
     queryKey: key,
-    queryFn: () => api<AdminOrganizationDetailDto>(`/api/admin/organizations/${organizationId}`),
+    queryFn: () =>
+      api<AdminOrganizationDetailDto>(
+        `/api/admin/organizations/${organizationId}`,
+      ),
   });
-  const [dialog, setDialog] = useState<"rename" | "suspend" | "bonus" | null>(null);
+  const [dialog, setDialog] = useState<"rename" | "suspend" | "bonus" | null>(
+    null,
+  );
   const { session } = useSession();
   const refresh = () => queryClient.invalidateQueries({ queryKey: key });
   const unsuspend = useMutation({
     mutationFn: () =>
-      api<AdminOrganizationDetailDto>(`/api/admin/organizations/${organizationId}/suspension`, {
-        method: "PUT",
-        body: { suspended: false, reason: null },
-      }),
+      api<AdminOrganizationDetailDto>(
+        `/api/admin/organizations/${organizationId}/suspension`,
+        {
+          method: "PUT",
+          body: { suspended: false, reason: null },
+        },
+      ),
     onSuccess: (updated) => {
       queryClient.setQueryData(key, updated);
-      void queryClient.invalidateQueries({ queryKey: ["admin", "organizations"] });
+      void queryClient.invalidateQueries({
+        queryKey: ["admin", "organizations"],
+      });
       toast.success(t.unsuspended);
     },
     onError: (error) => {
@@ -233,7 +327,10 @@ export function OrganizationDetail({ organizationId }: { organizationId: string 
     },
   });
   const endSessions = useMutation({
-    mutationFn: (userId: string) => api<undefined>(`/api/admin/users/${userId}/sessions/revoke`, { method: "POST" }),
+    mutationFn: (userId: string) =>
+      api<undefined>(`/api/admin/users/${userId}/sessions/revoke`, {
+        method: "POST",
+      }),
     onSuccess: () => {
       toast.success(t.sessionsEnded);
       void refresh();
@@ -244,7 +341,10 @@ export function OrganizationDetail({ organizationId }: { organizationId: string 
   });
 
   const resetTwoFactor = useMutation({
-    mutationFn: (userId: string) => api<undefined>(`/api/admin/users/${userId}/two-factor/reset`, { method: "POST" }),
+    mutationFn: (userId: string) =>
+      api<undefined>(`/api/admin/users/${userId}/two-factor/reset`, {
+        method: "POST",
+      }),
     onSuccess: () => {
       toast.success(t.twoFactorReset);
       void refresh();
@@ -263,12 +363,17 @@ export function OrganizationDetail({ organizationId }: { organizationId: string 
   const d = detail.data;
   const o = d.organization;
   // An admin never suspends the organization they belong to (the API refuses it too).
-  const own = session.status === "signed-in" && d.members.some((member) => member.userId === session.user.id);
+  const own =
+    session.status === "signed-in" &&
+    d.members.some((member) => member.userId === session.user.id);
 
   return (
     <main className="flex flex-col gap-6 animate-fade-in">
       <div className="flex flex-col gap-3">
-        <Link href="/painel/admin?aba=organizacoes" className="inline-flex w-fit items-center gap-1 text-sm font-medium text-fg-muted hover:text-fg">
+        <Link
+          href="/painel/admin?aba=organizacoes"
+          className="inline-flex w-fit items-center gap-1 text-sm font-medium text-fg-muted hover:text-fg"
+        >
           <ChevronLeft className="size-4" aria-hidden />
           {t.back}
         </Link>
@@ -281,9 +386,17 @@ export function OrganizationDetail({ organizationId }: { organizationId: string 
                   {t.suspendedBadge}
                 </Badge>
               )}
+              {isCooling(o) && (
+                <span title={t.coolingHint}>
+                  <Badge tone="warning">{t.cooling}</Badge>
+                </span>
+              )}
             </h1>
             <p className="text-sm text-fg-muted">
-              {o.ownerEmail ?? "—"} · {t.since(dateTime(o.createdAt))}
+              {o.ownerEmail ?? "—"} · {t.since(dateTime(o.createdAt))} ·{" "}
+              {o.lastActivityAt === null
+                ? t.noActivity
+                : t.lastActivity(shortDateTime(o.lastActivityAt))}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -315,7 +428,12 @@ export function OrganizationDetail({ organizationId }: { organizationId: string 
               {adminTexts.organizations.bonus}
             </Button>
             {o.suspended ? (
-              <Button size="sm" icon={<ShieldCheck />} loading={unsuspend.isPending} onClick={() => unsuspend.mutate()}>
+              <Button
+                size="sm"
+                icon={<ShieldCheck />}
+                loading={unsuspend.isPending}
+                onClick={() => unsuspend.mutate()}
+              >
                 {t.unsuspend}
               </Button>
             ) : own ? null : (
@@ -341,58 +459,100 @@ export function OrganizationDetail({ organizationId }: { organizationId: string 
       )}
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        <Stat label={adminTexts.stats.revenue} value={money(o.revenueCents)} icon={Building2} tone="success" />
-        <Stat label={adminTexts.stats.paidTickets} value={o.paidTickets.toLocaleString("pt-BR")} icon={Ticket} />
-        <Stat label={adminTexts.stats.events} value={o.eventCount.toLocaleString("pt-BR")} icon={CalendarDays} />
+        <Stat
+          label={adminTexts.stats.revenue}
+          value={money(o.revenueCents)}
+          icon={Building2}
+          tone="success"
+        />
+        <Stat
+          label={adminTexts.stats.paidTickets}
+          value={o.paidTickets.toLocaleString("pt-BR")}
+          icon={Ticket}
+        />
+        <Stat
+          label={adminTexts.stats.events}
+          value={o.eventCount.toLocaleString("pt-BR")}
+          icon={CalendarDays}
+        />
         <Stat
           label={adminTexts.stats.freeLabel}
           value={accountTexts.freeOf(o.freeUsed, o.freeTotal)}
-          hint={o.bonusFreeTickets > 0 ? adminTexts.organizations.bonusBadge(o.bonusFreeTickets) : undefined}
+          hint={
+            o.bonusFreeTickets > 0
+              ? adminTexts.organizations.bonusBadge(o.bonusFreeTickets)
+              : undefined
+          }
           icon={Gift}
         />
       </div>
 
       <div className="grid items-start gap-6 lg:grid-cols-2">
-        <Card padded={false}>
-          <div className="p-5 pb-0 sm:p-6 sm:pb-0">
-            <CardHeader icon={CalendarDays} title={t.events} />
-          </div>
-          {d.events.length === 0 ? (
-            <p className="px-6 pb-6 text-sm text-fg-muted">{t.noEvents}</p>
-          ) : (
-            <ul className="divide-y divide-border border-t border-border">
-              {d.events.map((event) => (
-                <li key={event.id}>
-                  <Link
-                    href={`/painel/eventos/${event.id}`}
-                    title={t.openEvent}
-                    className="group flex items-center gap-3 px-5 py-3 transition hover:bg-surface-2 active:bg-surface-2 sm:px-6"
-                  >
-                    <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                      <span className="flex items-center gap-2">
-                        <span className="truncate text-sm font-medium text-fg">{event.name}</span>
-                        {event.status === "closed" && <Badge>{eventTexts.actions.archivedBadge}</Badge>}
+        <OrganizationNotes organizationId={organizationId} notes={d.notes} />
+        <OrganizationTags organization={o} />
+      </div>
+
+      <div className="grid items-start gap-6 lg:grid-cols-2">
+        <div className="flex flex-col gap-6">
+          <Card padded={false}>
+            <div className="p-5 pb-0 sm:p-6 sm:pb-0">
+              <CardHeader icon={CalendarDays} title={t.events} />
+            </div>
+            {d.events.length === 0 ? (
+              <p className="px-6 pb-6 text-sm text-fg-muted">{t.noEvents}</p>
+            ) : (
+              <ul className="divide-y divide-border border-t border-border">
+                {d.events.map((event) => (
+                  <li key={event.id}>
+                    <Link
+                      href={`/painel/eventos/${event.id}`}
+                      title={t.openEvent}
+                      className="group flex items-center gap-3 px-5 py-3 transition hover:bg-surface-2 active:bg-surface-2 sm:px-6"
+                    >
+                      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                        <span className="flex items-center gap-2">
+                          <span className="truncate text-sm font-medium text-fg">
+                            {event.name}
+                          </span>
+                          {event.status === "closed" && (
+                            <Badge>{eventTexts.actions.archivedBadge}</Badge>
+                          )}
+                        </span>
+                        <span className="text-xs text-fg-muted">
+                          {eventDateTime(event.startsAt)} ·{" "}
+                          {t.eventLine(event.paidTickets, event.entries)}
+                        </span>
                       </span>
-                      <span className="text-xs text-fg-muted">
-                        {eventDateTime(event.startsAt)} · {t.eventLine(event.paidTickets, event.entries)}
+                      <span className="text-sm font-semibold text-fg tabular">
+                        {money(event.revenueCents)}
                       </span>
-                    </span>
-                    <span className="text-sm font-semibold text-fg tabular">{money(event.revenueCents)}</span>
-                    <ChevronRight className="size-4 text-fg-subtle transition group-hover:translate-x-0.5" aria-hidden />
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
+                      <ChevronRight
+                        className="size-4 text-fg-subtle transition group-hover:translate-x-0.5"
+                        aria-hidden
+                      />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+          <OrganizationTimeline organizationId={organizationId} />
+        </div>
 
         <div className="flex flex-col gap-6">
           <OrganizationCredits organizationId={organizationId} />
           <Card>
-            <CardHeader icon={UserRound} title={t.members} description={t.membersHint} />
+            <CardHeader
+              icon={UserRound}
+              title={t.members}
+              description={t.membersHint}
+            />
             <ul className="flex flex-col gap-4">
               {d.members.map((member) => (
-                <li key={member.userId} className="flex flex-wrap items-start justify-between gap-3">
+                <li
+                  key={member.userId}
+                  className="flex flex-wrap items-start justify-between gap-3"
+                >
                   <div className="flex min-w-0 flex-col gap-0.5">
                     <span className="flex items-center gap-2 text-sm font-medium text-fg">
                       <span className="truncate">{member.email}</span>
@@ -409,10 +569,16 @@ export function OrganizationDetail({ organizationId }: { organizationId: string 
                         </Badge>
                       )}
                     </span>
-                    {member.name !== null && <span className="text-xs text-fg-muted">{member.name}</span>}
+                    {member.name !== null && (
+                      <span className="text-xs text-fg-muted">
+                        {member.name}
+                      </span>
+                    )}
                     <span className="text-xs text-fg-subtle">
-                      {member.lastLoginAt === null ? t.neverLoggedIn : t.lastLogin(shortDateTime(member.lastLoginAt))} ·{" "}
-                      {t.sessions(member.sessions)}
+                      {member.lastLoginAt === null
+                        ? t.neverLoggedIn
+                        : t.lastLogin(shortDateTime(member.lastLoginAt))}{" "}
+                      · {t.sessions(member.sessions)}
                     </span>
                   </div>
                   <Button
@@ -420,9 +586,18 @@ export function OrganizationDetail({ organizationId }: { organizationId: string 
                     size="sm"
                     icon={<LogOut />}
                     disabled={member.sessions === 0}
-                    loading={endSessions.isPending && endSessions.variables === member.userId}
+                    loading={
+                      endSessions.isPending &&
+                      endSessions.variables === member.userId
+                    }
                     onClick={async () => {
-                      if (await confirm({ title: t.endSessionsTitle(member.email), description: t.endSessionsBody, confirmLabel: t.endSessions })) {
+                      if (
+                        await confirm({
+                          title: t.endSessionsTitle(member.email),
+                          description: t.endSessionsBody,
+                          confirmLabel: t.endSessions,
+                        })
+                      ) {
                         endSessions.mutate(member.userId);
                       }
                     }}
@@ -434,7 +609,10 @@ export function OrganizationDetail({ organizationId }: { organizationId: string 
                       variant="danger-ghost"
                       size="sm"
                       icon={<ShieldOff />}
-                      loading={resetTwoFactor.isPending && resetTwoFactor.variables === member.userId}
+                      loading={
+                        resetTwoFactor.isPending &&
+                        resetTwoFactor.variables === member.userId
+                      }
                       onClick={async () => {
                         if (
                           await confirm({
@@ -465,7 +643,11 @@ export function OrganizationDetail({ organizationId }: { organizationId: string 
             ) : (
               <List>
                 {d.audit.map((entry) => (
-                  <AuditLine key={entry.id} entry={entry} showOrganization={false} />
+                  <AuditLine
+                    key={entry.id}
+                    entry={entry}
+                    showOrganization={false}
+                  />
                 ))}
               </List>
             )}

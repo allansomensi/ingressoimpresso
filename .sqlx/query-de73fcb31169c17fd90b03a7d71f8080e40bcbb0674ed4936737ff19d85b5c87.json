@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update users set announcement_emails = $2 where id = $1 returning email::text as \"email!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "email!",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Bool"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "de73fcb31169c17fd90b03a7d71f8080e40bcbb0674ed4936737ff19d85b5c87"
+}

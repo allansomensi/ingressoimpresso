@@ -19,8 +19,8 @@ use uuid::Uuid;
 
 use super::{MAX_TICKET_NUMBER, authorize_event, billing, bounds, range};
 use crate::api::{
-    BatchDto, BatchStatus, CheckoutDto, CreateBatchBody, CreditReason, PaymentMethod, PaymentState,
-    PricingDto,
+    AlertKind, AlertSeverity, BatchDto, BatchStatus, CheckoutDto, CreateBatchBody, CreditReason,
+    PaymentMethod, PaymentState, PricingDto,
 };
 use crate::auth::AuthUser;
 use crate::error::{ApiError, ApiResult, bad_request};
@@ -725,14 +725,64 @@ pub async fn stripe_webhook(
         .map_err(|error| {
             tracing::warn!(%error, "stripe webhook refused");
             bad_request("invalid_signature", error.to_string())
-        })?;
+        });
+    let event = match event {
+        Ok(event) => event,
+        Err(error) => {
+            // A wrong secret after a key rotation stops every payment confirmation (ADR 0103).
+            crate::alerts::raise(
+                state.clone(),
+                crate::alerts::NewAlert {
+                    kind: AlertKind::StripeWebhook,
+                    key: "stripe_webhook_signature".to_owned(),
+                    severity: AlertSeverity::Warning,
+                    title: "O webhook da Stripe recusou uma assinatura".to_owned(),
+                    detail: Some(
+                        "Se acontecer com frequência, confira STRIPE_WEBHOOK_SECRET no Render e o endpoint no painel da Stripe."
+                            .to_owned(),
+                    ),
+                    section: "alertas",
+                },
+            )
+            .await;
+            return Err(error);
+        }
+    };
+    let kind = event.kind.clone();
+    let id = event.id.clone();
+    if let Err(error) = handle_stripe_event(&state, event).await {
+        // Stripe retries; the admins hear of it before payments pile up (ADR 0103).
+        crate::alerts::raise(
+            state.clone(),
+            crate::alerts::NewAlert {
+                kind: AlertKind::StripeWebhook,
+                key: "stripe_webhook_error".to_owned(),
+                severity: AlertSeverity::Critical,
+                title: "O webhook da Stripe falhou".to_owned(),
+                detail: Some(format!(
+                    "Evento {kind} ({id}). A Stripe tenta de novo; veja o log da API no Render."
+                )),
+                section: "alertas",
+            },
+        )
+        .await;
+        return Err(error);
+    }
+    Ok(StatusCode::OK)
+}
+
+/// One verified Stripe event.
+async fn handle_stripe_event(
+    state: &AppState,
+    event: crate::payments::StripeEvent,
+) -> ApiResult<()> {
     match event.kind.as_str() {
         "checkout.session.completed"
         | "checkout.session.async_payment_succeeded"
         | "checkout.session.expired" => {
             let session: CheckoutSession = serde_json::from_value(event.data.object)
                 .map_err(|error| bad_request("invalid_event", error.to_string()))?;
-            apply_session(&state, &session).await?;
+            apply_session(state, &session).await?;
         }
         "checkout.session.async_payment_failed" => {
             let session: CheckoutSession = serde_json::from_value(event.data.object)
@@ -754,7 +804,7 @@ pub async fn stripe_webhook(
                         .filter(|created| *created > 0)
                         .and_then(|created| OffsetDateTime::from_unix_timestamp(created).ok())
                         .unwrap_or_else(OffsetDateTime::now_utc);
-                    super::refunds::record_refund(&state, &intent, charge.amount_refunded, at)
+                    super::refunds::record_refund(state, &intent, charge.amount_refunded, at)
                         .await?;
                 }
                 None => {
@@ -762,7 +812,17 @@ pub async fn stripe_webhook(
                 }
             }
         }
+        // A card payment contested by the buyer (ADR 0104): every step of it, closing included.
+        "charge.dispute.created"
+        | "charge.dispute.updated"
+        | "charge.dispute.closed"
+        | "charge.dispute.funds_withdrawn"
+        | "charge.dispute.funds_reinstated" => {
+            let dispute: crate::payments::Dispute = serde_json::from_value(event.data.object)
+                .map_err(|error| bad_request("invalid_event", error.to_string()))?;
+            super::disputes::record(state, &dispute).await?;
+        }
         other => tracing::debug!(event = %event.id, kind = %other, "stripe event ignored"),
     }
-    Ok(StatusCode::OK)
+    Ok(())
 }

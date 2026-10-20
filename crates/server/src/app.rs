@@ -32,9 +32,10 @@ use crate::routes::{
     two_factor, voids,
 };
 use crate::routes::{
-    admin_insights, cashier, checklist, checkpoints, courtesies, history, pix, public_page, series,
+    admin_insights, alerts, cashier, checklist, checkpoints, courtesies, crm, disputes, history,
+    pix, public_page, series,
 };
-use crate::routes::{referrals, verify};
+use crate::routes::{mailings, referrals, revenue_reports, verify};
 use crate::state::AppState;
 
 /// JSON bodies are small; only art uploads get a bigger limit.
@@ -144,7 +145,28 @@ pub fn router(state: AppState) -> Router {
         .route("/admin/funnel", get(admin_insights::funnel))
         .route("/admin/live", get(admin_insights::live))
         .route("/admin/finance", get(analytics::finance))
+        // Revenue reports for the accountant (ADR 0106).
+        .route("/admin/reports/closing", get(revenue_reports::closing))
+        .route(
+            "/admin/reports/closing/xlsx",
+            get(revenue_reports::closing_xlsx),
+        )
+        .route(
+            "/admin/reports/closing/csv",
+            get(revenue_reports::closing_csv),
+        )
+        .route("/admin/reports/cohorts", get(revenue_reports::cohorts))
+        .route("/admin/reports/coupons", get(revenue_reports::coupons))
         .route("/admin/organizations", get(admin::organizations))
+        // The admins' file on an organization (ADR 0105).
+        .route("/admin/organizations/tags", get(crm::tags))
+        .route("/admin/organizations/{id}/tags", put(crm::set_tags))
+        .route("/admin/organizations/{id}/timeline", get(crm::timeline))
+        .route("/admin/organizations/{id}/notes", post(crm::create_note))
+        .route(
+            "/admin/organization-notes/{id}",
+            put(crm::update_note).delete(crm::delete_note),
+        )
         .route(
             "/admin/organizations/{id}",
             get(support::organization).put(support::rename),
@@ -186,6 +208,16 @@ pub fn router(state: AppState) -> Router {
             "/admin/announcements/{id}",
             put(announcements::update).delete(announcements::delete),
         )
+        // Announcements by e-mail (ADR 0107).
+        .route(
+            "/admin/announcements/{id}/email",
+            get(mailings::preview).post(mailings::send),
+        )
+        .route("/admin/announcements/{id}/email/test", post(mailings::test))
+        .route("/admin/mailings/{id}/cancel", post(mailings::cancel))
+        .route("/email/unsubscribe", post(mailings::unsubscribe))
+        .route("/email/unsubscribe/{token}", post(mailings::one_click))
+        .route("/account/preferences", put(account::preferences))
         .route(
             "/admin/prices",
             get(billing::admin_prices).post(billing::create_prices),
@@ -443,6 +475,17 @@ pub fn router(state: AppState) -> Router {
         .route("/events/{id}/activity", get(history::list))
         // Ready-made papers for home printing (ADR 0102).
         .route("/events/{id}/papers", get(exports::papers))
+        // Disputed card payments (ADR 0104).
+        .route("/admin/disputes", get(disputes::list))
+        .route("/admin/disputes/{id}/block", post(disputes::block))
+        .route("/admin/disputes/{id}/unblock", post(disputes::unblock))
+        .route("/admin/disputes/{id}/settle", post(disputes::settle))
+        // The admins' alerts and daily summary (ADR 0103).
+        .route("/admin/alerts", get(alerts::list))
+        .route("/admin/alerts/settings", put(alerts::update_settings))
+        .route("/admin/alerts/test", post(alerts::test))
+        .route("/admin/alerts/summary", post(alerts::summary_now))
+        .route("/admin/alerts/{id}/resolve", post(alerts::resolve))
         // The token cashier (ADR 0098).
         .route("/events/{id}/cashiers", get(cashier::report))
         .route("/sellers/{id}/cashier/close", post(cashier::panel_close))
@@ -452,6 +495,11 @@ pub fn router(state: AppState) -> Router {
         .layer(middleware::from_fn_with_state(
             state.clone(),
             crate::activity::record,
+        ))
+        // A burst of unexpected errors reaches the admins (ADR 0103).
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            crate::alerts::watch_errors,
         ))
         .layer(DefaultBodyLimit::max(JSON_BODY_LIMIT))
         // Axum's own rejections (bad JSON, a malformed id, a body too large) answer plain text;

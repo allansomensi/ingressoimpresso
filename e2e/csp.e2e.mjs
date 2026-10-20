@@ -15,6 +15,7 @@ const PAGES = [
   "/portaria",
   "/ingresso#token",
   "/vendedor#token",
+  "/descadastrar#token",
   "/status",
   "/novidades",
   "/sobre",

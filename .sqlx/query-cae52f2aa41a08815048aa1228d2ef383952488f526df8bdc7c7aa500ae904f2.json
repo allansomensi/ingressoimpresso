@@ -1,0 +1,166 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select a.id, a.kind, a.severity, a.title, a.detail, a.link, a.count, a.first_at,\n                  a.last_at, a.notified_at, a.resolved_at, u.email as \"resolved_by?\"\n           from admin_alerts a left join users u on u.id = a.resolved_by\n           where a.resolved_at is null\n              or ($1 and a.resolved_at > now() - interval '30 days')\n           order by (a.resolved_at is null) desc, (a.severity = 'critical') desc, a.last_at desc\n           limit $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "admin_alerts",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "admin_alerts",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "severity",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "admin_alerts",
+            "name": "severity"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "title",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "admin_alerts",
+            "name": "title"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "detail",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "admin_alerts",
+            "name": "detail"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "link",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "admin_alerts",
+            "name": "link"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "count",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "admin_alerts",
+            "name": "count"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "first_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "admin_alerts",
+            "name": "first_at"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "last_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "admin_alerts",
+            "name": "last_at"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "notified_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "admin_alerts",
+            "name": "notified_at"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "resolved_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "admin_alerts",
+            "name": "resolved_at"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "resolved_by?",
+        "type_info": {
+          "Custom": {
+            "name": "citext",
+            "kind": "Simple"
+          }
+        },
+        "origin": {
+          "Table": {
+            "table": "users",
+            "name": "email"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bool",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false
+    ]
+  },
+  "hash": "cae52f2aa41a08815048aa1228d2ef383952488f526df8bdc7c7aa500ae904f2"
+}

@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update announcement_mail_recipients set status = 'skipped' where mailing_id = $1 and status = 'pending'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "efc7d94704432956a07024458b0af74ab7821fc9e9d53e6de776e72247bbfd04"
+}

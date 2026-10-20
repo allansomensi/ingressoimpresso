@@ -26,6 +26,7 @@ export { changelog } from "./pt-BR/changelog";
 export { inbox } from "./pt-BR/inbox";
 export { maintenance } from "./pt-BR/maintenance";
 export { twoFactor } from "./pt-BR/two-factor";
+export { unsubscribe } from "./pt-BR/unsubscribe";
 export { credits } from "./pt-BR/credits";
 export { status } from "./pt-BR/status";
 export { common } from "./pt-BR/common";

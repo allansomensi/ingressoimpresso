@@ -35,4 +35,8 @@ suspendedReason: string | null,
 /**
  * When the account accepted the current terms.
  */
-termsAcceptedAt: string | null, };
+termsAcceptedAt: string | null, 
+/**
+ * Receives the platform's announcements by e-mail (ADR 0107).
+ */
+announcementEmails: boolean, };

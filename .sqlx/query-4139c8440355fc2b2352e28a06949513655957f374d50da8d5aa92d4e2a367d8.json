@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select o.id as organization_id, o.name, o.bonus_free_tickets, o.suspended_reason, o.suspended_at,\n                  (select terms_accepted_at from users where id = $1) as terms_accepted_at,\n                  (select coalesce(sum(b.free_tickets), 0) from ticket_batches b\n                   join events e on e.id = b.event_id\n                   where e.organization_id = o.id and b.status <> 'canceled')::int as \"free_used!\",\n                  (select count(*) from events e where e.organization_id = o.id) as \"event_count!\",\n                  (select coalesce(sum(upper(b.numbers) - lower(b.numbers)), 0) from ticket_batches b\n                   join events e on e.id = b.event_id\n                   where e.organization_id = o.id and b.status = 'paid')::bigint as \"paid_tickets!\"\n           from memberships m join organizations o on o.id = m.organization_id\n           where m.user_id = $1\n           order by m.created_at limit 1",
+  "query": "select o.id as organization_id, o.name, o.bonus_free_tickets, o.suspended_reason, o.suspended_at,\n                  (select terms_accepted_at from users where id = $1) as terms_accepted_at,\n                  (select announcement_emails from users where id = $1) as \"announcement_emails!\",\n                  (select coalesce(sum(b.free_tickets), 0) from ticket_batches b\n                   join events e on e.id = b.event_id\n                   where e.organization_id = o.id and b.status <> 'canceled')::int as \"free_used!\",\n                  (select count(*) from events e where e.organization_id = o.id) as \"event_count!\",\n                  (select coalesce(sum(upper(b.numbers) - lower(b.numbers)), 0) from ticket_batches b\n                   join events e on e.id = b.event_id\n                   where e.organization_id = o.id and b.status = 'paid')::bigint as \"paid_tickets!\"\n           from memberships m join organizations o on o.id = m.organization_id\n           where m.user_id = $1\n           order by m.created_at limit 1",
   "describe": {
     "columns": [
       {
@@ -66,18 +66,24 @@
       },
       {
         "ordinal": 6,
+        "name": "announcement_emails!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 7,
         "name": "free_used!",
         "type_info": "Int4",
         "origin": "Expression"
       },
       {
-        "ordinal": 7,
+        "ordinal": 8,
         "name": "event_count!",
         "type_info": "Int8",
         "origin": "Expression"
       },
       {
-        "ordinal": 8,
+        "ordinal": 9,
         "name": "paid_tickets!",
         "type_info": "Int8",
         "origin": "Expression"
@@ -97,8 +103,9 @@
       null,
       null,
       null,
+      null,
       null
     ]
   },
-  "hash": "07d1c9f3d157464a3aacd5e33852f6d077dd135e93d5ea88211de64d440c74a7"
+  "hash": "4139c8440355fc2b2352e28a06949513655957f374d50da8d5aa92d4e2a367d8"
 }

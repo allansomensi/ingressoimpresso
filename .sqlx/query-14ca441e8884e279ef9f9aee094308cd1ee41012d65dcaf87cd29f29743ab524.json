@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update admin_alerts set resolved_at = now(), resolved_by = $2 where id = $1 and resolved_at is null returning id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "admin_alerts",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "14ca441e8884e279ef9f9aee094308cd1ee41012d65dcaf87cd29f29743ab524"
+}

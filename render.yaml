@@ -87,6 +87,11 @@ services:
         sync: false
       - key: GOOGLE_WALLET_SERVICE_ACCOUNT
         sync: false
+      # The admins' alerts on Telegram (ADR 0103, docs/deploy.md §5.8): both or neither.
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
+        sync: false
 
   # The test environment (ADR 0046, docs/deploy.md §11): the same image from the staging branch,
   # with its own Neon branch, keys and domain. The free plan sleeps when idle (the first request
@@ -164,4 +169,9 @@ services:
       - key: GOOGLE_WALLET_ISSUER_ID
         sync: false
       - key: GOOGLE_WALLET_SERVICE_ACCOUNT
+        sync: false
+      # The admins' alerts on Telegram (ADR 0103, docs/deploy.md §5.8): both or neither.
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
         sync: false

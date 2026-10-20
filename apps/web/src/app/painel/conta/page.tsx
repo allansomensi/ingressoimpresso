@@ -1,6 +1,10 @@
 "use client";
 
-import type { AccountDto, DeleteAccountBody, TwoFactorStatusDto } from "@ingressoimpresso/api-types";
+import type {
+  AccountDto,
+  DeleteAccountBody,
+  TwoFactorStatusDto,
+} from "@ingressoimpresso/api-types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Building2,
@@ -19,6 +23,7 @@ import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
 import { CreditsCard } from "@/components/account/credits";
+import { EmailPreferencesCard } from "@/components/account/email-preferences";
 import { ReferralsCard } from "@/components/account/referrals";
 import { TwoFactorCard } from "@/components/account/two-factor";
 import {
@@ -52,7 +57,11 @@ function OrganizationForm({ account }: { account: AccountDto }) {
   const dirty = name.trim() !== account.organizationName;
   useUnsavedChanges(dirty);
   const save = useMutation({
-    mutationFn: () => api<AccountDto>("/api/account", { method: "PUT", body: { organizationName: name.trim() } }),
+    mutationFn: () =>
+      api<AccountDto>("/api/account", {
+        method: "PUT",
+        body: { organizationName: name.trim() },
+      }),
     onSuccess: (saved) => {
       queryClient.setQueryData(["account"], saved);
       setName(saved.organizationName);
@@ -64,7 +73,10 @@ function OrganizationForm({ account }: { account: AccountDto }) {
     save.mutate();
   };
   return (
-    <form onSubmit={submit} className="flex flex-col gap-4 sm:flex-row sm:items-end">
+    <form
+      onSubmit={submit}
+      className="flex flex-col gap-4 sm:flex-row sm:items-end"
+    >
       <Field label={t.organizationName} className="flex-1">
         <Input
           value={name}
@@ -75,7 +87,12 @@ function OrganizationForm({ account }: { account: AccountDto }) {
           }}
         />
       </Field>
-      <Button type="submit" icon={<Save />} loading={save.isPending} disabled={!dirty || name.trim() === ""}>
+      <Button
+        type="submit"
+        icon={<Save />}
+        loading={save.isPending}
+        disabled={!dirty || name.trim() === ""}
+      >
         {commonTexts.save}
       </Button>
       <ErrorMessage error={save.error} />
@@ -83,7 +100,13 @@ function OrganizationForm({ account }: { account: AccountDto }) {
   );
 }
 
-function DeleteAccount({ email, twoFactor }: { email: string; twoFactor: boolean }) {
+function DeleteAccount({
+  email,
+  twoFactor,
+}: {
+  email: string;
+  twoFactor: boolean;
+}) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -91,7 +114,10 @@ function DeleteAccount({ email, twoFactor }: { email: string; twoFactor: boolean
   const [code, setCode] = useState("");
   const remove = useMutation({
     mutationFn: () => {
-      const body: DeleteAccountBody = { email: typed.trim(), ...(twoFactor ? { twoFactorCode: code.trim() } : {}) };
+      const body: DeleteAccountBody = {
+        email: typed.trim(),
+        ...(twoFactor ? { twoFactorCode: code.trim() } : {}),
+      };
       return api<undefined>("/api/account", { method: "DELETE", body });
     },
     onSuccess: () => {
@@ -101,7 +127,9 @@ function DeleteAccount({ email, twoFactor }: { email: string; twoFactor: boolean
       router.replace("/");
     },
   });
-  const matches = typed.trim().toLowerCase() === email.toLowerCase() && (!twoFactor || code.trim() !== "");
+  const matches =
+    typed.trim().toLowerCase() === email.toLowerCase() &&
+    (!twoFactor || code.trim() !== "");
   return (
     <>
       <Button
@@ -136,7 +164,13 @@ function DeleteAccount({ email, twoFactor }: { email: string; twoFactor: boolean
             >
               {commonTexts.cancel}
             </Button>
-            <Button variant="danger" icon={<Trash2 />} disabled={!matches} loading={remove.isPending} onClick={() => remove.mutate()}>
+            <Button
+              variant="danger"
+              icon={<Trash2 />}
+              disabled={!matches}
+              loading={remove.isPending}
+              onClick={() => remove.mutate()}
+            >
               {t.deleteConfirm}
             </Button>
           </>
@@ -180,8 +214,17 @@ function DeleteAccount({ email, twoFactor }: { email: string; twoFactor: boolean
   );
 }
 
-function PrivacyCard({ account, email }: { account: AccountDto; email: string }) {
-  const twoFactor = useQuery({ queryKey: ["two-factor"], queryFn: () => api<TwoFactorStatusDto>("/api/account/two-factor") });
+function PrivacyCard({
+  account,
+  email,
+}: {
+  account: AccountDto;
+  email: string;
+}) {
+  const twoFactor = useQuery({
+    queryKey: ["two-factor"],
+    queryFn: () => api<TwoFactorStatusDto>("/api/account/two-factor"),
+  });
   const [exporting, setExporting] = useState(false);
   const download = async () => {
     setExporting(true);
@@ -204,7 +247,11 @@ function PrivacyCard({ account, email }: { account: AccountDto; email: string })
   const link = "font-medium text-brand underline-offset-2 hover:underline";
   return (
     <Card>
-      <CardHeader icon={ShieldCheck} title={t.privacy} description={t.privacyHint} />
+      <CardHeader
+        icon={ShieldCheck}
+        title={t.privacy}
+        description={t.privacyHint}
+      />
       <div className="flex flex-col gap-4">
         {account.termsAcceptedAt !== null && (
           <p className="text-sm leading-relaxed text-fg-muted">
@@ -219,13 +266,22 @@ function PrivacyCard({ account, email }: { account: AccountDto; email: string })
           </p>
         )}
         <div className="flex flex-col gap-1">
-          <Button variant="secondary" icon={<Download />} loading={exporting} onClick={() => void download()} className="justify-start">
+          <Button
+            variant="secondary"
+            icon={<Download />}
+            loading={exporting}
+            onClick={() => void download()}
+            className="justify-start"
+          >
             {t.export}
           </Button>
           <span className="text-xs text-fg-muted">{t.exportHint}</span>
         </div>
         <div className="flex flex-col gap-1 border-t border-border pt-4">
-          <DeleteAccount email={email} twoFactor={twoFactor.data?.enabled ?? false} />
+          <DeleteAccount
+            email={email}
+            twoFactor={twoFactor.data?.enabled ?? false}
+          />
           <span className="text-xs text-fg-muted">{t.deleteHint}</span>
         </div>
       </div>
@@ -235,7 +291,10 @@ function PrivacyCard({ account, email }: { account: AccountDto; email: string })
 
 export default function AccountPage() {
   const { session } = useSession();
-  const account = useQuery({ queryKey: ["account"], queryFn: () => api<AccountDto>("/api/account") });
+  const account = useQuery({
+    queryKey: ["account"],
+    queryFn: () => api<AccountDto>("/api/account"),
+  });
 
   if (account.isPending) {
     return <LoadingBlock rows={4} />;
@@ -245,7 +304,10 @@ export default function AccountPage() {
   }
   const a = account.data;
   const used = a.freeTicketsTotal - a.freeTicketsLeft;
-  const percent = a.freeTicketsTotal === 0 ? 0 : Math.round((used / a.freeTicketsTotal) * 100);
+  const percent =
+    a.freeTicketsTotal === 0
+      ? 0
+      : Math.round((used / a.freeTicketsTotal) * 100);
 
   return (
     <main className="flex flex-col gap-8 animate-fade-in">
@@ -260,7 +322,11 @@ export default function AccountPage() {
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:grid-rows-[auto_1fr]">
         <div className="flex min-w-0 flex-col gap-6 lg:col-start-1 lg:row-start-1">
           <Card>
-            <CardHeader icon={Building2} title={t.organization} description={t.organizationHint} />
+            <CardHeader
+              icon={Building2}
+              title={t.organization}
+              description={t.organizationHint}
+            />
             <OrganizationForm key={a.organizationName} account={a} />
             {/* The public profile (ADR 0064) has a page of its own. */}
             <Link
@@ -268,21 +334,32 @@ export default function AccountPage() {
               className="mt-5 flex items-center gap-3 rounded-xl border border-border bg-surface-2 px-4 py-3 transition hover:border-border-strong active:bg-surface-3"
             >
               <span className="flex min-w-0 flex-1 flex-col">
-                <span className="text-sm font-semibold text-fg">{profileTexts.open}</span>
-                <span className="text-xs text-fg-muted">{profileTexts.openHint}</span>
+                <span className="text-sm font-semibold text-fg">
+                  {profileTexts.open}
+                </span>
+                <span className="text-xs text-fg-muted">
+                  {profileTexts.openHint}
+                </span>
               </span>
-              <ChevronRight aria-hidden className="size-4 shrink-0 text-fg-subtle" />
+              <ChevronRight
+                aria-hidden
+                className="size-4 shrink-0 text-fg-subtle"
+              />
             </Link>
             <dl className="mt-5 flex flex-wrap gap-x-6 gap-y-2 border-t border-border pt-4 text-sm">
               <div className="flex items-center gap-2">
                 <CalendarDays aria-hidden className="size-4 text-fg-subtle" />
                 <dt className="text-fg-muted">{t.events}</dt>
-                <dd className="font-semibold text-fg tabular">{a.eventCount.toLocaleString("pt-BR")}</dd>
+                <dd className="font-semibold text-fg tabular">
+                  {a.eventCount.toLocaleString("pt-BR")}
+                </dd>
               </div>
               <div className="flex items-center gap-2">
                 <Ticket aria-hidden className="size-4 text-fg-subtle" />
                 <dt className="text-fg-muted">{t.paidTickets}</dt>
-                <dd className="font-semibold text-fg tabular">{a.paidTickets.toLocaleString("pt-BR")}</dd>
+                <dd className="font-semibold text-fg tabular">
+                  {a.paidTickets.toLocaleString("pt-BR")}
+                </dd>
               </div>
             </dl>
           </Card>
@@ -292,7 +369,9 @@ export default function AccountPage() {
             <Card>
               <CardHeader icon={Gift} title={t.free} />
               <div className="flex flex-col gap-3">
-                <span className="text-2xl font-semibold tracking-tight text-fg tabular">{t.freeLeft(a.freeTicketsLeft)}</span>
+                <span className="text-2xl font-semibold tracking-tight text-fg tabular">
+                  {t.freeLeft(a.freeTicketsLeft)}
+                </span>
                 <div
                   role="progressbar"
                   aria-valuemin={0}
@@ -301,9 +380,14 @@ export default function AccountPage() {
                   aria-label={t.free}
                   className="h-2 overflow-hidden rounded-full bg-surface-3"
                 >
-                  <div className="h-full rounded-full bg-brand transition-[width]" style={{ width: `${String(percent)}%` }} />
+                  <div
+                    className="h-full rounded-full bg-brand transition-[width]"
+                    style={{ width: `${String(percent)}%` }}
+                  />
                 </div>
-                <span className="text-xs text-fg-muted">{t.freeOf(used, a.freeTicketsTotal)}</span>
+                <span className="text-xs text-fg-muted">
+                  {t.freeOf(used, a.freeTicketsTotal)}
+                </span>
                 <p className="text-sm text-fg-muted">{t.freeHint}</p>
               </div>
             </Card>
@@ -315,12 +399,15 @@ export default function AccountPage() {
         {session.status === "signed-in" && (
           <div className="flex min-w-0 flex-col gap-6 lg:col-start-1 lg:row-start-2">
             <TwoFactorCard email={session.user.email} />
+            <EmailPreferencesCard account={a} />
             <PrivacyCard account={a} email={session.user.email} />
           </div>
         )}
       </div>
       {/* The version, for support: plain text, at the very end of the account page (ADR 0054). */}
-      <p className="text-center text-xs text-fg-subtle tabular">{panelTexts.version(VERSION_LABEL)}</p>
+      <p className="text-center text-xs text-fg-subtle tabular">
+        {panelTexts.version(VERSION_LABEL)}
+      </p>
     </main>
   );
 }

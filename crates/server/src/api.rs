@@ -496,6 +496,8 @@ dto! {
         #[serde(with = "time::serde::rfc3339::option")]
         #[cfg_attr(feature = "ts", ts(type = "string | null"))]
         pub terms_accepted_at: Option<OffsetDateTime>,
+        /// Receives the platform's announcements by e-mail (ADR 0107).
+        pub announcement_emails: bool,
     }
 
     /// `PUT /api/account`.
@@ -606,6 +608,12 @@ dto! {
         pub last_batch_at: Option<OffsetDateTime>,
         /// Suspended by an admin.
         pub suspended: bool,
+        /// The admins' own labels (ADR 0105), lowercase.
+        pub tags: Vec<String>,
+        /// Last sign-in of a member or last batch, whichever is later.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub last_activity_at: Option<OffsetDateTime>,
     }
 
     /// `GET /api/admin/organizations/{id}`: one account for support.
@@ -624,6 +632,8 @@ dto! {
         pub events: Vec<AdminEventDto>,
         /// Latest admin actions on this organization.
         pub audit: Vec<AuditEntryDto>,
+        /// The admins' internal notes, pinned first (ADR 0105).
+        pub notes: Vec<OrganizationNoteDto>,
     }
 
     /// A member of an organization, as admins see it.
@@ -3173,6 +3183,11 @@ db_enum!(ChangelogKind { New => "new", Improvement => "improvement", Fix => "fix
 db_enum!(PaymentMethod { Stripe => "stripe", Admin => "admin", Free => "free", Credit => "credit" });
 db_enum!(PaymentState { Open => "open", Processing => "processing" });
 db_enum!(VoidReason { Unsold => "unsold", Lost => "lost", Revoked => "revoked" });
+db_enum!(AlertKind {
+    StripeWebhook => "stripe_webhook", ExportFailed => "export_failed", MailQuota => "mail_quota",
+    DoorMissing => "door_missing", ApiErrors => "api_errors", Dispute => "dispute"
+});
+db_enum!(AlertSeverity { Warning => "warning", Critical => "critical" });
 db_enum!(PaperKind {
     Plain => "plain", Perforated3 => "perforated3", Perforated4 => "perforated4",
     Perforated6 => "perforated6", Perforated8 => "perforated8", Perforated10 => "perforated10",
@@ -3451,6 +3466,8 @@ dto! {
         pub published_at: Option<OffsetDateTime>,
         /// Reads.
         pub stats: AnnouncementStatsDto,
+        /// The latest sending by e-mail (ADR 0107).
+        pub mailing: Option<AnnouncementMailingDto>,
         /// Author.
         pub created_by: Option<String>,
         /// Creation time.
@@ -6023,5 +6040,595 @@ dto! {
         pub piece_mm: Option<(f64, f64)>,
         /// How much the ticket shrinks on it (1 = its size); `null` when it does not fit.
         pub scale: Option<f64>,
+    }
+}
+
+dto_enum! {
+    /// What an admin alert is about (ADR 0103).
+    pub enum AlertKind {
+        /// The Stripe webhook refused or failed.
+        StripeWebhook,
+        /// A file failed every attempt.
+        ExportFailed,
+        /// The daily e-mail quota is nearly or fully used.
+        MailQuota,
+        /// A large event starts soon without a door link.
+        DoorMissing,
+        /// The API answered many unexpected errors in a short time.
+        ApiErrors,
+        /// A card payment was disputed (chargeback).
+        Dispute,
+    }
+
+    /// How urgent an alert is.
+    pub enum AlertSeverity {
+        /// Look today.
+        Warning,
+        /// Look now.
+        Critical,
+    }
+}
+
+dto! {
+    /// An alert to the admins (ADR 0103).
+    pub struct AdminAlertDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// What it is about.
+        pub kind: AlertKind,
+        /// How urgent.
+        pub severity: AlertSeverity,
+        /// One line.
+        pub title: String,
+        /// More about it.
+        pub detail: Option<String>,
+        /// Where in the panel to look.
+        pub link: Option<String>,
+        /// Times it happened while open.
+        pub count: i32,
+        /// First time.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub first_at: OffsetDateTime,
+        /// Last time.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub last_at: OffsetDateTime,
+        /// When the admins were told.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub notified_at: Option<OffsetDateTime>,
+        /// When an admin marked it solved.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub resolved_at: Option<OffsetDateTime>,
+        /// Who did.
+        pub resolved_by: Option<String>,
+    }
+
+    /// How the admins are told (`PUT /api/admin/alerts/settings`).
+    pub struct AlertSettingsDto {
+        /// By e-mail, to `ADMIN_EMAILS`.
+        pub email: bool,
+        /// On Telegram, when the bot is configured.
+        pub telegram: bool,
+        /// The daily summary.
+        pub summary: bool,
+        /// Hour of the summary, in Brasília time (0–23).
+        pub summary_hour: i32,
+        /// Paid tickets from which an event without a door link raises an alert.
+        pub door_min_tickets: i32,
+    }
+
+    /// Where alerts can go.
+    pub struct AlertChannelsDto {
+        /// The admins' addresses (`ADMIN_EMAILS`).
+        pub emails: Vec<String>,
+        /// `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` are set.
+        pub telegram: bool,
+    }
+
+    /// `GET /api/admin/alerts`.
+    pub struct AdminAlertsDto {
+        /// Open alerts first, then the recently solved ones when asked.
+        pub alerts: Vec<AdminAlertDto>,
+        /// Open alerts.
+        pub open: i32,
+        /// The settings.
+        pub settings: AlertSettingsDto,
+        /// The channels.
+        pub channels: AlertChannelsDto,
+    }
+
+    /// What a test or a summary sent now reached.
+    pub struct AlertDeliveryDto {
+        /// E-mails sent.
+        pub emails: i32,
+        /// The Telegram message went out.
+        pub telegram: bool,
+    }
+}
+
+dto! {
+    /// A disputed card payment (chargeback), as the admins see it (ADR 0104).
+    pub struct AdminDisputeDto {
+        /// Stripe's id (`dp_…`).
+        pub id: String,
+        /// Stripe's status (`needs_response`, `under_review`, `won`, `lost`…).
+        pub status: String,
+        /// Still going on.
+        pub open: bool,
+        /// Stripe's reason (`fraudulent`, `product_not_received`…).
+        pub reason: String,
+        /// Disputed amount.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub amount_cents: i64,
+        /// When it was opened.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub opened_at: OffsetDateTime,
+        /// Evidence due on Stripe by then.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub evidence_due_by: Option<OffsetDateTime>,
+        /// When it closed.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub closed_at: Option<OffsetDateTime>,
+        /// The batch paid with the disputed payment, when known.
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub batch_id: Option<Uuid>,
+        /// Its first number.
+        pub first: Option<i32>,
+        /// Its last number.
+        pub last: Option<i32>,
+        /// Its status.
+        pub batch_status: Option<BatchStatus>,
+        /// The event.
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub event_id: Option<Uuid>,
+        /// Its name.
+        pub event_name: Option<String>,
+        /// The organization.
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub organization_id: Option<Uuid>,
+        /// Its name.
+        pub organization_name: Option<String>,
+        /// The batch's numbers are blocked at the door.
+        pub blocked: bool,
+        /// A lost dispute settled: the batch refunded for good.
+        pub settled: bool,
+    }
+}
+
+dto! {
+    /// An admin's internal note on an organization (ADR 0105); the organization never sees it.
+    pub struct OrganizationNoteDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// The text (up to 2000 characters).
+        pub body: String,
+        /// Shown first.
+        pub pinned: bool,
+        /// Who wrote it.
+        pub author_email: String,
+        /// When.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub created_at: OffsetDateTime,
+        /// Last edit.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub updated_at: OffsetDateTime,
+    }
+
+    /// `POST /api/admin/organizations/{id}/notes` and `PUT /api/admin/organization-notes/{id}`.
+    pub struct OrganizationNoteBody {
+        /// The text.
+        pub body: String,
+        /// Shown first.
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional))]
+        pub pinned: Option<bool>,
+    }
+
+    /// `PUT /api/admin/organizations/{id}/tags`: replaces the labels.
+    pub struct OrganizationTagsBody {
+        /// Up to 10, each 1–30 characters; kept lowercase.
+        pub tags: Vec<String>,
+    }
+
+    /// A label in use, with how many organizations carry it.
+    pub struct AdminTagCountDto {
+        /// The label.
+        pub tag: String,
+        /// Organizations.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub count: i64,
+    }
+
+    /// One thing that happened to an organization (`GET /api/admin/organizations/{id}/timeline`).
+    pub struct TimelineEntryDto {
+        /// When.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub at: OffsetDateTime,
+        /// What.
+        pub kind: TimelineKind,
+        /// A code the panel translates: the audit action, the credit reason, the e-mail status,
+        /// the way a batch was paid, the dispute status, a member's role.
+        pub code: Option<String>,
+        /// Free text: an e-mail's subject, a note, a coupon code, a credit note.
+        pub detail: Option<String>,
+        /// Money, in centavos.
+        #[cfg_attr(feature = "ts", ts(type = "number | null"))]
+        pub amount_cents: Option<i64>,
+        /// Tickets.
+        #[cfg_attr(feature = "ts", ts(type = "number | null"))]
+        pub count: Option<i64>,
+        /// Who: the member, the admin, the recipient.
+        pub actor: Option<String>,
+        /// The event it is about.
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub event_id: Option<Uuid>,
+        /// Its name.
+        pub event_name: Option<String>,
+    }
+}
+
+dto_enum! {
+    /// Kinds of `TimelineEntryDto`.
+    pub enum TimelineKind {
+        /// The organization was created.
+        Signup,
+        /// Someone joined it.
+        MemberJoined,
+        /// A member signed in.
+        Login,
+        /// An event was created.
+        EventCreated,
+        /// A batch was created.
+        BatchCreated,
+        /// A batch was paid.
+        BatchPaid,
+        /// A batch was refunded.
+        BatchRefunded,
+        /// A card payment was disputed.
+        Dispute,
+        /// An e-mail went to a member.
+        Email,
+        /// Credit moved.
+        Credit,
+        /// A coupon was redeemed.
+        Coupon,
+        /// An admin acted.
+        Admin,
+        /// An admin wrote a note.
+        Note,
+    }
+}
+
+db_enum!(TimelineKind {
+    Signup => "signup", MemberJoined => "member_joined", Login => "login",
+    EventCreated => "event_created", BatchCreated => "batch_created", BatchPaid => "batch_paid",
+    BatchRefunded => "batch_refunded", Dispute => "dispute", Email => "email", Credit => "credit",
+    Coupon => "coupon", Admin => "admin", Note => "note"
+});
+
+dto! {
+    /// `GET /api/admin/reports/closing?month=YYYY-MM`: the month's money for the accountant
+    /// (ADR 0106), in Brasília time. Payments and refunds count on their own dates.
+    pub struct AdminClosingDto {
+        /// `YYYY-MM`.
+        pub month: String,
+        /// Money received.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub gross_cents: i64,
+        /// Money given back (refunds, partial ones included).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub refunds_cents: i64,
+        /// Received minus given back.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub net_cents: i64,
+        /// Received through Stripe.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub stripe_cents: i64,
+        /// Received outside Stripe (batches an admin marked paid).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub manual_cents: i64,
+        /// List price of the batches paid in the month, before discounts and credit.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub list_cents: i64,
+        /// Discounts (promotions and discount codes) of those batches.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub discount_cents: i64,
+        /// Credit used to pay them.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub credit_used_cents: i64,
+        /// Credit given in the month (codes, admins, referrals).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub credit_issued_cents: i64,
+        /// Credit the organizations still had at the end of the month (owed in tickets).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub credit_balance_cents: i64,
+        /// Batches paid.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub batches: i64,
+        /// Their tickets.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub tickets: i64,
+        /// Of them, free ones.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub free_tickets: i64,
+        /// Disputes lost in the month.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub disputes_lost_cents: i64,
+        /// Received by way of payment (`stripe`, `admin`, `credit`, `free`).
+        pub methods: Vec<AdminClosingMethodDto>,
+        /// Per organization, most net first.
+        pub organizations: Vec<AdminClosingOrganizationDto>,
+        /// Every payment and refund, oldest first.
+        pub lines: Vec<AdminClosingLineDto>,
+    }
+
+    /// Batches paid in the month by one way of payment.
+    pub struct AdminClosingMethodDto {
+        /// `stripe`, `admin`, `credit` or `free`.
+        pub method: String,
+        /// Batches.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub batches: i64,
+        /// Money received.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub cents: i64,
+    }
+
+    /// One organization's month.
+    pub struct AdminClosingOrganizationDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// Name.
+        pub name: String,
+        /// Batches paid.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub batches: i64,
+        /// Received.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub gross_cents: i64,
+        /// Given back.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub refunds_cents: i64,
+    }
+
+    /// A payment or a refund of a batch.
+    pub struct AdminClosingLineDto {
+        /// When the money moved.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub at: OffsetDateTime,
+        /// Payment or refund.
+        pub kind: ClosingLineKind,
+        /// The amount (always positive; `kind` says the direction).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub cents: i64,
+        /// The batch.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub batch_id: Uuid,
+        /// Its first number.
+        pub first: i32,
+        /// Its last number.
+        pub last: i32,
+        /// Free tickets in it.
+        pub free_tickets: i32,
+        /// List price, before discounts and credit.
+        pub list_cents: Option<i32>,
+        /// Discount.
+        pub discount_cents: i32,
+        /// Credit used.
+        pub credit_cents: i32,
+        /// How it was paid.
+        pub method: Option<String>,
+        /// Stripe's payment id, when paid there.
+        pub reference: Option<String>,
+        /// The event.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub event_id: Uuid,
+        /// Its name.
+        pub event_name: String,
+        /// The organization.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub organization_id: Uuid,
+        /// Its name.
+        pub organization_name: String,
+    }
+
+    /// Organizations created in one month and the money they brought since
+    /// (`GET /api/admin/reports/cohorts`).
+    pub struct AdminCohortDto {
+        /// `YYYY-MM` of the sign-up.
+        pub month: String,
+        /// Organizations created.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub signups: i64,
+        /// Of them, with a paid batch (free ones included).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub activated: i64,
+        /// Of them, that paid money.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub paying: i64,
+        /// Net money they brought, to date.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub revenue_cents: i64,
+        /// Net money in the month of the sign-up (0), the next (1)… up to this month.
+        #[cfg_attr(feature = "ts", ts(type = "number[]"))]
+        pub by_month: Vec<i64>,
+    }
+
+    /// What a coupon or a promotion cost and brought (`GET /api/admin/reports/coupons`).
+    pub struct AdminCouponReturnDto {
+        /// A code or an automatic promotion.
+        pub source: CouponSource,
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// The code, or the promotion's name.
+        pub name: String,
+        /// `credit`, `free_tickets`, `discount` or `promotion`.
+        pub kind: String,
+        /// When it was created.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub created_at: OffsetDateTime,
+        /// Organizations that used it.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub organizations: i64,
+        /// Of them, that paid money afterwards (in the batch itself, for a promotion).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub paying: i64,
+        /// Credit given.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub credit_cents: i64,
+        /// Discounts given.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub discount_cents: i64,
+        /// Free tickets given.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub free_tickets: i64,
+        /// Net money paid afterwards by the organizations that used it (for a promotion: by
+        /// its batches).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub revenue_cents: i64,
+    }
+}
+
+dto_enum! {
+    /// A line of the month's closing.
+    pub enum ClosingLineKind {
+        /// Money received.
+        Payment,
+        /// Money given back.
+        Refund,
+    }
+
+    /// Where a discount came from.
+    pub enum CouponSource {
+        /// A code typed by the organizer.
+        Code,
+        /// An automatic promotion.
+        Promotion,
+    }
+}
+
+dto_enum! {
+    /// Who gets an announcement by e-mail (ADR 0107).
+    pub enum AnnouncementAudience {
+        /// Every account.
+        All,
+        /// The owners of the organizations.
+        Owners,
+        /// Members of organizations that paid for tickets.
+        Paying,
+        /// Accounts that signed in within 90 days.
+        Recent,
+        /// Members of organizations with an admin label (`tag`).
+        Tagged,
+    }
+}
+
+db_enum!(AnnouncementAudience {
+    All => "all", Owners => "owners", Paying => "paying", Recent => "recent", Tagged => "tagged"
+});
+
+dto! {
+    /// `POST /api/admin/announcements/{id}/email` (and the preview's query).
+    pub struct AnnouncementEmailBody {
+        /// Who.
+        pub audience: AnnouncementAudience,
+        /// The label, for `tagged`.
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional))]
+        pub tag: Option<String>,
+    }
+
+    /// How many an audience reaches (`GET /api/admin/announcements/{id}/email`).
+    pub struct AnnouncementAudienceDto {
+        /// Accounts that will get it.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub recipients: i64,
+        /// Accounts of the audience that stopped these e-mails.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub opted_out: i64,
+        /// Accounts of the audience that already got this announcement.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub already: i64,
+        /// Announcement e-mails a day within the quota; none without a daily limit.
+        pub daily_budget: Option<i32>,
+    }
+
+    /// A sending of an announcement by e-mail.
+    pub struct AnnouncementMailingDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// Who.
+        pub audience: AnnouncementAudience,
+        /// The label, for `tagged`.
+        pub tag: Option<String>,
+        /// Recipients.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub total: i64,
+        /// Sent.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub sent: i64,
+        /// Refused by the provider.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub failed: i64,
+        /// Left out: stopped these e-mails after it was queued.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub skipped: i64,
+        /// Still to send.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub pending: i64,
+        /// Who sent it.
+        pub created_by: Option<String>,
+        /// When.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub created_at: OffsetDateTime,
+        /// When the last one went out.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub finished_at: Option<OffsetDateTime>,
+        /// Stopped by an admin.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub canceled_at: Option<OffsetDateTime>,
+    }
+
+    /// `PUT /api/account/preferences`.
+    pub struct AccountPreferencesBody {
+        /// Receive the platform's announcements by e-mail.
+        pub announcement_emails: bool,
+    }
+
+    /// `POST /api/email/unsubscribe`: the link of an announcement e-mail (no session).
+    pub struct UnsubscribeBody {
+        /// The token of the link.
+        pub token: String,
+        /// `false` stops them (the default); `true` undoes it.
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional))]
+        pub subscribed: Option<bool>,
+    }
+
+    /// What the unsubscribe page shows.
+    pub struct UnsubscribeDto {
+        /// The address, partly hidden (`an•••@gmail.com`).
+        pub email: String,
+        /// Receives announcements now.
+        pub subscribed: bool,
     }
 }
