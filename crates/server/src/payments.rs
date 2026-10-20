@@ -176,6 +176,38 @@ pub struct Charge {
     pub amount_refunded: i64,
 }
 
+/// The fields of a Dispute we use (`charge.dispute.*`, ADR 0104).
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct Dispute {
+    /// `dp_...`.
+    pub id: String,
+    /// `ch_...` of the disputed charge.
+    pub charge: String,
+    /// `pi_...` of the Checkout payment.
+    #[serde(default)]
+    pub payment_intent: Option<String>,
+    /// Disputed amount in centavos.
+    pub amount: i64,
+    /// `fraudulent`, `product_not_received`…
+    pub reason: String,
+    /// `needs_response`, `under_review`, `won`, `lost`…
+    pub status: String,
+    /// Unix time the dispute was opened.
+    #[serde(default)]
+    pub created: i64,
+    /// When the evidence is due.
+    #[serde(default)]
+    pub evidence_details: Option<DisputeEvidence>,
+}
+
+/// `evidence_details` of a dispute.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct DisputeEvidence {
+    /// Unix time the evidence must be sent by.
+    #[serde(default)]
+    pub due_by: Option<i64>,
+}
+
 /// A page of a Stripe list.
 #[derive(Debug, Deserialize)]
 struct StripeList<T> {

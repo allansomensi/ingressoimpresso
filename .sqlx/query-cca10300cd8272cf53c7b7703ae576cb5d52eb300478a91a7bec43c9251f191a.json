@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select e.name as event, o.name as organization, b.numbers\n           from ticket_batches b join events e on e.id = b.event_id\n           join organizations o on o.id = e.organization_id where b.id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "event",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "organization",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "organizations",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "numbers",
+        "type_info": "Int4Range",
+        "origin": {
+          "Table": {
+            "table": "ticket_batches",
+            "name": "numbers"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "cca10300cd8272cf53c7b7703ae576cb5d52eb300478a91a7bec43c9251f191a"
+}

@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update payment_disputes set block_void_id = null where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6a5bc15944a5a10f1ba2fda28abeb3f473e3b9f961aaf604c4de565a68b81772"
+}

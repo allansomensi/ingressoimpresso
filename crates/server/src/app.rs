@@ -32,8 +32,8 @@ use crate::routes::{
     two_factor, voids,
 };
 use crate::routes::{
-    admin_insights, alerts, cashier, checklist, checkpoints, courtesies, history, pix, public_page,
-    series,
+    admin_insights, alerts, cashier, checklist, checkpoints, courtesies, disputes, history, pix,
+    public_page, series,
 };
 use crate::routes::{referrals, verify};
 use crate::state::AppState;
@@ -444,6 +444,11 @@ pub fn router(state: AppState) -> Router {
         .route("/events/{id}/activity", get(history::list))
         // Ready-made papers for home printing (ADR 0102).
         .route("/events/{id}/papers", get(exports::papers))
+        // Disputed card payments (ADR 0104).
+        .route("/admin/disputes", get(disputes::list))
+        .route("/admin/disputes/{id}/block", post(disputes::block))
+        .route("/admin/disputes/{id}/unblock", post(disputes::unblock))
+        .route("/admin/disputes/{id}/settle", post(disputes::settle))
         // The admins' alerts and daily summary (ADR 0103).
         .route("/admin/alerts", get(alerts::list))
         .route("/admin/alerts/settings", put(alerts::update_settings))

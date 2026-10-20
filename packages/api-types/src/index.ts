@@ -12,6 +12,7 @@ export type * from "./generated/AdminBatchDto";
 export type * from "./generated/AdminBatchPriceBody";
 export type * from "./generated/AdminBonusBody";
 export type * from "./generated/AdminDayDto";
+export type * from "./generated/AdminDisputeDto";
 export type * from "./generated/AdminEventDto";
 export type * from "./generated/AdminEventSearchDto";
 export type * from "./generated/AdminFinanceDto";

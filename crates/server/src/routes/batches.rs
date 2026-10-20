@@ -812,6 +812,16 @@ async fn handle_stripe_event(
                 }
             }
         }
+        // A card payment contested by the buyer (ADR 0104): every step of it, closing included.
+        "charge.dispute.created"
+        | "charge.dispute.updated"
+        | "charge.dispute.closed"
+        | "charge.dispute.funds_withdrawn"
+        | "charge.dispute.funds_reinstated" => {
+            let dispute: crate::payments::Dispute = serde_json::from_value(event.data.object)
+                .map_err(|error| bad_request("invalid_event", error.to_string()))?;
+            super::disputes::record(state, &dispute).await?;
+        }
         other => tracing::debug!(event = %event.id, kind = %other, "stripe event ignored"),
     }
     Ok(())

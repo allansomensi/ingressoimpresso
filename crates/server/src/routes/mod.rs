@@ -14,6 +14,7 @@ pub mod changelog;
 pub mod checklist;
 pub mod checkpoints;
 pub mod courtesies;
+pub mod disputes;
 pub mod door;
 pub mod door_live;
 pub mod door_rehearsal;

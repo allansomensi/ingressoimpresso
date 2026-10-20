@@ -6137,3 +6137,55 @@ dto! {
         pub telegram: bool,
     }
 }
+
+dto! {
+    /// A disputed card payment (chargeback), as the admins see it (ADR 0104).
+    pub struct AdminDisputeDto {
+        /// Stripe's id (`dp_…`).
+        pub id: String,
+        /// Stripe's status (`needs_response`, `under_review`, `won`, `lost`…).
+        pub status: String,
+        /// Still going on.
+        pub open: bool,
+        /// Stripe's reason (`fraudulent`, `product_not_received`…).
+        pub reason: String,
+        /// Disputed amount.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub amount_cents: i64,
+        /// When it was opened.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub opened_at: OffsetDateTime,
+        /// Evidence due on Stripe by then.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub evidence_due_by: Option<OffsetDateTime>,
+        /// When it closed.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub closed_at: Option<OffsetDateTime>,
+        /// The batch paid with the disputed payment, when known.
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub batch_id: Option<Uuid>,
+        /// Its first number.
+        pub first: Option<i32>,
+        /// Its last number.
+        pub last: Option<i32>,
+        /// Its status.
+        pub batch_status: Option<BatchStatus>,
+        /// The event.
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub event_id: Option<Uuid>,
+        /// Its name.
+        pub event_name: Option<String>,
+        /// The organization.
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub organization_id: Option<Uuid>,
+        /// Its name.
+        pub organization_name: Option<String>,
+        /// The batch's numbers are blocked at the door.
+        pub blocked: bool,
+        /// A lost dispute settled: the batch refunded for good.
+        pub settled: bool,
+    }
+}

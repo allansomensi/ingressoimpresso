@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update payments set refunded_cents = amount_cents, refunded_at = $2, status = 'refunded'\n           where id = (select payment_id from payment_disputes where id = $1)\n             and refunded_cents < amount_cents",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "38c6c4eba7624b880176c0cffe3b328d13ba206ee2d0ed2d3e7b0ee5356e403d"
+}
