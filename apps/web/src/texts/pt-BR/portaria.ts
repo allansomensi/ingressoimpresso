@@ -71,6 +71,7 @@ export const portaria = {
   storageError: "Não foi possível salvar a leitura neste celular. Libere espaço e recarregue a página.",
   readiness: {
     title: "Pronto para ficar sem internet?",
+    ready: "Pronto para ficar sem internet",
     progress: (done: number, total: number) => `${String(done)} de ${String(total)}`,
     app: "App salvo para abrir sem internet",
     data: (time: string) => `Dados do evento atualizados às ${time}`,
