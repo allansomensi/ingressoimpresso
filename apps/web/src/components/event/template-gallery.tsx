@@ -32,7 +32,7 @@ function TemplateCard({
   onApply: (palette: Palette) => void;
 }) {
   const [paletteIndex, setPaletteIndex] = useState(0);
-  // Sixteen live previews at once are heavy (fitted texts, layout reads): each one waits until
+  // Dozens of live previews at once are heavy (fitted texts, layout reads): each one waits until
   // its card is near the dialog's visible part.
   const { attach, near } = useNearScreen("300px", "scroll-parent");
   const palette = template.palettes[paletteIndex] ?? template.palettes[0];
@@ -140,7 +140,11 @@ export function TemplateGallery({
   const [category, setCategory] = useState<TemplateCategory | null>(kind === "tokens" ? "tokens" : null);
   // A ficha shows its product (`{categoria}`): a sample one when the event has none yet.
   const sample: EventFields = { ...event, categoryName: event.categoryName ?? t.sampleCategory };
-  const shown = category === null ? TEMPLATES : TEMPLATES.filter((template) => template.categories.includes(category));
+  // "All" of a ticket event leaves the fichas out: they print a product, not an entrance.
+  const shown =
+    category === null
+      ? TEMPLATES.filter((template) => kind === "tokens" || !template.categories.includes("tokens"))
+      : TEMPLATES.filter((template) => template.categories.includes(category));
   const categories = Object.keys(t.categories) as TemplateCategory[];
 
   return (

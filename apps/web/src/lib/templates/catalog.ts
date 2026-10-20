@@ -1,94 +1,25 @@
 /**
- * Ready-made tickets for the most common kinds of event. A template is a design (positions,
- * typefaces, text blocks with fields such as `{evento}`) plus a background drawn as SVG; applying
- * one rasterizes the background at 300 dpi and uploads it as the event's art, so the printed file
- * and every later edit work exactly like with an art of the user's own.
+ * Ready-made tickets for every kind of event: the first ones here, the others in one file per theme
+ * (music.ts, celebrations.ts, community.ts, everyday.ts, tokens.ts). A template is a design
+ * (positions, typefaces, text blocks with fields such as `{evento}`) plus a background drawn as
+ * SVG; applying one rasterizes the background at 300 dpi and uploads it as the event's art, so the
+ * printed file and every later edit work exactly like with an art of the user's own.
  */
-
-import type { FontChoice, NumberStyle, StubStyle, TextBlock, TicketDesign } from "@ingressoimpresso/api-types";
 
 import { ticketCanvas as ticketCanvasTexts } from "@/texts/pt-BR/ticket-canvas";
 import { templates as templatesTexts } from "@/texts/pt-BR/templates";
 
+import { CELEBRATIONS_TEMPLATES } from "./celebrations";
+import { COMMUNITY_TEMPLATES } from "./community";
+import { EVERYDAY_TEMPLATES } from "./everyday";
+import { block, design, H, number, QR, STUB, TOKEN_BAND, TOKEN_H, TOKEN_QR, TOKEN_W, W, type TicketTemplate } from "./kit";
+import { MUSIC_TEMPLATES } from "./music";
 import { bokeh, branch, bunting, burst, canvas, confetti, glow, heart, linear, qrCard, r, random, star } from "./svg";
+import { TOKENS_TEMPLATES } from "./tokens";
+
+export type { Palette, TemplateCategory, TemplateId, TicketTemplate } from "./kit";
 
 const c = templatesTexts.content;
-
-export type TemplateCategory = keyof typeof templatesTexts.categories;
-export type TemplateId = keyof typeof templatesTexts.items;
-
-export interface Palette {
-  id: string;
-  /** Background. */
-  bg: string;
-  /** Main text. */
-  ink: string;
-  /** Secondary text. */
-  muted: string;
-  /** Highlights. */
-  accent: string;
-  /** Second highlight and decoration colours. */
-  extra: readonly string[];
-}
-
-export interface TicketTemplate {
-  id: TemplateId;
-  categories: readonly TemplateCategory[];
-  palettes: readonly Palette[];
-  build: (palette: Palette) => { design: TicketDesign; background: string };
-}
-
-/** A text block with the usual defaults. */
-function block(text: string, x: number, y: number, width: number, height: number, style: Partial<TextBlock> = {}): TextBlock {
-  return {
-    text,
-    xMm: x,
-    yMm: y,
-    widthMm: width,
-    heightMm: height,
-    font: "sans",
-    sizePt: 10,
-    color: "#111111",
-    align: "left",
-    lines: 1,
-    bold: false,
-    uppercase: false,
-    letterSpacing: 0,
-    ...style,
-  };
-}
-
-function number(x: number, y: number, width: number, height: number, font: FontChoice, sizePt: number, color: string, align: NumberStyle["align"] = "right"): NumberStyle {
-  return { xMm: x, yMm: y, widthMm: width, heightMm: height, font, sizePt, color, align, prefix: "Nº ", digits: 4 };
-}
-
-const STUB: StubStyle = { side: "left", widthMm: 40, fields: [...ticketCanvasTexts.defaultStubFields] };
-
-function design(
-  width: number,
-  height: number,
-  bg: string,
-  parts: { number: NumberStyle; qr: [number, number, number]; stub: StubStyle | null; texts: TextBlock[] },
-): TicketDesign {
-  const [x, y, size] = parts.qr;
-  return {
-    version: 1,
-    widthMm: width,
-    heightMm: height,
-    backgroundColor: bg,
-    number: parts.number,
-    qr: { xMm: x, yMm: y, sizeMm: size },
-    stub: parts.stub,
-    texts: parts.texts,
-    band: null,
-    sponsors: null,
-  };
-}
-
-/** The usual 150 × 55 mm ticket: texts on the left, number above the QR on the right. */
-const W = 150;
-const H = 55;
-const QR: [number, number, number] = [117, 19, 28];
 
 const show: TicketTemplate = {
   id: "show",
@@ -759,15 +690,6 @@ const classic: TicketTemplate = {
   },
 };
 
-/**
- * Consumption tokens (ADR 0084): 63 × 38 mm, 21 per A4 sheet. The product (`{categoria}`) in
- * large type, its price and the QR the stall reads; the category band runs down the left edge.
- */
-const TOKEN_W = 63;
-const TOKEN_H = 38;
-const TOKEN_QR: [number, number, number] = [37, 7, 22];
-const TOKEN_BAND = { edge: "left", sizeMm: 5 } as const;
-
 const token: TicketTemplate = {
   id: "token",
   categories: ["tokens"],
@@ -864,8 +786,13 @@ export const TEMPLATES: readonly TicketTemplate[] = [
   cinema,
   newYear,
   classic,
+  ...MUSIC_TEMPLATES,
+  ...CELEBRATIONS_TEMPLATES,
+  ...COMMUNITY_TEMPLATES,
+  ...EVERYDAY_TEMPLATES,
   token,
   tokenJunina,
+  ...TOKENS_TEMPLATES,
 ];
 
 export function templateById(id: string): TicketTemplate | undefined {

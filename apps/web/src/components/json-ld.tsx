@@ -160,7 +160,7 @@ function application(pricing: PricingDto | null) {
       "Categorias, mesas e lugares",
       "Lista de nomes e contagem ao vivo na portaria",
       "Relatórios e prestação de contas em PDF e planilha",
-      "16 modelos prontos e editor visual",
+      "Mais de 70 modelos prontos e editor visual",
     ],
   };
 }

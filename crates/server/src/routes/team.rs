@@ -70,6 +70,7 @@ fn area(method: &str, shape: &str) -> Need {
         (
             "POST",
             "events/{id}/design/preview"
+            | "events/{id}/design/sample"
             | "events/{id}/batches/quote"
             | "batches/{id}/checkout/sync"
             | "exports/{id}/link"
@@ -628,6 +629,7 @@ mod tests {
         let cases = [
             (Method::GET, "events/{id}/sellers", Need::Read),
             (Method::POST, "events/{id}/design/preview", Need::Read),
+            (Method::POST, "events/{id}/design/sample", Need::Read),
             (Method::POST, "exports/{id}/link", Need::Read),
             (Method::POST, "events/{id}/team/leave", Need::Read),
             (Method::PUT, "events/{id}/design", Need::Area(TeamArea::Art)),

@@ -554,6 +554,7 @@ Rotas implementadas na fase 3:
 POST /api/auth/code            POST /api/auth/verify          POST /api/auth/logout      GET /api/me
 GET|POST /api/events           GET|PUT /api/events/{id}
 GET|PUT /api/events/{id}/design                POST /api/events/{id}/design/preview (PNG, amostras)
+POST /api/events/{id}/design/sample            (um ingresso de amostra em JPEG, ADR 0094)
 POST /api/events/{id}/art      (PNG/JPEG cru, até 20 MB)
 GET|POST /api/events/{id}/batches              POST /api/batches/{id}/cancel
 POST /api/admin/batches/{id}/mark-paid         (pagamento por fora, ADMIN_EMAILS)

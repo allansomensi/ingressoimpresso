@@ -322,7 +322,7 @@ const f = await phone(camera4);
 await register(f, `${WEB}/portaria#acesso=${vipAccess.token}`, "Porta F");
 result = await readOnce(f, "f-wrong-door");
 assert.equal(result.tone, "warn", result.text);
-assert.match(result.text, /OUTRA PORTA[\s\S]*Nº 0004[\s\S]*Pista: entrada pela Ensaio/);
+assert.match(result.text, /OUTRA PORTA[\s\S]*Pista: entrada pela Ensaio[\s\S]*Nº 0004/);
 await f.page.getByRole("button", { name: "Deixar entrar mesmo assim" }).click();
 await f.page.locator('[data-tone="ok"]').waitFor({ timeout: TIMEOUT });
 await pauseReading(f.page);
@@ -435,7 +435,7 @@ const h = await phone(saturdayCamera);
 await register(h, gateLink, "Portão H");
 result = await readOnce(h, "h-wrong-day");
 assert.equal(result.tone, "warn", result.text);
-assert.match(result.text, /NÃO VALE HOJE[\s\S]*Nº 0003[\s\S]*vale só/);
+assert.match(result.text, /NÃO VALE HOJE[\s\S]*vale só[\s\S]*Nº 0003/);
 await h.page.getByRole("button", { name: "Deixar entrar mesmo assim" }).click();
 await h.page.locator('[data-tone="ok"]').waitFor({ timeout: TIMEOUT });
 // H stays open: its refusal goes up with the next sync (the exception was confirmed online).
