@@ -155,6 +155,27 @@ export function storeLogo(path: string, data: string): void {
   }
 }
 
+/** Every ticket saved in this browser, newest first ("Meus ingressos", ADR 0097). */
+export function storedPasses(): { key: string; pass: TicketPassDto; savedAt: number }[] {
+  return Object.entries(readStore())
+    .filter(([, entry]) => typeof entry === "object" && "pass" in entry)
+    .sort(([, a], [, b]) => b.savedAt - a.savedAt)
+    .map(([key, entry]) => ({ key, pass: normalizePass(entry.pass), savedAt: entry.savedAt }));
+}
+
+/** Forgets a saved ticket by its storage key (removed from "Meus ingressos"). */
+export function forgetStoredPass(key: string): void {
+  try {
+    const store = readStore();
+    if (key in store) {
+      delete store[key];
+      writeStore(store);
+    }
+  } catch {
+    // Nothing to forget.
+  }
+}
+
 /** Forgets a ticket whose link was revoked. */
 export async function forgetPass(token: string): Promise<void> {
   const key = await tokenKey(token);

@@ -19,6 +19,9 @@ e não acompanha estes números.
 - Lista de nomes por planilha: em **Importar lista**, cole as células do Excel ou do Google
   Planilhas ou abra um arquivo CSV com Nome, Acompanhantes, Observação e Categoria (em qualquer
   ordem), confira a prévia e adicione tudo de uma vez. Há uma planilha modelo para baixar.
+- **Meus ingressos** no celular: a página do ingresso digital, aberta sem link, lista os ingressos
+  e fichas já abertos naquele aparelho (os próximos primeiro), que abrem mesmo sem internet. Não é
+  mais preciso achar a mensagem no WhatsApp na hora da entrada.
 
 ### Alterado
 
