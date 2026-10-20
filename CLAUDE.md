@@ -302,6 +302,25 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   - Falta o que depende do mantenedor: certificados da Apple Wallet e conta de serviço do Google
     Wallet (opcionais, `docs/deploy.md` §5.7).
 
+- **Controle da plataforma (ADRs 0103–0107): implementado.**
+  - Alertas dos admins (`admin_alerts`, um aberto por chave; `alerts.rs` + `routes/alerts.rs`) por
+    e-mail e Telegram (`TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID`, as duas ou nenhuma): webhook da
+    Stripe, arquivo esgotado, cota de e-mail, erros 500 (`watch_errors`), evento grande sem
+    portaria (worker, de hora em hora) e contestação; resumo diário (`alert_digests`).
+  - Contestações (`payment_disputes`, webhooks `charge.dispute.*`, `routes/disputes.rs`): bloquear
+    os números (um `ticket_voids` `revoked`), desbloquear e estornar a perdida (`refund_batch`).
+  - Ficha da organização (`routes/crm.rs`): anotações (`organization_notes`), etiquetas
+    (`organizations.admin_tags`) e linha do tempo montada por `union all` das tabelas existentes;
+    última atividade e selo Esfriando (`lib/organization-crm.ts`).
+  - Relatórios (`routes/revenue_reports.rs`): fechamento do mês em XLSX/CSV (`;` e vírgula decimal)
+    sobre `revenue_entries`, coortes e retorno de cupons; seção Relatórios.
+  - Pronunciamentos por e-mail (`mailings.rs` + `routes/mailings.rs`): públicos, uma linha por
+    destinatário (`unique (announcement_id, user_id)`), remetente com `skip locked` e pausa que usa
+    só a cota menos a reserva (`mailings::reserve`); `users.announcement_emails`, cartão E-mails em
+    Minha conta, `/descadastrar#token` (HMAC da chave mestra) e `List-Unsubscribe` de um clique.
+  - Falta o que depende do mantenedor: marcar `charge.dispute.*` no webhook da Stripe (§5.1) e,
+    opcional, o bot do Telegram (§5.8).
+
 Plano completo em `docs/arquitetura.md` §12.
 
 ## Onde está cada coisa
@@ -363,6 +382,10 @@ crates/server        API (pacote `ingressoimpresso-server`, binário `ingressoim
                      página pública do evento (ADR 0095) em routes/public_page.rs, cortesias
                      (ADR 0096) em routes/courtesies.rs, histórico (ADR 0099) em activity.rs +
                      routes/history.rs e funil/ao vivo do admin em routes/admin_insights.rs,
+                     alertas dos admins (ADR 0103) em alerts.rs + routes/alerts.rs, contestações
+                     (ADR 0104) em routes/disputes.rs, ficha da organização (ADR 0105) em
+                     routes/crm.rs, relatórios de receita (ADR 0106) em routes/revenue_reports.rs,
+                     pronunciamentos por e-mail (ADR 0107) em mailings.rs + routes/mailings.rs,
                      carteiras do celular (ADR 0097) em wallet.rs, caixa de fichas (ADR 0098) em
                      routes/cashier.rs, resumo final (ADR 0101) em routes/final_summary.rs,
                      conferir ingresso (público, ADR 0075) em routes/verify.rs, dias do evento
@@ -444,7 +467,10 @@ apps/web             landing em src/app/page.tsx (+ src/components/marketing: si
                      em public/fonts/ticket (WOFF2); admin em src/app/painel/admin +
                      src/components/admin (seções agrupadas: financeiro, organização, preços e
                      cupons em billing.tsx, pronunciamentos, e-mails, moderação, auditoria,
-                     configurações, incidentes); conta em src/app/painel/conta (+ components/account);
+                     configurações, incidentes; alertas em alerts.tsx, contestações em
+                     disputes.tsx, ficha da organização em organization-crm.tsx, relatórios em
+                     reports.tsx, envio por e-mail em announcement-email.tsx);
+                     descadastro dos comunicados em app/descadastrar + components/unsubscribe; conta em src/app/painel/conta (+ components/account);
                      sininho e avisos em components/panel/{inbox,platform-notices}.tsx + lib/platform.ts;
                      lista de eventos em app/painel/page.tsx (ordem e séries em lib/event-list.ts,
                      selos em components/panel/event-phase.tsx); página da série em

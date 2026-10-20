@@ -258,8 +258,10 @@ organizador pagar sozinho, com Pix ou cartão:
 4. **Developers** → **Webhooks** → **Add endpoint**:
    - **Endpoint URL:** `https://api.seudominio.com.br/api/stripe/webhook`;
    - **Events:** `checkout.session.completed`, `checkout.session.async_payment_succeeded`,
-     `checkout.session.async_payment_failed`, `checkout.session.expired` e `charge.refunded`
-     (reembolsos, inclusive parciais). Num endpoint já criado, acrescente `charge.refunded` em
+     `checkout.session.async_payment_failed`, `checkout.session.expired`, `charge.refunded`
+     (reembolsos, inclusive parciais) e as contestações (ADR 0104): `charge.dispute.created`,
+     `charge.dispute.updated`, `charge.dispute.closed`, `charge.dispute.funds_withdrawn` e
+     `charge.dispute.funds_reinstated`. Num endpoint já criado, acrescente os que faltam em
      **Update details** → **Select events**.
 
    Depois de criar, copie o **Signing secret** (`whsec_...`).
@@ -431,6 +433,35 @@ O certificado vence em um ano: renove no mesmo lugar e troque as variáveis.
    **Developer**.
 4. No Render: `GOOGLE_WALLET_ISSUER_ID` e `GOOGLE_WALLET_SERVICE_ACCOUNT` (o conteúdo do JSON, em
    uma linha). Até o Google aprovar a conta de emissor, só os e-mails de teste conseguem salvar.
+
+## 5.8 Alertas no Telegram (opcional, ADR 0103)
+
+Os alertas dos admins (webhook da Stripe recusado, arquivo que falhou, cota de e-mail acabando,
+evento grande sem portaria, contestação de pagamento) e o resumo diário vão por e-mail para
+`ADMIN_EMAILS`. Com um bot do Telegram, chegam também no celular, sem gastar a cota de e-mails.
+
+1. No Telegram, converse com `@BotFather`, mande `/newbot`, escolha nome e usuário e copie o
+   **token** (`123456789:AA...`).
+2. Crie um grupo com os admins e adicione o bot (ou converse direto com ele). Mande uma mensagem
+   qualquer no grupo.
+3. Abra `https://api.telegram.org/bot<TOKEN>/getUpdates` no navegador e copie o `chat.id` da
+   mensagem (em grupos ele começa com `-`).
+4. No Render, nos **dois** serviços (produção e staging, se quiser alertas do staging também):
+   `TELEGRAM_BOT_TOKEN` e `TELEGRAM_CHAT_ID`. As duas juntas: com uma só, a API não sobe e diz qual.
+5. Em **Admin** → **Alertas**, clique em **Enviar teste**. Ali também escolhe os canais, a hora do
+   resumo diário e a partir de quantos ingressos um evento sem link da portaria vira alerta.
+
+O token é segredo: nunca no repositório, em issues ou no chat. Se vazar, gere outro no `@BotFather`
+(`/revoke`) e troque a variável.
+
+## 5.9 Comunicados por e-mail (ADR 0107)
+
+Nada a configurar: os pronunciamentos podem ir também por e-mail em **Admin** → **Pronunciamentos**
+→ ⋮ → **Enviar por e-mail**. O envio usa no máximo três quartos de `MAIL_DAILY_LIMIT` por dia
+(o resto fica para códigos de acesso, pagamentos e convites) e continua sozinho no dia seguinte
+quando a cota acaba. Para enviar mais rápido, aumente o plano da Resend e `MAIL_DAILY_LIMIT`
+(passo 5.3). Cada e-mail tem o link para parar de receber e o cabeçalho `List-Unsubscribe` de um
+clique, que o Gmail mostra ao lado do remetente.
 
 ## 6. Vercel (site, painel e portaria)
 
