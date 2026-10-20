@@ -1,0 +1,120 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select s.ticket_number, s.buyer_name, s.buyer_phone, s.sold_at, s.payment_method,\n                  s.closing_id is not null as \"closed!\",\n                  p.received_by as \"received_by?\", p.amount_cents as \"paid_cents?\",\n                  p.confirmed_at as \"confirmed_at?\"\n           from ticket_sales s\n           left join ticket_payments p on p.event_id = s.event_id and p.ticket_number = s.ticket_number\n           where s.event_id = $1 and s.seller_id = $2 order by s.ticket_number",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "ticket_number",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "ticket_sales",
+            "name": "ticket_number"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "buyer_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ticket_sales",
+            "name": "buyer_name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "buyer_phone",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ticket_sales",
+            "name": "buyer_phone"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "sold_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "ticket_sales",
+            "name": "sold_at"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "payment_method",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ticket_sales",
+            "name": "payment_method"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "closed!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "received_by?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ticket_payments",
+            "name": "received_by"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "paid_cents?",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "ticket_payments",
+            "name": "amount_cents"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "confirmed_at?",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "ticket_payments",
+            "name": "confirmed_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      false,
+      true,
+      null,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "c7eea247f93792d7f10452df75ef632cef812cb17f4b575cd9deee6eca8d128c"
+}

@@ -233,6 +233,29 @@ export function recentSummary(scans: readonly StoredScan[]): RecentSummary {
   return summary;
 }
 
+/** What this phone did, for the "Fim do evento" sheet (ADR 0101). */
+export interface EndSummary {
+  /** Let in (or handed over, at a checkpoint) and not overturned online. */
+  admitted: number;
+  /** Copies stopped: a number that had already entered, here or online. */
+  copies: number;
+  /** Other refusals: invalid, voided, another event, door or day. */
+  refused: number;
+  /** Exits, with re-entry (ADR 0083). */
+  exits: number;
+  /** Reads not yet received by the server. */
+  pending: number;
+}
+
+/** [`recentSummary`] with the copies apart from the other refusals. */
+export function endSummary(scans: readonly StoredScan[]): EndSummary {
+  const summary = recentSummary(scans);
+  const copies = scans.filter(
+    (scan) => scan.outcome === "rejected_used" || scan.outcome === "rejected_benefit_used" || scan.verdict?.kind === "already_entered",
+  ).length;
+  return { admitted: summary.admitted, copies, refused: summary.refused - copies, exits: summary.exits, pending: summary.pending };
+}
+
 /** Date and time with seconds, for the details of one scan. */
 export function scanTime(unixMs: number): string {
   return new Date(unixMs).toLocaleString("pt-BR", {

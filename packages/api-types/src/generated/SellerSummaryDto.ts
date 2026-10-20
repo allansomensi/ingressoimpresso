@@ -51,6 +51,10 @@ receivedCents: number,
  */
 pixCents: number, 
 /**
- * Amount due − received, when the event has a price.
+ * What the seller keeps (ADR 0096), when they have a commission and the amount is known.
+ */
+commissionCents: number | null, 
+/**
+ * Amount due − commission − received, when the event has a price.
  */
 balanceCents: number | null, };

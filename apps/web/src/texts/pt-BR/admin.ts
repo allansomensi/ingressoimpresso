@@ -17,6 +17,8 @@ export const admin = {
   },
   tabs: {
     overview: "Visão geral",
+    live: "Acontecendo agora",
+    funnel: "Funil",
     finance: "Financeiro",
     organizations: "Organizações",
     events: "Eventos",
@@ -32,6 +34,55 @@ export const admin = {
     audit: "Auditoria",
     settings: "Configurações",
     status: "Status e incidentes",
+  },
+  // The funnel and the events around now (ADR 0099).
+  funnel: {
+    title: "Funil",
+    description: "Das organizações criadas no período, quantas chegaram a cada passo. O maior tombo entre dois passos aparece em vermelho.",
+    window: "Período",
+    days: (days: number) => (days === 365 ? "1 ano" : `${String(days)} dias`),
+    all: "Tudo",
+    steps: {
+      signup: "Criou a conta",
+      event: "Criou um evento",
+      design: "Montou o ingresso (modelo ou arte própria)",
+      batch: "Gerou um lote (grátis ou pago)",
+      paid: "Pagou um lote",
+      door: "Usou a portaria",
+    },
+    lost: (count: number, kept: number) =>
+      `${count.toLocaleString("pt-BR")} ${count === 1 ? "parou" : "pararam"} aqui · seguiram ${kept.toLocaleString("pt-BR")}%`,
+    worst: "onde mais desistem",
+    median: (days: number) =>
+      days < 1 ? "Metade chega aqui no mesmo dia" : `Metade chega aqui em até ${days.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} ${days === 1 ? "dia" : "dias"}`,
+    emptyTitle: "Ninguém se cadastrou no período",
+    empty: "Escolha um período maior.",
+    note: "Cada organização conta uma vez por passo, pelo primeiro evento que chegou lá. Pagou um lote: pago pela Stripe ou confirmado por um admin, acima de zero; os grátis ficam no passo anterior.",
+  },
+  live: {
+    title: "Acontecendo agora",
+    description: "Eventos de 2 horas atrás até as próximas 6 horas. Os que precisam de atenção na portaria vêm primeiro: dá para ligar para o organizador antes que alguém reclame.",
+    refresh: "Atualizar",
+    troubled: (count: number) => (count === 1 ? "1 evento precisa de atenção" : `${count.toLocaleString("pt-BR")} eventos precisam de atenção`),
+    allGood: "Nenhum problema na portaria",
+    count: (count: number) => (count === 1 ? "1 evento agora" : `${count.toLocaleString("pt-BR")} eventos agora`),
+    updated: (time: string) => `atualizado às ${time}`,
+    emptyTitle: "Nenhum evento agora",
+    empty: "Os eventos aparecem aqui 6 horas antes de começar e somem 2 horas depois de terminar.",
+    states: { live: "Acontecendo", upcoming: "Em breve", ended: "Terminou" },
+    entries: (entries: number, paid: number, tokens: boolean) =>
+      `${entries.toLocaleString("pt-BR")} de ${paid.toLocaleString("pt-BR")} ${tokens ? "usadas" : "entraram"}`,
+    devices: (online: number, total: number) => (total === 0 ? "nenhum celular" : `${online.toLocaleString("pt-BR")}/${total.toLocaleString("pt-BR")} celulares sincronizando`),
+    problems: {
+      stale: (device: string, minutes: number) =>
+        `${device} não sincroniza há ${minutes >= 120 ? `${String(Math.floor(minutes / 60))} horas` : `${String(minutes)} minutos`}`,
+      pending: (device: string, count: number) => `${device} tem ${count.toLocaleString("pt-BR")} leituras para enviar`,
+      invalid: (device: string, count: number) =>
+        `${device} leu ${count.toLocaleString("pt-BR")} códigos inválidos ou de outro evento na última meia hora`,
+      noDevices: "Começa em breve, tem ingressos pagos e nenhum celular na portaria",
+    },
+    open: "Abrir o Ao vivo",
+    organization: "Organização",
   },
   revenue: {
     title: "Receita",

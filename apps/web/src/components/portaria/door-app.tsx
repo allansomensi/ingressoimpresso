@@ -8,6 +8,7 @@ import {
   Circle,
   ClipboardCheck,
   Clock3,
+  Flag,
   Flashlight,
   FlashlightOff,
   History,
@@ -27,6 +28,7 @@ import {
 import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent, type ReactNode } from "react";
 
 import { LogoMark } from "@/components/brand";
+import { EndOfEvent } from "@/components/portaria/end-of-event";
 import { GuestList } from "@/components/portaria/guest-list";
 import { RecentScans } from "@/components/portaria/recent-scans";
 import { Result } from "@/components/portaria/result-screen";
@@ -233,6 +235,7 @@ function Door({ engine, state }: { engine: DoorEngine; state: DoorState }) {
   const [checks, setChecks] = useState({ app: false, camera: false, storage: false });
   const [showGuests, setShowGuests] = useState(false);
   const [showRecent, setShowRecent] = useState(false);
+  const [showEnd, setShowEnd] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [rehearsal, setRehearsal] = useState({ sound: false, torch: false });
   /** The worker reported every resource of the page cached (no need to ask again). */
@@ -493,6 +496,20 @@ function Door({ engine, state }: { engine: DoorEngine; state: DoorState }) {
                 <span className="font-semibold">{t.guests.title}</span>
               </button>
             )}
+            <button
+              type="button"
+              onClick={() => {
+                setMenuOpen(false);
+                setShowEnd(true);
+              }}
+              className="flex min-h-12 items-center gap-3 px-4 py-2 text-left active:bg-white/10"
+            >
+              <Flag className="size-5 shrink-0 text-white/70" aria-hidden />
+              <span className="flex flex-col">
+                <span className="font-semibold">{t.end.menu}</span>
+                <span className="text-xs text-white/50">{t.end.menuHint}</span>
+              </span>
+            </button>
             {/* Rehearsal stays out of the way of the real work (ADR 0067): last, quiet, and gone
                 once the first ticket entered. */}
             {canRehearse(state.entryCount, rehearsing) && !checkMode && (
@@ -603,6 +620,16 @@ function Door({ engine, state }: { engine: DoorEngine; state: DoorState }) {
                   {t.checkpoint.intro(checkpoint.name)}
                 </p>
               )}
+              {/* After the end (ADR 0101): the summary and what is left to send, one tap away. */}
+              {event !== undefined && (
+                <EndBanner
+                  endsAt={event.endsAt}
+                  pending={state.pending}
+                  onOpen={() => {
+                    setShowEnd(true);
+                  }}
+                />
+              )}
               <Readiness
                 texts={words.readiness}
                 app={checks.app}
@@ -616,6 +643,15 @@ function Door({ engine, state }: { engine: DoorEngine; state: DoorState }) {
         )}
       </div>
 
+      {showEnd && (
+        <EndOfEvent
+          engine={engine}
+          state={state}
+          onClose={() => {
+            setShowEnd(false);
+          }}
+        />
+      )}
       {showRecent && (
         <RecentScans
           engine={engine}
@@ -653,6 +689,25 @@ function Door({ engine, state }: { engine: DoorEngine; state: DoorState }) {
         />
       )}
     </div>
+  );
+}
+
+/** After the event's end (ADR 0101): the summary and what is left to send, one tap away. */
+function EndBanner({ endsAt, pending, onOpen }: { endsAt: string; pending: number; onOpen: () => void }) {
+  const now = useClock();
+  if (now <= Date.parse(endsAt)) {
+    return null;
+  }
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="flex w-full max-w-md items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-left text-sm font-medium active:bg-white/10"
+    >
+      <Flag className="size-5 shrink-0 text-emerald-300" aria-hidden />
+      <span className="flex-1">{t.end.banner}</span>
+      {pending > 0 && <span className="rounded-full bg-amber-400 px-2 py-0.5 text-xs font-bold text-black tabular-nums">{pending}</span>}
+    </button>
   );
 }
 

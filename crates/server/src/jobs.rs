@@ -16,7 +16,7 @@ use ticket_render::{
 };
 use uuid::Uuid;
 
-use crate::api::{ExportKind, ExportScope};
+use crate::api::{ExportKind, ExportScope, PaperKind};
 use crate::error::{ApiError, ApiResult};
 use crate::keys;
 use crate::routes::EventRow;
@@ -157,7 +157,7 @@ async fn process_next(state: &AppState) -> ApiResult<bool> {
                select id from exports
                where status = 'queued' or (status = 'running' and locked_at < now() - interval '15 minutes')
                order by created_at for update skip locked limit 1)
-           returning id, event_id, kind, scope, crop_marks, status, ticket_count, file_name, byte_size, error, created_at, attempts"#
+           returning id, event_id, kind, scope, crop_marks, paper, status, ticket_count, file_name, byte_size, error, created_at, attempts"#
     )
     .fetch_optional(&state.pool)
     .await?
@@ -171,6 +171,7 @@ async fn process_next(state: &AppState) -> ApiResult<bool> {
         kind: claimed.kind,
         scope: claimed.scope,
         crop_marks: claimed.crop_marks,
+        paper: claimed.paper,
         status: claimed.status,
         ticket_count: claimed.ticket_count,
         file_name: claimed.file_name,
@@ -322,6 +323,8 @@ async fn generate(state: &AppState, export: &ExportRow) -> Result<(i32, String, 
     let first_seller = tickets.first().and_then(|ticket| ticket.seller.clone());
     let path = export_path(&state.config.export_dir, export.id, kind);
     let crop_marks = export.crop_marks;
+    let paper_kind = export.paper()?;
+    let paper = paper_kind.render();
     let write_path = path.clone();
     // Rendering shares the two slots of the design previews and the ticket images: the single
     // instance never decodes and draws more than two big jobs at once (memory, ADR 0015).
@@ -343,7 +346,7 @@ async fn generate(state: &AppState, export: &ExportRow) -> Result<(i32, String, 
             event_name,
             tickets: rendered,
         };
-        render_to_file(&job, kind, crop_marks, &write_path)
+        render_to_file(&job, kind, crop_marks, paper, &write_path)
     })
     .await
     .map_err(|error| JobError::Retry(error.into()))??;
@@ -351,7 +354,12 @@ async fn generate(state: &AppState, export: &ExportRow) -> Result<(i32, String, 
         .await
         .map_err(|error| JobError::Retry(error.into()))?
         .len();
-    let file_name = file_name(&event.name, kind, seller_id.and(first_seller.as_deref()));
+    let file_name = file_name(
+        &event.name,
+        kind,
+        paper_kind,
+        seller_id.and(first_seller.as_deref()),
+    );
     Ok((
         ticket_count,
         file_name,
@@ -502,10 +510,13 @@ fn render_to_file(
     job: &RenderJob,
     kind: ExportKind,
     crop_marks: bool,
+    paper: ticket_render::Paper,
     path: &Path,
 ) -> Result<(), JobError> {
     let render_error = |error: ticket_render::RenderError| match error {
         ticket_render::RenderError::TooLargeForA4 => JobError::Final("too_large_for_a4"),
+        // The design changed after the file was asked for (ADR 0102).
+        ticket_render::RenderError::PaperTooSmall => JobError::Final("paper_too_small"),
         ticket_render::RenderError::InvalidDesign(_) => JobError::Final("invalid_design"),
         other => JobError::Retry(other.into()),
     };
@@ -529,7 +540,7 @@ fn render_to_file(
         }
         ExportKind::Home | ExportKind::Print | ExportKind::Control => {
             let bytes = match kind {
-                ExportKind::Home => ticket_render::home_pdf(job),
+                ExportKind::Home => ticket_render::home_pdf_on(job, paper),
                 ExportKind::Print => ticket_render::print_pdf(job, PrintOptions { crop_marks }),
                 _ => ticket_render::control_sheet_pdf(job),
             }
@@ -540,13 +551,23 @@ fn render_to_file(
     std::fs::rename(&partial, path).map_err(|error| JobError::Retry(error.into()))
 }
 
-/// `show-de-lancamento-grafica.pdf`, `show-de-lancamento-joao-whatsapp.zip`, ...
-fn file_name(event_name: &str, kind: ExportKind, seller: Option<&str>) -> String {
-    let suffix = match kind {
-        ExportKind::Home => "casa-a4",
-        ExportKind::Print => "grafica",
-        ExportKind::Control => "controle",
-        ExportKind::Whatsapp => "whatsapp",
+/// `show-de-lancamento-grafica.pdf`, `show-de-lancamento-joao-whatsapp.zip`,
+/// `show-etiquetas-21.pdf` (ADR 0102)...
+fn file_name(event_name: &str, kind: ExportKind, paper: PaperKind, seller: Option<&str>) -> String {
+    let suffix = match (kind, paper) {
+        (ExportKind::Home, PaperKind::Plain) => "casa-a4",
+        (ExportKind::Home, PaperKind::Perforated3) => "picotado-3",
+        (ExportKind::Home, PaperKind::Perforated4) => "picotado-4",
+        (ExportKind::Home, PaperKind::Perforated6) => "picotado-6",
+        (ExportKind::Home, PaperKind::Perforated8) => "picotado-8",
+        (ExportKind::Home, PaperKind::Perforated10) => "picotado-10",
+        (ExportKind::Home, PaperKind::Labels21) => "etiquetas-21",
+        (ExportKind::Home, PaperKind::Labels14) => "etiquetas-14",
+        (ExportKind::Home, PaperKind::Labels8) => "etiquetas-8",
+        (ExportKind::Home, PaperKind::Labels2) => "etiquetas-2",
+        (ExportKind::Print, _) => "grafica",
+        (ExportKind::Control, _) => "controle",
+        (ExportKind::Whatsapp, _) => "whatsapp",
     };
     let mut parts = vec![slug(event_name)];
     if let Some(seller) = seller {
@@ -690,13 +711,20 @@ mod tests {
     #[test]
     fn file_names() {
         assert_eq!(
-            file_name("Show", ExportKind::Print, None),
+            file_name("Show", ExportKind::Print, PaperKind::Plain, None),
             "show-grafica.pdf"
         );
         assert_eq!(
-            file_name("Show", ExportKind::Whatsapp, Some("João")),
+            file_name("Show", ExportKind::Whatsapp, PaperKind::Plain, Some("João")),
             "show-joao-whatsapp.zip"
         );
-        assert_eq!(file_name("🎸", ExportKind::Home, None), "casa-a4.pdf");
+        assert_eq!(
+            file_name("🎸", ExportKind::Home, PaperKind::Plain, None),
+            "casa-a4.pdf"
+        );
+        assert_eq!(
+            file_name("Arraiá", ExportKind::Home, PaperKind::Labels21, None),
+            "arraia-etiquetas-21.pdf"
+        );
     }
 }

@@ -19,4 +19,8 @@ tickets: number,
 /**
  * Price of each.
  */
-priceCents: number | null, };
+priceCents: number | null, 
+/**
+ * Courtesies given from the seller's numbers (ADR 0096): price 0, nothing owed.
+ */
+courtesy: boolean, };

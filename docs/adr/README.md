@@ -104,3 +104,11 @@ feita e as consequências.
 | [0092](0092-pontos-de-controle.md) | Pontos de controle (janta, kit, open bar) | Aceito |
 | [0093](0093-catalogo-ampliado-de-modelos.md) | Catálogo ampliado de modelos | Aceito |
 | [0094](0094-editor-travado-amostra-e-portaria-mais-calma.md) | Editor travado, imagem de amostra e uma portaria mais calma | Aceito |
+| [0095](0095-pagina-publica-do-evento.md) | Página pública do evento | Aceito |
+| [0096](0096-aviso-comissao-e-cortesias.md) | Aviso para os vendedores, comissão e cortesias com controle | Aceito |
+| [0097](0097-transferir-carteira-e-meus-ingressos.md) | Transferir o ingresso digital, carteiras do celular e "Meus ingressos" | Aceito |
+| [0098](0098-caixa-de-fichas.md) | Caixa de fichas | Aceito |
+| [0099](0099-historico-do-evento-e-painel-do-admin.md) | Histórico do evento, funil e "acontecendo agora" no admin | Aceito |
+| [0100](0100-modelos-nas-cores-da-organizacao.md) | Modelos nas cores da organização e do cartaz | Aceito |
+| [0101](0101-fim-do-evento-e-resumo-final.md) | Fim do evento na portaria e resumo final para compartilhar | Aceito |
+| [0102](0102-papeis-prontos.md) | Papéis prontos para imprimir em casa | Aceito |

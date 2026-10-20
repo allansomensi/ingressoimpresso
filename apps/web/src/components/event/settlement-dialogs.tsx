@@ -30,7 +30,7 @@ import { event as eventTexts } from "@/texts/pt-BR/event";
 const MAX_AMOUNT_CENTS = 100_000_000;
 
 /** A row of mutually exclusive choices, as big touch targets. */
-function Choice<T extends string>({
+export function Choice<T extends string>({
   label,
   value,
   options,

@@ -1,13 +1,14 @@
 "use client";
 
 import type { EventKind } from "@ingressoimpresso/api-types";
-import { Check, LayoutTemplate } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Check, ImageUp, LayoutTemplate } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { sampleTag } from "@/components/marketing/template-sample";
 import { TicketView } from "@/components/ticket/ticket-view";
-import { Badge, Button, Dialog } from "@/components/ui";
+import { Badge, Button, Dialog, Spinner, Switch } from "@/components/ui";
 import { useNearScreen } from "@/components/ui/near-screen";
+import { artWithLogo, brandPalette, flyerColors } from "@/lib/brand-palette";
 import { cn } from "@/lib/cn";
 import { svgDataUrl } from "@/lib/rasterize";
 import { TEMPLATES, type Palette, type TemplateCategory, type TicketTemplate } from "@/lib/templates/catalog";
@@ -18,15 +19,26 @@ const t = templatesTexts;
 /** Thumbnail frame proportions (width / height). */
 const FRAME_RATIO = 1.75;
 
+/** The palette a card shows: the template's own, or redrawn in the brand colours (ADR 0100). */
+function paletteFor(base: Palette, colors: readonly string[] | null): Palette {
+  return colors === null || colors.length === 0 ? base : brandPalette(base, colors, `${base.id}-brand`);
+}
+
 function TemplateCard({
   template,
   event,
+  colors,
+  logo,
   applying,
   disabled,
   onApply,
 }: {
   template: TicketTemplate;
   event: EventFields;
+  /** Brand colours to redraw the template in; `null` keeps its own. */
+  colors: readonly string[] | null;
+  /** The organization's logo (a data URL) to lay on the art. */
+  logo: string | null;
   applying: boolean;
   disabled: boolean;
   onApply: (palette: Palette) => void;
@@ -35,9 +47,10 @@ function TemplateCard({
   // Dozens of live previews at once are heavy (fitted texts, layout reads): each one waits until
   // its card is near the dialog's visible part.
   const { attach, near } = useNearScreen("300px", "scroll-parent");
-  const palette = template.palettes[paletteIndex] ?? template.palettes[0];
+  const base = template.palettes[paletteIndex] ?? template.palettes[0];
+  const palette = useMemo(() => (base === undefined ? undefined : paletteFor(base, colors)), [base, colors]);
   const built = useMemo(() => (palette === undefined ? null : template.build(palette)), [template, palette]);
-  const art = useMemo(() => (built === null ? null : svgDataUrl(built.background)), [built]);
+  const art = useMemo(() => (built === null ? null : svgDataUrl(artWithLogo(built.background, built.design, logo))), [built, logo]);
   if (palette === undefined || built === null) {
     return null;
   }
@@ -79,16 +92,17 @@ function TemplateCard({
         </div>
         <div className="mt-auto flex items-center justify-between gap-3">
           <div role="radiogroup" aria-label={t.colors} className="flex items-center gap-1.5">
-            {template.palettes.map((option, index) => {
+            {template.palettes.map((templateOption, index) => {
+              const option = paletteFor(templateOption, colors);
               const checked = index === paletteIndex;
               return (
                 <button
-                  key={option.id}
+                  key={templateOption.id}
                   type="button"
                   role="radio"
                   aria-checked={checked}
-                  aria-label={t.palettes[option.id] ?? option.id}
-                  title={t.palettes[option.id] ?? option.id}
+                  aria-label={t.palettes[templateOption.id] ?? templateOption.id}
+                  title={t.palettes[templateOption.id] ?? templateOption.id}
                   onClick={() => {
                     setPaletteIndex(index);
                   }}
@@ -119,6 +133,205 @@ function TemplateCard({
   );
 }
 
+type ColorSource = "template" | "organization" | "flyer";
+
+/** The organization's colour first, then the main colours of its logo; empty without either. */
+function useOrganizationColors(brandColor: string | null, logo: string | null): string[] {
+  const [logoColors, setLogoColors] = useState<{ logo: string; colors: string[] } | null>(null);
+  useEffect(() => {
+    if (logo === null) {
+      return;
+    }
+    let live = true;
+    fetch(logo)
+      .then((response) => response.blob())
+      .then(flyerColors)
+      .then((colors) => {
+        if (live) {
+          setLogoColors({ logo, colors });
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [logo]);
+  return useMemo(() => {
+    const fromLogo = logoColors !== null && logoColors.logo === logo ? logoColors.colors : [];
+    return [...(brandColor === null ? [] : [brandColor]), ...fromLogo.filter((color) => color !== brandColor)].slice(0, 4);
+  }, [brandColor, logo, logoColors]);
+}
+
+type Flyer = {
+  colors: string[] | null;
+  reading: boolean;
+  failed: boolean;
+  read: (file: File) => void;
+  promote: (color: string) => void;
+};
+
+/** The colours of a flyer picked on the device (the image never leaves it). */
+function useFlyer(): Flyer {
+  const [colors, setColors] = useState<string[] | null>(null);
+  const [reading, setReading] = useState(false);
+  const [failed, setFailed] = useState(false);
+  return {
+    colors,
+    reading,
+    failed,
+    read: (file) => {
+      setReading(true);
+      setFailed(false);
+      flyerColors(file)
+        .then((found) => {
+          setColors(found.length === 0 ? null : found);
+          setFailed(found.length === 0);
+        })
+        .catch(() => {
+          setFailed(true);
+        })
+        .finally(() => {
+          setReading(false);
+        });
+    },
+    promote: (color) => {
+      setColors((current) => (current === null ? null : [color, ...current.filter((other) => other !== color)]));
+    },
+  };
+}
+
+function Swatches({ colors, onPick }: { colors: readonly string[]; onPick?: (color: string) => void }) {
+  return (
+    <span className="flex items-center gap-1.5">
+      {colors.map((color, index) =>
+        onPick === undefined ? (
+          <span key={color} aria-hidden className="size-6 rounded-full ring-1 ring-black/15" style={{ backgroundColor: color }} />
+        ) : (
+          <button
+            key={color}
+            type="button"
+            aria-label={t.brand.main(color)}
+            aria-pressed={index === 0}
+            onClick={() => {
+              onPick(color);
+            }}
+            className={cn(
+              "touch-target relative size-7 rounded-full ring-1 ring-black/15 transition",
+              index === 0 ? "ring-2 ring-brand ring-offset-2 ring-offset-surface" : "hover:scale-110 active:scale-110",
+            )}
+            style={{ backgroundColor: color }}
+          />
+        ),
+      )}
+    </span>
+  );
+}
+
+/** Where the template's colours come from: its own, the organization's or a flyer's (ADR 0100). */
+function BrandColors({
+  source,
+  onSource,
+  organizationColors,
+  flyer,
+  logo,
+  logoOn,
+  onLogoOn,
+}: {
+  source: ColorSource;
+  onSource: (source: ColorSource) => void;
+  organizationColors: readonly string[];
+  flyer: Flyer;
+  logo: string | null;
+  logoOn: boolean;
+  onLogoOn: (on: boolean) => void;
+}) {
+  const input = useRef<HTMLInputElement>(null);
+  const b = t.brand;
+  const options: { value: ColorSource; label: string }[] = [
+    { value: "template", label: b.template },
+    { value: "organization", label: b.organization },
+    { value: "flyer", label: b.flyer },
+  ];
+  return (
+    <section className="flex flex-col gap-3 rounded-2xl border border-border bg-surface-2/60 p-3.5">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <span className="text-sm font-medium text-fg">{b.label}</span>
+        <div role="radiogroup" aria-label={b.label} className="flex gap-1 rounded-xl bg-surface p-1 ring-1 ring-border">
+          {options.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              role="radio"
+              aria-checked={source === option.value}
+              onClick={() => {
+                onSource(option.value);
+                if (option.value === "flyer" && flyer.colors === null) {
+                  input.current?.click();
+                }
+              }}
+              className={cn(
+                "min-h-9 rounded-lg px-3 text-sm font-medium transition",
+                source === option.value ? "bg-brand-solid text-brand-fg shadow-sm" : "text-fg-muted hover:bg-surface-2 hover:text-fg active:bg-surface-2",
+              )}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+        <input
+          ref={input}
+          type="file"
+          accept="image/*"
+          className="sr-only"
+          tabIndex={-1}
+          aria-hidden
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            event.target.value = "";
+            if (file !== undefined) {
+              onSource("flyer");
+              flyer.read(file);
+            }
+          }}
+        />
+      </div>
+      {source === "organization" &&
+        (organizationColors.length === 0 ? (
+          <p className="text-[13px] text-fg-muted">{b.noOrganization}</p>
+        ) : (
+          <div className="flex flex-wrap items-center gap-3">
+            <Swatches colors={organizationColors} />
+            <span className="min-w-0 flex-1 text-[13px] text-fg-muted">{b.organizationHint}</span>
+          </div>
+        ))}
+      {source === "flyer" && (
+        <div className="flex flex-wrap items-center gap-3">
+          {flyer.reading ? (
+            <span className="flex items-center gap-2 text-[13px] text-fg-muted">
+              <Spinner className="size-4" />
+              {b.flyerReading}
+            </span>
+          ) : (
+            flyer.colors !== null && <Swatches colors={flyer.colors} onPick={flyer.promote} />
+          )}
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={<ImageUp />}
+            onClick={() => {
+              input.current?.click();
+            }}
+          >
+            {flyer.colors === null ? b.flyerPick : b.flyerChange}
+          </Button>
+          <span className={cn("basis-full text-[13px]", flyer.failed ? "text-danger-fg" : "text-fg-muted")}>{flyer.failed ? b.flyerFailed : b.flyerHint}</span>
+        </div>
+      )}
+      {source !== "template" && logo !== null && <Switch checked={logoOn} onChange={onLogoOn} label={b.logo} description={b.logoHint} />}
+    </section>
+  );
+}
+
 /** The template gallery, shown with the event's own name, date and venue. */
 export function TemplateGallery({
   open,
@@ -126,6 +339,8 @@ export function TemplateGallery({
   event,
   kind = "tickets",
   applying,
+  brandColor = null,
+  logo = null,
   onApply,
 }: {
   open: boolean;
@@ -135,9 +350,21 @@ export function TemplateGallery({
   kind?: EventKind;
   /** Id of the template being applied. */
   applying: string | null;
-  onApply: (template: TicketTemplate, palette: Palette) => void;
+  /** The organization's colour (ADR 0064), for the templates in its colours (ADR 0100). */
+  brandColor?: string | null;
+  /** The organization's logo as a data URL, when it has one. */
+  logo?: string | null;
+  /** `logo` is the one to lay on the art, or `null`. */
+  onApply: (template: TicketTemplate, palette: Palette, logo: string | null) => void;
 }) {
   const [category, setCategory] = useState<TemplateCategory | null>(kind === "tokens" ? "tokens" : null);
+  const [source, setSource] = useState<ColorSource>("template");
+  const [logoOn, setLogoOn] = useState(true);
+  const organizationColors = useOrganizationColors(brandColor, logo);
+  const flyer = useFlyer();
+  const colors = source === "organization" ? organizationColors : source === "flyer" ? flyer.colors : null;
+  // The logo goes with the organization's colours, or with a flyer's when asked.
+  const cardLogo = source !== "template" && logoOn ? logo : null;
   // A ficha shows its product (`{categoria}`): a sample one when the event has none yet.
   const sample: EventFields = { ...event, categoryName: event.categoryName ?? t.sampleCategory };
   // "All" of a ticket event leaves the fichas out: they print a product, not an entrance.
@@ -183,16 +410,27 @@ export function TemplateGallery({
             );
           })}
         </div>
+        <BrandColors
+          source={source}
+          onSource={setSource}
+          organizationColors={organizationColors}
+          flyer={flyer}
+          logo={logo}
+          logoOn={logoOn}
+          onLogoOn={setLogoOn}
+        />
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {shown.map((template) => (
             <TemplateCard
               key={template.id}
               template={template}
               event={sample}
+              colors={colors}
+              logo={cardLogo}
               applying={applying === template.id}
               disabled={applying !== null}
               onApply={(palette) => {
-                onApply(template, palette);
+                onApply(template, palette, cardLogo);
               }}
             />
           ))}

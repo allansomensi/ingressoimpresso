@@ -6,6 +6,7 @@ import {
   CalendarDays,
   CalendarPlus,
   CheckCircle2,
+  ChevronLeft,
   Download,
   ExternalLink,
   IdCard,
@@ -27,6 +28,8 @@ import { LogoMark } from "@/components/brand";
 import { EventChangeNotice, OrganizationContact, OrganizationLogo } from "@/components/organization/organization";
 import { PixCharge } from "@/components/pix/pix-charge";
 import { QrCode } from "@/components/qr";
+import { MyTicketsLink, MyTicketsList } from "@/components/ticket/my-tickets";
+import { TransferSection, WalletButtons } from "@/components/ticket/pass-actions";
 import { SeatMap } from "@/components/ticket/seat-map";
 import { Button, Dialog, Spinner, buttonClass } from "@/components/ui";
 import { ApiError, api, fetchBlobUrl } from "@/lib/api";
@@ -46,11 +49,13 @@ import { forKind } from "@/lib/event-kind";
 import { inkFor } from "@/lib/design-rules";
 import { changeKind } from "@/lib/event-change";
 import { shortDateTime } from "@/lib/format";
+import { forgetLink, openLink, rememberLink } from "@/lib/my-tickets";
 import { pixReference } from "@/lib/pix";
 import { validityText } from "@/lib/event-days";
 import { sessionLabel } from "@/lib/series";
 import { SITE_URL } from "@/lib/site";
 import { forgetPass, normalizePass, passBand, passDate, passImage, saveImage, storePass, storedPass, textOn } from "@/lib/ticket-pass";
+import { tokenKey } from "@/lib/token-key";
 import { useWakeLock } from "@/lib/wake-lock";
 import { brand as brandTexts } from "@/texts/pt-BR/brand";
 import { errors as errorsTexts } from "@/texts/pt-BR/errors";
@@ -63,8 +68,11 @@ type State =
   | { status: "loading" }
   | { status: "no-token" }
   | { status: "not-found" }
+  // Passed on to someone else (ADR 0097): this phone no longer holds it.
+  | { status: "transferred" }
   | { status: "error" }
-  | { status: "ready"; pass: TicketPassDto; offline: boolean };
+  // `saved`: opened from "Meus ingressos" without its link (only the copy on this phone).
+  | { status: "ready"; pass: TicketPassDto; offline: boolean; saved?: boolean };
 
 /** The link's token: everything after `#` (the fragment never reaches a server, ADR 0030). */
 function readToken(): string | null {
@@ -223,11 +231,14 @@ export function TicketPass() {
     try {
       const pass = normalizePass(await api<TicketPassDto>("/api/ticket", { method: "POST", body: { token: current } }));
       await storePass(current, pass);
+      // "Meus ingressos" (ADR 0097) can open it again from now on.
+      await rememberLink(current);
       setState({ status: "ready", pass, offline: false });
     } catch (error) {
-      if (error instanceof ApiError && error.status === 404) {
+      if (error instanceof ApiError && (error.status === 404 || error.status === 410)) {
         await forgetPass(current);
-        setState({ status: "not-found" });
+        await forgetLink(await tokenKey(current));
+        setState({ status: error.status === 410 ? "transferred" : "not-found" });
       } else if (cached !== null) {
         setState({ status: "ready", pass: cached, offline: true });
       } else {
@@ -270,9 +281,30 @@ export function TicketPass() {
       </Centered>
     );
   }
-  if (state.status === "no-token" || state.status === "not-found" || state.status === "error") {
-    const title = state.status === "no-token" ? t.metaTitle : state.status === "not-found" ? t.notFoundTitle : t.errorTitle;
-    const body = state.status === "no-token" ? t.noToken : state.status === "not-found" ? t.notFound : t.error;
+  const showList = () => {
+    // Back to "/ingresso" without a link: the list of this phone's tickets.
+    window.location.hash = "";
+    setToken(null);
+    setState({ status: "no-token" });
+  };
+  if (state.status === "no-token") {
+    return (
+      <MyTicketsList
+        onOpen={(ticket) => {
+          void openLink(ticket.key).then((link) => {
+            if (link === null) {
+              setState({ status: "ready", pass: ticket.pass, offline: true, saved: true });
+            } else {
+              window.location.hash = link;
+            }
+          });
+        }}
+      />
+    );
+  }
+  if (state.status === "not-found" || state.status === "error" || state.status === "transferred") {
+    const title = state.status === "not-found" ? t.notFoundTitle : state.status === "transferred" ? t.transferredTitle : t.errorTitle;
+    const body = state.status === "not-found" ? t.notFound : state.status === "transferred" ? t.transferred : t.error;
     return (
       <Centered>
         <span className="flex size-14 items-center justify-center rounded-2xl bg-brand-soft text-brand-soft-fg">
@@ -285,6 +317,9 @@ export function TicketPass() {
             {t.retry}
           </Button>
         )}
+        <Button variant="ghost" icon={<Ticket />} onClick={showList}>
+          {t.mine.title}
+        </Button>
       </Centered>
     );
   }
@@ -334,10 +369,20 @@ export function TicketPass() {
 
   return (
     <div className="mx-auto flex w-full max-w-md flex-col gap-5 px-4 pt-6 pb-[max(2rem,env(safe-area-inset-bottom))] animate-rise">
+      {state.saved === true && (
+        <button
+          type="button"
+          onClick={showList}
+          className="-mb-2 flex w-fit items-center gap-1.5 rounded-lg text-sm font-medium text-fg-muted transition hover:text-fg pointer-coarse:min-h-11"
+        >
+          <ChevronLeft className="size-4" aria-hidden />
+          {t.mine.title}
+        </button>
+      )}
       {state.offline && (
         <p role="status" className="flex items-center gap-2 rounded-xl border border-warning/30 bg-warning-soft px-3 py-2 text-sm text-warning-fg">
           <WifiOff className="size-4 shrink-0" aria-hidden />
-          {t.offline}
+          {state.saved === true ? t.mine.savedCopy : t.offline}
         </p>
       )}
 
@@ -456,21 +501,42 @@ export function TicketPass() {
       </article>
 
       {pass.qrText !== null && (
-        <div className="grid grid-cols-2 gap-2">
+        <div className={cn("grid gap-2", token !== null && "grid-cols-2")}>
           <Button variant="secondary" icon={<Download />} loading={saving} onClick={() => void save()}>
             {t.save}
           </Button>
-          <Button variant="secondary" icon={<ImageIcon />} loading={art.status === "loading"} onClick={() => void openArt()}>
-            {t.art}
-          </Button>
+          {/* The picture with the art comes from the API, which needs the link. */}
+          {token !== null && (
+            <Button variant="secondary" icon={<ImageIcon />} loading={art.status === "loading"} onClick={() => void openArt()}>
+              {t.art}
+            </Button>
+          )}
         </div>
       )}
+
+      {/* The phone's wallet (ADR 0097): needs the link and a connection once. */}
+      {token !== null && pass.qrText !== null && !state.offline && <WalletButtons pass={pass} token={token} />}
 
       {pass.pix !== null && pass.state !== "voided" && !canceled && (
         <TicketPix pix={pass.pix} eventId={pass.event.id} number={pass.number} label={pass.numberLabel} tokens={pass.event.kind === "tokens"} />
       )}
 
       {!canceled && <DayPlan pass={pass} />}
+
+      {/* Passing it on (ADR 0097): online, with the link, while the ticket can still move. */}
+      {token !== null && !state.offline && pass.transfersLeft > 0 && (
+        <TransferSection
+          pass={pass}
+          token={token}
+          onTransferred={() => {
+            void forgetPass(token)
+              .then(async () => {
+                await forgetLink(await tokenKey(token));
+              })
+              .finally(showList);
+          }}
+        />
+      )}
 
       {pass.tableMap !== null && <SeatMap map={pass.tableMap} />}
 
@@ -497,6 +563,8 @@ export function TicketPass() {
           </ul>
         </section>
       )}
+
+      <MyTicketsLink onClick={showList} />
 
       <Link href="/" className="mx-auto flex items-center gap-2 text-xs text-fg-subtle transition hover:text-fg pointer-coarse:min-h-11">
         {words.poweredBy}

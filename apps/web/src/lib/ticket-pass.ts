@@ -70,6 +70,9 @@ export function normalizePass(pass: TicketPassDto): TicketPassDto {
     tableMap: partial.tableMap ?? null,
     // Saved before the Pix (ADR 0085).
     pix: partial.pix ?? null,
+    // Saved before transfers and wallets (ADR 0097).
+    transfersLeft: partial.transfersLeft ?? 0,
+    wallets: partial.wallets ?? { apple: false, google: false },
     event: {
       ...pass.event,
       id: event.id ?? "",
@@ -152,6 +155,27 @@ export function storeLogo(path: string, data: string): void {
     window.localStorage.setItem(LOGO_KEY, JSON.stringify(Object.fromEntries(kept)));
   } catch {
     // Storage full: the logo shows while online.
+  }
+}
+
+/** Every ticket saved in this browser, newest first ("Meus ingressos", ADR 0097). */
+export function storedPasses(): { key: string; pass: TicketPassDto; savedAt: number }[] {
+  return Object.entries(readStore())
+    .filter(([, entry]) => typeof entry === "object" && "pass" in entry)
+    .sort(([, a], [, b]) => b.savedAt - a.savedAt)
+    .map(([key, entry]) => ({ key, pass: normalizePass(entry.pass), savedAt: entry.savedAt }));
+}
+
+/** Forgets a saved ticket by its storage key (removed from "Meus ingressos"). */
+export function forgetStoredPass(key: string): void {
+  try {
+    const store = readStore();
+    if (key in store) {
+      delete store[key];
+      writeStore(store);
+    }
+  } catch {
+    // Nothing to forget.
   }
 }
 

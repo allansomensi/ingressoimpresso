@@ -1,0 +1,221 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select e.name, e.venue, e.starts_at, e.ends_at, e.utc_offset_minutes, e.ticket_price_cents,\n                  e.sellers_send_tickets, e.sellers_ranking, o.name as organizer, s.name as seller,\n                  s.box_office, s.cashier, s.goal, s.commission_kind, s.commission_value,\n                  e.seller_notice, e.seller_notice_at\n           from events e join organizations o on o.id = e.organization_id\n                         join sellers s on s.id = $2\n           where e.id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "venue",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "venue"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "starts_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "starts_at"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "ends_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "ends_at"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "utc_offset_minutes",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "utc_offset_minutes"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "ticket_price_cents",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "ticket_price_cents"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "sellers_send_tickets",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "sellers_send_tickets"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "sellers_ranking",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "sellers_ranking"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "organizer",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "organizations",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "seller",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "sellers",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "box_office",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "sellers",
+            "name": "box_office"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "cashier",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "sellers",
+            "name": "cashier"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "goal",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "sellers",
+            "name": "goal"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "commission_kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "sellers",
+            "name": "commission_kind"
+          }
+        }
+      },
+      {
+        "ordinal": 14,
+        "name": "commission_value",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "sellers",
+            "name": "commission_value"
+          }
+        }
+      },
+      {
+        "ordinal": 15,
+        "name": "seller_notice",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "seller_notice"
+          }
+        }
+      },
+      {
+        "ordinal": 16,
+        "name": "seller_notice_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "seller_notice_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "330aa741b2f14655b8fbbc33647156649d2a80e1ddf48739ca5a864588128c22"
+}

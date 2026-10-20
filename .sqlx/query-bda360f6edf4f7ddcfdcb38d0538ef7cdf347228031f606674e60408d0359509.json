@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select cashier from sellers where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "cashier",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "sellers",
+            "name": "cashier"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "bda360f6edf4f7ddcfdcb38d0538ef7cdf347228031f606674e60408d0359509"
+}

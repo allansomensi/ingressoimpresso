@@ -13,6 +13,7 @@ use uuid::Uuid;
 use super::authorize_event;
 use crate::api::{
     CreateExportBody, DownloadLinkDto, ExportDto, ExportKind, ExportScope, ExportStatus,
+    PaperFitDto, PaperKind,
 };
 use crate::auth::{AuthUser, new_token, token_hash};
 use crate::error::{ApiError, ApiResult, bad_request};
@@ -30,6 +31,7 @@ pub(crate) struct ExportRow {
     pub kind: String,
     pub scope: serde_json::Value,
     pub crop_marks: bool,
+    pub paper: String,
     pub status: String,
     pub ticket_count: Option<i32>,
     pub file_name: Option<String>,
@@ -44,6 +46,11 @@ impl ExportRow {
             .ok_or_else(|| ApiError::Internal(anyhow::anyhow!("unknown kind {}", self.kind)))
     }
 
+    pub(crate) fn paper(&self) -> ApiResult<PaperKind> {
+        PaperKind::from_db(&self.paper)
+            .ok_or_else(|| ApiError::Internal(anyhow::anyhow!("unknown paper {}", self.paper)))
+    }
+
     pub(crate) fn scope(&self) -> ApiResult<ExportScope> {
         serde_json::from_value(self.scope.clone()).map_err(|error| ApiError::Internal(error.into()))
     }
@@ -55,6 +62,7 @@ impl ExportRow {
             status: ExportStatus::from_db(&self.status).ok_or_else(|| {
                 ApiError::Internal(anyhow::anyhow!("unknown status {}", self.status))
             })?,
+            paper: self.paper()?,
             id: self.id,
             ticket_count: self.ticket_count,
             file_name: self.file_name,
@@ -65,6 +73,51 @@ impl ExportRow {
     }
 }
 
+/// The event's latest design, or the default of its kind when never saved.
+async fn current_design(
+    state: &AppState,
+    event_id: Uuid,
+    tokens: bool,
+) -> ApiResult<ticket_render::TicketDesign> {
+    let spec = sqlx::query_scalar!(
+        "select spec from ticket_designs where event_id = $1 order by version desc limit 1",
+        event_id
+    )
+    .fetch_optional(&state.pool)
+    .await?;
+    match spec {
+        Some(spec) => {
+            serde_json::from_value(spec).map_err(|error| ApiError::Internal(error.into()))
+        }
+        None => Ok(ticket_render::TicketDesign::default_for(tokens)),
+    }
+}
+
+/// `GET /api/events/{id}/papers`: the papers the current design prints on at home, and how
+/// much it shrinks on each (ADR 0102).
+pub async fn papers(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(event_id): Path<Uuid>,
+) -> ApiResult<Json<Vec<PaperFitDto>>> {
+    let event = authorize_event(&state.pool, &user, event_id).await?;
+    let design = current_design(&state, event_id, event.tokens()).await?;
+    Ok(Json(
+        PaperKind::ALL
+            .into_iter()
+            .map(|paper| {
+                let render = paper.render();
+                PaperFitDto {
+                    paper,
+                    per_sheet: render.per_sheet(),
+                    piece_mm: render.piece_mm(),
+                    scale: ticket_render::paper_scale(&design, render),
+                }
+            })
+            .collect(),
+    ))
+}
+
 /// `POST /api/events/{id}/exports`: queues a file; the worker generates it.
 pub async fn create(
     State(state): State<AppState>,
@@ -72,7 +125,21 @@ pub async fn create(
     Path(event_id): Path<Uuid>,
     Json(body): Json<CreateExportBody>,
 ) -> ApiResult<(StatusCode, Json<ExportDto>)> {
-    authorize_event(&state.pool, &user, event_id).await?;
+    let event = authorize_event(&state.pool, &user, event_id).await?;
+    // Only the home file has a paper (ADR 0102), and the design must fit it.
+    let paper = match body.kind {
+        ExportKind::Home => body.paper.unwrap_or(PaperKind::Plain),
+        _ => PaperKind::Plain,
+    };
+    if paper != PaperKind::Plain {
+        let design = current_design(&state, event_id, event.tokens()).await?;
+        if ticket_render::paper_scale(&design, paper.render()).is_none() {
+            return Err(bad_request(
+                "paper_too_small",
+                "the ticket does not fit this paper",
+            ));
+        }
+    }
     let belongs = match body.scope {
         ExportScope::All => true,
         ExportScope::Batch { batch_id } => sqlx::query_scalar!(
@@ -114,15 +181,16 @@ pub async fn create(
     let scope = serde_json::to_value(body.scope).map_err(anyhow::Error::from)?;
     let row = sqlx::query_as!(
         ExportRow,
-        r#"insert into exports (id, event_id, requested_by, kind, scope, crop_marks)
-           values ($1, $2, $3, $4, $5, $6)
-           returning id, event_id, kind, scope, crop_marks, status, ticket_count, file_name, byte_size, error, created_at"#,
+        r#"insert into exports (id, event_id, requested_by, kind, scope, crop_marks, paper)
+           values ($1, $2, $3, $4, $5, $6, $7)
+           returning id, event_id, kind, scope, crop_marks, paper, status, ticket_count, file_name, byte_size, error, created_at"#,
         Uuid::new_v4(),
         event_id,
         user.id,
         body.kind.db(),
         scope,
         body.crop_marks.unwrap_or(true),
+        paper.db(),
     )
     .fetch_one(&state.pool)
     .await?;
@@ -139,7 +207,7 @@ pub async fn list(
     authorize_event(&state.pool, &user, event_id).await?;
     let rows = sqlx::query_as!(
         ExportRow,
-        r#"select id, event_id, kind, scope, crop_marks, status, ticket_count, file_name, byte_size, error, created_at
+        r#"select id, event_id, kind, scope, crop_marks, paper, status, ticket_count, file_name, byte_size, error, created_at
            from exports where event_id = $1 order by created_at desc limit 30"#,
         event_id
     )
@@ -158,7 +226,7 @@ async fn authorized_export(
 ) -> ApiResult<ExportRow> {
     let row = sqlx::query_as!(
         ExportRow,
-        r#"select id, event_id, kind, scope, crop_marks, status, ticket_count, file_name, byte_size, error, created_at
+        r#"select id, event_id, kind, scope, crop_marks, paper, status, ticket_count, file_name, byte_size, error, created_at
            from exports where id = $1"#,
         export_id
     )

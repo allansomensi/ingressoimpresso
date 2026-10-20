@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into ticket_sales (event_id, ticket_number, seller_id, buyer_name, buyer_phone, payment_method)\n           select $1, n, $2, $3, $4, $6 from unnest($5::int4[]) as n\n           on conflict (event_id, ticket_number) do update\n           set buyer_name = excluded.buyer_name,\n               buyer_phone = excluded.buyer_phone,\n               sold_at = case when ticket_sales.seller_id = excluded.seller_id\n                              then ticket_sales.sold_at else now() end,\n               -- A buyer's name changed keeps how it was paid and its shift (ADR 0098).\n               payment_method = coalesce(excluded.payment_method,\n                                         case when ticket_sales.seller_id = excluded.seller_id\n                                              then ticket_sales.payment_method end),\n               closing_id = case when ticket_sales.seller_id = excluded.seller_id\n                                 then ticket_sales.closing_id end,\n               seller_id = excluded.seller_id",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Text",
+        "Int4Array",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b5c7eae46971f80c6a1729476cf6120e1423acca4d9fd4fdd6f6a36607778680"
+}

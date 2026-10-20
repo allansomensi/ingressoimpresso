@@ -36,6 +36,7 @@ import { useDeferredValue, useState, type FormEvent, type ReactNode } from "reac
 import { toast } from "sonner";
 
 import { QrCode } from "@/components/qr";
+import { TransferSettingsCard } from "@/components/ticket/transfer-settings";
 import { PublicVerifyCard } from "@/components/verify/verify-settings";
 import {
   Alert,
@@ -849,6 +850,8 @@ export function DigitalTab({ eventId, onSelect }: { eventId: string; onSelect: S
       />
       {/* Anyone holding a ticket may check it on /conferir (ADR 0075). */}
       <PublicVerifyCard eventId={eventId} />
+      {/* Holders may pass their ticket on (ADR 0097). */}
+      <TransferSettingsCard eventId={eventId} />
     </div>
   );
 }

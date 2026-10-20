@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update events set seller_notice = $2,\n                  seller_notice_at = case when $2::text is null then null\n                                          when seller_notice is distinct from $2 then now()\n                                          else seller_notice_at end\n           where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "10d0ddfbab1945883bf1d0e70513b2feefc4d477f9ebcc69b596e0a6cb4b94dd"
+}

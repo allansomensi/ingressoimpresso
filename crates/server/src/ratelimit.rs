@@ -84,6 +84,13 @@ pub const VERIFY: Limit = Limit {
     max: 30,
     window: Duration::from_mins(10),
 };
+/// `GET /api/public/events/{slug}`: the event's public page (ADR 0095); the site's server asks for
+/// it on each visit, browsers keep it for half a minute.
+pub const PUBLIC_PAGE: Limit = Limit {
+    name: "public-page",
+    max: 600,
+    window: Duration::from_mins(5),
+};
 /// `GET /api/referrals/{code}`: who invites, on the sign-up page (ADR 0076).
 pub const REFERRAL_INVITE: Limit = Limit {
     name: "referral-invite",

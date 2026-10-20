@@ -593,6 +593,27 @@ GET /api/events/{id}/checklist       { applies, missing, required, items[{ key, 
 GET /api/events                      … + series { id, name, dates, position }, checklistMissing (uma consulta)
 ```
 
+Vendedores, ingresso digital, admin, modelos e papéis (ADRs 0095–0102):
+
+```
+GET|PUT /api/events/{id}/public-page       página pública (/e/<endereço>), vendedores mostrados e esgotado
+GET /api/public/events/{slug}              (sem login) a página, 404 quando desligada
+PUT /api/events/{id}/seller-notice         aviso fixo no link dos vendedores
+PUT /api/sellers/{id}/commission           POST /api/events/{id}/sellers/commission   (comissão)
+GET|POST /api/events/{id}/courtesies       DELETE /api/courtesies/{id}
+POST /api/events/{id}/courtesy-givers      PUT|DELETE /api/courtesy-givers/{id}       (cortesias)
+GET /api/events/{id}/activity              histórico do evento (gravado só em sucesso)
+GET /api/admin/funnel?days=                GET /api/admin/live                       (admin)
+POST /api/ticket/transfer { token, holderName } → link novo; o antigo responde 410
+POST /api/ticket/wallet/apple (.pkpass)    POST /api/ticket/wallet/google → { url }
+GET|PUT /api/events/{id}/ticket-settings   { transfers }
+GET /api/events/{id}/cashiers              POST /api/sellers/{id}/cashier/close      (caixa de fichas)
+POST /api/seller/cashier/close { token, countedCents, note }   (sem login)
+GET /api/events/{id}/summary/pdf|png       resumo final para compartilhar
+GET /api/events/{id}/papers                papéis prontos em que o desenho cabe, e quanto encolhe
+POST /api/events/{id}/exports              … + paper (só no arquivo de casa)
+```
+
 Pagamento, fase 6 (ADR 0020):
 
 ```

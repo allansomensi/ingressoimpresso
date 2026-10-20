@@ -2,16 +2,17 @@
 
 import type { AccountabilityDto, EventDto, LedgerBody, LedgerEntryDto, LedgerKind } from "@ingressoimpresso/api-types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowDownCircle, ArrowUpCircle, FileSpreadsheet, FileText, MoreHorizontal, Pencil, Plus, Scale, Trash2 } from "lucide-react";
-import { useState, type FormEvent } from "react";
+import { ArrowDownCircle, ArrowUpCircle, FileSpreadsheet, FileText, MoreHorizontal, Pencil, Plus, Scale, Share2, Trash2 } from "lucide-react";
+import { useEffect, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
 import { useEventAccess, useEventTexts } from "@/components/event/access";
-import { Button, Card, CardHeader, Dialog, ErrorMessage, Field, Input, LoadingBlock, Menu, MenuItem, buttonClass, errorMessage, useConfirm } from "@/components/ui";
-import { api, fetchBlobUrl } from "@/lib/api";
+import { Button, Card, CardHeader, Dialog, ErrorMessage, Field, Input, LoadingBlock, Menu, MenuItem, Spinner, buttonClass, errorMessage, useConfirm } from "@/components/ui";
+import { api, fetchBlob, fetchBlobUrl } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { money, parseMoney } from "@/lib/format";
 import { shortDay, todayIso } from "@/lib/settlement";
+import { saveImage } from "@/lib/ticket-pass";
 import { common as commonTexts } from "@/texts/pt-BR/common";
 import { errors as errorsTexts } from "@/texts/pt-BR/errors";
 
@@ -40,6 +41,7 @@ export function Accountability({ eventId }: { eventId: string }) {
     queryFn: () => api<AccountabilityDto>(`/api/events/${eventId}/accountability`),
   });
   const [dialog, setDialog] = useState<{ entry: LedgerEntryDto | null; kind: LedgerKind } | null>(null);
+  const [summaryOpen, setSummaryOpen] = useState(false);
   const download = useMutation({
     mutationFn: (format: "pdf" | "xlsx") => saveFile(`/api/events/${eventId}/accountability/${format}`, t.fileName(event.data?.name ?? "", format)),
     onError: (error) => toast.error(errorMessage(error)),
@@ -65,6 +67,15 @@ export function Accountability({ eventId }: { eventId: string }) {
         description={t.hint}
         actions={
           <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+            <Button
+              size="sm"
+              icon={<Share2 />}
+              onClick={() => {
+                setSummaryOpen(true);
+              }}
+            >
+              {t.finalSummary.open}
+            </Button>
             <Button
               size="sm"
               variant="secondary"
@@ -141,6 +152,14 @@ export function Accountability({ eventId }: { eventId: string }) {
           onSaved={refresh}
         />
       )}
+      <FinalSummaryDialog
+        eventId={eventId}
+        eventName={event.data?.name ?? ""}
+        open={summaryOpen}
+        onClose={() => {
+          setSummaryOpen(false);
+        }}
+      />
     </Card>
   );
 }
@@ -357,6 +376,79 @@ function EntryDialog({
         {amount.trim() !== "" && !parsed.ok && <p className="text-xs text-danger-fg">{errorsTexts.invalid_amount}</p>}
         <ErrorMessage error={save.error} />
       </form>
+    </Dialog>
+  );
+}
+
+/**
+ * The final summary (ADR 0101): one page with the audience, the money, the balance and the
+ * sellers who stood out, as a picture to send the committee in a chat, or a PDF to print.
+ */
+function FinalSummaryDialog({ eventId, eventName, open, onClose }: { eventId: string; eventName: string; open: boolean; onClose: () => void }) {
+  const t = useEventTexts().accountability.finalSummary;
+  const picture = useQuery({
+    queryKey: ["final-summary", eventId],
+    queryFn: async () => {
+      const blob = await fetchBlob(`/api/events/${eventId}/summary/png`);
+      return { blob, url: URL.createObjectURL(blob) };
+    },
+    enabled: open,
+    staleTime: 0,
+    gcTime: 0,
+  });
+  const blob = picture.data?.blob;
+  const url = picture.data?.url ?? null;
+  // Each picture's object URL goes when a newer one replaces it or the dialog closes.
+  useEffect(() => {
+    if (url === null) {
+      return;
+    }
+    return () => {
+      URL.revokeObjectURL(url);
+    };
+  }, [url]);
+  const pdf = useMutation({
+    mutationFn: () => saveFile(`/api/events/${eventId}/summary/pdf`, t.fileName(eventName, "pdf")),
+    onError: (error) => toast.error(errorMessage(error)),
+  });
+  return (
+    <Dialog open={open} onClose={onClose} title={t.title} description={t.description} size="md">
+      <div className="flex flex-col gap-4">
+        {picture.isError ? (
+          <ErrorMessage error={picture.error} />
+        ) : url === null || picture.isFetching ? (
+          <div className="flex aspect-[4/5] w-full items-center justify-center rounded-xl bg-surface-2">
+            <Spinner />
+          </div>
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element -- a blob URL from our own API
+          <img src={url} alt={t.alt(eventName)} className="w-full rounded-xl border border-border shadow-sm" />
+        )}
+        <div className="grid gap-2 sm:grid-cols-2">
+          <Button
+            icon={<Share2 />}
+            disabled={blob === undefined}
+            onClick={() => {
+              if (blob !== undefined) {
+                void saveImage(blob, t.fileName(eventName, "png"));
+              }
+            }}
+          >
+            {t.share}
+          </Button>
+          <Button
+            variant="secondary"
+            icon={<FileText />}
+            loading={pdf.isPending}
+            onClick={() => {
+              pdf.mutate();
+            }}
+          >
+            {t.pdf}
+          </Button>
+        </div>
+        <p className="text-xs leading-relaxed text-fg-subtle">{t.note}</p>
+      </div>
     </Dialog>
   );
 }

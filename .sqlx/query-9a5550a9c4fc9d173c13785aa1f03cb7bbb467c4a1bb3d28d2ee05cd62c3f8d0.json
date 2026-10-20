@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update events set sellers_send_tickets = coalesce($2, sellers_send_tickets),\n                             sellers_ranking = coalesce($3, sellers_ranking)\n           where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Bool",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9a5550a9c4fc9d173c13785aa1f03cb7bbb467c4a1bb3d28d2ee05cd62c3f8d0"
+}

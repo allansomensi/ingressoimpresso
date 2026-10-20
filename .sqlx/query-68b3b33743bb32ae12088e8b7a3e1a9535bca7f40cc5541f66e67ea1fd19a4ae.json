@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update ticket_links set revoked_at = now(), transferred_at = now()\n           where id = $1 and revoked_at is null",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "68b3b33743bb32ae12088e8b7a3e1a9535bca7f40cc5541f66e67ea1fd19a4ae"
+}

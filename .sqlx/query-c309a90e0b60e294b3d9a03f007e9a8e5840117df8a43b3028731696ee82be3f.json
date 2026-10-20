@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "delete from courtesy_givers g where id = $1 and not exists (select 1 from courtesies c where c.giver_id = g.id)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c309a90e0b60e294b3d9a03f007e9a8e5840117df8a43b3028731696ee82be3f"
+}

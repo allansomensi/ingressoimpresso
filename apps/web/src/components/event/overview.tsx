@@ -15,6 +15,7 @@ import { event as eventTexts } from "@/texts/pt-BR/event";
 import { ChecklistCard } from "./checklist";
 import { EventResults } from "./event-results";
 import { Occupancy, useDoorLive } from "./live";
+import { PublicPageCard } from "./public-page";
 import { TabHeader } from "./tab-header";
 import type { SelectTab } from "./tabs";
 
@@ -28,7 +29,7 @@ export function OverviewTab({
   eventId: string;
   onSelect: SelectTab;
   onEditEvent: () => void;
-  event?: Pick<EventDto, "startsAt" | "endsAt">;
+  event?: Pick<EventDto, "startsAt" | "endsAt" | "name">;
 }) {
   const t = useEventTexts().overview;
   // Judged once, when the tab opens (rendering stays pure).
@@ -97,6 +98,7 @@ export function OverviewTab({
         </>
       )}
       {paidTickets > 0 && working && (started || doorDay) && <EventResults eventId={eventId} />}
+      {event !== undefined && <PublicPageCard eventId={eventId} eventName={event.name} />}
     </div>
   );
 }

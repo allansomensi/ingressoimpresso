@@ -72,6 +72,21 @@ services:
         sync: false
       - key: TURNSTILE_SECRET_KEY
         sync: false
+      # ADR 0097 (docs/deploy.md §5.7): optional; digital tickets in the phone's wallet.
+      - key: APPLE_WALLET_PASS_TYPE_ID
+        sync: false
+      - key: APPLE_WALLET_TEAM_ID
+        sync: false
+      - key: APPLE_WALLET_CERTIFICATE
+        sync: false
+      - key: APPLE_WALLET_KEY
+        sync: false
+      - key: APPLE_WALLET_WWDR
+        sync: false
+      - key: GOOGLE_WALLET_ISSUER_ID
+        sync: false
+      - key: GOOGLE_WALLET_SERVICE_ACCOUNT
+        sync: false
 
   # The test environment (ADR 0046, docs/deploy.md §11): the same image from the staging branch,
   # with its own Neon branch, keys and domain. The free plan sleeps when idle (the first request
@@ -134,4 +149,19 @@ services:
       - key: TURNSTILE_SITE_KEY
         sync: false
       - key: TURNSTILE_SECRET_KEY
+        sync: false
+      # ADR 0097 (docs/deploy.md §5.7): optional; digital tickets in the phone's wallet.
+      - key: APPLE_WALLET_PASS_TYPE_ID
+        sync: false
+      - key: APPLE_WALLET_TEAM_ID
+        sync: false
+      - key: APPLE_WALLET_CERTIFICATE
+        sync: false
+      - key: APPLE_WALLET_KEY
+        sync: false
+      - key: APPLE_WALLET_WWDR
+        sync: false
+      - key: GOOGLE_WALLET_ISSUER_ID
+        sync: false
+      - key: GOOGLE_WALLET_SERVICE_ACCOUNT
         sync: false

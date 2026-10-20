@@ -43,7 +43,7 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { ReadOnlyNotice, useEventKind, useEventTexts } from "@/components/event/access";
@@ -51,7 +51,7 @@ import { ArtPicker } from "@/components/event/art-picker";
 import { NumberInspector, QrInspector, TextInspector } from "@/components/event/design-inspectors";
 import { AlignBar, SelectionInspector, ShortcutsHelp, useMarquee } from "@/components/event/design-tools";
 import { TabHeader } from "@/components/event/tab-header";
-import { TemplateGallery } from "@/components/event/template-gallery";
+import { useLogo } from "@/components/organization/organization";
 import { TicketView, type ElementChange } from "@/components/ticket/ticket-view";
 import {
   Alert,
@@ -104,6 +104,7 @@ import {
   type Box,
   type TicketElement,
 } from "@/lib/design-selection";
+import { artWithLogo } from "@/lib/brand-palette";
 import { rasterizeBackground } from "@/lib/rasterize";
 import { sampleFileName, sampleMockup } from "@/lib/sample-image";
 import type { Palette, TicketTemplate } from "@/lib/templates/catalog";
@@ -114,6 +115,11 @@ import { common as commonTexts } from "@/texts/pt-BR/common";
 import { ticketCanvas as ticketCanvasTexts } from "@/texts/pt-BR/ticket-canvas";
 import { event as eventTexts } from "@/texts/pt-BR/event";
 import { templates as templatesTexts } from "@/texts/pt-BR/templates";
+
+// The 76 templates are code (ADR 0093): the gallery is its own chunk, fetched when "Modelos" is
+// pressed (or pointed at), never with the editor.
+const loadGallery = () => import("@/components/event/template-gallery");
+const TemplateGallery = lazy(() => loadGallery().then((m) => ({ default: m.TemplateGallery })));
 
 
 export function DesignTab({ eventId }: { eventId: string }) {
@@ -334,6 +340,8 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
   const initialDraft = useMemo<Draft>(() => ({ design: initial.design, art: initial.art, sponsors: initial.sponsors }), [initial]);
   const { draft, change, undo, redo, canUndo, canRedo } = useDraftHistory(initialDraft);
   const { design, art, sponsors } = draft;
+  // The organization's logo for the templates in its colours (ADR 0100), kept on the device.
+  const organizationLogo = useLogo(initial.organization.logoPath);
   const sponsorUrls = useQueries({
     queries: sponsors.map((logo) => ({
       queryKey: ["art", eventId, logo.id],
@@ -368,6 +376,8 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
   const pasteboardRef = useRef<HTMLDivElement>(null);
   const marquee = useMarquee({ ref: pasteboardRef, design, selection, additive, onSelect: setSelected });
   const [galleryOpen, setGalleryOpen] = useState(false);
+  // "loading" while the gallery's chunk is on its way; "ready" keeps it mounted afterwards.
+  const [gallery, setGallery] = useState<"idle" | "loading" | "ready">("idle");
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewView, setPreviewView] = useState<"sample" | "sheet">("sample");
   const [preview, setPreview] = useState<string | null>(null);
@@ -454,9 +464,11 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
     onError: (error) => toast.error(errorMessage(error)),
   });
   const applyTemplate = useMutation({
-    mutationFn: async ({ template, palette }: { template: TicketTemplate; palette: Palette }) => {
+    mutationFn: async ({ template, palette, logo }: { template: TicketTemplate; palette: Palette; logo: string | null }) => {
       const built = template.build(palette);
-      const file = await rasterizeBackground(built.background, built.design.widthMm, built.design.heightMm);
+      // The organization's logo on a free corner (ADR 0100), drawn into the art.
+      const background = artWithLogo(built.background, built.design, logo);
+      const file = await rasterizeBackground(background, built.design.widthMm, built.design.heightMm);
       const uploaded = await upload<ArtDto>(`/api/events/${eventId}/art`, file);
       return { template, design: built.design, file, uploaded };
     },
@@ -753,10 +765,27 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
 
   const openGallery = () => {
     applyTemplate.reset();
-    setGalleryOpen(true);
+    if (gallery === "ready") {
+      setGalleryOpen(true);
+      return;
+    }
+    setGallery("loading");
+    loadGallery().then(
+      () => {
+        setGallery("ready");
+        setGalleryOpen(true);
+      },
+      (error: unknown) => {
+        setGallery("idle");
+        toast.error(errorMessage(error));
+      },
+    );
+  };
+  const prefetchGallery = () => {
+    void loadGallery().catch(() => undefined);
   };
 
-  const chooseTemplate = async (template: TicketTemplate, palette: Palette) => {
+  const chooseTemplate = async (template: TicketTemplate, palette: Palette, logo: string | null) => {
     const customized = saved.version > 0 || dirty;
     if (
       customized &&
@@ -764,7 +793,7 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
     ) {
       return;
     }
-    applyTemplate.mutate({ template, palette });
+    applyTemplate.mutate({ template, palette, logo });
   };
 
   const status = dirty ? (
@@ -835,7 +864,16 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
                     {t.toolbar.edit}
                   </Button>
                 )}
-                <Button variant="secondary" size="sm" icon={<LayoutTemplate />} aria-label={t.toolbar.templates} onClick={openGallery}>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  icon={<LayoutTemplate />}
+                  aria-label={t.toolbar.templates}
+                  loading={gallery === "loading"}
+                  onClick={openGallery}
+                  onPointerEnter={prefetchGallery}
+                  onFocus={prefetchGallery}
+                >
                   <span className="max-sm:sr-only">{t.toolbar.templates}</span>
                 </Button>
                 <Button variant="secondary" size="sm" icon={<Plus />} className="max-sm:hidden" onClick={addText} disabled={design.texts.length >= MAX_TEXT_BLOCKS}>
@@ -943,7 +981,7 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
               tone="brand"
               title={t.startTitle}
               action={
-                <Button size="sm" icon={<LayoutTemplate />} onClick={openGallery}>
+                <Button size="sm" icon={<LayoutTemplate />} loading={gallery === "loading"} onClick={openGallery} onPointerEnter={prefetchGallery}>
                   {t.startAction}
                 </Button>
               }
@@ -1331,18 +1369,24 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
         </div>
       </div>
 
-      <TemplateGallery
-        open={galleryOpen}
-        onClose={() => {
-          setGalleryOpen(false);
-        }}
-        event={event}
-        kind={event.kind}
-        applying={applyTemplate.isPending ? (applyTemplate.variables?.template.id ?? null) : null}
-        onApply={(template, palette) => {
-          void chooseTemplate(template, palette);
-        }}
-      />
+      {gallery === "ready" && (
+        <Suspense fallback={null}>
+          <TemplateGallery
+            open={galleryOpen}
+            onClose={() => {
+              setGalleryOpen(false);
+            }}
+            event={event}
+            kind={event.kind}
+            applying={applyTemplate.isPending ? (applyTemplate.variables?.template.id ?? null) : null}
+            brandColor={initial.organization.brandColor}
+            logo={organizationLogo}
+            onApply={(template, palette, logo) => {
+              void chooseTemplate(template, palette, logo);
+            }}
+          />
+        </Suspense>
+      )}
 
       <Dialog
         open={previewOpen}

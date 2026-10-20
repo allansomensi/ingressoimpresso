@@ -22,6 +22,7 @@ import type {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Banknote,
+  Calculator,
   BookmarkPlus,
   CheckCircle2,
   ChevronDown,
@@ -35,6 +36,7 @@ import {
   MessageCircle,
   MoreHorizontal,
   PackageX,
+  Percent,
   Phone,
   Plus,
   QrCode,
@@ -56,6 +58,8 @@ import { toast } from "sonner";
 
 import { ReadOnlyNotice, useEventAccess, useEventKind, useEventTexts, type EventTexts } from "@/components/event/access";
 import { GoalDialog, GoalLine, RankingCard, ReserveDialog, SellerReservations } from "@/components/event/seller-extras";
+import { CashiersCard } from "@/components/event/cashiers";
+import { CommissionBadge, CommissionDialog, CourtesiesCard, SellerNoticeCard } from "@/components/event/seller-money";
 import { PaymentDialog, ReturnDialog } from "@/components/event/settlement-dialogs";
 import { PixCard, SellerPixDialog, useEventPix } from "@/components/pix/event-pix";
 import {
@@ -84,7 +88,7 @@ import { api, isUuid } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { initials, money, shortDateTime, ticketNumber } from "@/lib/format";
 import { NUMBER_LIST_INPUT, countNumbers, formatRanges, intersect, parseNumberList, type NumberRange } from "@/lib/number-list";
-import { receivedPercent, settlementMessage, settlementState, settlementTotals, shortDay, whatsappLink, type SettlementState } from "@/lib/settlement";
+import { netDue, receivedPercent, settlementMessage, settlementState, settlementTotals, shortDay, whatsappLink, type SettlementState } from "@/lib/settlement";
 import { common as commonTexts } from "@/texts/pt-BR/common";
 import { errors as errorsTexts } from "@/texts/pt-BR/errors";
 import { pix as pixTexts } from "@/texts/pt-BR/pix";
@@ -362,7 +366,8 @@ function MoneyBar({ row }: { row: ReportRowDto }) {
   const t = useEventTexts().sellers;
   const state = settlementState(row);
   const percent = receivedPercent(row);
-  if (row.amountDueCents === null) {
+  const due = netDue(row);
+  if (due === null) {
     return <p className="text-sm text-fg-muted">{t.receivedOnly(money(row.receivedCents))}</p>;
   }
   return (
@@ -370,10 +375,14 @@ function MoneyBar({ row }: { row: ReportRowDto }) {
       <div className="flex items-center justify-between gap-3 text-sm">
         <span className="text-fg-muted">
           <span className="font-semibold text-fg tabular">{money(row.receivedCents)}</span>
-          <span className="tabular"> / {money(row.amountDueCents)}</span>
+          <span className="tabular"> / {money(due)}</span>
         </span>
         <StateBadge state={state} />
       </div>
+      {/* The seller's commission (ADR 0096) is already off the amount above. */}
+      {row.commissionCents !== null && row.commissionCents > 0 && (
+        <p className="-mt-1 text-xs text-fg-muted">{t.commission.line(money(row.commissionCents))}</p>
+      )}
       {/* Pix the buyers paid straight to the organization counts as handed over (ADR 0085). */}
       {row.pixCents > 0 && <p className="-mt-1 text-xs text-fg-muted">{pixTexts.summaryPix(money(row.pixCents))}</p>}
       <div
@@ -381,7 +390,7 @@ function MoneyBar({ row }: { row: ReportRowDto }) {
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={percent}
-        aria-label={t.progressLabel(money(row.receivedCents), money(row.amountDueCents))}
+        aria-label={t.progressLabel(money(row.receivedCents), money(due))}
         className="h-2 overflow-hidden rounded-full bg-surface-3"
       >
         <div
@@ -711,7 +720,7 @@ function SellerCard({
   const delivery = can("delivery");
   const cash = can("money");
   const [assigning, setAssigning] = useState(false);
-  const [dialog, setDialog] = useState<"payment" | "return" | "goal" | "reserve" | "pix" | null>(null);
+  const [dialog, setDialog] = useState<"payment" | "return" | "goal" | "reserve" | "pix" | "commission" | null>(null);
   // The card shows what matters at a glance (numbers, money, the link); the rest unfolds.
   const [open, setOpen] = useState(false);
   const remove = useMutation({
@@ -728,6 +737,19 @@ function SellerCard({
     },
     onSuccess: (_, on) => {
       toast.success(t.boxOffice.saved(on));
+      onChange();
+    },
+    onError: (error) => {
+      toast.error(errorMessage(error));
+    },
+  });
+  const cashier = useMutation({
+    mutationFn: (on: boolean) => {
+      const body: SellerBody = { name: seller.name, phone: seller.phone, cashier: on };
+      return api<undefined>(`/api/sellers/${seller.id}`, { method: "PUT", body });
+    },
+    onSuccess: (_, on) => {
+      toast.success(t.cashier.saved(on));
       onChange();
     },
     onError: (error) => {
@@ -763,12 +785,19 @@ function SellerCard({
                   {t.boxOffice.badge}
                 </Badge>
               )}
+              {seller.cashier && (
+                <Badge tone="brand" className="shrink-0">
+                  <Calculator className="size-3" aria-hidden />
+                  {t.cashier.badge}
+                </Badge>
+              )}
               {pixSeller && seller.pix !== null && (
                 <Badge tone="success" className="shrink-0">
                   <QrCode className="size-3" aria-hidden />
                   {pixTexts.sellerKeyBadge}
                 </Badge>
               )}
+              {seller.commission !== null && <CommissionBadge commission={seller.commission} />}
             </span>
             <span className="flex min-w-0 items-center gap-1.5 text-sm text-fg-muted">
               {seller.phone !== null && (
@@ -832,6 +861,17 @@ function SellerCard({
                 {seller.goal === null ? t.goal.set : t.goal.change}
               </MenuItem>
             )}
+            {/* What the seller keeps changes what they owe: the money part's call (ADR 0096). */}
+            {cash && !seller.boxOffice && (
+              <MenuItem
+                icon={<Percent />}
+                onSelect={() => {
+                  setDialog("commission");
+                }}
+              >
+                {t.commission.menu}
+              </MenuItem>
+            )}
             {/* Where this seller's buyers pay by Pix: the money part's call (ADR 0085). */}
             {cash && pixSeller && (
               <MenuItem
@@ -853,6 +893,17 @@ function SellerCard({
                 }}
               >
                 {seller.boxOffice ? t.boxOffice.turnOff : t.boxOffice.turnOn}
+              </MenuItem>
+            )}
+            {/* The token cashier (ADR 0098) closes a drawer of the organization's money. */}
+            {delivery && cash && event.kind === "tokens" && (
+              <MenuItem
+                icon={<Calculator />}
+                onSelect={() => {
+                  cashier.mutate(!seller.cashier);
+                }}
+              >
+                {seller.cashier ? t.cashier.turnOff : t.cashier.turnOn}
               </MenuItem>
             )}
             {delivery && (
@@ -1085,6 +1136,14 @@ function SellerCard({
           onSaved={onChange}
         />
       )}
+      <CommissionDialog
+        open={dialog === "commission"}
+        onClose={() => {
+          setDialog(null);
+        }}
+        target={{ kind: "seller", seller }}
+        onSaved={onChange}
+      />
       {dialog === "pix" && (
         <SellerPixDialog
           eventId={event.id}
@@ -1114,7 +1173,7 @@ function SettlementSummary({ rows }: { rows: readonly ReportRowDto[] }) {
   const t = useEventTexts().sellers;
   const s = t.summary;
   const totals = settlementTotals(rows);
-  const percent = receivedPercent({ amountDueCents: totals.dueCents, receivedCents: totals.receivedCents });
+  const percent = receivedPercent({ amountDueCents: totals.dueCents, commissionCents: null, receivedCents: totals.receivedCents });
   return (
     <Card>
       <CardHeader title={t.summaryTitle} description={t.summaryHint} icon={Wallet} />
@@ -1194,6 +1253,41 @@ function SellerSettings({ eventId }: { eventId: string }) {
   );
 }
 
+/** The same commission for every seller but the box office, in one go (ADR 0096). */
+function CommissionAllCard({ eventId, onSaved }: { eventId: string; onSaved: () => void }) {
+  const t = useEventTexts().sellers.commission;
+  const [open, setOpen] = useState(false);
+  return (
+    <Card>
+      <CardHeader
+        title={t.cardTitle}
+        description={t.cardDescription}
+        icon={Percent}
+        className="mb-0"
+        actions={
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              setOpen(true);
+            }}
+          >
+            {t.allAction}
+          </Button>
+        }
+      />
+      <CommissionDialog
+        open={open}
+        onClose={() => {
+          setOpen(false);
+        }}
+        target={{ kind: "all", eventId }}
+        onSaved={onSaved}
+      />
+    </Card>
+  );
+}
+
 function HowItWorks({ action }: { action: ReactNode }) {
   const t = useEventTexts().sellers;
   return (
@@ -1245,15 +1339,17 @@ function NewSellerDialog({ eventId, open, onClose, onCreated }: { eventId: strin
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [boxOffice, setBoxOffice] = useState(false);
+  const [cashier, setCashier] = useState(false);
   const create = useMutation({
     mutationFn: () => {
-      const body: SellerBody = { name: name.trim(), phone: phone.trim() === "" ? null : phone.trim(), boxOffice };
+      const body: SellerBody = { name: name.trim(), phone: phone.trim() === "" ? null : phone.trim(), boxOffice, cashier };
       return api<SellerDto>(`/api/events/${eventId}/sellers`, { method: "POST", body });
     },
     onSuccess: () => {
       setName("");
       setPhone("");
       setBoxOffice(false);
+      setCashier(false);
       toast.success(t.createdToast);
       onCreated();
       onClose();
@@ -1309,6 +1405,9 @@ function NewSellerDialog({ eventId, open, onClose, onCreated }: { eventId: strin
         {can("money") && kind !== "tokens" && (
           <Switch checked={boxOffice} onChange={setBoxOffice} label={t.boxOffice.newLabel} description={t.boxOffice.newHint} />
         )}
+        {can("money") && kind === "tokens" && (
+          <Switch checked={cashier} onChange={setCashier} label={t.cashier.newLabel} description={t.cashier.newHint} />
+        )}
         <ErrorMessage error={create.error} />
       </form>
     </Dialog>
@@ -1340,7 +1439,7 @@ export function SellersTab({ eventId, event, onEditEvent }: { eventId: string; e
   const pix = useEventPix(eventId);
   const pixSeller = pix.data?.receiver === "seller";
   const refresh = () => {
-    for (const key of ["sellers", "report", "seller-payments", "voids", "ticket-sales", "reservations", "analytics", "event-pix"]) {
+    for (const key of ["sellers", "report", "seller-payments", "voids", "ticket-sales", "reservations", "analytics", "event-pix", "cashiers"]) {
       void queryClient.invalidateQueries({ queryKey: [key, eventId] });
     }
   };
@@ -1398,12 +1497,16 @@ export function SellersTab({ eventId, event, onEditEvent }: { eventId: string; e
       {holding && report.data !== undefined && (
         <RankingCard eventId={eventId} sellers={list} rows={rows} editable={delivery && open} onChange={refresh} />
       )}
+      {list.some((seller) => seller.cashier) && <CashiersCard eventId={eventId} editable={can("money") && open} />}
+      {holding && <CourtesiesCard eventId={eventId} editable={can("money") && open} onChange={refresh} />}
       {/* How the sale works for everybody: read by the whole team, changed by the parts that own
           it (sending tickets: delivery; how buyers pay by Pix: money, ADR 0085). */}
       {sellers.isSuccess && (list.length > 0 || can("money")) && (
         <section className="flex flex-col gap-4">
           <h3 className="text-xs font-semibold tracking-wider text-fg-subtle uppercase">{t.settingsTitle}</h3>
           {list.length > 0 && delivery && open && <SellerSettings eventId={eventId} />}
+          {list.length > 0 && <SellerNoticeCard eventId={eventId} editable={delivery && open} />}
+          {list.some((seller) => !seller.boxOffice) && can("money") && open && <CommissionAllCard eventId={eventId} onSaved={refresh} />}
           <PixCard eventId={eventId} editable={can("money") && open} />
         </section>
       )}

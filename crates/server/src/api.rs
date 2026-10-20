@@ -371,6 +371,8 @@ dto! {
         pub art: Option<ArtDto>,
         /// Sponsors' logos, in order (ADR 0059).
         pub sponsors: Vec<ArtDto>,
+        /// The organization's colour and logo, for the templates in its colours (ADR 0100).
+        pub organization: PublicOrganizationDto,
     }
 
     /// `PUT /api/events/{id}/design` and `POST /api/events/{id}/design/preview`.
@@ -1058,6 +1060,22 @@ dto! {
         /// the number has nothing to pay.
         #[serde(default)]
         pub pix: Option<TicketPixDto>,
+        /// Transfers this holder may still make (ADR 0097); 0 when the event does not allow them
+        /// or the ticket can no longer move (used, voided, the event over or canceled).
+        #[serde(default)]
+        pub transfers_left: i16,
+        /// The phone wallets this server can issue (ADR 0097).
+        #[serde(default)]
+        pub wallets: PassWalletsDto,
+    }
+
+    /// Which wallets a digital ticket can go to.
+    #[derive(Default)]
+    pub struct PassWalletsDto {
+        /// Apple Wallet (a signed `.pkpass`).
+        pub apple: bool,
+        /// Google Wallet (a "save to Google Wallet" link).
+        pub google: bool,
     }
 
     /// The Pix of a digital ticket.
@@ -1296,6 +1314,10 @@ dto! {
         #[serde(default)]
         #[cfg_attr(feature = "ts", ts(optional))]
         pub box_office: Option<bool>,
+        /// Token cashier (ADR 0098), only on token events; missing keeps the current choice.
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional))]
+        pub cashier: Option<bool>,
     }
 
     /// A seller with the ranges they hold.
@@ -1317,6 +1339,10 @@ dto! {
         pub goal: Option<i32>,
         /// The seller's own Pix key (ADR 0085), when buyers pay them directly.
         pub pix: Option<PixAccountDto>,
+        /// What the seller keeps of what they sold (ADR 0096); never on a box office.
+        pub commission: Option<CommissionDto>,
+        /// Sells tokens on the spot and closes a drawer (ADR 0098).
+        pub cashier: bool,
     }
 
     /// A seller's private link, where they mark what they sold (ADR 0053).
@@ -1383,6 +1409,8 @@ dto! {
         pub send_tickets: bool,
         /// Sellers see their position and the top 5 (ADR 0073).
         pub ranking: bool,
+        /// The notice pinned on every seller's link (ADR 0096).
+        pub notice: Option<SellerNoticeDto>,
     }
 
     /// `PUT /api/events/{id}/seller-settings`: a missing field keeps its value.
@@ -1593,6 +1621,12 @@ dto! {
         /// Its Pix was seen arriving (ADR 0085).
         #[serde(default)]
         pub pix_receipt: Option<PixReceiptDto>,
+        /// How it was paid, when a token cashier wrote it down (ADR 0098).
+        #[serde(default)]
+        pub method: Option<SaleMethod>,
+        /// Counted in a closed cashier shift: only the organizer undoes it.
+        #[serde(default)]
+        pub closed: bool,
     }
 
     /// Money the organizer recorded from this seller, on their page.
@@ -1634,7 +1668,10 @@ dto! {
         #[serde(default)]
         #[cfg_attr(feature = "ts", ts(type = "number"))]
         pub pix_cents: i64,
-        /// Amount due − received, when the event has a price.
+        /// What the seller keeps (ADR 0096), when they have a commission and the amount is known.
+        #[cfg_attr(feature = "ts", ts(type = "number | null"))]
+        pub commission_cents: Option<i64>,
+        /// Amount due − commission − received, when the event has a price.
         #[cfg_attr(feature = "ts", ts(type = "number | null"))]
         pub balance_cents: Option<i64>,
     }
@@ -1649,6 +1686,9 @@ dto! {
         pub tickets: i32,
         /// Price of each.
         pub price_cents: Option<i32>,
+        /// Courtesies given from the seller's numbers (ADR 0096): price 0, nothing owed.
+        #[serde(default)]
+        pub courtesy: bool,
     }
 
     /// A category on the seller's page: which numbers it covers.
@@ -1731,9 +1771,16 @@ dto! {
         pub goal: Option<i32>,
         /// Where the seller stands among the others, when the organizer shows it (ADR 0073).
         pub ranking: Option<SellerRankingDto>,
+        /// The organizer's notice to every seller (ADR 0096).
+        pub notice: Option<SellerNoticeDto>,
+        /// The seller's commission (ADR 0096).
+        pub commission: Option<CommissionDto>,
         /// How buyers pay by Pix (ADR 0085); `null` when the event does not charge by Pix.
         #[serde(default)]
         pub pix: Option<SellerViewPixDto>,
+        /// The seller works as a token cashier (ADR 0098): the shift and its closings.
+        #[serde(default)]
+        pub cashier: Option<SellerCashierDto>,
     }
 
     /// The Pix the seller's buyers pay (ADR 0085).
@@ -1821,7 +1868,7 @@ dto! {
         /// Declared sold (not returned unsold nor lost), courtesies included.
         #[cfg_attr(feature = "ts", ts(type = "number"))]
         pub sold: i64,
-        /// Tickets of categories priced zero.
+        /// Tickets of categories priced zero and courtesies given (ADR 0096).
         #[cfg_attr(feature = "ts", ts(type = "number"))]
         pub courtesies: i64,
         /// Tickets that entered.
@@ -1833,6 +1880,9 @@ dto! {
         /// Money the sellers handed over.
         #[cfg_attr(feature = "ts", ts(type = "number"))]
         pub received_cents: i64,
+        /// Kept by the sellers as their commission (ADR 0096).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub commissions_cents: i64,
         /// Still with the sellers (`null` without prices).
         #[cfg_attr(feature = "ts", ts(type = "number | null"))]
         pub outstanding_cents: Option<i64>,
@@ -1872,7 +1922,10 @@ dto! {
         /// Tickets that entered.
         #[cfg_attr(feature = "ts", ts(type = "number"))]
         pub entries: i64,
-        /// Sold × price, when there is a price.
+        /// Of the sold, given as courtesies (ADR 0096).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub courtesies: i64,
+        /// (Sold − courtesies) × price, when there is a price.
         #[cfg_attr(feature = "ts", ts(type = "number | null"))]
         pub amount_cents: Option<i64>,
     }
@@ -2121,6 +2174,10 @@ dto! {
         pub scope: ExportScope,
         /// Print-shop file: draw crop marks (default true).
         pub crop_marks: Option<bool>,
+        /// Home file: the paper it is printed on (ADR 0102); plain A4 when absent.
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional))]
+        pub paper: Option<PaperKind>,
     }
 
     /// An export (generated file).
@@ -2134,6 +2191,8 @@ dto! {
         pub scope: ExportScope,
         /// Progress.
         pub status: ExportStatus,
+        /// The paper of a home file (ADR 0102).
+        pub paper: PaperKind,
         /// Tickets in the file (when done).
         pub ticket_count: Option<i32>,
         /// Suggested file name (when done).
@@ -2632,8 +2691,15 @@ dto! {
         /// Of `received_cents`, the buyers' Pix received by the organization (ADR 0085).
         #[cfg_attr(feature = "ts", ts(type = "number"))]
         pub pix_cents: i64,
-        /// Amount due − received: positive is still owed, negative was overpaid. `null` without
-        /// a ticket price and on the unassigned line (nobody owes those tickets).
+        /// What the seller keeps of it (ADR 0096); `null` without a commission or when the amount
+        /// due is unknown.
+        #[cfg_attr(feature = "ts", ts(type = "number | null"))]
+        pub commission_cents: Option<i64>,
+        /// Numbers of the line given as courtesies (ADR 0096): nobody owes them.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub courtesies: i64,
+        /// Amount due − commission − received: positive is still owed, negative was overpaid.
+        /// `null` without a ticket price and on the unassigned line (nobody owes those tickets).
         #[cfg_attr(feature = "ts", ts(type = "number | null"))]
         pub balance_cents: Option<i64>,
         /// Marked as sold by the seller on their link (ADR 0053), not voided.
@@ -2804,6 +2870,8 @@ dto_enum! {
         BoxOffice,
         /// Its Pix arrived (ADR 0085): only the organization undoes the receipt, then the sale.
         PixReceived,
+        /// The sale belongs to a closed cashier shift (ADR 0098): only the organizer undoes it.
+        ShiftClosed,
         /// Something the page should not have sent (a name too long, a bad number).
         Invalid,
     }
@@ -2816,6 +2884,16 @@ dto_enum! {
         Cash,
         /// Anything else (card, bank transfer...).
         Other,
+    }
+
+    /// How a buyer paid a token cashier (ADR 0098).
+    pub enum SaleMethod {
+        /// Cash, into the drawer.
+        Cash,
+        /// Pix, to the organization's key.
+        Pix,
+        /// Card, on the organization's machine.
+        Card,
     }
 
     /// Why a range was voided.
@@ -2838,6 +2916,30 @@ dto_enum! {
         Control,
         /// WhatsApp images (ZIP).
         Whatsapp,
+    }
+
+    /// A ready-made A4 paper for home printing (ADR 0102).
+    pub enum PaperKind {
+        /// Plain A4 with cut marks.
+        Plain,
+        /// Perforated in 3 strips of 210 × 99 mm.
+        Perforated3,
+        /// Perforated in 4 pieces of 105 × 148.5 mm.
+        Perforated4,
+        /// Perforated in 6 pieces of 105 × 99 mm.
+        Perforated6,
+        /// Perforated in 8 pieces of 105 × 74.25 mm.
+        Perforated8,
+        /// Perforated in 10 pieces of 105 × 59.4 mm.
+        Perforated10,
+        /// 21 labels of 63.5 × 38.1 mm.
+        Labels21,
+        /// 14 labels of 99.1 × 38.1 mm.
+        Labels14,
+        /// 8 labels of 99.1 × 67.7 mm.
+        Labels8,
+        /// 2 labels of 199.6 × 143.5 mm.
+        Labels2,
     }
 
     /// Export progress.
@@ -3003,6 +3105,10 @@ pub enum SellerOp {
         /// reserved by another one is a conflict.
         #[cfg_attr(feature = "ts", ts(type = "string | null"))]
         reservation_id: Option<Uuid>,
+        /// How it was paid, written down by a token cashier (ADR 0098).
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional))]
+        method: Option<SaleMethod>,
     },
     /// A sale marked by mistake.
     Unmark {
@@ -3067,6 +3173,46 @@ db_enum!(ChangelogKind { New => "new", Improvement => "improvement", Fix => "fix
 db_enum!(PaymentMethod { Stripe => "stripe", Admin => "admin", Free => "free", Credit => "credit" });
 db_enum!(PaymentState { Open => "open", Processing => "processing" });
 db_enum!(VoidReason { Unsold => "unsold", Lost => "lost", Revoked => "revoked" });
+db_enum!(PaperKind {
+    Plain => "plain", Perforated3 => "perforated3", Perforated4 => "perforated4",
+    Perforated6 => "perforated6", Perforated8 => "perforated8", Perforated10 => "perforated10",
+    Labels21 => "labels21", Labels14 => "labels14", Labels8 => "labels8", Labels2 => "labels2"
+});
+
+impl PaperKind {
+    /// The renderer's paper.
+    pub const fn render(self) -> ticket_render::Paper {
+        use ticket_render::Paper;
+        match self {
+            Self::Plain => Paper::Plain,
+            Self::Perforated3 => Paper::Perforated3,
+            Self::Perforated4 => Paper::Perforated4,
+            Self::Perforated6 => Paper::Perforated6,
+            Self::Perforated8 => Paper::Perforated8,
+            Self::Perforated10 => Paper::Perforated10,
+            Self::Labels21 => Paper::Labels21,
+            Self::Labels14 => Paper::Labels14,
+            Self::Labels8 => Paper::Labels8,
+            Self::Labels2 => Paper::Labels2,
+        }
+    }
+
+    /// Every paper, in the order the panel lists them.
+    pub const ALL: [Self; 10] = [
+        Self::Plain,
+        Self::Perforated3,
+        Self::Perforated4,
+        Self::Perforated6,
+        Self::Perforated8,
+        Self::Perforated10,
+        Self::Labels21,
+        Self::Labels14,
+        Self::Labels8,
+        Self::Labels2,
+    ];
+}
+
+db_enum!(SaleMethod { Cash => "cash", Pix => "pix", Card => "card" });
 db_enum!(SellerPaymentMethod { Pix => "pix", Cash => "cash", Other => "other" });
 db_enum!(ExportKind { Home => "home", Print => "print", Control => "control", Whatsapp => "whatsapp" });
 db_enum!(ExportStatus { Queued => "queued", Running => "running", Done => "done", Failed => "failed" });
@@ -5349,5 +5495,533 @@ dto_enum! {
         ArtRejected,
         /// No phone was registered at the door yet.
         NoDevices,
+    }
+}
+
+dto_enum! {
+    /// How a seller's commission is counted (ADR 0096).
+    pub enum CommissionKind {
+        /// A share of the amount the seller sold (`value` in basis points: 1000 = 10%).
+        Percent,
+        /// An amount per ticket sold (`value` in cents).
+        PerTicket,
+    }
+}
+db_enum!(CommissionKind { Percent => "percent", PerTicket => "per_ticket" });
+
+dto! {
+    /// A seller's commission (ADR 0096): taken off what they hand over.
+    pub struct CommissionDto {
+        /// Share or amount per ticket.
+        pub kind: CommissionKind,
+        /// Basis points (1–10,000) for a share, cents (1–1,000,000) per ticket.
+        pub value: i32,
+    }
+
+    /// `PUT /api/sellers/{id}/commission` and `POST /api/events/{id}/sellers/commission` (every
+    /// seller but the box office): `null` removes it.
+    pub struct CommissionBody {
+        /// The commission, or `null`.
+        pub commission: Option<CommissionDto>,
+    }
+
+    /// `PUT /api/events/{id}/seller-notice`: a notice pinned on every seller's link (ADR 0096).
+    pub struct SellerNoticeBody {
+        /// Up to 280 characters (line breaks allowed); empty or `null` removes it.
+        pub text: Option<String>,
+    }
+
+    /// The notice the sellers see on their links.
+    pub struct SellerNoticeDto {
+        /// The text.
+        pub text: String,
+        /// When it was written.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub updated_at: OffsetDateTime,
+    }
+
+    /// Someone who may give courtesies, and how many (ADR 0096).
+    pub struct CourtesyGiverDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// Name ("Diretora Ana", "Banda").
+        pub name: String,
+        /// Most courtesies they may give; `null`: no limit.
+        pub quota: Option<i32>,
+        /// Courtesies given.
+        pub given: i32,
+        /// Of those, entered the event.
+        pub entered: i32,
+    }
+
+    /// `POST /api/events/{id}/courtesy-givers` and `PUT /api/courtesy-givers/{id}`.
+    pub struct CourtesyGiverBody {
+        /// Name (1–60 characters, unique per event).
+        pub name: String,
+        /// Most courtesies (1–100,000); `null`: no limit.
+        pub quota: Option<i32>,
+    }
+
+    /// A number given as a courtesy.
+    pub struct CourtesyDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// Ticket number.
+        pub number: i32,
+        /// Who authorized it.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub giver_id: Uuid,
+        /// For whom.
+        pub recipient: String,
+        /// Why.
+        pub reason: Option<String>,
+        /// The seller holding the number, if any (they do not owe it).
+        pub seller: Option<String>,
+        /// The number entered the event.
+        pub entered: bool,
+        /// When it was given.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub created_at: OffsetDateTime,
+    }
+
+    /// `POST /api/events/{id}/courtesies`: one number or a range of paid numbers.
+    pub struct CourtesyBody {
+        /// Who authorizes.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub giver_id: Uuid,
+        /// First number.
+        pub first: i32,
+        /// Last number (inclusive; the same for one).
+        pub last: i32,
+        /// For whom (1–80 characters).
+        pub recipient: String,
+        /// Why (up to 120 characters).
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional))]
+        pub reason: Option<String>,
+    }
+
+    /// `GET /api/events/{id}/courtesies`.
+    pub struct CourtesiesDto {
+        /// Who may give them, with what each gave.
+        pub givers: Vec<CourtesyGiverDto>,
+        /// Every courtesy, newest first.
+        pub courtesies: Vec<CourtesyDto>,
+    }
+
+    /// One change in an event's history (ADR 0099).
+    pub struct ActivityEntryDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// When.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub at: OffsetDateTime,
+        /// Who: their name, else their e-mail; the platform's support for an admin.
+        pub actor: String,
+        /// Their e-mail (`null` for the support).
+        pub email: Option<String>,
+        /// On the event's team, not in its organization (ADR 0055).
+        pub team: bool,
+        /// An admin in support mode (ADR 0032).
+        pub support: bool,
+        /// The request's shape, e.g. `PUT events/{id}/design`: the panel words it.
+        pub action: String,
+        /// The part of the event it belongs to.
+        pub area: Option<TeamArea>,
+    }
+
+    /// `GET /api/events/{id}/activity?before=`: the latest changes, newest first.
+    pub struct ActivityDto {
+        /// Up to 100 changes.
+        pub entries: Vec<ActivityEntryDto>,
+        /// Older ones exist (ask again with `before` = the last `at`).
+        pub more: bool,
+    }
+}
+
+dto_enum! {
+    /// A step of the admin funnel (ADR 0099), in order.
+    pub enum FunnelStep {
+        /// Created the account (the organization).
+        Signup,
+        /// Created an event.
+        Event,
+        /// Saved a ticket design (a template or their own art).
+        Design,
+        /// Got a batch of tickets (the free ones included).
+        Batch,
+        /// Paid a batch (Stripe or confirmed by an admin, above zero).
+        Paid,
+        /// Read tickets at the door.
+        Door,
+    }
+
+    /// Where an event of the day stands.
+    pub enum LiveEventState {
+        /// Starts within the next hours.
+        Upcoming,
+        /// Happening now.
+        Live,
+        /// Ended a little while ago.
+        Ended,
+    }
+
+    /// Something wrong at an event's door (ADR 0099).
+    pub enum LiveProblemKind {
+        /// A phone has not synced for a while during the event.
+        Stale,
+        /// A phone holds many reads not sent yet.
+        Pending,
+        /// A phone read many invalid or other-event codes lately (a wrong link, fake tickets).
+        Invalid,
+        /// The event starts soon (or started) with paid tickets and no phone at the door.
+        NoDevices,
+    }
+}
+
+dto! {
+    /// One step of the funnel.
+    pub struct FunnelStepDto {
+        /// The step.
+        pub step: FunnelStep,
+        /// Organizations of the cohort that reached it.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub organizations: i64,
+        /// Median days from the signup to the step, among those that reached it.
+        pub median_days: Option<f64>,
+    }
+
+    /// `GET /api/admin/funnel?days=`: organizations created in the last `days` (all without it),
+    /// and how far they went.
+    pub struct AdminFunnelDto {
+        /// The cohort's window; `null`: every organization.
+        pub days: Option<i32>,
+        /// The steps, in order (the first is the cohort's size).
+        pub steps: Vec<FunnelStepDto>,
+    }
+
+    /// Something wrong at an event's door.
+    pub struct LiveProblemDto {
+        /// What.
+        pub kind: LiveProblemKind,
+        /// The phone, when it is about one.
+        pub device: Option<String>,
+        /// Minutes without a sync (`stale`), reads not sent (`pending`) or invalid reads in the
+        /// last 30 minutes (`invalid`).
+        #[cfg_attr(feature = "ts", ts(type = "number | null"))]
+        pub value: Option<i64>,
+    }
+
+    /// An event happening around now.
+    pub struct AdminLiveEventDto {
+        /// Event id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// Name.
+        pub name: String,
+        /// Organization.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub organization_id: Uuid,
+        /// Organization's name.
+        pub organization: String,
+        /// Start.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub starts_at: OffsetDateTime,
+        /// End.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub ends_at: OffsetDateTime,
+        /// Upcoming, live or ended.
+        pub state: LiveEventState,
+        /// Tickets or consumption tokens.
+        pub kind: EventKind,
+        /// Paid tickets.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub paid_tickets: i64,
+        /// Tickets that entered.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub entries: i64,
+        /// Door phones registered (not revoked).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub devices: i64,
+        /// Of those, synced in the last 10 minutes.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub devices_online: i64,
+        /// What needs a look, worst first.
+        pub problems: Vec<LiveProblemDto>,
+    }
+
+    /// `GET /api/admin/live`: events from 2 hours ago to 6 hours ahead, those with problems first.
+    pub struct AdminLiveDto {
+        /// The events.
+        pub events: Vec<AdminLiveEventDto>,
+        /// When it was computed.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub generated_at: OffsetDateTime,
+    }
+}
+
+dto! {
+    /// A seller as the public page settings list them (ADR 0095).
+    pub struct PublicPageSellerDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// Name.
+        pub name: String,
+        /// Has a phone that makes a WhatsApp button.
+        pub has_whatsapp: bool,
+        /// Listed on the page.
+        pub shown: bool,
+    }
+
+    /// `GET /api/events/{id}/public-page`: the event's public page (ADR 0095).
+    pub struct PublicPageSettingsDto {
+        /// The page is on.
+        pub enabled: bool,
+        /// Its address after `/e/`, once chosen.
+        pub slug: Option<String>,
+        /// A free address made from the event's name, to start with.
+        pub suggested_slug: String,
+        /// The full address (`https://…/e/<slug>`), when on.
+        pub url: Option<String>,
+        /// The organizer marked it sold out.
+        pub sold_out: bool,
+        /// Every paid number is sold, sent or given (the page says sold out by itself).
+        pub sold_out_auto: bool,
+        /// A paragraph for the page.
+        pub description: Option<String>,
+        /// The sellers, and who shows on the page.
+        pub sellers: Vec<PublicPageSellerDto>,
+    }
+
+    /// `PUT /api/events/{id}/public-page`.
+    pub struct PublicPageBody {
+        /// The page is on.
+        pub enabled: bool,
+        /// The address after `/e/` (3–60 lowercase letters, digits and hyphens).
+        pub slug: String,
+        /// Sold out, as the organizer says.
+        pub sold_out: bool,
+        /// Up to 600 characters (line breaks allowed); empty removes it.
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional))]
+        pub description: Option<String>,
+        /// Sellers listed with a WhatsApp button (their phones become public).
+        #[cfg_attr(feature = "ts", ts(type = "Array<string>"))]
+        pub seller_ids: Vec<Uuid>,
+    }
+
+    /// A category on the public page.
+    pub struct PublicCategoryDto {
+        /// Name.
+        pub name: String,
+        /// Band colour.
+        pub color: String,
+        /// Price (the category's, else the event's); 0 is free.
+        pub price_cents: Option<i32>,
+        /// Every paid number of it is gone.
+        pub sold_out: bool,
+    }
+
+    /// A seller with a WhatsApp button on the public page.
+    pub struct PublicSellerDto {
+        /// First name and initial ("Ana S.").
+        pub name: String,
+        /// WhatsApp digits with the country code.
+        pub whatsapp: String,
+    }
+
+    /// `GET /api/public/events/{slug}` (no login): the event's public page (ADR 0095).
+    pub struct PublicEventDto {
+        /// The address after `/e/`.
+        pub slug: String,
+        /// Name.
+        pub name: String,
+        /// Tickets or consumption tokens.
+        pub kind: EventKind,
+        /// Start, with the event's offset.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub starts_at: OffsetDateTime,
+        /// End, with the event's offset.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub ends_at: OffsetDateTime,
+        /// The days of an event of several days (ADR 0091).
+        pub days: Vec<EventDayDto>,
+        /// Venue.
+        pub venue: Option<String>,
+        /// Street address.
+        pub address: Option<String>,
+        /// The organizer's paragraph.
+        pub description: Option<String>,
+        /// Who runs it: name, logo, colour and contact.
+        pub organization: PublicOrganizationDto,
+        /// The event's price, without categories.
+        pub ticket_price_cents: Option<i32>,
+        /// Categories with prices (empty without categories).
+        pub categories: Vec<PublicCategoryDto>,
+        /// Where to buy.
+        pub sellers: Vec<PublicSellerDto>,
+        /// Nothing left to buy.
+        pub sold_out: bool,
+        /// Postponed or canceled (ADR 0065).
+        pub change: EventChangeDto,
+        /// Anyone may check a ticket at /conferir (ADR 0075).
+        pub public_verify: bool,
+    }
+}
+
+dto! {
+    /// `POST /api/ticket/transfer` (no login; the token is the credential): passes the ticket on
+    /// to someone else (ADR 0097). The link changes; the number and its QR stay.
+    pub struct TransferTicketBody {
+        /// Token from the link's fragment.
+        pub token: String,
+        /// Who receives it (1–80 characters).
+        pub holder_name: String,
+    }
+
+    /// The new link of a transferred ticket: the old one stops opening.
+    pub struct TransferTicketDto {
+        /// The address to send the new holder (the token is in the fragment).
+        pub url: String,
+        /// The new holder.
+        pub holder_name: String,
+    }
+
+    /// `GET/PUT /api/events/{id}/ticket-settings`: what holders of digital tickets may do.
+    pub struct TicketSettingsDto {
+        /// Holders may pass their ticket on (ADR 0097).
+        pub transfers: bool,
+    }
+
+    /// `POST /api/ticket/wallet/google`: the "save to Google Wallet" address.
+    pub struct GoogleWalletDto {
+        /// `https://pay.google.com/gp/v/save/…`.
+        pub url: String,
+    }
+}
+
+dto! {
+    /// What the open shift of a token cashier adds up to (ADR 0098): the sales not closed yet.
+    pub struct CashierShiftDto {
+        /// Fichas sold.
+        pub tokens: i32,
+        /// Paid in cash: what the drawer should hold.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub cash_cents: i64,
+        /// Paid by Pix.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub pix_cents: i64,
+        /// Paid by card.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub card_cents: i64,
+        /// Sold with no payment written down.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub other_cents: i64,
+        /// The last closing, if any: the shift runs since then.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub since: Option<OffsetDateTime>,
+    }
+
+    /// A closed shift of a token cashier.
+    pub struct CashierClosingDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// Fichas sold in the shift.
+        pub tokens: i32,
+        /// Paid in cash.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub cash_cents: i64,
+        /// Paid by Pix.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub pix_cents: i64,
+        /// Paid by card.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub card_cents: i64,
+        /// Sold with no payment written down.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub other_cents: i64,
+        /// Cash counted in the drawer, when someone counted it.
+        #[cfg_attr(feature = "ts", ts(type = "number | null"))]
+        pub counted_cents: Option<i64>,
+        /// Counted − cash: negative when money is missing.
+        #[cfg_attr(feature = "ts", ts(type = "number | null"))]
+        pub difference_cents: Option<i64>,
+        /// A word about it ("troco inicial de R$ 50 devolvido").
+        pub note: Option<String>,
+        /// When it was closed.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub closed_at: OffsetDateTime,
+        /// Closed by the organizer on the panel (otherwise by the cashier on the link).
+        pub by_organizer: bool,
+    }
+
+    /// The cashier part of the seller's page (ADR 0098).
+    pub struct SellerCashierDto {
+        /// The open shift, as the server counted it.
+        pub open: CashierShiftDto,
+        /// The latest closings, newest first.
+        pub closings: Vec<CashierClosingDto>,
+    }
+
+    /// `POST /api/seller/cashier/close` (no login; the token is the credential).
+    pub struct SellerCashierCloseBody {
+        /// Token from the link's fragment.
+        pub token: String,
+        /// Cash counted in the drawer.
+        #[cfg_attr(feature = "ts", ts(type = "number | null"))]
+        pub counted_cents: Option<i64>,
+        /// A word about it (up to 200 characters).
+        pub note: Option<String>,
+    }
+
+    /// `POST /api/sellers/{id}/cashier/close`: the organizer closes a cashier's shift.
+    pub struct CashierCloseBody {
+        /// Cash counted in the drawer.
+        #[cfg_attr(feature = "ts", ts(type = "number | null"))]
+        pub counted_cents: Option<i64>,
+        /// A word about it (up to 200 characters).
+        pub note: Option<String>,
+    }
+
+    /// One cashier on the panel's report (ADR 0098).
+    pub struct CashierReportDto {
+        /// The seller.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub seller_id: Uuid,
+        /// Name.
+        pub name: String,
+        /// The open shift.
+        pub open: CashierShiftDto,
+        /// Every closing, newest first.
+        pub closings: Vec<CashierClosingDto>,
+    }
+}
+
+dto! {
+    /// One paper the design can be printed on at home (ADR 0102).
+    pub struct PaperFitDto {
+        /// The paper.
+        pub paper: PaperKind,
+        /// Tickets per sheet (0 for plain A4: as many as fit).
+        pub per_sheet: u32,
+        /// The size of one piece in millimetres (`null` for plain A4).
+        pub piece_mm: Option<(f64, f64)>,
+        /// How much the ticket shrinks on it (1 = its size); `null` when it does not fit.
+        pub scale: Option<f64>,
     }
 }

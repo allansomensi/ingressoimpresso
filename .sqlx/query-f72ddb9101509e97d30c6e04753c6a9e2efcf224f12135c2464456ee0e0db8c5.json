@@ -1,0 +1,64 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select sellers_send_tickets, sellers_ranking, seller_notice, seller_notice_at from events where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "sellers_send_tickets",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "sellers_send_tickets"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "sellers_ranking",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "sellers_ranking"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "seller_notice",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "seller_notice"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "seller_notice_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "seller_notice_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "f72ddb9101509e97d30c6e04753c6a9e2efcf224f12135c2464456ee0e0db8c5"
+}

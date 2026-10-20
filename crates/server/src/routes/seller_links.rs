@@ -17,8 +17,9 @@ use uuid::Uuid;
 use super::seller_ops::contact;
 use super::{EventRow, authorize_event, bounds, range};
 use crate::api::{
-    NumberRangeDto, SellerCategoryDto, SellerDueLineDto, SellerLinkDto, SellerMarkBody,
-    SellerPaymentMethod, SellerSaleDto, SellerSettingsBody, SellerSettingsDto, SellerSummaryDto,
+    CommissionDto, CommissionKind, NumberRangeDto, SaleMethod, SellerCategoryDto, SellerDueLineDto,
+    SellerLinkDto, SellerMarkBody, SellerNoticeBody, SellerNoticeDto, SellerPaymentMethod,
+    SellerRankingDto, SellerSaleDto, SellerSettingsBody, SellerSettingsDto, SellerSummaryDto,
     SellerTicketBody, SellerTokenBody, SellerUnmarkBody, SellerViewDto, SellerViewEvent,
     SellerViewPaymentDto, SellerViewPixDto, SellerVoidDto, TicketSaleDto, VoidReason,
 };
@@ -315,18 +316,22 @@ async fn due_lines(
                where a.seller_id = $2
            )
            select tc.name as "category?", tc.color as "color?",
-                  coalesce(tc.price_cents, $3::int4) as "price_cents?", count(*)::int as "tickets!"
+                  case when co.id is not null then 0 else coalesce(tc.price_cents, $3::int4) end as "price_cents?",
+                  (co.id is not null) as "courtesy!",
+                  count(*)::int as "tickets!"
            from held h
            left join category_ranges cr on cr.event_id = $1 and cr.numbers @> h.number
            left join ticket_categories tc on tc.id = cr.category_id
+           -- Courtesies (ADR 0096): a line of their own, at price 0.
+           left join courtesies co on co.event_id = $1 and co.ticket_number = h.number
            where case when $4::bool
                       then exists (select 1 from entries e where e.event_id = $1 and e.ticket_number = h.number)
                       else not exists (select 1 from ticket_voids v
                                        where v.event_id = $1 and v.undone_at is null and v.numbers @> h.number
                                          and v.reason in ('unsold', 'lost'))
                  end
-           group by tc.name, tc.color, tc.price_cents, tc.position
-           order by tc.position nulls last, tc.name"#,
+           group by tc.name, tc.color, tc.price_cents, tc.position, (co.id is not null)
+           order by (co.id is not null), tc.position nulls last, tc.name"#,
         link.event_id,
         link.seller_id,
         price,
@@ -340,6 +345,7 @@ async fn due_lines(
         color: row.color,
         tickets: row.tickets,
         price_cents: row.price_cents,
+        courtesy: row.courtesy,
     })
     .collect())
 }
@@ -373,7 +379,8 @@ async fn categories(
 /// its Pix when someone saw it arrive (ADR 0085).
 async fn sales(state: &AppState, link: &LinkRow) -> ApiResult<Vec<SellerSaleDto>> {
     let sales = sqlx::query!(
-        r#"select s.ticket_number, s.buyer_name, s.buyer_phone, s.sold_at,
+        r#"select s.ticket_number, s.buyer_name, s.buyer_phone, s.sold_at, s.payment_method,
+                  s.closing_id is not null as "closed!",
                   p.received_by as "received_by?", p.amount_cents as "paid_cents?",
                   p.confirmed_at as "confirmed_at?"
            from ticket_sales s
@@ -399,6 +406,8 @@ async fn sales(state: &AppState, link: &LinkRow) -> ApiResult<Vec<SellerSaleDto>
                 sale.paid_cents,
                 sale.confirmed_at,
             ),
+            method: sale.payment_method.as_deref().and_then(SaleMethod::from_db),
+            closed: sale.closed,
         })
         .collect())
 }
@@ -455,7 +464,8 @@ pub(crate) async fn view(state: &AppState, link: &LinkRow) -> ApiResult<SellerVi
     let event = sqlx::query!(
         r#"select e.name, e.venue, e.starts_at, e.ends_at, e.utc_offset_minutes, e.ticket_price_cents,
                   e.sellers_send_tickets, e.sellers_ranking, o.name as organizer, s.name as seller,
-                  s.box_office, s.goal
+                  s.box_office, s.cashier, s.goal, s.commission_kind, s.commission_value,
+                  e.seller_notice, e.seller_notice_at
            from events e join organizations o on o.id = e.organization_id
                          join sellers s on s.id = $2
            where e.id = $1"#,
@@ -499,6 +509,11 @@ pub(crate) async fn view(state: &AppState, link: &LinkRow) -> ApiResult<SellerVi
         super::team::receivers(state, link.event_id),
         seller_pix(state, link),
     )?;
+    let cashier = super::cashier::page(state, link.event_id, link.seller_id, event.cashier).await?;
+    // A box office keeps nothing (ADR 0096): it sells for the organization at the door.
+    let commission =
+        super::report::commission(event.commission_kind.as_deref(), event.commission_value)
+            .filter(|_| !event.box_office);
     let summary = summary(
         &counts,
         due_lines,
@@ -506,14 +521,11 @@ pub(crate) async fn view(state: &AppState, link: &LinkRow) -> ApiResult<SellerVi
         pix_cents,
         event.ticket_price_cents,
         event.box_office,
+        commission.as_ref(),
     );
+
     // A box office sells at the door: no goal, no ranking (ADR 0073).
-    let ranking = if event.sellers_ranking && !event.box_office {
-        let standings = super::seller_goals::standings(&state.pool, link.event_id).await?;
-        Some(super::seller_goals::ranking(standings, link.seller_id))
-    } else {
-        None
-    };
+    let ranking = ranking(state, link, event.sellers_ranking && !event.box_office).await?;
     Ok(SellerViewDto {
         event: SellerViewEvent {
             name: event.name,
@@ -544,8 +556,27 @@ pub(crate) async fn view(state: &AppState, link: &LinkRow) -> ApiResult<SellerVi
         reservations,
         goal: event.goal.filter(|_| !event.box_office),
         ranking,
+        notice: notice_of(event.seller_notice, event.seller_notice_at),
+        commission,
         pix,
+        cashier,
     })
+}
+
+/// Where the seller stands among the others, when the organizer shows it (ADR 0073).
+async fn ranking(
+    state: &AppState,
+    link: &LinkRow,
+    shown: bool,
+) -> ApiResult<Option<SellerRankingDto>> {
+    if !shown {
+        return Ok(None);
+    }
+    let standings = super::seller_goals::standings(&state.pool, link.event_id).await?;
+    Ok(Some(super::seller_goals::ranking(
+        standings,
+        link.seller_id,
+    )))
 }
 
 /// The Pix the seller's buyers pay (ADR 0085) and what the organization already received by Pix
@@ -591,6 +622,7 @@ fn summary(
     pix_cents: i64,
     price: Option<i32>,
     box_office: bool,
+    commission: Option<&CommissionDto>,
 ) -> SellerSummaryDto {
     let received_cents: i64 = payments
         .iter()
@@ -603,6 +635,17 @@ fn summary(
         counts.tickets - counts.unsold - counts.lost
     };
     let amount_due_cents = amount_due(&due_lines, price);
+    let sold_paid: i64 = due_lines
+        .iter()
+        .filter(|line| !line.courtesy)
+        .map(|line| i64::from(line.tickets))
+        .sum();
+    let commission_cents = commission.and_then(|commission| match commission.kind {
+        CommissionKind::Percent => {
+            amount_due_cents.map(|due| super::report::percent_of(due, commission.value))
+        }
+        CommissionKind::PerTicket => Some(sold_paid * i64::from(commission.value)),
+    });
     SellerSummaryDto {
         tickets: counts.tickets,
         sold: counts.sold,
@@ -614,7 +657,9 @@ fn summary(
         amount_due_cents,
         received_cents,
         pix_cents,
-        balance_cents: amount_due_cents.map(|due| due - received_cents),
+        commission_cents,
+        balance_cents: amount_due_cents
+            .map(|due| due - commission_cents.unwrap_or(0) - received_cents),
         due_lines,
     }
 }
@@ -774,6 +819,17 @@ pub async fn unmark(
             "the Pix of this number was received".to_owned(),
         ));
     }
+    let actor = super::seller_ops::Actor {
+        event: link.event_id,
+        seller: link.seller_id,
+        user: None,
+    };
+    if super::seller_ops::in_closed_shift(&mut tx, actor, body.number).await? {
+        return Err(ApiError::Conflict(
+            "shift_closed",
+            "this sale belongs to a closed cashier shift".to_owned(),
+        ));
+    }
     sqlx::query!(
         "delete from ticket_sales where event_id = $1 and ticket_number = $2 and seller_id = $3",
         link.event_id,
@@ -840,16 +896,74 @@ pub async fn settings(
     Path(event_id): Path<Uuid>,
 ) -> ApiResult<Json<SellerSettingsDto>> {
     authorize_event(&state.pool, &user, event_id).await?;
+    settings_of(&state, event_id).await.map(Json)
+}
+
+async fn settings_of(state: &AppState, event_id: Uuid) -> ApiResult<SellerSettingsDto> {
     let row = sqlx::query!(
-        "select sellers_send_tickets, sellers_ranking from events where id = $1",
+        "select sellers_send_tickets, sellers_ranking, seller_notice, seller_notice_at from events where id = $1",
         event_id
     )
     .fetch_one(&state.pool)
     .await?;
-    Ok(Json(SellerSettingsDto {
+    Ok(SellerSettingsDto {
         send_tickets: row.sellers_send_tickets,
         ranking: row.sellers_ranking,
-    }))
+        notice: notice_of(row.seller_notice, row.seller_notice_at),
+    })
+}
+
+/// The notice as stored (ADR 0096).
+fn notice_of(
+    text: Option<String>,
+    updated_at: Option<time::OffsetDateTime>,
+) -> Option<SellerNoticeDto> {
+    text.zip(updated_at)
+        .map(|(text, updated_at)| SellerNoticeDto { text, updated_at })
+}
+
+/// Longest notice to the sellers (ADR 0096).
+const MAX_NOTICE_CHARS: usize = 280;
+
+/// `PUT /api/events/{id}/seller-notice` (ADR 0096): pins a notice on every seller's link, or
+/// removes it. Line breaks are kept; other control characters are refused.
+pub async fn update_notice(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(event_id): Path<Uuid>,
+    Json(body): Json<SellerNoticeBody>,
+) -> ApiResult<Json<SellerSettingsDto>> {
+    authorize_event(&state.pool, &user, event_id).await?;
+    let text = body
+        .text
+        .map(|text| text.replace("\r\n", "\n").trim().to_owned())
+        .filter(|text| !text.is_empty());
+    if let Some(text) = &text {
+        if text.chars().count() > MAX_NOTICE_CHARS {
+            return Err(bad_request(
+                "invalid_notice",
+                format!("the notice must have up to {MAX_NOTICE_CHARS} characters"),
+            ));
+        }
+        if text.chars().any(|c| c.is_control() && c != '\n') || text.contains("\n\n\n") {
+            return Err(bad_request(
+                "invalid_notice",
+                "control characters and runs of blank lines are not allowed",
+            ));
+        }
+    }
+    sqlx::query!(
+        r#"update events set seller_notice = $2,
+                  seller_notice_at = case when $2::text is null then null
+                                          when seller_notice is distinct from $2 then now()
+                                          else seller_notice_at end
+           where id = $1"#,
+        event_id,
+        text,
+    )
+    .execute(&state.pool)
+    .await?;
+    settings_of(&state, event_id).await.map(Json)
 }
 
 /// `PUT /api/events/{id}/seller-settings`: a missing field keeps its value.
@@ -860,20 +974,17 @@ pub async fn update_settings(
     Json(body): Json<SellerSettingsBody>,
 ) -> ApiResult<Json<SellerSettingsDto>> {
     authorize_event(&state.pool, &user, event_id).await?;
-    let row = sqlx::query!(
+    sqlx::query!(
         r#"update events set sellers_send_tickets = coalesce($2, sellers_send_tickets),
                              sellers_ranking = coalesce($3, sellers_ranking)
-           where id = $1 returning sellers_send_tickets, sellers_ranking"#,
+           where id = $1"#,
         event_id,
         body.send_tickets,
         body.ranking,
     )
-    .fetch_one(&state.pool)
+    .execute(&state.pool)
     .await?;
-    Ok(Json(SellerSettingsDto {
-        send_tickets: row.sellers_send_tickets,
-        ranking: row.sellers_ranking,
-    }))
+    settings_of(&state, event_id).await.map(Json)
 }
 
 /// Removes the sale marks and reservations (ADR 0072) of numbers that left the seller (a return,

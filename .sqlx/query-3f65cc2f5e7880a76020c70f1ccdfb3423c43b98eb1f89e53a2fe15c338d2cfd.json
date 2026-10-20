@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into ticket_links (id, event_id, ticket_number, holder_name, token_hash, sealed,\n                                     created_by, seller_id, transfer_count, transferred_from)\n           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Int4",
+        "Text",
+        "Bytea",
+        "Bytea",
+        "Uuid",
+        "Uuid",
+        "Int2",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "3f65cc2f5e7880a76020c70f1ccdfb3423c43b98eb1f89e53a2fe15c338d2cfd"
+}

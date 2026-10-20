@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select exists(select 1 from ticket_links where token_hash = $1 and transferred_at is not null) as \"transferred!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "transferred!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "1d8ca24eafa736710c93f04cd4820594e8d3a55c84ffa9412c4dc904dfb946e1"
+}

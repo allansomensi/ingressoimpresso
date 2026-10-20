@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update sellers set commission_kind = $2, commission_value = $3 where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "85704b3c2f6caa1e0bcb03adb6e4910488f1003f0124ffba1a6f0acaf979d619"
+}

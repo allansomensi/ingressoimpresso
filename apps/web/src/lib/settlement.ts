@@ -2,7 +2,7 @@
  * Settling with sellers (ADR 0050): where each one stands, and the summary sent by WhatsApp.
  */
 
-import type { ReportRowDto } from "@ingressoimpresso/api-types";
+import type { CommissionDto, ReportRowDto } from "@ingressoimpresso/api-types";
 
 import { money } from "@/lib/format";
 import { formatRanges, type NumberRange } from "@/lib/number-list";
@@ -37,9 +37,22 @@ export function settlementState(row: Pick<ReportRowDto, "tickets" | "balanceCent
   return { kind: "settled" };
 }
 
-/** Share of the amount due already received, 0–100. */
-export function receivedPercent(row: Pick<ReportRowDto, "amountDueCents" | "receivedCents">): number {
-  const due = row.amountDueCents ?? 0;
+/** What the seller hands over: the amount due minus their commission (ADR 0096). */
+export function netDue(row: Pick<ReportRowDto, "amountDueCents" | "commissionCents">): number | null {
+  return row.amountDueCents === null ? null : row.amountDueCents - (row.commissionCents ?? 0);
+}
+
+/** "10%" or "R$ 2,00 por ingresso" (ADR 0096). */
+export function commissionLabel(commission: CommissionDto, unit: string = eventTexts.sellers.commission.perUnit): string {
+  if (commission.kind === "percent") {
+    return `${(commission.value / 100).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%`;
+  }
+  return `${money(commission.value)} ${unit}`;
+}
+
+/** Share of the amount due (net of the commission) already received, 0–100. */
+export function receivedPercent(row: Pick<ReportRowDto, "amountDueCents" | "commissionCents" | "receivedCents">): number {
+  const due = netDue(row) ?? 0;
   if (due <= 0) {
     return row.receivedCents > 0 ? 100 : 0;
   }
@@ -65,7 +78,7 @@ export function settlementTotals(rows: readonly ReportRowDto[]): {
   let settled = 0;
   let active = 0;
   for (const row of rows) {
-    dueCents += row.amountDueCents ?? 0;
+    dueCents += netDue(row) ?? 0;
     receivedCents += row.receivedCents;
     const state = settlementState(row);
     if (state.kind === "empty") {
@@ -124,8 +137,15 @@ export function settlementMessage({
     // Reserved numbers are still with the seller (ADR 0072): not money yet, but worth a reminder.
     lines.push(w.reserved(row.reserved));
   }
+  if (row.courtesies > 0) {
+    // Courtesies (ADR 0096): the seller does not pay for them.
+    lines.push(w.courtesies(row.courtesies));
+  }
   if (priceCents !== null && row.amountDueCents !== null) {
-    lines.push(w.due(row.declaredSold, money(priceCents), money(row.amountDueCents)));
+    lines.push(w.due(row.declaredSold - row.courtesies, money(priceCents), money(row.amountDueCents)));
+  }
+  if (row.commissionCents !== null && row.commissionCents > 0) {
+    lines.push(w.commission(money(row.commissionCents)));
   }
   lines.push(w.received(money(row.receivedCents)));
   const state = settlementState(row);
