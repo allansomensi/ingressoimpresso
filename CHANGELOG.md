@@ -55,6 +55,11 @@ e não acompanha estes números.
   lote → usou a portaria, por período, com o passo onde mais gente desiste e quanto tempo cada
   passo leva) e **Acontecendo agora** (eventos do momento, celulares da portaria que não
   sincronizam, leituras acumuladas, rajadas de códigos inválidos e eventos sem celular na porta).
+- **Caixa de fichas**: num evento de fichas, marque um vendedor como caixa. No link dele, os
+  produtos viram botões grandes: toque, escolha dinheiro, Pix ou cartão, veja o troco e registre a
+  venda (funciona sem internet). O turno mostra quanto deveria ter na gaveta e **Fechar caixa**
+  guarda o dinheiro contado e a diferença. A seção Vendedores tem o relatório de cada caixa, com
+  os fechamentos, e a organização pode fechar o caixa de quem saiu sem fechar.
 
 ### Alterado
 

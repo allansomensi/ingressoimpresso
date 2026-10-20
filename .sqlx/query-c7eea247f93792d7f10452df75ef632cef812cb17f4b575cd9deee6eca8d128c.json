@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select s.ticket_number, s.buyer_name, s.buyer_phone, s.sold_at,\n                  p.received_by as \"received_by?\", p.amount_cents as \"paid_cents?\",\n                  p.confirmed_at as \"confirmed_at?\"\n           from ticket_sales s\n           left join ticket_payments p on p.event_id = s.event_id and p.ticket_number = s.ticket_number\n           where s.event_id = $1 and s.seller_id = $2 order by s.ticket_number",
+  "query": "select s.ticket_number, s.buyer_name, s.buyer_phone, s.sold_at, s.payment_method,\n                  s.closing_id is not null as \"closed!\",\n                  p.received_by as \"received_by?\", p.amount_cents as \"paid_cents?\",\n                  p.confirmed_at as \"confirmed_at?\"\n           from ticket_sales s\n           left join ticket_payments p on p.event_id = s.event_id and p.ticket_number = s.ticket_number\n           where s.event_id = $1 and s.seller_id = $2 order by s.ticket_number",
   "describe": {
     "columns": [
       {
@@ -49,6 +49,23 @@
       },
       {
         "ordinal": 4,
+        "name": "payment_method",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ticket_sales",
+            "name": "payment_method"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "closed!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
         "name": "received_by?",
         "type_info": "Text",
         "origin": {
@@ -59,7 +76,7 @@
         }
       },
       {
-        "ordinal": 5,
+        "ordinal": 7,
         "name": "paid_cents?",
         "type_info": "Int4",
         "origin": {
@@ -70,7 +87,7 @@
         }
       },
       {
-        "ordinal": 6,
+        "ordinal": 8,
         "name": "confirmed_at?",
         "type_info": "Timestamptz",
         "origin": {
@@ -92,10 +109,12 @@
       true,
       true,
       false,
+      true,
+      null,
       false,
       false,
       false
     ]
   },
-  "hash": "2ab96b213c9bb88e163adc3800b8c5bc509fdadfbb5f13b25c5d2c26b74b8185"
+  "hash": "c7eea247f93792d7f10452df75ef632cef812cb17f4b575cd9deee6eca8d128c"
 }

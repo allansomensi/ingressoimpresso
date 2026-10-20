@@ -43,4 +43,8 @@ pix: PixAccountDto | null,
 /**
  * What the seller keeps of what they sold (ADR 0096); never on a box office.
  */
-commission: CommissionDto | null, };
+commission: CommissionDto | null, 
+/**
+ * Sells tokens on the spot and closes a drawer (ADR 0098).
+ */
+cashier: boolean, };

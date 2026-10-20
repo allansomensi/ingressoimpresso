@@ -1312,6 +1312,10 @@ dto! {
         #[serde(default)]
         #[cfg_attr(feature = "ts", ts(optional))]
         pub box_office: Option<bool>,
+        /// Token cashier (ADR 0098), only on token events; missing keeps the current choice.
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional))]
+        pub cashier: Option<bool>,
     }
 
     /// A seller with the ranges they hold.
@@ -1335,6 +1339,8 @@ dto! {
         pub pix: Option<PixAccountDto>,
         /// What the seller keeps of what they sold (ADR 0096); never on a box office.
         pub commission: Option<CommissionDto>,
+        /// Sells tokens on the spot and closes a drawer (ADR 0098).
+        pub cashier: bool,
     }
 
     /// A seller's private link, where they mark what they sold (ADR 0053).
@@ -1613,6 +1619,12 @@ dto! {
         /// Its Pix was seen arriving (ADR 0085).
         #[serde(default)]
         pub pix_receipt: Option<PixReceiptDto>,
+        /// How it was paid, when a token cashier wrote it down (ADR 0098).
+        #[serde(default)]
+        pub method: Option<SaleMethod>,
+        /// Counted in a closed cashier shift: only the organizer undoes it.
+        #[serde(default)]
+        pub closed: bool,
     }
 
     /// Money the organizer recorded from this seller, on their page.
@@ -1764,6 +1776,9 @@ dto! {
         /// How buyers pay by Pix (ADR 0085); `null` when the event does not charge by Pix.
         #[serde(default)]
         pub pix: Option<SellerViewPixDto>,
+        /// The seller works as a token cashier (ADR 0098): the shift and its closings.
+        #[serde(default)]
+        pub cashier: Option<SellerCashierDto>,
     }
 
     /// The Pix the seller's buyers pay (ADR 0085).
@@ -2847,6 +2862,8 @@ dto_enum! {
         BoxOffice,
         /// Its Pix arrived (ADR 0085): only the organization undoes the receipt, then the sale.
         PixReceived,
+        /// The sale belongs to a closed cashier shift (ADR 0098): only the organizer undoes it.
+        ShiftClosed,
         /// Something the page should not have sent (a name too long, a bad number).
         Invalid,
     }
@@ -2859,6 +2876,16 @@ dto_enum! {
         Cash,
         /// Anything else (card, bank transfer...).
         Other,
+    }
+
+    /// How a buyer paid a token cashier (ADR 0098).
+    pub enum SaleMethod {
+        /// Cash, into the drawer.
+        Cash,
+        /// Pix, to the organization's key.
+        Pix,
+        /// Card, on the organization's machine.
+        Card,
     }
 
     /// Why a range was voided.
@@ -3046,6 +3073,10 @@ pub enum SellerOp {
         /// reserved by another one is a conflict.
         #[cfg_attr(feature = "ts", ts(type = "string | null"))]
         reservation_id: Option<Uuid>,
+        /// How it was paid, written down by a token cashier (ADR 0098).
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional))]
+        method: Option<SaleMethod>,
     },
     /// A sale marked by mistake.
     Unmark {
@@ -3110,6 +3141,7 @@ db_enum!(ChangelogKind { New => "new", Improvement => "improvement", Fix => "fix
 db_enum!(PaymentMethod { Stripe => "stripe", Admin => "admin", Free => "free", Credit => "credit" });
 db_enum!(PaymentState { Open => "open", Processing => "processing" });
 db_enum!(VoidReason { Unsold => "unsold", Lost => "lost", Revoked => "revoked" });
+db_enum!(SaleMethod { Cash => "cash", Pix => "pix", Card => "card" });
 db_enum!(SellerPaymentMethod { Pix => "pix", Cash => "cash", Other => "other" });
 db_enum!(ExportKind { Home => "home", Print => "print", Control => "control", Whatsapp => "whatsapp" });
 db_enum!(ExportStatus { Queued => "queued", Running => "running", Done => "done", Failed => "failed" });
@@ -5806,5 +5838,105 @@ dto! {
     pub struct GoogleWalletDto {
         /// `https://pay.google.com/gp/v/save/…`.
         pub url: String,
+    }
+}
+
+dto! {
+    /// What the open shift of a token cashier adds up to (ADR 0098): the sales not closed yet.
+    pub struct CashierShiftDto {
+        /// Fichas sold.
+        pub tokens: i32,
+        /// Paid in cash: what the drawer should hold.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub cash_cents: i64,
+        /// Paid by Pix.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub pix_cents: i64,
+        /// Paid by card.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub card_cents: i64,
+        /// Sold with no payment written down.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub other_cents: i64,
+        /// The last closing, if any: the shift runs since then.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub since: Option<OffsetDateTime>,
+    }
+
+    /// A closed shift of a token cashier.
+    pub struct CashierClosingDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// Fichas sold in the shift.
+        pub tokens: i32,
+        /// Paid in cash.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub cash_cents: i64,
+        /// Paid by Pix.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub pix_cents: i64,
+        /// Paid by card.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub card_cents: i64,
+        /// Sold with no payment written down.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub other_cents: i64,
+        /// Cash counted in the drawer, when someone counted it.
+        #[cfg_attr(feature = "ts", ts(type = "number | null"))]
+        pub counted_cents: Option<i64>,
+        /// Counted − cash: negative when money is missing.
+        #[cfg_attr(feature = "ts", ts(type = "number | null"))]
+        pub difference_cents: Option<i64>,
+        /// A word about it ("troco inicial de R$ 50 devolvido").
+        pub note: Option<String>,
+        /// When it was closed.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub closed_at: OffsetDateTime,
+        /// Closed by the organizer on the panel (otherwise by the cashier on the link).
+        pub by_organizer: bool,
+    }
+
+    /// The cashier part of the seller's page (ADR 0098).
+    pub struct SellerCashierDto {
+        /// The open shift, as the server counted it.
+        pub open: CashierShiftDto,
+        /// The latest closings, newest first.
+        pub closings: Vec<CashierClosingDto>,
+    }
+
+    /// `POST /api/seller/cashier/close` (no login; the token is the credential).
+    pub struct SellerCashierCloseBody {
+        /// Token from the link's fragment.
+        pub token: String,
+        /// Cash counted in the drawer.
+        #[cfg_attr(feature = "ts", ts(type = "number | null"))]
+        pub counted_cents: Option<i64>,
+        /// A word about it (up to 200 characters).
+        pub note: Option<String>,
+    }
+
+    /// `POST /api/sellers/{id}/cashier/close`: the organizer closes a cashier's shift.
+    pub struct CashierCloseBody {
+        /// Cash counted in the drawer.
+        #[cfg_attr(feature = "ts", ts(type = "number | null"))]
+        pub counted_cents: Option<i64>,
+        /// A word about it (up to 200 characters).
+        pub note: Option<String>,
+    }
+
+    /// One cashier on the panel's report (ADR 0098).
+    pub struct CashierReportDto {
+        /// The seller.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub seller_id: Uuid,
+        /// Name.
+        pub name: String,
+        /// The open shift.
+        pub open: CashierShiftDto,
+        /// Every closing, newest first.
+        pub closings: Vec<CashierClosingDto>,
     }
 }

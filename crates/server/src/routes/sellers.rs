@@ -53,7 +53,7 @@ pub async fn list(
 ) -> ApiResult<Json<Vec<SellerDto>>> {
     let access = event_access(&state.pool, &user, event_id).await?;
     let sellers = sqlx::query!(
-        r#"select id, name, phone, box_office, goal, pix_key_type, pix_key, pix_name, pix_city,
+        r#"select id, name, phone, box_office, cashier, goal, pix_key_type, pix_key, pix_name, pix_city,
                   commission_kind, commission_value
            from sellers where event_id = $1 order by name"#,
         event_id
@@ -93,6 +93,7 @@ pub async fn list(
                 name: seller.name,
                 phone: seller.phone,
                 box_office: seller.box_office,
+                cashier: seller.cashier,
                 goal: seller.goal,
                 pix: super::pix::account(
                     seller.pix_key_type.as_deref(),
@@ -121,6 +122,18 @@ fn no_box_office_for_tokens(event: &super::EventRow) -> ApiResult<()> {
     Ok(())
 }
 
+/// The token cashier (ADR 0098) sells fichas on the spot; a ticket event has the box office.
+fn cashier_only_for_tokens(event: &super::EventRow) -> ApiResult<()> {
+    if event.tokens() {
+        Ok(())
+    } else {
+        Err(bad_request(
+            "cashier_tickets",
+            "only consumption tokens have a cashier",
+        ))
+    }
+}
+
 /// `POST /api/events/{id}/sellers`.
 pub async fn create(
     State(state): State<AppState>,
@@ -135,14 +148,20 @@ pub async fn create(
         need_money(&access)?;
         no_box_office_for_tokens(&access.event)?;
     }
+    let cashier = body.cashier.unwrap_or(false);
+    if cashier {
+        need_money(&access)?;
+        cashier_only_for_tokens(&access.event)?;
+    }
     let id = Uuid::new_v4();
     sqlx::query!(
-        "insert into sellers (id, event_id, name, phone, box_office) values ($1, $2, $3, $4, $5)",
+        "insert into sellers (id, event_id, name, phone, box_office, cashier) values ($1, $2, $3, $4, $5, $6)",
         id,
         event_id,
         name,
         phone,
         box_office,
+        cashier,
     )
     .execute(&state.pool)
     .await
@@ -164,6 +183,7 @@ pub async fn create(
             goal: None,
             pix: None,
             commission: None,
+            cashier,
         }),
     ))
 }
@@ -222,8 +242,21 @@ pub async fn update(
             need_money(&access)?;
         }
     }
+    // The cashier (ADR 0098) closes a drawer of the organization's money: the money part's call.
+    if body.cashier == Some(true) {
+        cashier_only_for_tokens(&access.event)?;
+    }
+    if let Some(wanted) = body.cashier {
+        let current = sqlx::query_scalar!("select cashier from sellers where id = $1", seller_id)
+            .fetch_one(&mut *tx)
+            .await?;
+        if wanted != current {
+            need_money(&access)?;
+        }
+    }
     let box_office = sqlx::query_scalar!(
         r#"update sellers set name = $2, phone = $3, box_office = coalesce($4, box_office),
+                              cashier = coalesce($5, cashier),
                               goal = case when coalesce($4, box_office) then null else goal end,
                               commission_kind = case when coalesce($4, box_office) then null else commission_kind end,
                               commission_value = case when coalesce($4, box_office) then null else commission_value end
@@ -232,6 +265,7 @@ pub async fn update(
         name,
         phone,
         body.box_office,
+        body.cashier,
     )
     .fetch_one(&mut *tx)
     .await?;

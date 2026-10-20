@@ -22,6 +22,7 @@ import type {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Banknote,
+  Calculator,
   BookmarkPlus,
   CheckCircle2,
   ChevronDown,
@@ -57,6 +58,7 @@ import { toast } from "sonner";
 
 import { ReadOnlyNotice, useEventAccess, useEventKind, useEventTexts, type EventTexts } from "@/components/event/access";
 import { GoalDialog, GoalLine, RankingCard, ReserveDialog, SellerReservations } from "@/components/event/seller-extras";
+import { CashiersCard } from "@/components/event/cashiers";
 import { CommissionBadge, CommissionDialog, CourtesiesCard, SellerNoticeCard } from "@/components/event/seller-money";
 import { PaymentDialog, ReturnDialog } from "@/components/event/settlement-dialogs";
 import { PixCard, SellerPixDialog, useEventPix } from "@/components/pix/event-pix";
@@ -741,6 +743,19 @@ function SellerCard({
       toast.error(errorMessage(error));
     },
   });
+  const cashier = useMutation({
+    mutationFn: (on: boolean) => {
+      const body: SellerBody = { name: seller.name, phone: seller.phone, cashier: on };
+      return api<undefined>(`/api/sellers/${seller.id}`, { method: "PUT", body });
+    },
+    onSuccess: (_, on) => {
+      toast.success(t.cashier.saved(on));
+      onChange();
+    },
+    onError: (error) => {
+      toast.error(errorMessage(error));
+    },
+  });
   const total = seller.ranges.reduce((sum, range) => sum + range.last - range.first + 1, 0);
   const historyCount =
     payments.length +
@@ -768,6 +783,12 @@ function SellerCard({
                 <Badge tone="brand" className="shrink-0">
                   <Store className="size-3" aria-hidden />
                   {t.boxOffice.badge}
+                </Badge>
+              )}
+              {seller.cashier && (
+                <Badge tone="brand" className="shrink-0">
+                  <Calculator className="size-3" aria-hidden />
+                  {t.cashier.badge}
                 </Badge>
               )}
               {pixSeller && seller.pix !== null && (
@@ -872,6 +893,17 @@ function SellerCard({
                 }}
               >
                 {seller.boxOffice ? t.boxOffice.turnOff : t.boxOffice.turnOn}
+              </MenuItem>
+            )}
+            {/* The token cashier (ADR 0098) closes a drawer of the organization's money. */}
+            {delivery && cash && event.kind === "tokens" && (
+              <MenuItem
+                icon={<Calculator />}
+                onSelect={() => {
+                  cashier.mutate(!seller.cashier);
+                }}
+              >
+                {seller.cashier ? t.cashier.turnOff : t.cashier.turnOn}
               </MenuItem>
             )}
             {delivery && (
@@ -1307,15 +1339,17 @@ function NewSellerDialog({ eventId, open, onClose, onCreated }: { eventId: strin
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [boxOffice, setBoxOffice] = useState(false);
+  const [cashier, setCashier] = useState(false);
   const create = useMutation({
     mutationFn: () => {
-      const body: SellerBody = { name: name.trim(), phone: phone.trim() === "" ? null : phone.trim(), boxOffice };
+      const body: SellerBody = { name: name.trim(), phone: phone.trim() === "" ? null : phone.trim(), boxOffice, cashier };
       return api<SellerDto>(`/api/events/${eventId}/sellers`, { method: "POST", body });
     },
     onSuccess: () => {
       setName("");
       setPhone("");
       setBoxOffice(false);
+      setCashier(false);
       toast.success(t.createdToast);
       onCreated();
       onClose();
@@ -1371,6 +1405,9 @@ function NewSellerDialog({ eventId, open, onClose, onCreated }: { eventId: strin
         {can("money") && kind !== "tokens" && (
           <Switch checked={boxOffice} onChange={setBoxOffice} label={t.boxOffice.newLabel} description={t.boxOffice.newHint} />
         )}
+        {can("money") && kind === "tokens" && (
+          <Switch checked={cashier} onChange={setCashier} label={t.cashier.newLabel} description={t.cashier.newHint} />
+        )}
         <ErrorMessage error={create.error} />
       </form>
     </Dialog>
@@ -1402,7 +1439,7 @@ export function SellersTab({ eventId, event, onEditEvent }: { eventId: string; e
   const pix = useEventPix(eventId);
   const pixSeller = pix.data?.receiver === "seller";
   const refresh = () => {
-    for (const key of ["sellers", "report", "seller-payments", "voids", "ticket-sales", "reservations", "analytics", "event-pix"]) {
+    for (const key of ["sellers", "report", "seller-payments", "voids", "ticket-sales", "reservations", "analytics", "event-pix", "cashiers"]) {
       void queryClient.invalidateQueries({ queryKey: [key, eventId] });
     }
   };
@@ -1460,6 +1497,7 @@ export function SellersTab({ eventId, event, onEditEvent }: { eventId: string; e
       {holding && report.data !== undefined && (
         <RankingCard eventId={eventId} sellers={list} rows={rows} editable={delivery && open} onChange={refresh} />
       )}
+      {list.some((seller) => seller.cashier) && <CashiersCard eventId={eventId} editable={can("money") && open} />}
       {holding && <CourtesiesCard eventId={eventId} editable={can("money") && open} onChange={refresh} />}
       {/* How the sale works for everybody: read by the whole team, changed by the parts that own
           it (sending tickets: delivery; how buyers pay by Pix: money, ADR 0085). */}

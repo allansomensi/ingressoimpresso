@@ -15,4 +15,8 @@ phone: string | null,
 /**
  * Box office (ADR 0069); missing keeps the current choice (no on a new seller).
  */
-boxOffice?: boolean, };
+boxOffice?: boolean, 
+/**
+ * Token cashier (ADR 0098), only on token events; missing keeps the current choice.
+ */
+cashier?: boolean, };

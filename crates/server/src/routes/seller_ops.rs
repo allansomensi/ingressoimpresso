@@ -13,7 +13,9 @@ use time::{Duration, OffsetDateTime};
 use uuid::Uuid;
 
 use super::{one_line, optional_text, range};
-use crate::api::{NumberRangeDto, RangeBody, SellerOpOutcome, SellerOpProblem, SellerOpProblemDto};
+use crate::api::{
+    NumberRangeDto, RangeBody, SaleMethod, SellerOpOutcome, SellerOpProblem, SellerOpProblemDto,
+};
 use crate::error::{ApiError, ApiResult, bad_request};
 
 /// Most ranges and numbers in one change.
@@ -134,6 +136,10 @@ impl Done {
                 "pix_received",
                 "the Pix of this number was received".to_owned(),
             ),
+            SellerOpProblem::ShiftClosed => ApiError::Conflict(
+                "shift_closed",
+                "this sale belongs to a closed cashier shift".to_owned(),
+            ),
             SellerOpProblem::Expired | SellerOpProblem::Invalid => bad_request(
                 "invalid_expiry",
                 "the deadline must be in the future and before the event ends",
@@ -216,7 +222,10 @@ struct NumberState {
 }
 
 /// Serializes the changes of one seller (their page on two phones, the organizer on the panel).
-async fn lock_seller(tx: &mut Transaction<'_, Postgres>, seller_id: Uuid) -> ApiResult<()> {
+pub(crate) async fn lock_seller(
+    tx: &mut Transaction<'_, Postgres>,
+    seller_id: Uuid,
+) -> ApiResult<()> {
     sqlx::query_scalar!("select id from sellers where id = $1 for update", seller_id)
         .fetch_optional(&mut **tx)
         .await?
@@ -294,19 +303,34 @@ fn sale_problem(
     None
 }
 
-/// Marks numbers as sold. `edit` replaces the buyer of numbers sold already; `reservation` is the
-/// one the page showed on them, which the sale takes over.
-#[expect(clippy::too_many_arguments, reason = "the parts of one sale")]
+/// What one sale writes down besides its numbers.
+#[derive(Debug, Default)]
+pub(crate) struct Sale {
+    pub buyer_name: Option<String>,
+    pub buyer_phone: Option<String>,
+    /// Replaces the buyer of numbers sold already (otherwise they are a conflict).
+    pub edit: bool,
+    /// The reservation the page showed on the numbers, which the sale takes over.
+    pub reservation: Option<Uuid>,
+    /// How a token cashier was paid (ADR 0098).
+    pub method: Option<SaleMethod>,
+}
+
+/// Marks numbers as sold.
 pub(crate) async fn mark(
     tx: &mut Transaction<'_, Postgres>,
     actor: Actor,
     canceled: bool,
     numbers: &[i32],
-    buyer_name: Option<String>,
-    buyer_phone: Option<String>,
-    edit: bool,
-    reservation: Option<Uuid>,
+    sale: Sale,
 ) -> ApiResult<Done> {
+    let Sale {
+        buyer_name,
+        buyer_phone,
+        edit,
+        reservation,
+        method,
+    } = sale;
     if canceled {
         return Ok(Done::rejected(SellerOpProblem::EventCanceled));
     }
@@ -331,19 +355,26 @@ pub(crate) async fn mark(
     .execute(&mut **tx)
     .await?;
     sqlx::query!(
-        r#"insert into ticket_sales (event_id, ticket_number, seller_id, buyer_name, buyer_phone)
-           select $1, n, $2, $3, $4 from unnest($5::int4[]) as n
+        r#"insert into ticket_sales (event_id, ticket_number, seller_id, buyer_name, buyer_phone, payment_method)
+           select $1, n, $2, $3, $4, $6 from unnest($5::int4[]) as n
            on conflict (event_id, ticket_number) do update
            set buyer_name = excluded.buyer_name,
                buyer_phone = excluded.buyer_phone,
                sold_at = case when ticket_sales.seller_id = excluded.seller_id
                               then ticket_sales.sold_at else now() end,
+               -- A buyer's name changed keeps how it was paid and its shift (ADR 0098).
+               payment_method = coalesce(excluded.payment_method,
+                                         case when ticket_sales.seller_id = excluded.seller_id
+                                              then ticket_sales.payment_method end),
+               closing_id = case when ticket_sales.seller_id = excluded.seller_id
+                                 then ticket_sales.closing_id end,
                seller_id = excluded.seller_id"#,
         actor.event,
         actor.seller,
         buyer_name,
         buyer_phone,
         &sell,
+        method.map(SaleMethod::db),
     )
     .execute(&mut **tx)
     .await?;
@@ -361,6 +392,10 @@ pub(crate) async fn unmark(
     // A sale whose Pix arrived stays (ADR 0085): the organization undoes the receipt first.
     if pix_received(tx, actor.event, number).await? {
         return Ok(Done::rejected(SellerOpProblem::PixReceived));
+    }
+    // A sale of a closed cashier shift stays (ADR 0098): the drawer was counted with it.
+    if actor.user.is_none() && in_closed_shift(tx, actor, number).await? {
+        return Ok(Done::rejected(SellerOpProblem::ShiftClosed));
     }
     sqlx::query!(
         "delete from ticket_sales where event_id = $1 and ticket_number = $2 and seller_id = $3",
@@ -383,6 +418,24 @@ pub(crate) async fn unmark(
         applied: 1,
         problems: Vec::new(),
     })
+}
+
+/// Whether the seller's sale of `number` was counted in a closed cashier shift (ADR 0098).
+pub(crate) async fn in_closed_shift(
+    tx: &mut Transaction<'_, Postgres>,
+    actor: Actor,
+    number: i32,
+) -> ApiResult<bool> {
+    Ok(sqlx::query_scalar!(
+        r#"select exists(select 1 from ticket_sales
+                         where event_id = $1 and ticket_number = $2 and seller_id = $3
+                           and closing_id is not null) as "closed!""#,
+        actor.event,
+        number,
+        actor.seller,
+    )
+    .fetch_one(&mut **tx)
+    .await?)
 }
 
 /// A reservation to make (or to change, with the same id).

@@ -92,6 +92,9 @@ function applyOne(view: SellerViewDto, item: QueuedOp, now: Date): SellerViewDto
           soldAt: sales.get(number)?.soldAt ?? item.createdAt,
           ticketUrl: sales.get(number)?.ticketUrl ?? null,
           pixReceipt: sales.get(number)?.pixReceipt ?? null,
+          // How a cashier was paid (ADR 0098); editing the buyer keeps it and its shift.
+          method: op.method ?? sales.get(number)?.method ?? null,
+          closed: sales.get(number)?.closed ?? false,
         });
       }
       return {
@@ -101,7 +104,8 @@ function applyOne(view: SellerViewDto, item: QueuedOp, now: Date): SellerViewDto
       };
     }
     case "unmark":
-      return { ...view, sales: view.sales.filter((sale) => sale.number !== op.number) };
+      // A sale of a closed cashier shift stays (ADR 0098).
+      return saleOf(op.number)?.closed === true ? view : { ...view, sales: view.sales.filter((sale) => sale.number !== op.number) };
     case "reserve": {
       const keep = numbersOf(op.ranges).filter((number) => {
         const reservation = reservationOf(number);
@@ -214,6 +218,8 @@ export function problemText(problem: SellerOpProblemDto, op: SellerOp, digits: n
       return c.boxOffice;
     case "pix_received":
       return c.pixReceived;
+    case "shift_closed":
+      return c.shiftClosed;
     case "invalid":
       return c.invalid;
   }
@@ -249,9 +255,9 @@ type Saved = { view: SellerViewDto; savedAt: string };
 /** A view as an older version of the page may have saved it. */
 type StoredSummary = Omit<SellerSummaryDto, "commissionCents" | "dueLines"> &
   Partial<Pick<SellerSummaryDto, "commissionCents">> & { dueLines: (Omit<SellerDueLineDto, "courtesy"> & Partial<Pick<SellerDueLineDto, "courtesy">>)[] };
-type StoredView = Omit<SellerViewDto, "pix" | "sales" | "notice" | "commission" | "summary"> &
-  Partial<Pick<SellerViewDto, "pix" | "notice" | "commission">> & {
-    sales: (Omit<SellerSaleDto, "pixReceipt"> & Partial<Pick<SellerSaleDto, "pixReceipt">>)[];
+type StoredView = Omit<SellerViewDto, "pix" | "sales" | "notice" | "commission" | "summary" | "cashier"> &
+  Partial<Pick<SellerViewDto, "pix" | "notice" | "commission" | "cashier">> & {
+    sales: (Omit<SellerSaleDto, "pixReceipt" | "method" | "closed"> & Partial<Pick<SellerSaleDto, "pixReceipt" | "method" | "closed">>)[];
     summary: StoredSummary;
   };
 
@@ -292,8 +298,10 @@ export function readSaved(key: string): Saved | null {
       // Saved before the notice and the commission (ADR 0096).
       notice: view.notice ?? null,
       commission: view.commission ?? null,
+      // Saved before the token cashier (ADR 0098).
+      cashier: view.cashier ?? null,
       summary: { ...view.summary, commissionCents: view.summary.commissionCents ?? null, dueLines: view.summary.dueLines.map((line) => ({ ...line, courtesy: line.courtesy ?? false })) },
-      sales: view.sales.map((sale) => ({ ...sale, pixReceipt: sale.pixReceipt ?? null })),
+      sales: view.sales.map((sale) => ({ ...sale, pixReceipt: sale.pixReceipt ?? null, method: sale.method ?? null, closed: sale.closed ?? false })),
     },
   };
 }

@@ -206,10 +206,13 @@ pub async fn sell(
         actor,
         event.canceled_at.is_some(),
         &numbers,
-        Some(name),
-        phone,
-        false,
-        Some(reservation_id),
+        seller_ops::Sale {
+            buyer_name: Some(name),
+            buyer_phone: phone,
+            edit: false,
+            reservation: Some(reservation_id),
+            method: None,
+        },
     )
     .await?;
     if done.applied == 0 {

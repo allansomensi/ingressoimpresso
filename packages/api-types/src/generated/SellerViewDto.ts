@@ -3,6 +3,7 @@ import type { CommissionDto } from "./CommissionDto";
 import type { NumberRangeDto } from "./NumberRangeDto";
 import type { PublicOrganizationDto } from "./PublicOrganizationDto";
 import type { ReservationDto } from "./ReservationDto";
+import type { SellerCashierDto } from "./SellerCashierDto";
 import type { SellerCategoryDto } from "./SellerCategoryDto";
 import type { SellerNoticeDto } from "./SellerNoticeDto";
 import type { SellerRankingDto } from "./SellerRankingDto";
@@ -96,4 +97,8 @@ commission: CommissionDto | null,
 /**
  * How buyers pay by Pix (ADR 0085); `null` when the event does not charge by Pix.
  */
-pix: SellerViewPixDto | null, };
+pix: SellerViewPixDto | null, 
+/**
+ * The seller works as a token cashier (ADR 0098): the shift and its closings.
+ */
+cashier: SellerCashierDto | null, };

@@ -208,6 +208,12 @@ const LATER: &[(&str, &str, Need)] = &[
         Need::Area(TeamArea::Money),
     ),
     ("DELETE", "courtesies/{id}", Need::Area(TeamArea::Money)),
+    // Closing a token cashier's drawer is about the organization's money (ADR 0098).
+    (
+        "POST",
+        "sellers/{id}/cashier/close",
+        Need::Area(TeamArea::Money),
+    ),
     // The event's public page (ADR 0095) speaks for the event: coordination.
     (
         "PUT",

@@ -32,7 +32,7 @@ use crate::routes::{
     two_factor, voids,
 };
 use crate::routes::{
-    admin_insights, checklist, checkpoints, courtesies, history, pix, public_page, series,
+    admin_insights, cashier, checklist, checkpoints, courtesies, history, pix, public_page, series,
 };
 use crate::routes::{referrals, verify};
 use crate::state::AppState;
@@ -441,6 +441,10 @@ pub fn router(state: AppState) -> Router {
         )
         // The event's history (ADR 0099).
         .route("/events/{id}/activity", get(history::list))
+        // The token cashier (ADR 0098).
+        .route("/events/{id}/cashiers", get(cashier::report))
+        .route("/sellers/{id}/cashier/close", post(cashier::panel_close))
+        .route("/seller/cashier/close", post(cashier::seller_close))
         .fallback(not_found)
         // The event's history (ADR 0099): what a handler let through and finished well.
         .layer(middleware::from_fn_with_state(

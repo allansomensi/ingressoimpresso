@@ -17,11 +17,11 @@ use uuid::Uuid;
 use super::seller_ops::contact;
 use super::{EventRow, authorize_event, bounds, range};
 use crate::api::{
-    CommissionDto, CommissionKind, NumberRangeDto, SellerCategoryDto, SellerDueLineDto,
+    CommissionDto, CommissionKind, NumberRangeDto, SaleMethod, SellerCategoryDto, SellerDueLineDto,
     SellerLinkDto, SellerMarkBody, SellerNoticeBody, SellerNoticeDto, SellerPaymentMethod,
-    SellerSaleDto, SellerSettingsBody, SellerSettingsDto, SellerSummaryDto, SellerTicketBody,
-    SellerTokenBody, SellerUnmarkBody, SellerViewDto, SellerViewEvent, SellerViewPaymentDto,
-    SellerViewPixDto, SellerVoidDto, TicketSaleDto, VoidReason,
+    SellerRankingDto, SellerSaleDto, SellerSettingsBody, SellerSettingsDto, SellerSummaryDto,
+    SellerTicketBody, SellerTokenBody, SellerUnmarkBody, SellerViewDto, SellerViewEvent,
+    SellerViewPaymentDto, SellerViewPixDto, SellerVoidDto, TicketSaleDto, VoidReason,
 };
 use crate::auth::{AuthUser, new_token, token_hash};
 use crate::error::{ApiError, ApiResult, bad_request};
@@ -379,7 +379,8 @@ async fn categories(
 /// its Pix when someone saw it arrive (ADR 0085).
 async fn sales(state: &AppState, link: &LinkRow) -> ApiResult<Vec<SellerSaleDto>> {
     let sales = sqlx::query!(
-        r#"select s.ticket_number, s.buyer_name, s.buyer_phone, s.sold_at,
+        r#"select s.ticket_number, s.buyer_name, s.buyer_phone, s.sold_at, s.payment_method,
+                  s.closing_id is not null as "closed!",
                   p.received_by as "received_by?", p.amount_cents as "paid_cents?",
                   p.confirmed_at as "confirmed_at?"
            from ticket_sales s
@@ -405,6 +406,8 @@ async fn sales(state: &AppState, link: &LinkRow) -> ApiResult<Vec<SellerSaleDto>
                 sale.paid_cents,
                 sale.confirmed_at,
             ),
+            method: sale.payment_method.as_deref().and_then(SaleMethod::from_db),
+            closed: sale.closed,
         })
         .collect())
 }
@@ -461,7 +464,7 @@ pub(crate) async fn view(state: &AppState, link: &LinkRow) -> ApiResult<SellerVi
     let event = sqlx::query!(
         r#"select e.name, e.venue, e.starts_at, e.ends_at, e.utc_offset_minutes, e.ticket_price_cents,
                   e.sellers_send_tickets, e.sellers_ranking, o.name as organizer, s.name as seller,
-                  s.box_office, s.goal, s.commission_kind, s.commission_value,
+                  s.box_office, s.cashier, s.goal, s.commission_kind, s.commission_value,
                   e.seller_notice, e.seller_notice_at
            from events e join organizations o on o.id = e.organization_id
                          join sellers s on s.id = $2
@@ -506,6 +509,7 @@ pub(crate) async fn view(state: &AppState, link: &LinkRow) -> ApiResult<SellerVi
         super::team::receivers(state, link.event_id),
         seller_pix(state, link),
     )?;
+    let cashier = super::cashier::page(state, link.event_id, link.seller_id, event.cashier).await?;
     // A box office keeps nothing (ADR 0096): it sells for the organization at the door.
     let commission =
         super::report::commission(event.commission_kind.as_deref(), event.commission_value)
@@ -521,12 +525,7 @@ pub(crate) async fn view(state: &AppState, link: &LinkRow) -> ApiResult<SellerVi
     );
 
     // A box office sells at the door: no goal, no ranking (ADR 0073).
-    let ranking = if event.sellers_ranking && !event.box_office {
-        let standings = super::seller_goals::standings(&state.pool, link.event_id).await?;
-        Some(super::seller_goals::ranking(standings, link.seller_id))
-    } else {
-        None
-    };
+    let ranking = ranking(state, link, event.sellers_ranking && !event.box_office).await?;
     Ok(SellerViewDto {
         event: SellerViewEvent {
             name: event.name,
@@ -560,7 +559,24 @@ pub(crate) async fn view(state: &AppState, link: &LinkRow) -> ApiResult<SellerVi
         notice: notice_of(event.seller_notice, event.seller_notice_at),
         commission,
         pix,
+        cashier,
     })
+}
+
+/// Where the seller stands among the others, when the organizer shows it (ADR 0073).
+async fn ranking(
+    state: &AppState,
+    link: &LinkRow,
+    shown: bool,
+) -> ApiResult<Option<SellerRankingDto>> {
+    if !shown {
+        return Ok(None);
+    }
+    let standings = super::seller_goals::standings(&state.pool, link.event_id).await?;
+    Ok(Some(super::seller_goals::ranking(
+        standings,
+        link.seller_id,
+    )))
 }
 
 /// The Pix the seller's buyers pay (ADR 0085) and what the organization already received by Pix
@@ -801,6 +817,17 @@ pub async fn unmark(
         return Err(ApiError::Conflict(
             "pix_received",
             "the Pix of this number was received".to_owned(),
+        ));
+    }
+    let actor = super::seller_ops::Actor {
+        event: link.event_id,
+        seller: link.seller_id,
+        user: None,
+    };
+    if super::seller_ops::in_closed_shift(&mut tx, actor, body.number).await? {
+        return Err(ApiError::Conflict(
+            "shift_closed",
+            "this sale belongs to a closed cashier shift".to_owned(),
         ));
     }
     sqlx::query!(

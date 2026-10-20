@@ -13,7 +13,7 @@ use uuid::Uuid;
 
 use super::EventRow;
 use super::seller_links::{LinkRow, ensure_writable, event_row, find_link, no_store, view};
-use super::seller_ops::{self, Actor, Done, Reservation, ReservationRules};
+use super::seller_ops::{self, Actor, Done, Reservation, ReservationRules, Sale};
 use crate::api::{
     SellerOp, SellerOpItem, SellerOpProblem, SellerOpResultDto, SellerSyncBody, SellerSyncDto,
 };
@@ -28,10 +28,7 @@ pub const MAX_OPS: usize = 50;
 enum Prepared {
     Mark {
         numbers: Vec<i32>,
-        buyer_name: Option<String>,
-        buyer_phone: Option<String>,
-        edit: bool,
-        reservation: Option<Uuid>,
+        sale: Sale,
     },
     Unmark(i32),
     Reserve {
@@ -49,12 +46,16 @@ fn prepare(op: SellerOp) -> ApiResult<Prepared> {
             buyer_phone,
             edit,
             reservation_id,
+            method,
         } => Prepared::Mark {
             numbers: seller_ops::expand(&ranges)?,
-            buyer_name: seller_ops::contact(buyer_name, 80, "invalid_buyer_name")?,
-            buyer_phone: seller_ops::contact(buyer_phone, 30, "invalid_buyer_phone")?,
-            edit,
-            reservation: reservation_id,
+            sale: Sale {
+                buyer_name: seller_ops::contact(buyer_name, 80, "invalid_buyer_name")?,
+                buyer_phone: seller_ops::contact(buyer_phone, 30, "invalid_buyer_phone")?,
+                edit,
+                reservation: reservation_id,
+                method,
+            },
         },
         SellerOp::Unmark { number } => {
             super::range(number, number)?;
@@ -128,24 +129,8 @@ async fn apply(
             }],
         },
         Err(other) => return Err(other),
-        Ok(Prepared::Mark {
-            numbers,
-            buyer_name,
-            buyer_phone,
-            edit,
-            reservation,
-        }) => {
-            seller_ops::mark(
-                &mut tx,
-                actor,
-                canceled,
-                &numbers,
-                buyer_name,
-                buyer_phone,
-                edit,
-                reservation,
-            )
-            .await?
+        Ok(Prepared::Mark { numbers, sale }) => {
+            seller_ops::mark(&mut tx, actor, canceled, &numbers, sale).await?
         }
         Ok(Prepared::Unmark(number)) => seller_ops::unmark(&mut tx, actor, number).await?,
         Ok(Prepared::Reserve {
@@ -235,6 +220,7 @@ mod tests {
             buyer_phone: None,
             edit: false,
             reservation_id: None,
+            method: None,
         };
         assert!(prepare(mark(" Ana ")).is_ok());
         assert!(prepare(mark("a\nb")).is_err());

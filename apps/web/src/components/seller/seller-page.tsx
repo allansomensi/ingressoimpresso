@@ -31,6 +31,7 @@ import { toast } from "sonner";
 
 import { LogoMark } from "@/components/brand";
 import { EventChangeNotice, OrganizationContact, OrganizationLogo } from "@/components/organization/organization";
+import { CashierSection } from "@/components/seller/cashier";
 import { GoalCard } from "@/components/seller/goal-card";
 import { MarkSheet, type SheetStart } from "@/components/seller/mark-sheet";
 import { ReservationSheet, ReservationsSection } from "@/components/seller/reservations";
@@ -456,6 +457,18 @@ export function SellerPage() {
           {t.boxOffice}
         </p>
       )}
+
+      {/* The token cashier (ADR 0098): the counter before the list of numbers. */}
+      <CashierSection
+        view={view}
+        now={now}
+        token={token}
+        online={sync.online}
+        pending={queue.length}
+        canceled={canceled}
+        enqueue={enqueue}
+        onClosed={sync.replaceView}
+      />
 
       <GoalCard goal={view.goal} sold={s.sold} ranking={view.ranking} />
 

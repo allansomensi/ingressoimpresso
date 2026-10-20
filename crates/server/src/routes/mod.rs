@@ -7,6 +7,7 @@ pub mod analytics;
 pub mod announcements;
 pub mod batches;
 pub mod billing;
+pub mod cashier;
 pub mod categories;
 pub mod changelog;
 pub mod checklist;

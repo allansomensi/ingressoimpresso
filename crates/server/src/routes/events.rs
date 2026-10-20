@@ -561,9 +561,9 @@ pub(crate) async fn copy_event(
         .await?;
     }
     sqlx::query!(
-        r#"insert into sellers (id, event_id, name, phone, box_office, goal,
+        r#"insert into sellers (id, event_id, name, phone, box_office, cashier, goal,
                                   pix_key_type, pix_key, pix_name, pix_city)
-           select gen_random_uuid(), $2, name, phone, box_office, goal,
+           select gen_random_uuid(), $2, name, phone, box_office, cashier, goal,
                   pix_key_type, pix_key, pix_name, pix_city
            from sellers where event_id = $1"#,
         event_id,
@@ -866,6 +866,14 @@ pub async fn update(
         .await?;
         sqlx::query!(
             "update sellers set box_office = false where event_id = $1 and box_office",
+            event_id
+        )
+        .execute(&mut *tx)
+        .await?;
+    } else {
+        // The token cashier (ADR 0098) is for fichas; tickets have the box office.
+        sqlx::query!(
+            "update sellers set cashier = false where event_id = $1 and cashier",
             event_id
         )
         .execute(&mut *tx)
