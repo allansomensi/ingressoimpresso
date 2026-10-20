@@ -272,6 +272,36 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   `components/portaria/result-screen.tsx` (a cor é a resposta, os dados num cartão branco), fundo
   neutro `#0c0c10` no app; Indique e ganhe é um cartão pequeno ao lado do crédito.
 
+- **Vendedores, ingresso digital, admin, modelos e papéis (ADRs 0095–0102): implementados.**
+  - Página do evento em `/e/<endereço>` (`routes/public_page.rs`, `app/e/[slug]`,
+    `components/event/public-page.tsx`): data, mapa sob toque, preço por categoria, vendedores
+    escolhidos com WhatsApp e selo Esgotado (à mão ou sozinho, por categoria); `ratelimit::PUBLIC_PAGE`.
+  - Aviso para os vendedores, comissão (`sellers.commission_*`, descontada no acerto) e cortesias com
+    quem autoriza e limite (`routes/courtesies.rs`, `components/event/seller-money.tsx`).
+  - Histórico do evento: `event_access` anota, `activity.rs` grava só em sucesso
+    (`event_activity`, `routes/history.rs`, seção Equipe); funil e "acontecendo agora" no admin
+    (`routes/admin_insights.rs`, `components/admin/insights.tsx`).
+  - Ingresso digital: transferir (link novo, o antigo dá 410; até 3 vezes, `events.ticket_transfers`),
+    Apple e Google Wallet (`wallet.rs`, variáveis `APPLE_WALLET_*`/`GOOGLE_WALLET_*`, `docs/deploy.md`
+    §5.7) e **Meus ingressos** no aparelho (`lib/my-tickets.ts`, token cifrado com chave não
+    exportável).
+  - Caixa de fichas (`sellers.cashier`, só em fichas): venda rápida com forma de pagamento e troco
+    pela fila offline (`SellerOp::Mark.method`), turno e fechamento com o dinheiro contado
+    (`cashier_closings`, `routes/cashier.rs`, `components/seller/cashier.tsx`, `lib/cashier.ts`,
+    card Caixas em `components/event/cashiers.tsx`).
+  - Modelos nas cores da organização ou do cartaz, com o logo num canto livre
+    (`lib/brand-palette.ts`, galeria em `event/template-gallery.tsx`; o design traz `organization`).
+  - Portaria: tela **Fim do evento** (`components/portaria/end-of-event.tsx`); resumo final em PDF e
+    imagem (`routes/final_summary.rs`, `render/src/summary_card.rs`).
+  - Papéis prontos para imprimir em casa: A4 picotado e folhas de etiquetas
+    (`ticket_render::Paper`, `layout::paper_grid`, `exports.paper`, `GET /api/events/{id}/papers`,
+    escolha em `components/event/files.tsx`).
+  - Também: galeria de modelos carregada sob demanda, faixa de modelos da landing como imagens
+    prontas, letra cursiva sem corte na prévia, amostra assinada com a marca e lista de nomes por
+    planilha (`lib/guest-list.ts`).
+  - Falta o que depende do mantenedor: certificados da Apple Wallet e conta de serviço do Google
+    Wallet (opcionais, `docs/deploy.md` §5.7).
+
 Plano completo em `docs/arquitetura.md` §12.
 
 ## Onde está cada coisa
@@ -296,7 +326,9 @@ crates/render        Typst embutido (pacote `ticket-render`): design versionado,
                      gráfica (TrimBox/BleedBox), controle, ZIP WhatsApp; templates em templates/*.typ,
                      fontes OFL em fonts/ (8 famílias, world.rs); blocos de texto com campos
                      resolvidos em fields.rs (espelho em apps/web/src/lib/ticket-fields.ts);
-                     gera em blocos e junta com merge.rs (ADRs 0015, 0017, 0025); faixa da categoria
+                     gera em blocos e junta com merge.rs (ADRs 0015, 0017, 0025); papéis prontos
+                     (picotado, etiquetas) em layout.rs (Paper, ADR 0102); resumo final em
+                     summary_card.rs (templates/summary.typ, ADR 0101); faixa da categoria
                      e patrocinadores no design (ADRs 0056, 0059); relatórios em PDF em
                      report_doc.rs (templates/report.typ) e planilhas em sheet.rs (ADR 0058)
 crates/cli           binário `ii`: vectors generate|check, job init, render, verify
@@ -328,6 +360,11 @@ crates/server        API (pacote `ingressoimpresso-server`, binário `ingressoim
                      perfil da organização e logo público em routes/organization.rs (ADR 0064),
                      adiar/cancelar em routes/event_changes.rs (ADR 0065; links da portaria por
                      door::extend_accesses),
+                     página pública do evento (ADR 0095) em routes/public_page.rs, cortesias
+                     (ADR 0096) em routes/courtesies.rs, histórico (ADR 0099) em activity.rs +
+                     routes/history.rs e funil/ao vivo do admin em routes/admin_insights.rs,
+                     carteiras do celular (ADR 0097) em wallet.rs, caixa de fichas (ADR 0098) em
+                     routes/cashier.rs, resumo final (ADR 0101) em routes/final_summary.rs,
                      conferir ingresso (público, ADR 0075) em routes/verify.rs, dias do evento
                      (ADR 0091) em event_days.rs, pontos de controle (ADR 0092) em
                      routes/checkpoints.rs, Pix copia e cola
