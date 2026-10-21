@@ -48,7 +48,7 @@ export interface ElementChange {
 }
 
 /** Counts font loads, so text is measured again once a typeface arrives. */
-function useFontsVersion(): number {
+export function useFontsVersion(): number {
   const [version, setVersion] = useState(0);
   useEffect(() => {
     const fonts = document.fonts;
@@ -108,7 +108,7 @@ function clampText(probe: HTMLElement, value: string, lines: number, em: number)
  * its line, and cutting the text with `overflow: hidden` used to leave only a "(" of it. The
  * extra lines are cut from the text itself instead.
  */
-function FitText({ value, lines, align, style }: { value: string; lines: number; align: TextAlign; style: CSSProperties }) {
+export function FitText({ value, lines, align, style }: { value: string; lines: number; align: TextAlign; style: CSSProperties }) {
   const box = useRef<HTMLDivElement>(null);
   const inner = useRef<HTMLDivElement>(null);
   const probe = useRef<HTMLDivElement>(null);
@@ -176,7 +176,7 @@ function FitText({ value, lines, align, style }: { value: string; lines: number;
 }
 
 /** A fake QR code: looks like the real one (45 modules with the quiet zone), carries nothing. */
-function FakeQr() {
+export function FakeQr() {
   const path = useMemo(() => {
     const next = random(42);
     const finder = (x: number, y: number) =>

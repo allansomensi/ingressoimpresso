@@ -5,6 +5,7 @@
 #let fonts = (
   display: "Bebas Neue", mono: "Space Mono", sans: "Lato", condensed: "Anton",
   serif: "Abril Fatface", script: "Great Vibes", casual: "Pacifico", slab: "Alfa Slab One",
+  classic: "EB Garamond", roman: "Cinzel",
 )
 #let aligns = (left: left, center: center, right: right)
 

@@ -73,7 +73,7 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   no pool; worker de exportação supervisionado, com pausa entre tentativas e drenado no shutdown;
   Pix pendente há 3 dias dado como falho; cancelar o evento fecha os checkouts; ações do CI presas
   por SHA e imagens do Docker por digest.
-- **Versionamento (ADR 0049): implementado, versão atual 1.11.0.** Uma versão SemVer para o produto
+- **Versionamento (ADR 0049): implementado, versão atual 1.12.0.** Uma versão SemVer para o produto
   inteiro (todos os manifestos, conferidos por `scripts/release.mjs check`), `CHANGELOG.md` em
   português (Keep a Changelog), `just release` no `staging` e tag `vX.Y.Z` + GitHub Release pelo
   job **Release** do CI no `main`; versão em Minha conta, em `/sobre`, em `/status` (site e API) e
@@ -346,6 +346,27 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
     chave mestra, `POST /api/certificates/view|pdf`). Seções **Credenciais** e **Certificados** no
     grupo Pessoas.
 
+- **Certificado com editor e aviso de cota (ADRs 0114, 0115): implementados.**
+  - Design do certificado (`CertificateDesign`, `crates/render/src/certificate_design.rs`, JSON em
+    `certificate_settings.design`): A4 deitado ou em pé, frente e verso opcional, papel, fundo,
+    moldura (7 estilos), `brand` e até 40 elementos (`text`, `image`, `signature`, `qr`, `line`,
+    `shape`, `seal`); regras espelhadas em `lib/certificate-design.ts` (`certificateIssues`).
+    Texto diminui até caber; texto com todos os campos vazios não sai; `{codigo}` novo. Linha sem
+    design (ADR 0113) vira o "Clássico" (`CertificateDesign::classic`).
+  - Imagens do certificado: blobs do evento em `certificate_settings.image_blob_ids` (até 8),
+    poupadas pela limpeza de envios; logo da organização por `ImageSource::Organization`; imagem
+    em análise ou recusada não sai no PDF. "Ver PDF" é `POST …/certificates/sample` com o rascunho.
+  - Editor em `components/event/certificate-editor.tsx` (+ `certificate-inspectors.tsx`,
+    `certificate-gallery.tsx`), prévia em `components/certificate/certificate-view.tsx` (mesma
+    geometria de `templates/certificate.typ`: mude os dois juntos), modelos em
+    `lib/certificate-templates.ts` (10 frentes, 3 versos, 8 paletas), histórico em
+    `lib/use-history.ts` (também do editor do ingresso). Fontes novas nos dois lados: EB Garamond
+    (`classic`) e Cinzel (`roman`).
+  - Aviso de cota dos pronunciamentos por e-mail: `AnnouncementAudienceDto` com `dailyLimit`,
+    `reserve`, `sentLastDay` e `queued` (`mailings::quota_now`), `GET /api/admin/mailings/estimate`
+    para um pronunciamento não salvo, `lib/mail-quota.ts` (`mailOutlook`) e `MailQuotaNotice`
+    (confirmar quando passa da cota).
+
 Plano completo em `docs/arquitetura.md` §12.
 
 ## Onde está cada coisa
@@ -368,11 +389,12 @@ crates/ticket-core   formato v1, base45, Ed25519, decisão da portaria, DTOs: pu
 crates/ticket-wasm   bindings wasm-bindgen: DoorCore (verificação + decisão), nunca assinatura
 crates/render        Typst embutido (pacote `ticket-render`): design versionado, QR vetorial, A4 casa,
                      gráfica (TrimBox/BleedBox), controle, ZIP WhatsApp; templates em templates/*.typ,
-                     fontes OFL em fonts/ (8 famílias, world.rs); blocos de texto com campos
+                     fontes OFL em fonts/ (10 famílias, world.rs); blocos de texto com campos
                      resolvidos em fields.rs (espelho em apps/web/src/lib/ticket-fields.ts);
                      gera em blocos e junta com merge.rs (ADRs 0015, 0017, 0025); crachás das
                      credenciais em badge.rs (templates/badge.typ, ADR 0111) e certificados em
-                     certificate.rs (templates/certificate.typ, ADR 0113); papéis prontos
+                     certificate.rs + certificate_design.rs (templates/certificate.typ, ADRs
+                     0113, 0114); papéis prontos
                      (picotado, etiquetas) em layout.rs (Paper, ADR 0102); resumo final em
                      summary_card.rs (templates/summary.typ, ADR 0101); faixa da categoria
                      e patrocinadores no design (ADRs 0056, 0059); relatórios em PDF em
@@ -414,7 +436,7 @@ crates/server        API (pacote `ingressoimpresso-server`, binário `ingressoim
                      routes/crm.rs, relatórios de receita (ADR 0106) em routes/revenue_reports.rs,
                      pronunciamentos por e-mail (ADR 0107) em mailings.rs + routes/mailings.rs,
                      lotação (ADR 0110) em capacity.rs, credenciais (ADR 0111) em
-                     routes/credentials.rs, certificados (ADR 0113) em routes/certificates.rs,
+                     routes/credentials.rs, certificados (ADRs 0113, 0114) em routes/certificates.rs,
                      carteiras do celular (ADR 0097) em wallet.rs, caixa de fichas (ADR 0098) em
                      routes/cashier.rs, resumo final (ADR 0101) em routes/final_summary.rs,
                      conferir ingresso (público, ADR 0075) em routes/verify.rs, dias do evento
@@ -501,8 +523,11 @@ apps/web             landing em src/app/page.tsx (+ src/components/marketing: si
                      reports.tsx, envio por e-mail em announcement-email.tsx);
                      descadastro dos comunicados em app/descadastrar + components/unsubscribe;
                      credenciais em components/event/credentials.tsx + lib/credentials.ts,
-                     certificados em components/event/certificates.tsx + lib/certificates.ts e a
-                     página pública em app/certificado + components/certificate; conta em src/app/painel/conta (+ components/account);
+                     certificados em components/event/certificates.tsx + certificate-editor.tsx
+                     (inspetores e galeria ao lado), regras em lib/certificate-design.ts, modelos
+                     em lib/certificate-templates.ts, campos em lib/certificates.ts, prévia em
+                     components/certificate/certificate-view.tsx e a página pública em
+                     app/certificado + components/certificate; conta em src/app/painel/conta (+ components/account);
                      sininho e avisos em components/panel/{inbox,platform-notices}.tsx + lib/platform.ts;
                      lista de eventos em app/painel/page.tsx (ordem e séries em lib/event-list.ts,
                      selos em components/panel/event-phase.tsx); página da série em

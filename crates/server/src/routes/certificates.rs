@@ -14,9 +14,9 @@ use uuid::Uuid;
 
 use super::{EventRow, authorize_event, one_line, optional_text};
 use crate::api::{
-    CertificateNameBody, CertificateParticipantDto, CertificateSettingsDto, CertificateSignerDto,
-    CertificateSource, CertificateTokenBody, CertificatesDto, IssuedCertificateDto,
-    PublicCertificateDto,
+    CertificateNameBody, CertificateParticipantDto, CertificateSettingsBody,
+    CertificateSettingsDto, CertificateSource, CertificateTokenBody, CertificatesDto,
+    IssuedCertificateDto, PublicCertificateDto,
 };
 use crate::auth::AuthUser;
 use crate::error::{ApiError, ApiResult, bad_request};
@@ -61,44 +61,92 @@ pub fn code(number: i32) -> String {
     format!("CERT-{number:04}")
 }
 
-fn defaults() -> CertificateSettingsDto {
-    CertificateSettingsDto {
-        title: texts::CERTIFICATE_TITLE.to_owned(),
-        body: texts::CERTIFICATE_BODY.to_owned(),
-        workload: None,
-        signers: Vec::new(),
-        color: texts::CERTIFICATE_COLOR.to_owned(),
-    }
+/// The saved design of an event's certificates, its workload and its images, or the default.
+struct Saved {
+    design: ticket_render::CertificateDesign,
+    workload: Option<String>,
+    image_ids: Vec<Uuid>,
 }
 
-/// The words of the event's certificates, and whether the organizer saved them.
-async fn settings(pool: &PgPool, event_id: Uuid) -> ApiResult<(CertificateSettingsDto, bool)> {
+async fn saved(pool: &PgPool, event_id: Uuid) -> ApiResult<Saved> {
     let Some(row) = sqlx::query!(
-        r#"select title, body, workload, signer1_name, signer1_role, signer2_name, signer2_role, color
+        r#"select design, image_blob_ids, title, body, workload, signer1_name, signer1_role,
+                  signer2_name, signer2_role, color
            from certificate_settings where event_id = $1"#,
         event_id
     )
     .fetch_optional(pool)
     .await?
     else {
-        return Ok((defaults(), false));
+        return Ok(Saved {
+            design: default_design(None, None, &[], None),
+            workload: None,
+            image_ids: Vec::new(),
+        });
     };
-    let signers = [
-        (row.signer1_name, row.signer1_role),
-        (row.signer2_name, row.signer2_role),
-    ]
-    .into_iter()
-    .filter_map(|(name, role)| name.map(|name| CertificateSignerDto { name, role }))
-    .collect();
+    let design = if let Some(design) = row.design {
+        serde_json::from_value(design).map_err(|error| ApiError::Internal(error.into()))?
+    } else {
+        // Saved before designs existed (ADR 0113): its words in the "Clássico" design.
+        let signers: Vec<(String, Option<String>)> = [
+            (row.signer1_name, row.signer1_role),
+            (row.signer2_name, row.signer2_role),
+        ]
+        .into_iter()
+        .filter_map(|(name, role)| name.map(|name| (name, role)))
+        .collect();
+        default_design(
+            row.title.as_deref(),
+            row.body.as_deref(),
+            &signers,
+            row.color.as_deref(),
+        )
+    };
+    Ok(Saved {
+        design,
+        workload: row.workload,
+        image_ids: row.image_blob_ids,
+    })
+}
+
+fn default_design(
+    title: Option<&str>,
+    body: Option<&str>,
+    signers: &[(String, Option<String>)],
+    color: Option<&str>,
+) -> ticket_render::CertificateDesign {
+    ticket_render::CertificateDesign::classic(
+        title.unwrap_or(texts::CERTIFICATE_TITLE),
+        body.unwrap_or(texts::CERTIFICATE_BODY),
+        signers,
+        color.unwrap_or(texts::CERTIFICATE_COLOR),
+    )
+}
+
+/// What the panel edits: the design with its images and the organization's logo.
+async fn settings(state: &AppState, event_id: Uuid) -> ApiResult<(CertificateSettingsDto, bool)> {
+    let saved_row = sqlx::query_scalar!(
+        r#"select true as "found!" from certificate_settings where event_id = $1"#,
+        event_id
+    )
+    .fetch_optional(&state.pool)
+    .await?
+    .is_some();
+    let saved = saved(&state.pool, event_id).await?;
+    let images = super::events::arts_of_event(state, event_id, &saved.image_ids)
+        .await
+        .unwrap_or_default()
+        .into_iter()
+        .map(Into::into)
+        .collect();
     Ok((
         CertificateSettingsDto {
-            title: row.title,
-            body: row.body,
-            workload: row.workload,
-            signers,
-            color: row.color,
+            design: saved.design,
+            workload: saved.workload,
+            images,
+            organization: super::organization::event_organization(&state.pool, event_id).await?,
         },
-        true,
+        saved_row,
     ))
 }
 
@@ -124,59 +172,73 @@ fn checked_line(
         .transpose()
 }
 
-/// `PUT /api/events/{id}/certificates/settings`.
+/// A design sent by the panel, checked by the same rules as the panel's (ADR 0114), with images
+/// uploaded to this event and never refused.
+async fn checked_settings(
+    state: &AppState,
+    event_id: Uuid,
+    body: CertificateSettingsBody,
+) -> ApiResult<Saved> {
+    let workload = checked_line(body.workload, 30, "invalid_certificate_workload")?;
+    if body.image_ids.len() > ticket_render::MAX_CERTIFICATE_IMAGES {
+        return Err(bad_request(
+            "too_many_certificate_images",
+            format!("up to {} images", ticket_render::MAX_CERTIFICATE_IMAGES),
+        ));
+    }
+    let mut design = body.design;
+    design.title = design.title.trim().to_owned();
+    if let Err(issues) = design.validate(body.image_ids.len()) {
+        let detail = issues
+            .iter()
+            .map(ToString::to_string)
+            .collect::<Vec<_>>()
+            .join("; ");
+        return Err(bad_request("invalid_certificate_design", detail));
+    }
+    let images = super::events::arts_of_event(state, event_id, &body.image_ids).await?;
+    if images
+        .iter()
+        .any(|image| image.moderation_status == "rejected")
+    {
+        return Err(ApiError::Conflict(
+            "art_rejected",
+            "the art was refused by the team".to_owned(),
+        ));
+    }
+    Ok(Saved {
+        design,
+        workload,
+        image_ids: body.image_ids,
+    })
+}
+
+/// `PUT /api/events/{id}/certificates/settings`: the design of the event's certificates.
 pub async fn update_settings(
     State(state): State<AppState>,
     user: AuthUser,
     Path(event_id): Path<Uuid>,
-    Json(body): Json<CertificateSettingsDto>,
+    Json(body): Json<CertificateSettingsBody>,
 ) -> ApiResult<Json<CertificatesDto>> {
     authorize_event(&state.pool, &user, event_id).await?;
-    let title = checked_text(&body.title, 60, "invalid_certificate_title")?;
-    one_line(&title, "invalid_certificate_title")?;
-    let text = checked_text(&body.body, 600, "invalid_certificate_body")?;
-    let workload = checked_line(body.workload.clone(), 30, "invalid_certificate_workload")?;
-    if body.signers.len() > 2 {
-        return Err(bad_request(
-            "invalid_certificate_signers",
-            "up to two signers",
-        ));
-    }
-    let mut signers = Vec::new();
-    for signer in &body.signers {
-        let name = checked_line(Some(signer.name.clone()), 60, "invalid_certificate_signers")?
-            .ok_or_else(|| bad_request("invalid_certificate_signers", "a signer needs a name"))?;
-        let role = checked_line(signer.role.clone(), 60, "invalid_certificate_signers")?;
-        signers.push((name, role));
-    }
-    let color = body.color.trim().to_lowercase();
-    if color.len() != 7
-        || !color.starts_with('#')
-        || !color.chars().skip(1).all(|c| c.is_ascii_hexdigit())
-    {
-        return Err(bad_request("invalid_color", "colour as #rrggbb"));
-    }
-    let signer = |index: usize| signers.get(index).cloned().unzip();
-    let (signer1_name, signer1_role) = signer(0);
-    let (signer2_name, signer2_role) = signer(1);
-    sqlx::query!(
-        r#"insert into certificate_settings
-             (event_id, title, body, workload, signer1_name, signer1_role, signer2_name, signer2_role, color)
-           values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-           on conflict (event_id) do update set
-             title = excluded.title, body = excluded.body, workload = excluded.workload,
-             signer1_name = excluded.signer1_name, signer1_role = excluded.signer1_role,
-             signer2_name = excluded.signer2_name, signer2_role = excluded.signer2_role,
-             color = excluded.color, updated_at = now()"#,
-        event_id,
-        title,
-        text,
+    let Saved {
+        design,
         workload,
-        signer1_name,
-        signer1_role.flatten(),
-        signer2_name,
-        signer2_role.flatten(),
-        color,
+        image_ids,
+    } = checked_settings(&state, event_id, body).await?;
+    let spec = serde_json::to_value(&design).map_err(|error| ApiError::Internal(error.into()))?;
+    sqlx::query!(
+        r#"insert into certificate_settings (event_id, design, image_blob_ids, workload)
+           values ($1, $2, $3, $4)
+           on conflict (event_id) do update set
+             design = excluded.design, image_blob_ids = excluded.image_blob_ids,
+             workload = excluded.workload, title = null, body = null, color = null,
+             signer1_name = null, signer1_role = null, signer2_name = null, signer2_role = null,
+             updated_at = now()"#,
+        event_id,
+        spec,
+        &image_ids,
+        workload,
     )
     .execute(&state.pool)
     .await?;
@@ -261,7 +323,7 @@ async fn issued(pool: &PgPool, event_id: Uuid) -> ApiResult<Vec<Issued>> {
 }
 
 async fn overview(state: &AppState, event_id: Uuid) -> ApiResult<CertificatesDto> {
-    let (settings, saved) = settings(&state.pool, event_id).await?;
+    let (settings, saved) = settings(state, event_id).await?;
     let people = participants(&state.pool, event_id).await?;
     let mut made: Vec<Issued> = issued(&state.pool, event_id).await?;
     let (prefix, digits) = super::tickets::number_style(state, event_id).await?;
@@ -416,13 +478,15 @@ pub async fn delete(
 /// What every certificate of an event shares.
 struct Shared {
     event: EventRow,
-    settings: CertificateSettingsDto,
+    saved: Saved,
     days: Vec<PrimitiveDateTime>,
     organization: String,
+    /// The certificate's images by index; one under review or refused is left out (ADR 0042).
+    images: Vec<Option<ticket_render::Art>>,
+    organization_logo: Option<ticket_render::Art>,
 }
 
-async fn shared(state: &AppState, event: EventRow) -> ApiResult<Shared> {
-    let (settings, _) = settings(&state.pool, event.id).await?;
+async fn shared(state: &AppState, event: EventRow, saved: Saved) -> ApiResult<Shared> {
     let offset = event.offset();
     let mut days: Vec<PrimitiveDateTime> =
         crate::event_days::of_event(&state.pool, event.id, offset)
@@ -443,12 +507,65 @@ async fn shared(state: &AppState, event: EventRow) -> ApiResult<Shared> {
     )
     .fetch_one(&state.pool)
     .await?;
+    let used = saved.design.used_images();
+    let printable: Vec<Uuid> = sqlx::query_scalar!(
+        r#"select b.id from blobs b
+           where b.event_id = $1 and b.id = any($2)
+             and b.moderation_status not in ('flagged', 'rejected')
+             and not exists (select 1 from rejected_art r where r.sha256 = b.sha256)"#,
+        event.id,
+        &saved.image_ids,
+    )
+    .fetch_all(&state.pool)
+    .await?;
+    let wanted: Vec<Uuid> = saved
+        .image_ids
+        .iter()
+        .enumerate()
+        .filter(|(index, id)| {
+            u8::try_from(*index).is_ok_and(|index| used.contains(&index)) && printable.contains(id)
+        })
+        .map(|(_, id)| *id)
+        .collect();
+    let loaded = super::events::load_arts(state, event.id, &wanted).await?;
+    let images = saved
+        .image_ids
+        .iter()
+        .map(|id| {
+            wanted
+                .iter()
+                .position(|wanted| wanted == id)
+                .and_then(|at| loaded.get(at).cloned())
+        })
+        .collect();
+    let organization_logo = if saved.design.uses_organization_logo() {
+        organization_logo(&state.pool, event.id).await?
+    } else {
+        None
+    };
     Ok(Shared {
         event,
-        settings,
+        saved,
         days,
         organization,
+        images,
+        organization_logo,
     })
+}
+
+/// The organization's logo, when it has one that may be shown (neither under review nor refused).
+async fn organization_logo(pool: &PgPool, event_id: Uuid) -> ApiResult<Option<ticket_render::Art>> {
+    let data = sqlx::query_scalar!(
+        r#"select b.data from blobs b
+           join organization_profiles p on p.logo_blob_id = b.id
+           join events e on e.organization_id = p.organization_id
+           where e.id = $1 and b.moderation_status not in ('flagged', 'rejected')
+             and not exists (select 1 from rejected_art r where r.sha256 = b.sha256)"#,
+        event_id
+    )
+    .fetch_optional(pool)
+    .await?;
+    Ok(data.and_then(|bytes| ticket_render::Art::from_bytes(bytes).ok()))
 }
 
 fn render_one(
@@ -464,7 +581,8 @@ fn render_one(
         days: shared.days.clone(),
         venue: shared.event.venue.clone(),
         organization: Some(shared.organization.clone()),
-        workload: shared.settings.workload.clone(),
+        workload: shared.saved.workload.clone(),
+        code: Some(number.map_or_else(|| texts::CERTIFICATE_SAMPLE_CODE.to_owned(), code)),
     };
     let check_url = id.map_or_else(
         || format!("{}/certificado", state.config.public_web_url),
@@ -476,36 +594,25 @@ fn render_one(
             )
         },
     );
-    let date = ticket_render::fill_certificate("{dias}", &fields)
-        .into_iter()
-        .map(|segment| segment.text)
-        .collect::<String>();
     ticket_render::Certificate {
-        kicker: texts::CERTIFICATE_KICKER.to_owned(),
-        title: shared.settings.title.clone(),
-        body: ticket_render::fill_certificate(&shared.settings.body, &fields),
-        workload_label: texts::CERTIFICATE_WORKLOAD.to_owned(),
-        workload: shared.settings.workload.clone(),
-        place: [shared.event.venue.clone(), Some(date)]
-            .into_iter()
-            .flatten()
-            .filter(|part| !part.is_empty())
-            .collect::<Vec<_>>()
-            .join(" · "),
-        signers: shared
-            .settings
-            .signers
-            .iter()
-            .map(|signer| ticket_render::CertificateSigner {
-                name: signer.name.clone(),
-                role: signer.role.clone(),
-            })
-            .collect(),
-        color: shared.settings.color.clone(),
-        code: number.map_or_else(String::new, |number| format!("Código {}", code(number))),
-        check: texts::CERTIFICATE_CHECK.to_owned(),
+        design: shared.saved.design.clone(),
+        fields,
+        images: shared.images.clone(),
+        organization_logo: shared.organization_logo.clone(),
         check_url,
     }
+}
+
+/// "21 de novembro de 2026" (or the days of an event of several).
+fn date_line(shared: &Shared) -> String {
+    let fields = ticket_render::CertificateFields {
+        days: shared.days.clone(),
+        ..ticket_render::CertificateFields::default()
+    };
+    ticket_render::fill_certificate("{dias}", &fields)
+        .into_iter()
+        .map(|segment| segment.text)
+        .collect()
 }
 
 async fn render<T: Send + 'static>(
@@ -533,14 +640,30 @@ fn file_base(event: &EventRow) -> String {
     }
 }
 
-/// `GET /api/events/{id}/certificates/sample`: the words as they print, on a sample name.
+/// Sample PDFs a person may ask for in a minute (each one is a Typst compilation).
+const SAMPLES_PER_MINUTE: usize = 20;
+
+/// `POST /api/events/{id}/certificates/sample`: the design being edited, as it prints, on a sample
+/// name (nothing is saved).
 pub async fn sample(
     State(state): State<AppState>,
     user: AuthUser,
     Path(event_id): Path<Uuid>,
+    Json(body): Json<CertificateSettingsBody>,
 ) -> ApiResult<Response> {
     let event = authorize_event(&state.pool, &user, event_id).await?;
-    let shared = shared(&state, event).await?;
+    if !state
+        .attempt(
+            &format!("certificate-sample:{}", user.id),
+            SAMPLES_PER_MINUTE,
+            std::time::Duration::from_mins(1),
+        )
+        .await
+    {
+        return Err(ApiError::TooManyRequests);
+    }
+    let draft = checked_settings(&state, event_id, body).await?;
+    let shared = shared(&state, event, draft).await?;
     let certificate = render_one(&state, &shared, texts::CERTIFICATE_SAMPLE_NAME, None, None);
     let bytes = render(&state, move || ticket_render::certificate_pdf(&certificate)).await?;
     Ok(super::ledger::attachment(
@@ -565,7 +688,8 @@ pub async fn zip(
         ));
     }
     let base = file_base(&event);
-    let shared = shared(&state, event).await?;
+    let saved = saved(&state.pool, event.id).await?;
+    let shared = shared(&state, event, saved).await?;
     let items: Vec<(String, ticket_render::Certificate)> = made
         .iter()
         .map(|certificate| {
@@ -634,23 +758,18 @@ pub async fn view(
     )
     .execute(&state.pool)
     .await?;
-    let shared = shared(&state, event).await?;
-    let printed = render_one(&state, &shared, &certificate.name, None, None);
-    let date = printed
-        .place
-        .rsplit(" · ")
-        .next()
-        .unwrap_or_default()
-        .to_owned();
+    let saved = saved(&state.pool, event.id).await?;
+    let shared = shared(&state, event, saved).await?;
+    let date = date_line(&shared);
     Ok(Json(PublicCertificateDto {
         name: certificate.name,
         code: code(certificate.number),
-        title: shared.settings.title,
-        event: shared.event.name,
+        title: shared.saved.design.title.clone(),
+        event: shared.event.name.clone(),
         date,
-        venue: shared.event.venue,
-        organization: Some(shared.organization),
-        workload: shared.settings.workload,
+        venue: shared.event.venue.clone(),
+        organization: Some(shared.organization.clone()),
+        workload: shared.saved.workload.clone(),
     }))
 }
 
@@ -662,7 +781,8 @@ pub async fn pdf(
 ) -> ApiResult<Response> {
     ratelimit::by_ip(&state, &headers, ratelimit::CERTIFICATE).await?;
     let (certificate, event) = by_token(&state, &body.token).await?;
-    let shared = shared(&state, event).await?;
+    let saved = saved(&state.pool, event.id).await?;
+    let shared = shared(&state, event, saved).await?;
     let printed = render_one(
         &state,
         &shared,

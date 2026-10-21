@@ -7,6 +7,7 @@
 
 mod badge;
 mod certificate;
+mod certificate_design;
 mod design;
 mod fields;
 mod layout;
@@ -21,8 +22,15 @@ mod world;
 
 pub use badge::{Badge, BadgeSheet, MAX_BADGES, badges_pdf};
 pub use certificate::{
-    CERTIFICATE_FIELDS, Certificate, CertificateFields, CertificateSegment, CertificateSigner,
+    CERTIFICATE_BRAND, CERTIFICATE_FIELDS, Certificate, CertificateFields, CertificateSegment,
     MAX_CERTIFICATES, certificate_pdf, certificates_zip, fill_certificate,
+};
+pub use certificate_design::{
+    CERTIFICATE_DESIGN_VERSION, CertificateDesign, CertificateElement, CertificateFrame,
+    CertificateImage, CertificateIssue, CertificateLine, CertificatePage, CertificateQr,
+    CertificateSeal, CertificateShape, CertificateSide, CertificateSignature, CertificateText,
+    FrameStyle, ImageSource, LineStyle, MAX_CERTIFICATE_IMAGES, MAX_PAGE_ELEMENTS,
+    MIN_CERTIFICATE_QR_MM, PageOrientation, ParagraphAlign, VerticalAlign,
 };
 pub use design::{
     AUTO_BAND_MM, BLEED_MM, BandEdge, BandStyle, DESIGN_VERSION, DesignIssue, FontChoice,

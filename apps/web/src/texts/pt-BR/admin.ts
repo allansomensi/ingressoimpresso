@@ -844,6 +844,30 @@ export const admin = {
           : `Leva cerca de ${String(days)} dias: até ${perDay.toLocaleString("pt-BR")} comunicados por dia, para sobrar cota para os códigos de acesso.`,
       noBudget:
         "A cota diária de e-mails é pequena demais para comunicados: aumente MAIL_DAILY_LIMIT.",
+      // What the sending does to the day's quota (ADR 0115).
+      quota: {
+        usage: (sent: number, limit: number) =>
+          `Nas últimas 24 horas saíram ${sent.toLocaleString("pt-BR")} de ${limit.toLocaleString("pt-BR")} e-mails da cota.`,
+        queued: (count: number) =>
+          count === 1
+            ? "1 comunicado de outro envio ainda sai antes deste."
+            : `${count.toLocaleString("pt-BR")} comunicados de outro envio ainda saem antes deste.`,
+        okLine: (left: number) =>
+          `Depois deste envio, sobram ${left.toLocaleString("pt-BR")} e-mails nas próximas 24 horas para códigos de acesso, convites e avisos de pagamento.`,
+        nearTitle: "Este envio quase esgota a cota de e-mails de hoje",
+        nearBody: (left: number) =>
+          `Depois dele, sobram só ${left.toLocaleString("pt-BR")} e-mails nas próximas 24 horas para todo o resto: códigos de acesso, convites para equipes, avisos de pagamento e alertas. Outro comunicado hoje fica para amanhã.`,
+        overTitle: "Este envio passa da cota de e-mails de hoje",
+        overBody: (today: number, rest: number, days: number, perDay: number) =>
+          today === 0
+            ? `Nenhum sai nas próximas 24 horas: a parte da cota para comunicados já foi usada. Os ${rest.toLocaleString("pt-BR")} saem nos dias seguintes, em cerca de ${String(days - 1)} dias, até ${perDay.toLocaleString("pt-BR")} por dia.`
+            : `Saem ${today.toLocaleString("pt-BR")} nas próximas 24 horas e os outros ${rest.toLocaleString("pt-BR")} nos dias seguintes: cerca de ${String(days)} dias no total, até ${perDay.toLocaleString("pt-BR")} comunicados por dia.`,
+        overConsequences: (reserve: number) =>
+          `Enquanto o envio durar, a cota fica no limite todos os dias: sobram só ${reserve.toLocaleString("pt-BR")} e-mails por dia para códigos de acesso, convites, avisos de pagamento e alertas.`,
+        risk: "Se essa sobra acabar, quem tentar entrar com o código por e-mail vai precisar usar o Google, e convites e avisos de pagamento só saem quando a cota voltar.",
+        acknowledge: "Entendi as consequências e quero enviar assim mesmo",
+        scheduled: "Os números são de agora: o e-mail sai quando o pronunciamento começar.",
+      },
       confirm: (count: number) =>
         count === 1
           ? "Enviar para 1 pessoa"

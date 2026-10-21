@@ -100,6 +100,22 @@ pub async fn audience_counts(
     Ok((row.recipients, row.opted_out, row.already))
 }
 
+/// Where the quota stands now: e-mails sent in the last 24 hours (every kind) and announcement
+/// e-mails waiting in other sendings (they go out before a new one).
+pub async fn quota_now(state: &AppState) -> ApiResult<(i64, i64)> {
+    let row = sqlx::query!(
+        r#"select
+             (select count(*) from mail_sends
+              where created_at > now() - interval '24 hours' and status <> 'quota') as "sent!",
+             (select count(*) from announcement_mail_recipients r
+              join announcement_mailings m on m.id = r.mailing_id
+              where r.status in ('pending', 'sending') and m.canceled_at is null) as "queued!""#
+    )
+    .fetch_one(&state.pool)
+    .await?;
+    Ok((row.sent, row.queued))
+}
+
 /// Queues an announcement for an audience; `None` when nobody is left to get it.
 pub async fn queue(
     state: &AppState,

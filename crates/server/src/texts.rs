@@ -6,17 +6,15 @@ pub(crate) const COPY_SUFFIX: &str = " (cópia)";
 
 /// The entrance among the areas printed on a credential (ADR 0111).
 pub(crate) const CREDENTIAL_ENTRANCE: &str = "Entrada";
-/// Defaults of the certificates of participation (ADR 0113), until the organizer edits them.
+/// Defaults of the certificates of participation (ADRs 0113, 0114), until the organizer edits
+/// them: the "Clássico" design with these words.
 pub(crate) const CERTIFICATE_TITLE: &str = "Certificado de participação";
 pub(crate) const CERTIFICATE_BODY: &str =
     "Certificamos que {nome} participou de {evento}, realizado em {dias}.";
-pub(crate) const CERTIFICATE_COLOR: &str = "#5b3df5";
-/// Words printed on every certificate.
-pub(crate) const CERTIFICATE_KICKER: &str = "Certificado";
-pub(crate) const CERTIFICATE_WORKLOAD: &str = "Carga horária:";
-pub(crate) const CERTIFICATE_CHECK: &str = "Confira pelo QR";
-/// The name on the sample.
+pub(crate) const CERTIFICATE_COLOR: &str = "#1f3a5f";
+/// The name and the code on the sample.
 pub(crate) const CERTIFICATE_SAMPLE_NAME: &str = "Nome da Pessoa";
+pub(crate) const CERTIFICATE_SAMPLE_CODE: &str = "CERT-0000";
 
 /// The line at the bottom of every credential.
 pub(crate) const CREDENTIAL_FOOTER: &str =

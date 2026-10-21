@@ -20,6 +20,12 @@ export const errors = {
   art_too_large: "A arte é grande demais (máximo 10.000 px por lado).",
   payload_too_large: "Arquivo grande demais (máximo 20 MB).",
   unknown_art: "Arte não encontrada; envie de novo.",
+  invalid_certificate_design: "O certificado tem algo fora das regras: confira os avisos do editor.",
+  invalid_certificate_workload: "A carga horária pode ter até 30 caracteres.",
+  invalid_certificate_name: "O nome pode ter de 1 a 80 caracteres.",
+  too_many_certificate_images: "O certificado pode ter até 8 imagens.",
+  no_certificates: "Gere os certificados antes de baixar.",
+  certificates_tokens: "Fichas de consumo não têm certificados.",
   too_large_for_a4: "O ingresso (com canhoto) não cabe numa folha A4.",
   paper_too_small:
     "O ingresso não cabe neste papel sem o QR ficar pequeno demais. Escolha outro papel.",

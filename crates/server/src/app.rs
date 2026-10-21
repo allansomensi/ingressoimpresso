@@ -215,6 +215,7 @@ pub fn router(state: AppState) -> Router {
         )
         .route("/admin/announcements/{id}/email/test", post(mailings::test))
         .route("/admin/mailings/{id}/cancel", post(mailings::cancel))
+        .route("/admin/mailings/estimate", get(mailings::estimate))
         .route("/email/unsubscribe", post(mailings::unsubscribe))
         .route("/email/unsubscribe/{token}", post(mailings::one_click))
         .route("/account/preferences", put(account::preferences))
@@ -371,7 +372,7 @@ pub fn router(state: AppState) -> Router {
         .route("/events/{id}/certificates/issue", post(certificates::issue))
         .route(
             "/events/{id}/certificates/sample",
-            get(certificates::sample),
+            post(certificates::sample),
         )
         .route("/events/{id}/certificates/zip", get(certificates::zip))
         .route(

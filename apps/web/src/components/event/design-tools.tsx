@@ -37,7 +37,7 @@ import { useEventTexts } from "@/components/event/access";
 const noSubscription = () => () => undefined;
 
 /** Whether the keyboard has ⌘ and ⌥ instead of Ctrl and Alt (false while rendering on the server). */
-function useIsMac(): boolean {
+export function useIsMac(): boolean {
   return useSyncExternalStore(
     noSubscription,
     () => /Mac|iPhone|iPad/.test(navigator.userAgent),
@@ -46,10 +46,15 @@ function useIsMac(): boolean {
 }
 
 /** The "Atalhos" button: a panel listing the editor's keyboard shortcuts (hidden on touch screens). */
-export function ShortcutsHelp() {
+export function ShortcutsHelp({
+  shortcuts,
+}: {
+  /** Another editor's list (the certificate's); the ticket's by default. */
+  shortcuts?: (mod: string, alt: string, remove: string) => readonly { keys: readonly string[]; label: string }[];
+} = {}) {
   const t = useEventTexts().design;
   const mac = useIsMac();
-  const items = t.shortcuts.items(mac ? "⌘" : "Ctrl", mac ? "⌥" : "Alt", mac ? "⌫" : "Delete");
+  const items = (shortcuts ?? t.shortcuts.items)(mac ? "⌘" : "Ctrl", mac ? "⌥" : "Alt", mac ? "⌫" : "Delete");
   return (
     <div className="hidden pointer-fine:block">
       <Popover

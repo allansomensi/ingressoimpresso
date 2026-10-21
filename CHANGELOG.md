@@ -12,6 +12,30 @@ e não acompanha estes números.
 
 ## [Não lançado]
 
+## [1.12.0] - 2026-10-21
+
+### Adicionado
+
+- **Editor de certificados** tão completo quanto o do ingresso: arraste textos, logos,
+  assinaturas, o QR, linhas, retângulos de cor e um selo; mude fonte, tamanho, cor e alinhamento;
+  desfaça e refaça. Use o **logo da sua organização** ou envie outras imagens, inclusive a foto da
+  assinatura, que aparece sobre a linha. Escolha a moldura, a cor do papel, um papel timbrado de
+  fundo e o formato (A4 deitado ou em pé).
+- **Dez modelos de certificado** (Clássico, Elegante, Moderno, Minimalista, Geométrico, Faixa,
+  Escolar, Diploma, Acadêmico e Congresso) em oito cores. Trocar de modelo mantém quem assina.
+- **Verso do certificado**, com modelos prontos (conteúdo programático, registro com os dados do
+  certificado, em branco) ou montado do seu jeito. O PDF sai com as duas páginas.
+- Escolha se o certificado mostra a linha "Emitido com Ingresso Impresso".
+- Duas fontes novas, também no editor do ingresso: EB Garamond (clássica, com itálico) e Cinzel
+  (romana).
+- Admin: ao mandar um **pronunciamento por e-mail**, um aviso mostra quanto da cota diária ele usa.
+  Se passar da cota ou chegar perto, o aviso explica o que acontece com os códigos de acesso, os
+  convites e os avisos de pagamento, e o envio só sai depois de você confirmar que entendeu.
+
+### Alterado
+
+- "Ver PDF" do certificado mostra o que está no editor, mesmo antes de salvar.
+
 ## [1.11.0] - 2026-10-21
 
 ### Adicionado
@@ -638,7 +662,8 @@ Primeira versão numerada: o produto que já estava em produção, das fases 0 a
 - Política de segurança de conteúdo (CSP) com nonce por requisição em todo o site (ADR 0048).
 - Verificação anti-robô antes do envio do código de login (ADR 0044).
 
-[Não lançado]: https://github.com/allansomensi/ingressoimpresso/compare/v1.11.0...HEAD
+[Não lançado]: https://github.com/allansomensi/ingressoimpresso/compare/v1.12.0...HEAD
+[1.12.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.11.0...v1.12.0
 [1.11.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.10.0...v1.11.0
 [1.10.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.9.0...v1.10.0
 [1.9.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.8.0...v1.9.0
