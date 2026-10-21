@@ -12,6 +12,25 @@ e não acompanha estes números.
 
 ## [Não lançado]
 
+### Adicionado
+
+- **Tour de boas-vindas** para quem acabou de criar a conta: mostra como funciona em quatro
+  passos, quantos ingressos grátis você tem, onde ficam Novo evento, Resultados, o sininho e a
+  sua conta, e termina com um botão para criar o primeiro evento. Dá para pular a qualquer
+  momento e ver de novo em Minha conta.
+- **Marca com logo no certificado**: além da linha "Emitido com Ingresso Impresso", escolha uma
+  versão com o logo e o nome, apagados como marca d'água, que se ajusta à cor do papel.
+
+### Alterado
+
+- Admin: os canais de um pronunciamento (sininho, janela e e-mail) ficam um por linha, com a
+  explicação inteira legível.
+
+### Corrigido
+
+- Admin: quando o banco de dados reinicia, a API responde "tente de novo" em vez de erro, o painel
+  repete sozinho e o alerta de erros não dispara à toa.
+
 ## [1.12.0] - 2026-10-21
 
 ### Adicionado
