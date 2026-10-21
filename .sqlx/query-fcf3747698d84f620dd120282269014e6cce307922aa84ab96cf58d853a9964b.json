@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update announcements set email_queued_at = now()\n           where id = $1 and email_audience is not null and email_queued_at is null\n             and published_at is not null and archived_at is null and starts_at <= now()\n             and (ends_at is null or ends_at > now())\n           returning email_audience as \"audience!\", email_tag, created_by",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "audience!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "announcements",
+            "name": "email_audience"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "email_tag",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "announcements",
+            "name": "email_tag"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "created_by",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "announcements",
+            "name": "created_by"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "fcf3747698d84f620dd120282269014e6cce307922aa84ab96cf58d853a9964b"
+}

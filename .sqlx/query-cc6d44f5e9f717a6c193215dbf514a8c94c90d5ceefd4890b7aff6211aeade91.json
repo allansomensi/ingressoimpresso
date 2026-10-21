@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into event_credentials (id, event_id, number, name, role, organization, color,\n                                          entrance, created_by)\n           values ($1, $2,\n                   (select coalesce(max(number), $3) + 1 from event_credentials where event_id = $2),\n                   $4, $5, $6, $7, $8, $9)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Int4",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Bool",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "cc6d44f5e9f717a6c193215dbf514a8c94c90d5ceefd4890b7aff6211aeade91"
+}

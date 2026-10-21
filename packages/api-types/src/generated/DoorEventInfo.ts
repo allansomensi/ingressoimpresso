@@ -54,4 +54,12 @@ kind: EventKind,
 /**
  * The days of an event of several days (ADR 0091); empty: one day.
  */
-days: Array<EventDayDto>, };
+days: Array<EventDayDto>, 
+/**
+ * People the venue holds (ADR 0110); `null`: no limit.
+ */
+capacity: number | null, 
+/**
+ * Share of the capacity that turns the counter yellow.
+ */
+capacityWarnPercent: number, };

@@ -7,6 +7,7 @@ import type {
   EventKind,
   DoorCategoryRangeDto,
   DoorCheckpointDto,
+  DoorCredentialDto,
   DoorGuestArrivalDto,
   DoorGuestDto,
   DoorRouteDto,
@@ -18,6 +19,7 @@ import type {
 } from "@ingressoimpresso/api-types";
 import type { DecisionDto } from "@ingressoimpresso/ticket-core-wasm";
 
+import { credentialCode, type CredentialVerdict } from "@/lib/credentials";
 import { currentDay, daysOf, ledgerDay, onDayLabel, validOn, type EventDay } from "@/lib/event-days";
 import { forKind } from "@/lib/event-kind";
 import { money } from "@/lib/format";
@@ -202,6 +204,8 @@ export interface DoorContext {
   today?: number | null;
   /** The checkpoint this phone reads (ADR 0092); `null`: the entrance. */
   checkpoint?: DoorCheckpointDto | null;
+  /** The event's credentials (ADR 0111), for the history. */
+  credentials?: readonly DoorCredentialDto[];
 }
 
 /** The day the door is on at `serverNowMs` (ADR 0091): `null` for an event of one day. */
@@ -223,9 +227,52 @@ export function bookOf(context: DoorContext, number: number): number | null {
   return ledgerDay(ruleOf(context, number).rule, context.today ?? null, context.checkpoint?.perDay ?? true);
 }
 
-/** The engine's key of a book. */
-export function bookKey(book: number | null): string {
-  return book === null ? "" : `d${String(book)}`;
+/**
+ * The engine's key of a book: the day (or the whole event) and, for the second and later items of
+ * a combo at a checkpoint (ADR 0112), the slot ("#2", "d1#3").
+ */
+export function bookKey(book: number | null, slot = 1): string {
+  const base = book === null ? "" : `d${String(book)}`;
+  return slot > 1 ? `${base}#${String(slot)}` : base;
+}
+
+/**
+ * Items `number` takes at this phone's checkpoint in each book (ADR 0112): its category's
+ * allowance, or the checkpoint's when every ticket has the right; 1 at the entrance and in
+ * manifests stored before combos.
+ */
+export function allowanceOf(context: DoorContext, number: number): number {
+  const checkpoint = context.checkpoint;
+  if (checkpoint === undefined || checkpoint === null) {
+    return 1;
+  }
+  if (checkpoint.categoryIds.length === 0) {
+    return Math.max(1, (checkpoint.allowance as number | undefined) ?? 1);
+  }
+  const range = categoryRangeOf(context.categories, number);
+  const allowances = (checkpoint.categoryAllowances as DoorCheckpointDto["categoryAllowances"] | undefined) ?? [];
+  return Math.max(1, allowances.find((item) => item.categoryId === range?.id)?.allowance ?? 1);
+}
+
+/**
+ * The screen of an item of a combo (ADR 0112): which item this was, or that every one was taken
+ * (with the last one's time).
+ */
+export function comboView(view: ResultView, decision: DecisionDto, slot: number, allowance: number, context: DoorContext): ResultView {
+  if (allowance <= 1) {
+    return view;
+  }
+  if (decision.kind === "admit") {
+    return { ...view, detail: t.itemOf(slot, allowance) };
+  }
+  if (decision.kind === "already_entered") {
+    return {
+      ...view,
+      title: t.allUsed(allowance),
+      detail: t.lastUsedAt(whenText(context, decision.firstEntry.atUnixMs), decision.firstEntry.deviceName),
+    };
+  }
+  return view;
 }
 
 /**
@@ -279,6 +326,38 @@ export function whenText(context: DoorContext, atUnixMs: number): string {
 /** The checkpoint's name for the screen, if this phone reads one. */
 function placeOf(context: DoorContext): { place: string } | Record<string, never> {
   return context.checkpoint === undefined || context.checkpoint === null ? {} : { place: context.checkpoint.name };
+}
+
+/**
+ * The screen of a credential (ADR 0111): who it is and what they do, in the role's colour, or why
+ * it does not pass here.
+ */
+export function credentialView(verdict: CredentialVerdict, number: number, context: DoorContext): ResultView {
+  const code = credentialCode(number);
+  if (verdict.kind === "unknown") {
+    return { tone: "bad", title: t.credentialUnknown, number: code, detail: t.credentialUnknownDetail, seller: null, category: null, seat: null, ...placeOf(context) };
+  }
+  const credential = verdict.credential;
+  const who = [credential.name, credential.organization].filter((part) => part !== null && part !== "").join(" · ");
+  const role = { name: credential.role, color: credential.color };
+  if (verdict.kind === "revoked") {
+    return { tone: "bad", title: t.credentialRevoked, number: code, detail: `${who}. ${t.credentialRevokedDetail}`, seller: null, category: role, seat: null, ...placeOf(context) };
+  }
+  if (verdict.kind === "no_access") {
+    // Manifests stored before the words of the areas lack them.
+    const areas = (credential.areas as string | undefined) ?? "";
+    return {
+      tone: "bad",
+      title: t.credentialNoAccess,
+      number: code,
+      detail: `${who}. ${t.credentialNoAccessDetail(areas === "" ? t.credentialAreasNone : areas)}`,
+      seller: null,
+      category: role,
+      seat: null,
+      ...placeOf(context),
+    };
+  }
+  return { tone: "ok", title: `${t.credential} · ${credential.role.toUpperCase()}`, number: code, detail: who, seller: null, category: role, seat: null, ...placeOf(context) };
 }
 
 /** The session of another date of the series a QR tag belongs to, if any (ADR 0077). */

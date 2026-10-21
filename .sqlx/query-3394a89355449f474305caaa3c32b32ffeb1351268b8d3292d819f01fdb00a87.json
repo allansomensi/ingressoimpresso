@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update event_credentials set revoked_at = coalesce(revoked_at, now()), updated_at = now() where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "3394a89355449f474305caaa3c32b32ffeb1351268b8d3292d819f01fdb00a87"
+}

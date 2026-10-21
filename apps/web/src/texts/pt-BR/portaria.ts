@@ -27,6 +27,12 @@ export const portaria = {
   entriesToday: (count: number) => (count === 1 ? "1 entrada hoje" : `${String(count)} entradas hoje`),
   // Exit and return (ADR 0083).
   insideCount: (count: number) => `${String(count)} dentro`,
+  // The venue's capacity (ADR 0110).
+  capacity: {
+    left: (left: number) => (left === 1 ? "Falta 1 para lotar" : `Faltam ${left.toLocaleString("pt-BR")} para lotar`),
+    full: "LOTADO: avise a organização antes de deixar entrar",
+    of: (occupied: number, limit: number) => `${occupied.toLocaleString("pt-BR")} de ${limit.toLocaleString("pt-BR")}`,
+  },
   mode: {
     label: "Este celular lê",
     entrance: "Entrada",
@@ -138,6 +144,19 @@ export const portaria = {
     granted: "LIBERADO",
     used: "JÁ USOU",
     usedAt: (when: string, device: string) => `${when} em ${device}`,
+    // Credentials (ADR 0111).
+    credential: "CREDENCIAL",
+    credentialRevoked: "CREDENCIAL REVOGADA",
+    credentialRevokedDetail: "A organização cancelou este crachá. Não deixe passar.",
+    credentialNoAccess: "SEM ACESSO AQUI",
+    credentialNoAccessDetail: (areas: string) => `Esta credencial vale para: ${areas}.`,
+    credentialAreasNone: "nenhuma área",
+    credentialUnknown: "CREDENCIAL NÃO RECONHECIDA",
+    credentialUnknownDetail: "Este crachá é do evento, mas o celular não o conhece. Sincronize e leia de novo, ou chame a organização.",
+    // Combos (ADR 0112): several items per ticket.
+    itemOf: (item: number, allowance: number) => `${String(item)}º de ${String(allowance)} deste ingresso`,
+    allUsed: (allowance: number) => `JÁ USOU OS ${String(allowance)}`,
+    lastUsedAt: (when: string, device: string) => `O último ${when} em ${device}`,
     notEntitled: "SEM DIREITO",
     notEntitledCategory: (category: string, place: string) => `A categoria ${category} não dá direito a “${place}”.`,
     notEntitledNone: (place: string) => `Este ingresso não tem uma categoria com direito a “${place}”.`,
@@ -236,6 +255,8 @@ export const portaria = {
       benefitException: "Liberado como exceção",
       rejected_benefit_used: "Já tinha usado",
       rejected_not_entitled: "Sem direito",
+      credential_admitted: "Credencial",
+      rejected_credential: "Credencial barrada",
     },
     firstUse: (time: string, device: string) => `Primeiro uso às ${time} em ${device}`,
     firstEntry: (time: string, device: string) => `Primeira entrada às ${time} por ${device}`,

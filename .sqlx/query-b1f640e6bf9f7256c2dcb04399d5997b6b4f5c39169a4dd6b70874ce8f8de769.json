@@ -1,0 +1,76 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select organization_id, name, capacity as \"capacity!\", capacity_warn_percent, capacity_alerted\n           from events where id = $1 and capacity is not null and capacity_alerted < 2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "organization_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "organization_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "capacity!",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "capacity"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "capacity_warn_percent",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "capacity_warn_percent"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "capacity_alerted",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "capacity_alerted"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "b1f640e6bf9f7256c2dcb04399d5997b6b4f5c39169a4dd6b70874ce8f8de769"
+}

@@ -19,6 +19,11 @@ macro_rules! dto {
     };
 }
 
+/// The default allowance of a checkpoint (ADR 0112): one item per ticket.
+const fn one_use() -> u8 {
+    1
+}
+
 macro_rules! dto_enum {
     ($($item:item)*) => {
         $(
@@ -2327,12 +2332,26 @@ dto! {
         /// The event's checkpoints (ADR 0092).
         #[serde(default)]
         pub checkpoints: Vec<CheckpointDto>,
+        /// People the venue holds (ADR 0110); `null`: no limit.
+        #[serde(default)]
+        pub capacity: Option<i32>,
+        /// Share of the capacity that warns.
+        #[serde(default)]
+        pub capacity_warn_percent: i32,
     }
 
     /// `PUT /api/events/{id}/door-settings`: how the door works (ADR 0083).
     pub struct DoorSettingsBody {
         /// Let a ticket that went out come back in.
         pub reentry: bool,
+    }
+
+    /// `PUT /api/events/{id}/capacity` (ADR 0110).
+    pub struct CapacityBody {
+        /// People the venue holds (1–1,000,000); `null` takes the limit off.
+        pub capacity: Option<i32>,
+        /// Share of the limit that warns (50–99).
+        pub warn_percent: i32,
     }
 
     /// `POST /api/door/register`.
@@ -2373,6 +2392,21 @@ dto! {
         /// Categories entitled to it; empty: every ticket.
         #[cfg_attr(feature = "ts", ts(type = "string[]"))]
         pub category_ids: Vec<Uuid>,
+        /// Items per ticket for every ticket, when no category is listed (ADR 0112).
+        #[serde(default = "one_use")]
+        pub allowance: u8,
+        /// Items per ticket of each listed category (a combo: "entrada + 2 bebidas").
+        #[serde(default)]
+        pub category_allowances: Vec<CheckpointAllowanceDto>,
+    }
+
+    /// How many items a category's tickets get at a checkpoint (ADR 0112).
+    pub struct CheckpointAllowanceDto {
+        /// The category.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub category_id: Uuid,
+        /// Items per ticket (1–20) in each book (each day, with "once per day").
+        pub allowance: u8,
     }
 
     /// The event as the door shows it.
@@ -2414,6 +2448,12 @@ dto! {
         /// The days of an event of several days (ADR 0091); empty: one day.
         #[serde(default)]
         pub days: Vec<EventDayDto>,
+        /// People the venue holds (ADR 0110); `null`: no limit.
+        #[serde(default)]
+        pub capacity: Option<u32>,
+        /// Share of the capacity that turns the counter yellow.
+        #[serde(default)]
+        pub capacity_warn_percent: u8,
     }
 
     /// What `DoorCore` needs to verify tickets; same shape as ticket-core's `DoorEventDto`.
@@ -2518,6 +2558,9 @@ dto! {
         /// The day of the book it counts in; `null`: the whole event.
         #[serde(default)]
         pub ledger_day: Option<u8>,
+        /// The item of a combo at a checkpoint (ADR 0112); `null`: the first.
+        #[serde(default)]
+        pub slot: Option<u8>,
     }
 
     /// `GET /api/door/manifest?since=<cursor>`: everything needed to decide offline.
@@ -2575,6 +2618,35 @@ dto! {
         /// `entries` are its uses, never the entrance's.
         #[serde(default)]
         pub checkpoint: Option<DoorCheckpointDto>,
+        /// The credentials (ADR 0111), only when they changed since `credentials=<version>`.
+        #[serde(default)]
+        pub credentials: Option<Vec<DoorCredentialDto>>,
+        /// Version of the credentials, for the next call.
+        #[serde(default)]
+        pub credentials_version: String,
+    }
+
+    /// A credential as the door knows it (ADR 0111).
+    pub struct DoorCredentialDto {
+        /// The number in its QR (above 2,000,000,000).
+        pub number: u32,
+        /// The person.
+        pub name: String,
+        /// What they do ("Imprensa").
+        pub role: String,
+        /// Company, outlet or band.
+        pub organization: Option<String>,
+        /// Colour of the role.
+        pub color: String,
+        /// Lets in at the entrance.
+        pub entrance: bool,
+        /// Checkpoints (areas) it opens.
+        #[cfg_attr(feature = "ts", ts(type = "string[]"))]
+        pub checkpoint_ids: Vec<Uuid>,
+        /// Where it lets in, in words ("Entrada · Camarim"), for a refusal elsewhere.
+        pub areas: String,
+        /// Revoked: the door turns it away.
+        pub revoked: bool,
     }
 
     /// Another date of the event's series.
@@ -2617,6 +2689,10 @@ dto! {
         #[serde(default)]
         #[cfg_attr(feature = "ts", ts(optional))]
         pub ledger_day: Option<u8>,
+        /// The item of a combo at a checkpoint (ADR 0112, 2–20); missing: the first.
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional))]
+        pub slot: Option<u8>,
     }
 
     /// `POST /api/door/scans`.
@@ -3002,6 +3078,10 @@ dto_enum! {
         RejectedBenefitUsed,
         /// Yellow, at a checkpoint: its category has no right to it.
         RejectedNotEntitled,
+        /// A credential (ADR 0111) let through; never an entry of the audience.
+        CredentialAdmitted,
+        /// A credential turned away: revoked, unknown, or an area it does not open.
+        RejectedCredential,
     }
 
     /// Why a ticket was let in anyway.
@@ -3188,6 +3268,7 @@ db_enum!(AlertKind {
     DoorMissing => "door_missing", ApiErrors => "api_errors", Dispute => "dispute"
 });
 db_enum!(AlertSeverity { Warning => "warning", Critical => "critical" });
+db_enum!(SummaryFrequency { Daily => "daily", Weekly => "weekly" });
 db_enum!(PaperKind {
     Plain => "plain", Perforated3 => "perforated3", Perforated4 => "perforated4",
     Perforated6 => "perforated6", Perforated8 => "perforated8", Perforated10 => "perforated10",
@@ -3246,6 +3327,8 @@ db_enum!(ScanOutcome {
     BenefitGranted => "benefit_granted",
     RejectedBenefitUsed => "rejected_benefit_used",
     RejectedNotEntitled => "rejected_not_entitled",
+    CredentialAdmitted => "credential_admitted",
+    RejectedCredential => "rejected_credential",
 });
 db_enum!(ExceptionKind { WrongDoor => "wrong_door", WrongDay => "wrong_day", NotEntitled => "not_entitled" });
 db_enum!(DayRule { Every => "every", Days => "days", AnyOne => "any_one" });
@@ -3344,6 +3427,10 @@ dto! {
     }
 
     /// An announcement as an organizer sees it (ADR 0038).
+    #[expect(
+        clippy::struct_excessive_bools,
+        reason = "the channels and the receipt are independent flags of the API"
+    )]
     pub struct AnnouncementDto {
         /// Id.
         #[cfg_attr(feature = "ts", ts(type = "string"))]
@@ -3354,8 +3441,10 @@ dto! {
         pub body: String,
         /// Tone.
         pub level: AnnouncementLevel,
-        /// Bell only, or also a dialog on opening the panel.
-        pub display: AnnouncementDisplay,
+        /// Listed in the bell (ADR 0109).
+        pub bell: bool,
+        /// Opens as a dialog when the panel opens.
+        pub modal: bool,
         /// Button text.
         pub cta_label: Option<String>,
         /// Button target: a path of the site or an https URL.
@@ -3444,8 +3533,12 @@ dto! {
         pub body: String,
         /// Tone.
         pub level: AnnouncementLevel,
-        /// Bell only or dialog.
-        pub display: AnnouncementDisplay,
+        /// In the bell (ADR 0109).
+        pub bell: bool,
+        /// As a dialog on opening the panel.
+        pub modal: bool,
+        /// By e-mail to this audience when it starts; `null`: not by e-mail.
+        pub email: Option<AnnouncementEmailBody>,
         /// Button text.
         pub cta_label: Option<String>,
         /// Button target.
@@ -3484,8 +3577,13 @@ dto! {
         pub body: String,
         /// Tone.
         pub level: AnnouncementLevel,
-        /// Bell only or dialog.
-        pub display: AnnouncementDisplay,
+        /// In the bell (ADR 0109).
+        pub bell: bool,
+        /// As a dialog on opening the panel.
+        pub modal: bool,
+        /// By e-mail to this audience, queued when it is published and has started; at least one
+        /// of the three channels.
+        pub email: Option<AnnouncementEmailBody>,
         /// Button text (with `ctaUrl`).
         pub cta_label: Option<String>,
         /// Button target (with `ctaLabel`): `/path` or `https://...`.
@@ -3553,8 +3651,8 @@ dto! {
         pub note: Option<String>,
         /// Tell every organizer with an announcement.
         pub announce: bool,
-        /// How the announcement shows.
-        pub announcement_display: AnnouncementDisplay,
+        /// Where the announcement goes (ADR 0109); its e-mail goes to every account.
+        pub announcement_channels: AnnouncementChannelsDto,
     }
 
     /// A promotion in the admin panel.
@@ -4128,14 +4226,6 @@ dto_enum! {
         Critical,
     }
 
-    /// Where an announcement shows.
-    pub enum AnnouncementDisplay {
-        /// The bell only.
-        Notification,
-        /// Also a dialog when the panel opens.
-        Modal,
-    }
-
     /// Derived status of an announcement.
     pub enum AnnouncementStatus {
         /// Not published.
@@ -4202,6 +4292,10 @@ dto_enum! {
         EventCanceled,
         /// A referral earned credit (ADR 0076).
         ReferralRewarded,
+        /// An event's venue is close to full (ADR 0110).
+        CapacityNear,
+        /// An event's venue is full.
+        CapacityFull,
     }
 
     /// What a promo code gives.
@@ -4319,7 +4413,6 @@ dto_enum! {
 
 db_enum!(MaintenanceMode { Off => "off", ReadOnly => "read_only", Full => "full" });
 db_enum!(AnnouncementLevel { Info => "info", Success => "success", Warning => "warning", Critical => "critical" });
-db_enum!(AnnouncementDisplay { Notification => "notification", Modal => "modal" });
 db_enum!(NotificationKind {
     ArtRejected => "art_rejected",
     ArtApproved => "art_approved",
@@ -4331,6 +4424,8 @@ db_enum!(NotificationKind {
     EventPostponed => "event_postponed",
     EventCanceled => "event_canceled",
     ReferralRewarded => "referral_rewarded",
+    CapacityNear => "capacity_near",
+    CapacityFull => "capacity_full",
 });
 db_enum!(LedgerKind { Expense => "expense", Income => "income" });
 db_enum!(TableShape { Round => "round", Rect => "rect" });
@@ -4560,10 +4655,30 @@ dto! {
         /// Uses of each checkpoint (ADR 0092).
         #[serde(default)]
         pub checkpoints: Vec<DoorLiveCheckpointDto>,
+        /// The venue's capacity (ADR 0110); `null` without a limit.
+        #[serde(default)]
+        pub capacity: Option<DoorLiveCapacityDto>,
+        /// Credentials at the door (ADR 0111); `null` when the event has none.
+        #[serde(default)]
+        pub credentials: Option<DoorLiveCredentialsDto>,
         /// Server clock.
         #[serde(with = "time::serde::rfc3339")]
         #[cfg_attr(feature = "ts", ts(type = "string"))]
         pub generated_at: OffsetDateTime,
+    }
+
+    /// Who is in against the venue's limit (ADR 0110).
+    pub struct DoorLiveCapacityDto {
+        /// People the venue holds.
+        pub limit: i32,
+        /// Share of the limit that warns (50–99).
+        pub warn_percent: i32,
+        /// People in now: tickets in (today) and guests who arrived.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub occupied: i64,
+        /// Places left (never below zero).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub left: i64,
     }
 
     /// Who is inside now and who went out (ADR 0083).
@@ -4719,6 +4834,10 @@ dto! {
         /// Sold tickets with the right to it.
         #[cfg_attr(feature = "ts", ts(type = "number"))]
         pub entitled: i64,
+        /// Items those tickets may take in each book (ADR 0112: a combo counts its items).
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub allowance_total: i64,
         /// Uses in the whole event (first uses of each ticket and book).
         #[cfg_attr(feature = "ts", ts(type = "number"))]
         pub used: i64,
@@ -4753,6 +4872,10 @@ dto! {
         /// Categories entitled to it; empty: every ticket.
         #[cfg_attr(feature = "ts", ts(type = "string[]"))]
         pub category_ids: Vec<Uuid>,
+        /// Items per ticket when no category is listed (ADR 0112).
+        pub allowance: u8,
+        /// Items per ticket of each listed category.
+        pub category_allowances: Vec<CheckpointAllowanceDto>,
         /// Uses recorded so far.
         #[cfg_attr(feature = "ts", ts(type = "number"))]
         pub uses: i64,
@@ -4774,6 +4897,12 @@ dto! {
         /// Categories entitled to it; empty: every ticket.
         #[cfg_attr(feature = "ts", ts(as = "Vec<String>"))]
         pub category_ids: Vec<Uuid>,
+        /// Items per ticket (1–20) when no category is listed (ADR 0112); default 1.
+        #[serde(default = "one_use")]
+        pub allowance: u8,
+        /// Items per ticket of listed categories (others listed get 1).
+        #[serde(default)]
+        pub category_allowances: Vec<CheckpointAllowanceDto>,
     }
 
     /// The guest list at the door.
@@ -5128,6 +5257,8 @@ dto_enum! {
         Private,
         /// Not a ticket we issued (or tampered with).
         NotOurs,
+        /// A credential of the event's team (ADR 0111): authentic, but not a ticket to sell.
+        Credential,
     }
 }
 
@@ -6067,6 +6198,14 @@ dto_enum! {
         /// Look now.
         Critical,
     }
+
+    /// How often the admins' summary goes out (ADR 0108).
+    pub enum SummaryFrequency {
+        /// Every day, about the last 24 hours.
+        Daily,
+        /// Once a week, about the last 7 days.
+        Weekly,
+    }
 }
 
 dto! {
@@ -6108,13 +6247,23 @@ dto! {
     }
 
     /// How the admins are told (`PUT /api/admin/alerts/settings`).
+    #[expect(
+        clippy::struct_excessive_bools,
+        reason = "each channel is its own switch in the admins' settings"
+    )]
     pub struct AlertSettingsDto {
         /// By e-mail, to `ADMIN_EMAILS`.
         pub email: bool,
         /// On Telegram, when the bot is configured.
         pub telegram: bool,
-        /// The daily summary.
+        /// The summary, by e-mail to `ADMIN_EMAILS` (ADR 0108).
         pub summary: bool,
+        /// Every day or once a week.
+        pub summary_frequency: SummaryFrequency,
+        /// Day of the weekly summary: 1 = Monday … 7 = Sunday.
+        pub summary_weekday: i32,
+        /// The summary also on Telegram, when the bot is configured.
+        pub summary_telegram: bool,
         /// Hour of the summary, in Brasília time (0–23).
         pub summary_hour: i32,
         /// Paid tickets from which an event without a door link raises an alert.
@@ -6553,6 +6702,16 @@ dto! {
         pub tag: Option<String>,
     }
 
+    /// Where an announcement made by the platform itself goes (ADR 0109).
+    pub struct AnnouncementChannelsDto {
+        /// In the bell.
+        pub bell: bool,
+        /// As a dialog on opening the panel.
+        pub modal: bool,
+        /// By e-mail to every account.
+        pub email: bool,
+    }
+
     /// How many an audience reaches (`GET /api/admin/announcements/{id}/email`).
     pub struct AnnouncementAudienceDto {
         /// Accounts that will get it.
@@ -6630,5 +6789,201 @@ dto! {
         pub email: String,
         /// Receives announcements now.
         pub subscribed: bool,
+    }
+}
+
+dto! {
+    /// Credentials at the door (ADR 0111): never counted as audience.
+    pub struct DoorLiveCredentialsDto {
+        /// Credentials not revoked.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub active: i64,
+        /// Credentials read and let through at least once.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub seen: i64,
+        /// Reads turned away (revoked, unknown, an area it does not open).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub refused: i64,
+    }
+
+    /// A credential of the staff, the press or an artist (ADR 0111).
+    pub struct CredentialDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// The number in its QR.
+        pub number: u32,
+        /// The printed code ("C-0007").
+        pub code: String,
+        /// The person.
+        pub name: String,
+        /// What they do ("Imprensa").
+        pub role: String,
+        /// Company, outlet or band.
+        pub organization: Option<String>,
+        /// Colour of the role (`#rrggbb`).
+        pub color: String,
+        /// Lets in at the entrance.
+        pub entrance: bool,
+        /// Checkpoints (areas) it opens.
+        #[cfg_attr(feature = "ts", ts(type = "string[]"))]
+        pub checkpoint_ids: Vec<Uuid>,
+        /// When it was revoked.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub revoked_at: Option<OffsetDateTime>,
+        /// Times the door let it through.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub reads: i64,
+        /// The last time.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub last_read_at: Option<OffsetDateTime>,
+        /// Creation time.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub created_at: OffsetDateTime,
+    }
+
+    /// `GET /api/events/{id}/credentials`.
+    pub struct CredentialsDto {
+        /// Every credential, by number.
+        pub credentials: Vec<CredentialDto>,
+        /// Most credentials the event may have now (grows with the paid tickets).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub limit: i64,
+    }
+
+    /// `POST /api/events/{id}/credentials`, `PUT /api/credentials/{id}`.
+    pub struct CredentialBody {
+        /// The person (1–80 characters).
+        pub name: String,
+        /// What they do (1–30 characters).
+        pub role: String,
+        /// Company, outlet or band (up to 60).
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional = nullable))]
+        pub organization: Option<String>,
+        /// Colour of the role (`#rrggbb`).
+        pub color: String,
+        /// Lets in at the entrance.
+        pub entrance: bool,
+        /// Checkpoints (areas) it opens.
+        #[cfg_attr(feature = "ts", ts(as = "Vec<String>"))]
+        pub checkpoint_ids: Vec<Uuid>,
+    }
+
+    /// `GET /api/events/{id}/credentials/badges?ids=`: which badges to print.
+    pub struct BadgesQuery {
+        /// Comma-separated ids; missing: every active credential.
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional))]
+        pub ids: Option<String>,
+    }
+}
+
+dto_enum! {
+    /// Why a person gets a certificate (ADR 0113).
+    pub enum CertificateSource {
+        /// A guest of the list who arrived.
+        Guest,
+        /// A named ticket that entered.
+        Ticket,
+    }
+}
+
+dto! {
+    /// Who signs a certificate.
+    pub struct CertificateSignerDto {
+        /// Name (1–60 characters).
+        pub name: String,
+        /// Role ("Diretora"), up to 60.
+        pub role: Option<String>,
+    }
+
+    /// The words of the event's certificates (ADR 0113); `PUT /api/events/{id}/certificates/settings`.
+    pub struct CertificateSettingsDto {
+        /// Title (1–60).
+        pub title: String,
+        /// Text (1–600) with `{nome}`, `{evento}`, `{data}`, `{dias}`, `{local}`,
+        /// `{organizacao}` and `{carga}`.
+        pub body: String,
+        /// Workload ("8 horas"), up to 30; `null`: none.
+        pub workload: Option<String>,
+        /// Up to two.
+        pub signers: Vec<CertificateSignerDto>,
+        /// Colour of the frame (`#rrggbb`).
+        pub color: String,
+    }
+
+    /// A certificate already made.
+    pub struct IssuedCertificateDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// "CERT-0007".
+        pub code: String,
+        /// The token of its private link (`/certificado#<token>`).
+        pub token: String,
+        /// Times the person opened it.
+        pub open_count: i32,
+    }
+
+    /// A person who came, with or without a certificate yet.
+    pub struct CertificateParticipantDto {
+        /// Stable key ("g:<guest id>", "t:<number>").
+        pub key: String,
+        /// The name printed (the certificate's, once made).
+        pub name: String,
+        /// Where the name came from.
+        pub source: CertificateSource,
+        /// The ticket's number, printed; `null` for a guest.
+        pub ticket: Option<String>,
+        /// A phone to send the link to (the buyer's), when known.
+        pub phone: Option<String>,
+        /// The certificate, once made.
+        pub certificate: Option<IssuedCertificateDto>,
+    }
+
+    /// `GET /api/events/{id}/certificates`.
+    pub struct CertificatesDto {
+        /// The words (the defaults until saved).
+        pub settings: CertificateSettingsDto,
+        /// The organizer saved them.
+        pub saved: bool,
+        /// Everyone who came, by name, then certificates of people no longer in the list.
+        pub participants: Vec<CertificateParticipantDto>,
+    }
+
+    /// `PUT /api/certificates/{id}`: fixes the name printed.
+    pub struct CertificateNameBody {
+        /// 1–80 characters.
+        pub name: String,
+    }
+
+    /// `POST /api/certificates/view` and `/pdf` (no login): the token of the link.
+    pub struct CertificateTokenBody {
+        /// From the link's fragment.
+        pub token: String,
+    }
+
+    /// What the certificate's private page shows (ADR 0113).
+    pub struct PublicCertificateDto {
+        /// The person.
+        pub name: String,
+        /// "CERT-0007".
+        pub code: String,
+        /// The certificate's title.
+        pub title: String,
+        /// The event.
+        pub event: String,
+        /// When ("21 de novembro de 2026").
+        pub date: String,
+        /// Where.
+        pub venue: Option<String>,
+        /// Who organized it.
+        pub organization: Option<String>,
+        /// Workload.
+        pub workload: Option<String>,
     }
 }

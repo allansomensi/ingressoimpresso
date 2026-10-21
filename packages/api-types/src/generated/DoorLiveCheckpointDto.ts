@@ -21,6 +21,10 @@ perDay: boolean,
  */
 entitled: number, 
 /**
+ * Items those tickets may take in each book (ADR 0112: a combo counts its items).
+ */
+allowanceTotal: number, 
+/**
  * Uses in the whole event (first uses of each ticket and book).
  */
 used: number, 

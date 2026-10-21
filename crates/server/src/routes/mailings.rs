@@ -19,7 +19,7 @@ use crate::ratelimit;
 use crate::state::AppState;
 
 /// The audience's label, checked and kept like the admins' labels.
-fn audience_tag(body: &AnnouncementEmailBody) -> ApiResult<Option<String>> {
+pub(crate) fn audience_tag(body: &AnnouncementEmailBody) -> ApiResult<Option<String>> {
     match body.audience {
         AnnouncementAudience::Tagged => {
             let tag = body
@@ -102,7 +102,7 @@ pub async fn send(
             "this announcement is still being sent".to_owned(),
         ));
     }
-    let mailing = mailings::queue(&state, id, body.audience, tag.as_deref(), user.id)
+    let mailing = mailings::queue(&state, id, body.audience, tag.as_deref(), Some(user.id))
         .await?
         .ok_or_else(|| bad_request("no_recipients", "nobody left to receive it"))?;
     audit(

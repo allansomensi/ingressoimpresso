@@ -59,6 +59,10 @@ export const verifyPage = {
       title: "A organização não permite conferir por aqui",
       body: "Quem organiza este evento desligou a conferência pública. Para saber se o ingresso vale, pergunte diretamente à organização.",
     },
+    credential: {
+      title: "É uma credencial da equipe, não um ingresso",
+      body: "Este QR é de um crachá de staff, imprensa ou artista do evento. Ele não é vendido e não serve como ingresso: não compre.",
+    },
     not_ours: {
       title: "Não é um ingresso do Ingresso Impresso",
       body: "Este QR code não foi emitido por nós, ou foi alterado. Se ele veio num ingresso que diz ser do Ingresso Impresso, desconfie e não compre.",

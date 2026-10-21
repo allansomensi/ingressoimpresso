@@ -1,0 +1,90 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select c.id, c.name, c.instruction, c.per_day, c.allowance,\n                  array(select cc.category_id from checkpoint_categories cc\n                        where cc.checkpoint_id = c.id order by cc.category_id) as \"category_ids!\",\n                  array(select cc.allowance from checkpoint_categories cc\n                        where cc.checkpoint_id = c.id order by cc.category_id) as \"category_allowances!\"\n           from door_accesses a join event_checkpoints c on c.id = a.checkpoint_id\n           where a.id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "event_checkpoints",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "event_checkpoints",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "instruction",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "event_checkpoints",
+            "name": "instruction"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "per_day",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "event_checkpoints",
+            "name": "per_day"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "allowance",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "event_checkpoints",
+            "name": "allowance"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "category_ids!",
+        "type_info": "UuidArray",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "category_allowances!",
+        "type_info": "Int2Array",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      false,
+      null,
+      null
+    ]
+  },
+  "hash": "38b1b4ea9cf52366ca4e0041301e63d9e0f591b363778f1137810383f2eaf31a"
+}

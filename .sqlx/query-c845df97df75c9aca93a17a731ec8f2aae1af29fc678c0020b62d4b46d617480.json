@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update certificates set open_count = open_count + 1,\n                  first_opened_at = coalesce(first_opened_at, now())\n           where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c845df97df75c9aca93a17a731ec8f2aae1af29fc678c0020b62d4b46d617480"
+}

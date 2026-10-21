@@ -4,6 +4,8 @@
  */
 import type { DoorVoidDto } from "@ingressoimpresso/api-types";
 
+import { credentialCode } from "@/lib/credentials";
+
 import type { StoredEntry, StoredScan } from "./storage";
 import { categoryOf, clockTime, doorWords, otherSession, padNumber, sellerOf, seatOf, type DoorContext, type Tone } from "./logic";
 import { portaria as portariaTexts } from "@/texts/pt-BR/portaria";
@@ -191,6 +193,20 @@ export function recentScanOf(
         ? { ...base, tone: "warn", label: t.outcomes.rejected_other_event, detail: null }
         : { ...base, tone: "warn", label: t.outcomes.otherSession, detail: session };
     }
+    // Credentials (ADR 0111): the badge's code, never a ticket number.
+    case "credential_admitted":
+    case "rejected_credential": {
+      const credential = number === null ? null : (context.credentials ?? []).find((item) => item.number === number);
+      return {
+        ...base,
+        number: number === null ? null : credentialCode(number),
+        category: credential === undefined || credential === null ? null : { name: credential.role, color: credential.color },
+        seller: null,
+        tone: scan.outcome === "credential_admitted" ? "ok" : "bad",
+        label: t.outcomes[scan.outcome],
+        detail: credential?.name ?? null,
+      };
+    }
     case "rejected_invalid": {
       const reasons: Readonly<Record<string, string>> = r.invalidReasons;
       return { ...base, tone: "bad", label: t.outcomes.rejected_invalid, detail: scan.reason === undefined ? null : (reasons[scan.reason] ?? null) };
@@ -223,7 +239,8 @@ export function recentSummary(scans: readonly StoredScan[]): RecentSummary {
       summary.admitted += 1;
     } else if (scan.outcome === "exited") {
       summary.exits += 1;
-    } else {
+    } else if (scan.outcome !== "credential_admitted") {
+      // A credential let through (ADR 0111) is neither audience nor a refusal.
       summary.refused += 1;
     }
     if (scan.synced === 0) {

@@ -92,16 +92,14 @@ pub async fn live(
     )
     .fetch_one(pool);
     let days = crate::event_days::of_event(pool, event_id, event.offset()).await?;
-    let today = crate::event_days::current(
-        &days
-            .iter()
-            .map(|day| crate::event_days::Day {
-                starts_at: day.starts_at,
-                ends_at: day.ends_at,
-            })
-            .collect::<Vec<_>>(),
-        now,
-    );
+    let day_bounds: Vec<crate::event_days::Day> = days
+        .iter()
+        .map(|day| crate::event_days::Day {
+            starts_at: day.starts_at,
+            ends_at: day.ends_at,
+        })
+        .collect();
+    let today = crate::event_days::current(&day_bounds, now);
     // Polled every few seconds: the independent reads go out together.
     let (tickets, entries, doors, devices, categories, refusals, guests, box_office, reentry) = tokio::try_join!(
         async { Ok(tickets.await?) },
@@ -114,9 +112,11 @@ pub async fn live(
         box_office(pool, event_id, price),
         reentry(pool, event_id, today),
     )?;
-    let (day_entries, checkpoints) = tokio::try_join!(
+    let (day_entries, checkpoints, capacity, credentials) = tokio::try_join!(
         day_entries(pool, event_id, &days),
         checkpoints(pool, event_id, today),
+        crate::capacity::live(pool, event_id, &day_bounds),
+        super::credentials::live(pool, event_id),
     )?;
     let categories = categories
         .into_iter()
@@ -153,6 +153,8 @@ pub async fn live(
         days: day_entries,
         today,
         checkpoints,
+        capacity,
+        credentials,
         generated_at: now,
     }))
 }
@@ -212,6 +214,13 @@ async fn checkpoints(
                       or exists (select 1 from checkpoint_categories cc
                                  join category_ranges r on r.category_id = cc.category_id
                                  where cc.checkpoint_id = c.id and r.numbers @> sold.number)) as "entitled!",
+                  (select coalesce(sum(case
+                       when not exists (select 1 from checkpoint_categories cc where cc.checkpoint_id = c.id)
+                       then c.allowance
+                       else (select max(cc.allowance) from checkpoint_categories cc
+                             join category_ranges r on r.category_id = cc.category_id
+                             where cc.checkpoint_id = c.id and r.numbers @> sold.number) end), 0)
+                   from sold)::bigint as "allowance_total!",
                   (select count(*) from door_ledger_entries l
                    where l.event_id = $1 and l.checkpoint = c.id) as "used!",
                   (select count(*) from scans s
@@ -236,6 +245,7 @@ async fn checkpoints(
         name: row.name,
         per_day: row.per_day,
         entitled: row.entitled,
+        allowance_total: row.allowance_total,
         used: row.used,
         used_today: today.map(|_| row.used_today),
         repeats: row.repeats,

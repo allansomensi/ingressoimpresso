@@ -134,7 +134,18 @@ export function EntriesCurve({ buckets }: { buckets: readonly DoorLiveBucketDto[
 }
 
 /** A meter: the fill in the brand, the track a lighter step of the same hue. */
-export function Meter({ value, label, className }: { value: number; label: string; className?: string }) {
+export function Meter({
+  value,
+  label,
+  className,
+  tone = "brand",
+}: {
+  value: number;
+  label: string;
+  className?: string;
+  /** The capacity (ADR 0110) turns yellow close to full and red when full. */
+  tone?: "brand" | "warning" | "danger";
+}) {
   const percent = Math.round(Math.min(1, Math.max(0, value)) * 1000) / 10;
   return (
     <div
@@ -145,7 +156,10 @@ export function Meter({ value, label, className }: { value: number; label: strin
       aria-valuenow={percent}
       className={cn("h-2.5 overflow-hidden rounded-full bg-brand-soft", className)}
     >
-      <div className="h-full rounded-full bg-brand transition-[width] duration-700" style={{ width: `${String(percent)}%` }} />
+      <div
+        className={cn("h-full rounded-full transition-[width] duration-700", tone === "danger" ? "bg-danger" : tone === "warning" ? "bg-warning" : "bg-brand")}
+        style={{ width: `${String(percent)}%` }}
+      />
     </div>
   );
 }

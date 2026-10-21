@@ -16,10 +16,11 @@ use super::admin::{audit, require_admin};
 use super::announcements::{self, Announcement, notify_organization};
 use super::{event_access, optional_text};
 use crate::api::{
-    AdminPricesDto, AnnouncementLevel, BatchQuoteDto, CreateBatchBody, CreditAdjustBody,
-    CreditEntryDto, CreditReason, CreditsDto, NotificationKind, PendingDiscountDto, PriceTableBody,
-    PromoCodeBody, PromoCodeDto, PromoCodeKind, PromoCodeUpdateBody, PromoRedemptionDto,
-    PromotionBody, PromotionDto, RedeemBody, RedeemResultDto,
+    AdminPricesDto, AnnouncementAudience, AnnouncementLevel, BatchQuoteDto, CreateBatchBody,
+    CreditAdjustBody, CreditEntryDto, CreditReason, CreditsDto, NotificationKind,
+    PendingDiscountDto, PriceTableBody, PromoCodeBody, PromoCodeDto, PromoCodeKind,
+    PromoCodeUpdateBody, PromoRedemptionDto, PromotionBody, PromotionDto, RedeemBody,
+    RedeemResultDto,
 };
 use crate::auth::AuthUser;
 use crate::emails::money;
@@ -641,6 +642,10 @@ fn describe_table(tiers: &[Tier], minimum_cents: i32, free_tickets: i32) -> Stri
 
 /// `POST /api/admin/prices`: a new version of the table, now or later, optionally announced.
 /// Batches already created keep their price.
+#[expect(
+    clippy::too_many_lines,
+    reason = "the new table and its announcement read best in one place"
+)]
 pub async fn create_prices(
     State(state): State<AppState>,
     user: AuthUser,
@@ -683,6 +688,7 @@ pub async fn create_prices(
     )
     .fetch_one(&mut *tx)
     .await?;
+    let mut announced = None;
     if body.announce {
         let later = effective_at > now + time::Duration::minutes(1);
         let when = if later {
@@ -708,18 +714,30 @@ pub async fn create_prices(
             cta: Some(("Ver preços".to_owned(), "/#precos".to_owned())),
             starts_at: now,
             ends_at: Some(effective_at.max(now) + time::Duration::days(14)),
+            channels: announcements::Channels {
+                bell: body.announcement_channels.bell,
+                modal: body.announcement_channels.modal,
+                email: body
+                    .announcement_channels
+                    .email
+                    .then_some((AnnouncementAudience::All, None)),
+            }
+            .check()?,
         };
-        announcements::insert(
+        let announcement_id = announcements::insert(
             &mut *tx,
             &user,
             &announcement,
             AnnouncementLevel::Warning,
-            body.announcement_display,
             true,
         )
         .await?;
+        announced = Some(announcement_id);
     }
     tx.commit().await?;
+    if let Some(id) = announced {
+        announcements::queue_email(&state, id).await?;
+    }
     audit(
         &state,
         &user,

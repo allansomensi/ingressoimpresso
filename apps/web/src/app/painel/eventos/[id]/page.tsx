@@ -48,6 +48,8 @@ const DoorTab = dynamic(() => import("@/components/event/door").then((m) => m.Do
 const ReportTab = dynamic(() => import("@/components/event/report").then((m) => m.ReportTab), { loading: tabLoading });
 const CategoriesTab = dynamic(() => import("@/components/event/categories").then((m) => m.CategoriesTab), { loading: tabLoading });
 const TeamTab = dynamic(() => import("@/components/event/team").then((m) => m.TeamTab), { loading: tabLoading });
+const CertificatesTab = dynamic(() => import("@/components/event/certificates").then((m) => m.CertificatesTab), { loading: tabLoading });
+const CredentialsTab = dynamic(() => import("@/components/event/credentials").then((m) => m.CredentialsTab), { loading: tabLoading });
 const LiveTab = dynamic(() => import("@/components/event/live").then((m) => m.LiveTab), { loading: tabLoading });
 const GuestsTab = dynamic(() => import("@/components/event/guests").then((m) => m.GuestsTab), { loading: tabLoading });
 
@@ -366,6 +368,8 @@ function EventView() {
             {tab === "report" && <ReportTab eventId={eventId} onSelect={select} />}
             {tab === "categories" && <CategoriesTab eventId={eventId} event={data} onSelect={select} />}
             {tab === "team" && <TeamTab eventId={eventId} event={data} />}
+            {tab === "credentials" && <CredentialsTab eventId={eventId} />}
+            {tab === "certificates" && <CertificatesTab eventId={eventId} event={data} />}
           </section>
         </div>
 
