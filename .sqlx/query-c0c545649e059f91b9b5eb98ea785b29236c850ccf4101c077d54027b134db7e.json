@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select coalesce(sum(upper(numbers) - lower(numbers)), 0)::bigint as \"paid!\"\n           from ticket_batches where event_id = $1 and status = 'paid'",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "paid!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "c0c545649e059f91b9b5eb98ea785b29236c850ccf4101c077d54027b134db7e"
+}

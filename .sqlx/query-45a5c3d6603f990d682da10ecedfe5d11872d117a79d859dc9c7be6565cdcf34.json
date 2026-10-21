@@ -1,0 +1,109 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with sold as (\n               select n as number\n               from ticket_batches b, generate_series(lower(b.numbers), upper(b.numbers) - 1) as n\n               where b.event_id = $1 and b.status = 'paid'\n                 and not exists (select 1 from ticket_voids v\n                                 where v.event_id = $1 and v.undone_at is null and v.numbers @> n\n                                   and v.reason in ('unsold', 'lost'))\n           )\n           select c.id, c.name, c.per_day,\n                  (select count(*) from sold\n                   where not exists (select 1 from checkpoint_categories cc where cc.checkpoint_id = c.id)\n                      or exists (select 1 from checkpoint_categories cc\n                                 join category_ranges r on r.category_id = cc.category_id\n                                 where cc.checkpoint_id = c.id and r.numbers @> sold.number)) as \"entitled!\",\n                  (select coalesce(sum(case\n                       when not exists (select 1 from checkpoint_categories cc where cc.checkpoint_id = c.id)\n                       then c.allowance\n                       else (select max(cc.allowance) from checkpoint_categories cc\n                             join category_ranges r on r.category_id = cc.category_id\n                             where cc.checkpoint_id = c.id and r.numbers @> sold.number) end), 0)\n                   from sold)::bigint as \"allowance_total!\",\n                  (select count(*) from door_ledger_entries l\n                   where l.event_id = $1 and l.checkpoint = c.id) as \"used!\",\n                  (select count(*) from scans s\n                   where s.checkpoint_id = c.id and s.server_class = 'first_entry' and s.day = $2) as \"used_today!\",\n                  (select count(*) from scans s\n                   where s.checkpoint_id = c.id\n                     and (s.local_outcome = 'rejected_benefit_used' or s.server_class = 'duplicate_entry')) as \"repeats!\",\n                  (select count(*) from scans s\n                   where s.checkpoint_id = c.id and s.local_outcome = 'rejected_not_entitled') as \"not_entitled!\",\n                  (select count(*) from scans s where s.checkpoint_id = c.id and s.door_exception) as \"exceptions!\",\n                  (select count(*) from door_accesses a\n                   where a.checkpoint_id = c.id and a.revoked_at is null and a.expires_at > now()) as \"links!\"\n           from event_checkpoints c where c.event_id = $1 order by c.position, c.created_at",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "event_checkpoints",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "event_checkpoints",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "per_day",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "event_checkpoints",
+            "name": "per_day"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "entitled!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "allowance_total!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "used!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "used_today!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 7,
+        "name": "repeats!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 8,
+        "name": "not_entitled!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 9,
+        "name": "exceptions!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 10,
+        "name": "links!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int2"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "45a5c3d6603f990d682da10ecedfe5d11872d117a79d859dc9c7be6565cdcf34"
+}

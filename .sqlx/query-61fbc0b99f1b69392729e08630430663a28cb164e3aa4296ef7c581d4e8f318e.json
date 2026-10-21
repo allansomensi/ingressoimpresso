@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select arrived_at, people from guest_arrivals\n           where event_id = $1 and undone_at is null",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "arrived_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "guest_arrivals",
+            "name": "arrived_at"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "people",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "guest_arrivals",
+            "name": "people"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "61fbc0b99f1b69392729e08630430663a28cb164e3aa4296ef7c581d4e8f318e"
+}

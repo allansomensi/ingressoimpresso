@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update events set capacity_alerted = $2 where id = $1 and capacity_alerted < $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int2"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "5c84d429e1d34df2b850c384b0916b765bc551440e717680879767d0e3dbd7fa"
+}

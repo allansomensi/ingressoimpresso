@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select capacity, capacity_warn_percent from events where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "capacity",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "capacity"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "capacity_warn_percent",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "capacity_warn_percent"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true,
+      false
+    ]
+  },
+  "hash": "3774874837df279f853f8b41f8d39263e14b9f8adc71e9e06882f1b4250cc4cb"
+}

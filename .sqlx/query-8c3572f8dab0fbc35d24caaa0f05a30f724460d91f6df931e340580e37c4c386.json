@@ -1,0 +1,110 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select email, telegram, summary, summary_frequency, summary_weekday, summary_telegram,\n                  summary_hour, door_min_tickets\n           from alert_settings where id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "email",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "alert_settings",
+            "name": "email"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "telegram",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "alert_settings",
+            "name": "telegram"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "summary",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "alert_settings",
+            "name": "summary"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "summary_frequency",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "alert_settings",
+            "name": "summary_frequency"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "summary_weekday",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "alert_settings",
+            "name": "summary_weekday"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "summary_telegram",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "alert_settings",
+            "name": "summary_telegram"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "summary_hour",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "alert_settings",
+            "name": "summary_hour"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "door_min_tickets",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "alert_settings",
+            "name": "door_min_tickets"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "8c3572f8dab0fbc35d24caaa0f05a30f724460d91f6df931e340580e37c4c386"
+}

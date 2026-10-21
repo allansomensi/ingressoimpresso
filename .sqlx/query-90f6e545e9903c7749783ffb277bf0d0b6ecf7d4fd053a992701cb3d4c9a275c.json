@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update alert_settings set email = $1, telegram = $2, summary = $3, summary_hour = $4,\n                  door_min_tickets = $5, summary_frequency = $7, summary_weekday = $8,\n                  summary_telegram = $9, updated_at = now(), updated_by = $6 where id",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Bool",
+        "Bool",
+        "Bool",
+        "Int4",
+        "Int4",
+        "Uuid",
+        "Text",
+        "Int2",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "90f6e545e9903c7749783ffb277bf0d0b6ecf7d4fd053a992701cb3d4c9a275c"
+}

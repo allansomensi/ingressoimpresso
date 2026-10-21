@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select count(*)::text || '-' ||\n                  coalesce(md5(string_agg(c.id::text || c.updated_at::text\n                                          || coalesce(c.revoked_at::text, '')\n                                          || array_to_string(array(select k.checkpoint_id::text\n                                                                   from credential_checkpoints k\n                                                                   where k.credential_id = c.id\n                                                                   order by 1), ','),\n                                          ',' order by c.id)), '')\n                  as \"version!\"\n           from event_credentials c where c.event_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "version!",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "8a96337b5cc03ddde4760e8d29965d42aa1ce997a2d9cda781e19278218135b8"
+}

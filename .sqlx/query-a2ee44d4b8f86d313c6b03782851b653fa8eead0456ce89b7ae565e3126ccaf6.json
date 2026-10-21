@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select id from announcements\n           where email_audience is not null and email_queued_at is null\n             and published_at is not null and archived_at is null and starts_at <= now()\n             and (ends_at is null or ends_at > now())",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "announcements",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "a2ee44d4b8f86d313c6b03782851b653fa8eead0456ce89b7ae565e3126ccaf6"
+}

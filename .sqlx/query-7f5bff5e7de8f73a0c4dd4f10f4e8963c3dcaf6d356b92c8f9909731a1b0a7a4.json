@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with latest as (\n               select distinct on (s.ticket_number) s.ticket_number, s.local_outcome\n               from scans s join door_devices d on d.id = s.device_id\n               where s.event_id = $1 and s.checkpoint_id is null\n                 and s.local_outcome in ('admitted', 'readmitted', 'exited')\n                 and ($2::int2 is null or s.day = $2)\n               order by s.ticket_number, s.scanned_at desc, d.name desc,\n                        (s.local_outcome = 'exited') desc\n           )\n           select count(*) as \"count!\" from latest l, events e\n           where e.id = $1 and (not e.reentry or l.local_outcome <> 'exited')\n             and exists (select 1 from door_ledger_entries n\n                         where n.event_id = $1 and n.ticket_number = l.ticket_number\n                           and n.checkpoint = '00000000-0000-0000-0000-000000000000')",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int2"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "7f5bff5e7de8f73a0c4dd4f10f4e8963c3dcaf6d356b92c8f9909731a1b0a7a4"
+}

@@ -1,0 +1,47 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select e.ticket_number, coalesce(l.holder_name, s.buyer_name) as \"name!\", s.buyer_phone\n               from entries e\n               left join ticket_links l on l.event_id = e.event_id and l.ticket_number = e.ticket_number\n                                       and l.revoked_at is null\n               left join ticket_sales s on s.event_id = e.event_id and s.ticket_number = e.ticket_number\n               where e.event_id = $1 and coalesce(l.holder_name, s.buyer_name) is not null",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "ticket_number",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "entries",
+            "name": "ticket_number"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "name!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "buyer_phone",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ticket_sales",
+            "name": "buyer_phone"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      null,
+      true
+    ]
+  },
+  "hash": "c56ad0c5ec8f8e3f27dd07b97b46f2c118c18d42a93f2a32ee170586180650fe"
+}

@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "delete from credential_checkpoints where credential_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "419fd98336af82648993812e276abceb3c92d18dd01ab5a4a57f0f635ba98067"
+}
