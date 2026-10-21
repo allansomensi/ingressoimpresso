@@ -27,7 +27,7 @@ export function AnnouncementHost() {
   // Closed in this visit, before the server answers.
   const [closed, setClosed] = useState<ReadonlySet<string>>(new Set());
   const next = (inbox.data?.announcements ?? [])
-    .filter((item) => item.display === "modal" && !item.dismissed && !closed.has(item.id))
+    .filter((item) => item.modal && !item.dismissed && !closed.has(item.id))
     .sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt))[0];
   if (next === undefined) {
     return null;

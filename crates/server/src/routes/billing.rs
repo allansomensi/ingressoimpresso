@@ -16,7 +16,7 @@ use super::admin::{audit, require_admin};
 use super::announcements::{self, Announcement, notify_organization};
 use super::{event_access, optional_text};
 use crate::api::{
-    AdminPricesDto, AnnouncementLevel, BatchQuoteDto, CreateBatchBody, CreditAdjustBody,
+    AdminPricesDto, AnnouncementAudience, AnnouncementLevel, BatchQuoteDto, CreateBatchBody, CreditAdjustBody,
     CreditEntryDto, CreditReason, CreditsDto, NotificationKind, PendingDiscountDto, PriceTableBody,
     PromoCodeBody, PromoCodeDto, PromoCodeKind, PromoCodeUpdateBody, PromoRedemptionDto,
     PromotionBody, PromotionDto, RedeemBody, RedeemResultDto,
@@ -683,6 +683,7 @@ pub async fn create_prices(
     )
     .fetch_one(&mut *tx)
     .await?;
+    let mut announced = None;
     if body.announce {
         let later = effective_at > now + time::Duration::minutes(1);
         let when = if later {
@@ -708,18 +709,30 @@ pub async fn create_prices(
             cta: Some(("Ver preços".to_owned(), "/#precos".to_owned())),
             starts_at: now,
             ends_at: Some(effective_at.max(now) + time::Duration::days(14)),
+            channels: announcements::Channels {
+                bell: body.announcement_channels.bell,
+                modal: body.announcement_channels.modal,
+                email: body
+                    .announcement_channels
+                    .email
+                    .then_some((AnnouncementAudience::All, None)),
+            }
+            .check()?,
         };
-        announcements::insert(
+        let announcement_id = announcements::insert(
             &mut *tx,
             &user,
             &announcement,
             AnnouncementLevel::Warning,
-            body.announcement_display,
             true,
         )
         .await?;
+        announced = Some(announcement_id);
     }
     tx.commit().await?;
+    if let Some(id) = announced {
+        announcements::queue_email(&state, id).await?;
+    }
     audit(
         &state,
         &user,

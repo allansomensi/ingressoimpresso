@@ -3355,8 +3355,10 @@ dto! {
         pub body: String,
         /// Tone.
         pub level: AnnouncementLevel,
-        /// Bell only, or also a dialog on opening the panel.
-        pub display: AnnouncementDisplay,
+        /// Listed in the bell (ADR 0109).
+        pub bell: bool,
+        /// Opens as a dialog when the panel opens.
+        pub modal: bool,
         /// Button text.
         pub cta_label: Option<String>,
         /// Button target: a path of the site or an https URL.
@@ -3445,8 +3447,12 @@ dto! {
         pub body: String,
         /// Tone.
         pub level: AnnouncementLevel,
-        /// Bell only or dialog.
-        pub display: AnnouncementDisplay,
+        /// In the bell (ADR 0109).
+        pub bell: bool,
+        /// As a dialog on opening the panel.
+        pub modal: bool,
+        /// By e-mail to this audience when it starts; `null`: not by e-mail.
+        pub email: Option<AnnouncementEmailBody>,
         /// Button text.
         pub cta_label: Option<String>,
         /// Button target.
@@ -3485,8 +3491,13 @@ dto! {
         pub body: String,
         /// Tone.
         pub level: AnnouncementLevel,
-        /// Bell only or dialog.
-        pub display: AnnouncementDisplay,
+        /// In the bell (ADR 0109).
+        pub bell: bool,
+        /// As a dialog on opening the panel.
+        pub modal: bool,
+        /// By e-mail to this audience, queued when it is published and has started; at least one
+        /// of the three channels.
+        pub email: Option<AnnouncementEmailBody>,
         /// Button text (with `ctaUrl`).
         pub cta_label: Option<String>,
         /// Button target (with `ctaLabel`): `/path` or `https://...`.
@@ -3554,8 +3565,8 @@ dto! {
         pub note: Option<String>,
         /// Tell every organizer with an announcement.
         pub announce: bool,
-        /// How the announcement shows.
-        pub announcement_display: AnnouncementDisplay,
+        /// Where the announcement goes (ADR 0109); its e-mail goes to every account.
+        pub announcement_channels: AnnouncementChannelsDto,
     }
 
     /// A promotion in the admin panel.
@@ -4129,14 +4140,6 @@ dto_enum! {
         Critical,
     }
 
-    /// Where an announcement shows.
-    pub enum AnnouncementDisplay {
-        /// The bell only.
-        Notification,
-        /// Also a dialog when the panel opens.
-        Modal,
-    }
-
     /// Derived status of an announcement.
     pub enum AnnouncementStatus {
         /// Not published.
@@ -4320,7 +4323,6 @@ dto_enum! {
 
 db_enum!(MaintenanceMode { Off => "off", ReadOnly => "read_only", Full => "full" });
 db_enum!(AnnouncementLevel { Info => "info", Success => "success", Warning => "warning", Critical => "critical" });
-db_enum!(AnnouncementDisplay { Notification => "notification", Modal => "modal" });
 db_enum!(NotificationKind {
     ArtRejected => "art_rejected",
     ArtApproved => "art_approved",
@@ -6566,6 +6568,16 @@ dto! {
         #[serde(default)]
         #[cfg_attr(feature = "ts", ts(optional))]
         pub tag: Option<String>,
+    }
+
+    /// Where an announcement made by the platform itself goes (ADR 0109).
+    pub struct AnnouncementChannelsDto {
+        /// In the bell.
+        pub bell: bool,
+        /// As a dialog on opening the panel.
+        pub modal: bool,
+        /// By e-mail to every account.
+        pub email: bool,
     }
 
     /// How many an audience reaches (`GET /api/admin/announcements/{id}/email`).

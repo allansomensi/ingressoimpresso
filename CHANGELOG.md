@@ -16,6 +16,10 @@ e não acompanha estes números.
 
 ### Alterado
 
+- Admin: um **pronunciamento** vai para o **sininho**, para uma **janela ao entrar** e por
+  **e-mail**, em qualquer combinação (os três de uma vez, se quiser). O e-mail sai quando o
+  pronunciamento começa, para a audiência escolhida nele, uma vez só. O aviso de preços novos usa
+  os mesmos canais.
 - Admin: o **resumo** dos admins agora é **semanal** por padrão (os últimos 7 dias, na segunda às
   8h) e vai por e-mail; a frequência (toda semana ou todo dia), o dia da semana, a hora e o envio
   também pelo Telegram são escolhidos em Alertas.

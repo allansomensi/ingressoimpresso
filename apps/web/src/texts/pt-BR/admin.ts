@@ -746,7 +746,7 @@ export const admin = {
   },
   announcements: {
     intro:
-      "Avisos para todos os organizadores: só no sininho ou também como janela quando a pessoa abre o painel.",
+      "Avisos para todos os organizadores: no sininho, numa janela quando a pessoa abre o painel e por e-mail, em qualquer combinação.",
     new: "Novo pronunciamento",
     edit: "Editar pronunciamento",
     saved: "Pronunciamento salvo.",
@@ -760,13 +760,16 @@ export const admin = {
     bodyHint: "Direto ao ponto. Linhas em branco separam parágrafos.",
     bodyPlaceholder: "O que o organizador precisa saber.",
     level: "Tom",
-    display: "Onde aparece",
-    displays: { notification: "Só no sininho", modal: "Janela ao entrar" },
-    displayHints: {
-      notification: "Aparece no sininho do painel, com um ponto de não lido.",
-      modal:
-        "Abre uma janela na próxima vez que a pessoa entrar no painel e fica no sininho depois de fechada.",
+    channelsLabel: "Para onde vai",
+    channels: { bell: "Sininho", modal: "Janela ao entrar", email: "E-mail" },
+    channelHints: {
+      bell: "Fica no sininho do painel, com um ponto de não lido.",
+      modal: "Abre uma janela na próxima vez que a pessoa entrar no painel.",
+      email: "Vai para a caixa de entrada quando começar, respeitando a cota.",
     },
+    noChannel: "Escolha pelo menos um.",
+    emailWhen: (audience: string) =>
+      `Por e-mail para ${audience.toLowerCase()} quando começar (uma vez só).`,
     ctaLabel: "Texto do botão",
     ctaLabelPlaceholder: "Ver detalhes",
     ctaUrl: "Link do botão",

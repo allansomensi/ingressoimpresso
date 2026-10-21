@@ -27,7 +27,7 @@ async fn announcement(app: &TestApp, admin: &str, publish: bool) -> String {
                 "title": TITLE,
                 "body": "Agora dá para mandar o ingresso pelo WhatsApp.\n\nVeja na aba Digitais.",
                 "level": "success",
-                "display": "notification",
+                "bell": true, "modal": false, "email": null,
                 "ctaLabel": "Abrir o painel",
                 "ctaUrl": "/painel",
                 "publish": publish,
@@ -301,4 +301,80 @@ async fn a_test_reaches_the_admin_only(pool: PgPool) {
     assert_eq!(tests.len(), 1);
     assert_eq!(tests[0].to, ADMIN);
     assert!(tests[0].html.contains("Parar de receber comunicados"));
+}
+
+#[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
+async fn an_announcement_goes_to_the_channels_chosen(pool: PgPool) {
+    let app = TestApp::new(pool).await;
+    let admin = app.login(ADMIN).await;
+    let banda = app.login("banda@exemplo.com").await;
+    let create = |body: Value| {
+        let app = &app;
+        let admin = admin.clone();
+        async move { app.post("/api/admin/announcements", &admin, body).await }
+    };
+    let base = json!({ "title": TITLE, "body": "Texto.", "level": "info", "publish": true });
+    let with = |channels: Value| {
+        let mut body = base.clone();
+        for (key, value) in channels.as_object().unwrap() {
+            body[key] = value.clone();
+        }
+        body
+    };
+
+    // No channel at all is refused.
+    let none = create(with(json!({ "bell": false, "modal": false, "email": null }))).await;
+    assert_eq!(none.status, StatusCode::BAD_REQUEST);
+    assert_eq!(none.json()["error"]["code"], "invalid_channels");
+
+    // All three: in the bell, as a dialog, and e-mailed right away to the audience.
+    let all = create(with(
+        json!({ "bell": true, "modal": true, "email": { "audience": "all" } }),
+    ))
+    .await;
+    assert_eq!(all.status, StatusCode::CREATED);
+    let all = all.json();
+    assert_eq!(all["email"]["audience"], "all");
+    assert_eq!(all["mailing"]["total"], 2);
+    assert_eq!(mailings::drain(&app.state).await.unwrap(), Step::Idle);
+    assert_eq!(received(&app).len(), 2);
+    let inbox = app.get("/api/inbox", &banda).await.json();
+    assert_eq!(inbox["announcements"][0]["bell"], true);
+    assert_eq!(inbox["announcements"][0]["modal"], true);
+    assert_eq!(inbox["unread"], 1);
+
+    // E-mail only: never in the panel. A dialog only: shown, not counted in the bell.
+    create(with(
+        json!({ "bell": false, "modal": false, "email": { "audience": "owners" } }),
+    ))
+    .await;
+    create(with(json!({ "bell": false, "modal": true, "email": null }))).await;
+    let inbox = app.get("/api/inbox", &banda).await.json();
+    let shown = inbox["announcements"].as_array().unwrap();
+    assert_eq!(shown.len(), 2);
+    assert_eq!(inbox["unread"], 1);
+    assert!(
+        shown
+            .iter()
+            .any(|item| item["bell"] == false && item["modal"] == true)
+    );
+
+    // Scheduled: the e-mail waits for the start, then goes out once.
+    let later = time::OffsetDateTime::now_utc() + time::Duration::hours(3);
+    let scheduled = create(with(json!({
+        "bell": true, "modal": false, "email": { "audience": "all" },
+        "startsAt": later.format(&time::format_description::well_known::Rfc3339).unwrap(),
+    })))
+    .await
+    .json();
+    assert!(scheduled["mailing"].is_null());
+    let id = scheduled["id"].as_str().unwrap();
+    sqlx::query("update announcements set starts_at = now() - interval '1 minute' where id = $1::uuid")
+        .bind(id)
+        .execute(&app.state.pool)
+        .await
+        .unwrap();
+    use ingressoimpresso_server::routes::announcements::queue_due_emails;
+    assert_eq!(queue_due_emails(&app.state).await.unwrap(), 1);
+    assert_eq!(queue_due_emails(&app.state).await.unwrap(), 0);
 }

@@ -118,3 +118,4 @@ feita e as consequências.
 | [0106](0106-relatorios-de-receita.md) | Relatórios de receita para a contabilidade | Aceito |
 | [0107](0107-pronunciamentos-por-email.md) | Pronunciamentos também por e-mail | Aceito |
 | [0108](0108-resumo-semanal-dos-admins.md) | Resumo semanal dos admins por e-mail | Aceito |
+| [0109](0109-canais-dos-pronunciamentos.md) | Canais dos pronunciamentos: sininho, janela e e-mail | Aceito |

@@ -203,7 +203,7 @@ export function Inbox() {
     }
   }, [behind, client]);
   const alerts = [
-    ...(inbox.data?.announcements ?? []).map((item) => ({ at: item.startsAt, node: <AnnouncementItem key={`a-${item.id}`} item={item} /> })),
+    ...(inbox.data?.announcements ?? []).filter((item) => item.bell).map((item) => ({ at: item.startsAt, node: <AnnouncementItem key={`a-${item.id}`} item={item} /> })),
     ...(inbox.data?.notifications ?? []).map((item) => ({ at: item.createdAt, node: <NotificationItem key={`n-${item.id}`} item={item} /> })),
   ].sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
   const alertsUnread = inbox.data?.unread ?? 0;

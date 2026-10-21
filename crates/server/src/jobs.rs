@@ -117,7 +117,11 @@ pub async fn run_worker(state: AppState) {
             if let Err(error) = crate::alerts::maybe_send_summary(&state).await {
                 tracing::error!(?error, "daily summary failed");
             }
-            // Announcement e-mails held for the quota go on as the day's count goes down.
+            // Announcements whose e-mail waited for their start (ADR 0109), and the ones held for
+            // the quota, which go on as the day's count goes down.
+            if let Err(error) = crate::routes::announcements::queue_due_emails(&state).await {
+                tracing::error!(?error, "announcement e-mails not queued");
+            }
             crate::mailings::wake(&state);
             last_cleanup = std::time::Instant::now();
         }

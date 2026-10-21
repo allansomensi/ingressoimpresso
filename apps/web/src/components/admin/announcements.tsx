@@ -2,8 +2,8 @@
 
 import type {
   AdminAnnouncementDto,
+  AnnouncementAudience,
   AnnouncementBody,
-  AnnouncementDisplay,
   AnnouncementLevel,
   AnnouncementStatus,
 } from "@ingressoimpresso/api-types";
@@ -25,6 +25,14 @@ import {
 import { useState } from "react";
 import { toast } from "sonner";
 
+import {
+  AudiencePicker,
+  ChannelPicker,
+  anyChannel,
+  channelsLabel,
+  type Channel,
+  type ChannelChoice,
+} from "@/components/admin/announcement-channels";
 import {
   AnnouncementEmailDialog,
   MailingLine,
@@ -90,9 +98,18 @@ function Editor({
   const [title, setTitle] = useState(item?.title ?? "");
   const [body, setBody] = useState(item?.body ?? "");
   const [level, setLevel] = useState<AnnouncementLevel>(item?.level ?? "info");
-  const [display, setDisplay] = useState<AnnouncementDisplay>(
-    item?.display ?? "notification",
+  const [channels, setChannels] = useState<ChannelChoice>({
+    bell: item?.bell ?? true,
+    modal: item?.modal ?? false,
+    email: (item?.email ?? null) !== null,
+  });
+  const [audience, setAudience] = useState<AnnouncementAudience>(
+    item?.email?.audience ?? "all",
   );
+  const [tag, setTag] = useState(item?.email?.tag ?? "");
+  // Once its e-mail went out, the channel and the audience stay as they were.
+  const emailed = item !== null && item.mailing !== null;
+  const locked: ReadonlySet<Channel> = emailed ? new Set(["email"]) : new Set();
   const [ctaLabel, setCtaLabel] = useState(item?.ctaLabel ?? "");
   const [ctaUrl, setCtaUrl] = useState(item?.ctaUrl ?? "");
   const [startsAt, setStartsAt] = useState(toLocalInput(item?.startsAt));
@@ -104,7 +121,13 @@ function Editor({
         title: title.trim(),
         body: body.trim(),
         level,
-        display,
+        bell: channels.bell,
+        modal: channels.modal,
+        email: channels.email
+          ? audience === "tagged"
+            ? { audience, tag }
+            : { audience }
+          : null,
         ctaLabel: ctaLabel.trim() === "" ? null : ctaLabel.trim(),
         ctaUrl: ctaUrl.trim() === "" ? null : ctaUrl.trim(),
         startsAt: fromLocalInput(startsAt),
@@ -133,7 +156,11 @@ function Editor({
     },
   });
   const Icon = LEVEL_ICON[level];
-  const valid = title.trim().length >= 3 && body.trim() !== "";
+  const valid =
+    title.trim().length >= 3 &&
+    body.trim() !== "" &&
+    anyChannel(channels) &&
+    (!channels.email || audience !== "tagged" || tag !== "");
   return (
     <Dialog
       open
@@ -188,6 +215,22 @@ function Editor({
               }}
             />
           </Field>
+          <ChannelPicker
+            value={channels}
+            onChange={setChannels}
+            locked={locked}
+          />
+          {channels.email && (
+            <AudiencePicker
+              audience={audience}
+              tag={tag}
+              disabled={emailed}
+              onChange={(nextAudience, nextTag) => {
+                setAudience(nextAudience);
+                setTag(nextTag);
+              }}
+            />
+          )}
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label={t.level}>
               <Select
@@ -201,17 +244,6 @@ function Editor({
                     {inboxTexts.levels[option]}
                   </option>
                 ))}
-              </Select>
-            </Field>
-            <Field label={t.display}>
-              <Select
-                value={display}
-                onChange={(event) => {
-                  setDisplay(event.target.value as AnnouncementDisplay);
-                }}
-              >
-                <option value="notification">{t.displays.notification}</option>
-                <option value="modal">{t.displays.modal}</option>
               </Select>
             </Field>
             <Field label={t.ctaLabel} optional>
@@ -284,24 +316,33 @@ function Editor({
               </span>
             )}
           </div>
-          <p className="flex items-start gap-2 text-xs leading-relaxed text-fg-muted">
-            {display === "modal" ? (
-              <MonitorSmartphone
-                className="mt-0.5 size-3.5 shrink-0"
-                aria-hidden
-              />
-            ) : (
-              <Bell className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-            )}
-            {t.displayHints[display]}
-          </p>
+          {(["bell", "modal", "email"] as const)
+            .filter((key) => channels[key])
+            .map((key) => {
+              const ChannelIcon =
+                key === "bell" ? Bell : key === "modal" ? MonitorSmartphone : Mail;
+              return (
+                <p
+                  key={key}
+                  className="flex items-start gap-2 text-xs leading-relaxed text-fg-muted"
+                >
+                  <ChannelIcon
+                    className="mt-0.5 size-3.5 shrink-0"
+                    aria-hidden
+                  />
+                  {key === "email"
+                    ? t.emailWhen(t.email.audiences[audience] ?? audience)
+                    : t.channelHints[key]}
+                </p>
+              );
+            })}
         </div>
       </div>
     </Dialog>
   );
 }
 
-/** Announcements to every organizer (ADR 0038). */
+/** Announcements to every organizer (ADRs 0038, 0109): in the bell, as a dialog, by e-mail. */
 export function AdminAnnouncements() {
   const queryClient = useQueryClient();
   const confirm = useConfirm();
@@ -401,7 +442,13 @@ export function AdminAnnouncements() {
                     >
                       {t.statuses[item.status]}
                     </Badge>
-                    <Badge tone="neutral">{t.displays[item.display]}</Badge>
+                    <Badge tone="neutral">
+                      {channelsLabel({
+                        bell: item.bell,
+                        modal: item.modal,
+                        email: item.email !== null,
+                      })}
+                    </Badge>
                   </span>
                   <span className="line-clamp-2 text-sm text-fg-muted">
                     {item.body}
