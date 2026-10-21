@@ -1009,6 +1009,10 @@ struct ValidScan {
 const ENTRANCE: Uuid = Uuid::nil();
 
 impl ValidScan {
+    #[expect(
+        clippy::too_many_lines,
+        reason = "every rule of an uploaded scan, side by side"
+    )]
     fn new(scan: &DoorScanUpload, device: &DoorDevice, days: i16) -> ApiResult<Self> {
         let invalid = || bad_request("invalid_scans", format!("scan {} is malformed", scan.id));
         let number = scan
@@ -1140,6 +1144,10 @@ impl ValidScan {
     }
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "the classification of a scan reads best in one place"
+)]
 async fn record_scan(
     tx: &mut Transaction<'static, Postgres>,
     device: &DoorDevice,

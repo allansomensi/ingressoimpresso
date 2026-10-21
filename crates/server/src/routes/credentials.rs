@@ -337,6 +337,10 @@ pub async fn restore(
 
 /// `GET /api/events/{id}/credentials/badges?ids=`: the badges to print, four per A4 (every
 /// credential not revoked, or the ones asked for).
+#[expect(
+    clippy::too_many_lines,
+    reason = "the badges of an event, from the query to the PDF, in one place"
+)]
 pub async fn badges(
     State(state): State<AppState>,
     user: AuthUser,

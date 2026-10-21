@@ -3427,6 +3427,10 @@ dto! {
     }
 
     /// An announcement as an organizer sees it (ADR 0038).
+    #[expect(
+        clippy::struct_excessive_bools,
+        reason = "the channels and the receipt are independent flags of the API"
+    )]
     pub struct AnnouncementDto {
         /// Id.
         #[cfg_attr(feature = "ts", ts(type = "string"))]
@@ -6243,6 +6247,10 @@ dto! {
     }
 
     /// How the admins are told (`PUT /api/admin/alerts/settings`).
+    #[expect(
+        clippy::struct_excessive_bools,
+        reason = "each channel is its own switch in the admins' settings"
+    )]
     pub struct AlertSettingsDto {
         /// By e-mail, to `ADMIN_EMAILS`.
         pub email: bool,

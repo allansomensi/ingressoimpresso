@@ -88,12 +88,9 @@ pub async fn live(
 pub fn level(occupied: i64, limit: i32, warn_percent: i16) -> i16 {
     let limit = i64::from(limit);
     if occupied >= limit {
-        2
-    } else if occupied * 100 >= limit * i64::from(warn_percent) {
-        1
-    } else {
-        0
+        return 2;
     }
+    i16::from(occupied * 100 >= limit * i64::from(warn_percent))
 }
 
 /// After the door recorded entries: tells the organization once when the venue gets close to

@@ -126,7 +126,10 @@ async fn the_venue_fills_and_the_organization_hears_once(pool: PgPool) {
         .json();
     assert_eq!(live["capacity"]["occupied"], 2);
     assert_eq!(live["capacity"]["left"], 2);
-    assert!(kinds(&app.get("/api/inbox", &token).await.json()).is_empty());
+    assert_eq!(
+        kinds(&app.get("/api/inbox", &token).await.json()),
+        Vec::<String>::new()
+    );
 
     // The third reaches 75%: one warning, even when a copy of it comes again.
     for (id, number) in [("a", 3), ("b", 3)] {

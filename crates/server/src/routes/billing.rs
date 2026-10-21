@@ -642,6 +642,10 @@ fn describe_table(tiers: &[Tier], minimum_cents: i32, free_tickets: i32) -> Stri
 
 /// `POST /api/admin/prices`: a new version of the table, now or later, optionally announced.
 /// Batches already created keep their price.
+#[expect(
+    clippy::too_many_lines,
+    reason = "the new table and its announcement read best in one place"
+)]
 pub async fn create_prices(
     State(state): State<AppState>,
     user: AuthUser,

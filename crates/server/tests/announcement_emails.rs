@@ -13,6 +13,7 @@ mod common;
 use axum::http::{Method, StatusCode};
 use common::{ADMIN, TestApp};
 use ingressoimpresso_server::mailings::{self, Step};
+use ingressoimpresso_server::routes::announcements::queue_due_emails;
 use serde_json::{Value, json};
 use sqlx::PgPool;
 
@@ -379,7 +380,6 @@ async fn an_announcement_goes_to_the_channels_chosen(pool: PgPool) {
     .execute(&app.state.pool)
     .await
     .unwrap();
-    use ingressoimpresso_server::routes::announcements::queue_due_emails;
     assert_eq!(queue_due_emails(&app.state).await.unwrap(), 1);
     assert_eq!(queue_due_emails(&app.state).await.unwrap(), 0);
 }
