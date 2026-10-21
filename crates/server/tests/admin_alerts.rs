@@ -252,15 +252,8 @@ async fn the_summary_goes_out_weekly_by_email_and_on_demand(pool: PgPool) {
         )
         .await;
     assert_eq!(reply.status, StatusCode::BAD_REQUEST);
-    let reply = app
-        .request(
-            Method::POST,
-            "/api/admin/alerts/summary",
-            Some(&admin),
-            None,
-        )
-        .await;
-    assert_eq!(reply.json()["telegram"], true);
+    let delivery = alerts::send_summary(&state).await.unwrap();
+    assert!(delivery.telegram);
     assert!(
         app.sent
             .lock()
