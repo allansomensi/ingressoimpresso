@@ -4,6 +4,12 @@
 /// Appended to the name of a duplicated event.
 pub(crate) const COPY_SUFFIX: &str = " (cópia)";
 
+/// The entrance among the areas printed on a credential (ADR 0111).
+pub(crate) const CREDENTIAL_ENTRANCE: &str = "Entrada";
+/// The line at the bottom of every credential.
+pub(crate) const CREDENTIAL_FOOTER: &str =
+    "Credencial pessoal e intransferível · Ingresso Impresso";
+
 /// Line item of a batch on the Stripe payment page ("fichas" for consumption tokens, ADR 0086).
 pub(crate) fn checkout_description(event: &str, first: i32, last: i32, tokens: bool) -> String {
     let quantity = last - first + 1;

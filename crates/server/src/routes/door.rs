@@ -618,6 +618,8 @@ pub struct ManifestQuery {
     since: Option<String>,
     pending: Option<i64>,
     guests: Option<String>,
+    /// The version of the credentials the phone holds (ADR 0111).
+    credentials: Option<String>,
 }
 
 /// `GET /api/door/manifest?since=<cursor>`: keys, voids and sellers whole, admitted scans
@@ -649,10 +651,11 @@ pub async fn manifest(
         tags(&state, event_id),
         doors(&state, &device),
     )?;
-    let ((guests, guests_version), (), checkpoint) = tokio::try_join!(
+    let ((guests, guests_version), (), checkpoint, (credentials, credentials_version)) = tokio::try_join!(
         super::guests::door_list(&state, event_id, query.guests.as_deref()),
         record_sync(&state, device.id, query.pending),
         super::checkpoints::of_access(&state.pool, device.access_id),
+        super::credentials::door_list(&state.pool, event_id, query.credentials.as_deref()),
     )?;
     // Every transaction below xmin has finished: its rows are visible to the next statement.
     let xmin = sqlx::query_scalar!(
@@ -685,6 +688,8 @@ pub async fn manifest(
         guest_arrivals,
         sessions,
         checkpoint,
+        credentials,
+        credentials_version,
     }))
 }
 
@@ -1048,6 +1053,17 @@ impl ValidScan {
             }),
             (true, Some(kind)) => Some(kind),
         };
+        // A credential's number (ADR 0111) is never a ticket's, and only a credential's outcome
+        // carries one.
+        let credential_outcome = matches!(
+            outcome,
+            ScanOutcome::CredentialAdmitted | ScanOutcome::RejectedCredential
+        );
+        if number.is_some_and(|number| number > super::credentials::CREDENTIAL_BASE)
+            != credential_outcome
+        {
+            return Err(invalid());
+        }
         let exception_ok = match exception_kind {
             None | Some(ExceptionKind::WrongDay) => true,
             Some(ExceptionKind::WrongDoor) => !checkpoint,

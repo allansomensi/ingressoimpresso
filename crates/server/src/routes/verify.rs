@@ -147,6 +147,10 @@ pub async fn verify(
     let Ok(number) = i32::try_from(verified.number().get()) else {
         return Ok(answer(VerifyVerdict::NotOurs));
     };
+    // A badge of the team (ADR 0111) is ours but is no ticket: nobody should buy it.
+    if number > super::credentials::CREDENTIAL_BASE {
+        return Ok(answer(VerifyVerdict::Credential));
+    }
     let row = sqlx::query!(
         r#"select e.public_verify, e.organization_id,
                   exists(select 1 from ticket_voids v where v.event_id = e.id and v.undone_at is null

@@ -3,4 +3,4 @@
 /**
  * The answer of the public check.
  */
-export type VerifyVerdict = "valid" | "event_postponed" | "event_over" | "event_canceled" | "ticket_canceled" | "private" | "not_ours";
+export type VerifyVerdict = "valid" | "event_postponed" | "event_over" | "event_canceled" | "ticket_canceled" | "private" | "not_ours" | "credential";

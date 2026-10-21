@@ -112,10 +112,11 @@ pub async fn live(
         box_office(pool, event_id, price),
         reentry(pool, event_id, today),
     )?;
-    let (day_entries, checkpoints, capacity) = tokio::try_join!(
+    let (day_entries, checkpoints, capacity, credentials) = tokio::try_join!(
         day_entries(pool, event_id, &days),
         checkpoints(pool, event_id, today),
         crate::capacity::live(pool, event_id, &day_bounds),
+        super::credentials::live(pool, event_id),
     )?;
     let categories = categories
         .into_iter()
@@ -153,6 +154,7 @@ pub async fn live(
         today,
         checkpoints,
         capacity,
+        credentials,
         generated_at: now,
     }))
 }

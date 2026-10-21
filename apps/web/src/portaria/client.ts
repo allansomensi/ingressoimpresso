@@ -108,7 +108,7 @@ export function registerDevice(accessToken: string, deviceName: string): Promise
 export function fetchManifest(
   secret: string,
   since: string | null,
-  extra: { pending: number; guests: string },
+  extra: { pending: number; guests: string; credentials: string },
 ): Promise<DoorManifest> {
   const query = new URLSearchParams();
   if (since !== null) {
@@ -116,6 +116,8 @@ export function fetchManifest(
   }
   query.set("pending", String(extra.pending));
   query.set("guests", extra.guests);
+  // Credentials (ADR 0111) come only when they changed since this version.
+  query.set("credentials", extra.credentials);
   return call<DoorManifest>(`/api/door/manifest?${query.toString()}`, { secret });
 }
 

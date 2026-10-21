@@ -182,6 +182,23 @@ fn area(method: &str, shape: &str) -> Need {
 const LATER: &[(&str, &str, Need)] = &[
     // The venue's capacity (ADR 0110) is how the door works.
     ("PUT", "events/{id}/capacity", Need::Area(TeamArea::Door)),
+    // Credentials (ADR 0111) are who the door lets through.
+    (
+        "POST",
+        "events/{id}/credentials",
+        Need::Area(TeamArea::Door),
+    ),
+    ("PUT", "credentials/{id}", Need::Area(TeamArea::Door)),
+    (
+        "POST",
+        "credentials/{id}/revoke",
+        Need::Area(TeamArea::Door),
+    ),
+    (
+        "POST",
+        "credentials/{id}/restore",
+        Need::Area(TeamArea::Door),
+    ),
     // Commissions and courtesies change what sellers owe (ADR 0096).
     (
         "POST",

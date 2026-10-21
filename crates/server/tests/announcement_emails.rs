@@ -323,7 +323,10 @@ async fn an_announcement_goes_to_the_channels_chosen(pool: PgPool) {
     };
 
     // No channel at all is refused.
-    let none = create(with(json!({ "bell": false, "modal": false, "email": null }))).await;
+    let none = create(with(
+        json!({ "bell": false, "modal": false, "email": null }),
+    ))
+    .await;
     assert_eq!(none.status, StatusCode::BAD_REQUEST);
     assert_eq!(none.json()["error"]["code"], "invalid_channels");
 
@@ -369,11 +372,13 @@ async fn an_announcement_goes_to_the_channels_chosen(pool: PgPool) {
     .json();
     assert!(scheduled["mailing"].is_null());
     let id = scheduled["id"].as_str().unwrap();
-    sqlx::query("update announcements set starts_at = now() - interval '1 minute' where id = $1::uuid")
-        .bind(id)
-        .execute(&app.state.pool)
-        .await
-        .unwrap();
+    sqlx::query(
+        "update announcements set starts_at = now() - interval '1 minute' where id = $1::uuid",
+    )
+    .bind(id)
+    .execute(&app.state.pool)
+    .await
+    .unwrap();
     use ingressoimpresso_server::routes::announcements::queue_due_emails;
     assert_eq!(queue_due_emails(&app.state).await.unwrap(), 1);
     assert_eq!(queue_due_emails(&app.state).await.unwrap(), 0);

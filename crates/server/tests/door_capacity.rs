@@ -60,18 +60,40 @@ async fn the_venue_fills_and_the_organization_hears_once(pool: PgPool) {
     let event = paid_event(&app, &token).await;
 
     // Checked values; no limit by default.
-    let overview = app.get(&format!("/api/events/{event}/door"), &token).await.json();
+    let overview = app
+        .get(&format!("/api/events/{event}/door"), &token)
+        .await
+        .json();
     assert!(overview["capacity"].is_null());
     assert_eq!(
-        capacity(&app, &token, &event, json!({ "capacity": 0, "warnPercent": 90 })).await.0,
+        capacity(
+            &app,
+            &token,
+            &event,
+            json!({ "capacity": 0, "warnPercent": 90 })
+        )
+        .await
+        .0,
         StatusCode::BAD_REQUEST
     );
     assert_eq!(
-        capacity(&app, &token, &event, json!({ "capacity": 10, "warnPercent": 40 })).await.0,
+        capacity(
+            &app,
+            &token,
+            &event,
+            json!({ "capacity": 10, "warnPercent": 40 })
+        )
+        .await
+        .0,
         StatusCode::BAD_REQUEST
     );
-    let (status, overview) =
-        capacity(&app, &token, &event, json!({ "capacity": 4, "warnPercent": 75 })).await;
+    let (status, overview) = capacity(
+        &app,
+        &token,
+        &event,
+        json!({ "capacity": 4, "warnPercent": 75 }),
+    )
+    .await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(overview["capacity"], 4);
     assert_eq!(overview["capacityWarnPercent"], 75);
@@ -98,7 +120,10 @@ async fn the_venue_fills_and_the_organization_hears_once(pool: PgPool) {
         )
         .await;
     }
-    let live = app.get(&format!("/api/events/{event}/door/live"), &token).await.json();
+    let live = app
+        .get(&format!("/api/events/{event}/door/live"), &token)
+        .await
+        .json();
     assert_eq!(live["capacity"]["occupied"], 2);
     assert_eq!(live["capacity"]["left"], 2);
     assert!(kinds(&app.get("/api/inbox", &token).await.json()).is_empty());
@@ -118,27 +143,43 @@ async fn the_venue_fills_and_the_organization_hears_once(pool: PgPool) {
         )
         .await;
     }
-    assert_eq!(kinds(&app.get("/api/inbox", &token).await.json()), ["capacity_near"]);
+    assert_eq!(
+        kinds(&app.get("/api/inbox", &token).await.json()),
+        ["capacity_near"]
+    );
 
     // Full: the second and last warning.
     upload(
         &app,
         &gate,
-        vec![scan("00000000-0000-4000-8000-0000000c00d0", Some(4), "admitted", 9 * MINUTE)],
+        vec![scan(
+            "00000000-0000-4000-8000-0000000c00d0",
+            Some(4),
+            "admitted",
+            9 * MINUTE,
+        )],
         false,
     )
     .await;
     upload(
         &app,
         &gate,
-        vec![scan("00000000-0000-4000-8000-0000000c00e0", Some(5), "admitted", 10 * MINUTE)],
+        vec![scan(
+            "00000000-0000-4000-8000-0000000c00e0",
+            Some(5),
+            "admitted",
+            10 * MINUTE,
+        )],
         false,
     )
     .await;
     let inbox = app.get("/api/inbox", &token).await.json();
     assert_eq!(kinds(&inbox), ["capacity_full", "capacity_near"]);
     assert_eq!(inbox["notifications"][0]["data"]["capacity"], 4);
-    let live = app.get(&format!("/api/events/{event}/door/live"), &token).await.json();
+    let live = app
+        .get(&format!("/api/events/{event}/door/live"), &token)
+        .await
+        .json();
     assert_eq!(live["capacity"]["occupied"], 5);
     assert_eq!(live["capacity"]["left"], 0);
 
@@ -152,18 +193,34 @@ async fn the_venue_fills_and_the_organization_hears_once(pool: PgPool) {
     upload(
         &app,
         &gate,
-        vec![scan("00000000-0000-4000-8000-0000000c00f0", Some(1), "exited", 20 * MINUTE)],
+        vec![scan(
+            "00000000-0000-4000-8000-0000000c00f0",
+            Some(1),
+            "exited",
+            20 * MINUTE,
+        )],
         false,
     )
     .await;
-    let live = app.get(&format!("/api/events/{event}/door/live"), &token).await.json();
+    let live = app
+        .get(&format!("/api/events/{event}/door/live"), &token)
+        .await
+        .json();
     assert_eq!(live["capacity"]["occupied"], 4);
 
     // A bigger venue may warn again; taking the limit off hides it.
-    let (_, overview) =
-        capacity(&app, &token, &event, json!({ "capacity": null, "warnPercent": 90 })).await;
+    let (_, overview) = capacity(
+        &app,
+        &token,
+        &event,
+        json!({ "capacity": null, "warnPercent": 90 }),
+    )
+    .await;
     assert!(overview["capacity"].is_null());
-    let live = app.get(&format!("/api/events/{event}/door/live"), &token).await.json();
+    let live = app
+        .get(&format!("/api/events/{event}/door/live"), &token)
+        .await
+        .json();
     assert!(live["capacity"].is_null());
 }
 
@@ -179,8 +236,13 @@ async fn tokens_have_no_capacity(pool: PgPool) {
         )
         .await;
     let event = reply.json()["id"].as_str().unwrap().to_owned();
-    let (status, body) =
-        capacity(&app, &token, &event, json!({ "capacity": 100, "warnPercent": 90 })).await;
+    let (status, body) = capacity(
+        &app,
+        &token,
+        &event,
+        json!({ "capacity": 100, "warnPercent": 90 }),
+    )
+    .await;
     assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
     assert_eq!(body["error"]["code"], "capacity_tokens");
 }

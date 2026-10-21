@@ -322,7 +322,13 @@ pub async fn update(
     .execute(&mut *tx)
     .await
     .map_err(renamed)?;
-    set_categories(&mut tx, checkpoint_id, &valid.category_ids, &valid.category_allowances).await?;
+    set_categories(
+        &mut tx,
+        checkpoint_id,
+        &valid.category_ids,
+        &valid.category_allowances,
+    )
+    .await?;
     tx.commit().await?;
     Ok(Json(one(&state.pool, event_id, checkpoint_id).await?))
 }

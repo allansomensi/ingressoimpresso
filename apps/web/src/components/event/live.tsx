@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   CloudOff,
   DoorOpen,
+  IdCard,
   ListChecks,
   LogIn,
   LogOut,
@@ -199,6 +200,20 @@ export function LiveTab({ eventId, onSelect }: { eventId: string; onSelect: Sele
             icon={LogOut}
           />
           <Stat label={t.returned} value={count(data.reentry.returns)} hint={t.returnedHint} icon={RotateCcw} />
+        </div>
+      )}
+
+      {/* Credentials (ADR 0111): the team at the door, never audience; servers before them send none. */}
+      {(data.credentials ?? null) !== null && data.credentials !== null && (
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-4">
+          <Stat
+            label={t.credentialsSeen}
+            value={count(data.credentials.seen)}
+            hint={t.credentialsOf(count(data.credentials.active))}
+            icon={IdCard}
+            tone="brand"
+          />
+          <Stat label={t.credentialsRefused} value={count(data.credentials.refused)} hint={t.credentialsRefusedHint} icon={ShieldX} />
         </div>
       )}
 

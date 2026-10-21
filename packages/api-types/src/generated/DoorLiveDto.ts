@@ -4,6 +4,7 @@ import type { DoorLiveBucketDto } from "./DoorLiveBucketDto";
 import type { DoorLiveCapacityDto } from "./DoorLiveCapacityDto";
 import type { DoorLiveCategoryDto } from "./DoorLiveCategoryDto";
 import type { DoorLiveCheckpointDto } from "./DoorLiveCheckpointDto";
+import type { DoorLiveCredentialsDto } from "./DoorLiveCredentialsDto";
 import type { DoorLiveDayDto } from "./DoorLiveDayDto";
 import type { DoorLiveDeviceDto } from "./DoorLiveDeviceDto";
 import type { DoorLiveDoorDto } from "./DoorLiveDoorDto";
@@ -83,6 +84,10 @@ checkpoints: Array<DoorLiveCheckpointDto>,
  * The venue's capacity (ADR 0110); `null` without a limit.
  */
 capacity: DoorLiveCapacityDto | null, 
+/**
+ * Credentials at the door (ADR 0111); `null` when the event has none.
+ */
+credentials: DoorLiveCredentialsDto | null, 
 /**
  * Server clock.
  */

@@ -14,6 +14,7 @@ pub mod changelog;
 pub mod checklist;
 pub mod checkpoints;
 pub mod courtesies;
+pub mod credentials;
 pub mod crm;
 pub mod disputes;
 pub mod door;

@@ -475,6 +475,26 @@ pub(crate) async fn sign_numbers(
         .collect()
 }
 
+/// The QR texts of credentials (ADR 0111), signed with the event's active key. Credentials are
+/// not tickets: their numbers are above every ticket's, and only `routes::credentials` asks for
+/// them, for the badges of credentials not revoked.
+pub(crate) async fn sign_credentials(
+    state: &AppState,
+    event_id: Uuid,
+    qr_tag: i64,
+    numbers: &[i32],
+) -> ApiResult<Vec<(i32, String)>> {
+    let key_id = sqlx::query_scalar!(
+        "select key_id from event_signing_keys where event_id = $1 and status = 'active'",
+        event_id
+    )
+    .fetch_optional(&state.pool)
+    .await?
+    .ok_or_else(|| ApiError::Internal(anyhow::anyhow!("event without an active key")))?;
+    let pairs: Vec<(i32, i16)> = numbers.iter().map(|number| (*number, key_id)).collect();
+    sign_numbers(state, event_id, qr_tag, &pairs).await
+}
+
 /// One issuer per key id used by the tickets. Private keys are unsealed only here.
 async fn issuers(
     state: &AppState,

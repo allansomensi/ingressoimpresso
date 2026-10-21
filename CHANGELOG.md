@@ -14,6 +14,11 @@ e não acompanha estes números.
 
 ### Adicionado
 
+- **Credenciais** para staff, imprensa e artistas: crachás em A4 (quatro por folha) com a função
+  numa faixa colorida, o nome e um QR. A portaria deixa a credencial passar em qualquer dia, na
+  entrada e só nas áreas escolhidas (os pontos de controle, como camarim e palco), e ela nunca
+  conta como público. Revogar um crachá perdido barra ele na próxima sincronização dos celulares.
+
 - **Combos**: um ingresso que já vem com itens, como "entrada + 2 bebidas". Crie a categoria do
   combo com o seu preço e diga, no ponto de controle do bar, quantos itens ela recebe: o mesmo QR é
   lido uma vez para cada item ("1º de 2"), e no terceiro aparece "JÁ USOU OS 2". O acerto com os

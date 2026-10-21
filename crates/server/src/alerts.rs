@@ -453,7 +453,14 @@ pub async fn send_summary(state: &AppState) -> ApiResult<AlertDeliveryDto> {
     let weekly = settings.summary_frequency == SummaryFrequency::Weekly;
     let (highlights, sections) = summary_content(state, if weekly { 7 } else { 1 }).await?;
     let today = OffsetDateTime::now_utc().to_offset(BRASILIA).date();
-    let date = |day: time::Date| format!("{:02}/{:02}/{}", day.day(), u8::from(day.month()), day.year());
+    let date = |day: time::Date| {
+        format!(
+            "{:02}/{:02}/{}",
+            day.day(),
+            u8::from(day.month()),
+            day.year()
+        )
+    };
     let day = date(today);
     let since = date(today - time::Duration::days(7));
     let url = format!("{}/painel/admin", state.config.public_web_url);

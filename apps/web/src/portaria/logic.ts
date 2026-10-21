@@ -7,6 +7,7 @@ import type {
   EventKind,
   DoorCategoryRangeDto,
   DoorCheckpointDto,
+  DoorCredentialDto,
   DoorGuestArrivalDto,
   DoorGuestDto,
   DoorRouteDto,
@@ -18,6 +19,7 @@ import type {
 } from "@ingressoimpresso/api-types";
 import type { DecisionDto } from "@ingressoimpresso/ticket-core-wasm";
 
+import { credentialCode, type CredentialVerdict } from "@/lib/credentials";
 import { currentDay, daysOf, ledgerDay, onDayLabel, validOn, type EventDay } from "@/lib/event-days";
 import { forKind } from "@/lib/event-kind";
 import { money } from "@/lib/format";
@@ -202,6 +204,8 @@ export interface DoorContext {
   today?: number | null;
   /** The checkpoint this phone reads (ADR 0092); `null`: the entrance. */
   checkpoint?: DoorCheckpointDto | null;
+  /** The event's credentials (ADR 0111), for the history. */
+  credentials?: readonly DoorCredentialDto[];
 }
 
 /** The day the door is on at `serverNowMs` (ADR 0091): `null` for an event of one day. */
@@ -322,6 +326,38 @@ export function whenText(context: DoorContext, atUnixMs: number): string {
 /** The checkpoint's name for the screen, if this phone reads one. */
 function placeOf(context: DoorContext): { place: string } | Record<string, never> {
   return context.checkpoint === undefined || context.checkpoint === null ? {} : { place: context.checkpoint.name };
+}
+
+/**
+ * The screen of a credential (ADR 0111): who it is and what they do, in the role's colour, or why
+ * it does not pass here.
+ */
+export function credentialView(verdict: CredentialVerdict, number: number, context: DoorContext): ResultView {
+  const code = credentialCode(number);
+  if (verdict.kind === "unknown") {
+    return { tone: "bad", title: t.credentialUnknown, number: code, detail: t.credentialUnknownDetail, seller: null, category: null, seat: null, ...placeOf(context) };
+  }
+  const credential = verdict.credential;
+  const who = [credential.name, credential.organization].filter((part) => part !== null && part !== "").join(" · ");
+  const role = { name: credential.role, color: credential.color };
+  if (verdict.kind === "revoked") {
+    return { tone: "bad", title: t.credentialRevoked, number: code, detail: `${who}. ${t.credentialRevokedDetail}`, seller: null, category: role, seat: null, ...placeOf(context) };
+  }
+  if (verdict.kind === "no_access") {
+    // Manifests stored before the words of the areas lack them.
+    const areas = (credential.areas as string | undefined) ?? "";
+    return {
+      tone: "bad",
+      title: t.credentialNoAccess,
+      number: code,
+      detail: `${who}. ${t.credentialNoAccessDetail(areas === "" ? t.credentialAreasNone : areas)}`,
+      seller: null,
+      category: role,
+      seat: null,
+      ...placeOf(context),
+    };
+  }
+  return { tone: "ok", title: `${t.credential} · ${credential.role.toUpperCase()}`, number: code, detail: who, seller: null, category: role, seat: null, ...placeOf(context) };
 }
 
 /** The session of another date of the series a QR tag belongs to, if any (ADR 0077). */

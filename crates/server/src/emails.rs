@@ -463,7 +463,10 @@ pub struct AdminSummary<'a> {
 pub fn admin_summary(summary: &AdminSummary<'_>, site: &str) -> Email {
     let (subject, title, lead) = match summary.since {
         Some(since) => (
-            format!("Resumo da semana {since} a {} · Ingresso Impresso", summary.day),
+            format!(
+                "Resumo da semana {since} a {} · Ingresso Impresso",
+                summary.day
+            ),
             format!("Resumo da semana ({since} a {})", summary.day),
             "Os últimos 7 dias da plataforma.",
         ),
@@ -494,12 +497,7 @@ pub fn admin_summary(summary: &AdminSummary<'_>, site: &str) -> Email {
     content.push_str(&button(summary.url, "Abrir o painel"));
     Email {
         list_unsubscribe: None,
-        html: layout(
-            site,
-            &subject,
-            &content,
-            "Resumo para os administradores.",
-        ),
+        html: layout(site, &subject, &content, "Resumo para os administradores."),
         subject,
         text,
     }

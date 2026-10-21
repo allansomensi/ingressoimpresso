@@ -36,7 +36,14 @@ async fn paid_event(app: &TestApp, token: &str) -> String {
     event
 }
 
-async fn category(app: &TestApp, token: &str, event: &str, name: &str, first: u32, last: u32) -> String {
+async fn category(
+    app: &TestApp,
+    token: &str,
+    event: &str,
+    name: &str,
+    first: u32,
+    last: u32,
+) -> String {
     let reply = app
         .post(
             &format!("/api/events/{event}/categories"),
@@ -65,7 +72,11 @@ fn use_scan(id: &str, number: u32, minutes: i64, slot: Option<u8>) -> Value {
     value
 }
 
-async fn upload_status(app: &TestApp, phone: &common::door::Phone, scans: Vec<Value>) -> (StatusCode, Value) {
+async fn upload_status(
+    app: &TestApp,
+    phone: &common::door::Phone,
+    scans: Vec<Value>,
+) -> (StatusCode, Value) {
     let reply = app
         .post(
             "/api/door/scans",
@@ -103,10 +114,18 @@ async fn a_combo_hands_over_each_item_once(pool: PgPool) {
                     "categoryAllowances": [{ "categoryId": combo, "allowance": 2 }] }),
         )
         .await;
-    assert_eq!(created.status, StatusCode::CREATED, "{}", String::from_utf8_lossy(&created.bytes));
+    assert_eq!(
+        created.status,
+        StatusCode::CREATED,
+        "{}",
+        String::from_utf8_lossy(&created.bytes)
+    );
     let bar = created.json();
     assert_eq!(bar["allowance"], 1);
-    assert_eq!(bar["categoryAllowances"], json!([{ "categoryId": combo, "allowance": 2 }]));
+    assert_eq!(
+        bar["categoryAllowances"],
+        json!([{ "categoryId": combo, "allowance": 2 }])
+    );
     let bar_id = bar["id"].as_str().unwrap().to_owned();
 
     // The bar's phones know how many items each category takes.
@@ -123,12 +142,42 @@ async fn a_combo_hands_over_each_item_once(pool: PgPool) {
     assert_eq!(page["checkpoint"]["categoryAllowances"][0]["allowance"], 2);
 
     // Ticket 3: the first and the second drink, each once.
-    let (status, first) = upload_status(&app, &counter, vec![use_scan("00000000-0000-4000-8000-0000000d0001", 3, 10, None)]).await;
+    let (status, first) = upload_status(
+        &app,
+        &counter,
+        vec![use_scan(
+            "00000000-0000-4000-8000-0000000d0001",
+            3,
+            10,
+            None,
+        )],
+    )
+    .await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(first["results"][0]["class"], "first_entry");
-    let (_, second) = upload_status(&app, &counter, vec![use_scan("00000000-0000-4000-8000-0000000d0002", 3, 20, Some(2))]).await;
+    let (_, second) = upload_status(
+        &app,
+        &counter,
+        vec![use_scan(
+            "00000000-0000-4000-8000-0000000d0002",
+            3,
+            20,
+            Some(2),
+        )],
+    )
+    .await;
     assert_eq!(second["results"][0]["class"], "first_entry");
-    let (_, again) = upload_status(&app, &counter, vec![use_scan("00000000-0000-4000-8000-0000000d0003", 3, 30, Some(2))]).await;
+    let (_, again) = upload_status(
+        &app,
+        &counter,
+        vec![use_scan(
+            "00000000-0000-4000-8000-0000000d0003",
+            3,
+            30,
+            Some(2),
+        )],
+    )
+    .await;
     assert_eq!(again["results"][0]["class"], "duplicate_entry");
     assert_eq!(again["results"][0]["firstEntry"]["deviceName"], "Bar 1");
 
@@ -147,7 +196,12 @@ async fn a_combo_hands_over_each_item_once(pool: PgPool) {
     // The entrance has a single slot.
     let (_, access) = create_link(&app, &token, &event).await;
     let gate = register(&app, &access, "Portão").await;
-    let mut entry = scan("00000000-0000-4000-8000-0000000d0004", Some(3), "admitted", 0);
+    let mut entry = scan(
+        "00000000-0000-4000-8000-0000000d0004",
+        Some(3),
+        "admitted",
+        0,
+    );
     entry["slot"] = json!(2);
     let (status, _) = upload_status(&app, &gate, vec![entry]).await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
@@ -163,7 +217,10 @@ async fn a_combo_hands_over_each_item_once(pool: PgPool) {
     assert_eq!(block["used"], 2);
 
     // A copy of the event keeps the combo.
-    let overview = app.get(&format!("/api/events/{event}/door"), &token).await.json();
+    let overview = app
+        .get(&format!("/api/events/{event}/door"), &token)
+        .await
+        .json();
     assert_eq!(overview["checkpoints"][0]["uses"], 2);
     let edited = app
         .put(

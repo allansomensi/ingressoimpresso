@@ -22,6 +22,7 @@ import type {
 } from "@ingressoimpresso/api-types";
 import { DoorCore, loadTicketCore, type EntryDto } from "@ingressoimpresso/ticket-core-wasm";
 
+import { credentialVerdict, isCredentialNumber } from "@/lib/credentials";
 import { currentDay } from "@/lib/event-days";
 
 import { CORE_WASM_URL } from "./assets";
@@ -41,6 +42,7 @@ import {
   canUndoArrival,
   checkView,
   comboView,
+  credentialView,
   guestState,
   isEntry,
   notEntitled,
@@ -477,6 +479,10 @@ export class DoorEngine {
       const context = this.#context();
       // The book the ticket is checked in now (ADR 0091): the number tells its category.
       const number = numberOf(base.evaluate(text));
+      if (number !== null && isCredentialNumber(number)) {
+        await this.#credential(text, number, mode, context);
+        return;
+      }
       const book = number === null ? null : bookOf(context, number);
       const { core, slot } = exit ? { core: this.#coreFor(book) ?? base, slot: 1 } : this.#slotFor(text, number, book, context, base);
       if (this.#state.rehearsing) {
@@ -506,6 +512,30 @@ export class DoorEngine {
     } finally {
       this.#scanning = false;
     }
+  }
+
+  /**
+   * A credential (ADR 0111): authentic (the core read its number), let through any day at the
+   * entrance when it opens it, at a checkpoint when it is one of its areas. Never a movement nor
+   * an entry; the read is persisted before the screen (invariant 6), except in a rehearsal or a
+   * check, which record nothing.
+   */
+  async #credential(text: string, number: number, mode: DoorMode, context: DoorContext): Promise<void> {
+    const verdict = credentialVerdict(this.#state.manifest?.credentials ?? [], number, this.checkpoint?.id ?? null);
+    const view = credentialView(verdict, number, context);
+    if (this.#state.rehearsing || mode === "check") {
+      const shown = { ...view, ...(this.#state.rehearsing ? { rehearsal: true } : { check: true }) };
+      this.#remember(text, shown);
+      this.#set({ result: shown, testScanDone: true });
+      return;
+    }
+    const at = Math.round(Date.now() + (this.#state.manifest?.offsetMs ?? 0));
+    await this.#persist(
+      { id: crypto.randomUUID(), number, outcome: verdict.kind === "admit" ? "credential_admitted" : "rejected_credential", scannedAtMs: at, synced: 0 },
+      null,
+    );
+    this.#remember(text, view);
+    this.#set({ result: view, checking: false, testScanDone: true });
   }
 
   /**
@@ -965,6 +995,7 @@ export class DoorEngine {
       // The day by the server's clock (ADR 0091): it works offline too.
       today: todayOf(days, Date.now() + (manifest?.offsetMs ?? 0)),
       checkpoint,
+      credentials: manifest?.credentials ?? [],
     };
   }
 
@@ -1056,6 +1087,7 @@ export class DoorEngine {
       const manifest = await fetchManifest(device.secret, this.#state.manifest?.cursor ?? null, {
         pending: await this.#pendingTotal(),
         guests: this.#state.manifest?.guestsVersion ?? "",
+        credentials: this.#state.manifest?.credentialsVersion ?? "",
       });
       const receivedAt = Date.now();
       await this.#apply(manifest, receivedAt, Math.round(manifest.serverTimeMs - (sentAt + receivedAt) / 2));
@@ -1092,6 +1124,9 @@ export class DoorEngine {
       // The list comes only when it changed (ADR 0070).
       guests: manifest.guests ?? previous?.guests ?? [],
       guestsVersion: manifest.guests === null ? (previous?.guestsVersion ?? "") : manifest.guestsVersion,
+      // The credentials too (ADR 0111); servers before them send neither.
+      credentials: manifest.credentials ?? previous?.credentials ?? [],
+      credentialsVersion: (manifest.credentials ?? null) === null ? (previous?.credentialsVersion ?? "") : manifest.credentialsVersion,
     };
     if (await storage.mergeArrivals(manifest.guestArrivals)) {
       this.#set(this.#arrivalState(await storage.allArrivals()));

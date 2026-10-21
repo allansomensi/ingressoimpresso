@@ -6,6 +6,7 @@ import {
   Ban,
   BarChart3,
   FileDown,
+  IdCard,
   LayoutDashboard,
   Layers,
   ListChecks,
@@ -37,6 +38,7 @@ export const TAB_ICONS: Record<Tab, LucideIcon> = {
   guests: ListChecks,
   report: BarChart3,
   team: UsersRound,
+  credentials: IdCard,
 };
 
 /** The sections of an event, grouped as the work goes (ADR 0087). */

@@ -5,6 +5,7 @@
 import type {
   DoorCategoryRangeDto,
   DoorCheckpointDto,
+  DoorCredentialDto,
   DoorGuestArrivalDto,
   DoorGuestDto,
   DoorGuestUpload,
@@ -53,6 +54,9 @@ export interface StoredManifest {
   sessions?: DoorSessionDto[];
   /** The checkpoint this phone reads (ADR 0092); missing in manifests stored before it. */
   checkpoint?: DoorCheckpointDto | null;
+  /** The event's credentials (ADR 0111) and their version; missing in manifests stored before. */
+  credentials?: DoorCredentialDto[];
+  credentialsVersion?: string;
   cursor: string;
   /** Local time of the last successful sync. */
   syncedAt: number;

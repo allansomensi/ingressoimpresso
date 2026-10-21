@@ -2618,6 +2618,35 @@ dto! {
         /// `entries` are its uses, never the entrance's.
         #[serde(default)]
         pub checkpoint: Option<DoorCheckpointDto>,
+        /// The credentials (ADR 0111), only when they changed since `credentials=<version>`.
+        #[serde(default)]
+        pub credentials: Option<Vec<DoorCredentialDto>>,
+        /// Version of the credentials, for the next call.
+        #[serde(default)]
+        pub credentials_version: String,
+    }
+
+    /// A credential as the door knows it (ADR 0111).
+    pub struct DoorCredentialDto {
+        /// The number in its QR (above 2,000,000,000).
+        pub number: u32,
+        /// The person.
+        pub name: String,
+        /// What they do ("Imprensa").
+        pub role: String,
+        /// Company, outlet or band.
+        pub organization: Option<String>,
+        /// Colour of the role.
+        pub color: String,
+        /// Lets in at the entrance.
+        pub entrance: bool,
+        /// Checkpoints (areas) it opens.
+        #[cfg_attr(feature = "ts", ts(type = "string[]"))]
+        pub checkpoint_ids: Vec<Uuid>,
+        /// Where it lets in, in words ("Entrada · Camarim"), for a refusal elsewhere.
+        pub areas: String,
+        /// Revoked: the door turns it away.
+        pub revoked: bool,
     }
 
     /// Another date of the event's series.
@@ -3049,6 +3078,10 @@ dto_enum! {
         RejectedBenefitUsed,
         /// Yellow, at a checkpoint: its category has no right to it.
         RejectedNotEntitled,
+        /// A credential (ADR 0111) let through; never an entry of the audience.
+        CredentialAdmitted,
+        /// A credential turned away: revoked, unknown, or an area it does not open.
+        RejectedCredential,
     }
 
     /// Why a ticket was let in anyway.
@@ -3294,6 +3327,8 @@ db_enum!(ScanOutcome {
     BenefitGranted => "benefit_granted",
     RejectedBenefitUsed => "rejected_benefit_used",
     RejectedNotEntitled => "rejected_not_entitled",
+    CredentialAdmitted => "credential_admitted",
+    RejectedCredential => "rejected_credential",
 });
 db_enum!(ExceptionKind { WrongDoor => "wrong_door", WrongDay => "wrong_day", NotEntitled => "not_entitled" });
 db_enum!(DayRule { Every => "every", Days => "days", AnyOne => "any_one" });
@@ -4619,6 +4654,9 @@ dto! {
         /// The venue's capacity (ADR 0110); `null` without a limit.
         #[serde(default)]
         pub capacity: Option<DoorLiveCapacityDto>,
+        /// Credentials at the door (ADR 0111); `null` when the event has none.
+        #[serde(default)]
+        pub credentials: Option<DoorLiveCredentialsDto>,
         /// Server clock.
         #[serde(with = "time::serde::rfc3339")]
         #[cfg_attr(feature = "ts", ts(type = "string"))]
@@ -5215,6 +5253,8 @@ dto_enum! {
         Private,
         /// Not a ticket we issued (or tampered with).
         NotOurs,
+        /// A credential of the event's team (ADR 0111): authentic, but not a ticket to sell.
+        Credential,
     }
 }
 
@@ -6741,5 +6781,95 @@ dto! {
         pub email: String,
         /// Receives announcements now.
         pub subscribed: bool,
+    }
+}
+
+dto! {
+    /// Credentials at the door (ADR 0111): never counted as audience.
+    pub struct DoorLiveCredentialsDto {
+        /// Credentials not revoked.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub active: i64,
+        /// Credentials read and let through at least once.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub seen: i64,
+        /// Reads turned away (revoked, unknown, an area it does not open).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub refused: i64,
+    }
+
+    /// A credential of the staff, the press or an artist (ADR 0111).
+    pub struct CredentialDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// The number in its QR.
+        pub number: u32,
+        /// The printed code ("C-0007").
+        pub code: String,
+        /// The person.
+        pub name: String,
+        /// What they do ("Imprensa").
+        pub role: String,
+        /// Company, outlet or band.
+        pub organization: Option<String>,
+        /// Colour of the role (`#rrggbb`).
+        pub color: String,
+        /// Lets in at the entrance.
+        pub entrance: bool,
+        /// Checkpoints (areas) it opens.
+        #[cfg_attr(feature = "ts", ts(type = "string[]"))]
+        pub checkpoint_ids: Vec<Uuid>,
+        /// When it was revoked.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub revoked_at: Option<OffsetDateTime>,
+        /// Times the door let it through.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub reads: i64,
+        /// The last time.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub last_read_at: Option<OffsetDateTime>,
+        /// Creation time.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub created_at: OffsetDateTime,
+    }
+
+    /// `GET /api/events/{id}/credentials`.
+    pub struct CredentialsDto {
+        /// Every credential, by number.
+        pub credentials: Vec<CredentialDto>,
+        /// Most credentials the event may have now (grows with the paid tickets).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub limit: i64,
+    }
+
+    /// `POST /api/events/{id}/credentials`, `PUT /api/credentials/{id}`.
+    pub struct CredentialBody {
+        /// The person (1–80 characters).
+        pub name: String,
+        /// What they do (1–30 characters).
+        pub role: String,
+        /// Company, outlet or band (up to 60).
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional = nullable))]
+        pub organization: Option<String>,
+        /// Colour of the role (`#rrggbb`).
+        pub color: String,
+        /// Lets in at the entrance.
+        pub entrance: bool,
+        /// Checkpoints (areas) it opens.
+        #[cfg_attr(feature = "ts", ts(as = "Vec<String>"))]
+        pub checkpoint_ids: Vec<Uuid>,
+    }
+
+    /// `GET /api/events/{id}/credentials/badges?ids=`: which badges to print.
+    pub struct BadgesQuery {
+        /// Comma-separated ids; missing: every active credential.
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional))]
+        pub ids: Option<String>,
     }
 }

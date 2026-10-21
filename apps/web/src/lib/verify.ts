@@ -44,6 +44,8 @@ export function verdictTone(verdict: VerifyVerdict): VerdictTone {
       return "warning";
     case "private":
       return "neutral";
+    case "credential":
+      return "warning";
     case "event_over":
     case "event_canceled":
     case "ticket_canceled":
@@ -54,5 +56,5 @@ export function verdictTone(verdict: VerifyVerdict): VerdictTone {
 
 /** Whether the QR was one of ours (signature verified), whatever the event's state. */
 export function isAuthentic(verdict: VerifyVerdict): boolean {
-  return verdict !== "not_ours" && verdict !== "private";
+  return verdict !== "not_ours" && verdict !== "private" && verdict !== "credential";
 }

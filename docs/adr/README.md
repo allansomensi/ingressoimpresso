@@ -120,4 +120,5 @@ feita e as consequências.
 | [0108](0108-resumo-semanal-dos-admins.md) | Resumo semanal dos admins por e-mail | Aceito |
 | [0109](0109-canais-dos-pronunciamentos.md) | Canais dos pronunciamentos: sininho, janela e e-mail | Aceito |
 | [0110](0110-lotacao-do-local.md) | Lotação do local | Aceito |
+| [0111](0111-credenciais.md) | Credenciais para staff, imprensa e artistas | Aceito |
 | [0112](0112-combos.md) | Combos: ingresso com itens ("entrada + 2 bebidas") | Aceito |
