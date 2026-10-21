@@ -19,6 +19,7 @@ export const TABS = [
   "report",
   "team",
   "credentials",
+  "certificates",
 ] as const;
 export type Tab = (typeof TABS)[number];
 
@@ -37,6 +38,7 @@ const SLUGS: Record<Tab, string> = {
   live: "ao-vivo",
   guests: "lista",
   credentials: "credenciais",
+  certificates: "certificados",
 };
 
 export function tabSlug(tab: Tab): string {
@@ -55,15 +57,15 @@ export const TAB_GROUPS = [
   { key: "prepare", tabs: ["overview", "design", "batches", "categories"] },
   { key: "sell", tabs: ["sellers", "digital", "voids", "files"] },
   { key: "day", tabs: ["door", "live", "guests", "report"] },
-  { key: "people", tabs: ["team", "credentials"] },
+  { key: "people", tabs: ["team", "credentials", "certificates"] },
 ] as const satisfies readonly { key: string; tabs: readonly Tab[] }[];
 
 /**
  * Tabs an event of `kind` shows (ADR 0084): consumption tokens have no guest list (nobody enters
- * by name at a stall) nor credentials (ADR 0111).
+ * by name at a stall), credentials (ADR 0111) nor certificates (ADR 0113).
  */
 export function tabsOf(kind: EventKind | undefined, tabs: readonly Tab[] = TABS): Tab[] {
-  return tabs.filter((tab) => kind !== "tokens" || (tab !== "guests" && tab !== "credentials"));
+  return tabs.filter((tab) => kind !== "tokens" || !(["guests", "credentials", "certificates"] as const).some((hidden) => hidden === tab));
 }
 
 /** The tab's name: "Ficha", "Produtos" and "Barracas" for consumption tokens (ADR 0084). */

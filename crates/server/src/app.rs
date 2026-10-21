@@ -32,8 +32,8 @@ use crate::routes::{
     two_factor, voids,
 };
 use crate::routes::{
-    admin_insights, alerts, cashier, checklist, checkpoints, courtesies, credentials, crm,
-    disputes, history, pix, public_page, series,
+    admin_insights, alerts, cashier, certificates, checklist, checkpoints, courtesies, credentials,
+    crm, disputes, history, pix, public_page, series,
 };
 use crate::routes::{mailings, referrals, revenue_reports, verify};
 use crate::state::AppState;
@@ -363,6 +363,23 @@ pub fn router(state: AppState) -> Router {
         .route("/credentials/{id}", put(credentials::update))
         .route("/credentials/{id}/revoke", post(credentials::revoke))
         .route("/credentials/{id}/restore", post(credentials::restore))
+        .route("/events/{id}/certificates", get(certificates::list))
+        .route(
+            "/events/{id}/certificates/settings",
+            put(certificates::update_settings),
+        )
+        .route("/events/{id}/certificates/issue", post(certificates::issue))
+        .route(
+            "/events/{id}/certificates/sample",
+            get(certificates::sample),
+        )
+        .route("/events/{id}/certificates/zip", get(certificates::zip))
+        .route(
+            "/certificates/{id}",
+            put(certificates::rename).delete(certificates::delete),
+        )
+        .route("/certificates/view", post(certificates::view))
+        .route("/certificates/pdf", post(certificates::pdf))
         .route("/events/{id}/door/accesses", post(door::create_access))
         .route("/door-accesses/{id}/revoke", post(door::revoke_access))
         .route("/door-accesses/{id}/link", post(door::new_link))

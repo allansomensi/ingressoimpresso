@@ -10,6 +10,7 @@ pub mod batches;
 pub mod billing;
 pub mod cashier;
 pub mod categories;
+pub mod certificates;
 pub mod changelog;
 pub mod checklist;
 pub mod checkpoints;

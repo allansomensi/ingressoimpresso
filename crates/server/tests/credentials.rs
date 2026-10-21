@@ -77,9 +77,18 @@ async fn credentials_open_their_areas_and_never_count_as_audience(pool: PgPool) 
 
     // Checked: a name, a role, a colour and somewhere to go.
     for (body, code) in [
-        (json!({ "name": "", "role": "Staff", "color": "#1d4ed8", "entrance": true, "checkpointIds": [] }), "invalid_credential_name"),
-        (json!({ "name": "Ana", "role": "Staff", "color": "azul", "entrance": true, "checkpointIds": [] }), "invalid_color"),
-        (json!({ "name": "Ana", "role": "Staff", "color": "#1d4ed8", "entrance": false, "checkpointIds": [] }), "invalid_credential_areas"),
+        (
+            json!({ "name": "", "role": "Staff", "color": "#1d4ed8", "entrance": true, "checkpointIds": [] }),
+            "invalid_credential_name",
+        ),
+        (
+            json!({ "name": "Ana", "role": "Staff", "color": "azul", "entrance": true, "checkpointIds": [] }),
+            "invalid_color",
+        ),
+        (
+            json!({ "name": "Ana", "role": "Staff", "color": "#1d4ed8", "entrance": false, "checkpointIds": [] }),
+            "invalid_credential_areas",
+        ),
     ] {
         assert_eq!(app.post(&url, &token, body).await.error_code(), code);
     }
@@ -92,7 +101,12 @@ async fn credentials_open_their_areas_and_never_count_as_audience(pool: PgPool) 
                     "color": "#1D4ED8", "entrance": true, "checkpointIds": [] }),
         )
         .await;
-    assert_eq!(press.status, StatusCode::CREATED, "{}", String::from_utf8_lossy(&press.bytes));
+    assert_eq!(
+        press.status,
+        StatusCode::CREATED,
+        "{}",
+        String::from_utf8_lossy(&press.bytes)
+    );
     let press = press.json();
     assert_eq!(press["number"], FIRST);
     assert_eq!(press["code"], "C-0001");
@@ -131,36 +145,74 @@ async fn credentials_open_their_areas_and_never_count_as_audience(pool: PgPool) 
     assert!(manifest_with(&app, &gate, &version).await["credentials"].is_null());
 
     // Let through at the entrance: recorded, never an entry.
-    let mut read = scan("00000000-0000-4000-8000-0000000e0001", Some(FIRST), "credential_admitted", 0);
-    assert_eq!(upload(&app, &gate, vec![read.clone()]).await, StatusCode::OK);
+    let mut read = scan(
+        "00000000-0000-4000-8000-0000000e0001",
+        Some(FIRST),
+        "credential_admitted",
+        0,
+    );
+    assert_eq!(
+        upload(&app, &gate, vec![read.clone()]).await,
+        StatusCode::OK
+    );
     read["id"] = json!("00000000-0000-4000-8000-0000000e0002");
     read["outcome"] = json!("rejected_credential");
     read["number"] = json!(FIRST + 1);
     assert_eq!(upload(&app, &gate, vec![read]).await, StatusCode::OK);
     // A credential's number is never a ticket's, nor the other way round.
     assert_eq!(
-        upload(&app, &gate, vec![scan("00000000-0000-4000-8000-0000000e0003", Some(FIRST), "admitted", 0)]).await,
+        upload(
+            &app,
+            &gate,
+            vec![scan(
+                "00000000-0000-4000-8000-0000000e0003",
+                Some(FIRST),
+                "admitted",
+                0
+            )]
+        )
+        .await,
         StatusCode::BAD_REQUEST
     );
     assert_eq!(
-        upload(&app, &gate, vec![scan("00000000-0000-4000-8000-0000000e0004", Some(7), "credential_admitted", 0)]).await,
+        upload(
+            &app,
+            &gate,
+            vec![scan(
+                "00000000-0000-4000-8000-0000000e0004",
+                Some(7),
+                "credential_admitted",
+                0
+            )]
+        )
+        .await,
         StatusCode::BAD_REQUEST
     );
-    let overview = app.get(&format!("/api/events/{event}/door"), &token).await.json();
+    let overview = app
+        .get(&format!("/api/events/{event}/door"), &token)
+        .await
+        .json();
     assert_eq!(overview["entryCount"], 0);
     let live = app
         .get(&format!("/api/events/{event}/door/live"), &token)
         .await
         .json();
     assert_eq!(live["entries"], 0);
-    assert_eq!(live["credentials"], json!({ "active": 2, "seen": 1, "refused": 1 }));
+    assert_eq!(
+        live["credentials"],
+        json!({ "active": 2, "seen": 1, "refused": 1 })
+    );
     let list = app.get(&url, &token).await.json();
     assert_eq!(list["credentials"][0]["reads"], 1);
 
     // Revoked: the phones hear of it, the badge sheet leaves it out.
     let artist_id = artist["id"].as_str().unwrap();
     let revoked = app
-        .post(&format!("/api/credentials/{artist_id}/revoke"), &token, json!({}))
+        .post(
+            &format!("/api/credentials/{artist_id}/revoke"),
+            &token,
+            json!({}),
+        )
         .await;
     assert_eq!(revoked.status, StatusCode::OK);
     let page = manifest_with(&app, &gate, &version).await;
@@ -172,8 +224,12 @@ async fn credentials_open_their_areas_and_never_count_as_audience(pool: PgPool) 
         )
         .await;
     assert_eq!(only.error_code(), "no_credentials");
-    app.post(&format!("/api/credentials/{artist_id}/restore"), &token, json!({}))
-        .await;
+    app.post(
+        &format!("/api/credentials/{artist_id}/restore"),
+        &token,
+        json!({}),
+    )
+    .await;
 
     // Edited: another role, no entrance.
     let edited = app

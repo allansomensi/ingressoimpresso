@@ -14,6 +14,12 @@ e não acompanha estes números.
 
 ### Adicionado
 
+- **Certificados de participação** para escolas, palestras e cursos: quem chegou pela lista de
+  nomes ou entrou com um ingresso com nome recebe um certificado em PDF, com o texto, a carga
+  horária, as assinaturas e a cor que você escolher (com prévia ao vivo). Cada pessoa tem um link
+  para abrir e baixar, que você copia ou manda pelo WhatsApp, e o QR do certificado confirma que
+  ele é verdadeiro. Também dá para baixar todos de uma vez num ZIP.
+
 - **Credenciais** para staff, imprensa e artistas: crachás em A4 (quatro por folha) com a função
   numa faixa colorida, o nome e um QR. A portaria deixa a credencial passar em qualquer dia, na
   entrada e só nas áreas escolhidas (os pontos de controle, como camarim e palco), e ela nunca

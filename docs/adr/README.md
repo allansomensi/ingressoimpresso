@@ -122,3 +122,4 @@ feita e as consequências.
 | [0110](0110-lotacao-do-local.md) | Lotação do local | Aceito |
 | [0111](0111-credenciais.md) | Credenciais para staff, imprensa e artistas | Aceito |
 | [0112](0112-combos.md) | Combos: ingresso com itens ("entrada + 2 bebidas") | Aceito |
+| [0113](0113-certificados-de-participacao.md) | Certificados de participação | Aceito |

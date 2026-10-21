@@ -101,6 +101,11 @@ function daysText(starts: readonly string[]): string {
   );
 }
 
+/** The days of an event in words, for the certificates' `{dias}` (ADR 0113). */
+export function dayList(starts: readonly string[]): string {
+  return daysText(starts);
+}
+
 function value(field: Field, event: EventFields): string {
   if (field === "evento") {
     return event.name.trim();

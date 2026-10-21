@@ -6873,3 +6873,109 @@ dto! {
         pub ids: Option<String>,
     }
 }
+
+dto_enum! {
+    /// Why a person gets a certificate (ADR 0113).
+    pub enum CertificateSource {
+        /// A guest of the list who arrived.
+        Guest,
+        /// A named ticket that entered.
+        Ticket,
+    }
+}
+
+dto! {
+    /// Who signs a certificate.
+    pub struct CertificateSignerDto {
+        /// Name (1–60 characters).
+        pub name: String,
+        /// Role ("Diretora"), up to 60.
+        pub role: Option<String>,
+    }
+
+    /// The words of the event's certificates (ADR 0113); `PUT /api/events/{id}/certificates/settings`.
+    pub struct CertificateSettingsDto {
+        /// Title (1–60).
+        pub title: String,
+        /// Text (1–600) with `{nome}`, `{evento}`, `{data}`, `{dias}`, `{local}`,
+        /// `{organizacao}` and `{carga}`.
+        pub body: String,
+        /// Workload ("8 horas"), up to 30; `null`: none.
+        pub workload: Option<String>,
+        /// Up to two.
+        pub signers: Vec<CertificateSignerDto>,
+        /// Colour of the frame (`#rrggbb`).
+        pub color: String,
+    }
+
+    /// A certificate already made.
+    pub struct IssuedCertificateDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// "CERT-0007".
+        pub code: String,
+        /// The token of its private link (`/certificado#<token>`).
+        pub token: String,
+        /// Times the person opened it.
+        pub open_count: i32,
+    }
+
+    /// A person who came, with or without a certificate yet.
+    pub struct CertificateParticipantDto {
+        /// Stable key ("g:<guest id>", "t:<number>").
+        pub key: String,
+        /// The name printed (the certificate's, once made).
+        pub name: String,
+        /// Where the name came from.
+        pub source: CertificateSource,
+        /// The ticket's number, printed; `null` for a guest.
+        pub ticket: Option<String>,
+        /// A phone to send the link to (the buyer's), when known.
+        pub phone: Option<String>,
+        /// The certificate, once made.
+        pub certificate: Option<IssuedCertificateDto>,
+    }
+
+    /// `GET /api/events/{id}/certificates`.
+    pub struct CertificatesDto {
+        /// The words (the defaults until saved).
+        pub settings: CertificateSettingsDto,
+        /// The organizer saved them.
+        pub saved: bool,
+        /// Everyone who came, by name, then certificates of people no longer in the list.
+        pub participants: Vec<CertificateParticipantDto>,
+    }
+
+    /// `PUT /api/certificates/{id}`: fixes the name printed.
+    pub struct CertificateNameBody {
+        /// 1–80 characters.
+        pub name: String,
+    }
+
+    /// `POST /api/certificates/view` and `/pdf` (no login): the token of the link.
+    pub struct CertificateTokenBody {
+        /// From the link's fragment.
+        pub token: String,
+    }
+
+    /// What the certificate's private page shows (ADR 0113).
+    pub struct PublicCertificateDto {
+        /// The person.
+        pub name: String,
+        /// "CERT-0007".
+        pub code: String,
+        /// The certificate's title.
+        pub title: String,
+        /// The event.
+        pub event: String,
+        /// When ("21 de novembro de 2026").
+        pub date: String,
+        /// Where.
+        pub venue: Option<String>,
+        /// Who organized it.
+        pub organization: Option<String>,
+        /// Workload.
+        pub workload: Option<String>,
+    }
+}
