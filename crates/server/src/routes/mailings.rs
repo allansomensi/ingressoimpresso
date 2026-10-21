@@ -59,6 +59,30 @@ async fn sendable(state: &AppState, id: Uuid) -> ApiResult<()> {
     }
 }
 
+/// How many an audience would reach and where the day's quota stands, for the warning shown
+/// before sending (ADR 0115).
+async fn estimate_for(
+    state: &AppState,
+    announcement_id: Uuid,
+    body: &AnnouncementEmailBody,
+) -> ApiResult<AnnouncementAudienceDto> {
+    let tag = audience_tag(body)?;
+    let (recipients, opted_out, already) =
+        mailings::audience_counts(state, announcement_id, body.audience, tag.as_deref()).await?;
+    let (sent_last_day, queued) = mailings::quota_now(state).await?;
+    let limit = state.config.mail_daily_limit;
+    Ok(AnnouncementAudienceDto {
+        recipients,
+        opted_out,
+        already,
+        daily_budget: mailings::daily_budget(state),
+        daily_limit: limit,
+        reserve: limit.map(mailings::reserve),
+        sent_last_day,
+        queued,
+    })
+}
+
 /// `GET /api/admin/announcements/{id}/email?audience=&tag=`: how many it would reach.
 pub async fn preview(
     State(state): State<AppState>,
@@ -67,15 +91,18 @@ pub async fn preview(
     Query(body): Query<AnnouncementEmailBody>,
 ) -> ApiResult<Json<AnnouncementAudienceDto>> {
     require_admin(&user)?;
-    let tag = audience_tag(&body)?;
-    let (recipients, opted_out, already) =
-        mailings::audience_counts(&state, id, body.audience, tag.as_deref()).await?;
-    Ok(Json(AnnouncementAudienceDto {
-        recipients,
-        opted_out,
-        already,
-        daily_budget: mailings::daily_budget(&state),
-    }))
+    Ok(Json(estimate_for(&state, id, &body).await?))
+}
+
+/// `GET /api/admin/mailings/estimate?audience=&tag=`: the same for an announcement not saved yet
+/// (nobody got it before).
+pub async fn estimate(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Query(body): Query<AnnouncementEmailBody>,
+) -> ApiResult<Json<AnnouncementAudienceDto>> {
+    require_admin(&user)?;
+    Ok(Json(estimate_for(&state, Uuid::nil(), &body).await?))
 }
 
 /// `POST /api/admin/announcements/{id}/email`: queues it for the audience; whoever already got

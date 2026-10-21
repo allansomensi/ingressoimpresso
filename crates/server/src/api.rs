@@ -4,7 +4,7 @@
 //! Field names are `camelCase`, enum values `snake_case`, timestamps RFC 3339 strings.
 
 use serde::{Deserialize, Serialize};
-use ticket_render::TicketDesign;
+use ticket_render::{CertificateDesign, TicketDesign};
 use time::OffsetDateTime;
 use uuid::Uuid;
 
@@ -6725,6 +6725,18 @@ dto! {
         pub already: i64,
         /// Announcement e-mails a day within the quota; none without a daily limit.
         pub daily_budget: Option<i32>,
+        /// `MAIL_DAILY_LIMIT`: every e-mail of a rolling 24 hours; none without a limit.
+        #[cfg_attr(feature = "ts", ts(type = "number | null"))]
+        pub daily_limit: Option<i64>,
+        /// The part of the quota kept for sign-in codes, invitations and payments.
+        #[cfg_attr(feature = "ts", ts(type = "number | null"))]
+        pub reserve: Option<i64>,
+        /// E-mails sent in the last 24 hours (every kind).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub sent_last_day: i64,
+        /// Announcement e-mails of other sendings still waiting, which go out first.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub queued: i64,
     }
 
     /// A sending of an announcement by e-mail.
@@ -6893,27 +6905,27 @@ dto_enum! {
 }
 
 dto! {
-    /// Who signs a certificate.
-    pub struct CertificateSignerDto {
-        /// Name (1–60 characters).
-        pub name: String,
-        /// Role ("Diretora"), up to 60.
-        pub role: Option<String>,
+    /// The design of the event's certificates (ADRs 0113, 0114).
+    pub struct CertificateSettingsDto {
+        /// Front, back and what both share (the default "Clássico" until saved).
+        pub design: CertificateDesign,
+        /// Workload ("8 horas"), the `{carga}` field, up to 30; `null`: none.
+        pub workload: Option<String>,
+        /// The certificate's uploaded images (logos, signatures, backgrounds), by index.
+        pub images: Vec<ArtDto>,
+        /// The organization, for its logo in the preview.
+        pub organization: PublicOrganizationDto,
     }
 
-    /// The words of the event's certificates (ADR 0113); `PUT /api/events/{id}/certificates/settings`.
-    pub struct CertificateSettingsDto {
-        /// Title (1–60).
-        pub title: String,
-        /// Text (1–600) with `{nome}`, `{evento}`, `{data}`, `{dias}`, `{local}`,
-        /// `{organizacao}` and `{carga}`.
-        pub body: String,
-        /// Workload ("8 horas"), up to 30; `null`: none.
+    /// `PUT /api/events/{id}/certificates/settings`.
+    pub struct CertificateSettingsBody {
+        /// The design; its images point into `image_ids`.
+        pub design: CertificateDesign,
+        /// Workload, up to 30 characters; `null`: none.
         pub workload: Option<String>,
-        /// Up to two.
-        pub signers: Vec<CertificateSignerDto>,
-        /// Colour of the frame (`#rrggbb`).
-        pub color: String,
+        /// Images uploaded to this event (`POST /api/events/{id}/art`), up to 8.
+        #[cfg_attr(feature = "ts", ts(type = "Array<string>"))]
+        pub image_ids: Vec<Uuid>,
     }
 
     /// A certificate already made.
@@ -6947,7 +6959,7 @@ dto! {
 
     /// `GET /api/events/{id}/certificates`.
     pub struct CertificatesDto {
-        /// The words (the defaults until saved).
+        /// The design (the default until saved).
         pub settings: CertificateSettingsDto,
         /// The organizer saved them.
         pub saved: bool,

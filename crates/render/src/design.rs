@@ -231,6 +231,10 @@ pub enum FontChoice {
     Casual,
     /// Alfa Slab One: bold slab serif (festa junina, country).
     Slab,
+    /// EB Garamond: classic book serif with bold and italic (certificates, invitations).
+    Classic,
+    /// Cinzel: engraved Roman capitals (diplomas, formal titles).
+    Roman,
 }
 
 /// Horizontal alignment.
@@ -826,11 +830,11 @@ fn overlaps(a: (f64, f64, f64, f64), b: (f64, f64, f64, f64)) -> bool {
     a.0 < b.0 + b.2 && b.0 < a.0 + a.2 && a.1 < b.1 + b.3 && b.1 < a.1 + a.3
 }
 
-fn within(value: f64, (min, max): (f64, f64)) -> bool {
+pub(crate) fn within(value: f64, (min, max): (f64, f64)) -> bool {
     value.is_finite() && value >= min && value <= max
 }
 
-fn is_hex_color(value: &str) -> bool {
+pub(crate) fn is_hex_color(value: &str) -> bool {
     value.len() == 7
         && value.starts_with('#')
         && value.chars().skip(1).all(|c| c.is_ascii_hexdigit())

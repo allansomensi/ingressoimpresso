@@ -19,4 +19,20 @@ already: number,
 /**
  * Announcement e-mails a day within the quota; none without a daily limit.
  */
-dailyBudget: number | null, };
+dailyBudget: number | null, 
+/**
+ * `MAIL_DAILY_LIMIT`: every e-mail of a rolling 24 hours; none without a limit.
+ */
+dailyLimit: number | null, 
+/**
+ * The part of the quota kept for sign-in codes, invitations and payments.
+ */
+reserve: number | null, 
+/**
+ * E-mails sent in the last 24 hours (every kind).
+ */
+sentLastDay: number, 
+/**
+ * Announcement e-mails of other sendings still waiting, which go out first.
+ */
+queued: number, };

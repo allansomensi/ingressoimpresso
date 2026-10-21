@@ -884,12 +884,12 @@ pub async fn update(
 }
 
 #[derive(Clone)]
-struct ArtRow {
-    id: Uuid,
+pub(crate) struct ArtRow {
+    pub(crate) id: Uuid,
     content_type: String,
     width_px: i32,
     height_px: i32,
-    moderation_status: String,
+    pub(crate) moderation_status: String,
 }
 
 impl From<ArtRow> for ArtDto {
@@ -917,7 +917,11 @@ async fn art_of_event(state: &AppState, event_id: Uuid, art_id: Uuid) -> ApiResu
 }
 
 /// Several arts of the event in one read, in the order given; any unknown id is an error.
-async fn arts_of_event(state: &AppState, event_id: Uuid, ids: &[Uuid]) -> ApiResult<Vec<ArtRow>> {
+pub(crate) async fn arts_of_event(
+    state: &AppState,
+    event_id: Uuid,
+    ids: &[Uuid],
+) -> ApiResult<Vec<ArtRow>> {
     if ids.is_empty() {
         return Ok(Vec::new());
     }
@@ -1120,7 +1124,8 @@ pub async fn upload_art(
            and b.created_at < now() - interval '2 hours'
            and b.moderation_status not in ('flagged', 'rejected')
            and not exists (select 1 from ticket_designs d
-                           where d.art_blob_id = b.id or b.id = any(d.sponsor_blob_ids))"#,
+                           where d.art_blob_id = b.id or b.id = any(d.sponsor_blob_ids))
+           and not exists (select 1 from certificate_settings c where b.id = any(c.image_blob_ids))"#,
         event_id,
         digest,
     )

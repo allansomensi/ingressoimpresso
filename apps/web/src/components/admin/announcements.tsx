@@ -1,13 +1,14 @@
 "use client";
 
 import type {
+  AnnouncementAudienceDto,
   AdminAnnouncementDto,
   AnnouncementAudience,
   AnnouncementBody,
   AnnouncementLevel,
   AnnouncementStatus,
 } from "@ingressoimpresso/api-types";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Archive,
   Bell,
@@ -35,8 +36,10 @@ import {
 } from "@/components/admin/announcement-channels";
 import {
   AnnouncementEmailDialog,
+  MailQuotaNotice,
   MailingLine,
   mailingRunning,
+  needsQuotaAcknowledgment,
 } from "@/components/admin/announcement-email";
 import { LEVEL_ICON, LEVEL_TONE } from "@/components/panel/inbox";
 import {
@@ -115,6 +118,20 @@ function Editor({
   const [startsAt, setStartsAt] = useState(toLocalInput(item?.startsAt));
   const [endsAt, setEndsAt] = useState(toLocalInput(item?.endsAt));
   const published = item !== null && item.publishedAt !== null;
+  // What the e-mail will do to the day's quota (ADR 0115), with today's numbers.
+  const [acknowledged, setAcknowledged] = useState(false);
+  const audienceReady = audience !== "tagged" || tag !== "";
+  const quotaQuery = `audience=${audience}${audience === "tagged" ? `&tag=${encodeURIComponent(tag)}` : ""}`;
+  const quota = useQuery({
+    queryKey: ["admin", "announcement-audience", item?.id ?? "new", audience, tag],
+    queryFn: () =>
+      api<AnnouncementAudienceDto>(
+        item === null ? `/api/admin/mailings/estimate?${quotaQuery}` : `/api/admin/announcements/${item.id}/email?${quotaQuery}`,
+      ),
+    enabled: channels.email && !emailed && audienceReady,
+    placeholderData: keepPreviousData,
+  });
+  const blockedByQuota = channels.email && !emailed && needsQuotaAcknowledgment(quota.data) && !acknowledged;
   const save = useMutation({
     mutationFn: (publish: boolean) => {
       const payload: AnnouncementBody = {
@@ -184,7 +201,7 @@ function Editor({
           )}
           <Button
             icon={<Send />}
-            disabled={!valid}
+            disabled={!valid || blockedByQuota}
             loading={save.isPending && save.variables === true}
             onClick={() => save.mutate(true)}
           >
@@ -228,8 +245,12 @@ function Editor({
               onChange={(nextAudience, nextTag) => {
                 setAudience(nextAudience);
                 setTag(nextTag);
+                setAcknowledged(false);
               }}
             />
+          )}
+          {channels.email && !emailed && audienceReady && quota.data !== undefined && (
+            <MailQuotaNotice preview={quota.data} acknowledged={acknowledged} onAcknowledge={setAcknowledged} scheduled />
           )}
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label={t.level}>

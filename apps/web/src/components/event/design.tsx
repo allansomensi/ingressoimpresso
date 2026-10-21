@@ -111,6 +111,7 @@ import type { Palette, TicketTemplate } from "@/lib/templates/catalog";
 import { canDo } from "@/lib/team";
 import { blockValue } from "@/lib/ticket-fields";
 import { useUnsavedChanges } from "@/lib/unsaved";
+import { useHistory } from "@/lib/use-history";
 import { common as commonTexts } from "@/texts/pt-BR/common";
 import { ticketCanvas as ticketCanvasTexts } from "@/texts/pt-BR/ticket-canvas";
 import { event as eventTexts } from "@/texts/pt-BR/event";
@@ -226,51 +227,6 @@ interface Draft {
   sponsors: ArtDto[];
 }
 
-interface History {
-  past: Draft[];
-  present: Draft;
-  future: Draft[];
-  /** Changes with the same key in quick succession (typing, dragging) are one undo step. */
-  key: string | null;
-  at: number;
-}
-
-const HISTORY_LIMIT = 60;
-const MERGE_MS = 1500;
-
-function useDraftHistory(initial: Draft) {
-  const [history, setHistory] = useState<History>({ past: [], present: initial, future: [], key: null, at: 0 });
-  const change = useCallback((next: (draft: Draft) => Draft, key: string | null = null) => {
-    setHistory((state) => {
-      const now = Date.now();
-      // A drag (`drag-…`, one key per gesture) is one step however long it takes.
-      const merge = key !== null && key === state.key && (key.startsWith("drag-") || now - state.at < MERGE_MS);
-      return {
-        past: merge ? state.past : [...state.past.slice(-HISTORY_LIMIT), state.present],
-        present: next(state.present),
-        future: [],
-        key,
-        at: now,
-      };
-    });
-  }, []);
-  const undo = useCallback(() => {
-    setHistory((state) => {
-      const previous = state.past.at(-1);
-      return previous === undefined
-        ? state
-        : { past: state.past.slice(0, -1), present: previous, future: [state.present, ...state.future], key: null, at: 0 };
-    });
-  }, []);
-  const redo = useCallback(() => {
-    setHistory((state) => {
-      const [next, ...rest] = state.future;
-      return next === undefined ? state : { past: [...state.past, state.present], present: next, future: rest, key: null, at: 0 };
-    });
-  }, []);
-  return { draft: history.present, change, undo, redo, canUndo: history.past.length > 0, canRedo: history.future.length > 0 };
-}
-
 function issueElement(target: IssueTarget): TicketElement | null {
   return target.kind === "number" || target.kind === "qr" || target.kind === "sponsors" || target.kind === "text" ? target : null;
 }
@@ -338,7 +294,7 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
   const queryClient = useQueryClient();
   const confirm = useConfirm();
   const initialDraft = useMemo<Draft>(() => ({ design: initial.design, art: initial.art, sponsors: initial.sponsors }), [initial]);
-  const { draft, change, undo, redo, canUndo, canRedo } = useDraftHistory(initialDraft);
+  const { draft, change, undo, redo, canUndo, canRedo } = useHistory(initialDraft);
   const { design, art, sponsors } = draft;
   // The organization's logo for the templates in its colours (ADR 0100), kept on the device.
   const organizationLogo = useLogo(initial.organization.logoPath);

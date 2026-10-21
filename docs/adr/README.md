@@ -123,3 +123,5 @@ feita e as consequências.
 | [0111](0111-credenciais.md) | Credenciais para staff, imprensa e artistas | Aceito |
 | [0112](0112-combos.md) | Combos: ingresso com itens ("entrada + 2 bebidas") | Aceito |
 | [0113](0113-certificados-de-participacao.md) | Certificados de participação | Aceito |
+| [0114](0114-certificado-com-editor.md) | Certificado com editor, modelos, imagens e verso | Aceito |
+| [0115](0115-aviso-de-cota-nos-pronunciamentos.md) | Aviso de cota antes de mandar um pronunciamento por e-mail | Aceito |

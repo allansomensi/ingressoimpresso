@@ -28,6 +28,7 @@ import {
 import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { shortDateTime } from "@/lib/format";
+import { mailOutlook } from "@/lib/mail-quota";
 import { admin as adminTexts } from "@/texts/pt-BR/admin";
 import { common as commonTexts } from "@/texts/pt-BR/common";
 
@@ -100,6 +101,83 @@ export function MailingLine({ mailing }: { mailing: AnnouncementMailingDto }) {
   );
 }
 
+/**
+ * What an announcement e-mail does to the day's quota (ADR 0115): a line when it fits with room,
+ * a warning when it nearly uses the announcements' part, and a stronger one (with a box to tick)
+ * when part of it waits for the next days and the quota stays at its limit meanwhile.
+ */
+export function MailQuotaNotice({
+  preview,
+  acknowledged,
+  onAcknowledge,
+  scheduled = false,
+}: {
+  preview: AnnouncementAudienceDto;
+  acknowledged: boolean;
+  onAcknowledge: (value: boolean) => void;
+  /** The e-mail goes out when the announcement starts: the numbers are of now. */
+  scheduled?: boolean;
+}) {
+  const q = t.quota;
+  const outlook = mailOutlook(preview);
+  if (outlook.level === "none" || preview.recipients === 0 || !Number.isFinite(outlook.days)) {
+    return null;
+  }
+  const usage = (
+    <span className="block text-xs opacity-90">
+      {q.usage(preview.sentLastDay, outlook.limit)}
+      {outlook.queued > 0 && ` ${q.queued(outlook.queued)}`}
+      {scheduled && ` ${q.scheduled}`}
+    </span>
+  );
+  if (outlook.level === "ok") {
+    return (
+      <p className="text-xs text-fg-muted">
+        {q.usage(preview.sentLastDay, outlook.limit)} {q.okLine(outlook.leftAfter)}
+        {outlook.queued > 0 && ` ${q.queued(outlook.queued)}`}
+        {scheduled && ` ${q.scheduled}`}
+      </p>
+    );
+  }
+  if (outlook.level === "near") {
+    return (
+      <Alert tone="warning" title={q.nearTitle}>
+        <span className="flex flex-col gap-1.5">
+          <span>{q.nearBody(outlook.leftAfter)}</span>
+          <span>{q.risk}</span>
+          {usage}
+        </span>
+      </Alert>
+    );
+  }
+  return (
+    <Alert tone="danger" title={q.overTitle}>
+      <span className="flex flex-col gap-2">
+        <span>{q.overBody(outlook.today, preview.recipients - outlook.today, outlook.days, outlook.budget)}</span>
+        <span>{q.overConsequences(outlook.reserve)}</span>
+        <span>{q.risk}</span>
+        {usage}
+        <label className="mt-1 flex cursor-pointer items-start gap-2.5 font-medium">
+          <input
+            type="checkbox"
+            className="mt-0.5 size-4 shrink-0 accent-[var(--brand)]"
+            checked={acknowledged}
+            onChange={(event) => {
+              onAcknowledge(event.target.checked);
+            }}
+          />
+          <span>{q.acknowledge}</span>
+        </label>
+      </span>
+    </Alert>
+  );
+}
+
+/** Whether a sending must be acknowledged before it goes (it does not fit the day's quota). */
+export function needsQuotaAcknowledgment(preview: AnnouncementAudienceDto | undefined): boolean {
+  return preview !== undefined && preview.recipients > 0 && mailOutlook(preview).level === "over";
+}
+
 /** Sends a published announcement by e-mail to an audience (ADR 0107). */
 export function AnnouncementEmailDialog({
   item,
@@ -111,6 +189,7 @@ export function AnnouncementEmailDialog({
   const queryClient = useQueryClient();
   const [audience, setAudience] = useState<AnnouncementAudience>("all");
   const [tag, setTag] = useState("");
+  const [acknowledged, setAcknowledged] = useState(false);
   const tags = useQuery({
     queryKey: ["admin", "organization-tags"],
     queryFn: () => api<AdminTagCountDto[]>("/api/admin/organizations/tags"),
@@ -166,7 +245,7 @@ export function AnnouncementEmailDialog({
           <Button
             icon={<Mail />}
             loading={send.isPending}
-            disabled={!ready || count === 0 || perDay === 0}
+            disabled={!ready || count === 0 || perDay === 0 || (needsQuotaAcknowledgment(preview.data) && !acknowledged)}
             onClick={() => send.mutate()}
           >
             {t.confirm(count)}
@@ -196,6 +275,7 @@ export function AnnouncementEmailDialog({
                 checked={audience === option}
                 onChange={() => {
                   setAudience(option);
+                  setAcknowledged(false);
                 }}
                 className="mt-1 accent-[var(--color-brand)]"
               />
@@ -219,6 +299,7 @@ export function AnnouncementEmailDialog({
                 value={tag}
                 onChange={(event) => {
                   setTag(event.target.value);
+                  setAcknowledged(false);
                 }}
               >
                 <option value="">—</option>
@@ -262,6 +343,9 @@ export function AnnouncementEmailDialog({
           </div>
         )}
         {perDay === 0 && <Alert tone="warning">{t.noBudget}</Alert>}
+        {ready && preview.data !== undefined && perDay !== 0 && (
+          <MailQuotaNotice preview={preview.data} acknowledged={acknowledged} onAcknowledge={setAcknowledged} />
+        )}
         <Button
           variant="ghost"
           size="sm"

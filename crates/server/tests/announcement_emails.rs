@@ -243,6 +243,12 @@ async fn the_quota_share_holds_announcements_and_a_sending_can_stop(pool: PgPool
         .await
         .json();
     assert_eq!(preview["dailyBudget"], 0);
+    // Where the quota stands, for the warning before sending (ADR 0115): the codes of the two
+    // sign-ins already count.
+    assert_eq!(preview["dailyLimit"], 5);
+    assert_eq!(preview["reserve"], 5);
+    assert!(preview["sentLastDay"].as_i64().unwrap() >= 2, "{preview}");
+    assert_eq!(preview["queued"], 0);
     let sent = app
         .post(
             &format!("/api/admin/announcements/{id}/email"),
@@ -254,6 +260,21 @@ async fn the_quota_share_holds_announcements_and_a_sending_can_stop(pool: PgPool
     assert_eq!(mailings::drain(&app.state).await.unwrap(), Step::Budget);
     assert_eq!(received(&app).len(), 0);
     assert_eq!(sent["mailing"]["pending"], 2);
+    // An announcement not saved yet: the same numbers, and the sending above waits first.
+    let estimate = app
+        .get("/api/admin/mailings/estimate?audience=owners", &admin)
+        .await
+        .json();
+    assert_eq!(estimate["recipients"], 2);
+    assert_eq!(estimate["already"], 0);
+    assert_eq!(estimate["queued"], 2);
+    let organizer = app.login("outra@exemplo.com").await;
+    assert_eq!(
+        app.get("/api/admin/mailings/estimate?audience=all", &organizer)
+            .await
+            .status,
+        StatusCode::FORBIDDEN
+    );
     // Another sending of the same announcement waits for this one.
     assert_eq!(
         app.post(

@@ -1,12 +1,13 @@
 "use client";
 
-import type { CertificateParticipantDto, CertificateSettingsDto, CertificatesDto, EventDto } from "@ingressoimpresso/api-types";
+import type { CertificateParticipantDto, CertificatesDto, EventDto } from "@ingressoimpresso/api-types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Award, Copy, Download, Eye, MessageCircle, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { Award, Copy, Download, MessageCircle, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
 import { useEventAccess, useEventTexts } from "@/components/event/access";
+import { CertificateEditor } from "@/components/event/certificate-editor";
 import {
   Button,
   Card,
@@ -14,24 +15,18 @@ import {
   Dialog,
   EmptyState,
   ErrorMessage,
-  Field,
   Input,
   List,
   ListItem,
   LoadingBlock,
   Menu,
   MenuItem,
-  Textarea,
   buttonClass,
   errorMessage,
   useConfirm,
 } from "@/components/ui";
 import { api, fetchBlobUrl } from "@/lib/api";
-import { CERTIFICATE_FIELDS, fillCertificate } from "@/lib/certificates";
-import { cn } from "@/lib/cn";
-import { CREDENTIAL_COLORS } from "@/lib/credentials";
 import { copyText, whatsappUrl } from "@/lib/share";
-import { useUnsavedChanges } from "@/lib/unsaved";
 import { common as commonTexts } from "@/texts/pt-BR/common";
 
 import { TabHeader } from "./tab-header";
@@ -80,9 +75,9 @@ export function CertificatesTab({ eventId, event }: { eventId: string; event: Ev
     onError,
   });
   const download = useMutation({
-    mutationFn: (what: "zip" | "sample") => fetchBlobUrl(`/api/events/${eventId}/certificates/${what}`),
-    onSuccess: (url, what) => {
-      save(url, what === "zip" ? t.zipFile : t.sampleFile);
+    mutationFn: () => fetchBlobUrl(`/api/events/${eventId}/certificates/zip`),
+    onSuccess: (url) => {
+      save(url, t.zipFile);
     },
     onError,
   });
@@ -127,9 +122,9 @@ export function CertificatesTab({ eventId, event }: { eventId: string; event: Ev
               <Button
                 variant="secondary"
                 icon={<Download />}
-                loading={download.isPending && download.variables === "zip"}
+                loading={download.isPending}
                 onClick={() => {
-                  download.mutate("zip");
+                  download.mutate();
                 }}
               >
                 {t.zip}
@@ -138,21 +133,17 @@ export function CertificatesTab({ eventId, event }: { eventId: string; event: Ev
           </>
         }
       />
-      <div className="grid items-start gap-6 lg:grid-cols-[1.1fr_1fr]">
-        <ModelCard
-          key={JSON.stringify(overview.data.settings)}
-          eventId={eventId}
-          event={event}
-          settings={overview.data.settings}
-          editable={editable}
-          sampling={download.isPending && download.variables === "sample"}
-          onSample={() => {
-            download.mutate("sample");
-          }}
-          onSaved={(data) => {
-            queryClient.setQueryData(key, data);
-          }}
-        />
+      <CertificateEditor
+        eventId={eventId}
+        event={event}
+        settings={overview.data.settings}
+        wasSaved={overview.data.saved}
+        editable={editable}
+        onSaved={(data) => {
+          queryClient.setQueryData(key, data);
+        }}
+      />
+      <div>
         <Card>
           <CardHeader title={t.people} description={t.peopleCount(people.length)} icon={Award} />
           {people.length === 0 ? (
@@ -252,204 +243,6 @@ export function CertificatesTab({ eventId, event }: { eventId: string; event: Ev
         />
       )}
     </div>
-  );
-}
-
-/** The words of the certificate, with a live preview (the PDF is the "Ver exemplo"). */
-function ModelCard({
-  eventId,
-  event,
-  settings,
-  editable,
-  sampling,
-  onSample,
-  onSaved,
-}: {
-  eventId: string;
-  event: EventDto;
-  settings: CertificateSettingsDto;
-  editable: boolean;
-  sampling: boolean;
-  onSample: () => void;
-  onSaved: (data: CertificatesDto) => void;
-}) {
-  const t = useEventTexts().certificates;
-  const [draft, setDraft] = useState<CertificateSettingsDto>(settings);
-  const dirty = JSON.stringify(draft) !== JSON.stringify(settings);
-  useUnsavedChanges(dirty);
-  const save = useMutation({
-    mutationFn: () =>
-      api<CertificatesDto>(`/api/events/${eventId}/certificates/settings`, {
-        method: "PUT",
-        body: { ...draft, signers: draft.signers.filter((signer) => signer.name.trim() !== "") },
-      }),
-    onSuccess: (data) => {
-      toast.success(t.saved);
-      onSaved(data);
-    },
-  });
-  const signer = (index: number) => draft.signers[index] ?? { name: "", role: null };
-  const setSigner = (index: number, patch: Partial<{ name: string; role: string | null }>) => {
-    const signers = [signer(0), signer(1)].map((item, at) => (at === index ? { ...item, ...patch } : item));
-    setDraft({ ...draft, signers });
-  };
-  const days = event.days.length > 0 ? event.days.map((day) => day.startsAt) : [event.startsAt];
-  const preview = fillCertificate(draft.body, {
-    name: t.sampleName,
-    event: event.name,
-    days,
-    venue: event.venue,
-    organization: null,
-    workload: draft.workload,
-  });
-  const insert = (field: string) => {
-    setDraft({ ...draft, body: `${draft.body}${draft.body.endsWith(" ") || draft.body === "" ? "" : " "}{${field}}` });
-  };
-  return (
-    <Card className="flex flex-col gap-4">
-      <CardHeader
-        title={t.model}
-        description={t.modelHint}
-        icon={Pencil}
-        actions={
-          <Button variant="ghost" size="sm" icon={<Eye />} loading={sampling} onClick={onSample}>
-            {t.sample}
-          </Button>
-        }
-      />
-      {/* The preview: the frame, the title and the text with the name in bold. */}
-      <div className="rounded-xl border-[6px] bg-white p-5 text-center text-[#1b1a24] shadow-xs" style={{ borderColor: draft.color }}>
-        <p className="text-[10px] font-bold tracking-[0.3em] uppercase" style={{ color: draft.color }}>
-          {t.preview}
-        </p>
-        <p className="mt-1 font-serif text-xl font-bold">{draft.title}</p>
-        <p className="mt-3 text-sm leading-relaxed">
-          {preview.map((segment, index) =>
-            segment.strong ? (
-              <strong key={index} className="text-base">
-                {segment.text}
-              </strong>
-            ) : (
-              <span key={index}>{segment.text}</span>
-            ),
-          )}
-        </p>
-        {draft.workload !== null && draft.workload !== "" && <p className="mt-2 text-xs text-[#5b5a6b]">{draft.workload}</p>}
-      </div>
-      <Field label={t.title}>
-        <Input
-          value={draft.title}
-          maxLength={60}
-          disabled={!editable}
-          onChange={(change) => {
-            setDraft({ ...draft, title: change.target.value });
-          }}
-        />
-      </Field>
-      <div className="flex flex-col gap-2">
-        <Field label={t.body} hint={t.bodyHint}>
-          <Textarea
-            value={draft.body}
-            maxLength={600}
-            rows={4}
-            disabled={!editable}
-            onChange={(change) => {
-              setDraft({ ...draft, body: change.target.value });
-            }}
-          />
-        </Field>
-        {editable && (
-          <div className="flex flex-wrap gap-1.5">
-            {CERTIFICATE_FIELDS.map((field) => (
-              <button
-                key={field}
-                type="button"
-                onClick={() => {
-                  insert(field);
-                }}
-                className="relative rounded-full border border-border px-3 py-1 text-xs text-fg-muted transition touch-target hover:bg-surface-2 hover:text-fg active:bg-surface-3"
-              >
-                {t.fieldLabels[field] ?? field}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-      <Field label={t.workload} optional>
-        <Input
-          value={draft.workload ?? ""}
-          maxLength={30}
-          disabled={!editable}
-          placeholder={t.workloadPlaceholder}
-          onChange={(change) => {
-            setDraft({ ...draft, workload: change.target.value === "" ? null : change.target.value });
-          }}
-        />
-      </Field>
-      <fieldset className="flex flex-col gap-2">
-        <legend className="mb-2 text-sm font-medium text-fg">{t.signers}</legend>
-        {[0, 1].map((index) => (
-          <div key={index} className="grid gap-2 sm:grid-cols-2">
-            <Input
-              aria-label={t.signerName(index + 1)}
-              placeholder={t.signerName(index + 1)}
-              value={signer(index).name}
-              maxLength={60}
-              disabled={!editable}
-              onChange={(change) => {
-                setSigner(index, { name: change.target.value });
-              }}
-            />
-            <Input
-              aria-label={t.signerRole(index + 1)}
-              placeholder={t.signerRolePlaceholder}
-              value={signer(index).role ?? ""}
-              maxLength={60}
-              disabled={!editable}
-              onChange={(change) => {
-                setSigner(index, { role: change.target.value === "" ? null : change.target.value });
-              }}
-            />
-          </div>
-        ))}
-      </fieldset>
-      <fieldset className="flex flex-col gap-2">
-        <legend className="mb-2 text-sm font-medium text-fg">{t.color}</legend>
-        <div className="flex flex-wrap gap-2">
-          {["#5b3df5", ...CREDENTIAL_COLORS].map((option) => (
-            <button
-              key={option}
-              type="button"
-              aria-label={option}
-              aria-pressed={draft.color === option}
-              disabled={!editable}
-              onClick={() => {
-                setDraft({ ...draft, color: option });
-              }}
-              className={cn(
-                "relative size-9 rounded-full ring-offset-2 ring-offset-surface transition touch-target pointer-coarse:size-11",
-                draft.color === option ? "ring-2 ring-brand" : "ring-1 ring-black/10",
-              )}
-              style={{ backgroundColor: option }}
-            />
-          ))}
-        </div>
-      </fieldset>
-      <ErrorMessage error={save.error} />
-      {editable && (
-        <div className="flex justify-end">
-          <Button
-            disabled={!dirty || draft.title.trim() === "" || draft.body.trim() === ""}
-            loading={save.isPending}
-            onClick={() => {
-              save.mutate();
-            }}
-          >
-            {t.save}
-          </Button>
-        </div>
-      )}
-    </Card>
   );
 }
 

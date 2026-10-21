@@ -715,7 +715,8 @@ async fn prune(pool: &PgPool) -> ApiResult<()> {
            and b.created_at < now() - interval '2 hours'
            and b.moderation_status not in ('flagged', 'rejected')
            and not exists (select 1 from ticket_designs d
-                           where d.art_blob_id = b.id or b.id = any(d.sponsor_blob_ids))"#
+                           where d.art_blob_id = b.id or b.id = any(d.sponsor_blob_ids))
+           and not exists (select 1 from certificate_settings c where b.id = any(c.image_blob_ids))"#
     )
     .execute(pool)
     .await?;

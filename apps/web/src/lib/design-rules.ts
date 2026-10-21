@@ -51,10 +51,15 @@ export const FONT_FAMILIES: Record<FontChoice, string> = {
   script: '"Ticket Great Vibes"',
   casual: '"Ticket Pacifico"',
   slab: '"Ticket Alfa Slab One"',
+  classic: '"Ticket EB Garamond"',
+  roman: '"Ticket Cinzel"',
 };
 
 /** Typefaces with a real bold variant. */
-export const FONTS_WITH_BOLD: readonly FontChoice[] = ["sans", "mono"];
+export const FONTS_WITH_BOLD: readonly FontChoice[] = ["sans", "mono", "classic", "roman"];
+
+/** Typefaces with a real italic variant. */
+export const FONTS_WITH_ITALIC: readonly FontChoice[] = ["classic"];
 
 /** What an issue points at, to highlight it on the canvas. */
 export type IssueTarget =

@@ -7,7 +7,7 @@ import type { CertificateSettingsDto } from "./CertificateSettingsDto";
  */
 export type CertificatesDto = { 
 /**
- * The words (the defaults until saved).
+ * The design (the default until saved).
  */
 settings: CertificateSettingsDto, 
 /**
