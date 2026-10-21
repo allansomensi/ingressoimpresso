@@ -6725,6 +6725,18 @@ dto! {
         pub already: i64,
         /// Announcement e-mails a day within the quota; none without a daily limit.
         pub daily_budget: Option<i32>,
+        /// `MAIL_DAILY_LIMIT`: every e-mail of a rolling 24 hours; none without a limit.
+        #[cfg_attr(feature = "ts", ts(type = "number | null"))]
+        pub daily_limit: Option<i64>,
+        /// The part of the quota kept for sign-in codes, invitations and payments.
+        #[cfg_attr(feature = "ts", ts(type = "number | null"))]
+        pub reserve: Option<i64>,
+        /// E-mails sent in the last 24 hours (every kind).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub sent_last_day: i64,
+        /// Announcement e-mails of other sendings still waiting, which go out first.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub queued: i64,
     }
 
     /// A sending of an announcement by e-mail.

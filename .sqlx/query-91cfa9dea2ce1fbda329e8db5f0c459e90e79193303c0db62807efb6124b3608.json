@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select\n             (select count(*) from mail_sends\n              where created_at > now() - interval '24 hours' and status <> 'quota') as \"sent!\",\n             (select count(*) from announcement_mail_recipients r\n              join announcement_mailings m on m.id = r.mailing_id\n              where r.status in ('pending', 'sending') and m.canceled_at is null) as \"queued!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "sent!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "queued!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "91cfa9dea2ce1fbda329e8db5f0c459e90e79193303c0db62807efb6124b3608"
+}
