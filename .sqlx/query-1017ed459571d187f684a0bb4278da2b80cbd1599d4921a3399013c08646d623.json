@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select b.id from blobs b\n           where b.event_id = $1 and b.id = any($2)\n             and b.moderation_status not in ('flagged', 'rejected')\n             and not exists (select 1 from rejected_art r where r.sha256 = b.sha256)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "blobs",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "UuidArray"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "1017ed459571d187f684a0bb4278da2b80cbd1599d4921a3399013c08646d623"
+}

@@ -1,10 +1,32 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select title, body, workload, signer1_name, signer1_role, signer2_name, signer2_role, color\n           from certificate_settings where event_id = $1",
+  "query": "select design, image_blob_ids, title, body, workload, signer1_name, signer1_role,\n                  signer2_name, signer2_role, color\n           from certificate_settings where event_id = $1",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
+        "name": "design",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "certificate_settings",
+            "name": "design"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "image_blob_ids",
+        "type_info": "UuidArray",
+        "origin": {
+          "Table": {
+            "table": "certificate_settings",
+            "name": "image_blob_ids"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
         "name": "title",
         "type_info": "Text",
         "origin": {
@@ -15,7 +37,7 @@
         }
       },
       {
-        "ordinal": 1,
+        "ordinal": 3,
         "name": "body",
         "type_info": "Text",
         "origin": {
@@ -26,7 +48,7 @@
         }
       },
       {
-        "ordinal": 2,
+        "ordinal": 4,
         "name": "workload",
         "type_info": "Text",
         "origin": {
@@ -37,7 +59,7 @@
         }
       },
       {
-        "ordinal": 3,
+        "ordinal": 5,
         "name": "signer1_name",
         "type_info": "Text",
         "origin": {
@@ -48,7 +70,7 @@
         }
       },
       {
-        "ordinal": 4,
+        "ordinal": 6,
         "name": "signer1_role",
         "type_info": "Text",
         "origin": {
@@ -59,7 +81,7 @@
         }
       },
       {
-        "ordinal": 5,
+        "ordinal": 7,
         "name": "signer2_name",
         "type_info": "Text",
         "origin": {
@@ -70,7 +92,7 @@
         }
       },
       {
-        "ordinal": 6,
+        "ordinal": 8,
         "name": "signer2_role",
         "type_info": "Text",
         "origin": {
@@ -81,7 +103,7 @@
         }
       },
       {
-        "ordinal": 7,
+        "ordinal": 9,
         "name": "color",
         "type_info": "Text",
         "origin": {
@@ -98,15 +120,17 @@
       ]
     },
     "nullable": [
+      true,
       false,
-      false,
       true,
       true,
       true,
       true,
       true,
-      false
+      true,
+      true,
+      true
     ]
   },
-  "hash": "c40d7d24b18a13baf435cd1bcd936a1fe07bb50ebb692414e1057d8ae53a6a73"
+  "hash": "e36175d379fb7a37f27fe0cf39f6e650763f647dcc1d394f37fb3c2c1c6ac41f"
 }

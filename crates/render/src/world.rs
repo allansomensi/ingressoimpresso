@@ -25,6 +25,11 @@ const FONT_FILES: &[&[u8]] = &[
     include_bytes!("../fonts/GreatVibes-Regular.ttf"),
     include_bytes!("../fonts/Pacifico-Regular.ttf"),
     include_bytes!("../fonts/AlfaSlabOne-Regular.ttf"),
+    include_bytes!("../fonts/EBGaramond-Regular.ttf"),
+    include_bytes!("../fonts/EBGaramond-Bold.ttf"),
+    include_bytes!("../fonts/EBGaramond-Italic.ttf"),
+    include_bytes!("../fonts/Cinzel-Regular.ttf"),
+    include_bytes!("../fonts/Cinzel-Bold.ttf"),
 ];
 
 /// Shared, immutable parts of every world: the standard library and the fonts.
@@ -143,6 +148,8 @@ mod tests {
             "Great Vibes",
             "Pacifico",
             "Alfa Slab One",
+            "EB Garamond",
+            "Cinzel",
         ];
         for family in families {
             assert!(

@@ -6,7 +6,6 @@ import {
   type ComponentProps,
   type ReactNode,
   type SelectHTMLAttributes,
-  type TextareaHTMLAttributes,
 } from "react";
 
 import { cn } from "@/lib/cn";
@@ -61,7 +60,7 @@ export function Input({ className, ...props }: ComponentProps<"input">) {
   return <input className={cn(controlClass, "h-11", className)} {...props} />;
 }
 
-export function Textarea({ className, ...props }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
+export function Textarea({ className, ...props }: ComponentProps<"textarea">) {
   return <textarea className={cn(controlClass, "min-h-24 py-2.5 leading-relaxed", className)} {...props} />;
 }
 

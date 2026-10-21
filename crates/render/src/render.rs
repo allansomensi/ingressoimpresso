@@ -104,7 +104,7 @@ pub enum RenderError {
 /// Art accepted by the renderer.
 #[derive(Clone)]
 pub struct Art {
-    bytes: Bytes,
+    pub(crate) bytes: Bytes,
     path: &'static str,
 }
 
@@ -131,7 +131,7 @@ impl Art {
 
 impl Art {
     /// `.png` or `.jpg`.
-    fn extension(&self) -> &'static str {
+    pub(crate) fn extension(&self) -> &'static str {
         // `path` is one of the two constants set by `from_bytes`.
         if self.path == "/art.png" {
             ".png"

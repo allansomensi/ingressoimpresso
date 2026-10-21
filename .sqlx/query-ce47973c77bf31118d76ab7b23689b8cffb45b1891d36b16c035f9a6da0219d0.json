@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select true as \"found!\" from certificate_settings where event_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "found!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "ce47973c77bf31118d76ab7b23689b8cffb45b1891d36b16c035f9a6da0219d0"
+}

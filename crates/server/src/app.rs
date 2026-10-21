@@ -372,7 +372,7 @@ pub fn router(state: AppState) -> Router {
         .route("/events/{id}/certificates/issue", post(certificates::issue))
         .route(
             "/events/{id}/certificates/sample",
-            get(certificates::sample),
+            post(certificates::sample),
         )
         .route("/events/{id}/certificates/zip", get(certificates::zip))
         .route(
