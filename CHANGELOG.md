@@ -14,6 +14,11 @@ e não acompanha estes números.
 
 ### Adicionado
 
+- **Lotação do local**: diga quantas pessoas cabem e a portaria mostra "Faltam 50 para lotar" em
+  cada celular da entrada, amarelo perto do limite e vermelho quando lota. O Ao vivo mostra a
+  lotação, e você recebe um aviso no sininho quando estiver perto e quando lotar. Com saída e volta,
+  conta só quem está dentro; os convidados da lista também contam.
+
 ### Alterado
 
 - Admin: um **pronunciamento** vai para o **sininho**, para uma **janela ao entrar** e por

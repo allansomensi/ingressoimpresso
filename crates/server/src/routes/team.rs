@@ -180,6 +180,8 @@ fn area(method: &str, shape: &str) -> Need {
 
 /// Areas of the endpoints added after the first table (ADRs 0096 on): method, shape, need.
 const LATER: &[(&str, &str, Need)] = &[
+    // The venue's capacity (ADR 0110) is how the door works.
+    ("PUT", "events/{id}/capacity", Need::Area(TeamArea::Door)),
     // Commissions and courtesies change what sellers owe (ADR 0096).
     (
         "POST",

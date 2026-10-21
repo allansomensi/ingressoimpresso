@@ -119,3 +119,4 @@ feita e as consequências.
 | [0107](0107-pronunciamentos-por-email.md) | Pronunciamentos também por e-mail | Aceito |
 | [0108](0108-resumo-semanal-dos-admins.md) | Resumo semanal dos admins por e-mail | Aceito |
 | [0109](0109-canais-dos-pronunciamentos.md) | Canais dos pronunciamentos: sininho, janela e e-mail | Aceito |
+| [0110](0110-lotacao-do-local.md) | Lotação do local | Aceito |

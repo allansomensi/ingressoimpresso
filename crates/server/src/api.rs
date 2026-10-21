@@ -2327,12 +2327,26 @@ dto! {
         /// The event's checkpoints (ADR 0092).
         #[serde(default)]
         pub checkpoints: Vec<CheckpointDto>,
+        /// People the venue holds (ADR 0110); `null`: no limit.
+        #[serde(default)]
+        pub capacity: Option<i32>,
+        /// Share of the capacity that warns.
+        #[serde(default)]
+        pub capacity_warn_percent: i32,
     }
 
     /// `PUT /api/events/{id}/door-settings`: how the door works (ADR 0083).
     pub struct DoorSettingsBody {
         /// Let a ticket that went out come back in.
         pub reentry: bool,
+    }
+
+    /// `PUT /api/events/{id}/capacity` (ADR 0110).
+    pub struct CapacityBody {
+        /// People the venue holds (1–1,000,000); `null` takes the limit off.
+        pub capacity: Option<i32>,
+        /// Share of the limit that warns (50–99).
+        pub warn_percent: i32,
     }
 
     /// `POST /api/door/register`.
@@ -2414,6 +2428,12 @@ dto! {
         /// The days of an event of several days (ADR 0091); empty: one day.
         #[serde(default)]
         pub days: Vec<EventDayDto>,
+        /// People the venue holds (ADR 0110); `null`: no limit.
+        #[serde(default)]
+        pub capacity: Option<u32>,
+        /// Share of the capacity that turns the counter yellow.
+        #[serde(default)]
+        pub capacity_warn_percent: u8,
     }
 
     /// What `DoorCore` needs to verify tickets; same shape as ticket-core's `DoorEventDto`.
@@ -4206,6 +4226,10 @@ dto_enum! {
         EventCanceled,
         /// A referral earned credit (ADR 0076).
         ReferralRewarded,
+        /// An event's venue is close to full (ADR 0110).
+        CapacityNear,
+        /// An event's venue is full.
+        CapacityFull,
     }
 
     /// What a promo code gives.
@@ -4334,6 +4358,8 @@ db_enum!(NotificationKind {
     EventPostponed => "event_postponed",
     EventCanceled => "event_canceled",
     ReferralRewarded => "referral_rewarded",
+    CapacityNear => "capacity_near",
+    CapacityFull => "capacity_full",
 });
 db_enum!(LedgerKind { Expense => "expense", Income => "income" });
 db_enum!(TableShape { Round => "round", Rect => "rect" });
@@ -4563,10 +4589,27 @@ dto! {
         /// Uses of each checkpoint (ADR 0092).
         #[serde(default)]
         pub checkpoints: Vec<DoorLiveCheckpointDto>,
+        /// The venue's capacity (ADR 0110); `null` without a limit.
+        #[serde(default)]
+        pub capacity: Option<DoorLiveCapacityDto>,
         /// Server clock.
         #[serde(with = "time::serde::rfc3339")]
         #[cfg_attr(feature = "ts", ts(type = "string"))]
         pub generated_at: OffsetDateTime,
+    }
+
+    /// Who is in against the venue's limit (ADR 0110).
+    pub struct DoorLiveCapacityDto {
+        /// People the venue holds.
+        pub limit: i32,
+        /// Share of the limit that warns (50–99).
+        pub warn_percent: i32,
+        /// People in now: tickets in (today) and guests who arrived.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub occupied: i64,
+        /// Places left (never below zero).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub left: i64,
     }
 
     /// Who is inside now and who went out (ADR 0083).

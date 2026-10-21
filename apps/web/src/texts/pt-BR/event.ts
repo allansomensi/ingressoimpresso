@@ -778,6 +778,7 @@ export const event = {
       "PUT door-accesses/{id}/categories": "mudou as categorias de uma porta",
       "POST door-devices/{id}/revoke": "desligou um celular da portaria",
       "PUT events/{id}/door-settings": "mudou a saída e volta",
+      "PUT events/{id}/capacity": "mudou a lotação do local",
       "POST events/{id}/guests": "pôs um nome na lista",
       "POST events/{id}/guests/bulk": "importou nomes para a lista",
       "PUT guests/{id}": "editou um nome da lista",
@@ -1994,6 +1995,19 @@ export const event = {
     ],
     reentryOn: "Saída e volta ligada. Os celulares recebem na próxima sincronização.",
     reentryOff: "Saída e volta desligada: quem já entrou não entra de novo.",
+    // The venue's capacity (ADR 0110).
+    capacity: "Lotação do local",
+    capacityHint:
+      "Os celulares da portaria mostram quantas pessoas faltam para lotar, e você recebe um aviso no sininho quando estiver perto e quando lotar. Com saída e volta, conta só quem está dentro; convidados da lista também contam.",
+    capacityLimit: "Cabem no local",
+    capacityLimitHint: "Vazio: sem limite.",
+    capacityPeople: "pessoas",
+    capacityWarn: "Avisar a partir de",
+    capacityWarnHint: "O contador fica amarelo e o aviso sai nesta porcentagem.",
+    capacitySave: "Salvar lotação",
+    capacityRemove: "Tirar o limite",
+    capacitySaved: "Lotação salva. Os celulares recebem na próxima sincronização.",
+    capacityOff: "Sem limite de lotação.",
     // Door features (ADRs 0067, 0068, 0071).
     categories: "Aceitar só estas categorias",
     categoriesHint: "Nenhuma marcada: a porta aceita todos os ingressos. Ingresso de outra categoria aparece em amarelo, com a porta certa.",
@@ -2072,6 +2086,10 @@ export const event = {
   },
   // Live door (ADR 0071).
   live: {
+    capacityTitle: "Lotação do local",
+    capacityOf: (occupied: string, limit: string) => `${occupied} de ${limit} dentro`,
+    capacityLeft: (left: string) => `Faltam ${left} para lotar`,
+    capacityFull: "Lotado",
     updated: (ago: string) => `Atualizado ${ago}`,
     paused: "Pausado com a aba escondida",
     entries: "Entradas",

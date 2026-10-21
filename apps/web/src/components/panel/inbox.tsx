@@ -122,6 +122,19 @@ export function describeNotification(item: NotificationDto): { title: string; bo
         ? { title: t.kinds.referralReferrer, body: t.kinds.referralReferrerBody(amount, text(item.data, "who")), icon: Gift, href: "/painel/conta#indique" }
         : { title: t.kinds.referralReferred, body: t.kinds.referralReferredBody(amount, text(item.data, "organization")), icon: Gift, href: "/painel/conta" };
     }
+    // The venue's capacity (ADR 0110): the live view of the event.
+    case "capacity_near":
+    case "capacity_full": {
+      const full = item.kind === "capacity_full";
+      const occupied = number(item.data, "occupied");
+      const capacity = number(item.data, "capacity");
+      return {
+        title: full ? t.kinds.capacityFull : t.kinds.capacityNear,
+        body: (full ? t.kinds.capacityFullBody : t.kinds.capacityNearBody)(event, occupied, capacity),
+        icon: UsersRound,
+        href: eventLink === null ? null : `${eventLink}?aba=ao-vivo`,
+      };
+    }
   }
 }
 

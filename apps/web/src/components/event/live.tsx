@@ -1,6 +1,6 @@
 "use client";
 
-import type { DoorLiveDeviceDto, DoorLiveDto, EventDto } from "@ingressoimpresso/api-types";
+import type { DoorLiveCapacityDto, DoorLiveDeviceDto, DoorLiveDto, EventDto } from "@ingressoimpresso/api-types";
 import { useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle,
@@ -19,6 +19,7 @@ import {
   Smartphone,
   Store,
   Tags,
+  UsersRound,
 } from "lucide-react";
 import { useEffect, useEffectEvent, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { createPortal } from "react-dom";
@@ -26,6 +27,7 @@ import { createPortal } from "react-dom";
 import { TabHeader } from "@/components/event/tab-header";
 import { Badge, Button, Card, CardHeader, EmptyState, ErrorMessage, LoadingBlock, Stat, useScrollLock } from "@/components/ui";
 import { api } from "@/lib/api";
+import { capacityState } from "@/lib/capacity";
 import { cn } from "@/lib/cn";
 import { dayLabel } from "@/lib/event-days";
 import { agoLabel, deviceHealth, LIVE_REFRESH_MS, occupancy, refusalCount } from "@/lib/door-live";
@@ -47,6 +49,43 @@ function time(iso: string): string {
 }
 
 /** The door's numbers, refreshed every 10 seconds while the tab is visible (ADR 0071). */
+/** The venue against its limit (ADR 0110): "faltam 50 para lotar", yellow close to full, red full. */
+function CapacityCard({ capacity }: { capacity: DoorLiveCapacityDto }) {
+  const t = useEventTexts().live;
+  const state = capacityState(capacity.occupied, capacity.limit, capacity.warnPercent);
+  return (
+    <Card
+      className={cn(
+        "flex flex-col gap-3",
+        state.level === "full" ? "border-danger/50 bg-danger-soft/40" : state.level === "near" ? "border-warning/50 bg-warning-soft/40" : "",
+      )}
+    >
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <span className="flex items-center gap-2 text-sm font-medium text-fg-muted">
+          <UsersRound className="size-4" aria-hidden />
+          {t.capacityTitle}
+        </span>
+        <span className="text-sm text-fg-muted tabular">{t.capacityOf(count(capacity.occupied), count(capacity.limit))}</span>
+      </div>
+      <p
+        className={cn(
+          "text-3xl font-bold tracking-tight tabular",
+          state.level === "full" ? "text-danger-fg" : state.level === "near" ? "text-warning-fg" : "text-fg",
+        )}
+        aria-live="polite"
+      >
+        {state.level === "full" ? t.capacityFull : t.capacityLeft(count(state.left))}
+      </p>
+      <Meter
+        value={state.ratio}
+        label={t.capacityTitle}
+        tone={state.level === "full" ? "danger" : state.level === "near" ? "warning" : "brand"}
+        className="h-3"
+      />
+    </Card>
+  );
+}
+
 export function useDoorLive(eventId: string, enabled = true) {
   return useQuery({
     queryKey: ["door-live", eventId],
@@ -132,6 +171,9 @@ export function LiveTab({ eventId, onSelect }: { eventId: string; onSelect: Sele
           <p className="leading-relaxed">{t.staleAlert(stale.map((device) => device.name).join(", "))}</p>
         </div>
       )}
+
+      {/* Servers before ADR 0110 send no capacity. */}
+      {(data.capacity ?? null) !== null && <CapacityCard capacity={data.capacity as DoorLiveCapacityDto} />}
 
       <div className="grid gap-4 lg:grid-cols-[1.2fr_2fr]">
         <Occupancy data={data} />

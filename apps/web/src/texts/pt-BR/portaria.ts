@@ -27,6 +27,12 @@ export const portaria = {
   entriesToday: (count: number) => (count === 1 ? "1 entrada hoje" : `${String(count)} entradas hoje`),
   // Exit and return (ADR 0083).
   insideCount: (count: number) => `${String(count)} dentro`,
+  // The venue's capacity (ADR 0110).
+  capacity: {
+    left: (left: number) => (left === 1 ? "Falta 1 para lotar" : `Faltam ${left.toLocaleString("pt-BR")} para lotar`),
+    full: "LOTADO: avise a organização antes de deixar entrar",
+    of: (occupied: number, limit: number) => `${occupied.toLocaleString("pt-BR")} de ${limit.toLocaleString("pt-BR")}`,
+  },
   mode: {
     label: "Este celular lê",
     entrance: "Entrada",

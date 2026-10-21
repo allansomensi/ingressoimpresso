@@ -354,6 +354,7 @@ pub fn router(state: AppState) -> Router {
         .route("/events/{id}/report", get(report::report))
         .route("/events/{id}/door", get(door::overview))
         .route("/events/{id}/door-settings", put(door::update_settings))
+        .route("/events/{id}/capacity", put(door::update_capacity))
         .route("/events/{id}/door/accesses", post(door::create_access))
         .route("/door-accesses/{id}/revoke", post(door::revoke_access))
         .route("/door-accesses/{id}/link", post(door::new_link))

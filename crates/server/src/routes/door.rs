@@ -13,7 +13,7 @@ use uuid::Uuid;
 
 use super::{authorize_event, bounds, one_line};
 use crate::api::{
-    CreateDoorAccessBody, CreatedDoorAccess, DoorAccessCategoriesBody, DoorAccessDto,
+    CapacityBody, CreateDoorAccessBody, CreatedDoorAccess, DoorAccessCategoriesBody, DoorAccessDto,
     DoorCategoryRangeDto, DoorDeviceDto, DoorEntryDto, DoorEventInfo, DoorFirstEntryDto,
     DoorKeyDto, DoorManifest, DoorOverviewDto, DoorRegisterBody, DoorRegistration, DoorRouteDto,
     DoorScanResult, DoorScanUpload, DoorScansBody, DoorScansResponse, DoorSeatDto,
@@ -125,7 +125,7 @@ pub async fn overview(
     .await?;
     let counts = sqlx::query!(
         r#"select (select count(*) from entries where event_id = $1) as "entries!",
-                  reentry from events where id = $1"#,
+                  reentry, capacity, capacity_warn_percent from events where id = $1"#,
         event_id
     )
     .fetch_one(&state.pool)
@@ -136,7 +136,53 @@ pub async fn overview(
         entry_count: counts.entries,
         reentry: counts.reentry,
         checkpoints: super::checkpoints::load(&state.pool, event_id).await?,
+        capacity: counts.capacity,
+        capacity_warn_percent: i32::from(counts.capacity_warn_percent),
     }))
+}
+
+/// `PUT /api/events/{id}/capacity` (ADR 0110): how many people the venue holds and when to warn.
+/// Phones pick it up on their next sync; a new limit may warn the organization again.
+pub async fn update_capacity(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(event_id): Path<Uuid>,
+    Json(body): Json<CapacityBody>,
+) -> ApiResult<Json<DoorOverviewDto>> {
+    let event = authorize_event(&state.pool, &user, event_id).await?;
+    if event.kind() == crate::api::EventKind::Tokens {
+        return Err(bad_request(
+            "capacity_tokens",
+            "consumption tokens fill no venue",
+        ));
+    }
+    if body
+        .capacity
+        .is_some_and(|capacity| !(1..=1_000_000).contains(&capacity))
+    {
+        return Err(bad_request(
+            "invalid_capacity",
+            "capacity must be 1–1000000 people",
+        ));
+    }
+    let warn = i16::try_from(body.warn_percent)
+        .ok()
+        .filter(|percent| (50..=99).contains(percent))
+        .ok_or_else(|| bad_request("invalid_capacity", "the warning must be 50–99%"))?;
+    sqlx::query!(
+        r#"update events set capacity = $2, capacity_warn_percent = $3,
+                  capacity_alerted = case when capacity is not distinct from $2
+                                           and capacity_warn_percent = $3
+                                      then capacity_alerted else 0 end
+           where id = $1"#,
+        event_id,
+        body.capacity,
+        warn,
+    )
+    .execute(&state.pool)
+    .await?;
+    crate::capacity::check(&state, event_id).await;
+    overview(State(state), user, Path(event_id)).await
 }
 
 /// `PUT /api/events/{id}/door-settings` (ADR 0083): whether a ticket that went out may come back.
@@ -530,7 +576,7 @@ pub async fn register(
 async fn event_info(state: &AppState, event_id: Uuid) -> ApiResult<DoorEventInfo> {
     let row = sqlx::query!(
         r#"select e.id, e.name, e.venue, e.starts_at, e.ends_at, e.ticket_price_cents, e.canceled_at,
-                  e.utc_offset_minutes, e.reentry, e.kind,
+                  e.utc_offset_minutes, e.reentry, e.kind, e.capacity, e.capacity_warn_percent,
                   coalesce((select (spec -> 'number' ->> 'digits')::int from ticket_designs
                             where event_id = e.id order by version desc limit 1), $2) as "digits!"
            from events e where e.id = $1"#,
@@ -556,6 +602,12 @@ async fn event_info(state: &AppState, event_id: Uuid) -> ApiResult<DoorEventInfo
         reentry: row.reentry,
         kind: crate::api::EventKind::from_db(&row.kind).unwrap_or_default(),
         days: crate::event_days::of_event(&state.pool, event_id, offset).await?,
+        // Fichas fill no venue (ADR 0084).
+        capacity: row
+            .capacity
+            .filter(|_| row.kind != "tokens")
+            .and_then(|capacity| u32::try_from(capacity).ok()),
+        capacity_warn_percent: u8::try_from(row.capacity_warn_percent).unwrap_or(90),
     })
 }
 
@@ -920,6 +972,10 @@ pub async fn upload_scans(
         *slot = Some(record_scan(&mut tx, &device, scan, body.confirm).await?);
     }
     tx.commit().await?;
+    // The entrance fills the venue (ADR 0110).
+    if device.checkpoint_id.is_none() && scans.iter().any(ValidScan::classified) {
+        crate::capacity::check(&state, device.event_id).await;
+    }
     Ok(Json(DoorScansResponse {
         results: results.into_iter().flatten().collect(),
     }))
