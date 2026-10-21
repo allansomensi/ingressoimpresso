@@ -61,8 +61,28 @@ pub struct CertificateDesign {
     /// The other side (the programme, the content, a second QR), printed as page 2.
     #[serde(default)]
     pub back: Option<CertificatePage>,
-    /// A small "Emitido com Ingresso Impresso" line at the bottom of the front.
+    /// A small "Emitido com Ingresso Impresso" at the bottom of the front.
     pub brand: bool,
+    /// How that brand looks: the plain line, or the logo and the name as a faint watermark
+    /// (ADR 0116). Designs saved before keep the line.
+    #[serde(default)]
+    pub brand_style: BrandStyle,
+}
+
+/// How the "Emitido com Ingresso Impresso" of a certificate looks (ADR 0116).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(
+    feature = "ts",
+    derive(ts_rs::TS),
+    ts(export, export_to = "api-types/src/generated/")
+)]
+pub enum BrandStyle {
+    /// One small line with the address, on a light strip.
+    #[default]
+    Line,
+    /// The logo and "Ingresso Impresso", faint, in the ink of the paper.
+    Mark,
 }
 
 /// Page orientation.
@@ -856,6 +876,7 @@ impl CertificateDesign {
             },
             back: None,
             brand: true,
+            brand_style: BrandStyle::Line,
         }
     }
 }
