@@ -144,6 +144,10 @@ export const portaria = {
     granted: "LIBERADO",
     used: "JÁ USOU",
     usedAt: (when: string, device: string) => `${when} em ${device}`,
+    // Combos (ADR 0112): several items per ticket.
+    itemOf: (item: number, allowance: number) => `${String(item)}º de ${String(allowance)} deste ingresso`,
+    allUsed: (allowance: number) => `JÁ USOU OS ${String(allowance)}`,
+    lastUsedAt: (when: string, device: string) => `O último ${when} em ${device}`,
     notEntitled: "SEM DIREITO",
     notEntitledCategory: (category: string, place: string) => `A categoria ${category} não dá direito a “${place}”.`,
     notEntitledNone: (place: string) => `Este ingresso não tem uma categoria com direito a “${place}”.`,

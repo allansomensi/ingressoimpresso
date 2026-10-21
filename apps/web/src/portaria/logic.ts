@@ -223,9 +223,52 @@ export function bookOf(context: DoorContext, number: number): number | null {
   return ledgerDay(ruleOf(context, number).rule, context.today ?? null, context.checkpoint?.perDay ?? true);
 }
 
-/** The engine's key of a book. */
-export function bookKey(book: number | null): string {
-  return book === null ? "" : `d${String(book)}`;
+/**
+ * The engine's key of a book: the day (or the whole event) and, for the second and later items of
+ * a combo at a checkpoint (ADR 0112), the slot ("#2", "d1#3").
+ */
+export function bookKey(book: number | null, slot = 1): string {
+  const base = book === null ? "" : `d${String(book)}`;
+  return slot > 1 ? `${base}#${String(slot)}` : base;
+}
+
+/**
+ * Items `number` takes at this phone's checkpoint in each book (ADR 0112): its category's
+ * allowance, or the checkpoint's when every ticket has the right; 1 at the entrance and in
+ * manifests stored before combos.
+ */
+export function allowanceOf(context: DoorContext, number: number): number {
+  const checkpoint = context.checkpoint;
+  if (checkpoint === undefined || checkpoint === null) {
+    return 1;
+  }
+  if (checkpoint.categoryIds.length === 0) {
+    return Math.max(1, (checkpoint.allowance as number | undefined) ?? 1);
+  }
+  const range = categoryRangeOf(context.categories, number);
+  const allowances = (checkpoint.categoryAllowances as DoorCheckpointDto["categoryAllowances"] | undefined) ?? [];
+  return Math.max(1, allowances.find((item) => item.categoryId === range?.id)?.allowance ?? 1);
+}
+
+/**
+ * The screen of an item of a combo (ADR 0112): which item this was, or that every one was taken
+ * (with the last one's time).
+ */
+export function comboView(view: ResultView, decision: DecisionDto, slot: number, allowance: number, context: DoorContext): ResultView {
+  if (allowance <= 1) {
+    return view;
+  }
+  if (decision.kind === "admit") {
+    return { ...view, detail: t.itemOf(slot, allowance) };
+  }
+  if (decision.kind === "already_entered") {
+    return {
+      ...view,
+      title: t.allUsed(allowance),
+      detail: t.lastUsedAt(whenText(context, decision.firstEntry.atUnixMs), decision.firstEntry.deviceName),
+    };
+  }
+  return view;
 }
 
 /**

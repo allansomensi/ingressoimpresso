@@ -242,9 +242,12 @@ export function LiveTab({ eventId, onSelect }: { eventId: string; onSelect: Sele
                             .join(" · ")}
                         </span>
                       </span>
-                      <span className="shrink-0 font-semibold text-fg tabular">{t.checkpointUsed(count(checkpoint.used), count(checkpoint.entitled))}</span>
+                      {/* A combo (ADR 0112) counts items, not tickets; servers before it send none. */}
+                      <span className="shrink-0 font-semibold text-fg tabular">
+                        {t.checkpointUsed(count(checkpoint.used), count(checkpoint.allowanceTotal || checkpoint.entitled))}
+                      </span>
                     </div>
-                    <Meter value={occupancy(checkpoint.used, checkpoint.entitled)} label={t.checkpointUsedLabel(checkpoint.name)} className="h-2" />
+                    <Meter value={occupancy(checkpoint.used, checkpoint.allowanceTotal || checkpoint.entitled)} label={t.checkpointUsedLabel(checkpoint.name)} className="h-2" />
                   </li>
                 ))}
               </ul>

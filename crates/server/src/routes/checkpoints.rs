@@ -1,6 +1,6 @@
 //! Checkpoints (ADR 0092): the same QR read again where something extra is handed over (dinner,
 //! kit, open bar). Each one has its own door links and its own book of uses, apart from the
-//! entrance's.
+//! entrance's. A combo (ADR 0112) hands over several items per ticket: its allowance.
 
 use std::collections::HashMap;
 
@@ -11,13 +11,15 @@ use sqlx::{PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
 use super::{authorize_event, one_line};
-use crate::api::{CheckpointBody, CheckpointDto, DoorCheckpointDto};
+use crate::api::{CheckpointAllowanceDto, CheckpointBody, CheckpointDto, DoorCheckpointDto};
 use crate::auth::AuthUser;
 use crate::error::{ApiError, ApiResult, bad_request};
 use crate::state::AppState;
 
 /// Most checkpoints per event.
 pub const MAX_CHECKPOINTS: i64 = 10;
+/// Most items one ticket takes at a checkpoint in a book (ADR 0112).
+pub const MAX_ALLOWANCE: u8 = 20;
 const MAX_NAME: usize = 30;
 
 /// A checkpoint's fields, checked.
@@ -25,6 +27,20 @@ struct ValidCheckpoint {
     name: String,
     instruction: Option<String>,
     category_ids: Vec<Uuid>,
+    allowance: i16,
+    /// The allowance of each listed category, in `category_ids` order.
+    category_allowances: Vec<i16>,
+}
+
+fn allowance(value: u8) -> ApiResult<i16> {
+    if (1..=MAX_ALLOWANCE).contains(&value) {
+        Ok(i16::from(value))
+    } else {
+        Err(bad_request(
+            "invalid_checkpoint_allowance",
+            format!("items per ticket must be 1-{MAX_ALLOWANCE}"),
+        ))
+    }
 }
 
 async fn validate(
@@ -60,10 +76,31 @@ async fn validate(
             ));
         }
     }
+    let mut category_allowances = Vec::with_capacity(category_ids.len());
+    for category in &category_ids {
+        let value = body
+            .category_allowances
+            .iter()
+            .find(|item| item.category_id == *category)
+            .map_or(1, |item| item.allowance);
+        category_allowances.push(allowance(value)?);
+    }
+    if body
+        .category_allowances
+        .iter()
+        .any(|item| !category_ids.contains(&item.category_id))
+    {
+        return Err(bad_request(
+            "invalid_checkpoint_categories",
+            "items for a category without the right",
+        ));
+    }
     Ok(ValidCheckpoint {
         name,
         instruction,
         category_ids,
+        allowance: allowance(body.allowance)?,
+        category_allowances,
     })
 }
 
@@ -80,9 +117,11 @@ fn renamed(error: sqlx::Error) -> ApiError {
 /// The checkpoints of an event, in the order they were created, with their uses and open links.
 pub(crate) async fn load(pool: &PgPool, event_id: Uuid) -> ApiResult<Vec<CheckpointDto>> {
     Ok(sqlx::query!(
-        r#"select c.id, c.name, c.instruction, c.per_day,
+        r#"select c.id, c.name, c.instruction, c.per_day, c.allowance,
                   array(select cc.category_id from checkpoint_categories cc
                         where cc.checkpoint_id = c.id order by cc.category_id) as "category_ids!",
+                  array(select cc.allowance from checkpoint_categories cc
+                        where cc.checkpoint_id = c.id order by cc.category_id) as "category_allowances!",
                   (select count(*) from door_ledger_entries l
                    where l.event_id = c.event_id and l.checkpoint = c.id) as "uses!",
                   (select count(*) from door_accesses a
@@ -98,6 +137,8 @@ pub(crate) async fn load(pool: &PgPool, event_id: Uuid) -> ApiResult<Vec<Checkpo
         name: row.name,
         instruction: row.instruction,
         per_day: row.per_day,
+        allowance: small(row.allowance),
+        category_allowances: allowances(&row.category_ids, &row.category_allowances),
         category_ids: row.category_ids,
         uses: row.uses,
         links: row.links,
@@ -111,9 +152,11 @@ pub(crate) async fn of_access(
     access_id: Uuid,
 ) -> ApiResult<Option<DoorCheckpointDto>> {
     Ok(sqlx::query!(
-        r#"select c.id, c.name, c.instruction, c.per_day,
+        r#"select c.id, c.name, c.instruction, c.per_day, c.allowance,
                   array(select cc.category_id from checkpoint_categories cc
-                        where cc.checkpoint_id = c.id order by cc.category_id) as "category_ids!"
+                        where cc.checkpoint_id = c.id order by cc.category_id) as "category_ids!",
+                  array(select cc.allowance from checkpoint_categories cc
+                        where cc.checkpoint_id = c.id order by cc.category_id) as "category_allowances!"
            from door_accesses a join event_checkpoints c on c.id = a.checkpoint_id
            where a.id = $1"#,
         access_id
@@ -125,8 +168,26 @@ pub(crate) async fn of_access(
         name: row.name,
         instruction: row.instruction,
         per_day: row.per_day,
+        allowance: small(row.allowance),
+        category_allowances: allowances(&row.category_ids, &row.category_allowances),
         category_ids: row.category_ids,
     }))
+}
+
+fn small(value: i16) -> u8 {
+    u8::try_from(value).unwrap_or(1)
+}
+
+/// The allowance of each listed category (ADR 0112).
+fn allowances(categories: &[Uuid], values: &[i16]) -> Vec<CheckpointAllowanceDto> {
+    categories
+        .iter()
+        .zip(values)
+        .map(|(category_id, value)| CheckpointAllowanceDto {
+            category_id: *category_id,
+            allowance: small(*value),
+        })
+        .collect()
 }
 
 /// `GET /api/events/{id}/checkpoints`.
@@ -143,6 +204,7 @@ async fn set_categories(
     tx: &mut Transaction<'_, Postgres>,
     checkpoint_id: Uuid,
     categories: &[Uuid],
+    allowances: &[i16],
 ) -> ApiResult<()> {
     sqlx::query!(
         "delete from checkpoint_categories where checkpoint_id = $1",
@@ -151,10 +213,12 @@ async fn set_categories(
     .execute(&mut **tx)
     .await?;
     sqlx::query!(
-        r#"insert into checkpoint_categories (checkpoint_id, category_id)
-           select $1, unnest($2::uuid[]) on conflict do nothing"#,
+        r#"insert into checkpoint_categories (checkpoint_id, category_id, allowance)
+           select $1, category, allowance from unnest($2::uuid[], $3::int2[]) as t(category, allowance)
+           on conflict do nothing"#,
         checkpoint_id,
         categories,
+        allowances,
     )
     .execute(&mut **tx)
     .await?;
@@ -200,19 +264,20 @@ pub async fn create(
     let id = Uuid::new_v4();
     let mut tx = state.pool.begin().await?;
     sqlx::query!(
-        r#"insert into event_checkpoints (id, event_id, name, instruction, per_day, position)
-           values ($1, $2, $3, $4, $5, $6)"#,
+        r#"insert into event_checkpoints (id, event_id, name, instruction, per_day, position, allowance)
+           values ($1, $2, $3, $4, $5, $6, $7)"#,
         id,
         event_id,
         valid.name,
         valid.instruction,
         body.per_day,
         i16::try_from(count).unwrap_or(i16::MAX),
+        valid.allowance,
     )
     .execute(&mut *tx)
     .await
     .map_err(renamed)?;
-    set_categories(&mut tx, id, &valid.category_ids).await?;
+    set_categories(&mut tx, id, &valid.category_ids, &valid.category_allowances).await?;
     tx.commit().await?;
     Ok((
         StatusCode::CREATED,
@@ -247,16 +312,17 @@ pub async fn update(
     let valid = validate(&state.pool, event_id, &body).await?;
     let mut tx = state.pool.begin().await?;
     sqlx::query!(
-        "update event_checkpoints set name = $2, instruction = $3, per_day = $4 where id = $1",
+        "update event_checkpoints set name = $2, instruction = $3, per_day = $4, allowance = $5 where id = $1",
         checkpoint_id,
         valid.name,
         valid.instruction,
         body.per_day,
+        valid.allowance,
     )
     .execute(&mut *tx)
     .await
     .map_err(renamed)?;
-    set_categories(&mut tx, checkpoint_id, &valid.category_ids).await?;
+    set_categories(&mut tx, checkpoint_id, &valid.category_ids, &valid.category_allowances).await?;
     tx.commit().await?;
     Ok(Json(one(&state.pool, event_id, checkpoint_id).await?))
 }
@@ -283,9 +349,11 @@ pub(crate) async fn copy(
     categories: &HashMap<Uuid, Uuid>,
 ) -> ApiResult<()> {
     let rows = sqlx::query!(
-        r#"select c.id, c.name, c.instruction, c.per_day, c.position,
+        r#"select c.id, c.name, c.instruction, c.per_day, c.position, c.allowance,
                   array(select cc.category_id from checkpoint_categories cc
-                        where cc.checkpoint_id = c.id) as "category_ids!"
+                        where cc.checkpoint_id = c.id order by cc.category_id) as "category_ids!",
+                  array(select cc.allowance from checkpoint_categories cc
+                        where cc.checkpoint_id = c.id order by cc.category_id) as "category_allowances!"
            from event_checkpoints c where c.event_id = $1"#,
         from
     )
@@ -294,23 +362,27 @@ pub(crate) async fn copy(
     for row in rows {
         let id = Uuid::new_v4();
         sqlx::query!(
-            r#"insert into event_checkpoints (id, event_id, name, instruction, per_day, position)
-               values ($1, $2, $3, $4, $5, $6)"#,
+            r#"insert into event_checkpoints (id, event_id, name, instruction, per_day, position, allowance)
+               values ($1, $2, $3, $4, $5, $6, $7)"#,
             id,
             to,
             row.name,
             row.instruction,
             row.per_day,
             row.position,
+            row.allowance,
         )
         .execute(&mut **tx)
         .await?;
-        let copied: Vec<Uuid> = row
+        let (copied, allowances): (Vec<Uuid>, Vec<i16>) = row
             .category_ids
             .iter()
-            .filter_map(|category| categories.get(category).copied())
-            .collect();
-        set_categories(tx, id, &copied).await?;
+            .zip(&row.category_allowances)
+            .filter_map(|(category, allowance)| {
+                categories.get(category).map(|copy| (*copy, *allowance))
+            })
+            .unzip();
+        set_categories(tx, id, &copied, &allowances).await?;
     }
     Ok(())
 }

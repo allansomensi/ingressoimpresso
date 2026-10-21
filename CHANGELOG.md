@@ -14,6 +14,11 @@ e não acompanha estes números.
 
 ### Adicionado
 
+- **Combos**: um ingresso que já vem com itens, como "entrada + 2 bebidas". Crie a categoria do
+  combo com o seu preço e diga, no ponto de controle do bar, quantos itens ela recebe: o mesmo QR é
+  lido uma vez para cada item ("1º de 2"), e no terceiro aparece "JÁ USOU OS 2". O acerto com os
+  vendedores continua numa conta só, pelo preço da categoria.
+
 - **Lotação do local**: diga quantas pessoas cabem e a portaria mostra "Faltam 50 para lotar" em
   cada celular da entrada, amarelo perto do limite e vermelho quando lota. O Ao vivo mostra a
   lotação, e você recebe um aviso no sininho quando estiver perto e quando lotar. Com saída e volta,

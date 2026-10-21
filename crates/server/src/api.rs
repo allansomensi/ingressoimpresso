@@ -19,6 +19,11 @@ macro_rules! dto {
     };
 }
 
+/// The default allowance of a checkpoint (ADR 0112): one item per ticket.
+const fn one_use() -> u8 {
+    1
+}
+
 macro_rules! dto_enum {
     ($($item:item)*) => {
         $(
@@ -2387,6 +2392,21 @@ dto! {
         /// Categories entitled to it; empty: every ticket.
         #[cfg_attr(feature = "ts", ts(type = "string[]"))]
         pub category_ids: Vec<Uuid>,
+        /// Items per ticket for every ticket, when no category is listed (ADR 0112).
+        #[serde(default = "one_use")]
+        pub allowance: u8,
+        /// Items per ticket of each listed category (a combo: "entrada + 2 bebidas").
+        #[serde(default)]
+        pub category_allowances: Vec<CheckpointAllowanceDto>,
+    }
+
+    /// How many items a category's tickets get at a checkpoint (ADR 0112).
+    pub struct CheckpointAllowanceDto {
+        /// The category.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub category_id: Uuid,
+        /// Items per ticket (1–20) in each book (each day, with "once per day").
+        pub allowance: u8,
     }
 
     /// The event as the door shows it.
@@ -2538,6 +2558,9 @@ dto! {
         /// The day of the book it counts in; `null`: the whole event.
         #[serde(default)]
         pub ledger_day: Option<u8>,
+        /// The item of a combo at a checkpoint (ADR 0112); `null`: the first.
+        #[serde(default)]
+        pub slot: Option<u8>,
     }
 
     /// `GET /api/door/manifest?since=<cursor>`: everything needed to decide offline.
@@ -2637,6 +2660,10 @@ dto! {
         #[serde(default)]
         #[cfg_attr(feature = "ts", ts(optional))]
         pub ledger_day: Option<u8>,
+        /// The item of a combo at a checkpoint (ADR 0112, 2–20); missing: the first.
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional))]
+        pub slot: Option<u8>,
     }
 
     /// `POST /api/door/scans`.
@@ -4765,6 +4792,10 @@ dto! {
         /// Sold tickets with the right to it.
         #[cfg_attr(feature = "ts", ts(type = "number"))]
         pub entitled: i64,
+        /// Items those tickets may take in each book (ADR 0112: a combo counts its items).
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub allowance_total: i64,
         /// Uses in the whole event (first uses of each ticket and book).
         #[cfg_attr(feature = "ts", ts(type = "number"))]
         pub used: i64,
@@ -4799,6 +4830,10 @@ dto! {
         /// Categories entitled to it; empty: every ticket.
         #[cfg_attr(feature = "ts", ts(type = "string[]"))]
         pub category_ids: Vec<Uuid>,
+        /// Items per ticket when no category is listed (ADR 0112).
+        pub allowance: u8,
+        /// Items per ticket of each listed category.
+        pub category_allowances: Vec<CheckpointAllowanceDto>,
         /// Uses recorded so far.
         #[cfg_attr(feature = "ts", ts(type = "number"))]
         pub uses: i64,
@@ -4820,6 +4855,12 @@ dto! {
         /// Categories entitled to it; empty: every ticket.
         #[cfg_attr(feature = "ts", ts(as = "Vec<String>"))]
         pub category_ids: Vec<Uuid>,
+        /// Items per ticket (1–20) when no category is listed (ADR 0112); default 1.
+        #[serde(default = "one_use")]
+        pub allowance: u8,
+        /// Items per ticket of listed categories (others listed get 1).
+        #[serde(default)]
+        pub category_allowances: Vec<CheckpointAllowanceDto>,
     }
 
     /// The guest list at the door.

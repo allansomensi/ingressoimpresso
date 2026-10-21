@@ -34,11 +34,13 @@ import {
   RESCAN_WINDOW_MS,
   SYNC_INTERVAL_MS,
   alreadyEnteredView,
+  allowanceOf,
   bookKey,
   bookOf,
   boxOfficeTotals,
   canUndoArrival,
   checkView,
+  comboView,
   guestState,
   isEntry,
   notEntitled,
@@ -151,9 +153,9 @@ function toEntryDto(entry: storage.StoredEntry): EntryDto {
   return { number: entry.number, atUnixMs: entry.atUnixMs, deviceName: entry.deviceName };
 }
 
-/** The book a movement counts in (stored before ADR 0091: the whole event). */
+/** The book a movement counts in (stored before ADR 0091: the whole event; ADR 0112: its slot). */
 function bookKeyOf(movement: storage.StoredEntry): string {
-  return bookKey(movement.ledgerDay ?? null);
+  return bookKey(movement.ledgerDay ?? null, movement.slot ?? 1);
 }
 
 /** The days of the event (manifests stored before ADR 0091 lack them). */
@@ -411,9 +413,9 @@ export class DoorEngine {
     return reentryOf(this.#state.manifest) && this.checkpoint === null;
   }
 
-  /** The core of a book, made when first needed from the movements of that book. */
-  #coreFor(book: number | null): DoorCore | null {
-    const key = bookKey(book);
+  /** The core of a book (and slot, ADR 0112), made when first needed from its movements. */
+  #coreFor(book: number | null, slot = 1): DoorCore | null {
+    const key = bookKey(book, slot);
     const known = this.#cores.get(key);
     if (known !== undefined || this.#verifier === null) {
       return known ?? null;
@@ -476,7 +478,7 @@ export class DoorEngine {
       // The book the ticket is checked in now (ADR 0091): the number tells its category.
       const number = numberOf(base.evaluate(text));
       const book = number === null ? null : bookOf(context, number);
-      const core = this.#coreFor(book) ?? base;
+      const { core, slot } = exit ? { core: this.#coreFor(book) ?? base, slot: 1 } : this.#slotFor(text, number, book, context, base);
       if (this.#state.rehearsing) {
         // Rehearsal: what would happen, never recorded nor sent (ADR 0067).
         const view = rehearsalView(text, exit ? core.evaluateExit(text) : core.evaluate(text), context);
@@ -495,7 +497,7 @@ export class DoorEngine {
       const at = Math.round(now + (this.#state.manifest?.offsetMs ?? 0));
       const view = exit
         ? await this.#checkOut(core, text, book, at, device.deviceName, context)
-        : await this.#enter(core, text, number, book, at, device.deviceName, context);
+        : await this.#enter(core, text, number, book, slot, at, device.deviceName, context);
       this.#remember(text, view);
       this.#set({ result: view, checking: false, testScanDone: true, ...this.#counts() });
     } catch {
@@ -504,6 +506,21 @@ export class DoorEngine {
     } finally {
       this.#scanning = false;
     }
+  }
+
+  /**
+   * The slot of a combo a read goes to (ADR 0112): the first item of the ticket still free in its
+   * book, or the last one when all were taken (its core says "already used"). One item: slot 1.
+   */
+  #slotFor(text: string, number: number | null, book: number | null, context: DoorContext, base: DoorCore): { core: DoorCore; slot: number } {
+    const allowance = number === null ? 1 : allowanceOf(context, number);
+    for (let slot = 1; slot < allowance; slot += 1) {
+      const core = this.#coreFor(book, slot) ?? base;
+      if (isEntry(core.evaluate(text))) {
+        return { core, slot };
+      }
+    }
+    return { core: this.#coreFor(book, allowance) ?? base, slot: allowance };
   }
 
   /** The last result, for the same code still in view: shown again without its button. */
@@ -522,6 +539,7 @@ export class DoorEngine {
     text: string,
     number: number | null,
     book: number | null,
+    slot: number,
     at: number,
     deviceName: string,
     context: DoorContext,
@@ -545,7 +563,7 @@ export class DoorEngine {
         return refusal.view;
       }
     }
-    return this.#checkIn(core, text, book, at, deviceName, null, context);
+    return this.#checkIn(core, text, book, slot, at, deviceName, null, context);
   }
 
   /** Why a valid ticket is turned away here, the first reason first; `null`: it may go in. */
@@ -607,11 +625,11 @@ export class DoorEngine {
       const at = Math.round(Date.now() + (this.#state.manifest?.offsetMs ?? 0));
       const number = numberOf(base.evaluate(pending.text));
       const book = number === null ? null : bookOf(context, number);
-      const core = this.#coreFor(book) ?? base;
+      const { core, slot } = this.#slotFor(pending.text, number, book, context, base);
       const view =
         pending.kind === "register"
-          ? await this.#enter(core, pending.text, number, book, at, device.deviceName, context)
-          : await this.#checkIn(core, pending.text, book, at, device.deviceName, pending.kind, context);
+          ? await this.#enter(core, pending.text, number, book, slot, at, device.deviceName, context)
+          : await this.#checkIn(core, pending.text, book, slot, at, device.deviceName, pending.kind, context);
       this.#remember(pending.text, view);
       this.#set({ result: view, checking: false, ...this.#counts() });
     } catch {
@@ -635,6 +653,7 @@ export class DoorEngine {
     core: DoorCore,
     text: string,
     book: number | null,
+    slot: number,
     at: number,
     deviceName: string,
     exception: ExceptionKind | null,
@@ -644,8 +663,10 @@ export class DoorEngine {
     const number = numberOf(decision);
     const checkpoint = context.checkpoint !== undefined && context.checkpoint !== null;
     const id = crypto.randomUUID();
+    // The second and later items of a combo keep their slot (ADR 0112).
+    const slotField = slot > 1 ? { slot } : {};
     const movement = isEntry(decision)
-      ? { scanId: id, number: decision.number, atUnixMs: at, deviceName, day: context.today ?? null, ledgerDay: book }
+      ? { scanId: id, number: decision.number, atUnixMs: at, deviceName, day: context.today ?? null, ledgerDay: book, ...slotField }
       : null;
     if (movement !== null) {
       this.#movements.push(movement);
@@ -658,6 +679,7 @@ export class DoorEngine {
         scannedAtMs: at,
         synced: 0,
         ...(number === null ? {} : this.#dayFields(book, context)),
+        ...(number === null ? {} : slotField),
         ...(exception !== null && isEntry(decision) ? { exception: true, exceptionKind: exception } : {}),
         // For this phone's history only (never uploaded).
         ...(decision.kind === "voided" || decision.kind === "invalid" ? { reason: decision.reason } : {}),
@@ -665,7 +687,7 @@ export class DoorEngine {
       },
       movement,
     );
-    let view = viewOf(decision, context);
+    let view = comboView(viewOf(decision, context), decision, slot, number === null ? 1 : allowanceOf(context, number), context);
     if (decision.kind === "admit" && !checkpoint) {
       this.#entered.add(decision.number);
       this.#admittedHere.add(decision.number);
@@ -674,7 +696,7 @@ export class DoorEngine {
     // A return is confirmed like a first entry: a copy may have come back first elsewhere.
     if (isEntry(decision) && scan !== null && this.#gate.canConfirm(Date.now(), this.#state.lastSyncOkAt)) {
       this.#set({ checking: true, testScanDone: true });
-      view = (await this.#confirm(scan, decision.number, core, book)) ?? view;
+      view = (await this.#confirm(scan, decision.number, core, book, slot)) ?? view;
     }
     return view;
   }
@@ -959,7 +981,7 @@ export class DoorEngine {
   }
 
   /** Online confirmation within the budget; returns a stricter result, if any. */
-  async #confirm(scan: storage.StoredScan, number: number, core: DoorCore, book: number | null): Promise<ResultView | null> {
+  async #confirm(scan: storage.StoredScan, number: number, core: DoorCore, book: number | null, slot: number): Promise<ResultView | null> {
     const device = this.#state.device;
     if (device === null) {
       return null;
@@ -983,7 +1005,7 @@ export class DoorEngine {
       // The copy entered elsewhere first (in the same book): remember that entry so later scans
       // agree. The manifest brings it for good on the next sync.
       core.recordEntries([{ number, ...result.firstEntry }]);
-      this.#movements.push({ scanId: `confirmed:${scan.id}`, number, ...result.firstEntry, day: null, ledgerDay: book });
+      this.#movements.push({ scanId: `confirmed:${scan.id}`, number, ...result.firstEntry, day: null, ledgerDay: book, ...(slot > 1 ? { slot } : {}) });
       void storage.saveVerdict(scan.id, { kind: "already_entered", ...result.firstEntry }).catch(() => undefined);
       return alreadyEnteredView(number, result.firstEntry, this.#context());
     }
@@ -1083,6 +1105,8 @@ export class DoorEngine {
         deviceName: entry.deviceName,
         day: entry.day,
         ledgerDay: entry.ledgerDay,
+        // The item of a combo (ADR 0112); servers before it send none.
+        ...((entry.slot ?? null) === null ? {} : { slot: entry.slot }),
       })),
       // Exits of re-entry (ADR 0083); servers before it send none.
       ...((manifest.exits as DoorManifest["exits"] | undefined) ?? []).map((exit) => ({

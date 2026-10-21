@@ -212,6 +212,13 @@ async fn checkpoints(
                       or exists (select 1 from checkpoint_categories cc
                                  join category_ranges r on r.category_id = cc.category_id
                                  where cc.checkpoint_id = c.id and r.numbers @> sold.number)) as "entitled!",
+                  (select coalesce(sum(case
+                       when not exists (select 1 from checkpoint_categories cc where cc.checkpoint_id = c.id)
+                       then c.allowance
+                       else (select max(cc.allowance) from checkpoint_categories cc
+                             join category_ranges r on r.category_id = cc.category_id
+                             where cc.checkpoint_id = c.id and r.numbers @> sold.number) end), 0)
+                   from sold)::bigint as "allowance_total!",
                   (select count(*) from door_ledger_entries l
                    where l.event_id = $1 and l.checkpoint = c.id) as "used!",
                   (select count(*) from scans s
@@ -236,6 +243,7 @@ async fn checkpoints(
         name: row.name,
         per_day: row.per_day,
         entitled: row.entitled,
+        allowance_total: row.allowance_total,
         used: row.used,
         used_today: today.map(|_| row.used_today),
         repeats: row.repeats,

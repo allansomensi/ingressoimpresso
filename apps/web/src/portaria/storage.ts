@@ -75,6 +75,8 @@ export interface StoredScan {
   day?: number;
   /** The day of the book it was decided in; missing: the whole event. */
   ledgerDay?: number;
+  /** The item of a combo at a checkpoint (ADR 0112); missing: the first. */
+  slot?: number;
   /**
    * Why it was refused, for this phone's history only (never uploaded): the void or invalid
    * reason. Missing on scans stored by older apps.
@@ -116,6 +118,8 @@ export interface StoredEntry {
   day?: number | null;
   /** The day of its book; missing or `null`: the whole event. */
   ledgerDay?: number | null;
+  /** The item of a combo at a checkpoint (ADR 0112); missing or `null`: the first. */
+  slot?: number | null;
 }
 
 interface DoorDb extends DBSchema {
@@ -286,6 +290,7 @@ export function toUpload(scan: StoredScan): DoorScanUpload {
     ...(scan.exception === true && scan.exceptionKind !== undefined ? { exceptionKind: scan.exceptionKind } : {}),
     ...(scan.day === undefined ? {} : { day: scan.day }),
     ...(scan.ledgerDay === undefined ? {} : { ledgerDay: scan.ledgerDay }),
+    ...(scan.slot === undefined ? {} : { slot: scan.slot }),
   };
 }
 

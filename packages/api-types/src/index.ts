@@ -84,6 +84,7 @@ export type * from "./generated/ChecklistKey";
 export type * from "./generated/ChecklistProgressDto";
 export type * from "./generated/ChecklistState";
 export type * from "./generated/CheckoutDto";
+export type * from "./generated/CheckpointAllowanceDto";
 export type * from "./generated/CheckpointBody";
 export type * from "./generated/CheckpointDto";
 export type * from "./generated/ClosingLineKind";

@@ -883,7 +883,7 @@ async fn movements_between(
     let mut exits = Vec::new();
     for row in sqlx::query!(
         r#"select s.id, s.ticket_number as "ticket_number!", s.scanned_at, s.local_outcome, d.name,
-                  s.day, s.ledger_day
+                  s.day, s.ledger_day, s.slot
            from scans s join door_devices d on d.id = s.device_id
            where s.event_id = $1
              and case when $4::uuid is null
@@ -908,6 +908,7 @@ async fn movements_between(
             device_name: row.name,
             day: row.day.and_then(|day| u8::try_from(day).ok()),
             ledger_day: row.ledger_day.and_then(|day| u8::try_from(day).ok()),
+            slot: row.slot.and_then(|slot| u8::try_from(slot).ok()),
         };
         if row.local_outcome == "exited" {
             exits.push(movement);
@@ -957,6 +958,7 @@ pub async fn upload_scans(
             (
                 scan.number,
                 scan.ledger_day,
+                scan.slot,
                 scan.scanned_at,
                 scan.outcome == ScanOutcome::Exited,
             )
@@ -994,6 +996,8 @@ struct ValidScan {
     day: Option<i16>,
     /// The book's day; `None`: the whole event.
     ledger_day: Option<i16>,
+    /// The item of a combo at a checkpoint (ADR 0112); `None`: the first.
+    slot: Option<i16>,
 }
 
 /// The nil UUID: the entrance's place in `door_ledger_entries`.
@@ -1087,6 +1091,16 @@ impl ValidScan {
         let scanned_at =
             OffsetDateTime::from_unix_timestamp_nanos(i128::from(scan.scanned_at_ms) * 1_000_000)
                 .map_err(|_| invalid())?;
+        // Only a checkpoint hands over several items (ADR 0112); the first is no slot at all.
+        let slot = match scan.slot {
+            None | Some(1) => None,
+            Some(slot)
+                if checkpoint && slot <= super::checkpoints::MAX_ALLOWANCE && number.is_some() =>
+            {
+                Some(i16::from(slot))
+            }
+            Some(_) => return Err(invalid()),
+        };
         Ok(Self {
             id: scan.id,
             number,
@@ -1097,6 +1111,7 @@ impl ValidScan {
             exception_kind,
             day,
             ledger_day,
+            slot,
         })
     }
 
@@ -1135,17 +1150,19 @@ async fn record_scan(
 
     let book = device.checkpoint_id.unwrap_or(ENTRANCE);
     let book_day = scan.ledger_day.unwrap_or(0);
+    let book_slot = scan.slot.unwrap_or(1);
     let class = match (scan.classified(), scan.number) {
         (true, Some(number)) => {
             let first = sqlx::query_scalar!(
-                r#"insert into door_ledger_entries (event_id, ticket_number, checkpoint, ledger_day, first_scan_id)
-                   values ($1, $2, $3, $4, $5)
+                r#"insert into door_ledger_entries (event_id, ticket_number, checkpoint, ledger_day, first_scan_id, slot)
+                   values ($1, $2, $3, $4, $5, $6)
                    on conflict do nothing returning ticket_number"#,
                 device.event_id,
                 number,
                 book,
                 book_day,
                 scan.id,
+                book_slot,
             )
             .fetch_optional(&mut **tx)
             .await?
@@ -1155,11 +1172,13 @@ async fn record_scan(
             let first_scan_id = sqlx::query_scalar!(
                 r#"select first_scan_id from door_ledger_entries
                    where event_id = $1 and ticket_number = $2 and checkpoint = $3 and ledger_day = $4
+                     and slot = $5
                    for update"#,
                 device.event_id,
                 number,
                 book,
                 book_day,
+                book_slot,
             )
             .fetch_one(&mut **tx)
             .await?;
@@ -1200,8 +1219,9 @@ async fn record_scan(
     sqlx::query!(
         r#"insert into scans (id, event_id, device_id, ticket_number, key_id, local_outcome, scanned_at,
                               confirmed_online, server_class, door_exception, checkpoint_id, day,
-                              ledger_day, exception_kind)
-           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) on conflict (id) do nothing"#,
+                              ledger_day, exception_kind, slot)
+           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+           on conflict (id) do nothing"#,
         scan.id,
         device.event_id,
         device.id,
@@ -1216,6 +1236,7 @@ async fn record_scan(
         scan.day,
         scan.ledger_day,
         scan.exception_kind.map(ExceptionKind::db),
+        scan.slot,
     )
     .execute(&mut **tx)
     .await?;
@@ -1257,7 +1278,7 @@ async fn describe(
                        (select first_scan_id from door_ledger_entries
                         where event_id = $1 and ticket_number = $2
                           and checkpoint = coalesce($6, '00000000-0000-0000-0000-000000000000'::uuid)
-                          and ledger_day = coalesce($7, 0)))"#,
+                          and ledger_day = coalesce($7, 0) and slot = coalesce($8::int2, 1)))"#,
                 event_id,
                 number,
                 scan.id,
@@ -1265,6 +1286,7 @@ async fn describe(
                 device.name,
                 device.checkpoint_id,
                 scan.ledger_day,
+                scan.slot,
             )
             .fetch_optional(&mut **tx)
             .await?
