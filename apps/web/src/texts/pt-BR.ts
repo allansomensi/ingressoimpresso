@@ -52,3 +52,4 @@ export { referrals } from "./pt-BR/referrals";
 export { series } from "./pt-BR/series";
 export { checklist } from "./pt-BR/checklist";
 export { errors } from "./pt-BR/errors";
+export { tour } from "./pt-BR/tour";

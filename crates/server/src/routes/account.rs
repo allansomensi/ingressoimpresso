@@ -3,8 +3,9 @@
 
 use axum::Json;
 use axum::extract::State;
+use axum::http::StatusCode;
 
-use crate::api::{AccountBody, AccountDto, AccountPreferencesBody};
+use crate::api::{AccountBody, AccountDto, AccountPreferencesBody, TourBody, TourOutcome};
 use crate::auth::AuthUser;
 use crate::error::{ApiError, ApiResult, bad_request};
 use crate::state::AppState;
@@ -56,6 +57,28 @@ pub async fn preferences(
     .execute(&state.pool)
     .await?;
     load(&state, &user).await.map(Json)
+}
+
+/// `POST /api/account/tour`: the welcome tour was finished or skipped (ADR 0116). The first
+/// ending counts; seeing it again from Minha conta changes nothing.
+pub async fn tour(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Json(body): Json<TourBody>,
+) -> ApiResult<StatusCode> {
+    let outcome = match body.outcome {
+        TourOutcome::Finished => "finished",
+        TourOutcome::Skipped => "skipped",
+    };
+    sqlx::query!(
+        "update users set tour_finished_at = now(), tour_outcome = $2
+         where id = $1 and tour_finished_at is null",
+        user.id,
+        outcome,
+    )
+    .execute(&state.pool)
+    .await?;
+    Ok(StatusCode::NO_CONTENT)
 }
 
 async fn load(state: &AppState, user: &AuthUser) -> ApiResult<AccountDto> {

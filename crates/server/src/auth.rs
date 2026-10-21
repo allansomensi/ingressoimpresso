@@ -577,6 +577,7 @@ where
     let row = sqlx::query!(
         r#"select u.email::text as "email!", u.name, u.google_sub is not null as "google!",
                   u.totp_enabled_at is not null as "two_factor!",
+                  u.tour_finished_at is null as "tour_pending!",
                   exists(select 1 from memberships m join organizations o on o.id = m.organization_id
                          where m.user_id = u.id and o.suspended_at is not null) as "suspended!"
            from users u where u.id = $1"#,
@@ -593,6 +594,7 @@ where
         name: row.name,
         google: row.google,
         suspended: row.suspended,
+        tour_pending: row.tour_pending,
     })
 }
 

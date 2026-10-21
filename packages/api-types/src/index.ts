@@ -410,6 +410,8 @@ export type * from "./generated/TicketSettingsDto";
 export type * from "./generated/TicketState";
 export type * from "./generated/TimelineEntryDto";
 export type * from "./generated/TimelineKind";
+export type * from "./generated/TourBody";
+export type * from "./generated/TourOutcome";
 export type * from "./generated/TransferTicketBody";
 export type * from "./generated/TransferTicketDto";
 export type * from "./generated/TwoFactorCodeBody";
