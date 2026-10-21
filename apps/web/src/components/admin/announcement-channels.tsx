@@ -52,7 +52,9 @@ export function ChannelPicker({
   return (
     <fieldset className="flex flex-col gap-2">
       <legend className="mb-2 text-sm font-medium text-fg">{t.channelsLabel}</legend>
-      <div className="grid gap-2 sm:grid-cols-3">
+      {/* One row per channel: the form's column is narrow, and three cards side by side squeezed
+          the explanations into a word per line. */}
+      <div className="flex flex-col gap-2">
         {CHANNELS.map(({ key, icon: Icon }) => {
           const checked = value[key];
           const fixed = locked?.has(key) === true;
@@ -60,7 +62,7 @@ export function ChannelPicker({
             <label
               key={key}
               className={cn(
-                "flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand",
+                "flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-2.5 transition has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand",
                 checked ? "border-brand bg-brand-soft/60" : "border-border hover:border-border-strong hover:bg-surface-2 active:bg-surface-2",
                 fixed && "cursor-default opacity-60",
               )}
@@ -83,11 +85,17 @@ export function ChannelPicker({
                 <Icon className="size-[18px]" aria-hidden />
               </span>
               <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className="flex items-center gap-1.5 text-sm font-semibold text-fg">
-                  {t.channels[key]}
-                  {checked && <Check className="size-3.5 text-brand" aria-hidden />}
-                </span>
-                <span className="text-xs leading-relaxed text-fg-muted">{t.channelHints[key]}</span>
+                <span className="text-sm font-semibold text-fg">{t.channels[key]}</span>
+                <span className="text-xs leading-snug text-fg-muted">{t.channelHints[key]}</span>
+              </span>
+              <span
+                aria-hidden
+                className={cn(
+                  "flex size-5 shrink-0 items-center justify-center rounded-md border transition",
+                  checked ? "border-brand bg-brand-solid text-brand-fg" : "border-border-strong bg-surface",
+                )}
+              >
+                {checked && <Check className="size-3.5" strokeWidth={3} />}
               </span>
             </label>
           );
