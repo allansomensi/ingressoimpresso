@@ -7,7 +7,7 @@ import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
 import { useEventTexts } from "@/components/event/access";
-import { Badge, Button, Card, CardHeader, Dialog, ErrorMessage, Field, Input, Menu, MenuItem, buttonClass, errorMessage, useConfirm } from "@/components/ui";
+import { Badge, Button, Card, CardHeader, Dialog, ErrorMessage, Field, Input, Menu, MenuItem, NumberInput, buttonClass, errorMessage, useConfirm } from "@/components/ui";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { common as commonTexts } from "@/texts/pt-BR/common";
@@ -80,6 +80,7 @@ export function CheckpointsCard({
                   <Badge tone="brand">
                     {days.length > 1 ? (checkpoint.perDay ? t.checkpointPerDayBadge : t.checkpointOnceBadge) : t.checkpointOnceSingle}
                   </Badge>
+                  {checkpoint.categoryIds.length === 0 && checkpoint.allowance > 1 && <Badge tone="success">{t.checkpointCombo(checkpoint.allowance)}</Badge>}
                   <span className="text-xs text-fg-muted tabular">{t.checkpointUses(checkpoint.uses)}</span>
                 </span>
                 {checkpoint.instruction !== null && <span className="text-xs text-fg-muted">{checkpoint.instruction}</span>}
@@ -89,12 +90,15 @@ export function CheckpointsCard({
                   ) : (
                     checkpoint.categoryIds.flatMap((id) => {
                       const category = names.get(id);
+                      // A combo (ADR 0112): how many items the category takes.
+                      const items = checkpoint.categoryAllowances.find((item) => item.categoryId === id)?.allowance ?? 1;
                       return category === undefined
                         ? []
                         : [
                             <span key={id} className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-2 px-2 py-0.5 text-xs font-medium text-fg">
                               <span className="size-2 rounded-full" style={{ backgroundColor: category.color }} aria-hidden />
                               {category.name}
+                              {items > 1 && <span className="font-semibold text-success-fg tabular">×{items}</span>}
                             </span>,
                           ];
                     })
@@ -207,6 +211,12 @@ function CheckpointDialog({
   const [instruction, setInstruction] = useState(checkpoint?.instruction ?? "");
   const [perDay, setPerDay] = useState(checkpoint?.perDay ?? true);
   const [chosen, setChosen] = useState<string[]>(checkpoint?.categoryIds ?? []);
+  // Items per ticket (ADR 0112): for every ticket, and per category with the right.
+  const [allowance, setAllowance] = useState(checkpoint?.allowance ?? 1);
+  const [items, setItems] = useState<Record<string, number>>(
+    Object.fromEntries((checkpoint?.categoryAllowances ?? []).map((item) => [item.categoryId, item.allowance])),
+  );
+  const clamp = (value: number) => (Number.isFinite(value) ? Math.min(20, Math.max(1, Math.round(value))) : 1);
   const save = useMutation({
     mutationFn: () => {
       const body: CheckpointBody = {
@@ -214,6 +224,8 @@ function CheckpointDialog({
         instruction: instruction.trim() === "" ? null : instruction.trim(),
         perDay,
         categoryIds: chosen,
+        allowance: chosen.length === 0 ? clamp(allowance) : 1,
+        categoryAllowances: chosen.map((categoryId) => ({ categoryId, allowance: clamp(items[categoryId] ?? 1) })),
       };
       return checkpoint === null
         ? api<CheckpointDto>(`/api/events/${eventId}/checkpoints`, { method: "POST", body })
@@ -323,6 +335,54 @@ function CheckpointDialog({
             <p className="text-xs leading-relaxed text-fg-muted">{t.checkpointWhoHint}</p>
           </fieldset>
         )}
+        {/* Combos (ADR 0112): how many items each ticket takes here. */}
+        <fieldset className="flex flex-col gap-2">
+          <legend className="mb-2 text-sm font-medium text-fg">{t.checkpointItems}</legend>
+          {chosen.length === 0 ? (
+            <Field label={t.checkpointItemsAll}>
+              <NumberInput
+                value={allowance}
+                step={1}
+                min={1}
+                max={20}
+                suffix={t.checkpointItemsUnit}
+                onChange={(value) => {
+                  setAllowance(clamp(value));
+                }}
+              />
+            </Field>
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {chosen.flatMap((id) => {
+                const category = categories.find((item) => item.id === id);
+                return category === undefined
+                  ? []
+                  : [
+                      <li key={id} className="flex items-center justify-between gap-3">
+                        <span className="flex min-w-0 items-center gap-2 text-sm text-fg">
+                          <span className="size-2.5 shrink-0 rounded-full ring-1 ring-black/10" style={{ backgroundColor: category.color }} aria-hidden />
+                          <span className="truncate">{category.name}</span>
+                        </span>
+                        <span className="w-32 shrink-0">
+                          <NumberInput
+                            value={items[id] ?? 1}
+                            step={1}
+                            min={1}
+                            max={20}
+                            suffix={t.checkpointItemsUnit}
+                            aria-label={`${t.checkpointItems}: ${category.name}`}
+                            onChange={(value) => {
+                              setItems({ ...items, [id]: clamp(value) });
+                            }}
+                          />
+                        </span>
+                      </li>,
+                    ];
+              })}
+            </ul>
+          )}
+          <p className="text-xs leading-relaxed text-fg-muted">{t.checkpointItemsHint}</p>
+        </fieldset>
         {/* Only an event of several days has a choice: in one day, a use is a use. */}
         {days.length > 1 && (
           <fieldset className="flex flex-col gap-2">

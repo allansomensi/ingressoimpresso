@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update event_credentials set name = $2, role = $3, organization = $4, color = $5,\n                  entrance = $6, updated_at = now()\n           where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9395c935a3b65400f7b5e11d226ba61f511f25b759cdfd4957fa0cf94898427d"
+}

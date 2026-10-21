@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into certificates (id, event_id, number, name, guest_id, ticket_number)\n               select $1, $2, coalesce(max(number), 0) + 1, $3, $4, $5\n               from certificates where event_id = $2\n               on conflict do nothing",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Uuid",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f416f52d034887f1fa38d41d7fd7b81998b6127856cee8183465fbb6323ce0aa"
+}

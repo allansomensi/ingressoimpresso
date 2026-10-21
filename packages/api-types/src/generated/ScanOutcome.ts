@@ -3,4 +3,4 @@
 /**
  * Decision shown on the phone for a scan.
  */
-export type ScanOutcome = "admitted" | "rejected_used" | "rejected_void" | "rejected_invalid" | "rejected_other_event" | "rejected_wrong_door" | "readmitted" | "exited" | "rejected_already_out" | "rejected_wrong_day" | "benefit_granted" | "rejected_benefit_used" | "rejected_not_entitled";
+export type ScanOutcome = "admitted" | "rejected_used" | "rejected_void" | "rejected_invalid" | "rejected_other_event" | "rejected_wrong_door" | "readmitted" | "exited" | "rejected_already_out" | "rejected_wrong_day" | "benefit_granted" | "rejected_benefit_used" | "rejected_not_entitled" | "credential_admitted" | "rejected_credential";

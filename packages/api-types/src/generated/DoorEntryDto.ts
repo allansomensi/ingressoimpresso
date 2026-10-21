@@ -27,4 +27,8 @@ day: number | null,
 /**
  * The day of the book it counts in; `null`: the whole event.
  */
-ledgerDay: number | null, };
+ledgerDay: number | null, 
+/**
+ * The item of a combo at a checkpoint (ADR 0112); `null`: the first.
+ */
+slot: number | null, };

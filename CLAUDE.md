@@ -73,7 +73,7 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   no pool; worker de exportação supervisionado, com pausa entre tentativas e drenado no shutdown;
   Pix pendente há 3 dias dado como falho; cancelar o evento fecha os checkouts; ações do CI presas
   por SHA e imagens do Docker por digest.
-- **Versionamento (ADR 0049): implementado, versão atual 1.10.0.** Uma versão SemVer para o produto
+- **Versionamento (ADR 0049): implementado, versão atual 1.11.0.** Uma versão SemVer para o produto
   inteiro (todos os manifestos, conferidos por `scripts/release.mjs check`), `CHANGELOG.md` em
   português (Keep a Changelog), `just release` no `staging` e tag `vX.Y.Z` + GitHub Release pelo
   job **Release** do CI no `main`; versão em Minha conta, em `/sobre`, em `/status` (site e API) e
@@ -321,6 +321,31 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   - Falta o que depende do mantenedor: marcar `charge.dispute.*` no webhook da Stripe (§5.1) e,
     opcional, o bot do Telegram (§5.8).
 
+- **Resumo semanal, canais, lotação, credenciais, combos e certificados (ADRs 0108–0113):
+  implementados.**
+  - Resumo dos admins semanal por padrão (`alert_settings.summary_frequency`/`summary_weekday`),
+    sempre por e-mail; Telegram só com `summary_telegram` (`alerts::summary_day`).
+  - Pronunciamentos em qualquer combinação de sininho (`bell`), janela (`modal`) e e-mail
+    (`email_audience`/`email_tag`, enfileirado quando começa, uma vez: `email_queued_at`,
+    `announcements::queue_due_emails` no worker); `display` saiu. Seletor em
+    `components/admin/announcement-channels.tsx`.
+  - Lotação (`events.capacity`, `capacity_warn_percent`, `capacity_alerted`; `capacity.rs`,
+    `PUT /api/events/{id}/capacity`): "Faltam N para lotar" na entrada (`lib/capacity.ts`,
+    `doorOccupied`), cartão no Ao vivo e avisos `capacity_near`/`capacity_full` no sininho.
+  - Credenciais (`event_credentials`, `credential_checkpoints`, `routes/credentials.rs`): números
+    acima de `CREDENTIAL_BASE` (2.000.000.000), assinados só em `jobs::sign_credentials`, crachás em
+    `render::badges_pdf`; manifesto com `credentials` versionado; desfechos `credential_admitted` e
+    `rejected_credential` (nunca entrada); decisão no app em `lib/credentials.ts`
+    (`credentialVerdict`) + `credentialView`; `/conferir` responde `credential`.
+  - Combos: `allowance` do ponto e de cada categoria (`checkpoint_categories.allowance`); cada item
+    é um slot do livro (`door_ledger_entries.slot`, `scans.slot`, `bookKey(book, slot)`, `#slotFor`
+    no engine), "JÁ USOU OS 2"; o acerto segue pelo preço da categoria.
+  - Certificados (`certificate_settings`, `certificates`, `routes/certificates.rs`): modelo com
+    campos (`render::fill_certificate` ↔ `lib/certificates.ts`), PDF e ZIP
+    (`render::certificate_pdf`/`certificates_zip`), link `/certificado#token` (HMAC do id com a
+    chave mestra, `POST /api/certificates/view|pdf`). Seções **Credenciais** e **Certificados** no
+    grupo Pessoas.
+
 Plano completo em `docs/arquitetura.md` §12.
 
 ## Onde está cada coisa
@@ -345,7 +370,9 @@ crates/render        Typst embutido (pacote `ticket-render`): design versionado,
                      gráfica (TrimBox/BleedBox), controle, ZIP WhatsApp; templates em templates/*.typ,
                      fontes OFL em fonts/ (8 famílias, world.rs); blocos de texto com campos
                      resolvidos em fields.rs (espelho em apps/web/src/lib/ticket-fields.ts);
-                     gera em blocos e junta com merge.rs (ADRs 0015, 0017, 0025); papéis prontos
+                     gera em blocos e junta com merge.rs (ADRs 0015, 0017, 0025); crachás das
+                     credenciais em badge.rs (templates/badge.typ, ADR 0111) e certificados em
+                     certificate.rs (templates/certificate.typ, ADR 0113); papéis prontos
                      (picotado, etiquetas) em layout.rs (Paper, ADR 0102); resumo final em
                      summary_card.rs (templates/summary.typ, ADR 0101); faixa da categoria
                      e patrocinadores no design (ADRs 0056, 0059); relatórios em PDF em
@@ -386,6 +413,8 @@ crates/server        API (pacote `ingressoimpresso-server`, binário `ingressoim
                      (ADR 0104) em routes/disputes.rs, ficha da organização (ADR 0105) em
                      routes/crm.rs, relatórios de receita (ADR 0106) em routes/revenue_reports.rs,
                      pronunciamentos por e-mail (ADR 0107) em mailings.rs + routes/mailings.rs,
+                     lotação (ADR 0110) em capacity.rs, credenciais (ADR 0111) em
+                     routes/credentials.rs, certificados (ADR 0113) em routes/certificates.rs,
                      carteiras do celular (ADR 0097) em wallet.rs, caixa de fichas (ADR 0098) em
                      routes/cashier.rs, resumo final (ADR 0101) em routes/final_summary.rs,
                      conferir ingresso (público, ADR 0075) em routes/verify.rs, dias do evento
@@ -470,7 +499,10 @@ apps/web             landing em src/app/page.tsx (+ src/components/marketing: si
                      configurações, incidentes; alertas em alerts.tsx, contestações em
                      disputes.tsx, ficha da organização em organization-crm.tsx, relatórios em
                      reports.tsx, envio por e-mail em announcement-email.tsx);
-                     descadastro dos comunicados em app/descadastrar + components/unsubscribe; conta em src/app/painel/conta (+ components/account);
+                     descadastro dos comunicados em app/descadastrar + components/unsubscribe;
+                     credenciais em components/event/credentials.tsx + lib/credentials.ts,
+                     certificados em components/event/certificates.tsx + lib/certificates.ts e a
+                     página pública em app/certificado + components/certificate; conta em src/app/painel/conta (+ components/account);
                      sininho e avisos em components/panel/{inbox,platform-notices}.tsx + lib/platform.ts;
                      lista de eventos em app/painel/page.tsx (ordem e séries em lib/event-list.ts,
                      selos em components/panel/event-phase.tsx); página da série em
@@ -645,11 +677,13 @@ just backup-restore-test <dump.age> <chave-age>   # restaura um backup num banco
 1. **O formato QR v1 é imutável** depois do primeiro ingresso real. Uma mudança exige um novo
    `version` e um ADR. Mudar `payload.rs`, `base45.rs` ou `SIGNING_DOMAIN` quebra
    `testdata/vectors`, e isso é intencional.
-2. **Só lotes pagos são assinados.** Prévias usam QR de amostra inválido e marca d'água. Um lote só
+2. **Só lotes pagos (e credenciais dentro do limite, ADR 0111) são assinados.** Prévias usam QR de
+   amostra inválido e marca d'água. Um lote só
    vira `paid` por webhook da Stripe com assinatura válida, por sessão lida da própria Stripe (valor
    conferido) ou pelo admin.
 3. **A deduplicação usa `(event_id, ticket_number)` dentro de um livro** (o dia ou o evento todo,
-   a entrada ou um ponto de controle; ADRs 0091, 0092), nunca os bytes do QR.
+   a entrada ou um ponto de controle, e o item de um combo; ADRs 0091, 0092, 0112), nunca os bytes
+   do QR. Credenciais (ADR 0111) não deduplicam e nunca viram entrada.
 4. **A chave privada nunca sai do servidor.** O `ticket-wasm` depende do `ticket-core` sem
    `signing`, e a chave mestra (`TICKET_KEY_ENCRYPTION_KEY`) nunca vai para o banco nem para os
    logs.

@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update events set capacity = $2, capacity_warn_percent = $3,\n                  capacity_alerted = case when capacity is not distinct from $2\n                                           and capacity_warn_percent = $3\n                                      then capacity_alerted else 0 end\n           where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4",
+        "Int2"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "71ddacd65939f811dd8362d4584721d73b17834d3a9fcfd85c8696206cf989dd"
+}

@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into credential_checkpoints (credential_id, checkpoint_id)\n           select $1, unnest($2::uuid[])",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "UuidArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "96e983bad5b5c5a0dc2f9deccae74dcf943f6669b6c3ba76f1711667b5b55b2a"
+}

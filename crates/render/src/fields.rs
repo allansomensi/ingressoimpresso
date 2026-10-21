@@ -161,7 +161,7 @@ type MonthDays = (time::Month, Vec<u8>);
 
 /// The days of an event: "21 e 22 de novembro de 2026", "30 de novembro e 1 de dezembro de 2026",
 /// "31 de dezembro de 2026 e 1 de janeiro de 2027". Days in order; repeats print once.
-fn days_text(days: &[PrimitiveDateTime]) -> String {
+pub(crate) fn days_text(days: &[PrimitiveDateTime]) -> String {
     let mut sorted: Vec<time::Date> = days.iter().map(|day| day.date()).collect();
     sorted.sort_unstable();
     sorted.dedup();

@@ -106,7 +106,7 @@ pub async fn queue(
     announcement_id: Uuid,
     audience: AnnouncementAudience,
     tag: Option<&str>,
-    created_by: Uuid,
+    created_by: Option<Uuid>,
 ) -> ApiResult<Option<Uuid>> {
     let mut tx = state.pool.begin().await?;
     let id = Uuid::new_v4();

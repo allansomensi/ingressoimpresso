@@ -2,7 +2,6 @@
 
 import type {
   AdminPricesDto,
-  AnnouncementDisplay,
   PriceTableBody,
   PriceTableDto,
   PromoCodeBody,
@@ -33,6 +32,7 @@ import {
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { ChannelPicker, anyChannel, type ChannelChoice } from "@/components/admin/announcement-channels";
 import {
   Alert,
   Badge,
@@ -114,7 +114,7 @@ function PriceEditor({ current, onClose }: { current: PriceTableDto; onClose: ()
   const [effectiveAt, setEffectiveAt] = useState(localInputIn(7, 0));
   const [note, setNote] = useState("");
   const [announce, setAnnounce] = useState(true);
-  const [display, setDisplay] = useState<AnnouncementDisplay>("modal");
+  const [channels, setChannels] = useState<ChannelChoice>({ bell: true, modal: true, email: false });
 
   const parsed = tiers.map((tier, index) => {
     const unit = parseMoney(tier.unit);
@@ -128,7 +128,8 @@ function PriceEditor({ current, onClose }: { current: PriceTableDto; onClose: ()
     parsed.every((tier, index) => Number.isFinite(tier.upTo) && tier.unitCents > 0 && tier.upTo > (parsed[index - 1]?.upTo ?? 0)) &&
     Number.isFinite(minimumCents) &&
     Number.isFinite(freeTickets) &&
-    freeTickets >= 0;
+    freeTickets >= 0 &&
+    (!announce || anyChannel(channels));
   const draft: PriceTable = { tiers: parsed, minimumCents };
   const save = useMutation({
     mutationFn: () => {
@@ -139,7 +140,7 @@ function PriceEditor({ current, onClose }: { current: PriceTableDto; onClose: ()
         effectiveAt: when === "now" ? null : fromLocalInput(effectiveAt),
         note: note.trim() === "" ? null : note.trim(),
         announce,
-        announcementDisplay: display,
+        announcementChannels: channels,
       };
       return api<AdminPricesDto>("/api/admin/prices", { method: "POST", body });
     },
@@ -283,19 +284,7 @@ function PriceEditor({ current, onClose }: { current: PriceTableDto; onClose: ()
               </Field>
             )}
             <Switch checked={announce} onChange={setAnnounce} label={t.announce} description={t.announceHint} />
-            {announce && (
-              <Field label={adminTexts.announcements.display}>
-                <Select
-                  value={display}
-                  onChange={(event) => {
-                    setDisplay(event.target.value as AnnouncementDisplay);
-                  }}
-                >
-                  <option value="modal">{adminTexts.announcements.displays.modal}</option>
-                  <option value="notification">{adminTexts.announcements.displays.notification}</option>
-                </Select>
-              </Field>
-            )}
+            {announce && <ChannelPicker value={channels} onChange={setChannels} />}
           </div>
           <Field label={t.note} optional>
             <Input

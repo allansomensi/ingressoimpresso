@@ -1,0 +1,44 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select (select count(*) from event_credentials where event_id = $1) as \"total!\",\n                  (select count(*) from event_credentials where event_id = $1 and revoked_at is null) as \"active!\",\n                  (select count(distinct ticket_number) from scans\n                   where event_id = $1 and local_outcome = 'credential_admitted') as \"seen!\",\n                  (select count(*) from scans\n                   where event_id = $1 and local_outcome = 'rejected_credential') as \"refused!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "total!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "active!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "seen!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "refused!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "1fa101676641b806c32c000c12884c95b134511f6da6fcfd65ec1cac34ac4085"
+}

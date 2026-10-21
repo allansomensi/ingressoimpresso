@@ -122,6 +122,10 @@ pub async fn update_settings(
     if !(0..=23).contains(&body.summary_hour) {
         return Err(bad_request("invalid_hour", "the hour must be 0–23"));
     }
+    let weekday = i16::try_from(body.summary_weekday)
+        .ok()
+        .filter(|day| (1..=7).contains(day))
+        .ok_or_else(|| bad_request("invalid_weekday", "the weekday must be 1–7"))?;
     if !(1..=100_000).contains(&body.door_min_tickets) {
         return Err(bad_request(
             "invalid_threshold",
@@ -130,13 +134,17 @@ pub async fn update_settings(
     }
     sqlx::query!(
         r#"update alert_settings set email = $1, telegram = $2, summary = $3, summary_hour = $4,
-                  door_min_tickets = $5, updated_at = now(), updated_by = $6 where id"#,
+                  door_min_tickets = $5, summary_frequency = $7, summary_weekday = $8,
+                  summary_telegram = $9, updated_at = now(), updated_by = $6 where id"#,
         body.email,
         body.telegram,
         body.summary,
         body.summary_hour,
         body.door_min_tickets,
         user.id,
+        body.summary_frequency.db(),
+        weekday,
+        body.summary_telegram,
     )
     .execute(&state.pool)
     .await?;
@@ -182,7 +190,7 @@ pub async fn test(
     Ok(Json(delivery))
 }
 
-/// `POST /api/admin/alerts/summary`: the daily summary now (it still goes out in the morning).
+/// `POST /api/admin/alerts/summary`: the summary now (the scheduled one still goes out).
 pub async fn summary_now(
     State(state): State<AppState>,
     user: AuthUser,

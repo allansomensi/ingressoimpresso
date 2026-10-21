@@ -1,0 +1,146 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select c.id, c.number, c.name, c.role, c.organization, c.color, c.entrance, c.revoked_at,\n                  c.created_at,\n                  array(select k.checkpoint_id from credential_checkpoints k\n                        where k.credential_id = c.id order by k.checkpoint_id) as \"checkpoint_ids!\",\n                  (select count(*) from scans s where s.event_id = c.event_id and s.ticket_number = c.number\n                     and s.local_outcome = 'credential_admitted') as \"reads!\",\n                  (select max(s.scanned_at) from scans s where s.event_id = c.event_id\n                     and s.ticket_number = c.number and s.local_outcome = 'credential_admitted') as last_read_at\n           from event_credentials c\n           where c.event_id = $1 and ($2::uuid is null or c.id = $2)\n           order by c.number",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "event_credentials",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "number",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "event_credentials",
+            "name": "number"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "event_credentials",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "role",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "event_credentials",
+            "name": "role"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "organization",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "event_credentials",
+            "name": "organization"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "color",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "event_credentials",
+            "name": "color"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "entrance",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "event_credentials",
+            "name": "entrance"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "revoked_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "event_credentials",
+            "name": "revoked_at"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "event_credentials",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "checkpoint_ids!",
+        "type_info": "UuidArray",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 10,
+        "name": "reads!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 11,
+        "name": "last_read_at",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      true,
+      false,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "127eb2f61a9ae6d5a37e3be0c2ef32980df284aa4257fb4df7ebe70b8c767d75"
+}

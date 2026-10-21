@@ -40,5 +40,11 @@ export const inbox = {
     referralReferred: "Crédito de boas-vindas",
     referralReferredBody: (amount: string, by: string) =>
       `Você chegou por indicação${by === "" ? "" : ` de ${by}`} e pagou o primeiro lote: ${amount} de crédito para os próximos.`,
+    capacityNear: "O local está quase lotado",
+    capacityNearBody: (event: string, occupied: number, capacity: number) =>
+      `${event}: ${occupied.toLocaleString("pt-BR")} pessoas dentro, faltam ${Math.max(0, capacity - occupied).toLocaleString("pt-BR")} para lotar.`,
+    capacityFull: "O local lotou",
+    capacityFullBody: (event: string, occupied: number, capacity: number) =>
+      `${event}: ${occupied.toLocaleString("pt-BR")} pessoas dentro, para uma lotação de ${capacity.toLocaleString("pt-BR")}.`,
   },
 } as const;

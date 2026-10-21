@@ -98,6 +98,13 @@ pub const REFERRAL_INVITE: Limit = Limit {
     window: Duration::from_mins(10),
 };
 
+/// `POST /api/certificates/view` and `/pdf`: the private link of a certificate (ADR 0113).
+pub const CERTIFICATE: Limit = Limit {
+    name: "certificate",
+    max: 60,
+    window: Duration::from_mins(10),
+};
+
 /// `POST /api/email/unsubscribe`: the link of an announcement e-mail (ADR 0107).
 pub const UNSUBSCRIBE: Limit = Limit {
     name: "unsubscribe",

@@ -3,9 +3,11 @@
 import type { EventKind } from "@ingressoimpresso/api-types";
 import {
   Activity,
+  Award,
   Ban,
   BarChart3,
   FileDown,
+  IdCard,
   LayoutDashboard,
   Layers,
   ListChecks,
@@ -37,6 +39,8 @@ export const TAB_ICONS: Record<Tab, LucideIcon> = {
   guests: ListChecks,
   report: BarChart3,
   team: UsersRound,
+  credentials: IdCard,
+  certificates: Award,
 };
 
 /** The sections of an event, grouped as the work goes (ADR 0087). */

@@ -26,4 +26,12 @@ reentry: boolean,
 /**
  * The event's checkpoints (ADR 0092).
  */
-checkpoints: Array<CheckpointDto>, };
+checkpoints: Array<CheckpointDto>, 
+/**
+ * People the venue holds (ADR 0110); `null`: no limit.
+ */
+capacity: number | null, 
+/**
+ * Share of the capacity that warns.
+ */
+capacityWarnPercent: number, };

@@ -9,6 +9,7 @@ import type {
   DoorAccessDto,
   DoorDeviceDto,
   DoorOverviewDto,
+  CapacityBody,
   DoorSettingsBody,
   EventDayDto,
   EventKind,
@@ -31,6 +32,7 @@ import {
   QrCode as QrCodeIcon,
   Smartphone,
   Tags,
+  UsersRound,
   X,
 } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent } from "react";
@@ -49,6 +51,7 @@ import {
   LoadingBlock,
   Menu,
   MenuItem,
+  NumberInput,
   Stat,
   Switch,
   buttonClass,
@@ -607,6 +610,20 @@ export function DoorTab({ eventId, kind = "tickets", days = [] }: { eventId: str
       </Card>
       )}
 
+      {kind !== "tokens" && (
+        <CapacitySettings
+          key={`${String(overview.data.capacity ?? "")}:${String(overview.data.capacityWarnPercent)}`}
+          eventId={eventId}
+          capacity={(overview.data.capacity as number | null | undefined) ?? null}
+          warnPercent={overview.data.capacityWarnPercent || 90}
+          editable={can("door")}
+          onSaved={(data) => {
+            queryClient.setQueryData(key, data);
+            void queryClient.invalidateQueries({ queryKey: ["door-live", eventId] });
+          }}
+        />
+      )}
+
       <RehearsalSheet eventId={eventId} />
 
       <CategoriesDialog
@@ -782,5 +799,94 @@ function RehearsalSheet({ eventId }: { eventId: string }) {
         </ol>
       </div>
     </details>
+  );
+}
+
+/**
+ * The venue's capacity (ADR 0110): the door phones show "faltam 50 para lotar", the live view
+ * follows it, and the organization hears when it gets close and when it is full.
+ */
+function CapacitySettings({
+  eventId,
+  capacity,
+  warnPercent,
+  editable,
+  onSaved,
+}: {
+  eventId: string;
+  capacity: number | null;
+  warnPercent: number;
+  editable: boolean;
+  onSaved: (data: DoorOverviewDto) => void;
+}) {
+  const t = useEventTexts().door;
+  const [limit, setLimit] = useState<number>(capacity ?? Number.NaN);
+  const [warn, setWarn] = useState(warnPercent);
+  const save = useMutation({
+    mutationFn: (body: CapacityBody) => api<DoorOverviewDto>(`/api/events/${eventId}/capacity`, { method: "PUT", body }),
+    onSuccess: (data) => {
+      onSaved(data);
+      toast.success(data.capacity === null ? t.capacityOff : t.capacitySaved);
+    },
+    onError: (error) => {
+      toast.error(errorMessage(error));
+    },
+  });
+  const valid = Number.isFinite(limit) && limit >= 1 && limit <= 1_000_000 && warn >= 50 && warn <= 99;
+  const dirty = (Number.isFinite(limit) ? limit : null) !== capacity || warn !== warnPercent;
+  return (
+    <Card className="flex flex-col gap-4">
+      <CardHeader title={t.capacity} description={t.capacityHint} icon={UsersRound} />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label={t.capacityLimit} hint={t.capacityLimitHint}>
+          <NumberInput
+            value={limit}
+            step={10}
+            min={1}
+            max={1_000_000}
+            suffix={t.capacityPeople}
+            onChange={(value) => {
+              setLimit(Number.isFinite(value) ? Math.round(value) : Number.NaN);
+            }}
+          />
+        </Field>
+        <Field label={t.capacityWarn} hint={t.capacityWarnHint}>
+          <NumberInput
+            value={warn}
+            step={5}
+            min={50}
+            max={99}
+            suffix="%"
+            onChange={(value) => {
+              setWarn(Number.isFinite(value) ? Math.round(value) : 90);
+            }}
+          />
+        </Field>
+      </div>
+      {editable && (
+        <div className="flex flex-wrap justify-end gap-2">
+          {capacity !== null && (
+            <Button
+              variant="secondary"
+              loading={save.isPending && save.variables.capacity === null}
+              onClick={() => {
+                save.mutate({ capacity: null, warnPercent: warn });
+              }}
+            >
+              {t.capacityRemove}
+            </Button>
+          )}
+          <Button
+            disabled={!valid || !dirty}
+            loading={save.isPending && save.variables.capacity !== null}
+            onClick={() => {
+              save.mutate({ capacity: limit, warnPercent: warn });
+            }}
+          >
+            {t.capacitySave}
+          </Button>
+        </div>
+      )}
+    </Card>
   );
 }

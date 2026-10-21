@@ -5,6 +5,8 @@
 //! for a paid batch, or renders [`TicketQr::Sample`] previews with an invalid QR and a
 //! watermark (CLAUDE.md invariant 2).
 
+mod badge;
+mod certificate;
 mod design;
 mod fields;
 mod layout;
@@ -17,6 +19,11 @@ mod summary_card;
 mod texts;
 mod world;
 
+pub use badge::{Badge, BadgeSheet, MAX_BADGES, badges_pdf};
+pub use certificate::{
+    CERTIFICATE_FIELDS, Certificate, CertificateFields, CertificateSegment, CertificateSigner,
+    MAX_CERTIFICATES, certificate_pdf, certificates_zip, fill_certificate,
+};
 pub use design::{
     AUTO_BAND_MM, BLEED_MM, BandEdge, BandStyle, DESIGN_VERSION, DesignIssue, FontChoice,
     MAX_SPONSORS, MIN_QR_SIZE_MM, NumberStyle, QrPlacement, SponsorStrip, StubSide, StubStyle,

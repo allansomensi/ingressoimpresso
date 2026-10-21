@@ -41,4 +41,8 @@ day?: number,
 /**
  * The day of the book it was decided in; missing: the whole event.
  */
-ledgerDay?: number, };
+ledgerDay?: number, 
+/**
+ * The item of a combo at a checkpoint (ADR 0112, 2–20); missing: the first.
+ */
+slot?: number, };

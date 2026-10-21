@@ -186,7 +186,7 @@ async fn announcements_reach_the_bell_and_the_dialog(pool: PgPool) {
                 "title": "Manutenção no sábado",
                 "body": "O painel fica fora do ar das 2h às 3h.",
                 "level": "warning",
-                "display": "modal",
+                "bell": true, "modal": true, "email": null,
                 "ctaLabel": "Ver status",
                 "ctaUrl": "/status",
                 "publish": false,
@@ -209,7 +209,7 @@ async fn announcements_reach_the_bell_and_the_dialog(pool: PgPool) {
         "title": "Manutenção no sábado",
         "body": "O painel fica fora do ar das 2h às 3h.",
         "level": "warning",
-        "display": "modal",
+        "bell": true, "modal": true, "email": null,
         "ctaLabel": "Ver status",
         "ctaUrl": "/status",
         "publish": true,
@@ -225,7 +225,7 @@ async fn announcements_reach_the_bell_and_the_dialog(pool: PgPool) {
     assert_eq!(published["status"], "active");
     let inbox = app.get("/api/inbox", &token).await.json();
     assert_eq!(inbox["unread"], 1);
-    assert_eq!(inbox["announcements"][0]["display"], "modal");
+    assert_eq!(inbox["announcements"][0]["modal"], true);
     assert_eq!(inbox["announcements"][0]["seen"], false);
 
     // Seen in the bell, closed in the dialog.
@@ -508,7 +508,7 @@ async fn the_audit_log_filters_by_period_and_category(pool: PgPool) {
     app.post(
         "/api/admin/announcements",
         &admin,
-        json!({ "title": "Olá a todos", "body": "Texto.", "level": "info", "display": "notification", "publish": true }),
+        json!({ "title": "Olá a todos", "body": "Texto.", "level": "info", "bell": true, "modal": false, "email": null, "publish": true }),
     )
     .await;
     let all = app.get("/api/admin/audit?perPage=1", &admin).await.json();

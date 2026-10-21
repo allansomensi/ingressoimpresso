@@ -64,7 +64,7 @@ async fn admins_version_the_price_table(pool: PgPool) {
                 "freeTickets": 10,
                 "note": "Reajuste",
                 "announce": true,
-                "announcementDisplay": "modal",
+                "announcementChannels": { "bell": true, "modal": true, "email": false },
             }),
         )
         .await;
@@ -99,7 +99,7 @@ async fn admins_version_the_price_table(pool: PgPool) {
         inbox["announcements"][0]["title"],
         "Novos preços dos ingressos"
     );
-    assert_eq!(inbox["announcements"][0]["display"], "modal");
+    assert_eq!(inbox["announcements"][0]["modal"], true);
 
     // Prices for later: announced, not in force, can be withdrawn.
     let later = app
@@ -113,7 +113,7 @@ async fn admins_version_the_price_table(pool: PgPool) {
                 "effectiveAt": "2999-01-01T00:00:00Z",
                 "note": null,
                 "announce": false,
-                "announcementDisplay": "notification",
+                "announcementChannels": { "bell": true, "modal": false, "email": false },
             }),
         )
         .await
@@ -151,7 +151,7 @@ async fn admins_version_the_price_table(pool: PgPool) {
             json!({
                 "tiers": tiers(&[(100, 10), (5_000, 20)]),
                 "minimumCents": 0, "freeTickets": 0, "note": null,
-                "announce": false, "announcementDisplay": "notification",
+                "announce": false, "announcementChannels": { "bell": true, "modal": false, "email": false },
             }),
         )
         .await;

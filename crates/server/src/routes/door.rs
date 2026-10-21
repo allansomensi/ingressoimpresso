@@ -13,7 +13,7 @@ use uuid::Uuid;
 
 use super::{authorize_event, bounds, one_line};
 use crate::api::{
-    CreateDoorAccessBody, CreatedDoorAccess, DoorAccessCategoriesBody, DoorAccessDto,
+    CapacityBody, CreateDoorAccessBody, CreatedDoorAccess, DoorAccessCategoriesBody, DoorAccessDto,
     DoorCategoryRangeDto, DoorDeviceDto, DoorEntryDto, DoorEventInfo, DoorFirstEntryDto,
     DoorKeyDto, DoorManifest, DoorOverviewDto, DoorRegisterBody, DoorRegistration, DoorRouteDto,
     DoorScanResult, DoorScanUpload, DoorScansBody, DoorScansResponse, DoorSeatDto,
@@ -125,7 +125,7 @@ pub async fn overview(
     .await?;
     let counts = sqlx::query!(
         r#"select (select count(*) from entries where event_id = $1) as "entries!",
-                  reentry from events where id = $1"#,
+                  reentry, capacity, capacity_warn_percent from events where id = $1"#,
         event_id
     )
     .fetch_one(&state.pool)
@@ -136,7 +136,53 @@ pub async fn overview(
         entry_count: counts.entries,
         reentry: counts.reentry,
         checkpoints: super::checkpoints::load(&state.pool, event_id).await?,
+        capacity: counts.capacity,
+        capacity_warn_percent: i32::from(counts.capacity_warn_percent),
     }))
+}
+
+/// `PUT /api/events/{id}/capacity` (ADR 0110): how many people the venue holds and when to warn.
+/// Phones pick it up on their next sync; a new limit may warn the organization again.
+pub async fn update_capacity(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(event_id): Path<Uuid>,
+    Json(body): Json<CapacityBody>,
+) -> ApiResult<Json<DoorOverviewDto>> {
+    let event = authorize_event(&state.pool, &user, event_id).await?;
+    if event.kind() == crate::api::EventKind::Tokens {
+        return Err(bad_request(
+            "capacity_tokens",
+            "consumption tokens fill no venue",
+        ));
+    }
+    if body
+        .capacity
+        .is_some_and(|capacity| !(1..=1_000_000).contains(&capacity))
+    {
+        return Err(bad_request(
+            "invalid_capacity",
+            "capacity must be 1–1000000 people",
+        ));
+    }
+    let warn = i16::try_from(body.warn_percent)
+        .ok()
+        .filter(|percent| (50..=99).contains(percent))
+        .ok_or_else(|| bad_request("invalid_capacity", "the warning must be 50–99%"))?;
+    sqlx::query!(
+        r#"update events set capacity = $2, capacity_warn_percent = $3,
+                  capacity_alerted = case when capacity is not distinct from $2
+                                           and capacity_warn_percent = $3
+                                      then capacity_alerted else 0 end
+           where id = $1"#,
+        event_id,
+        body.capacity,
+        warn,
+    )
+    .execute(&state.pool)
+    .await?;
+    crate::capacity::check(&state, event_id).await;
+    overview(State(state), user, Path(event_id)).await
 }
 
 /// `PUT /api/events/{id}/door-settings` (ADR 0083): whether a ticket that went out may come back.
@@ -530,7 +576,7 @@ pub async fn register(
 async fn event_info(state: &AppState, event_id: Uuid) -> ApiResult<DoorEventInfo> {
     let row = sqlx::query!(
         r#"select e.id, e.name, e.venue, e.starts_at, e.ends_at, e.ticket_price_cents, e.canceled_at,
-                  e.utc_offset_minutes, e.reentry, e.kind,
+                  e.utc_offset_minutes, e.reentry, e.kind, e.capacity, e.capacity_warn_percent,
                   coalesce((select (spec -> 'number' ->> 'digits')::int from ticket_designs
                             where event_id = e.id order by version desc limit 1), $2) as "digits!"
            from events e where e.id = $1"#,
@@ -556,6 +602,12 @@ async fn event_info(state: &AppState, event_id: Uuid) -> ApiResult<DoorEventInfo
         reentry: row.reentry,
         kind: crate::api::EventKind::from_db(&row.kind).unwrap_or_default(),
         days: crate::event_days::of_event(&state.pool, event_id, offset).await?,
+        // Fichas fill no venue (ADR 0084).
+        capacity: row
+            .capacity
+            .filter(|_| row.kind != "tokens")
+            .and_then(|capacity| u32::try_from(capacity).ok()),
+        capacity_warn_percent: u8::try_from(row.capacity_warn_percent).unwrap_or(90),
     })
 }
 
@@ -566,6 +618,8 @@ pub struct ManifestQuery {
     since: Option<String>,
     pending: Option<i64>,
     guests: Option<String>,
+    /// The version of the credentials the phone holds (ADR 0111).
+    credentials: Option<String>,
 }
 
 /// `GET /api/door/manifest?since=<cursor>`: keys, voids and sellers whole, admitted scans
@@ -597,10 +651,11 @@ pub async fn manifest(
         tags(&state, event_id),
         doors(&state, &device),
     )?;
-    let ((guests, guests_version), (), checkpoint) = tokio::try_join!(
+    let ((guests, guests_version), (), checkpoint, (credentials, credentials_version)) = tokio::try_join!(
         super::guests::door_list(&state, event_id, query.guests.as_deref()),
         record_sync(&state, device.id, query.pending),
         super::checkpoints::of_access(&state.pool, device.access_id),
+        super::credentials::door_list(&state.pool, event_id, query.credentials.as_deref()),
     )?;
     // Every transaction below xmin has finished: its rows are visible to the next statement.
     let xmin = sqlx::query_scalar!(
@@ -633,6 +688,8 @@ pub async fn manifest(
         guest_arrivals,
         sessions,
         checkpoint,
+        credentials,
+        credentials_version,
     }))
 }
 
@@ -831,7 +888,7 @@ async fn movements_between(
     let mut exits = Vec::new();
     for row in sqlx::query!(
         r#"select s.id, s.ticket_number as "ticket_number!", s.scanned_at, s.local_outcome, d.name,
-                  s.day, s.ledger_day
+                  s.day, s.ledger_day, s.slot
            from scans s join door_devices d on d.id = s.device_id
            where s.event_id = $1
              and case when $4::uuid is null
@@ -856,6 +913,7 @@ async fn movements_between(
             device_name: row.name,
             day: row.day.and_then(|day| u8::try_from(day).ok()),
             ledger_day: row.ledger_day.and_then(|day| u8::try_from(day).ok()),
+            slot: row.slot.and_then(|slot| u8::try_from(slot).ok()),
         };
         if row.local_outcome == "exited" {
             exits.push(movement);
@@ -905,6 +963,7 @@ pub async fn upload_scans(
             (
                 scan.number,
                 scan.ledger_day,
+                scan.slot,
                 scan.scanned_at,
                 scan.outcome == ScanOutcome::Exited,
             )
@@ -920,6 +979,10 @@ pub async fn upload_scans(
         *slot = Some(record_scan(&mut tx, &device, scan, body.confirm).await?);
     }
     tx.commit().await?;
+    // The entrance fills the venue (ADR 0110).
+    if device.checkpoint_id.is_none() && scans.iter().any(ValidScan::classified) {
+        crate::capacity::check(&state, device.event_id).await;
+    }
     Ok(Json(DoorScansResponse {
         results: results.into_iter().flatten().collect(),
     }))
@@ -938,12 +1001,18 @@ struct ValidScan {
     day: Option<i16>,
     /// The book's day; `None`: the whole event.
     ledger_day: Option<i16>,
+    /// The item of a combo at a checkpoint (ADR 0112); `None`: the first.
+    slot: Option<i16>,
 }
 
 /// The nil UUID: the entrance's place in `door_ledger_entries`.
 const ENTRANCE: Uuid = Uuid::nil();
 
 impl ValidScan {
+    #[expect(
+        clippy::too_many_lines,
+        reason = "every rule of an uploaded scan, side by side"
+    )]
     fn new(scan: &DoorScanUpload, device: &DoorDevice, days: i16) -> ApiResult<Self> {
         let invalid = || bad_request("invalid_scans", format!("scan {} is malformed", scan.id));
         let number = scan
@@ -988,6 +1057,17 @@ impl ValidScan {
             }),
             (true, Some(kind)) => Some(kind),
         };
+        // A credential's number (ADR 0111) is never a ticket's, and only a credential's outcome
+        // carries one.
+        let credential_outcome = matches!(
+            outcome,
+            ScanOutcome::CredentialAdmitted | ScanOutcome::RejectedCredential
+        );
+        if number.is_some_and(|number| number > super::credentials::CREDENTIAL_BASE)
+            != credential_outcome
+        {
+            return Err(invalid());
+        }
         let exception_ok = match exception_kind {
             None | Some(ExceptionKind::WrongDay) => true,
             Some(ExceptionKind::WrongDoor) => !checkpoint,
@@ -1031,6 +1111,16 @@ impl ValidScan {
         let scanned_at =
             OffsetDateTime::from_unix_timestamp_nanos(i128::from(scan.scanned_at_ms) * 1_000_000)
                 .map_err(|_| invalid())?;
+        // Only a checkpoint hands over several items (ADR 0112); the first is no slot at all.
+        let slot = match scan.slot {
+            None | Some(1) => None,
+            Some(slot)
+                if checkpoint && slot <= super::checkpoints::MAX_ALLOWANCE && number.is_some() =>
+            {
+                Some(i16::from(slot))
+            }
+            Some(_) => return Err(invalid()),
+        };
         Ok(Self {
             id: scan.id,
             number,
@@ -1041,6 +1131,7 @@ impl ValidScan {
             exception_kind,
             day,
             ledger_day,
+            slot,
         })
     }
 
@@ -1053,6 +1144,10 @@ impl ValidScan {
     }
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "the classification of a scan reads best in one place"
+)]
 async fn record_scan(
     tx: &mut Transaction<'static, Postgres>,
     device: &DoorDevice,
@@ -1079,17 +1174,19 @@ async fn record_scan(
 
     let book = device.checkpoint_id.unwrap_or(ENTRANCE);
     let book_day = scan.ledger_day.unwrap_or(0);
+    let book_slot = scan.slot.unwrap_or(1);
     let class = match (scan.classified(), scan.number) {
         (true, Some(number)) => {
             let first = sqlx::query_scalar!(
-                r#"insert into door_ledger_entries (event_id, ticket_number, checkpoint, ledger_day, first_scan_id)
-                   values ($1, $2, $3, $4, $5)
+                r#"insert into door_ledger_entries (event_id, ticket_number, checkpoint, ledger_day, first_scan_id, slot)
+                   values ($1, $2, $3, $4, $5, $6)
                    on conflict do nothing returning ticket_number"#,
                 device.event_id,
                 number,
                 book,
                 book_day,
                 scan.id,
+                book_slot,
             )
             .fetch_optional(&mut **tx)
             .await?
@@ -1099,11 +1196,13 @@ async fn record_scan(
             let first_scan_id = sqlx::query_scalar!(
                 r#"select first_scan_id from door_ledger_entries
                    where event_id = $1 and ticket_number = $2 and checkpoint = $3 and ledger_day = $4
+                     and slot = $5
                    for update"#,
                 device.event_id,
                 number,
                 book,
                 book_day,
+                book_slot,
             )
             .fetch_one(&mut **tx)
             .await?;
@@ -1144,8 +1243,9 @@ async fn record_scan(
     sqlx::query!(
         r#"insert into scans (id, event_id, device_id, ticket_number, key_id, local_outcome, scanned_at,
                               confirmed_online, server_class, door_exception, checkpoint_id, day,
-                              ledger_day, exception_kind)
-           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) on conflict (id) do nothing"#,
+                              ledger_day, exception_kind, slot)
+           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+           on conflict (id) do nothing"#,
         scan.id,
         device.event_id,
         device.id,
@@ -1160,6 +1260,7 @@ async fn record_scan(
         scan.day,
         scan.ledger_day,
         scan.exception_kind.map(ExceptionKind::db),
+        scan.slot,
     )
     .execute(&mut **tx)
     .await?;
@@ -1201,7 +1302,7 @@ async fn describe(
                        (select first_scan_id from door_ledger_entries
                         where event_id = $1 and ticket_number = $2
                           and checkpoint = coalesce($6, '00000000-0000-0000-0000-000000000000'::uuid)
-                          and ledger_day = coalesce($7, 0)))"#,
+                          and ledger_day = coalesce($7, 0) and slot = coalesce($8::int2, 1)))"#,
                 event_id,
                 number,
                 scan.id,
@@ -1209,6 +1310,7 @@ async fn describe(
                 device.name,
                 device.checkpoint_id,
                 scan.ledger_day,
+                scan.slot,
             )
             .fetch_optional(&mut **tx)
             .await?

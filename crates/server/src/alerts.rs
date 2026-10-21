@@ -1,7 +1,8 @@
 //! Alerts that reach the admins (ADR 0103): something went wrong (the Stripe webhook failed, a
 //! file failed every attempt, the e-mail quota is running out, a large event starts without a
 //! door link, the API answered a burst of errors, a payment was disputed) and the admins hear of
-//! it by e-mail and on Telegram, without opening the panel. Plus a summary every morning.
+//! it by e-mail and on Telegram, without opening the panel. Plus a summary by e-mail, every week
+//! or every day (ADR 0108).
 //!
 //! An alert has a key: the same problem again, while its alert is open, only adds to its count,
 //! so a flood of failures is one message. Raising never fails its caller: a broken alert is
@@ -20,7 +21,7 @@ use axum::response::Response;
 use time::{OffsetDateTime, UtcOffset};
 use uuid::Uuid;
 
-use crate::api::{AlertDeliveryDto, AlertKind, AlertSettingsDto, AlertSeverity};
+use crate::api::{AlertDeliveryDto, AlertKind, AlertSettingsDto, AlertSeverity, SummaryFrequency};
 use crate::config::TelegramKeys;
 use crate::emails::{self, AdminAlert, AdminSummary};
 use crate::error::ApiResult;
@@ -190,7 +191,9 @@ async fn open_alert(state: &AppState, alert: &NewAlert) -> ApiResult<Option<Uuid
 /// Database errors.
 pub async fn settings(pool: &sqlx::PgPool) -> ApiResult<AlertSettingsDto> {
     let row = sqlx::query!(
-        "select email, telegram, summary, summary_hour, door_min_tickets from alert_settings where id"
+        r#"select email, telegram, summary, summary_frequency, summary_weekday, summary_telegram,
+                  summary_hour, door_min_tickets
+           from alert_settings where id"#
     )
     .fetch_one(pool)
     .await?;
@@ -198,6 +201,10 @@ pub async fn settings(pool: &sqlx::PgPool) -> ApiResult<AlertSettingsDto> {
         email: row.email,
         telegram: row.telegram,
         summary: row.summary,
+        summary_frequency: SummaryFrequency::from_db(&row.summary_frequency)
+            .unwrap_or(SummaryFrequency::Weekly),
+        summary_weekday: i32::from(row.summary_weekday),
+        summary_telegram: row.summary_telegram,
         summary_hour: row.summary_hour,
         door_min_tickets: row.door_min_tickets,
     })
@@ -231,33 +238,49 @@ async fn deliver_alert(state: &AppState, alert: &NewAlert) {
     deliver(state, &email, &text).await;
 }
 
+/// Where a message goes: by e-mail, on Telegram, or both.
+#[derive(Debug, Clone, Copy)]
+struct Channels {
+    email: bool,
+    telegram: bool,
+}
+
 /// Sends a message to every admin by e-mail and on Telegram, as the settings allow.
 pub(crate) async fn deliver(
     state: &AppState,
     email: &emails::Email,
     telegram_text: &str,
 ) -> AlertDeliveryDto {
-    let settings = match settings(&state.pool).await {
-        Ok(settings) => settings,
+    let channels = match settings(&state.pool).await {
+        Ok(settings) => Channels {
+            email: settings.email,
+            telegram: settings.telegram,
+        },
         Err(error) => {
             tracing::error!(
                 ?error,
                 "alert settings unreadable; sending by every channel"
             );
-            AlertSettingsDto {
+            Channels {
                 email: true,
                 telegram: true,
-                summary: true,
-                summary_hour: 8,
-                door_min_tickets: 50,
             }
         }
     };
+    deliver_to(state, channels, email, telegram_text).await
+}
+
+async fn deliver_to(
+    state: &AppState,
+    channels: Channels,
+    email: &emails::Email,
+    telegram_text: &str,
+) -> AlertDeliveryDto {
     let mut delivery = AlertDeliveryDto {
         emails: 0,
         telegram: false,
     };
-    if settings.email {
+    if channels.email {
         for to in &state.config.admin_emails {
             match state.send_mail(MailKind::Alert, to, email).await {
                 Ok(()) => delivery.emails += 1,
@@ -265,7 +288,7 @@ pub(crate) async fn deliver(
             }
         }
     }
-    if settings.telegram && state.telegram.configured() {
+    if channels.telegram && state.telegram.configured() {
         match state.telegram.send(telegram_text).await {
             Ok(()) => delivery.telegram = true,
             Err(error) => tracing::error!(%error, "alert not sent on telegram"),
@@ -381,7 +404,8 @@ pub async fn check_doors(state: &AppState) -> ApiResult<usize> {
     Ok(raised)
 }
 
-/// Sends the daily summary once the configured hour has come (hourly; at most once a day).
+/// Sends the summary once its day and hour have come (hourly; at most once a day): every day, or
+/// on the chosen weekday (ADR 0108).
 ///
 /// # Errors
 ///
@@ -389,7 +413,10 @@ pub async fn check_doors(state: &AppState) -> ApiResult<usize> {
 pub async fn maybe_send_summary(state: &AppState) -> ApiResult<bool> {
     let settings = settings(&state.pool).await?;
     let now = OffsetDateTime::now_utc().to_offset(BRASILIA);
-    if !settings.summary || i32::from(now.hour()) < settings.summary_hour {
+    if !settings.summary
+        || i32::from(now.hour()) < settings.summary_hour
+        || !summary_day(&settings, now.weekday())
+    {
         return Ok(false);
     }
     let claimed = sqlx::query_scalar!(
@@ -405,31 +432,53 @@ pub async fn maybe_send_summary(state: &AppState) -> ApiResult<bool> {
     Ok(true)
 }
 
-/// Builds and sends the summary of the last 24 hours now.
+/// Whether the summary goes out on `weekday`.
+pub fn summary_day(settings: &AlertSettingsDto, weekday: time::Weekday) -> bool {
+    match settings.summary_frequency {
+        SummaryFrequency::Daily => true,
+        SummaryFrequency::Weekly => {
+            i32::from(weekday.number_from_monday()) == settings.summary_weekday
+        }
+    }
+}
+
+/// Builds and sends the summary now, of the last 24 hours or 7 days as set: by e-mail to every
+/// admin, and on Telegram only when asked (ADR 0108).
 ///
 /// # Errors
 ///
 /// Database errors.
 pub async fn send_summary(state: &AppState) -> ApiResult<AlertDeliveryDto> {
-    let (highlights, sections) = summary_content(state).await?;
-    let day = OffsetDateTime::now_utc().to_offset(BRASILIA).date();
-    let day = format!(
-        "{:02}/{:02}/{}",
-        day.day(),
-        u8::from(day.month()),
-        day.year()
-    );
+    let settings = settings(&state.pool).await?;
+    let weekly = settings.summary_frequency == SummaryFrequency::Weekly;
+    let (highlights, sections) = summary_content(state, if weekly { 7 } else { 1 }).await?;
+    let today = OffsetDateTime::now_utc().to_offset(BRASILIA).date();
+    let date = |day: time::Date| {
+        format!(
+            "{:02}/{:02}/{}",
+            day.day(),
+            u8::from(day.month()),
+            day.year()
+        )
+    };
+    let day = date(today);
+    let since = date(today - time::Duration::days(7));
     let url = format!("{}/painel/admin", state.config.public_web_url);
     let email = emails::admin_summary(
         &AdminSummary {
             day: &day,
+            since: weekly.then_some(since.as_str()),
             sections: &sections,
             highlights: &highlights,
             url: &url,
         },
         &state.config.public_web_url,
     );
-    let mut text = format!("☀️ Resumo de {day}");
+    let mut text = if weekly {
+        format!("☀️ Resumo da semana ({since} a {day})")
+    } else {
+        format!("☀️ Resumo de {day}")
+    };
     for line in &highlights {
         text.push_str("\n• ");
         text.push_str(line);
@@ -443,30 +492,35 @@ pub async fn send_summary(state: &AppState) -> ApiResult<AlertDeliveryDto> {
     }
     text.push_str("\n\n");
     text.push_str(&url);
-    Ok(deliver(state, &email, &text).await)
+    let channels = Channels {
+        email: true,
+        telegram: settings.summary_telegram,
+    };
+    Ok(deliver_to(state, channels, &email, &text).await)
 }
 
 type Sections = Vec<(String, Vec<(String, String)>)>;
 
 /// The summary in words: the highlights and the sections with their rows.
-async fn summary_content(state: &AppState) -> ApiResult<(Vec<String>, Sections)> {
+async fn summary_content(state: &AppState, days: i32) -> ApiResult<(Vec<String>, Sections)> {
     let day = sqlx::query!(
         r#"select
-             (select count(*) from organizations where created_at > now() - interval '24 hours') as "organizations!",
-             (select count(*) from events where created_at > now() - interval '24 hours') as "events!",
-             (select count(*) from ticket_batches where paid_at > now() - interval '24 hours'
+             (select count(*) from organizations where created_at > now() - make_interval(days => $1)) as "organizations!",
+             (select count(*) from events where created_at > now() - make_interval(days => $1)) as "events!",
+             (select count(*) from ticket_batches where paid_at > now() - make_interval(days => $1)
                 and status in ('paid', 'refunded')) as "batches!",
              (select coalesce(sum(upper(numbers) - lower(numbers)), 0) from ticket_batches
-               where paid_at > now() - interval '24 hours' and status in ('paid', 'refunded'))::bigint as "tickets!",
+               where paid_at > now() - make_interval(days => $1) and status in ('paid', 'refunded'))::bigint as "tickets!",
              (select coalesce(sum(cents), 0) from revenue_entries
-               where kind = 'gross' and at > now() - interval '24 hours')::bigint as "gross!",
+               where kind = 'gross' and at > now() - make_interval(days => $1))::bigint as "gross!",
              (select coalesce(sum(cents), 0) from revenue_entries
-               where kind = 'refund' and at > now() - interval '24 hours')::bigint as "refunds!",
-             (select count(*) from mail_sends where created_at > now() - interval '24 hours'
+               where kind = 'refund' and at > now() - make_interval(days => $1))::bigint as "refunds!",
+             (select count(*) from mail_sends where created_at > now() - make_interval(days => $1)
                 and status <> 'quota') as "mails!",
-             (select count(*) from mail_sends where created_at > now() - interval '24 hours'
+             (select count(*) from mail_sends where created_at > now() - make_interval(days => $1)
                 and status in ('failed', 'bounced')) as "mail_failures!",
-             (select count(*) from scans where scanned_at > now() - interval '24 hours') as "scans!""#
+             (select count(*) from scans where scanned_at > now() - make_interval(days => $1)) as "scans!""#,
+        days
     )
     .fetch_one(&state.pool)
     .await?;
@@ -476,7 +530,7 @@ async fn summary_content(state: &AppState) -> ApiResult<(Vec<String>, Sections)>
     )
     .fetch_all(&state.pool)
     .await?;
-    let upcoming = upcoming_section(state).await?;
+    let upcoming = upcoming_section(state, days).await?;
     let disputes = open_disputes(state).await?;
 
     let mut highlights = Vec::new();
@@ -495,7 +549,11 @@ async fn summary_content(state: &AppState) -> ApiResult<(Vec<String>, Sections)>
         });
     }
     let mut sections: Sections = vec![(
-        "Últimas 24 horas".to_owned(),
+        if days == 1 {
+            "Últimas 24 horas".to_owned()
+        } else {
+            format!("Últimos {days} dias")
+        },
         vec![
             (
                 "Organizações novas".to_owned(),
@@ -546,15 +604,19 @@ async fn summary_content(state: &AppState) -> ApiResult<(Vec<String>, Sections)>
 }
 
 /// The largest events of the next 24 hours, if any.
-async fn upcoming_section(state: &AppState) -> ApiResult<Option<(String, Vec<(String, String)>)>> {
+async fn upcoming_section(
+    state: &AppState,
+    days: i32,
+) -> ApiResult<Option<(String, Vec<(String, String)>)>> {
     let upcoming = sqlx::query!(
         r#"select e.name, e.starts_at, e.utc_offset_minutes, o.name as organization,
                   coalesce((select sum(upper(b.numbers) - lower(b.numbers)) from ticket_batches b
                             where b.event_id = e.id and b.status = 'paid'), 0)::bigint as "tickets!"
            from events e join organizations o on o.id = e.organization_id
            where e.status = 'active' and e.canceled_at is null
-             and e.starts_at between now() and now() + interval '24 hours'
-           order by 5 desc, e.starts_at limit 5"#
+             and e.starts_at between now() and now() + make_interval(days => $1)
+           order by 5 desc, e.starts_at limit 5"#,
+        days
     )
     .fetch_all(&state.pool)
     .await?;
@@ -580,7 +642,12 @@ async fn upcoming_section(state: &AppState) -> ApiResult<Option<(String, Vec<(St
             )
         })
         .collect();
-    Ok(Some(("Eventos nas próximas 24 horas".to_owned(), rows)))
+    let title = if days == 1 {
+        "Eventos nas próximas 24 horas".to_owned()
+    } else {
+        format!("Maiores eventos dos próximos {days} dias")
+    };
+    Ok(Some((title, rows)))
 }
 
 /// Open disputes (ADR 0104), for the summary.

@@ -1,0 +1,217 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select a.id, a.title, a.body, a.level, a.bell, a.modal, a.email_audience, a.email_tag,\n                  a.cta_label, a.cta_url, a.starts_at, a.ends_at, a.published_at, a.archived_at, a.created_at,\n                  u.email::text as \"created_by?\",\n                  (select count(*) from announcement_receipts r where r.announcement_id = a.id) as \"seen!\",\n                  (select count(*) from announcement_receipts r\n                   where r.announcement_id = a.id and r.dismissed_at is not null) as \"dismissed!\"\n           from announcements a left join users u on u.id = a.created_by\n           where ($1::uuid is null or a.id = $1)\n           order by coalesce(a.published_at, a.created_at) desc limit 200",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "announcements",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "title",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "announcements",
+            "name": "title"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "body",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "announcements",
+            "name": "body"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "level",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "announcements",
+            "name": "level"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "bell",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "announcements",
+            "name": "bell"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "modal",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "announcements",
+            "name": "modal"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "email_audience",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "announcements",
+            "name": "email_audience"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "email_tag",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "announcements",
+            "name": "email_tag"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "cta_label",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "announcements",
+            "name": "cta_label"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "cta_url",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "announcements",
+            "name": "cta_url"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "starts_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "announcements",
+            "name": "starts_at"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "ends_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "announcements",
+            "name": "ends_at"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "published_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "announcements",
+            "name": "published_at"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "archived_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "announcements",
+            "name": "archived_at"
+          }
+        }
+      },
+      {
+        "ordinal": 14,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "announcements",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 15,
+        "name": "created_by?",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 16,
+        "name": "seen!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 17,
+        "name": "dismissed!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      false,
+      true,
+      true,
+      true,
+      false,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "353f7c8bbfdcc0d05729fa89ea00aa2a3d064ef13733e8ffcd3e31d137cae39c"
+}

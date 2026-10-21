@@ -92,16 +92,22 @@ export const admin = {
     summaryToast: (what: string) => `Resumo enviado: ${what}.`,
     settingsTitle: "Como avisar",
     settingsDescription:
-      "Os canais e o resumo diário. Os alertas abertos aparecem aqui de qualquer jeito.",
+      "Os canais e o resumo por e-mail. Os alertas abertos aparecem aqui de qualquer jeito.",
     email: "Por e-mail",
     emailTo: (emails: string) => `Para ${emails} (ADMIN_EMAILS).`,
     telegram: "No Telegram",
-    telegramOn: "O bot manda cada alerta e o resumo no chat configurado.",
+    telegramOn: "O bot manda cada alerta no chat configurado.",
     telegramOff:
       "Configure TELEGRAM_BOT_TOKEN e TELEGRAM_CHAT_ID no Render para ligar.",
-    summary: "Resumo diário",
+    summary: "Resumo por e-mail",
     summaryHint:
-      "As últimas 24 horas: cadastros, lotes pagos, receita, e-mails, eventos do dia e alertas abertos.",
+      "Cadastros, lotes pagos, receita, e-mails, os maiores eventos que vêm aí e os alertas abertos, para ADMIN_EMAILS.",
+    summaryFrequency: "Frequência",
+    frequencies: { weekly: "Toda semana (últimos 7 dias)", daily: "Todo dia (últimas 24 horas)" },
+    summaryWeekday: "Dia da semana",
+    weekdays: ["segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado", "domingo"],
+    summaryTelegram: "Também no Telegram",
+    summaryTelegramHint: "Além do e-mail, o bot manda o resumo no chat configurado.",
     summaryHour: "Horário do resumo (Brasília)",
     hour: (hour: number) => `${String(hour).padStart(2, "0")}:00`,
     doorThreshold: "Evento sem portaria",
@@ -740,7 +746,7 @@ export const admin = {
   },
   announcements: {
     intro:
-      "Avisos para todos os organizadores: só no sininho ou também como janela quando a pessoa abre o painel.",
+      "Avisos para todos os organizadores: no sininho, numa janela quando a pessoa abre o painel e por e-mail, em qualquer combinação.",
     new: "Novo pronunciamento",
     edit: "Editar pronunciamento",
     saved: "Pronunciamento salvo.",
@@ -754,13 +760,16 @@ export const admin = {
     bodyHint: "Direto ao ponto. Linhas em branco separam parágrafos.",
     bodyPlaceholder: "O que o organizador precisa saber.",
     level: "Tom",
-    display: "Onde aparece",
-    displays: { notification: "Só no sininho", modal: "Janela ao entrar" },
-    displayHints: {
-      notification: "Aparece no sininho do painel, com um ponto de não lido.",
-      modal:
-        "Abre uma janela na próxima vez que a pessoa entrar no painel e fica no sininho depois de fechada.",
+    channelsLabel: "Para onde vai",
+    channels: { bell: "Sininho", modal: "Janela ao entrar", email: "E-mail" },
+    channelHints: {
+      bell: "Fica no sininho do painel, com um ponto de não lido.",
+      modal: "Abre uma janela na próxima vez que a pessoa entrar no painel.",
+      email: "Vai para a caixa de entrada quando começar, respeitando a cota.",
     },
+    noChannel: "Escolha pelo menos um.",
+    emailWhen: (audience: string) =>
+      `Por e-mail para ${audience.toLowerCase()} quando começar (uma vez só).`,
     ctaLabel: "Texto do botão",
     ctaLabelPlaceholder: "Ver detalhes",
     ctaUrl: "Link do botão",

@@ -117,3 +117,9 @@ feita e as consequências.
 | [0105](0105-ficha-da-organizacao.md) | Ficha da organização: anotações, etiquetas e linha do tempo | Aceito |
 | [0106](0106-relatorios-de-receita.md) | Relatórios de receita para a contabilidade | Aceito |
 | [0107](0107-pronunciamentos-por-email.md) | Pronunciamentos também por e-mail | Aceito |
+| [0108](0108-resumo-semanal-dos-admins.md) | Resumo semanal dos admins por e-mail | Aceito |
+| [0109](0109-canais-dos-pronunciamentos.md) | Canais dos pronunciamentos: sininho, janela e e-mail | Aceito |
+| [0110](0110-lotacao-do-local.md) | Lotação do local | Aceito |
+| [0111](0111-credenciais.md) | Credenciais para staff, imprensa e artistas | Aceito |
+| [0112](0112-combos.md) | Combos: ingresso com itens ("entrada + 2 bebidas") | Aceito |
+| [0113](0113-certificados-de-participacao.md) | Certificados de participação | Aceito |

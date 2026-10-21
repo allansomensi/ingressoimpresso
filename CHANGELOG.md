@@ -12,6 +12,41 @@ e não acompanha estes números.
 
 ## [Não lançado]
 
+## [1.11.0] - 2026-10-21
+
+### Adicionado
+
+- **Certificados de participação** para escolas, palestras e cursos: quem chegou pela lista de
+  nomes ou entrou com um ingresso com nome recebe um certificado em PDF, com o texto, a carga
+  horária, as assinaturas e a cor que você escolher (com prévia ao vivo). Cada pessoa tem um link
+  para abrir e baixar, que você copia ou manda pelo WhatsApp, e o QR do certificado confirma que
+  ele é verdadeiro. Também dá para baixar todos de uma vez num ZIP.
+
+- **Credenciais** para staff, imprensa e artistas: crachás em A4 (quatro por folha) com a função
+  numa faixa colorida, o nome e um QR. A portaria deixa a credencial passar em qualquer dia, na
+  entrada e só nas áreas escolhidas (os pontos de controle, como camarim e palco), e ela nunca
+  conta como público. Revogar um crachá perdido barra ele na próxima sincronização dos celulares.
+
+- **Combos**: um ingresso que já vem com itens, como "entrada + 2 bebidas". Crie a categoria do
+  combo com o seu preço e diga, no ponto de controle do bar, quantos itens ela recebe: o mesmo QR é
+  lido uma vez para cada item ("1º de 2"), e no terceiro aparece "JÁ USOU OS 2". O acerto com os
+  vendedores continua numa conta só, pelo preço da categoria.
+
+- **Lotação do local**: diga quantas pessoas cabem e a portaria mostra "Faltam 50 para lotar" em
+  cada celular da entrada, amarelo perto do limite e vermelho quando lota. O Ao vivo mostra a
+  lotação, e você recebe um aviso no sininho quando estiver perto e quando lotar. Com saída e volta,
+  conta só quem está dentro; os convidados da lista também contam.
+
+### Alterado
+
+- Admin: um **pronunciamento** vai para o **sininho**, para uma **janela ao entrar** e por
+  **e-mail**, em qualquer combinação (os três de uma vez, se quiser). O e-mail sai quando o
+  pronunciamento começa, para a audiência escolhida nele, uma vez só. O aviso de preços novos usa
+  os mesmos canais.
+- Admin: o **resumo** dos admins agora é **semanal** por padrão (os últimos 7 dias, na segunda às
+  8h) e vai por e-mail; a frequência (toda semana ou todo dia), o dia da semana, a hora e o envio
+  também pelo Telegram são escolhidos em Alertas.
+
 ## [1.10.0] - 2026-10-20
 
 ### Adicionado
@@ -603,7 +638,8 @@ Primeira versão numerada: o produto que já estava em produção, das fases 0 a
 - Política de segurança de conteúdo (CSP) com nonce por requisição em todo o site (ADR 0048).
 - Verificação anti-robô antes do envio do código de login (ADR 0044).
 
-[Não lançado]: https://github.com/allansomensi/ingressoimpresso/compare/v1.10.0...HEAD
+[Não lançado]: https://github.com/allansomensi/ingressoimpresso/compare/v1.11.0...HEAD
+[1.11.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.10.0...v1.11.0
 [1.10.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.9.0...v1.10.0
 [1.9.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.8.0...v1.9.0
 [1.8.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.7.0...v1.8.0

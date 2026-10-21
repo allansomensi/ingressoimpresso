@@ -1,0 +1,41 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into announcements\n             (id, title, body, level, bell, modal, email_audience, email_tag, cta_label, cta_url,\n              starts_at, ends_at, published_at, created_by)\n           values ($1, $2, $3, $4, $5, $12, $13, $14, $6, $7, $8, $9, case when $10 then now() end, $11)\n           returning id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "announcements",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Text",
+        "Bool",
+        "Text",
+        "Text",
+        "Timestamptz",
+        "Timestamptz",
+        "Bool",
+        "Uuid",
+        "Bool",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "1dd3467e727bcbcb1f6ff6379442ddf724207f2a20ee36c43e144f97313420a5"
+}

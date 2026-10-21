@@ -1,0 +1,71 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select e.name, e.starts_at, e.utc_offset_minutes, o.name as organization,\n                  coalesce((select sum(upper(b.numbers) - lower(b.numbers)) from ticket_batches b\n                            where b.event_id = e.id and b.status = 'paid'), 0)::bigint as \"tickets!\"\n           from events e join organizations o on o.id = e.organization_id\n           where e.status = 'active' and e.canceled_at is null\n             and e.starts_at between now() and now() + make_interval(days => $1)\n           order by 5 desc, e.starts_at limit 5",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "starts_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "starts_at"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "utc_offset_minutes",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "utc_offset_minutes"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "organization",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "organizations",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "tickets!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "dcde983d254f4d897dc102f464bdec2bdd9793a4b416cfbf683328fa84685cf0"
+}

@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select event_id from certificates where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "event_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "certificates",
+            "name": "event_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "f65c88707a4018d75a9ca96395a870c5e17c6e10bea9e7de97d8fa04d6a7ef24"
+}

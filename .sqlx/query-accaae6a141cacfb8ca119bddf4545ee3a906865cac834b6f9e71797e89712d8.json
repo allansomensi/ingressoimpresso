@@ -1,0 +1,59 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select (select count(*) from entries where event_id = $1) as \"entries!\",\n                  reentry, capacity, capacity_warn_percent from events where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "entries!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "reentry",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "reentry"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "capacity",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "capacity"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "capacity_warn_percent",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "capacity_warn_percent"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "accaae6a141cacfb8ca119bddf4545ee3a906865cac834b6f9e71797e89712d8"
+}

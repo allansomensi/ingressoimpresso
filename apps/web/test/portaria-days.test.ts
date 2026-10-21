@@ -46,7 +46,15 @@ const days: DoorContext = {
 };
 const sunday: DoorContext = { ...days, today: 2 };
 
-const dinner: DoorCheckpointDto = { id: DINNER, name: "Janta", instruction: "Entregar o prato", perDay: true, categoryIds: [PASS] };
+const dinner: DoorCheckpointDto = {
+  id: DINNER,
+  name: "Janta",
+  instruction: "Entregar o prato",
+  perDay: true,
+  categoryIds: [PASS],
+  allowance: 1,
+  categoryAllowances: [],
+};
 const atDinner: DoorContext = { ...days, checkpoint: dinner };
 
 // The door shows the phone's local time (as `portaria-reentry.test.ts`).

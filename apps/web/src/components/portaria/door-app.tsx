@@ -39,6 +39,7 @@ import { DoorApiError } from "@/portaria/client";
 import { DoorEngine, type DoorMode, type DoorState } from "@/portaria/engine";
 import { announce, rehearseFeedback, unlockAudio } from "@/portaria/feedback";
 import { accessTokenFromHash, clearHash, noAccessToken, subscribeHash } from "@/portaria/hash";
+import { capacityState, doorOccupied } from "@/lib/capacity";
 import { currentDay, dayLabel } from "@/lib/event-days";
 import { money } from "@/lib/format";
 import { sessionLabel } from "@/lib/series";
@@ -240,6 +241,7 @@ function Door({ engine, state }: { engine: DoorEngine; state: DoorState }) {
   const [rehearsal, setRehearsal] = useState({ sound: false, torch: false });
   /** The worker reported every resource of the page cached (no need to ask again). */
   const appKept = useRef(false);
+  const clock = useClock();
 
   // Readiness checks that need no user gesture. The worker's precache (invariant 8) waits for an
   // idle moment: it must happen before the phone goes offline, not before the first manifest.
@@ -354,6 +356,20 @@ function Door({ engine, state }: { engine: DoorEngine; state: DoorState }) {
       ? "bg-[#60a5fa] shadow-[0_0_16px_4px_rgba(96,165,250,0.6)]"
       : "bg-[#7c66ff] shadow-[0_0_16px_4px_rgba(124,102,255,0.6)]";
   const days = event?.days ?? [];
+  // The venue's capacity (ADR 0110): the entrance shows how many places are left.
+  const limit = checkpoint === null ? ((event?.capacity as number | null | undefined) ?? null) : null;
+  const capacity =
+    limit === null
+      ? null
+      : (() => {
+          const occupied = doorOccupied(
+            { reentry, entryCount: state.entryCount, todayCount: state.todayCount, insideCount: state.insideCount },
+            state.arrivals,
+            days,
+            clock + (manifest?.offsetMs ?? 0),
+          );
+          return { occupied, limit, ...capacityState(occupied, limit, event?.capacityWarnPercent || 90) };
+        })();
 
   const startRehearsal = () => {
     setMenuOpen(false);
@@ -464,6 +480,18 @@ function Door({ engine, state }: { engine: DoorEngine; state: DoorState }) {
           <p role="status" className="flex items-start gap-2 rounded-xl bg-red-600 px-3 py-2 text-sm font-semibold text-white">
             <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
             {t.canceledBanner}
+          </p>
+        )}
+        {capacity !== null && !rehearsing && (
+          <p
+            role="status"
+            className={`flex items-center justify-between gap-2 rounded-xl px-3 py-2 text-sm font-semibold ${capacity.level === "full" ? "bg-red-600 text-white" : capacity.level === "near" ? "bg-amber-400 text-black" : "bg-white/[0.06] text-white"}`}
+          >
+            <span className="flex items-center gap-2">
+              <UsersRound className="size-4 shrink-0" aria-hidden />
+              {capacity.level === "full" ? t.capacity.full : t.capacity.left(capacity.left)}
+            </span>
+            <span className="shrink-0 tabular-nums opacity-80">{t.capacity.of(capacity.occupied, capacity.limit)}</span>
           </p>
         )}
         {state.boxOffice !== null && !rehearsing && (

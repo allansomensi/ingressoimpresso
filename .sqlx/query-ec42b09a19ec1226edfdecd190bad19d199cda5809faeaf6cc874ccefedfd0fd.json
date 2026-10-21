@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update event_credentials set revoked_at = null, updated_at = now() where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "ec42b09a19ec1226edfdecd190bad19d199cda5809faeaf6cc874ccefedfd0fd"
+}

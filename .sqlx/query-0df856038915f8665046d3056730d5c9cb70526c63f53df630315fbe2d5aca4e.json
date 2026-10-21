@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update certificates set name = $2 where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "0df856038915f8665046d3056730d5c9cb70526c63f53df630315fbe2d5aca4e"
+}
