@@ -131,6 +131,7 @@ export const errors = {
   cannot_suspend_own:
     "Você não pode suspender a organização da qual faz parte.",
   invalid_hour: "Escolha uma hora de 0 a 23.",
+  invalid_weekday: "Escolha um dia da semana.",
   invalid_month: "Mês inválido.",
   announcement_not_published:
     "Publique o pronunciamento antes de enviar por e-mail.",

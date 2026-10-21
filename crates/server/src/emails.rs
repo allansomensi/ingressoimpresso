@@ -449,6 +449,8 @@ pub fn admin_alert(alert: &AdminAlert<'_>, site: &str) -> Email {
 pub struct AdminSummary<'a> {
     /// `20/10/2026`.
     pub day: &'a str,
+    /// The first day of a weekly summary (ADR 0108); `None`: the daily one.
+    pub since: Option<&'a str>,
     /// Each section's title and its label/value rows.
     pub sections: &'a [(String, Vec<(String, String)>)],
     /// Lines in bold before the sections ("2 alertas abertos").
@@ -457,15 +459,26 @@ pub struct AdminSummary<'a> {
     pub url: &'a str,
 }
 
-/// The admins' daily summary (ADR 0103).
+/// The admins' summary (ADRs 0103, 0108): of the day, or of the week when `since` is set.
 pub fn admin_summary(summary: &AdminSummary<'_>, site: &str) -> Email {
-    let subject = format!("Resumo do dia {} · Ingresso Impresso", summary.day);
-    let mut text = format!("Resumo das últimas 24 horas ({})\n", summary.day);
+    let (subject, title, lead) = match summary.since {
+        Some(since) => (
+            format!("Resumo da semana {since} a {} · Ingresso Impresso", summary.day),
+            format!("Resumo da semana ({since} a {})", summary.day),
+            "Os últimos 7 dias da plataforma.",
+        ),
+        None => (
+            format!("Resumo do dia {} · Ingresso Impresso", summary.day),
+            format!("Resumo de {}", summary.day),
+            "As últimas 24 horas da plataforma.",
+        ),
+    };
+    let mut text = format!("{title}\n");
     for line in summary.highlights {
         let _ = write!(text, "\n• {line}");
     }
-    let mut content = heading(&format!("Resumo de {}", summary.day));
-    content.push_str(&paragraph("As últimas 24 horas da plataforma."));
+    let mut content = heading(&title);
+    content.push_str(&paragraph(lead));
     for line in summary.highlights {
         content.push_str(&paragraph(&format!("<strong>{}</strong>", escape(line))));
     }
@@ -485,7 +498,7 @@ pub fn admin_summary(summary: &AdminSummary<'_>, site: &str) -> Email {
             site,
             &subject,
             &content,
-            "Resumo diário para os administradores.",
+            "Resumo para os administradores.",
         ),
         subject,
         text,

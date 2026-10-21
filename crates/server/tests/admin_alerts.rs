@@ -1,4 +1,4 @@
-//! Alerts that reach the admins and the daily summary (ADR 0103).
+//! Alerts that reach the admins and the summary (ADRs 0103, 0108).
 
 #![allow(
     clippy::unwrap_used,
@@ -88,7 +88,7 @@ async fn an_alert_opens_once_and_tells_every_channel(pool: PgPool) {
         .put(
             "/api/admin/alerts/settings",
             &admin,
-            json!({ "email": false, "telegram": true, "summary": true, "summaryHour": 7, "doorMinTickets": 10 }),
+            json!({ "email": false, "telegram": true, "summary": true, "summaryFrequency": "weekly", "summaryWeekday": 1, "summaryTelegram": false, "summaryHour": 7, "doorMinTickets": 10 }),
         )
         .await;
     assert_eq!(reply.status, StatusCode::OK);
@@ -117,7 +117,7 @@ async fn only_admins_see_alerts(pool: PgPool) {
         .put(
             "/api/admin/alerts/settings",
             &admin,
-            json!({ "email": true, "telegram": true, "summary": true, "summaryHour": 24, "doorMinTickets": 10 }),
+            json!({ "email": true, "telegram": true, "summary": true, "summaryFrequency": "weekly", "summaryWeekday": 1, "summaryTelegram": false, "summaryHour": 24, "doorMinTickets": 10 }),
         )
         .await;
     assert_eq!(reply.error_code(), "invalid_hour");
@@ -177,12 +177,17 @@ async fn a_large_event_about_to_start_without_a_door_link_raises_an_alert(pool: 
 }
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
-async fn the_summary_goes_out_once_a_day_and_on_demand(pool: PgPool) {
+async fn the_summary_goes_out_weekly_by_email_and_on_demand(pool: PgPool) {
     let app = TestApp::new(pool).await;
     let admin = app.login(ADMIN).await;
     let (state, telegram) = app.state.clone().with_telegram_memory();
     alerts::raise(state.clone(), webhook_alert()).await;
+    let alerts_on_telegram = telegram.lock().unwrap().len();
 
+    // Weekly by default (ADR 0108): the last 7 days, by e-mail only.
+    let settings = app.get("/api/admin/alerts", &admin).await.json()["settings"].clone();
+    assert_eq!(settings["summaryFrequency"], "weekly");
+    assert_eq!(settings["summaryTelegram"], false);
     let reply = app
         .request(
             Method::POST,
@@ -193,25 +198,76 @@ async fn the_summary_goes_out_once_a_day_and_on_demand(pool: PgPool) {
         .await;
     assert_eq!(reply.status, StatusCode::OK);
     assert_eq!(reply.json()["emails"], 1);
+    assert_eq!(reply.json()["telegram"], false);
     let summary = app
         .sent
         .lock()
         .unwrap()
         .iter()
         .rev()
-        .find(|mail| mail.subject.starts_with("Resumo do dia"))
+        .find(|mail| mail.subject.starts_with("Resumo da semana"))
         .cloned()
-        .expect("a summary was sent");
+        .expect("a weekly summary was sent");
+    assert!(summary.body.contains("Últimos 7 dias"));
     assert!(summary.body.contains("Lotes pagos"));
     assert!(summary.body.contains("1 alerta aberto"));
+    assert_eq!(telegram.lock().unwrap().len(), alerts_on_telegram);
 
-    // The scheduled one: the hour set to midnight, it goes out at the first check, never twice.
-    sqlx::query("update alert_settings set summary_hour = 0")
+    // Not on another weekday; on its own, once.
+    let today = OffsetDateTime::now_utc()
+        .to_offset(time::UtcOffset::from_hms(-3, 0, 0).unwrap())
+        .weekday()
+        .number_from_monday();
+    let other = today % 7 + 1;
+    sqlx::query("update alert_settings set summary_hour = 0, summary_weekday = $1")
+        .bind(i16::from(other))
+        .execute(&app.state.pool)
+        .await
+        .unwrap();
+    assert!(!alerts::maybe_send_summary(&state).await.unwrap());
+    sqlx::query("update alert_settings set summary_weekday = $1")
+        .bind(i16::from(today))
         .execute(&app.state.pool)
         .await
         .unwrap();
     assert!(alerts::maybe_send_summary(&state).await.unwrap());
     assert!(!alerts::maybe_send_summary(&state).await.unwrap());
+
+    // Daily and also on Telegram, when asked.
+    let reply = app
+        .put(
+            "/api/admin/alerts/settings",
+            &admin,
+            json!({ "email": true, "telegram": true, "summary": true, "summaryFrequency": "daily",
+                    "summaryWeekday": 1, "summaryTelegram": true, "summaryHour": 0, "doorMinTickets": 10 }),
+        )
+        .await;
+    assert_eq!(reply.status, StatusCode::OK);
+    let reply = app
+        .put(
+            "/api/admin/alerts/settings",
+            &admin,
+            json!({ "email": true, "telegram": true, "summary": true, "summaryFrequency": "daily",
+                    "summaryWeekday": 8, "summaryTelegram": true, "summaryHour": 0, "doorMinTickets": 10 }),
+        )
+        .await;
+    assert_eq!(reply.status, StatusCode::BAD_REQUEST);
+    let reply = app
+        .request(
+            Method::POST,
+            "/api/admin/alerts/summary",
+            Some(&admin),
+            None,
+        )
+        .await;
+    assert_eq!(reply.json()["telegram"], true);
+    assert!(
+        app.sent
+            .lock()
+            .unwrap()
+            .iter()
+            .any(|mail| mail.subject.starts_with("Resumo do dia"))
+    );
     assert!(
         telegram
             .lock()

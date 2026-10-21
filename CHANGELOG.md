@@ -12,6 +12,14 @@ e não acompanha estes números.
 
 ## [Não lançado]
 
+### Adicionado
+
+### Alterado
+
+- Admin: o **resumo** dos admins agora é **semanal** por padrão (os últimos 7 dias, na segunda às
+  8h) e vai por e-mail; a frequência (toda semana ou todo dia), o dia da semana, a hora e o envio
+  também pelo Telegram são escolhidos em Alertas.
+
 ## [1.10.0] - 2026-10-20
 
 ### Adicionado

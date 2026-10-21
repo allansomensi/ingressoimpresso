@@ -3188,6 +3188,7 @@ db_enum!(AlertKind {
     DoorMissing => "door_missing", ApiErrors => "api_errors", Dispute => "dispute"
 });
 db_enum!(AlertSeverity { Warning => "warning", Critical => "critical" });
+db_enum!(SummaryFrequency { Daily => "daily", Weekly => "weekly" });
 db_enum!(PaperKind {
     Plain => "plain", Perforated3 => "perforated3", Perforated4 => "perforated4",
     Perforated6 => "perforated6", Perforated8 => "perforated8", Perforated10 => "perforated10",
@@ -6067,6 +6068,14 @@ dto_enum! {
         /// Look now.
         Critical,
     }
+
+    /// How often the admins' summary goes out (ADR 0108).
+    pub enum SummaryFrequency {
+        /// Every day, about the last 24 hours.
+        Daily,
+        /// Once a week, about the last 7 days.
+        Weekly,
+    }
 }
 
 dto! {
@@ -6113,8 +6122,14 @@ dto! {
         pub email: bool,
         /// On Telegram, when the bot is configured.
         pub telegram: bool,
-        /// The daily summary.
+        /// The summary, by e-mail to `ADMIN_EMAILS` (ADR 0108).
         pub summary: bool,
+        /// Every day or once a week.
+        pub summary_frequency: SummaryFrequency,
+        /// Day of the weekly summary: 1 = Monday … 7 = Sunday.
+        pub summary_weekday: i32,
+        /// The summary also on Telegram, when the bot is configured.
+        pub summary_telegram: bool,
         /// Hour of the summary, in Brasília time (0–23).
         pub summary_hour: i32,
         /// Paid tickets from which an event without a door link raises an alert.

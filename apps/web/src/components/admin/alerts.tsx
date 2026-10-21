@@ -120,6 +120,35 @@ function SettingsCard({ data }: { data: AdminAlertsDto }) {
           />
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
+          <Field label={t.summaryFrequency}>
+            <Select
+              value={draft.summaryFrequency}
+              disabled={!draft.summary}
+              onChange={(event) => {
+                set({ summaryFrequency: event.target.value === "daily" ? "daily" : "weekly" });
+              }}
+            >
+              <option value="weekly">{t.frequencies.weekly}</option>
+              <option value="daily">{t.frequencies.daily}</option>
+            </Select>
+          </Field>
+          {draft.summaryFrequency === "weekly" && (
+            <Field label={t.summaryWeekday}>
+              <Select
+                value={String(draft.summaryWeekday)}
+                disabled={!draft.summary}
+                onChange={(event) => {
+                  set({ summaryWeekday: Number(event.target.value) });
+                }}
+              >
+                {t.weekdays.map((name, index) => (
+                  <option key={name} value={index + 1}>
+                    {name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          )}
           <Field label={t.summaryHour}>
             <Select
               value={String(draft.summaryHour)}
@@ -135,6 +164,18 @@ function SettingsCard({ data }: { data: AdminAlertsDto }) {
               ))}
             </Select>
           </Field>
+          {data.channels.telegram && (
+            <Switch
+              checked={draft.summaryTelegram}
+              onChange={(summaryTelegram) => {
+                set({ summaryTelegram });
+              }}
+              label={t.summaryTelegram}
+              description={t.summaryTelegramHint}
+            />
+          )}
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
           <Field label={t.doorThreshold} hint={t.doorThresholdHint}>
             <NumberInput
               value={draft.doorMinTickets}
@@ -166,7 +207,7 @@ function SettingsCard({ data }: { data: AdminAlertsDto }) {
 
 /**
  * The admins' alerts (ADR 0103): what went wrong and is still open, the channels they reach and
- * the daily summary. Every alert is also sent by e-mail and Telegram when it opens.
+ * the summary by e-mail (ADR 0108). Every alert is also sent by e-mail and Telegram when it opens.
  */
 export function AdminAlerts() {
   const queryClient = useQueryClient();
