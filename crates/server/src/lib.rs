@@ -30,6 +30,7 @@ pub mod pix;
 pub mod platform;
 pub mod pricing;
 pub mod ratelimit;
+pub mod reminders;
 pub mod routes;
 pub mod state;
 mod texts;

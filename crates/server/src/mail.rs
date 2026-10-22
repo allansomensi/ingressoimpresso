@@ -52,6 +52,8 @@ pub enum MailKind {
     Alert,
     /// An announcement sent by e-mail (ADR 0107).
     Announcement,
+    /// A reminder that brings someone back (ADR 0118).
+    Reminder,
 }
 
 impl MailKind {
@@ -65,6 +67,7 @@ impl MailKind {
             Self::TeamInvite => "team_invite",
             Self::Alert => "alert",
             Self::Announcement => "announcement",
+            Self::Reminder => "reminder",
         }
     }
 }
