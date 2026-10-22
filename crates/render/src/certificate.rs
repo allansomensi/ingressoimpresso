@@ -357,7 +357,16 @@ pub fn certificate_sample_images(
         .collect()
 }
 
+/// [`compile_keeping`], then Typst's caches are dropped (one certificate at a time).
 fn compile(certificate: &Certificate, sample: bool) -> Result<PagedDocument, RenderError> {
+    let compiled = compile_keeping(certificate, sample);
+    typst::comemo::evict(0);
+    compiled
+}
+
+/// Compiles one certificate and keeps Typst's caches (the decoded images above all) for the next
+/// one of the same design: the caller evicts when the batch is done.
+fn compile_keeping(certificate: &Certificate, sample: bool) -> Result<PagedDocument, RenderError> {
     let images = certificate.images.len();
     certificate.design.validate(images).map_err(|issues| {
         RenderError::Typst(
@@ -406,45 +415,75 @@ fn compile(certificate: &Certificate, sample: bool) -> Result<PagedDocument, Ren
     world
         .add_file("/data.json", Bytes::new(json))
         .map_err(file_error)?;
-    let compiled = typst::compile::<PagedDocument>(&world)
+    typst::compile::<PagedDocument>(&world)
         .output
-        .map_err(|diagnostics| RenderError::Typst(describe(&diagnostics)));
-    typst::comemo::evict(0);
-    compiled
+        .map_err(|diagnostics| RenderError::Typst(describe(&diagnostics)))
 }
 
 /// Most certificates in one ZIP.
 pub const MAX_CERTIFICATES: usize = 2000;
 
-/// Every certificate of an event as PDFs in a ZIP, one file per person (`(file name, certificate)`).
+impl Certificate {
+    /// Bytes of the images every PDF of this design embeds (each certificate is its own file,
+    /// so a ZIP of N weighs about N times this): what a caller budgets before rendering.
+    pub fn image_bytes(&self) -> usize {
+        self.images
+            .iter()
+            .flatten()
+            .chain(self.organization_logo.iter())
+            .map(Art::len)
+            .sum()
+    }
+}
+
+/// Every certificate of an event as PDFs in a ZIP, one file per person (`(file name, certificate)`),
+/// in memory. See [`certificates_zip_to`] for a sink of the caller's choice.
+///
+/// # Errors
+///
+/// See [`certificates_zip_to`].
+pub fn certificates_zip(items: &[(String, Certificate)]) -> Result<Vec<u8>, RenderError> {
+    Ok(certificates_zip_to(items, std::io::Cursor::new(Vec::new()))?.into_inner())
+}
+
+/// Every certificate of an event as PDFs in a ZIP written to `sink` (a file, say: the archive
+/// weighs the images once per person, and only one PDF is in memory at a time). The decoded
+/// images are shared by every certificate of the batch.
 ///
 /// # Errors
 ///
 /// See [`certificate_pdf`]; [`RenderError::Zip`] when the archive cannot be written, and
 /// [`RenderError::Typst`] for more than [`MAX_CERTIFICATES`].
-pub fn certificates_zip(items: &[(String, Certificate)]) -> Result<Vec<u8>, RenderError> {
+pub fn certificates_zip_to<W: std::io::Write + std::io::Seek>(
+    items: &[(String, Certificate)],
+    sink: W,
+) -> Result<W, RenderError> {
     use std::io::Write as _;
     if items.len() > MAX_CERTIFICATES {
         return Err(RenderError::Typst("too many certificates".to_owned()));
     }
-    let mut writer = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+    let mut writer = zip::ZipWriter::new(sink);
     // A PDF is already compressed; a fixed timestamp keeps the archive reproducible.
     let options = zip::write::SimpleFileOptions::default()
         .compression_method(zip::CompressionMethod::Stored)
         .last_modified_time(zip::DateTime::default());
-    for (name, certificate) in items {
-        let bytes = certificate_pdf(certificate)?;
-        writer
-            .start_file(name.as_str(), options)
-            .map_err(|error| RenderError::Zip(error.to_string()))?;
-        writer
-            .write_all(&bytes)
-            .map_err(|error| RenderError::Zip(error.to_string()))?;
-    }
-    Ok(writer
+    let written = (|| {
+        for (name, certificate) in items {
+            let bytes = pdf(&compile_keeping(certificate, false)?)?;
+            writer
+                .start_file(name.as_str(), options)
+                .map_err(|error| RenderError::Zip(error.to_string()))?;
+            writer
+                .write_all(&bytes)
+                .map_err(|error| RenderError::Zip(error.to_string()))?;
+        }
+        Ok::<(), RenderError>(())
+    })();
+    typst::comemo::evict(0);
+    written?;
+    writer
         .finish()
-        .map_err(|error| RenderError::Zip(error.to_string()))?
-        .into_inner())
+        .map_err(|error| RenderError::Zip(error.to_string()))
 }
 
 #[cfg(test)]
