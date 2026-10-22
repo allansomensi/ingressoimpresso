@@ -19,6 +19,7 @@ export const ticket = {
     removeTitle: "Tirar este ingresso do celular?",
     removeBody: "Ele some da lista e deixa de abrir sem internet. O link que você recebeu continua valendo.",
     removeConfirm: "Tirar",
+    removed: "Tirado deste celular.",
     savedCopy: "Cópia salva neste celular. Para ver a versão mais nova, abra o link que você recebeu.",
     privacy: "A lista fica só neste aparelho. Quem usa o mesmo celular também vê os ingressos dela.",
   },
@@ -51,6 +52,7 @@ export const ticket = {
     sendWhatsapp: "Mandar o link no WhatsApp",
     copy: "Copiar o link novo",
     copied: "Link copiado.",
+    copyFailed: "Não foi possível copiar. Use o WhatsApp.",
     close: "Concluir",
   },
   notFoundTitle: "Ingresso não encontrado",
@@ -69,7 +71,7 @@ export const ticket = {
   documentBody: "A portaria confere antes de você entrar.",
   documentAny: "Leve um comprovante do direito ao benefício, com foto.",
   valid: "Válido",
-  entered: (when: string) => `Já utilizado ${when}`,
+  entered: (when: string) => `Já utilizado em ${when}`,
   enteredNote: "Este ingresso já passou pela porta. Se você saiu e quer voltar, fale com a equipe da entrada.",
   voided: "Ingresso cancelado",
   voidedNote: "O organizador cancelou este ingresso e ele não entra. Fale com quem vendeu para resolver.",
@@ -89,6 +91,7 @@ export const ticket = {
   ],
   // A consumption token sent by link (ADR 0084): the words that change.
   tokens: {
+    mine: { used: "Já usada", voided: (word: string) => `${word} cancelada` },
     transferredTitle: "Ficha transferida",
     transferred: "Esta ficha foi passada para outra pessoa e não abre mais neste celular. Quem recebeu tem o link novo.",
     transfer: {
@@ -113,7 +116,7 @@ export const ticket = {
       `Ficha nº ${number}${seat === null ? "" : ` · ${seat}`}\nOrganizado por ${organizer}\nNa barraca, mostre o QR code da ficha.`,
     calendarAlarm: (event: string) => `${event}: separe a sua ficha.`,
     contactMessage: (event: string, number: string) => `Olá! Tenho a ficha nº ${number} de ${event}.`,
-    entered: (when: string) => `Já usada ${when}`,
+    entered: (when: string) => `Já usada em ${when}`,
     enteredNote: "Esta ficha já foi usada numa barraca.",
     voided: "Ficha cancelada",
     voidedNote: "O organizador cancelou esta ficha e ela não vale. Fale com quem vendeu para resolver.",

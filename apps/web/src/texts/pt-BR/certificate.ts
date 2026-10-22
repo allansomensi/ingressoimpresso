@@ -15,6 +15,7 @@ export const certificate = {
   download: "Baixar o certificado (PDF)",
   downloading: "Gerando o PDF…",
   file: (name: string) => `certificado-${name}.pdf`,
+  unavailableTitle: "Não deu para conferir agora",
   invalidTitle: "Este link não abre um certificado",
   invalidBody:
     "Ele foi digitado errado, está incompleto ou a organização apagou o certificado. Peça o link de novo a quem organizou o evento.",

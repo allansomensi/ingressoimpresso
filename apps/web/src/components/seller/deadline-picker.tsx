@@ -1,5 +1,8 @@
 "use client";
 
+/** The shortcuts and "another date". */
+const CHOICES = [...SHORTCUTS, "custom" as const] as const;
+
 /**
  * The deadline of a reservation (ADR 0072): "Amanhã", "3 dias", "Sexta" or a chosen date and time,
  * always in the event's time. Used on the seller's page and on the panel.
@@ -7,7 +10,7 @@
 import { CalendarClock } from "lucide-react";
 import { useState } from "react";
 
-import { Input } from "@/components/ui";
+import { Input, segmentTabIndex, segmentedKeys } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import {
   SHORTCUTS,
@@ -42,8 +45,8 @@ export function DeadlinePicker({ state }: { state: ReturnType<typeof useDeadline
         <CalendarClock aria-hidden className="size-4 text-fg-subtle" />
         {s.deadline}
       </legend>
-      <div role="radiogroup" aria-label={s.deadline} className="grid grid-cols-4 gap-1.5">
-        {[...SHORTCUTS, "custom" as const].map((option) => {
+      <div role="radiogroup" aria-label={s.deadline} onKeyDown={segmentedKeys(CHOICES, choice, setChoice)} className="grid grid-cols-4 gap-1.5">
+        {CHOICES.map((option) => {
           const blocked = option !== "custom" && deadlineProblem(shortcutDeadline(option, now, offset), now, endsAt) !== null;
           return (
             <button
@@ -51,6 +54,7 @@ export function DeadlinePicker({ state }: { state: ReturnType<typeof useDeadline
               type="button"
               role="radio"
               aria-checked={choice === option}
+              tabIndex={segmentTabIndex(CHOICES, choice, option)}
               disabled={blocked}
               onClick={() => {
                 setChoice(option);

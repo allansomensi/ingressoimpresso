@@ -165,7 +165,7 @@ export function EventChangeNotice({
     >
       <Icon aria-hidden className="mt-0.5 size-5 shrink-0" />
       <div className="flex min-w-0 flex-col gap-1 text-sm leading-relaxed">
-        <h2 className="text-base font-semibold">{canceled ? t.canceledTitle : changed === "moved" ? t.movedTitle : t.postponedTitle}</h2>
+        <p className="text-base font-semibold">{canceled ? t.canceledTitle : changed === "moved" ? t.movedTitle : t.postponedTitle}</p>
         {!canceled && change.postponedFromStartsAt !== null && (
           <>
             <p className="font-semibold">{t.now(spokenDate(startsAt))}</p>

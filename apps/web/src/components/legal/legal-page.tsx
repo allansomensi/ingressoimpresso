@@ -113,7 +113,7 @@ export function LegalPage({ document }: { document: LegalDocument }) {
                     <li key={section.id}>
                       <a
                         href={`#${section.id}`}
-                        className="flex min-h-10 items-center rounded-lg px-3 text-sm leading-snug text-fg-muted transition hover:bg-surface-2 hover:text-fg active:bg-surface-2"
+                        className="flex min-h-10 items-center rounded-lg px-3 text-sm leading-snug text-fg-muted transition hover:bg-surface-2 hover:text-fg active:bg-surface-2 pointer-coarse:min-h-11"
                       >
                         {section.title}
                       </a>
@@ -150,7 +150,7 @@ export function LegalPage({ document }: { document: LegalDocument }) {
               <div className="flex flex-col gap-2 rounded-2xl border border-border bg-surface p-5">
                 <p className="font-semibold text-fg">{t.questions}</p>
                 <p className="text-sm leading-relaxed text-fg-muted">{t.questionsBody}</p>
-                <a href={`mailto:${LEGAL_ENTITY.email}`} className="mt-1 inline-flex items-center gap-2 text-sm font-medium text-brand pointer-coarse:min-h-10">
+                <a href={`mailto:${LEGAL_ENTITY.email}`} className="mt-1 inline-flex items-center gap-2 text-sm font-medium text-brand pointer-coarse:min-h-11">
                   <Mail className="size-4" aria-hidden />
                   {LEGAL_ENTITY.email}
                 </a>
@@ -160,7 +160,7 @@ export function LegalPage({ document }: { document: LegalDocument }) {
                 {others.map((slug) => {
                   const OtherIcon = ICONS[slug];
                   return (
-                    <Link key={slug} href={`/${slug}`} className="flex items-center gap-2 text-sm font-medium text-fg-muted transition hover:text-fg pointer-coarse:min-h-10">
+                    <Link key={slug} href={`/${slug}`} className="flex items-center gap-2 text-sm font-medium text-fg-muted transition hover:text-fg pointer-coarse:min-h-11">
                       <OtherIcon className="size-4 text-fg-subtle" aria-hidden />
                       {LEGAL_DOCUMENTS[slug].title}
                     </Link>

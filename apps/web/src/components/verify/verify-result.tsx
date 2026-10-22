@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useRef } from "react";
+
 import type { VerifiedTicketDto, VerifyResultDto } from "@ingressoimpresso/api-types";
 import { CalendarCheck, CalendarClock, CalendarDays, IdCard, Lock, MapPin, RotateCcw, ShieldCheck, ShieldX, type LucideIcon } from "lucide-react";
 
@@ -107,14 +109,22 @@ export function VerifyResult({ result, onAgain }: { result: VerifyResultDto; onA
   const t = forKind(verifyPageTexts, verifyPageTexts.tokens, ticket?.event.kind);
   const copy = t.verdicts[result.verdict];
   const buyable = result.verdict === "valid" || result.verdict === "event_postponed";
+  // The answer replaces the reader (and the control that had the focus): the verdict is focused,
+  // so it is read at once and the keyboard goes on from here.
+  const heading = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    heading.current?.focus({ preventScroll: true });
+  }, []);
   return (
-    <section aria-label={t.resultLabel} aria-live="polite" className="flex flex-col gap-4 animate-fade-in">
+    <section aria-label={t.resultLabel} className="flex flex-col gap-4 animate-fade-in">
       <div className={cn("flex items-start gap-4 rounded-2xl border p-4", ring)}>
         <span className={cn("flex size-12 shrink-0 items-center justify-center rounded-2xl shadow-sm", badge)}>
           <Icon className="size-6" aria-hidden />
         </span>
         <div className="flex min-w-0 flex-col gap-1">
-          <h2 className="text-lg leading-snug font-semibold text-fg">{copy.title}</h2>
+          <h2 ref={heading} tabIndex={-1} className="text-lg leading-snug font-semibold text-fg outline-none">
+            {copy.title}
+          </h2>
           <p className="text-sm leading-relaxed text-fg-muted">{copy.body}</p>
         </div>
       </div>
@@ -131,7 +141,7 @@ export function VerifyResult({ result, onAgain }: { result: VerifyResultDto; onA
           )}
           <OrganizationContact
             organization={ticket.organization}
-            message={t.contactMessage(`${ticket.numberPrefix}${ticket.numberLabel}`.trim(), ticket.event.name)}
+            message={t.contactMessage(`${ticket.numberPrefix.trim()} ${ticket.numberLabel}`.trim(), ticket.event.name)}
           />
         </>
       )}

@@ -1,31 +1,7 @@
 "use client";
 
 import type { ReservationDto, SellerOp, SellerTicketBody, SellerViewDto } from "@ingressoimpresso/api-types";
-import {
-  Award,
-  Bookmark,
-  BookmarkPlus,
-  CalendarDays,
-  Check,
-  CheckCircle2,
-  Copy,
-  Gift,
-  HandCoins,
-  Landmark,
-  MapPin,
-  Megaphone,
-  MessageCircle,
-  Pencil,
-  Plus,
-  RefreshCw,
-  RotateCcw,
-  ShieldCheck,
-  Smartphone,
-  Store,
-  Ticket,
-  UserRound,
-  WifiOff,
-} from "lucide-react";
+import { AlertTriangle, Award, Bookmark, BookmarkPlus, CalendarDays, Check, CheckCircle2, Copy, Gift, HandCoins, Landmark, MapPin, Megaphone, MessageCircle, Pencil, Plus, RefreshCw, RotateCcw, ShieldCheck, Smartphone, Store, Ticket, UserRound, WifiOff } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
@@ -39,7 +15,7 @@ import { SalePix, salePixCharge } from "@/components/seller/sale-pix";
 import { SellerKind, useSellerTexts } from "@/components/seller/seller-texts";
 import { NoticesDialog, PendingList, SyncStatus } from "@/components/seller/sync-status";
 import { useSellerSync } from "@/components/seller/use-seller-sync";
-import { Button, Dialog, Spinner, buttonClass, useConfirm } from "@/components/ui";
+import { Button, Dialog, Spinner, buttonClass, segmentTabIndex, segmentedKeys, useConfirm } from "@/components/ui";
 import { ApiError, api } from "@/lib/api";
 import { categoryOf } from "@/lib/categories";
 import { cn } from "@/lib/cn";
@@ -67,12 +43,15 @@ function Centered({ children }: { children: ReactNode }) {
   return <div className="m-auto flex max-w-sm flex-col items-center gap-4 px-6 py-16 text-center animate-rise">{children}</div>;
 }
 
+/** What the number grid shows: the numbers still with the seller, the sold ones or all. */
+const FILTERS = ["available", "sold", "all"] as const;
+
 const TILE: Record<NumberState, string> = {
   available: "border-border-strong bg-surface text-fg hover:border-brand hover:bg-brand-soft active:border-brand active:bg-brand-soft",
   sold: "border-transparent bg-brand-solid text-brand-fg shadow-sm shadow-brand/25",
   reserved: "border-warning/50 bg-warning-soft text-warning-fg hover:border-warning active:border-warning",
   unsold: "border-dashed border-border bg-transparent text-fg-subtle line-through",
-  lost: "border-dashed border-danger/30 bg-danger-soft/40 text-danger-fg/70 line-through",
+  lost: "border-dashed border-danger/30 bg-danger-soft/40 text-danger-fg line-through",
   revoked: "border-dashed border-border bg-transparent text-fg-subtle line-through",
 };
 
@@ -283,18 +262,39 @@ export function SellerPage() {
   if (phase === "loading" || (phase === "ready" && view === null)) {
     return (
       <Centered>
-        <Spinner />
-        <p className="text-sm text-fg-muted">{t.loading}</p>
+        <div role="status" className="flex flex-col items-center gap-4">
+          <Spinner />
+          <p className="text-sm text-fg-muted">{t.loading}</p>
+        </div>
       </Centered>
     );
   }
   if (phase !== "ready" || token === null || view === null) {
-    const title = phase === "not-found" ? t.notFoundTitle : phase === "error" ? t.errorTitle : t.noTokenTitle;
-    const body = phase === "not-found" ? t.notFound : phase === "error" ? t.error : t.noToken;
+    // The server answered with a failure (maintenance, an error): not "no internet".
+    const server = phase === "error" && sync.problem !== null;
+    const title = phase === "not-found" ? t.notFoundTitle : phase === "error" ? (server ? t.errorServerTitle : t.errorTitle) : t.noTokenTitle;
+    const body =
+      phase === "not-found"
+        ? t.notFound
+        : phase === "error"
+          ? sync.problem === "maintenance"
+            ? errorsTexts.maintenance
+            : server
+              ? t.errorServer
+              : t.error
+          : t.noToken;
     return (
       <Centered>
         <span className="flex size-14 items-center justify-center rounded-2xl bg-brand-soft text-brand-soft-fg">
-          {phase === "error" ? <WifiOff className="size-7" aria-hidden /> : <Ticket className="size-7" aria-hidden />}
+          {phase === "error" ? (
+            server ? (
+              <AlertTriangle className="size-7" aria-hidden />
+            ) : (
+              <WifiOff className="size-7" aria-hidden />
+            )
+          ) : (
+            <Ticket className="size-7" aria-hidden />
+          )}
         </span>
         <h1 className="text-xl font-semibold tracking-tight text-fg">{title}</h1>
         <p className="text-[15px] leading-relaxed text-fg-muted">{body}</p>
@@ -495,7 +495,7 @@ export function SellerPage() {
             <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 rounded-2xl bg-surface-2 p-3 min-[420px]:flex-col min-[420px]:flex-nowrap min-[420px]:items-center min-[420px]:justify-start">
               <dt className="text-xs font-medium text-fg-muted min-[420px]:text-[11px]">{t.money.due}</dt>
               <dd className="text-base font-semibold text-fg tabular">{money(s.amountDueCents)}</dd>
-              <dd className="w-full text-[11px] text-fg-subtle tabular min-[420px]:w-auto min-[420px]:text-[10px]">
+              <dd className="w-full text-[11px] text-fg-subtle tabular min-[420px]:w-auto">
                 {paidLines.length === 1 && paidLines[0]?.priceCents != null
                   ? t.money.dueHint(paidLines[0].tickets, money(paidLines[0].priceCents))
                   : t.money.byCategory}
@@ -556,8 +556,13 @@ export function SellerPage() {
       )}
 
       <section className="flex flex-col gap-3">
-        <div role="radiogroup" aria-label={t.metaTitle} className="grid grid-cols-3 gap-1 rounded-2xl border border-border bg-surface p-1">
-          {(["available", "sold", "all"] as const).map((option) => {
+        <div
+          role="radiogroup"
+          aria-label={t.filtersLabel}
+          onKeyDown={segmentedKeys(FILTERS, filter, setFilter)}
+          className="grid grid-cols-3 gap-1 rounded-2xl border border-border bg-surface p-1"
+        >
+          {FILTERS.map((option) => {
             const count = option === "available" ? withYou : option === "sold" ? s.sold : s.tickets;
             return (
               <button
@@ -565,11 +570,12 @@ export function SellerPage() {
                 type="button"
                 role="radio"
                 aria-checked={filter === option}
+                tabIndex={segmentTabIndex(FILTERS, filter, option)}
                 onClick={() => {
                   setFilter(option);
                 }}
                 className={cn(
-                  "rounded-xl px-2 py-2 text-sm font-medium transition pointer-coarse:py-2.5",
+                  "rounded-xl px-2 py-2 text-sm font-medium transition pointer-coarse:min-h-11 pointer-coarse:py-2.5",
                   filter === option ? "bg-surface-2 text-fg shadow-xs ring-1 ring-border" : "text-fg-muted hover:text-fg active:text-fg",
                 )}
               >

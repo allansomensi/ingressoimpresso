@@ -662,11 +662,14 @@ fn ink_for(color: &str) -> &'static str {
             .and_then(|hex| u8::from_str_radix(hex, 16).ok())
             .map_or(0.0, |value| f64::from(value) / 255.0)
     };
-    // Relative luminance (sRGB approximated by a 2.2 gamma).
+    // Relative luminance (sRGB approximated by a 2.2 gamma). The ink is the one with the higher
+    // WCAG contrast ratio: white wins while (L + 0.05)² < 1.05 × 0.05, that is, up to a luminance
+    // near 0.18 (an orange or a mid green already read better in black). Mirrored in
+    // apps/web/src/lib/design-rules.ts (`inkFor`).
     let luminance = 0.2126 * channel(1..3).powf(2.2)
         + 0.7152 * channel(3..5).powf(2.2)
         + 0.0722 * channel(5..7).powf(2.2);
-    if luminance > 0.35 {
+    if luminance > 0.18 {
         "#111111"
     } else {
         "#ffffff"
@@ -988,6 +991,8 @@ mod tests {
         // Same examples as apps/web/test/design-rules.test.ts.
         assert_eq!(ink_for("#e11d48"), "#ffffff");
         assert_eq!(ink_for("#facc15"), "#111111");
+        assert_eq!(ink_for("#f97316"), "#111111");
+        assert_eq!(ink_for("#10b981"), "#111111");
         assert_eq!(ink_for("#1f1d2b"), "#ffffff");
     }
 

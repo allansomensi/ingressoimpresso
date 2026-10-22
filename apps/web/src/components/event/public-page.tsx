@@ -99,9 +99,7 @@ export function PublicPageCard({ eventId, eventName }: { eventId: string; eventN
               aria-label={t.copy}
               onClick={() => {
                 void copyText(url).then((ok) => {
-                  if (ok) {
-                    toast.success(t.copied);
-                  }
+                  toast[ok ? "success" : "error"](ok ? t.copied : t.copyFailed);
                 });
               }}
             >
