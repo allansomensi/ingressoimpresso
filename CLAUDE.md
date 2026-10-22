@@ -85,7 +85,7 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   disco com teto de 1 GiB; tetos de eventos (500/org), faixas (300) e links da porta (60); CSP
   por lugar do arquivo (`proxy.ts`) e `X-Frame-Options` estático; manutenção nos escritores com
   token (`token_writers_maintenance`).
-- **Versionamento (ADR 0049): implementado, versão atual 1.15.0.** Uma versão SemVer para o produto
+- **Versionamento (ADR 0049): implementado, versão atual 1.16.0.** Uma versão SemVer para o produto
   inteiro (todos os manifestos, conferidos por `scripts/release.mjs check`), `CHANGELOG.md` em
   português (Keep a Changelog), `just release` no `staging` e tag `vX.Y.Z` + GitHub Release pelo
   job **Release** do CI no `main`; versão em Minha conta, em `/sobre`, em `/status` (site e API) e
