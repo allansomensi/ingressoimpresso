@@ -12,6 +12,8 @@ e não acompanha estes números.
 
 ## [Não lançado]
 
+## [1.15.0] - 2026-10-22
+
 ### Alterado
 
 - Na equipe do evento, "entrou" passa a significar que a pessoa abriu o evento depois do
@@ -780,7 +782,8 @@ Primeira versão numerada: o produto que já estava em produção, das fases 0 a
 - Política de segurança de conteúdo (CSP) com nonce por requisição em todo o site (ADR 0048).
 - Verificação anti-robô antes do envio do código de login (ADR 0044).
 
-[Não lançado]: https://github.com/allansomensi/ingressoimpresso/compare/v1.14.0...HEAD
+[Não lançado]: https://github.com/allansomensi/ingressoimpresso/compare/v1.15.0...HEAD
+[1.15.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.14.0...v1.15.0
 [1.14.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.13.0...v1.14.0
 [1.13.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.12.0...v1.13.0
 [1.12.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.11.0...v1.12.0
