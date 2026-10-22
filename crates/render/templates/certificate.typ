@@ -226,6 +226,22 @@
   else if e.kind == "shape" { shape-element(e) }
   else if e.kind == "seal" { seal-element(e) })
 
+// "Emitido com Ingresso Impresso": a line on a light strip, or the faint watermark (ADR 0116):
+// "EMITIDO COM", the mark and the name in the paper's ink, on a strip of the paper that interrupts
+// a frame passing under it.
+#let brand-box(b) = if b.style == "line" {
+  box(fill: white.transparentize(15%), inset: (x: 2.2mm, y: 1mm), radius: 1mm,
+    text(font: "Lato", size: 6.5pt, fill: rgb("#6b6b78"), b.text))
+} else {
+  let ink = rgb(b.ink)
+  box(fill: rgb(b.paper), inset: (x: 2.6mm, y: 0.9mm), radius: 1mm,
+    grid(columns: 3, column-gutter: 1.5mm, align: horizon,
+      text(font: "Lato", size: 5pt, tracking: 0.14em, fill: ink.transparentize(55%), upper(b.caption)),
+      box(height: 3.8mm, image("/brand-mark.svg", height: 3.8mm)),
+      text(font: "Lato", size: 7.5pt, tracking: -0.01em, fill: ink.transparentize(42%),
+        [#text(weight: "bold")[Ingresso] Impresso])))
+}
+
 // ---- Pages --------------------------------------------------------------------------------------
 
 #for (index, p) in data.pages.enumerate() {
@@ -236,19 +252,22 @@
   }
   if p.frame != none { frame(p.frame) }
   for e in p.elements { element(e) }
-  if p.brand != none and p.brand.style == "line" {
-    place(bottom + center, dy: -3mm, box(fill: white.transparentize(15%), inset: (x: 2.2mm, y: 1mm), radius: 1mm,
-      text(font: "Lato", size: 6.5pt, fill: rgb("#6b6b78"), p.brand.text)))
+  if p.brand != none {
+    let mark = brand-box(p.brand)
+    if data.brandPosition == none {
+      place(bottom + center, dy: -3mm, mark)
+    } else {
+      // Moved by the editor (ADR 0118): its centre at the saved point.
+      let (x, y) = (mm(data.brandPosition.xMm), mm(data.brandPosition.yMm))
+      context {
+        let size = measure(mark)
+        place(top + left, dx: x - size.width / 2, dy: y - size.height / 2, mark)
+      }
+    }
   }
-  // The watermark (ADR 0116): "EMITIDO COM", the mark and the name, faint in the paper's ink, on
-  // a strip of the paper that interrupts a frame passing under it.
-  if p.brand != none and p.brand.style == "mark" {
-    let ink = rgb(p.brand.ink)
-    place(bottom + center, dy: -3mm, box(fill: rgb(p.brand.paper), inset: (x: 2.6mm, y: 0.9mm), radius: 1mm,
-      grid(columns: 3, column-gutter: 1.5mm, align: horizon,
-        text(font: "Lato", size: 5pt, tracking: 0.14em, fill: ink.transparentize(55%), upper(p.brand.caption)),
-        box(height: 3.8mm, image("/brand-mark.svg", height: 3.8mm)),
-        text(font: "Lato", size: 7.5pt, tracking: -0.01em, fill: ink.transparentize(42%),
-          [#text(weight: "bold")[Ingresso] Impresso]))))
+  if data.sample != none {
+    place(center + horizon, rotate(-24deg,
+      text(font: "Lato", weight: "bold", size: calc.min(W, H) / 5, tracking: 0.08em,
+        fill: rgb(200, 0, 0, 46), data.sample)))
   }
 }

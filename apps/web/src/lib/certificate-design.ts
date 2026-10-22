@@ -171,7 +171,8 @@ export function reorient(design: CertificateDesign, orientation: PageOrientation
     return placed;
   };
   const page = (side: CertificatePage): CertificatePage => ({ ...side, elements: side.elements.map(fitIn) });
-  return { ...design, orientation, front: page(design.front), back: design.back == null ? null : page(design.back) };
+  const brandPosition = design.brandPosition == null ? null : { xMm: round(design.brandPosition.xMm * sx), yMm: round(design.brandPosition.yMm * sy) };
+  return { ...design, orientation, front: page(design.front), back: design.back == null ? null : page(design.back), brandPosition };
 }
 
 /** A problem with the design; `side` and `index` point at what to outline. */
@@ -324,6 +325,10 @@ export function certificateIssues(design: CertificateDesign, images: number): Ce
   }
   if (qrs === 0) {
     issues.push({ side: null, index: null, message: m.missingQr });
+  }
+  const brand = design.brandPosition;
+  if (brand != null && !(Number.isFinite(brand.xMm) && Number.isFinite(brand.yMm) && within(brand.xMm, [0, size.width]) && within(brand.yMm, [0, size.height]))) {
+    issues.push({ side: "front", index: null, message: m.brand });
   }
   return issues;
 }

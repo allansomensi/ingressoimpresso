@@ -301,13 +301,19 @@ impl Certificate {
         }))
     }
 
-    fn data(&self) -> Result<Value, RenderError> {
+    fn data(&self, sample: bool) -> Result<Value, RenderError> {
         let (width, height) = self.design.page_size_mm();
         let mut pages = vec![self.page_data(&self.design.front, true)?];
         if let Some(back) = &self.design.back {
             pages.push(self.page_data(back, false)?);
         }
-        Ok(json!({ "width": width, "height": height, "pages": pages }))
+        Ok(json!({
+            "width": width,
+            "height": height,
+            "pages": pages,
+            "brandPosition": self.design.brand_position,
+            "sample": sample.then_some(CERTIFICATE_SAMPLE_WATERMARK),
+        }))
     }
 }
 
@@ -318,6 +324,40 @@ impl Certificate {
 /// [`RenderError::Typst`] for an invalid design or a Typst failure; [`RenderError::Qr`] when the
 /// link does not fit a QR.
 pub fn certificate_pdf(certificate: &Certificate) -> Result<Vec<u8>, RenderError> {
+    pdf(&compile(certificate, false)?)
+}
+
+/// The diagonal word on a sample certificate's picture.
+const CERTIFICATE_SAMPLE_WATERMARK: &str = "AMOSTRA";
+
+/// A SAMPLE of the certificate as JPEG pictures `width_px` wide, one per side (ADR 0118): the
+/// editor's "Ver como fica", with a faint diagonal "AMOSTRA" so it is never taken for the real one.
+///
+/// # Errors
+///
+/// See [`certificate_pdf`]; [`RenderError::Image`] when a picture cannot be encoded.
+pub fn certificate_sample_images(
+    certificate: &Certificate,
+    width_px: u32,
+) -> Result<Vec<Vec<u8>>, RenderError> {
+    let document = compile(certificate, true)?;
+    let (width_mm, _) = certificate.design.page_size_mm();
+    let page_points = width_mm / 25.4 * 72.0;
+    let options = typst_render::RenderOptions {
+        pixel_per_pt: typst::utils::Scalar::new(f64::from(width_px) / page_points),
+        render_bleed: false,
+    };
+    document
+        .pages()
+        .iter()
+        .map(|page| {
+            let pixmap = typst_render::render(page, &options);
+            crate::render::encode_jpeg(pixmap.width(), pixmap.height(), pixmap.data())
+        })
+        .collect()
+}
+
+fn compile(certificate: &Certificate, sample: bool) -> Result<PagedDocument, RenderError> {
     let images = certificate.images.len();
     certificate.design.validate(images).map_err(|issues| {
         RenderError::Typst(
@@ -361,7 +401,7 @@ pub fn certificate_pdf(certificate: &Certificate) -> Result<Vec<u8>, RenderError
             )
             .map_err(file_error)?;
     }
-    let json = serde_json::to_vec(&certificate.data()?)
+    let json = serde_json::to_vec(&certificate.data(sample)?)
         .map_err(|error| RenderError::Typst(error.to_string()))?;
     world
         .add_file("/data.json", Bytes::new(json))
@@ -370,7 +410,7 @@ pub fn certificate_pdf(certificate: &Certificate) -> Result<Vec<u8>, RenderError
         .output
         .map_err(|diagnostics| RenderError::Typst(describe(&diagnostics)));
     typst::comemo::evict(0);
-    pdf(&compiled?)
+    compiled
 }
 
 /// Most certificates in one ZIP.
@@ -545,7 +585,7 @@ mod tests {
             let mut certificate = certificate();
             certificate.design.brand_style = BrandStyle::Mark;
             certificate.design.front.background_color = paper.to_owned();
-            let data = certificate.data().unwrap();
+            let data = certificate.data(false).unwrap();
             assert_eq!(data["pages"][0]["brand"]["style"], "mark");
             assert_eq!(data["pages"][0]["brand"]["ink"], brand_ink(paper));
             let bytes = certificate_pdf(&certificate).unwrap();
@@ -565,6 +605,39 @@ mod tests {
         json.as_object_mut().unwrap().remove("brandStyle");
         let old: CertificateDesign = serde_json::from_value(json).unwrap();
         assert_eq!(old.brand_style, BrandStyle::Line);
+    }
+
+    #[test]
+    fn a_moved_brand_and_the_sample_pictures() {
+        let mut certificate = certificate();
+        certificate.design.brand_style = BrandStyle::Mark;
+        certificate.design.brand_position = Some(crate::BrandPosition {
+            x_mm: 40.0,
+            y_mm: 20.0,
+        });
+        assert_eq!(
+            certificate.data(false).unwrap()["brandPosition"]["xMm"],
+            40.0
+        );
+        assert!(certificate_pdf(&certificate).is_ok());
+        let pictures = certificate_sample_images(&certificate, 600).unwrap();
+        assert_eq!(pictures.len(), 1);
+        let picture = image::load_from_memory(&pictures[0]).unwrap();
+        assert_eq!(picture.width(), 600);
+        // A4 lying down keeps its proportion.
+        assert!((f64::from(picture.height()) / 600.0 - 210.0 / 297.0).abs() < 0.01);
+        // Off the page is refused, on both sides.
+        certificate.design.brand_position = Some(crate::BrandPosition {
+            x_mm: 400.0,
+            y_mm: 20.0,
+        });
+        assert!(
+            certificate
+                .design
+                .validate(0)
+                .unwrap_err()
+                .contains(&crate::CertificateIssue::BrandOutOfBounds)
+        );
     }
 
     #[test]
