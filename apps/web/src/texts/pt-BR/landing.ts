@@ -419,7 +419,7 @@ export const landing = {
     quantityUnit: "ingressos",
     presets: [50, 100, 200, 500, 1000],
     free: (count: number) => `Usar meus ${count.toLocaleString("pt-BR")} ingressos grátis`,
-    freeHint: "Toda conta nova ganha, para usar no primeiro lote.",
+    freeHint: "Toda conta nova ganha, para usar nos primeiros lotes.",
     total: "Você paga",
     totalFree: "Grátis",
     perTicket: (amount: string) => `${amount} por ingresso, em média`,
