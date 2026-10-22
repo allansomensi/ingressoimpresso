@@ -290,8 +290,21 @@ fn svix_headers(secret_key: &[u8], body: &[u8]) -> Vec<(&'static str, String)> {
 async fn seen_release_notes_follow_the_account(pool: PgPool) {
     let app = TestApp::new(pool).await;
     let token = app.login("banda@exemplo.com").await;
+    // A new account has seen everything published before it existed.
+    let created: String = sqlx::query_scalar(
+        "select to_char(created_at at time zone 'UTC', 'YYYY-MM-DD') from users where email = $1",
+    )
+    .bind("banda@exemplo.com")
+    .fetch_one(&app.state.pool)
+    .await
+    .unwrap();
     let inbox = app.get("/api/inbox", &token).await.json();
-    assert_eq!(inbox["newsSeenAt"], json!(null));
+    assert!(inbox["newsSeenAt"].as_str().unwrap().starts_with(&created));
+    sqlx::query("update users set created_at = '2026-01-01T00:00:00Z' where email = $1")
+        .bind("banda@exemplo.com")
+        .execute(&app.state.pool)
+        .await
+        .unwrap();
 
     let read = app
         .post(

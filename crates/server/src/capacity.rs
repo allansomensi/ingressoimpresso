@@ -103,8 +103,9 @@ pub async fn check(state: &AppState, event_id: Uuid) {
 
 async fn notify(state: &AppState, event_id: Uuid) -> ApiResult<()> {
     let Some(row) = sqlx::query!(
-        r#"select organization_id, name, capacity as "capacity!", capacity_warn_percent, capacity_alerted
-           from events where id = $1 and capacity is not null and capacity_alerted < 2"#,
+        r#"select organization_id, name, capacity as "capacity!", capacity_warn_percent, capacity_alerted,
+                  capacity_alerted_day
+           from events where id = $1 and capacity is not null"#,
         event_id
     )
     .fetch_optional(&state.pool)
@@ -120,17 +121,27 @@ async fn notify(state: &AppState, event_id: Uuid) -> ApiResult<()> {
             ends_at: day.ends_at,
         })
         .collect();
+    // Each day of a several-day event fills on its own: its warnings start over.
+    let today = event_days::current(&days, OffsetDateTime::now_utc()).map(i16::from);
+    let alerted = if row.capacity_alerted_day == today {
+        row.capacity_alerted
+    } else {
+        0
+    };
     let occupied = occupancy(&state.pool, event_id, &days).await?;
     let level = level(occupied, row.capacity, row.capacity_warn_percent);
-    if level <= row.capacity_alerted {
+    if level <= alerted {
         return Ok(());
     }
     let mut tx = state.pool.begin().await?;
-    // One warning per level, whichever upload gets here first.
+    // One warning per level and day, whichever upload gets here first.
     let claimed = sqlx::query!(
-        "update events set capacity_alerted = $2 where id = $1 and capacity_alerted < $2",
+        r#"update events set capacity_alerted = $2, capacity_alerted_day = $3
+           where id = $1
+             and (capacity_alerted < $2 or capacity_alerted_day is distinct from $3)"#,
         event_id,
         level,
+        today,
     )
     .execute(&mut *tx)
     .await?

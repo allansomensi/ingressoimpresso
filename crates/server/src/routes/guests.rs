@@ -529,5 +529,7 @@ pub async fn upload(
         });
     }
     tx.commit().await?;
+    // Guests count toward the venue's capacity too (ADR 0110).
+    crate::capacity::check(&state, device.event_id).await;
     Ok(Json(DoorGuestsResponse { results }))
 }

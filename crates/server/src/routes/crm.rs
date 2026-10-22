@@ -322,7 +322,7 @@ pub async fn timeline(
              select n.created_at, 'note', null, n.body, null, null, n.author_email, null, null
              from organization_notes n where n.organization_id = $1
            ) entries
-           where $2::timestamptz is null or at < $2
+           where $2::timestamptz is null or at <= $2
            order by at desc
            limit $3"#,
         organization_id,
