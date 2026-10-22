@@ -64,10 +64,14 @@ pub(crate) async fn record(state: &AppState, dispute: &Dispute) -> ApiResult<()>
            values ($1, $2, $3, $4, $5, $6, $7, $8, $9, coalesce($10, now()),
                    case when $11 then now() end)
            on conflict (id) do update
-           set status = excluded.status, amount_cents = excluded.amount_cents,
+           -- Stripe does not order its events: a late "updated" never reopens a closed dispute.
+           set status = case when payment_disputes.closed_at is not null and not $11
+                             then payment_disputes.status else excluded.status end,
+               amount_cents = excluded.amount_cents,
                evidence_due_by = coalesce(excluded.evidence_due_by, payment_disputes.evidence_due_by),
                updated_at = now(),
-               closed_at = case when $11 then coalesce(payment_disputes.closed_at, now()) end,
+               closed_at = case when $11 then coalesce(payment_disputes.closed_at, now())
+                                else payment_disputes.closed_at end,
                payment_id = coalesce(payment_disputes.payment_id, excluded.payment_id),
                batch_id = coalesce(payment_disputes.batch_id, excluded.batch_id)
            returning (xmax = 0) as "inserted!",
@@ -259,6 +263,19 @@ pub async fn block(
         return Err(ApiError::Conflict(
             "batch_not_paid",
             "only a paid batch can be blocked".to_owned(),
+        ));
+    }
+    // A second click passed the check above before the lock: only one block per dispute.
+    let already = sqlx::query_scalar!(
+        "select block_void_id from payment_disputes where id = $1 for update",
+        id
+    )
+    .fetch_one(&mut *tx)
+    .await?;
+    if already.is_some() {
+        return Err(ApiError::Conflict(
+            "dispute_already_blocked",
+            "the numbers are already blocked".to_owned(),
         ));
     }
     let (first, last) = bounds(&batch.numbers)?;

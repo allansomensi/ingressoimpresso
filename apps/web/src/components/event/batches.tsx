@@ -569,7 +569,7 @@ export function BatchesTab({ eventId, onSelect }: { eventId: string; onSelect: S
       {batches.isPending ? (
         <LoadingBlock rows={2} />
       ) : batches.isError ? (
-        <ErrorMessage error={batches.error} />
+        <ErrorMessage error={batches.error} onRetry={() => void batches.refetch()} />
       ) : list.length === 0 ? (
         <EmptyState icon={Layers} title={t.emptyTitle} description={t.empty} action={newButton} />
       ) : (

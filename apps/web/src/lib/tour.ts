@@ -22,9 +22,6 @@ export const TOUR_STEPS: readonly TourStep[] = [
   { id: "done", anchor: null },
 ];
 
-/** The address that starts the tour again (the button in Minha conta). */
-export const TOUR_REPLAY = "/painel?tour=1";
-
 export interface Box {
   top: number;
   left: number;

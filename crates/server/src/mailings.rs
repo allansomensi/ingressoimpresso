@@ -41,20 +41,56 @@ pub fn daily_budget(state: &AppState) -> Option<i32> {
 /// The token of a recipient's unsubscribe link: the account and a signature only the server can
 /// make. It only turns announcement e-mails off or on.
 pub fn token(master: &MasterKey, user_id: Uuid) -> String {
-    let mac = keyed_hash(master, "announcement-unsubscribe", user_id.as_bytes());
+    signed(master, ANNOUNCEMENTS, user_id)
+}
+
+/// The token of a reminder's unsubscribe link (ADR 0118): `r.` and its own signature, so it only
+/// turns reminders off or on.
+pub fn reminder_token(master: &MasterKey, user_id: Uuid) -> String {
+    format!("{REMINDER_PREFIX}{}", signed(master, REMINDERS, user_id))
+}
+
+const ANNOUNCEMENTS: &str = "announcement-unsubscribe";
+const REMINDERS: &str = "reminder-unsubscribe";
+const REMINDER_PREFIX: &str = "r.";
+
+/// Which e-mails an unsubscribe link stops.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Unsubscribe {
+    /// The platform's announcements (ADR 0107).
+    Announcements(Uuid),
+    /// The reminders that bring people back (ADR 0118).
+    Reminders(Uuid),
+}
+
+/// What a token unsubscribes from, when its signature holds.
+pub fn unsubscribe_of(master: &MasterKey, token: &str) -> Option<Unsubscribe> {
+    let token = token.trim();
+    match token.strip_prefix(REMINDER_PREFIX) {
+        Some(rest) => verified(master, REMINDERS, rest).map(Unsubscribe::Reminders),
+        None => verified(master, ANNOUNCEMENTS, token).map(Unsubscribe::Announcements),
+    }
+}
+
+/// The account of an announcements token, when the signature holds.
+pub fn user_of(master: &MasterKey, token: &str) -> Option<Uuid> {
+    verified(master, ANNOUNCEMENTS, token.trim())
+}
+
+fn signed(master: &MasterKey, purpose: &str, user_id: Uuid) -> String {
+    let mac = keyed_hash(master, purpose, user_id.as_bytes());
     let mut bytes = user_id.as_bytes().to_vec();
     bytes.extend_from_slice(mac.get(..TOKEN_MAC).unwrap_or_default());
     base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes)
 }
 
-/// The account of a token, when the signature holds.
-pub fn user_of(master: &MasterKey, token: &str) -> Option<Uuid> {
+fn verified(master: &MasterKey, purpose: &str, token: &str) -> Option<Uuid> {
     let bytes = base64::engine::general_purpose::URL_SAFE_NO_PAD
-        .decode(token.trim())
+        .decode(token)
         .ok()?;
     let (id, mac) = bytes.split_at_checked(16)?;
     let user_id = Uuid::from_slice(id).ok()?;
-    let expected = keyed_hash(master, "announcement-unsubscribe", user_id.as_bytes());
+    let expected = keyed_hash(master, purpose, user_id.as_bytes());
     let expected = expected.get(..TOKEN_MAC)?;
     // Constant time: the comparison never tells how much of a guess was right.
     (mac.len() == TOKEN_MAC
@@ -79,8 +115,11 @@ pub async fn audience_counts(
              count(*) filter (where not u.announcement_emails and r.user_id is null) as "opted_out!",
              count(*) filter (where r.user_id is not null) as "already!"
            from users u
+           -- Only a row that went out or is on its way counts: a canceled (skipped) or failed
+           -- one can be sent again.
            left join announcement_mail_recipients r
              on r.announcement_id = $1 and r.user_id = u.id
+            and r.status in ('pending', 'sending', 'sent')
            where exists (
                select 1 from memberships m join organizations o on o.id = m.organization_id
                where m.user_id = u.id
@@ -151,7 +190,10 @@ pub async fn queue(
                          and b.price_cents > 0))
                  and ($3 <> 'tagged' or $4 = any(o.admin_tags)))
              and ($3 <> 'recent' or u.last_login_at > now() - interval '90 days')
-           on conflict do nothing"#,
+           -- Someone left out by a canceled sending, or whose e-mail failed, gets this one.
+           on conflict (announcement_id, user_id) do update
+           set mailing_id = excluded.mailing_id, status = 'pending', sent_at = null
+           where announcement_mail_recipients.status in ('skipped', 'failed')"#,
         id,
         announcement_id,
         audience.db(),

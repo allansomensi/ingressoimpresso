@@ -239,7 +239,7 @@ export default function EventsPage() {
           ))}
         </div>
       ) : events.isError ? (
-        <ErrorMessage error={events.error} />
+        <ErrorMessage error={events.error} onRetry={() => void events.refetch()} />
       ) : events.data.length === 0 ? (
         <EmptyState icon={CalendarPlus} title={t.emptyTitle} description={t.empty} action={newButton(false)} />
       ) : (

@@ -86,7 +86,7 @@ export function ReferralsCard() {
   }, [copied]);
 
   if (referrals.isError) {
-    return <ErrorMessage error={referrals.error} />;
+    return <ErrorMessage error={referrals.error} onRetry={() => void referrals.refetch()} />;
   }
   const data = referrals.data;
   const origin = typeof window === "undefined" ? SITE_URL : window.location.origin;

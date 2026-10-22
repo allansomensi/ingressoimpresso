@@ -2,6 +2,8 @@
 export const profile = {
   title: "Perfil da organização",
   description: "Aparece no ingresso no celular e na página dos vendedores, com o botão Falar com a organização.",
+  nameIs: (name: string) => `Nome da organização: ${name}.`,
+  changeName: "Mudar o nome",
   brandTitle: "Logo e cor",
   logo: "Logo",
   logoHint: "PNG ou JPEG, de preferência quadrado e com fundo transparente. Fica pequeno nas páginas.",

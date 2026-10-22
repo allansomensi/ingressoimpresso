@@ -54,7 +54,7 @@ export function Accountability({ eventId }: { eventId: string }) {
     return <LoadingBlock rows={2} />;
   }
   if (summary.isError) {
-    return <ErrorMessage error={summary.error} />;
+    return <ErrorMessage error={summary.error} onRetry={() => void summary.refetch()} />;
   }
   const s = summary.data;
   const spent = s.expensesCents + s.platformCents;
@@ -415,7 +415,7 @@ function FinalSummaryDialog({ eventId, eventName, open, onClose }: { eventId: st
     <Dialog open={open} onClose={onClose} title={t.title} description={t.description} size="md">
       <div className="flex flex-col gap-4">
         {picture.isError ? (
-          <ErrorMessage error={picture.error} />
+          <ErrorMessage error={picture.error} onRetry={() => void picture.refetch()} />
         ) : url === null || picture.isFetching ? (
           <div className="flex aspect-[4/5] w-full items-center justify-center rounded-xl bg-surface-2">
             <Spinner />

@@ -904,7 +904,7 @@ pub(crate) fn describe(diagnostics: &EcoVec<SourceDiagnostic>) -> String {
         .join("; ")
 }
 
-fn encode_jpeg(width: u32, height: u32, rgba: &[u8]) -> Result<Vec<u8>, RenderError> {
+pub(crate) fn encode_jpeg(width: u32, height: u32, rgba: &[u8]) -> Result<Vec<u8>, RenderError> {
     // Pages have an opaque background, so premultiplied RGBA equals straight RGBA here.
     let rgb: Vec<u8> = rgba
         .as_chunks::<4>()

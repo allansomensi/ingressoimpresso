@@ -94,7 +94,7 @@ export function GuestsTab({ eventId }: { eventId: string }) {
     return <LoadingBlock rows={3} />;
   }
   if (guests.isError) {
-    return <ErrorMessage error={guests.error} />;
+    return <ErrorMessage error={guests.error} onRetry={() => void guests.refetch()} />;
   }
   const list = guests.data;
   const totals = guestTotals(list);

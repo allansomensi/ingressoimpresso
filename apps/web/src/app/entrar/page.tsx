@@ -350,7 +350,7 @@ function SignIn() {
                   <div className="flex items-center justify-between gap-2 text-sm">
                     <button
                       type="button"
-                      className="inline-flex items-center gap-1.5 font-medium text-fg-muted hover:text-fg"
+                      className="relative inline-flex items-center gap-1.5 rounded-lg font-medium text-fg-muted touch-target hover:text-fg active:text-fg"
                       onClick={() => {
                         setCodeSent(false);
                         setCode("");
@@ -362,7 +362,7 @@ function SignIn() {
                     </button>
                     <button
                       type="button"
-                      className="font-medium text-brand disabled:text-fg-subtle"
+                      className="relative rounded-lg font-medium text-brand touch-target active:opacity-70 disabled:text-fg-subtle"
                       disabled={wait > 0 || requestCode.isPending}
                       onClick={() => {
                         requestCode.mutate();

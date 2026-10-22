@@ -25,9 +25,11 @@ export const event = {
   tabs: {
     overview: "Visão geral",
     design: "Ingresso",
-    batches: "Lotes",
+    // "Lotes" read as price tiers ("1º lote") to organizers: the section is where tickets are
+    // generated and paid for.
+    batches: "Gerar ingressos",
     sellers: "Vendedores",
-    digital: "Digitais",
+    digital: "No celular",
     voids: "Cancelamentos",
     files: "Arquivos",
     door: "Portaria",
@@ -47,7 +49,7 @@ export const event = {
     actions: {
       duplicated: "Evento duplicado com a ficha, os vendedores e a equipe. Ajuste a data e o nome.",
     },
-    tabs: { design: "Ficha", categories: "Produtos", door: "Barracas" },
+    tabs: { design: "Ficha", batches: "Gerar fichas", categories: "Produtos", door: "Barracas" },
     sections: {
       hints: {
         design: "Arte, textos e prévia da ficha",
@@ -1864,6 +1866,7 @@ export const event = {
     received: "Recebido",
     balance: "Falta",
     balanceHint: "A acertar − comissão − recebido. Quando o vendedor pagou mais do que devia, aparece o valor a mais.",
+    legend: "O que significa cada coluna",
     commission: "Comissão",
     courtesiesColumn: "Cortesias",
     // Courtesies under control (ADR 0096).

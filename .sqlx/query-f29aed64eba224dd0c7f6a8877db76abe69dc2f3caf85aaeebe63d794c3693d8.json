@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update reminder_sends set status = 'failed' where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f29aed64eba224dd0c7f6a8877db76abe69dc2f3caf85aaeebe63d794c3693d8"
+}

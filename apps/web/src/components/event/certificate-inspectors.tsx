@@ -657,12 +657,29 @@ export function PageInspector({
       <div className="border-t border-border pt-4">
         <Switch label={p.brand} description={p.brandHint} checked={design.brand} onChange={(brand) => { onDesign({ brand }, "brand"); }} />
         {design.brand && (
-          <BrandStylePicker
-            value={design.brandStyle}
-            onChange={(brandStyle) => {
-              onDesign({ brandStyle }, "brand-style");
-            }}
-          />
+          <>
+            <BrandStylePicker
+              value={design.brandStyle}
+              onChange={(brandStyle) => {
+                onDesign({ brandStyle }, "brand-style");
+              }}
+            />
+            {/* The brand can be dragged off a frame (ADR 0118); one tap puts it back. */}
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-fg-muted">
+              <span>{design.brandPosition == null ? p.brandMove : p.brandMoved}</span>
+              {design.brandPosition != null && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    onDesign({ brandPosition: null }, "brand-position");
+                  }}
+                >
+                  {p.brandReset}
+                </Button>
+              )}
+            </div>
+          </>
         )}
       </div>
     </div>

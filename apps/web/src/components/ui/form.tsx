@@ -13,8 +13,8 @@ import { common as commonTexts } from "@/texts/pt-BR/common";
 
 export const controlClass = cn(
   // 16px on phones: iOS zooms into any field with smaller text.
-  "w-full rounded-xl border border-border-strong bg-surface px-3.5 text-base text-fg shadow-xs transition sm:text-[15px]",
-  "placeholder:text-fg-subtle hover:border-fg-subtle/60",
+  "w-full rounded-xl border border-border-input bg-surface px-3.5 text-base text-fg shadow-xs transition sm:text-[15px]",
+  "placeholder:text-fg-subtle hover:border-fg-muted",
   "focus:border-brand focus:ring-4 focus:ring-ring focus:outline-none",
   "disabled:cursor-not-allowed disabled:opacity-60 aria-invalid:border-danger",
 );

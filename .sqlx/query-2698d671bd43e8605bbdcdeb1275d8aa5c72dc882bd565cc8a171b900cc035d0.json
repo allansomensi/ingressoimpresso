@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select greatest(news_seen_at, created_at) as \"seen!\" from users where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "seen!",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "2698d671bd43e8605bbdcdeb1275d8aa5c72dc882bd565cc8a171b900cc035d0"
+}

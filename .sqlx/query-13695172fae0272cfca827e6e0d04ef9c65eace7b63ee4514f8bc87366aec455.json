@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update events set capacity_alerted = $2, capacity_alerted_day = $3\n           where id = $1\n             and (capacity_alerted < $2 or capacity_alerted_day is distinct from $3)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int2",
+        "Int2"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "13695172fae0272cfca827e6e0d04ef9c65eace7b63ee4514f8bc87366aec455"
+}

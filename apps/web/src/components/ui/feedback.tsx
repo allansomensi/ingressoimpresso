@@ -1,10 +1,12 @@
-import { AlertTriangle, CheckCircle2, Info, X, XCircle, type LucideIcon } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Info, RefreshCw, X, XCircle, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { ApiError } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { common as commonTexts } from "@/texts/pt-BR/common";
 import { errors as errorsTexts } from "@/texts/pt-BR/errors";
+
+import { Button } from "./button";
 
 export type Tone = "neutral" | "brand" | "success" | "warning" | "danger";
 
@@ -113,12 +115,23 @@ export function errorMessage(error: unknown): string {
   return error instanceof ApiError ? error.userMessage : errorsTexts.generic;
 }
 
-export function ErrorMessage({ error, className }: { error: unknown; className?: string | undefined }) {
+/** An error in words; with `onRetry`, a "Tentar de novo" button (a screen that failed to load). */
+export function ErrorMessage({ error, className, onRetry }: { error: unknown; className?: string | undefined; onRetry?: () => void }) {
   if (error === null || error === undefined) {
     return null;
   }
   return (
-    <Alert tone="danger" className={className}>
+    <Alert
+      tone="danger"
+      className={className}
+      action={
+        onRetry === undefined ? undefined : (
+          <Button size="sm" variant="secondary" icon={<RefreshCw />} onClick={onRetry}>
+            {commonTexts.retry}
+          </Button>
+        )
+      }
+    >
       {errorMessage(error)}
     </Alert>
   );

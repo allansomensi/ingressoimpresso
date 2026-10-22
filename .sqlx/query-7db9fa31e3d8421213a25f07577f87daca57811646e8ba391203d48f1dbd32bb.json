@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update users set announcement_emails = $2, reminder_emails = coalesce($3, reminder_emails) where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Bool",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "7db9fa31e3d8421213a25f07577f87daca57811646e8ba391203d48f1dbd32bb"
+}

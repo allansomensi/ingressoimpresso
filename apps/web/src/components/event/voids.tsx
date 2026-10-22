@@ -179,7 +179,7 @@ export function VoidsTab({ eventId, onSelect }: { eventId: string; onSelect: Sel
       {voids.isPending ? (
         <LoadingBlock rows={2} />
       ) : voids.isError ? (
-        <ErrorMessage error={voids.error} />
+        <ErrorMessage error={voids.error} onRetry={() => void voids.refetch()} />
       ) : voids.data.length === 0 ? (
         <EmptyState icon={ShieldX} title={t.emptyTitle} description={t.empty} />
       ) : (

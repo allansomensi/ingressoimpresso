@@ -7,4 +7,8 @@ export type AccountPreferencesBody = {
 /**
  * Receive the platform's announcements by e-mail.
  */
-announcementEmails: boolean, };
+announcementEmails: boolean, 
+/**
+ * Receive the reminders that bring people back (ADR 0118); unchanged when left out.
+ */
+reminderEmails?: boolean, };

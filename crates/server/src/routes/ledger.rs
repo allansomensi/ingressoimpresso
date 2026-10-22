@@ -694,17 +694,12 @@ pub async fn pdf(
     Path(event_id): Path<Uuid>,
 ) -> ApiResult<Response> {
     let event = authorize_event(&state.pool, &user, event_id).await?;
+    super::heavy_render(&state, &user).await?;
     let data = accountability(&state, event).await?;
     let document = document(&data);
-    let _permit = state
-        .render_permits
-        .clone()
-        .acquire_owned()
-        .await
-        .map_err(anyhow::Error::from)?;
-    let bytes = tokio::task::spawn_blocking(move || ticket_render::report_pdf(&document))
-        .await
-        .map_err(anyhow::Error::from)?
+    let bytes = state
+        .blocking_render(move || ticket_render::report_pdf(&document))
+        .await?
         .map_err(|error| ApiError::Internal(error.into()))?;
     Ok(attachment(
         &format!("{}.pdf", base_name(&data.event)),

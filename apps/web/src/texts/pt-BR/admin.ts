@@ -1069,6 +1069,7 @@ export const admin = {
       team_invite: "Convite de equipe",
       alert: "Alerta dos admins",
       announcement: "Pronunciamento",
+      reminder: "Lembrete",
     },
     statuses: {
       sending: "Enviando",

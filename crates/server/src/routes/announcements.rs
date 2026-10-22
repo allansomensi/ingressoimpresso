@@ -108,9 +108,14 @@ pub async fn inbox(State(state): State<AppState>, user: AuthUser) -> ApiResult<J
     )
     .fetch_one(&state.pool)
     .await?;
-    let news_seen_at = sqlx::query_scalar!("select news_seen_at from users where id = $1", user.id)
-        .fetch_one(&state.pool)
-        .await?;
+    // Notes published before the account existed are not news to it: a new account starts with
+    // an empty bell instead of every past release.
+    let news_seen_at = sqlx::query_scalar!(
+        r#"select greatest(news_seen_at, created_at) as "seen!" from users where id = $1"#,
+        user.id
+    )
+    .fetch_one(&state.pool)
+    .await?;
     // Only the bell counts: a dialog shows by itself.
     let unseen = announcements
         .iter()
@@ -123,7 +128,7 @@ pub async fn inbox(State(state): State<AppState>, user: AuthUser) -> ApiResult<J
         announcements,
         notifications,
         unread,
-        news_seen_at,
+        news_seen_at: Some(news_seen_at),
     }))
 }
 
@@ -467,14 +472,24 @@ pub(crate) async fn queue_email(state: &AppState, id: Uuid) -> ApiResult<()> {
         .await?;
         return Ok(());
     }
-    crate::mailings::queue(
+    if let Err(error) = crate::mailings::queue(
         state,
         id,
         audience,
         due.email_tag.as_deref(),
         due.created_by,
     )
-    .await?;
+    .await
+    {
+        // Not queued after all: the next tick tries again instead of never sending it.
+        sqlx::query!(
+            "update announcements set email_queued_at = null where id = $1",
+            id
+        )
+        .execute(&state.pool)
+        .await?;
+        return Err(error);
+    }
     Ok(())
 }
 

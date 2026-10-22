@@ -86,7 +86,7 @@ export function CredentialsTab({ eventId }: { eventId: string }) {
     return <LoadingBlock rows={3} />;
   }
   if (credentials.isError) {
-    return <ErrorMessage error={credentials.error} />;
+    return <ErrorMessage error={credentials.error} onRetry={() => void credentials.refetch()} />;
   }
   const list = credentials.data.credentials;
   const full = list.length >= credentials.data.limit;

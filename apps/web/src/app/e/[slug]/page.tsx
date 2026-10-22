@@ -138,7 +138,8 @@ export default async function PublicEventPage({ params }: Props) {
           {event.soldOut && (
             <span
               aria-label={t.soldOut}
-              className="absolute top-6 right-5 rotate-[-12deg] rounded-xl border-4 border-white px-3 py-1 text-xl font-black tracking-widest text-white uppercase shadow-lg sm:text-2xl"
+              // At the bottom right on a phone, clear of the "POR …" line at the top.
+              className="absolute right-4 bottom-5 rotate-[-12deg] rounded-xl border-4 border-white px-2.5 py-0.5 text-lg font-black tracking-widest text-white uppercase shadow-lg sm:top-6 sm:right-5 sm:bottom-auto sm:px-3 sm:py-1 sm:text-2xl"
             >
               {t.soldOut}
             </span>

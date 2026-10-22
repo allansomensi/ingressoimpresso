@@ -43,16 +43,18 @@ pub async fn update(
     load(&state, &user).await.map(Json)
 }
 
-/// `PUT /api/account/preferences`: the account's own choices (announcement e-mails, ADR 0107).
+/// `PUT /api/account/preferences`: the account's own choices (announcement e-mails, ADR 0107;
+/// reminders, ADR 0118).
 pub async fn preferences(
     State(state): State<AppState>,
     user: AuthUser,
     Json(body): Json<AccountPreferencesBody>,
 ) -> ApiResult<Json<AccountDto>> {
     sqlx::query!(
-        "update users set announcement_emails = $2 where id = $1",
+        "update users set announcement_emails = $2, reminder_emails = coalesce($3, reminder_emails) where id = $1",
         user.id,
         body.announcement_emails,
+        body.reminder_emails,
     )
     .execute(&state.pool)
     .await?;
@@ -86,6 +88,7 @@ async fn load(state: &AppState, user: &AuthUser) -> ApiResult<AccountDto> {
         r#"select o.id as organization_id, o.name, o.bonus_free_tickets, o.suspended_reason, o.suspended_at,
                   (select terms_accepted_at from users where id = $1) as terms_accepted_at,
                   (select announcement_emails from users where id = $1) as "announcement_emails!",
+                  (select reminder_emails from users where id = $1) as "reminder_emails!",
                   (select coalesce(sum(b.free_tickets), 0) from ticket_batches b
                    join events e on e.id = b.event_id
                    where e.organization_id = o.id and b.status <> 'canceled')::int as "free_used!",
@@ -116,5 +119,6 @@ async fn load(state: &AppState, user: &AuthUser) -> ApiResult<AccountDto> {
             .map(|_| row.suspended_reason.unwrap_or_default()),
         terms_accepted_at: row.terms_accepted_at,
         announcement_emails: row.announcement_emails,
+        reminder_emails: row.reminder_emails,
     })
 }

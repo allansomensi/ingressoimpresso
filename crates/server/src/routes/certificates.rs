@@ -6,7 +6,7 @@
 use axum::Json;
 use axum::extract::{Path, State};
 use axum::http::{HeaderMap, StatusCode};
-use axum::response::Response;
+use axum::response::{IntoResponse as _, Response};
 use base64::Engine as _;
 use sqlx::PgPool;
 use time::PrimitiveDateTime;
@@ -619,15 +619,9 @@ async fn render<T: Send + 'static>(
     state: &AppState,
     job: impl FnOnce() -> Result<T, ticket_render::RenderError> + Send + 'static,
 ) -> ApiResult<T> {
-    let _permit = state
-        .render_permits
-        .clone()
-        .acquire_owned()
-        .await
-        .map_err(anyhow::Error::from)?;
-    tokio::task::spawn_blocking(job)
-        .await
-        .map_err(anyhow::Error::from)?
+    state
+        .blocking_render(job)
+        .await?
         .map_err(|error| ApiError::Internal(error.into()))
 }
 
@@ -673,6 +667,62 @@ pub async fn sample(
     ))
 }
 
+/// Width of the sample picture of a certificate, like the ticket's.
+const SAMPLE_IMAGE_WIDTH_PX: u32 = 1600;
+
+/// Which side of the certificate a sample picture shows.
+#[derive(Debug, serde::Deserialize)]
+pub struct SampleSide {
+    /// The back instead of the front.
+    #[serde(default)]
+    back: bool,
+}
+
+/// `POST /api/events/{id}/certificates/sample-image?back=`: the design being edited as a SAMPLE
+/// picture (JPEG, faint "AMOSTRA" across it), the editor's "Ver como fica" (ADR 0118). Nothing is
+/// saved.
+pub async fn sample_image(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(event_id): Path<Uuid>,
+    axum::extract::Query(side): axum::extract::Query<SampleSide>,
+    Json(body): Json<CertificateSettingsBody>,
+) -> ApiResult<Response> {
+    let event = authorize_event(&state.pool, &user, event_id).await?;
+    if !state
+        .attempt(
+            &format!("certificate-sample:{}", user.id),
+            SAMPLES_PER_MINUTE,
+            std::time::Duration::from_mins(1),
+        )
+        .await
+    {
+        return Err(ApiError::TooManyRequests);
+    }
+    let draft = checked_settings(&state, event_id, body).await?;
+    if side.back && draft.design.back.is_none() {
+        return Err(bad_request("no_back", "the certificate has no back"));
+    }
+    let shared = shared(&state, event, draft).await?;
+    let certificate = render_one(&state, &shared, texts::CERTIFICATE_SAMPLE_NAME, None, None);
+    let pictures = render(&state, move || {
+        ticket_render::certificate_sample_images(&certificate, SAMPLE_IMAGE_WIDTH_PX)
+    })
+    .await?;
+    let picture = pictures
+        .into_iter()
+        .nth(usize::from(side.back))
+        .ok_or_else(|| anyhow::anyhow!("no sample picture"))?;
+    Ok((
+        [(
+            axum::http::header::CONTENT_TYPE,
+            axum::http::HeaderValue::from_static("image/jpeg"),
+        )],
+        picture,
+    )
+        .into_response())
+}
+
 /// `GET /api/events/{id}/certificates/zip`: every certificate made, one PDF per person.
 pub async fn zip(
     State(state): State<AppState>,
@@ -681,6 +731,7 @@ pub async fn zip(
 ) -> ApiResult<Response> {
     let event = authorize_event(&state.pool, &user, event_id).await?;
     let made = issued(&state.pool, event_id).await?;
+    super::heavy_render(&state, &user).await?;
     if made.is_empty() {
         return Err(bad_request(
             "no_certificates",

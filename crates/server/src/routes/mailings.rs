@@ -211,33 +211,51 @@ pub async fn cancel(
 }
 
 /// Turns an account's announcement e-mails on or off.
-async fn set_subscribed(state: &AppState, user_id: Uuid, on: bool) -> ApiResult<Option<String>> {
-    Ok(sqlx::query_scalar!(
-        r#"update users set announcement_emails = $2 where id = $1 returning email::text as "email!""#,
-        user_id,
-        on,
-    )
-    .fetch_optional(&state.pool)
-    .await?)
+async fn set_subscribed(
+    state: &AppState,
+    which: mailings::Unsubscribe,
+    on: bool,
+) -> ApiResult<Option<String>> {
+    Ok(match which {
+        mailings::Unsubscribe::Announcements(user_id) => {
+            sqlx::query_scalar!(
+                r#"update users set announcement_emails = $2 where id = $1 returning email::text as "email!""#,
+                user_id,
+                on,
+            )
+            .fetch_optional(&state.pool)
+            .await?
+        }
+        mailings::Unsubscribe::Reminders(user_id) => {
+            sqlx::query_scalar!(
+                r#"update users set reminder_emails = $2 where id = $1 returning email::text as "email!""#,
+                user_id,
+                on,
+            )
+            .fetch_optional(&state.pool)
+            .await?
+        }
+    })
 }
 
 /// `POST /api/email/unsubscribe`: the page of the e-mail's link stops (or, asked, restarts)
-/// announcement e-mails, with no session; the token only does this.
+/// announcement e-mails or reminders (ADR 0118), with no session; the token only does this.
 pub async fn unsubscribe(
     State(state): State<AppState>,
     headers: HeaderMap,
     Json(body): Json<UnsubscribeBody>,
 ) -> ApiResult<Json<UnsubscribeDto>> {
     ratelimit::by_ip(&state, &headers, ratelimit::UNSUBSCRIBE).await?;
-    let user_id =
-        mailings::user_of(&state.config.master_key, &body.token).ok_or(ApiError::NotFound)?;
+    let which = mailings::unsubscribe_of(&state.config.master_key, &body.token)
+        .ok_or(ApiError::NotFound)?;
     let subscribed = body.subscribed.unwrap_or(false);
-    let email = set_subscribed(&state, user_id, subscribed)
+    let email = set_subscribed(&state, which, subscribed)
         .await?
         .ok_or(ApiError::NotFound)?;
     Ok(Json(UnsubscribeDto {
         email: mailings::mask_email(&email),
         subscribed,
+        reminders: matches!(which, mailings::Unsubscribe::Reminders(_)),
     }))
 }
 
@@ -248,8 +266,9 @@ pub async fn one_click(
     Path(token): Path<String>,
 ) -> ApiResult<StatusCode> {
     ratelimit::by_ip(&state, &headers, ratelimit::UNSUBSCRIBE).await?;
-    let user_id = mailings::user_of(&state.config.master_key, &token).ok_or(ApiError::NotFound)?;
-    set_subscribed(&state, user_id, false)
+    let which =
+        mailings::unsubscribe_of(&state.config.master_key, &token).ok_or(ApiError::NotFound)?;
+    set_subscribed(&state, which, false)
         .await?
         .ok_or(ApiError::NotFound)?;
     Ok(StatusCode::OK)

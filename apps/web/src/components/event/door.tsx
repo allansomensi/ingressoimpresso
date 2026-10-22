@@ -305,7 +305,7 @@ export function DoorTab({ eventId, kind = "tickets", days = [] }: { eventId: str
     return <LoadingBlock rows={2} />;
   }
   if (overview.isError) {
-    return <ErrorMessage error={overview.error} />;
+    return <ErrorMessage error={overview.error} onRetry={() => void overview.refetch()} />;
   }
   // Expiry and "online" are judged at the time of the last fetch (rendering stays pure).
   const now = overview.dataUpdatedAt;
@@ -521,15 +521,20 @@ export function DoorTab({ eventId, kind = "tickets", days = [] }: { eventId: str
                     </span>
                     <span className="flex min-w-0 flex-1 flex-col">
                       <span className="truncate text-sm font-medium text-fg">{device.name}</span>
-                      <span className="truncate text-xs text-fg-muted">
-                        {labels.get(device.accessId) ?? ""} · {t.scans(device.scanCount)} ·{" "}
-                        {revoked
-                          ? t.disconnected
-                          : isOnline
-                            ? t.online
-                            : device.lastSeenAt === null
-                              ? t.neverSeen
-                              : t.lastSeen(shortDateTime(device.lastSeenAt))}
+                      {/* The status first (what matters on the day), and the line wraps instead of cutting it. */}
+                      <span className="text-xs text-fg-muted">
+                        <span className={cn(isOnline && !revoked && "font-medium text-success-fg")}>
+                          {revoked
+                            ? t.disconnected
+                            : isOnline
+                              ? t.online
+                              : device.lastSeenAt === null
+                                ? t.neverSeen
+                                : t.lastSeen(shortDateTime(device.lastSeenAt))}
+                        </span>
+                        {" · "}
+                        {t.scans(device.scanCount)}
+                        {labels.get(device.accessId) !== undefined && ` · ${labels.get(device.accessId) ?? ""}`}
                       </span>
                       <span className="mt-1 flex flex-wrap gap-1">
                         {device.rehearsedAt !== null && <Badge tone="success">{t.rehearsedAt(shortDateTime(device.rehearsedAt))}</Badge>}

@@ -16,6 +16,9 @@
   --surface-3: #e9e9ef;
   --border: #e4e4ea;
   --border-strong: #d2d2dc;
+  /* Edges of form fields: 3:1 against the surface (WCAG non-text contrast), so an empty field
+     is easy to see. */
+  --border-input: #8e8d9e;
   --fg: #0e0d14;
   --fg-muted: #5b5a6b;
   --fg-subtle: #6b6a7d;
@@ -50,6 +53,7 @@
   --surface-3: #242231;
   --border: #262433;
   --border-strong: #363446;
+  --border-input: #64617b;
   --fg: #f3f2f9;
   --fg-muted: #a7a5b9;
   --fg-subtle: #8e8ca4;
@@ -83,6 +87,7 @@
   --color-surface-3: var(--surface-3);
   --color-border: var(--border);
   --color-border-strong: var(--border-strong);
+  --color-border-input: var(--border-input);
   --color-fg: var(--fg);
   --color-fg-muted: var(--fg-muted);
   --color-fg-subtle: var(--fg-subtle);
@@ -261,6 +266,8 @@
     /* The viewport covers the whole screen (viewport-fit=cover): an iPhone on its side keeps the
        content clear of the notch. Fixed bars and sheets handle their own safe areas. */
     padding-inline: env(safe-area-inset-left) env(safe-area-inset-right);
+    /* A long word (an event name, an address, a link) breaks instead of running off a phone. */
+    overflow-wrap: break-word;
   }
 
   /* A grid cell may shrink below its content (min-width: auto would let one long name or a

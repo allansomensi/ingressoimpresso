@@ -39,4 +39,8 @@ termsAcceptedAt: string | null,
 /**
  * Receives the platform's announcements by e-mail (ADR 0107).
  */
-announcementEmails: boolean, };
+announcementEmails: boolean, 
+/**
+ * Receives the reminders that bring people back (ADR 0118).
+ */
+reminderEmails: boolean, };

@@ -490,22 +490,23 @@ export function SellerPage() {
             {t.money.title}
           </h2>
           {view.receivers.length > 0 && <p className="-mt-1 text-sm text-fg-muted">{t.money.receiver(listNames(view.receivers))}</p>}
-          <dl className="grid grid-cols-3 gap-2 text-center">
-            <div className="flex flex-col gap-0.5 rounded-2xl bg-surface-2 p-3">
-              <dt className="text-[11px] font-medium text-fg-muted">{t.money.due}</dt>
+          {/* One amount per row on a phone; three boxes side by side once they fit (R$ 1.234,00). */}
+          <dl className="grid gap-2 min-[420px]:grid-cols-3 min-[420px]:text-center">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 rounded-2xl bg-surface-2 p-3 min-[420px]:flex-col min-[420px]:flex-nowrap min-[420px]:items-center min-[420px]:justify-start">
+              <dt className="text-xs font-medium text-fg-muted min-[420px]:text-[11px]">{t.money.due}</dt>
               <dd className="text-base font-semibold text-fg tabular">{money(s.amountDueCents)}</dd>
-              <dd className="text-[10px] text-fg-subtle tabular">
+              <dd className="w-full text-[11px] text-fg-subtle tabular min-[420px]:w-auto min-[420px]:text-[10px]">
                 {paidLines.length === 1 && paidLines[0]?.priceCents != null
                   ? t.money.dueHint(paidLines[0].tickets, money(paidLines[0].priceCents))
                   : t.money.byCategory}
               </dd>
             </div>
-            <div className="flex flex-col gap-0.5 rounded-2xl bg-surface-2 p-3">
-              <dt className="text-[11px] font-medium text-fg-muted">{t.money.received}</dt>
+            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 rounded-2xl bg-surface-2 p-3 min-[420px]:flex-col min-[420px]:flex-nowrap min-[420px]:items-center min-[420px]:justify-start">
+              <dt className="text-xs font-medium text-fg-muted min-[420px]:text-[11px]">{t.money.received}</dt>
               <dd className="text-base font-semibold text-success-fg tabular">{money(s.receivedCents)}</dd>
             </div>
-            <div className={cn("flex flex-col gap-0.5 rounded-2xl p-3", s.balanceCents > 0 ? "bg-warning-soft" : "bg-success-soft")}>
-              <dt className="text-[11px] font-medium text-fg-muted">{t.money.outstanding}</dt>
+            <div className={cn("flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 rounded-2xl p-3 min-[420px]:flex-col min-[420px]:flex-nowrap min-[420px]:items-center min-[420px]:justify-start", s.balanceCents > 0 ? "bg-warning-soft" : "bg-success-soft")}>
+              <dt className="text-xs font-medium text-fg-muted min-[420px]:text-[11px]">{t.money.outstanding}</dt>
               <dd className={cn("text-base font-semibold tabular", s.balanceCents > 0 ? "text-warning-fg" : "text-success-fg")}>{money(Math.max(s.balanceCents, 0))}</dd>
             </div>
           </dl>

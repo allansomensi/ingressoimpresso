@@ -219,7 +219,7 @@ export function AdminAudit() {
       {audit.isPending ? (
         <LoadingBlock rows={4} />
       ) : audit.isError ? (
-        <ErrorMessage error={audit.error} />
+        <ErrorMessage error={audit.error} onRetry={() => void audit.refetch()} />
       ) : audit.data.items.length === 0 ? (
         <EmptyState icon={History} title={filtered ? t.emptyFiltered : t.empty} />
       ) : (

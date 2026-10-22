@@ -34,7 +34,7 @@ export default function ResultsPage() {
     return <LoadingBlock rows={4} />;
   }
   if (results.isError) {
-    return <ErrorMessage error={results.error} />;
+    return <ErrorMessage error={results.error} onRetry={() => void results.refetch()} />;
   }
   const { totals, events, months } = results.data;
   const exportCsv = () => {

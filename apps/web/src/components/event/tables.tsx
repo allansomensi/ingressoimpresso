@@ -45,7 +45,7 @@ export function TablesSection({ eventId, editable }: { eventId: string; editable
     return <LoadingBlock rows={2} />;
   }
   if (tables.isError) {
-    return <ErrorMessage error={tables.error} />;
+    return <ErrorMessage error={tables.error} onRetry={() => void tables.refetch()} />;
   }
   const list = tables.data;
   const seats = list.reduce((sum, table) => sum + table.seats, 0);

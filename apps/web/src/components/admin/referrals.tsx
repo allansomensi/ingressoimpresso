@@ -170,7 +170,7 @@ export function AdminReferrals() {
     return <LoadingBlock rows={4} />;
   }
   if (data.isError) {
-    return <ErrorMessage error={data.error} />;
+    return <ErrorMessage error={data.error} onRetry={() => void data.refetch()} />;
   }
   const { settings, totals, referrals } = data.data;
   const ask = async (referral: AdminReferralDto) => {

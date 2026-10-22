@@ -12,6 +12,60 @@ e não acompanha estes números.
 
 ## [Não lançado]
 
+## [1.14.0] - 2026-10-22
+
+### Adicionado
+
+- **Lembretes por e-mail** para quem começou e parou. Vão para:
+  - a conta sem evento;
+  - o evento sem ingressos;
+  - a portaria ainda sem link perto do dia;
+  - um "como foi?" depois do evento.
+
+  Cada um vai uma vez, em horário comercial. Dá para desligar em Minha conta ou pelo link do
+  e-mail.
+- **Marca do certificado no lugar que você quiser**: no editor, arraste a marca do Ingresso
+  Impresso para tirá-la de cima da moldura. "Voltar ao pé da página" desfaz.
+- **"Ver como fica" no certificado**: mostra uma imagem de AMOSTRA, frente e verso, do jeito que
+  está no editor, mesmo sem salvar. Dá para baixar a imagem ou o PDF.
+- Site: a seção "Muito além do ingresso" mostra os recursos do evento inteiro (vender, entregar,
+  na porta e depois), com perguntas novas e o link Recursos no menu.
+
+### Alterado
+
+- O tour de boas-vindas aparece uma vez só: saiu o botão para ver de novo em Minha conta.
+- Seções renomeadas: **Gerar ingressos** (antes Lotes) e **No celular** (antes Digitais).
+- **Painel no celular:**
+  - os campos têm a borda mais visível;
+  - os números dos resumos não são mais cortados;
+  - o acerto do vendedor e o caixa ficam empilhados;
+  - o relatório deixa a primeira coluna fixa e tem legenda;
+  - o botão de salvar do formulário do evento fica sempre à vista.
+- Um erro ao carregar uma parte do painel tem o botão "Tentar de novo", e um arquivo que falhou
+  pode ser gerado de novo.
+- Uma conta nova não vê as novidades antigas como não lidas no sininho.
+
+### Corrigido
+
+- O aviso de lotação volta a valer em cada dia de um evento de vários dias. A lista de nomes
+  enviada por planilha também conta para a lotação.
+- **Pronunciamentos por e-mail:** a contagem de quem vai receber ignora os envios que falharam, e
+  enviar de novo alcança essas pessoas.
+- Admin: o resumo semanal mostra a média de e-mails por dia, e o destaque de alertas abertos usa o
+  número certo.
+- Portaria: no modo Saída, ler uma credencial não grava nada.
+
+### Segurança
+
+- **Acesso por parte da equipe:**
+  - o link dos ingressos no celular aparece só para quem cuida da entrega;
+  - os crachás das credenciais aparecem só para quem cuida da portaria.
+- Arquivos pesados (ZIP de certificados, prestação de contas, crachás, resumo final) têm um limite
+  por minuto.
+- Uma geração de arquivo cancelada não libera a vaga antes de terminar.
+- Uma contestação já encerrada não reabre com um aviso atrasado da Stripe.
+- O link de descadastro não aparece nos registros do servidor.
+
 ## [1.13.0] - 2026-10-22
 
 ### Adicionado
@@ -683,7 +737,8 @@ Primeira versão numerada: o produto que já estava em produção, das fases 0 a
 - Política de segurança de conteúdo (CSP) com nonce por requisição em todo o site (ADR 0048).
 - Verificação anti-robô antes do envio do código de login (ADR 0044).
 
-[Não lançado]: https://github.com/allansomensi/ingressoimpresso/compare/v1.13.0...HEAD
+[Não lançado]: https://github.com/allansomensi/ingressoimpresso/compare/v1.14.0...HEAD
+[1.14.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.13.0...v1.14.0
 [1.13.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.12.0...v1.13.0
 [1.12.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.11.0...v1.12.0
 [1.11.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.10.0...v1.11.0

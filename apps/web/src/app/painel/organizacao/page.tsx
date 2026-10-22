@@ -27,11 +27,27 @@ export default function OrganizationProfilePage() {
         <ChevronLeft className="size-4" aria-hidden />
         {panelTexts.accountPage}
       </Link>
-      <PageHeader title={t.title} description={t.description} />
+      <PageHeader
+        title={t.title}
+        description={
+          <>
+            {t.description}
+            {profile.data !== undefined && (
+              // The name is edited in Minha conta: said here, where people look for it.
+              <span className="mt-1 block text-sm">
+                {t.nameIs(profile.data.organizationName)}{" "}
+                <Link href="/painel/conta" className="font-medium text-brand underline-offset-2 hover:underline">
+                  {t.changeName}
+                </Link>
+              </span>
+            )}
+          </>
+        }
+      />
       {profile.isPending ? (
         <LoadingBlock rows={5} />
       ) : profile.isError ? (
-        <ErrorMessage error={profile.error} />
+        <ErrorMessage error={profile.error} onRetry={() => void profile.refetch()} />
       ) : (
         // The profile's save bar stays fixed at the bottom on phones: the room it needs moves from
         // the form to the end of the page, under the Pix card.

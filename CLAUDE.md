@@ -73,7 +73,7 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   no pool; worker de exportação supervisionado, com pausa entre tentativas e drenado no shutdown;
   Pix pendente há 3 dias dado como falho; cancelar o evento fecha os checkouts; ações do CI presas
   por SHA e imagens do Docker por digest.
-- **Versionamento (ADR 0049): implementado, versão atual 1.13.0.** Uma versão SemVer para o produto
+- **Versionamento (ADR 0049): implementado, versão atual 1.14.0.** Uma versão SemVer para o produto
   inteiro (todos os manifestos, conferidos por `scripts/release.mjs check`), `CHANGELOG.md` em
   português (Keep a Changelog), `just release` no `staging` e tag `vX.Y.Z` + GitHub Release pelo
   job **Release** do CI no `main`; versão em Minha conta, em `/sobre`, em `/status` (site e API) e
@@ -372,12 +372,28 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   - Tour (`components/panel/tour.tsx`, `TourGate` no shell; passos e posição do cartão em
     `lib/tour.ts`): `MeUser.tourPending` (`users.tour_finished_at`/`tour_outcome`),
     `POST /api/account/tour`; elementos marcados com `data-tour` (`new-event`, `results`, `inbox`,
-    `account`; mudou o cabeçalho ou a barra do celular, mantenha as marcas). `/painel?tour=1` mostra
-    de novo (Minha conta).
+    `account`; mudou o cabeçalho ou a barra do celular, mantenha as marcas). Aparece uma vez só
+    (ADR 0118 tirou o "ver de novo").
   - `CertificateDesign.brandStyle` (`line`/`mark`): `brand_mark_svg` + `brand_ink` no render,
     `CertificateBrand` na prévia (mesma geometria do `certificate.typ`).
   - `db_health.rs`: conexão derrubada pelo banco (`57P01`…) vira 503 `database_reconnecting` e as
     conexões paradas antes da queda são pingadas no `before_acquire`.
+
+- **Lembretes, marca móvel e revisão para produção (ADR 0118): implementados.**
+  - Lembretes por e-mail (`reminders.rs`, no tique de hora em hora do worker): conta sem evento
+    (2 e 9 dias), evento parado, portaria sem link perto do dia e "como foi?"; uma vez por conta e
+    evento (`reminder_sends`), das 9h às 19h59 de Brasília, 20 por rodada, só com a cota que sobra
+    (`mailings::reserve`), `users.reminder_emails` (Minha conta, e-mail `reminder` em
+    `emails::reminder`); descadastro pelo mesmo HMAC com prefixo `r.` (`mailings::Unsubscribe`).
+  - Certificado: `CertificateDesign.brandPosition` (centro da marca em mm; sem ele, no pé),
+    arrastável na prévia (`CertificateBrand`) e no `certificate.typ`; "Ver como fica" é
+    `POST …/certificates/sample-image` (`certificate_sample_images`, JPEG com AMOSTRA) e
+    `components/event/certificate-preview.tsx`.
+  - Renderização: `AppState::blocking_render` (a vaga do Typst vai junto para o
+    `spawn_blocking`) e `routes::heavy_render` (6 por minuto por conta) nos arquivos pesados.
+  - Landing com a seção "Muito além do ingresso" (`landing.platform`, `#evento-inteiro`);
+    `ErrorMessage` com `onRetry`; `--border-input` nos campos; sininho conta só as novidades
+    depois da criação da conta.
 
 Plano completo em `docs/arquitetura.md` §12.
 
@@ -443,7 +459,8 @@ crates/server        API (pacote `ingressoimpresso-server`, binário `ingressoim
                      página pública do evento (ADR 0095) em routes/public_page.rs, cortesias
                      (ADR 0096) em routes/courtesies.rs, histórico (ADR 0099) em activity.rs +
                      routes/history.rs e funil/ao vivo do admin em routes/admin_insights.rs,
-                     alertas dos admins (ADR 0103) em alerts.rs + routes/alerts.rs, contestações
+                     alertas dos admins (ADR 0103) em alerts.rs + routes/alerts.rs, lembretes
+                     por e-mail (ADR 0118) em reminders.rs, contestações
                      (ADR 0104) em routes/disputes.rs, ficha da organização (ADR 0105) em
                      routes/crm.rs, relatórios de receita (ADR 0106) em routes/revenue_reports.rs,
                      pronunciamentos por e-mail (ADR 0107) em mailings.rs + routes/mailings.rs,

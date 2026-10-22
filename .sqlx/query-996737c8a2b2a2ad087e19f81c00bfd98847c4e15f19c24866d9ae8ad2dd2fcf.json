@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select block_void_id from payment_disputes where id = $1 for update",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "block_void_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "payment_disputes",
+            "name": "block_void_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "996737c8a2b2a2ad087e19f81c00bfd98847c4e15f19c24866d9ae8ad2dd2fcf"
+}

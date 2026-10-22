@@ -1,7 +1,7 @@
 "use client";
 
 import { AlertTriangle, X } from "lucide-react";
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useId, useRef, useState, type ReactNode } from "react";
 
 import { cn } from "@/lib/cn";
 import { common as commonTexts } from "@/texts/pt-BR/common";
@@ -37,6 +37,9 @@ export function Dialog({
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const pressedBackdrop = useRef(false);
+  // Screen readers announce the dialog by its title and description.
+  const titleId = useId();
+  const descriptionId = useId();
   const phone = useIsPhone();
   useSheetDrag(ref, open && phone, onClose);
   useScrollLock(open && phone);
@@ -59,6 +62,8 @@ export function Dialog({
   return (
     <dialog
       ref={ref}
+      aria-labelledby={titleId}
+      aria-describedby={description === undefined ? undefined : descriptionId}
       onClose={onClose}
       onMouseDown={(event) => {
         pressedBackdrop.current = event.target === ref.current;
@@ -87,8 +92,14 @@ export function Dialog({
             <span aria-hidden className="mx-auto mt-2.5 block h-1 w-10 rounded-full bg-border-strong sm:hidden" />
             <header className="flex items-start justify-between gap-4 px-5 pt-4 pb-2 sm:px-6 sm:pt-6">
               <div className="flex min-w-0 flex-col gap-1">
-                <h2 className="text-lg font-semibold tracking-tight text-balance">{title}</h2>
-                {description !== undefined && <p className="text-sm leading-relaxed text-fg-muted">{description}</p>}
+                <h2 id={titleId} className="text-lg font-semibold tracking-tight text-balance">
+                  {title}
+                </h2>
+                {description !== undefined && (
+                  <p id={descriptionId} className="text-sm leading-relaxed text-fg-muted">
+                    {description}
+                  </p>
+                )}
               </div>
               <Button variant="ghost" size="icon" aria-label={commonTexts.close} onClick={onClose} className="-mt-1 -mr-2">
                 <X />

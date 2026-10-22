@@ -188,7 +188,7 @@ function EventView() {
         />
       );
     }
-    return <ErrorMessage error={event.error} />;
+    return <ErrorMessage error={event.error} onRetry={() => void event.refetch()} />;
   }
   const data = event.data;
   const change = changeKind(data.change, data.startsAt);

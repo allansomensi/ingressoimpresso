@@ -633,3 +633,96 @@ pub fn announcement(mail: &AnnouncementMail<'_>, site: &str) -> Email {
         list_unsubscribe: Some(mail.one_click_url.to_owned()),
     }
 }
+
+/// A reminder that brings someone back to the panel (ADR 0118).
+#[derive(Debug)]
+pub struct ReminderMail<'a> {
+    /// The subject.
+    pub subject: &'a str,
+    /// The heading inside the e-mail.
+    pub title: &'a str,
+    /// Paragraphs before the steps.
+    pub paragraphs: &'a [String],
+    /// Numbered steps (title, explanation); empty for none.
+    pub steps: &'a [(&'a str, &'a str)],
+    /// The button: label and absolute address.
+    pub cta: (&'a str, &'a str),
+    /// A last line under the button.
+    pub closing: Option<&'a str>,
+    /// Where the recipient stops these e-mails (the page with the token in its fragment).
+    pub unsubscribe_url: &'a str,
+    /// One-click unsubscribe of the mail clients (RFC 8058).
+    pub one_click_url: &'a str,
+}
+
+/// A numbered step: a brand circle with the number, the title and a short line.
+fn step(number: usize, title: &str, detail: &str) -> String {
+    format!(
+        r#"<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 12px 0;">
+  <tr>
+    <td width="34" valign="top" style="padding-top:1px;"><div style="width:26px;height:26px;border-radius:13px;background:{BRAND};color:#ffffff;font:700 13px/26px -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;text-align:center;">{number}</div></td>
+    <td valign="top" class="ink" style="font:15px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:{INK};"><strong>{title}</strong><br><span class="muted" style="color:{MUTED};">{detail}</span></td>
+  </tr>
+</table>
+"#,
+        title = escape(title),
+        detail = escape(detail),
+    )
+}
+
+/// A reminder, with its numbered steps and the way out of these e-mails.
+pub fn reminder(mail: &ReminderMail<'_>, site: &str) -> Email {
+    let mut text = format!("{}\n\n", mail.title);
+    for part in mail.paragraphs {
+        let _ = write!(text, "{part}\n\n");
+    }
+    for (index, (title, detail)) in mail.steps.iter().enumerate() {
+        let _ = writeln!(text, "{}. {title}: {detail}", index + 1);
+    }
+    if !mail.steps.is_empty() {
+        text.push('\n');
+    }
+    let (label, url) = mail.cta;
+    let _ = write!(text, "{label}: {url}\n\n");
+    if let Some(closing) = mail.closing {
+        let _ = write!(text, "{closing}\n\n");
+    }
+    let _ = write!(
+        text,
+        "Ingresso Impresso\n{site}\n\nNão quer mais receber lembretes por e-mail? {}\n",
+        mail.unsubscribe_url
+    );
+    let mut content = heading(mail.title);
+    for part in mail.paragraphs {
+        content.push_str(&paragraph(&escape(part)));
+    }
+    if !mail.steps.is_empty() {
+        content.push_str(r#"<div style="margin:22px 0 6px 0;">"#);
+        for (index, (title, detail)) in mail.steps.iter().enumerate() {
+            content.push_str(&step(index + 1, title, detail));
+        }
+        content.push_str("</div>");
+    }
+    content.push_str(&button(url, label));
+    if let Some(closing) = mail.closing {
+        content.push_str(&paragraph(&format!(
+            r#"<span class="muted" style="color:{MUTED};font-size:14px;">{}</span>"#,
+            escape(closing)
+        )));
+    }
+    let preheader: String = mail
+        .paragraphs
+        .first()
+        .map(|part| part.chars().take(120).collect())
+        .unwrap_or_default();
+    let footer = format!(
+        "Você recebe estes lembretes porque tem uma conta no Ingresso Impresso. Códigos de acesso e avisos de pagamento continuam chegando sempre.<br><a href=\"{}\" style=\"color:{MUTED};text-decoration:underline;\">Parar de receber lembretes</a>",
+        escape(mail.unsubscribe_url)
+    );
+    Email {
+        subject: mail.subject.to_owned(),
+        html: layout(site, &preheader, &content, &footer),
+        text,
+        list_unsubscribe: Some(mail.one_click_url.to_owned()),
+    }
+}

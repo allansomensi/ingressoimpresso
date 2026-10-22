@@ -183,7 +183,7 @@ export function CashiersCard({ eventId, editable }: { eventId: string; editable:
   const data = useQuery({ queryKey: ["cashiers", eventId], queryFn: () => api<CashierReportDto[]>(`/api/events/${eventId}/cashiers`) });
   const [closing, setClosing] = useState<CashierReportDto | null>(null);
   if (data.data === undefined) {
-    return data.isError ? <ErrorMessage error={data.error} /> : null;
+    return data.isError ? <ErrorMessage error={data.error} onRetry={() => void data.refetch()} /> : null;
   }
   if (data.data.length === 0) {
     return null;
