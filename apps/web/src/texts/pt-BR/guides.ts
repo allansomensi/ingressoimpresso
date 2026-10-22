@@ -6,6 +6,7 @@ export const guides = {
   breadcrumb: "Guias",
   eyebrow: "Guias",
   articleEyebrow: "Guia",
+  shareImageAlt: "Guia do Ingresso Impresso para quem organiza evento e vende ingresso",
   headline: "Guias para quem organiza evento",
   lead: "Do primeiro ingresso à última pessoa na porta: o que fazer, o que evitar e como resolver os problemas de quem vende ingresso na mão.",
   read: "Ler o guia",

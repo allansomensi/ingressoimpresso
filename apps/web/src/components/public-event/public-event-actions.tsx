@@ -72,6 +72,7 @@ export function CalendarButton({
   endsAt,
   location,
   description,
+  sequence,
 }: {
   uid: string;
   title: string;
@@ -79,6 +80,8 @@ export function CalendarButton({
   endsAt: string;
   location: string | null;
   description: string;
+  /** Grows when the event moves, so a calendar replaces the entry it already has. */
+  sequence?: number;
 }) {
   return (
     <Button
@@ -86,7 +89,7 @@ export function CalendarButton({
       icon={<CalendarPlus />}
       onClick={() => {
         downloadIcs(
-          icsFile({ uid, title, startsAt, endsAt, location, description, sequence: 0, alarmMinutes: 120, alarmText: title }),
+          icsFile({ uid, title, startsAt, endsAt, location, description, sequence: sequence ?? 0, alarmMinutes: 120, alarmText: title }),
           icsFileName(title, t.calendarFile),
         );
         toast.success(t.calendarSaved);
@@ -104,15 +107,21 @@ export function ShareButton({ url, title, text }: { url: string; title: string; 
       variant="secondary"
       icon={<Share2 />}
       onClick={() => {
+        const copy = () =>
+          copyText(url).then((ok) => {
+            toast[ok ? "success" : "error"](ok ? t.copied : t.copyFailed);
+          });
         if (typeof navigator.share === "function") {
-          void navigator.share({ url, title, text }).catch(() => undefined);
+          // The share sheet refused (not canceled by the person): the link is copied instead.
+          void navigator.share({ url, title, text }).catch((error: unknown) => {
+            if (!(error instanceof DOMException && error.name === "AbortError")) {
+              return copy();
+            }
+            return undefined;
+          });
           return;
         }
-        void copyText(url).then((ok) => {
-          if (ok) {
-            toast.success(t.copied);
-          }
-        });
+        void copy();
       }}
     >
       {t.share}

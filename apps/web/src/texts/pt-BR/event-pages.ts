@@ -2,6 +2,7 @@ export const eventPages = {
   breadcrumb: "Trilha de navegação",
   home: "Início",
   eyebrow: (label: string) => `Ingresso para ${label.toLowerCase()}`,
+  shareImageAlt: "Modelos de ingresso numerado com QR code para este tipo de evento",
   secondaryCta: "Ver preços",
   painsTitle: "Isso acontece no seu evento?",
   painsLead: "Quem vende ingresso na mão conhece bem estes problemas.",

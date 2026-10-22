@@ -11,6 +11,7 @@ export const templateGallery = {
   shownCount: (count: number) => (count === 1 ? "1 modelo" : `${String(count)} modelos`),
   colors: (count: number) => (count === 1 ? "1 combinação de cores" : `${String(count)} combinações de cores`),
   imageAlt: (h1: string) => `${h1}, preenchido com um evento de exemplo`,
+  shareImageAlt: "Modelo de ingresso numerado com QR code, preenchido com um evento de exemplo",
   // Template page.
   templateEyebrow: "Modelo de ingresso",
   use: "Usar este modelo",

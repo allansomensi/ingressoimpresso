@@ -8,13 +8,14 @@ import { LogoMark } from "@/components/brand";
 import { JsonLd } from "@/components/json-ld";
 import { EventChangeNotice, OrganizationContact, OrganizationLogo } from "@/components/organization/organization";
 import { CalendarButton, PlaceMap, ShareButton } from "@/components/public-event/public-event-actions";
+import { calendarSequence } from "@/lib/calendar";
 import { ButtonLink, buttonClass } from "@/components/ui";
 import { placeLine } from "@/lib/calendar";
 import { inkFor } from "@/lib/design-rules";
 import { changeKind } from "@/lib/event-change";
 import { forKind } from "@/lib/event-kind";
 import { money } from "@/lib/format";
-import { fetchPublicEvent, lowestPrice, priceLabel, publicDate, sellerWhatsapp } from "@/lib/public-event";
+import { clip, fetchPublicEvent, fetchPublicEventOrNull, lowestPrice, priceLabel, publicDate, publicShortDate, sellerWhatsapp } from "@/lib/public-event";
 import { pageMetadata } from "@/lib/seo";
 import { SITE_URL } from "@/lib/site";
 import { textOn } from "@/lib/ticket-pass";
@@ -35,15 +36,14 @@ function heroColor(event: PublicEventDto): string | null {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const event = await fetchPublicEvent(slug);
+  const event = await fetchPublicEventOrNull(slug);
   if (event === null) {
     return { title: publicEventTexts.notFoundTitle, robots: { index: false, follow: false } };
   }
   const t = words(event);
-  const date = publicDate(event.startsAt);
   return pageMetadata({
-    title: t.metaTitle(event.name, date),
-    description: t.metaDescription(event.name, date, placeLine(event.venue, event.address), event.organization.name),
+    title: t.metaTitle(event.name, publicShortDate(event.startsAt)),
+    description: clip(t.metaDescription(event.name, publicDate(event.startsAt), placeLine(event.venue, event.address), event.organization.name), 160),
     path: `/e/${event.slug}`,
   });
 }
@@ -53,21 +53,25 @@ function eventJsonLd(event: PublicEventDto, url: string) {
   const place = placeLine(event.venue, event.address);
   const canceled = changeKind(event.change, event.startsAt) === "canceled";
   const prices = event.categories.length > 0 ? event.categories : [{ name: words(event).price, priceCents: event.ticketPriceCents, soldOut: event.soldOut }];
+  const rescheduled = !canceled && event.change.postponedAt !== null;
   return {
     "@context": "https://schema.org",
     "@type": "Event",
     name: event.name,
     url,
+    image: `${url}/opengraph-image`,
     startDate: event.startsAt,
     endDate: event.endsAt,
-    eventStatus: canceled
-      ? "https://schema.org/EventCancelled"
-      : event.change.postponedAt !== null
-        ? "https://schema.org/EventRescheduled"
-        : "https://schema.org/EventScheduled",
+    eventStatus: canceled ? "https://schema.org/EventCancelled" : rescheduled ? "https://schema.org/EventRescheduled" : "https://schema.org/EventScheduled",
+    // Search engines ask for the date an event moved from.
+    ...(rescheduled && event.change.postponedFromStartsAt !== null ? { previousStartDate: event.change.postponedFromStartsAt } : {}),
     eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
     ...(event.description === null ? {} : { description: event.description }),
-    ...(place === null ? {} : { location: { "@type": "Place", name: event.venue ?? place, address: event.address ?? place } }),
+    // A place is required of an event; without an address, the organization stands for it.
+    location:
+      place === null
+        ? { "@type": "Place", name: event.organization.name, address: { "@type": "PostalAddress", addressCountry: "BR" } }
+        : { "@type": "Place", name: event.venue ?? place, address: event.address ?? place },
     organizer: { "@type": "Organization", name: event.organization.name, ...(event.organization.website === null ? {} : { url: event.organization.website }) },
     offers: prices
       .filter((offer) => offer.priceCents !== null)
@@ -137,7 +141,6 @@ export default async function PublicEventPage({ params }: Props) {
           </div>
           {event.soldOut && (
             <span
-              aria-label={t.soldOut}
               // At the bottom right on a phone, clear of the "POR …" line at the top.
               className="absolute right-4 bottom-5 rotate-[-12deg] rounded-xl border-4 border-white px-2.5 py-0.5 text-lg font-black tracking-widest text-white uppercase shadow-lg sm:top-6 sm:right-5 sm:bottom-auto sm:px-3 sm:py-1 sm:text-2xl"
             >
@@ -155,14 +158,18 @@ export default async function PublicEventPage({ params }: Props) {
         )}
 
         <div className="flex flex-wrap gap-2">
-          <CalendarButton
-            uid={`${event.slug}@ingressoimpresso.com.br`}
-            title={event.name}
-            startsAt={event.startsAt}
-            endsAt={event.endsAt}
-            location={place}
-            description={`${t.by(event.organization.name)}\n${url}`}
-          />
+          {/* A canceled event has nothing to put in the calendar; a postponed one updates the entry. */}
+          {!canceled && (
+            <CalendarButton
+              uid={`${event.slug}@ingressoimpresso.com.br`}
+              title={event.name}
+              startsAt={event.startsAt}
+              endsAt={event.endsAt}
+              location={place}
+              description={`${t.by(event.organization.name)}\n${url}`}
+              sequence={calendarSequence(event.change.postponedAt)}
+            />
+          )}
           <ShareButton url={url} title={event.name} text={t.shareText(event.name)} />
         </div>
 
@@ -218,7 +225,8 @@ export default async function PublicEventPage({ params }: Props) {
                     href={sellerWhatsapp(seller.whatsapp, t.buyMessage(seller.name.split(" ")[0] ?? seller.name, event.name))}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className={buttonClass({ variant: "secondary", className: "w-full justify-start" })}
+                    // A long name wraps instead of running off the phone.
+                    className={buttonClass({ variant: "secondary", className: "h-auto min-h-10 w-full justify-start py-2 text-left whitespace-normal pointer-coarse:min-h-11" })}
                   >
                     <MessageCircle className="text-success" />
                     {t.buyButton(seller.name)}
