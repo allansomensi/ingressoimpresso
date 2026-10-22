@@ -107,7 +107,12 @@ export const certificateEditor = {
     frameMargin: "Distância da borda (mm)",
     frameThickness: "Espessura (mm)",
     brand: "Mostrar “Emitido com Ingresso Impresso”",
-    brandHint: "Uma linha pequena no pé da frente. Desligue para um certificado só com a sua marca.",
+    brandHint: "No pé da frente, discreto. Desligue para um certificado só com a sua marca.",
+    brandStyle: "Como aparece",
+    brandStyles: {
+      line: { label: "Só uma linha", hint: "Texto pequeno, numa faixa clara." },
+      mark: { label: "Com o logo", hint: "Logo e nome, apagados, como marca d'água." },
+    },
   },
   layers: {
     title: "Elementos",

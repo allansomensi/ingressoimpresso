@@ -219,6 +219,7 @@ pub fn router(state: AppState) -> Router {
         .route("/email/unsubscribe", post(mailings::unsubscribe))
         .route("/email/unsubscribe/{token}", post(mailings::one_click))
         .route("/account/preferences", put(account::preferences))
+        .route("/account/tour", post(account::tour))
         .route(
             "/admin/prices",
             get(billing::admin_prices).post(billing::create_prices),

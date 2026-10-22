@@ -73,7 +73,7 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   no pool; worker de exportação supervisionado, com pausa entre tentativas e drenado no shutdown;
   Pix pendente há 3 dias dado como falho; cancelar o evento fecha os checkouts; ações do CI presas
   por SHA e imagens do Docker por digest.
-- **Versionamento (ADR 0049): implementado, versão atual 1.12.0.** Uma versão SemVer para o produto
+- **Versionamento (ADR 0049): implementado, versão atual 1.13.0.** Uma versão SemVer para o produto
   inteiro (todos os manifestos, conferidos por `scripts/release.mjs check`), `CHANGELOG.md` em
   português (Keep a Changelog), `just release` no `staging` e tag `vX.Y.Z` + GitHub Release pelo
   job **Release** do CI no `main`; versão em Minha conta, em `/sobre`, em `/status` (site e API) e
@@ -366,6 +366,18 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
     `reserve`, `sentLastDay` e `queued` (`mailings::quota_now`), `GET /api/admin/mailings/estimate`
     para um pronunciamento não salvo, `lib/mail-quota.ts` (`mailOutlook`) e `MailQuotaNotice`
     (confirmar quando passa da cota).
+
+- **Tour de boas-vindas, marca do certificado e quedas do banco (ADRs 0116, 0117):
+  implementados.**
+  - Tour (`components/panel/tour.tsx`, `TourGate` no shell; passos e posição do cartão em
+    `lib/tour.ts`): `MeUser.tourPending` (`users.tour_finished_at`/`tour_outcome`),
+    `POST /api/account/tour`; elementos marcados com `data-tour` (`new-event`, `results`, `inbox`,
+    `account`; mudou o cabeçalho ou a barra do celular, mantenha as marcas). `/painel?tour=1` mostra
+    de novo (Minha conta).
+  - `CertificateDesign.brandStyle` (`line`/`mark`): `brand_mark_svg` + `brand_ink` no render,
+    `CertificateBrand` na prévia (mesma geometria do `certificate.typ`).
+  - `db_health.rs`: conexão derrubada pelo banco (`57P01`…) vira 503 `database_reconnecting` e as
+    conexões paradas antes da queda são pingadas no `before_acquire`.
 
 Plano completo em `docs/arquitetura.md` §12.
 

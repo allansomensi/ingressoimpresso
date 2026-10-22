@@ -1,7 +1,7 @@
 //! `ingressoimpresso`: the API server (HTTP + export worker in one process).
 
 use std::process::ExitCode;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
 use ingressoimpresso_server::captcha::Captcha;
@@ -11,7 +11,7 @@ use ingressoimpresso_server::mail::Mailer;
 use ingressoimpresso_server::moderation::Classifier;
 use ingressoimpresso_server::payments::Payments;
 use ingressoimpresso_server::state::AppState;
-use ingressoimpresso_server::{MIGRATOR, app, jobs};
+use ingressoimpresso_server::{MIGRATOR, app, db_health, jobs};
 use sqlx::postgres::{PgConnectOptions, PgConnection, PgPoolOptions, PgSslMode};
 use sqlx::{Connection, PgPool};
 use tracing_subscriber::EnvFilter;
@@ -95,11 +95,17 @@ async fn connect(config: &Config) -> Result<PgPool> {
         .acquire_timeout(Duration::from_secs(10))
         // The database is on another network (ADR 0013): sqlx's default ping on every acquire
         // doubled the round trips of each statement. A connection that just answered is reused
-        // as is; one that sat idle is checked first.
+        // as is; one that sat idle is checked first. A failed ping discards it and sqlx takes
+        // another.
         .test_before_acquire(false)
         .before_acquire(|connection, metadata| {
             Box::pin(async move {
-                if metadata.idle_for >= PING_IDLE_AFTER {
+                // Also ping one that sat idle while the database dropped another (Neon
+                // restarting its compute closes them all at once).
+                let released = Instant::now().checked_sub(metadata.idle_for);
+                if metadata.idle_for >= PING_IDLE_AFTER
+                    || released.is_none_or(db_health::dropped_since)
+                {
                     connection.ping().await?;
                 }
                 Ok(true)

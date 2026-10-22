@@ -196,6 +196,7 @@ export const errors = {
   event_has_batches:
     "O evento tem lotes. Cancele os lotes não pagos antes; eventos com lotes pagos podem ser arquivados.",
   maintenance: "O sistema está em manutenção. Tente de novo em alguns minutos.",
+  database_reconnecting: "A conexão com o servidor caiu por um instante. Tente de novo.",
   registrations_closed:
     "Novos cadastros estão pausados no momento. Se você já tem conta, entre com o e-mail dela.",
   email_domain_blocked:

@@ -33,4 +33,8 @@ google: boolean,
 /**
  * The organization is suspended: the panel only reads (ADR 0032).
  */
-suspended: boolean, };
+suspended: boolean, 
+/**
+ * The welcome tour of the panel has not been finished nor skipped (ADR 0116).
+ */
+tourPending: boolean, };

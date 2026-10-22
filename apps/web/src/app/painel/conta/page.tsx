@@ -25,6 +25,7 @@ import { toast } from "sonner";
 import { CreditsCard } from "@/components/account/credits";
 import { EmailPreferencesCard } from "@/components/account/email-preferences";
 import { ReferralsCard } from "@/components/account/referrals";
+import { TourCard } from "@/components/account/tour-card";
 import { TwoFactorCard } from "@/components/account/two-factor";
 import {
   Alert,
@@ -400,6 +401,7 @@ export default function AccountPage() {
           <div className="flex min-w-0 flex-col gap-6 lg:col-start-1 lg:row-start-2">
             <TwoFactorCard email={session.user.email} />
             <EmailPreferencesCard account={a} />
+            <TourCard />
             <PrivacyCard account={a} email={session.user.email} />
           </div>
         )}

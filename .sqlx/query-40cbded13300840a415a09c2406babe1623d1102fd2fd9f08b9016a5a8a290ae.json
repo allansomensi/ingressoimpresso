@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select u.email::text as \"email!\", u.name, u.google_sub is not null as \"google!\",\n                  u.totp_enabled_at is not null as \"two_factor!\",\n                  exists(select 1 from memberships m join organizations o on o.id = m.organization_id\n                         where m.user_id = u.id and o.suspended_at is not null) as \"suspended!\"\n           from users u where u.id = $1",
+  "query": "select u.email::text as \"email!\", u.name, u.google_sub is not null as \"google!\",\n                  u.totp_enabled_at is not null as \"two_factor!\",\n                  u.tour_finished_at is null as \"tour_pending!\",\n                  exists(select 1 from memberships m join organizations o on o.id = m.organization_id\n                         where m.user_id = u.id and o.suspended_at is not null) as \"suspended!\"\n           from users u where u.id = $1",
   "describe": {
     "columns": [
       {
@@ -34,6 +34,12 @@
       },
       {
         "ordinal": 4,
+        "name": "tour_pending!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
         "name": "suspended!",
         "type_info": "Bool",
         "origin": "Expression"
@@ -49,8 +55,9 @@
       true,
       null,
       null,
+      null,
       null
     ]
   },
-  "hash": "03c974c1b7957940d4c95b9f44f9e7233d329405de9f572d051d1a520887b256"
+  "hash": "40cbded13300840a415a09c2406babe1623d1102fd2fd9f08b9016a5a8a290ae"
 }

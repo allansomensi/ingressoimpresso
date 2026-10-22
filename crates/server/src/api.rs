@@ -96,6 +96,8 @@ dto! {
         pub google: bool,
         /// The organization is suspended: the panel only reads (ADR 0032).
         pub suspended: bool,
+        /// The welcome tour of the panel has not been finished nor skipped (ADR 0116).
+        pub tour_pending: bool,
     }
 
     /// `GET /api/auth/options`: how this server lets people sign in.
@@ -4204,6 +4206,16 @@ dto! {
 }
 
 dto_enum! {
+    /// How the welcome tour of the panel ended (ADR 0116).
+    pub enum TourOutcome {
+        /// Seen to the last step.
+        Finished,
+        /// Skipped on the way.
+        Skipped,
+    }
+}
+
+dto_enum! {
     /// Maintenance mode (ADR 0037).
     pub enum MaintenanceMode {
         /// Normal.
@@ -6777,6 +6789,12 @@ dto! {
         #[serde(with = "time::serde::rfc3339::option")]
         #[cfg_attr(feature = "ts", ts(type = "string | null"))]
         pub canceled_at: Option<OffsetDateTime>,
+    }
+
+    /// `POST /api/account/tour`: the welcome tour ended (ADR 0116).
+    pub struct TourBody {
+        /// How it ended.
+        pub outcome: TourOutcome,
     }
 
     /// `PUT /api/account/preferences`.

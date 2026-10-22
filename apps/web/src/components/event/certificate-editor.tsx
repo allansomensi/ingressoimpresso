@@ -815,7 +815,7 @@ export function CertificateEditor({
                   fields={fields}
                   imageUrls={imageUrls}
                   logoUrl={logoUrl}
-                  brand={side === "front" && design.brand}
+                  brand={side === "front" && design.brand ? design.brandStyle : null}
                   selected={editing ? selection : []}
                   problems={problems}
                   additive={additive}

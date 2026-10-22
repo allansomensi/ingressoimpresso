@@ -1,6 +1,7 @@
 "use client";
 
 import type {
+  BrandStyle,
   CertificateElement,
   CertificateFrame,
   CertificateLine,
@@ -10,9 +11,10 @@ import type {
   CertificateText,
   PageOrientation,
 } from "@ingressoimpresso/api-types";
-import { useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from "react";
+import { useId, useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from "react";
 
 import { FakeQr, FitText, useFontsVersion } from "@/components/ticket/ticket-view";
+import { luminance } from "@/lib/brand-palette";
 import { elementBox, isSquare, minSize, pageSize } from "@/lib/certificate-design";
 import { fillCertificate, fillCertificateText, type CertificateFields } from "@/lib/certificates";
 import { cn } from "@/lib/cn";
@@ -38,6 +40,37 @@ const t = editorTexts.canvas;
 
 /** The line at the bottom of the front (`CERTIFICATE_BRAND` in crates/render). */
 export const CERTIFICATE_BRAND = "Emitido com Ingresso Impresso · ingressoimpresso.com.br";
+
+/** The words before the logo in the watermark (`CERTIFICATE_BRAND_CAPTION` in crates/render). */
+export const CERTIFICATE_BRAND_CAPTION = "Emitido com";
+
+/** The ink of the watermark: white on dark paper (`brand_ink` in crates/render). */
+export function brandInk(paper: string): string {
+  return luminance(paper) < 0.4 ? "#ffffff" : "#2a2838";
+}
+
+/** Ticket outline of the logo (`components/brand.tsx`), cut by its check and tear line. */
+const MARK_TICKET =
+  "M10 14h44a6 6 0 0 1 6 6v6.5a5.5 5.5 0 0 0 0 11V44a6 6 0 0 1-6 6H10a6 6 0 0 1-6-6v-6.5a5.5 5.5 0 0 0 0-11V20a6 6 0 0 1 6-6z";
+
+/** The brand's mark in one ink, as `brand_mark_svg` draws it for the PDF. */
+function BrandMark({ ink, height }: { ink: string; height: string }) {
+  const id = `${useId().replace(/:/g, "")}cut`;
+  return (
+    <svg viewBox="0 0 64 64" style={{ height, width: height }} aria-hidden>
+      <defs>
+        <mask id={id}>
+          <rect width="64" height="64" fill="#fff" />
+          <g transform="rotate(-12 32 32)">
+            <path d="M45 20v3.2M45 26.9v3.2M45 33.8v3.2M45 40.7v3.2" stroke="#000" strokeWidth="2.4" strokeLinecap="round" />
+            <path d="M18 32.5l5.5 5.5 12-12" fill="none" stroke="#000" strokeWidth="5.2" strokeLinecap="round" strokeLinejoin="round" />
+          </g>
+        </mask>
+      </defs>
+      <path transform="rotate(-12 32 32)" mask={`url(#${id})`} fill={ink} fillOpacity={0.5} d={MARK_TICKET} />
+    </svg>
+  );
+}
 
 /** One element placed in a new box, as the canvas reports moves and resizes. */
 export interface PlacedElement {
@@ -429,8 +462,8 @@ export function CertificateView({
   imageUrls: readonly (string | null)[];
   /** The organization's logo, when it has one. */
   logoUrl: string | null;
-  /** Draws the "Emitido com Ingresso Impresso" line (the front of a design that keeps it). */
-  brand: boolean;
+  /** Draws the "Emitido com Ingresso Impresso" in this style (the front of a design that keeps it). */
+  brand: BrandStyle | null;
   className?: string;
   selected?: readonly number[];
   problems?: readonly number[];
@@ -713,22 +746,7 @@ export function CertificateView({
           </div>
         );
       })}
-      {brand && (
-        <span
-          className="pointer-events-none absolute left-1/2 -translate-x-1/2 rounded-[0.35cqw] whitespace-nowrap"
-          style={{
-            bottom: u(3),
-            padding: `${u(1)} ${u(2.2)}`,
-            background: "rgb(255 255 255 / 0.85)",
-            color: "#6b6b78",
-            fontFamily: FONT_FAMILIES.sans,
-            fontSize: u(6.5 * MM_PER_PT),
-            lineHeight: 1,
-          }}
-        >
-          {CERTIFICATE_BRAND}
-        </span>
-      )}
+      {brand !== null && <CertificateBrand style={brand} paper={page.backgroundColor} u={u} />}
       {editable && (
         <>
           {groupBounds !== null && (
@@ -764,5 +782,48 @@ export function CertificateView({
         </>
       )}
     </div>
+  );
+}
+
+/**
+ * "Emitido com Ingresso Impresso" at the bottom of a page, in either style, with the geometry of
+ * `templates/certificate.typ`; `u` turns millimetres into the container's units.
+ */
+export function CertificateBrand({ style, paper, u }: { style: BrandStyle; paper: string; u: (mm: number) => string }) {
+  if (style === "mark") {
+    return <BrandWatermark paper={paper} u={u} />;
+  }
+  return (
+    <span
+      className="pointer-events-none absolute left-1/2 -translate-x-1/2 rounded-[0.35cqw] whitespace-nowrap"
+      style={{
+        bottom: u(3),
+        padding: `${u(1)} ${u(2.2)}`,
+        background: "rgb(255 255 255 / 0.85)",
+        color: "#6b6b78",
+        fontFamily: FONT_FAMILIES.sans,
+        fontSize: u(6.5 * MM_PER_PT),
+        lineHeight: 1,
+      }}
+    >
+      {CERTIFICATE_BRAND}
+    </span>
+  );
+}
+
+/** The watermark style of the brand. */
+function BrandWatermark({ paper, u }: { paper: string; u: (mm: number) => string }) {
+  const ink = brandInk(paper);
+  return (
+    <span
+      className="pointer-events-none absolute left-1/2 flex -translate-x-1/2 items-center rounded-[0.35cqw] whitespace-nowrap"
+      style={{ bottom: u(3), padding: `${u(0.9)} ${u(2.6)}`, background: paper, gap: u(1.5), fontFamily: FONT_FAMILIES.sans, lineHeight: 1, color: ink }}
+    >
+      <span style={{ fontSize: u(5 * MM_PER_PT), letterSpacing: "0.14em", textTransform: "uppercase", opacity: 0.45 }}>{CERTIFICATE_BRAND_CAPTION}</span>
+      <BrandMark ink={ink} height={u(3.8)} />
+      <span style={{ fontSize: u(7.5 * MM_PER_PT), letterSpacing: "-0.01em", opacity: 0.58 }}>
+        <span style={{ fontWeight: 700 }}>Ingresso</span> Impresso
+      </span>
+    </span>
   );
 }
