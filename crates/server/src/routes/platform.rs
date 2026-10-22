@@ -14,7 +14,11 @@ use crate::pricing;
 use crate::state::AppState;
 
 /// `GET /api/platform` (no login).
-pub async fn status(State(state): State<AppState>) -> ApiResult<Json<PlatformStatusDto>> {
+pub async fn status(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+) -> ApiResult<Json<PlatformStatusDto>> {
+    crate::ratelimit::by_ip(&state, &headers, crate::ratelimit::PUBLIC_READ).await?;
     let settings = state.settings.get(&state.pool).await?;
     let promotion = pricing::active_promotion(&state.pool).await?;
     let upcoming = pricing::upcoming(&state.pool).await?;

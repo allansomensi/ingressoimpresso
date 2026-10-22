@@ -329,7 +329,15 @@ fn verify_token(
         email,
         name: claims
             .name
-            .map(|name| name.trim().chars().take(100).collect::<String>())
+            .map(|name| {
+                // Printed in invites and e-mails: one line, like every other name.
+                name.trim()
+                    .chars()
+                    .filter(|c| !c.is_control())
+                    .take(100)
+                    .collect::<String>()
+            })
+            .map(|name| name.trim().to_owned())
             .filter(|name| !name.is_empty()),
     })
 }

@@ -112,6 +112,14 @@ pub const UNSUBSCRIBE: Limit = Limit {
     window: Duration::from_mins(10),
 };
 
+/// `GET /api/platform` and `GET /api/changelog`: public reads the panel makes on each load;
+/// generous, like the other reads a crowd shares an address for.
+pub const PUBLIC_READ: Limit = Limit {
+    name: "public-read",
+    max: 600,
+    window: Duration::from_mins(5),
+};
+
 /// Counts this request against `limit` for its address. Without an address (a direct request in
 /// development or a test) nothing is counted; in production every request comes through the
 /// proxy, and one without an address shares a single bucket instead of escaping the limit.

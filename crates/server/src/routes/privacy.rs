@@ -576,6 +576,13 @@ pub async fn delete(
     sqlx::query!("delete from sessions where user_id = $1", user.id)
         .execute(&mut *tx)
         .await?;
+    // The history of other organizations' events (ADR 0099) keeps the action, not the person.
+    sqlx::query!(
+        "update event_activity set actor_email = 'conta excluída', actor_name = null where user_id = $1",
+        user.id
+    )
+    .execute(&mut *tx)
+    .await?;
     // Nothing of the person stays on the row: no second-factor secret, no recovery codes, no
     // notifications, no memberships beyond the anonymized organizations' owner row.
     // Off every event team, including invites still waiting for this e-mail (ADR 0055).

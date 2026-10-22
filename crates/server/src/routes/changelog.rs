@@ -56,7 +56,11 @@ fn collect(rows: Vec<EntryRow>) -> ApiResult<Json<Vec<ChangelogEntryDto>>> {
 }
 
 /// `GET /api/changelog` (no login): published notes, newest first.
-pub async fn public(State(state): State<AppState>) -> ApiResult<Json<Vec<ChangelogEntryDto>>> {
+pub async fn public(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+) -> ApiResult<Json<Vec<ChangelogEntryDto>>> {
+    crate::ratelimit::by_ip(&state, &headers, crate::ratelimit::PUBLIC_READ).await?;
     let rows = sqlx::query_as!(
         EntryRow,
         r#"select id, kind, title, body, version, published_at, created_at, updated_at from changelog_entries
