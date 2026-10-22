@@ -23,5 +23,6 @@ export const common = {
   range: (first: number, last: number) => `${String(first)} a ${String(last)}`,
   tickets: (count: number) => (count === 1 ? "1 ingresso" : `${count.toLocaleString("pt-BR")} ingressos`),
   copied: "Copiado!",
+  copyFailed: "Não foi possível copiar. Selecione o texto e copie à mão.",
   copy: "Copiar",
 } as const;

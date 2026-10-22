@@ -24,7 +24,9 @@ function share(cost: number, revenue: number): string | null {
 }
 
 /** Ticket count, free tickets and (optionally) the ticket price → what the batch costs. */
-function Simulator({ pricing }: { pricing: PricingDto }) {
+type HeadingLevel = "h2" | "h3";
+
+function Simulator({ pricing, headingLevel: Heading }: { pricing: PricingDto; headingLevel: HeadingLevel }) {
   const [quantity, setQuantity] = useState(START_QUANTITY);
   const [useFree, setUseFree] = useState(true);
   const [price, setPrice] = useState("");
@@ -52,7 +54,7 @@ function Simulator({ pricing }: { pricing: PricingDto }) {
           <Calculator aria-hidden className="size-5" />
         </span>
         <div className="flex flex-col gap-0.5">
-          <h3 className="text-lg font-semibold tracking-tight text-fg">{s.title}</h3>
+          <Heading className="text-lg font-semibold tracking-tight text-fg">{s.title}</Heading>
           <p className="text-sm text-fg-muted">{s.lead}</p>
         </div>
       </div>
@@ -71,7 +73,7 @@ function Simulator({ pricing }: { pricing: PricingDto }) {
               onChange={(event) => {
                 setFromText(event.target.value);
               }}
-              className="w-28 rounded-xl border border-border-strong bg-surface px-3 py-1.5 text-right text-2xl font-semibold tracking-tight text-fg tabular shadow-xs focus:border-brand focus:ring-4 focus:ring-ring focus:outline-none"
+              className="w-28 rounded-xl border border-border-input bg-surface px-3 py-1.5 text-right text-2xl font-semibold tracking-tight text-fg tabular shadow-xs focus:border-brand focus:ring-4 focus:ring-ring focus:outline-none"
             />
             <span className="text-sm text-fg-muted">{s.quantityUnit}</span>
           </span>
@@ -91,7 +93,7 @@ function Simulator({ pricing }: { pricing: PricingDto }) {
           className={cn(
             "h-2 w-full cursor-pointer appearance-none rounded-full",
             // Touch: a taller box to hit (the track stays thin) and a bigger thumb.
-            "pointer-coarse:h-8 pointer-coarse:bg-clip-content pointer-coarse:py-3 pointer-coarse:[&::-webkit-slider-thumb]:size-7",
+            "pointer-coarse:h-11 pointer-coarse:bg-clip-content pointer-coarse:py-[18px] pointer-coarse:[&::-webkit-slider-thumb]:size-7",
             "[&::-webkit-slider-thumb]:size-6 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-4 [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:bg-brand-solid [&::-webkit-slider-thumb]:shadow-md",
             "[&::-moz-range-thumb]:size-5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-4 [&::-moz-range-thumb]:border-white [&::-moz-range-thumb]:bg-brand-solid [&::-moz-range-thumb]:shadow-md",
             "focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand",
@@ -107,10 +109,10 @@ function Simulator({ pricing }: { pricing: PricingDto }) {
                 setQuantity(preset);
               }}
               className={cn(
-                "rounded-full border px-3 py-1 text-[13px] font-medium tabular transition",
+                "relative rounded-full border px-3 py-1 text-[13px] font-medium tabular transition touch-target pointer-coarse:min-h-10 pointer-coarse:px-3.5 pointer-coarse:text-sm",
                 quantity === preset
                   ? "border-brand bg-brand-soft text-brand-soft-fg"
-                  : "border-border bg-surface text-fg-muted hover:border-border-strong hover:text-fg",
+                  : "border-border bg-surface text-fg-muted hover:border-border-strong hover:text-fg active:bg-surface-2 active:text-fg",
               )}
             >
               {preset.toLocaleString("pt-BR")}
@@ -190,7 +192,7 @@ function Simulator({ pricing }: { pricing: PricingDto }) {
               }}
               inputMode="decimal"
               placeholder={s.pricePlaceholder}
-              className="h-11 w-full rounded-xl border border-border-strong bg-surface pr-3.5 pl-10 text-base text-fg shadow-xs focus:border-brand focus:ring-4 focus:ring-ring focus:outline-none sm:text-[15px]"
+              className="h-11 w-full rounded-xl border border-border-input bg-surface pr-3.5 pl-10 text-base text-fg shadow-xs focus:border-brand focus:ring-4 focus:ring-ring focus:outline-none pointer-fine:sm:text-[15px]"
             />
           </span>
           {revenue !== null && (
@@ -242,7 +244,11 @@ function PriceTable({ pricing }: { pricing: PricingDto }) {
  * read (lib/pricing-server.ts): the prices are in the HTML from the start, for search engines and
  * without a placeholder that shifts the page. Without it, the browser loads the table.
  */
-export function PricingSection({ initial = null }: { initial?: PricingDto | null }) {
+/**
+ * The price table with its simulator. `headingLevel` is the simulator's heading: `h3` under a
+ * section heading (the landing), `h2` right under the page's h1 (/precos).
+ */
+export function PricingSection({ initial = null, headingLevel = "h3" }: { initial?: PricingDto | null; headingLevel?: HeadingLevel }) {
   const pricing = useQuery({
     queryKey: ["pricing"],
     queryFn: () => api<PricingDto>("/api/pricing"),
@@ -264,7 +270,7 @@ export function PricingSection({ initial = null }: { initial?: PricingDto | null
         ) : (
           <div className="flex flex-col gap-6">
             {pricing.data.promotion !== null && (
-              <div className="flex items-center gap-3 rounded-2xl bg-gradient-to-r from-success-solid to-[#16a34a] px-4 py-3 text-white shadow-sm">
+              <div className="flex items-center gap-3 rounded-2xl bg-success-solid px-4 py-3 text-white shadow-sm">
                 <BadgePercent className="size-5 shrink-0" aria-hidden />
                 <span className="flex min-w-0 flex-col">
                   <span className="font-semibold">{pricing.data.promotion.headline ?? t.pricingPromotion(pricing.data.promotion.discountPercent)}</span>
@@ -272,7 +278,7 @@ export function PricingSection({ initial = null }: { initial?: PricingDto | null
                 </span>
               </div>
             )}
-            <Simulator pricing={pricing.data} />
+            <Simulator pricing={pricing.data} headingLevel={headingLevel} />
             <PriceTable pricing={pricing.data} />
             {pricing.data.upcoming !== null && <p className="text-xs text-fg-muted">{t.pricingUpcoming(brasiliaDateTime(pricing.data.upcoming.effectiveAt))}</p>}
           </div>

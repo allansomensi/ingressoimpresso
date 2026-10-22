@@ -37,13 +37,14 @@ export function SyncStatus({
   onRetry: () => void;
 }) {
   if (online && pending === 0 && problem === null) {
-    return null;
+    // The live region stays mounted (empty): what appears in it later is announced.
+    return <div role="status" aria-live="polite" className="sr-only" />;
   }
   const offline = !online;
   const sending = online && syncing && pending > 0;
   let line: string;
   if (offline) {
-    line = pending > 0 ? `${t.title} · ${t.pending(pending)}` : `${t.title} · ${savedAt === null ? "" : t.savedAt(shortDateTime(savedAt))}`;
+    line = pending > 0 ? `${t.title} · ${t.pending(pending)}` : savedAt === null ? t.title : `${t.title} · ${t.savedAt(shortDateTime(savedAt))}`;
   } else if (sending) {
     line = t.sending(pending);
   } else {
@@ -134,9 +135,7 @@ export function PendingList({ queue, view }: { queue: readonly QueuedOp[]; view:
         className="self-start"
         onClick={() => {
           void copyText(lines.join("\n")).then((ok) => {
-            if (ok) {
-              toast.success(commonTexts.copied);
-            }
+            toast[ok ? "success" : "error"](ok ? commonTexts.copied : commonTexts.copyFailed);
           });
         }}
       >

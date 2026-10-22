@@ -185,7 +185,7 @@ function NewLinkDialog({
           <Input
             value={label}
             maxLength={60}
-            autoFocus
+            data-autofocus
             onChange={(e) => {
               setLabel(e.target.value);
             }}
@@ -363,7 +363,7 @@ export function DoorTab({ eventId, kind = "tickets", days = [] }: { eventId: str
       </div>
 
       {created !== null && (
-        <div ref={createdRef} className="scroll-mt-32">
+        <div ref={createdRef} className="scroll-mt-12">
           <Card className="border-brand/40 ring-4 ring-brand/10 animate-pop">
             <div className="flex flex-col gap-6 md:flex-row md:items-center">
               <div className="flex flex-col items-center gap-2">

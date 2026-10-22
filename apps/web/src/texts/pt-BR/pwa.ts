@@ -6,6 +6,8 @@ export const pwa = {
   installed: "App instalado!",
   offlineTitle: "Você está sem internet",
   offlineBody: "O painel precisa de conexão para mostrar seus eventos. A portaria continua funcionando sem internet nos celulares já preparados.",
+  offlineBodyLink:
+    "Este link ainda não foi aberto neste celular. Conecte-se à internet e tente de novo: depois da primeira vez, ele abre até sem sinal.",
   offlineRetry: "Tentar de novo",
   offlineDoor: "Abrir a portaria",
   updateReady: "Nova versão disponível.",

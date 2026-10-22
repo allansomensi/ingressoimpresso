@@ -5,7 +5,7 @@ import { useMutation } from "@tanstack/react-query";
 import { Camera, ClipboardPaste, Flashlight, FlashlightOff, ImageUp, Lock, ScanLine, X } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 
-import { Alert, Button, ErrorMessage, Field, Spinner, Textarea } from "@/components/ui";
+import { Alert, Button, ErrorMessage, Field, Spinner, Textarea, segmentTabIndex, segmentedKeys } from "@/components/ui";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { MAX_QR_TEXT, classifyPasted, pastedQr, pickScanned } from "@/lib/verify";
@@ -21,6 +21,7 @@ const MODES: readonly { mode: Mode; icon: typeof Camera }[] = [
   { mode: "photo", icon: ImageUp },
   { mode: "paste", icon: ClipboardPaste },
 ];
+const MODE_VALUES: readonly Mode[] = MODES.map((item) => item.mode);
 const CORNERS = [
   "top-0 left-0 rounded-tl-2xl border-t-4 border-l-4",
   "top-0 right-0 rounded-tr-2xl border-t-4 border-r-4",
@@ -273,23 +274,38 @@ export function TicketChecker() {
   };
 
   return (
-    <div ref={box} className="flex scroll-mt-24 flex-col gap-5 rounded-3xl border border-border bg-surface p-4 shadow-lg shadow-black/5 sm:p-6">
+    <div ref={box} className="flex scroll-mt-4 flex-col gap-5 rounded-3xl border border-border bg-surface p-4 shadow-lg shadow-black/5 sm:p-6">
       {check.data !== undefined ? (
         <VerifyResult
           result={check.data}
           onAgain={() => {
             check.reset();
+            // The reader is back: the keyboard continues from the chosen mode.
+            requestAnimationFrame(() => {
+              box.current?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')?.focus({ preventScroll: true });
+            });
           }}
         />
       ) : (
         <>
-          <div role="tablist" aria-label={t.modesLabel} className="grid grid-cols-3 gap-1 rounded-2xl bg-surface-2 p-1">
+          <div
+            role="tablist"
+            aria-label={t.modesLabel}
+            onKeyDown={segmentedKeys(MODE_VALUES, mode, (next) => {
+              setMode(next);
+              check.reset();
+            })}
+            className="grid grid-cols-3 gap-1 rounded-2xl bg-surface-2 p-1"
+          >
             {MODES.map(({ mode: item, icon: Icon }) => (
               <button
                 key={item}
                 type="button"
                 role="tab"
+                id={`modo-${item}`}
                 aria-selected={mode === item}
+                aria-controls={mode === item ? "leitor" : undefined}
+                tabIndex={segmentTabIndex(MODE_VALUES, mode, item)}
                 onClick={() => {
                   setMode(item);
                   check.reset();
@@ -304,7 +320,7 @@ export function TicketChecker() {
               </button>
             ))}
           </div>
-          <div role="tabpanel" className="flex flex-col gap-4">
+          <div role="tabpanel" id="leitor" aria-labelledby={`modo-${mode}`} className="flex flex-col gap-4">
             {mode === "camera" && <CameraReader onRead={read} />}
             {mode === "photo" && <PhotoReader onRead={read} />}
             {mode === "paste" && <PasteReader onRead={read} pending={check.isPending} />}

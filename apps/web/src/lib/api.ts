@@ -111,6 +111,9 @@ export function safePath(path: string): string {
   return path;
 }
 
+/** How long a request may wait for an answer (the API itself gives up at 90 s). */
+const REQUEST_TIMEOUT_MS = 60_000;
+
 async function send(path: string, init: RequestInit): Promise<Response> {
   safePath(path);
   const headers = new Headers(init.headers);
@@ -118,9 +121,12 @@ async function send(path: string, init: RequestInit): Promise<Response> {
   if (token !== null) {
     headers.set("Authorization", `Bearer ${token}`);
   }
+  // A request that never answers (a weak signal the phone still calls "online") ends as a network
+  // error, with its retry button, instead of a spinner that never stops.
+  const signal = init.signal ?? (typeof AbortSignal.timeout === "function" ? AbortSignal.timeout(REQUEST_TIMEOUT_MS) : null);
   let response: Response;
   try {
-    response = await fetch(`${API_URL}${path}`, { ...init, headers });
+    response = await fetch(`${API_URL}${path}`, { ...init, headers, ...(signal === null ? {} : { signal }) });
   } catch {
     throw new ApiError(0, "network");
   }

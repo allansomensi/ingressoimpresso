@@ -20,6 +20,7 @@ export const unsubscribe = {
   },
   undo: "Quero voltar a receber",
   stopAgain: "Parar de receber",
+  unavailableTitle: "Não deu para fazer agora",
   invalidTitle: "Link inválido",
   invalidBody:
     "Este link está incompleto ou não é nosso. Abra de novo pelo e-mail, ou mude a preferência em Minha conta.",

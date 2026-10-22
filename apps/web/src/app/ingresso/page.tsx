@@ -1,17 +1,20 @@
 import type { Metadata, Viewport } from "next";
 
 import { TicketPass } from "@/components/ticket/ticket-pass";
+import { privatePageMetadata } from "@/lib/seo";
+import { THEME_COLORS } from "@/lib/theme-script";
 import { ticket as ticketTexts } from "@/texts/pt-BR/ticket";
 
 // The link carries the ticket in its fragment: never indexed, never cached by search engines.
-export const metadata: Metadata = {
-  title: ticketTexts.metaTitle,
-  description: ticketTexts.metaDescription,
-  robots: { index: false, follow: false },
-  openGraph: { title: ticketTexts.metaTitle, description: ticketTexts.metaDescription },
-};
+export const metadata: Metadata = privatePageMetadata({ title: ticketTexts.metaTitle, description: ticketTexts.metaDescription });
 
-export const viewport: Viewport = { themeColor: [{ color: "#0a0910" }] };
+// The browser bar follows the theme, as everywhere (the page is light or dark like the site).
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: THEME_COLORS.light },
+    { media: "(prefers-color-scheme: dark)", color: THEME_COLORS.dark },
+  ],
+};
 
 export default function TicketPage() {
   return (

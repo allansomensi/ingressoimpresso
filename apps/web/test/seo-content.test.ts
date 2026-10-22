@@ -120,7 +120,7 @@ describe("template pages (/modelos)", () => {
 
   it("have the gallery's description within the snippet", () => {
     expect(templateGalleryTexts.metaDescription.length).toBeLessThanOrEqual(160);
-    expect(landingTexts.metaTitle.length).toBeLessThanOrEqual(70);
+    expect(landingTexts.metaTitle.length).toBeLessThanOrEqual(60);
   });
 });
 
@@ -207,9 +207,7 @@ describe("page titles and descriptions", () => {
       { slug: "/entrar", title: loginTexts.metaTitle, description: loginTexts.metaDescription },
       { slug: "/modelos", title: templateGalleryTexts.metaTitle, description: templateGalleryTexts.metaDescription },
     ];
-    // The landing's title ends with the brand, which may be cut.
-    expect(pages.filter((page) => page.slug !== "/").flatMap(snippetIssues)).toEqual([]);
-    expect(landingTexts.metaDescription.length).toBeLessThanOrEqual(160);
+    expect(pages.flatMap(snippetIssues)).toEqual([]);
     expect(unique(pages.map((page) => page.title))).toBe(true);
   });
 

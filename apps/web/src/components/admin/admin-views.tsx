@@ -576,7 +576,7 @@ function RefundDialog({
       description={t.batches.refundBody}
       footer={
         <>
-          <Button variant="secondary" autoFocus onClick={onClose}>
+          <Button variant="secondary" data-autofocus onClick={onClose}>
             {commonTexts.cancel}
           </Button>
           <Button

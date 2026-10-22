@@ -1,19 +1,21 @@
 "use client";
 
 import type { ChangelogEntryDto, ChangelogKind } from "@ingressoimpresso/api-types";
-import { ArrowRight, Megaphone } from "lucide-react";
+import { ArrowRight, Megaphone, RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { KindBadge } from "@/components/changelog/kind-badge";
-import { Badge, ButtonLink, EmptyState, Skeleton } from "@/components/ui";
+import { Badge, Button, ButtonLink, EmptyState, Skeleton, segmentTabIndex, segmentedKeys } from "@/components/ui";
 import { CHANGELOG_KINDS, type ChangelogGroup, groupChangelog, markSeen, paragraphs, useChangelog } from "@/lib/changelog";
 import { cn } from "@/lib/cn";
 import { APP_VERSION, VERSION_LABEL, versionAnchor } from "@/lib/version";
 import { changelog as changelogTexts } from "@/texts/pt-BR/changelog";
+import { common as commonTexts } from "@/texts/pt-BR/common";
 
 const t = changelogTexts;
 
 type Filter = ChangelogKind | "all";
+const FILTERS: readonly Filter[] = ["all", ...CHANGELOG_KINDS];
 
 function monthLabel(iso: string): string {
   const label = new Date(iso).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
@@ -49,14 +51,18 @@ export function ChangelogEntry({ entry, compact = false }: { entry: ChangelogEnt
 /** Heading of a group: the release (with its anchor, `#v1.4.0`) or the month. */
 function GroupHeading({ group }: { group: ChangelogGroup }) {
   if (group.kind === "month") {
-    return <h2 className="sticky top-16 z-10 -mx-1 bg-bg/90 px-1 py-2 text-sm font-semibold text-fg-subtle backdrop-blur">{monthLabel(group.since)}</h2>;
+    return (
+      <h2 className="sticky top-[calc(4rem+env(safe-area-inset-top))] z-10 -mx-1 bg-bg/90 px-1 py-2 text-sm font-semibold text-fg-subtle backdrop-blur">
+        {monthLabel(group.since)}
+      </h2>
+    );
   }
   return (
     <h2
       id={versionAnchor(group.version)}
-      className="sticky top-16 z-10 -mx-1 flex scroll-mt-20 flex-wrap items-baseline gap-x-2 gap-y-1 bg-bg/90 px-1 py-2 backdrop-blur"
+      className="sticky top-[calc(4rem+env(safe-area-inset-top))] z-10 -mx-1 flex flex-wrap items-baseline gap-x-2 gap-y-1 bg-bg/90 px-1 py-2 backdrop-blur"
     >
-      <a href={`#${versionAnchor(group.version)}`} className="text-base font-semibold text-fg tabular hover:underline">
+      <a href={`#${versionAnchor(group.version)}`} className="relative text-base font-semibold text-fg tabular touch-target hover:underline">
         {t.release(group.version)}
       </a>
       <span className="text-sm text-fg-subtle">{monthLabel(group.since)}</span>
@@ -70,8 +76,8 @@ function GroupHeading({ group }: { group: ChangelogGroup }) {
  * marks every note as seen; a link to a release (`/novidades#v1.4.0`) scrolls to it once the notes
  * load.
  */
-export function ChangelogPage() {
-  const changelog = useChangelog();
+export function ChangelogPage({ initial = null }: { initial?: ChangelogEntryDto[] | null }) {
+  const changelog = useChangelog(initial);
   const [filter, setFilter] = useState<Filter>("all");
   const newest = changelog.data?.[0]?.publishedAt ?? null;
   const loaded = changelog.data !== undefined;
@@ -103,18 +109,19 @@ export function ChangelogPage() {
         <p className="text-sm text-fg-subtle tabular">{t.currentVersion(VERSION_LABEL)}</p>
       </div>
 
-      <div role="radiogroup" aria-label={t.title} className="flex flex-wrap gap-2">
-        {(["all", ...CHANGELOG_KINDS] as const).map((option) => (
+      <div role="radiogroup" aria-label={t.filterLabel} onKeyDown={segmentedKeys(FILTERS, filter, setFilter)} className="flex flex-wrap gap-2">
+        {FILTERS.map((option) => (
           <button
             key={option}
             type="button"
             role="radio"
             aria-checked={filter === option}
+            tabIndex={segmentTabIndex(FILTERS, filter, option)}
             onClick={() => {
               setFilter(option);
             }}
             className={cn(
-              "rounded-full border px-3.5 py-1.5 text-sm font-medium transition pointer-coarse:py-2",
+              "rounded-full border px-3.5 py-1.5 text-sm font-medium transition pointer-coarse:min-h-11 pointer-coarse:py-2",
               filter === option
                 ? "border-brand bg-brand-soft text-brand-soft-fg"
                 : "border-border bg-surface text-fg-muted hover:border-border-strong hover:text-fg",
@@ -132,7 +139,15 @@ export function ChangelogPage() {
           ))}
         </div>
       ) : changelog.isError ? (
-        <EmptyState icon={Megaphone} title={t.unavailable} />
+        <EmptyState
+          icon={Megaphone}
+          title={t.unavailable}
+          action={
+            <Button variant="secondary" icon={<RefreshCw />} onClick={() => void changelog.refetch()}>
+              {commonTexts.retry}
+            </Button>
+          }
+        />
       ) : shown.length === 0 ? (
         <EmptyState icon={Megaphone} title={filter === "all" ? t.empty : t.emptyFiltered} />
       ) : (

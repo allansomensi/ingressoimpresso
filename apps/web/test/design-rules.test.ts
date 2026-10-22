@@ -44,6 +44,9 @@ describe("design rules (mirror of design.rs)", () => {
   it("writes on the band in black or white", () => {
     expect(inkFor("#e11d48")).toBe("#ffffff");
     expect(inkFor("#facc15")).toBe("#111111");
+    // Mid-tones: white would fall under 3:1 on them.
+    expect(inkFor("#f97316")).toBe("#111111");
+    expect(inkFor("#10b981")).toBe("#111111");
     expect(inkFor("#1f1d2b")).toBe("#ffffff");
   });
 

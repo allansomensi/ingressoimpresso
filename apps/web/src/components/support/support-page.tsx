@@ -1,8 +1,10 @@
 import { Activity, ArrowUpRight, BookOpen, Bug, ChevronDown, CircleHelp, Mail, Megaphone, ReceiptText, ShieldAlert, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 
+import { Breadcrumb } from "@/components/marketing/breadcrumb";
 import { buttonClass } from "@/components/ui";
 import { LEGAL_ENTITY } from "@/content/legal";
+import { eventPages as eventPagesTexts } from "@/texts/pt-BR/event-pages";
 import { helpCenter as helpCenterTexts } from "@/texts/pt-BR/help-center";
 
 import { CopyEmail } from "./copy-email";
@@ -28,7 +30,8 @@ export function SupportPage() {
     <>
       <section className="relative overflow-hidden bg-glow">
         <div aria-hidden className="absolute inset-0 bg-dots [mask-image:radial-gradient(ellipse_at_top,black,transparent_70%)] opacity-50" />
-        <div className="relative mx-auto flex max-w-6xl flex-col items-start gap-5 px-4 pt-14 pb-12 sm:px-6 lg:pt-20 lg:pb-16 animate-rise">
+        <div className="relative mx-auto flex max-w-6xl flex-col items-start gap-5 px-4 pt-14 pb-12 sm:px-6 lg:pt-20 lg:pb-16">
+          <Breadcrumb items={[{ label: eventPagesTexts.home, href: "/" }, { label: t.title }]} />
           <span className="text-sm font-semibold tracking-wide text-brand uppercase">{t.eyebrow}</span>
           <h1 className="text-4xl leading-[1.08] font-semibold tracking-tight text-balance text-fg sm:text-5xl">{t.headline}</h1>
           <p className="max-w-2xl text-lg leading-relaxed text-pretty text-fg-muted">{t.lead}</p>
@@ -120,7 +123,7 @@ export function SupportPage() {
       <section className="mx-auto flex max-w-6xl flex-col items-start gap-3 px-4 py-14 sm:px-6">
         <h2 className="text-lg font-semibold text-fg">{t.developersTitle}</h2>
         <p className="max-w-2xl text-[15px] leading-relaxed text-fg-muted">{t.developersBody}</p>
-        <a href={REPOSITORY_ISSUES} target="_blank" rel="noreferrer" className={buttonClass({ variant: "ghost", size: "sm" })}>
+        <a href={REPOSITORY_ISSUES} target="_blank" rel="noopener noreferrer" className={buttonClass({ variant: "ghost", size: "sm" })}>
           <Bug />
           {t.developersLink}
         </a>

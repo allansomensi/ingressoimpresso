@@ -12,6 +12,57 @@ e não acompanha estes números.
 
 ## [Não lançado]
 
+### Adicionado
+
+- A faixa de modelos da página inicial tem um botão para pausar e retomar o movimento, e não se
+  move para quem pediu menos animação ao sistema (ADR 0120).
+- As páginas de erro mostram uma referência para o suporte e um caminho para a página inicial.
+
+### Alterado
+
+- Todas as páginas públicas começam por um link "Pular para o conteúdo" para quem navega pelo
+  teclado; o menu do celular leva o foco para dentro e o devolve ao fechar; o seletor de tema, os
+  filtros, os modos do Conferir ingresso e os controles do link do vendedor andam com as setas
+  (ADR 0120).
+- Botões pequenos, o seletor de tema, os atalhos do simulador, as fichas do caixa e os links do
+  rodapé e dos documentos legais têm 44 px em telas de toque; os campos ficam em 16 px também num
+  iPhone deitado, sem o zoom do Safari.
+- A página de um modelo abre com a foto do modelo, mais leve e encontrável na busca de imagens; as
+  combinações de cores continuam ao vivo. Os links do ingresso, do vendedor, do certificado e do
+  convite saem no WhatsApp com o próprio título e descrição, em vez dos da página inicial.
+- A página pública do evento traz a imagem, o local e, quando adiado, a data original nos dados
+  estruturados, e tem um título curto ("Evento · 21/11, 21:00"); Sobre e Suporte mostram a trilha
+  de navegação; Novidades e Status já chegam com o conteúdo na página.
+- O texto sobre a cor de uma categoria, do organizador ou da faixa do ingresso passa a ser preto
+  nas cores médias (laranja, verde-água), onde o branco não tinha contraste; vale para o ingresso
+  impresso, a prévia e o ingresso digital (ADR 0120).
+- A tela de entrar se chama "Entrar ou criar conta"; durante a manutenção completa, o formulário
+  fica desligado em vez de falhar depois; o lugar do botão do Google é reservado enquanto as opções
+  carregam, para o formulário não pular.
+- Os ingressos grátis são descritos como descontados "dos primeiros lotes", que é a regra; Meus
+  ingressos fala de fichas quando o evento é de fichas.
+
+### Corrigido
+
+- O descadastro de e-mails e a página de um certificado só dizem "link inválido" quando o servidor
+  recusa o link: sem internet ou em manutenção, dizem que não deu agora e oferecem tentar de novo.
+- A página pública de um evento deixa de responder "não encontrada" quando a API está fora do ar:
+  mostra um erro com "tentar de novo" e os buscadores não a apagam.
+- A página "Você está sem internet" recarrega o endereço que falhou, sem perder o link do ingresso
+  ou do vendedor, e explica que o link abre sem sinal depois de aberto uma vez com internet.
+- Fechar o diálogo de transferência do ingresso digital depois de transferir não perde mais o novo
+  link; a resposta do Conferir ingresso recebe o foco; depois de um código de acesso errado os
+  quadrados voltam a aceitar a digitação com o foco no primeiro.
+- O ingresso digital e o link do vendedor distinguem o servidor em manutenção ou com erro de
+  "sem conexão"; uma requisição que não responde desiste depois de um minuto, em vez de girar para
+  sempre.
+- A página de status não mostra 90 dias sem incidentes antes de ler os dados nem quando a API não
+  responde; os dias com incidente ficam legíveis sem passar o mouse.
+- Copiar um link ou o e-mail do suporte avisa quando a cópia falha; "Imagem salva" só aparece
+  quando a imagem foi salva.
+- "Já utilizado em 20/11/2026, 22:00" (faltava o "em"); "Ficha cancelada" em vez de "Ficha
+  cancelado"; o Nº da mensagem para a organização no Conferir ingresso ganhou o espaço.
+
 ## [1.15.0] - 2026-10-22
 
 ### Alterado

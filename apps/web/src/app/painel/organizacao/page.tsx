@@ -53,7 +53,7 @@ export default function OrganizationProfilePage() {
         // the form to the end of the page, under the Pix card.
         <div className="flex flex-col gap-6 pb-24 lg:pb-0 [&>form]:pb-0">
           <ProfileEditor key={profile.dataUpdatedAt} profile={profile.data} target={TARGET} />
-          <div id="pix" className="scroll-mt-28 lg:max-w-[calc(100%-340px-1.5rem)]">
+          <div id="pix" className="scroll-mt-8 lg:max-w-[calc(100%-340px-1.5rem)]">
             <OrganizationPix organizationName={profile.data.organizationName} />
           </div>
         </div>

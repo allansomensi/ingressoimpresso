@@ -2,7 +2,7 @@ import type { Known, Overrides } from "@/lib/event-kind";
 
 // The event's public page (ADR 0095): /e/<slug>.
 export const publicEvent = {
-  metaTitle: (event: string, date: string) => `${event} · ${date}`,
+  metaTitle: (event: string, shortDate: string) => `${event} · ${shortDate}`,
   metaDescription: (event: string, date: string, place: string | null, organizer: string) =>
     `${event}: ${date}${place === null ? "" : `, ${place}`}. Ingressos com ${organizer}. Veja preços e onde comprar.`,
   by: (organizer: string) => `Organizado por ${organizer}`,
@@ -38,12 +38,14 @@ export const publicEvent = {
   share: "Compartilhar",
   shareText: (event: string) => `${event}: veja data, local e onde comprar o ingresso.`,
   copied: "Link copiado.",
+  copyFailed: "Não foi possível copiar. Selecione o endereço e copie à mão.",
   productTitle: "Ingressos impressos e numerados, com QR que não dá para copiar",
   productBody:
     "Este evento usa o Ingresso Impresso: imprima em casa ou na gráfica, venda com quem você confia e confira na porta pelo celular, mesmo sem internet.",
   productCta: "Criar o meu evento",
   productNote: "Os primeiros ingressos são grátis.",
   notFoundTitle: "Página do evento não encontrada",
+  shareImageAlt: "Página do evento, com data, local e onde comprar, no Ingresso Impresso",
   notFound: "O endereço pode estar errado, ou a organização tirou a página do ar.",
   tokens: {
     soldOutBody: "As fichas deste evento acabaram. Fale com a organização.",

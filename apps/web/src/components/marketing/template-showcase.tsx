@@ -1,6 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
 
+import { ShowcaseStrip } from "@/components/marketing/showcase-strip";
+
 import { templateImagePath, templateSeoById, type TemplateSeoPage } from "@/content/seo-templates";
 import type { TemplateId } from "@/lib/templates/catalog";
 import { templateImageSize } from "@/lib/templates/images";
@@ -57,7 +59,7 @@ function Sample({ shown, hidden }: { shown: Shown; hidden: boolean }) {
       href={`/modelos/${page.slug}`}
       tabIndex={hidden ? -1 : undefined}
       aria-hidden={hidden ? true : undefined}
-      className="block shrink-0 rounded-[3px] shadow-lg ring-1 ring-black/10 transition hover:-translate-y-0.5 active:translate-y-0"
+      className={`block shrink-0 rounded-[3px] shadow-lg ring-1 ring-black/10 transition hover:-translate-y-0.5 active:translate-y-0 ${hidden ? "motion-reduce:hidden" : ""}`}
     >
       <Image
         src={templateImagePath(page)}
@@ -71,13 +73,23 @@ function Sample({ shown, hidden }: { shown: Shown; hidden: boolean }) {
   );
 }
 
+/**
+ * A row that slides by. It stops under the mouse, while a sample inside it has the keyboard focus,
+ * and when the strip's pause button is pressed (`data-paused` on the strip, WCAG 2.2.2). With
+ * reduced motion it does not move at all: it is a plain strip to scroll with a finger, without the
+ * duplicate copy or the faded edges.
+ */
 function Row({ samples, reverse }: { samples: readonly Shown[]; reverse?: boolean }) {
   return (
-    <div className="flex overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_8%,black_92%,transparent)] motion-reduce:overflow-x-auto">
-      <div className={`flex w-max animate-marquee gap-6 pr-6 hover:[animation-play-state:paused] ${reverse === true ? "[animation-direction:reverse]" : ""}`}>
+    <div className="flex overflow-hidden py-2 [mask-image:linear-gradient(to_right,transparent,black_8%,black_92%,transparent)] motion-reduce:overflow-x-auto motion-reduce:px-4 motion-reduce:[mask-image:none] motion-reduce:scrollbar-none">
+      <div
+        className={`flex w-max animate-marquee gap-6 pr-6 hover:[animation-play-state:paused] focus-within:[animation-play-state:paused] group-data-[paused=true]/strip:[animation-play-state:paused] motion-reduce:animate-none ${reverse === true ? "[animation-direction:reverse]" : ""}`}
+      >
         {/* Twice, so the loop is seamless; the copy is invisible to screen readers and the keyboard. */}
         {[0, 1].map((copy) =>
-          samples.map((shown) => <Sample key={`${String(copy)}-${shown.page.id}`} shown={shown} hidden={copy === 1} />),
+          samples.map((shown) => (
+            <Sample key={`${String(copy)}-${shown.page.id}`} shown={shown} hidden={copy === 1} />
+          )),
         )}
       </div>
     </div>
@@ -91,9 +103,9 @@ function Row({ samples, reverse }: { samples: readonly Shown[]; reverse?: boolea
 export function TemplateShowcase() {
   const half = Math.ceil(SAMPLES.length / 2);
   return (
-    <nav aria-label={t.templatesTitle} className="flex flex-col gap-6 py-2">
+    <ShowcaseStrip label={t.templatesTitle} pause={t.templatesPause} play={t.templatesPlay}>
       <Row samples={SAMPLES.slice(0, half)} />
       <Row samples={SAMPLES.slice(half)} reverse />
-    </nav>
+    </ShowcaseStrip>
   );
 }

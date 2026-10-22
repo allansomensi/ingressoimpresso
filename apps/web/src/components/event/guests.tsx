@@ -350,7 +350,7 @@ function GuestForm(props: {
           onChange={(event) => {
             setName(event.target.value);
           }}
-          autoFocus
+          data-autofocus
         />
       </Field>
       <div className="grid gap-4 sm:grid-cols-2">
@@ -536,7 +536,7 @@ function PasteForm(props: { eventId: string; onClose: () => void; onSaved: () =>
           setText(event.target.value);
           setFile(null);
         }}
-        autoFocus
+        data-autofocus
       />
       <p className="text-sm text-fg-muted">
         {t.pasteCount(ready.length)}
