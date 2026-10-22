@@ -44,7 +44,7 @@ export default async function PricingPage() {
 
         <section id="comecar">
           <div className="mx-auto max-w-5xl px-4 pb-20 sm:px-6">
-            <PricingSection initial={pricing} />
+            <PricingSection initial={pricing} headingLevel="h2" />
           </div>
         </section>
 

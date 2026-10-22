@@ -123,7 +123,7 @@ export function SupportPage() {
       <section className="mx-auto flex max-w-6xl flex-col items-start gap-3 px-4 py-14 sm:px-6">
         <h2 className="text-lg font-semibold text-fg">{t.developersTitle}</h2>
         <p className="max-w-2xl text-[15px] leading-relaxed text-fg-muted">{t.developersBody}</p>
-        <a href={REPOSITORY_ISSUES} target="_blank" rel="noreferrer" className={buttonClass({ variant: "ghost", size: "sm" })}>
+        <a href={REPOSITORY_ISSUES} target="_blank" rel="noopener noreferrer" className={buttonClass({ variant: "ghost", size: "sm" })}>
           <Bug />
           {t.developersLink}
         </a>

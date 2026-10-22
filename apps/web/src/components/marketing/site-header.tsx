@@ -5,10 +5,10 @@ import Link from "next/link";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import { Logo } from "@/components/brand";
+import { SkipLink } from "@/components/skip-link";
 import { ButtonLink, useScrollLock } from "@/components/ui";
 import { readToken, subscribeToken } from "@/lib/api";
 import { cn } from "@/lib/cn";
-import { common as commonTexts } from "@/texts/pt-BR/common";
 import { nav as navTexts } from "@/texts/pt-BR/nav";
 
 const t = navTexts;
@@ -103,12 +103,7 @@ export function SiteHeader() {
 
   return (
     <>
-      <a
-        href="#conteudo"
-        className="sr-only z-50 rounded-lg bg-brand-solid px-3 py-2 text-sm font-semibold text-brand-fg focus:not-sr-only focus:fixed focus:top-3 focus:left-3"
-      >
-        {commonTexts.skipToContent}
-      </a>
+      <SkipLink />
       <header
         className={cn(
           "sticky top-0 z-40 pt-[env(safe-area-inset-top)] transition-[background,border,backdrop-filter] duration-200",

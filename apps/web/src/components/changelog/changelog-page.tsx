@@ -62,7 +62,7 @@ function GroupHeading({ group }: { group: ChangelogGroup }) {
       id={versionAnchor(group.version)}
       className="sticky top-[calc(4rem+env(safe-area-inset-top))] z-10 -mx-1 flex flex-wrap items-baseline gap-x-2 gap-y-1 bg-bg/90 px-1 py-2 backdrop-blur"
     >
-      <a href={`#${versionAnchor(group.version)}`} className="text-base font-semibold text-fg tabular hover:underline">
+      <a href={`#${versionAnchor(group.version)}`} className="relative text-base font-semibold text-fg tabular touch-target hover:underline">
         {t.release(group.version)}
       </a>
       <span className="text-sm text-fg-subtle">{monthLabel(group.since)}</span>

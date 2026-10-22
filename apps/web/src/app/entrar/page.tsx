@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { Logo, LogoMark } from "@/components/brand";
 import { GoogleSignIn } from "@/components/google-sign-in";
 import { OtpInput } from "@/components/otp-input";
+import { SkipLink } from "@/components/skip-link";
 import { Turnstile, type TurnstileHandle } from "@/components/turnstile";
 import { TwoFactorStep } from "@/components/two-factor-step";
 import { Alert, Button, ErrorMessage, Field, Input, Skeleton, Spinner } from "@/components/ui";
@@ -280,6 +281,7 @@ function SignIn() {
 
   return (
     <div className="grid min-h-dvh lg:grid-cols-[1fr_1.1fr]">
+      <SkipLink />
       <aside className="relative hidden overflow-hidden bg-[#0e0d14] p-12 text-white lg:flex lg:flex-col lg:justify-between">
         <div aria-hidden className="absolute -top-32 -left-32 size-[30rem] rounded-full bg-[#5b3df5]/50 blur-3xl" />
         <div aria-hidden className="absolute -right-24 -bottom-24 size-[24rem] rounded-full bg-[#ffb224]/25 blur-3xl" />
