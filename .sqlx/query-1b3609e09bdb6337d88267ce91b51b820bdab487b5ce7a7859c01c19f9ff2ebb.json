@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select organization_id, name, capacity as \"capacity!\", capacity_warn_percent, capacity_alerted\n           from events where id = $1 and capacity is not null and capacity_alerted < 2",
+  "query": "select organization_id, name, capacity as \"capacity!\", capacity_warn_percent, capacity_alerted,\n                  capacity_alerted_day\n           from events where id = $1 and capacity is not null",
   "describe": {
     "columns": [
       {
@@ -57,6 +57,17 @@
             "name": "capacity_alerted"
           }
         }
+      },
+      {
+        "ordinal": 5,
+        "name": "capacity_alerted_day",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "capacity_alerted_day"
+          }
+        }
       }
     ],
     "parameters": {
@@ -69,8 +80,9 @@
       false,
       true,
       false,
-      false
+      false,
+      true
     ]
   },
-  "hash": "b1f640e6bf9f7256c2dcb04399d5997b6b4f5c39169a4dd6b70874ce8f8de769"
+  "hash": "1b3609e09bdb6337d88267ce91b51b820bdab487b5ce7a7859c01c19f9ff2ebb"
 }

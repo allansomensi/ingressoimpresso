@@ -1,11 +1,11 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select t.id, t.event_id, t.email::text as \"email!\", coalesce(t.name, u.name) as name,\n                  t.areas, t.user_id, t.created_at\n           from event_team t left join users u on u.id = t.user_id where t.id = $1",
+  "query": "select t.id as \"id!\", t.event_id as \"event_id!\", t.email::text as \"email!\",\n                  coalesce(t.name, u.name) as name, t.areas as \"areas!\", t.user_id,\n                  t.created_at as \"created_at!\"\n           from event_team t left join users u on u.id = t.user_id where t.id = $1",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "id",
+        "name": "id!",
         "type_info": "Uuid",
         "origin": {
           "Table": {
@@ -16,7 +16,7 @@
       },
       {
         "ordinal": 1,
-        "name": "event_id",
+        "name": "event_id!",
         "type_info": "Uuid",
         "origin": {
           "Table": {
@@ -39,7 +39,7 @@
       },
       {
         "ordinal": 4,
-        "name": "areas",
+        "name": "areas!",
         "type_info": "TextArray",
         "origin": {
           "Table": {
@@ -61,7 +61,7 @@
       },
       {
         "ordinal": 6,
-        "name": "created_at",
+        "name": "created_at!",
         "type_info": "Timestamptz",
         "origin": {
           "Table": {
@@ -77,14 +77,14 @@
       ]
     },
     "nullable": [
-      false,
-      false,
-      null,
-      null,
-      false,
       true,
-      false
+      true,
+      null,
+      null,
+      true,
+      true,
+      true
     ]
   },
-  "hash": "43a0dcfd7c04172331d041f596ff663ac6e0b586631d9631e83c672ce9235895"
+  "hash": "eb2a21f692380685853784d2f6a42ac24ec2afdd40e7f5e5bbfc74bbe0cc7c77"
 }
