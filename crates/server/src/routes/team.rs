@@ -79,10 +79,11 @@ fn area(method: &str, shape: &str) -> Need {
             | "events/{id}/design/sample"
             | "events/{id}/batches/quote"
             | "batches/{id}/checkout/sync"
-            | "exports/{id}/link"
             | "events/{id}/team/leave",
         ) => Need::Read,
         ("PUT", "events/{id}/design") | ("POST", "events/{id}/art") => Need::Area(TeamArea::Art),
+        // A download link opens every signed ticket of the file: it is delivering tickets.
+        ("POST", "exports/{id}/link") => Need::Area(TeamArea::Delivery),
         (
             "POST",
             "events/{id}/sellers"
@@ -349,8 +350,11 @@ impl MemberRow {
 
 async fn member(state: &AppState, member_id: Uuid) -> ApiResult<(Uuid, MemberRow)> {
     let row = sqlx::query!(
-        r#"select t.id, t.event_id, t.email::text as "email!", coalesce(t.name, u.name) as name,
-                  t.areas, t.user_id, t.created_at
+        // The overrides keep the columns of `t` non-null whatever plan the database picks for the
+        // outer join (sqlx infers nullability from it).
+        r#"select t.id as "id!", t.event_id as "event_id!", t.email::text as "email!",
+                  coalesce(t.name, u.name) as name, t.areas as "areas!", t.user_id,
+                  t.created_at as "created_at!"
            from event_team t left join users u on u.id = t.user_id where t.id = $1"#,
         member_id
     )
@@ -708,7 +712,11 @@ mod tests {
             (Method::GET, "events/{id}/sellers", Need::Read),
             (Method::POST, "events/{id}/design/preview", Need::Read),
             (Method::POST, "events/{id}/design/sample", Need::Read),
-            (Method::POST, "exports/{id}/link", Need::Read),
+            (
+                Method::POST,
+                "exports/{id}/link",
+                Need::Area(TeamArea::Delivery),
+            ),
             (Method::POST, "events/{id}/team/leave", Need::Read),
             (Method::PUT, "events/{id}/design", Need::Area(TeamArea::Art)),
             (Method::POST, "events/{id}/art", Need::Area(TeamArea::Art)),

@@ -347,7 +347,13 @@ pub async fn badges(
     Path(event_id): Path<Uuid>,
     Query(query): Query<BadgesQuery>,
 ) -> ApiResult<Response> {
-    let event = authorize_event(&state.pool, &user, event_id).await?;
+    // Badges are valid credentials (they never deduplicate): only who runs the door prints them.
+    let access = super::event_access(&state.pool, &user, event_id).await?;
+    if !access.can(crate::api::TeamArea::Door) {
+        return Err(ApiError::Forbidden);
+    }
+    let event = access.event;
+    super::heavy_render(&state, &user).await?;
     let wanted: Option<Vec<Uuid>> = query
         .ids
         .as_deref()
@@ -426,15 +432,9 @@ pub async fn badges(
         footer: crate::texts::CREDENTIAL_FOOTER.to_owned(),
         badges,
     };
-    let _permit = state
-        .render_permits
-        .clone()
-        .acquire_owned()
-        .await
-        .map_err(anyhow::Error::from)?;
-    let bytes = tokio::task::spawn_blocking(move || ticket_render::badges_pdf(&sheet))
-        .await
-        .map_err(anyhow::Error::from)?
+    let bytes = state
+        .blocking_render(move || ticket_render::badges_pdf(&sheet))
+        .await?
         .map_err(|error| ApiError::Internal(error.into()))?;
     let slug = crate::jobs::slug(&event.name);
     let name = if slug.is_empty() {

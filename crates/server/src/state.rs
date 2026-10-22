@@ -66,6 +66,32 @@ pub struct AppState {
 const BATCH_LOCK_STRIPES: usize = 64;
 
 impl AppState {
+    /// Runs a synchronous render (Typst, images) on the blocking pool under one of the render
+    /// permits. The permit goes with the work: a request that times out and is dropped no longer
+    /// frees it while its render keeps the CPU (ADR 0118).
+    ///
+    /// # Errors
+    ///
+    /// Internal errors when the permit or the blocking task fails; the render's own result is
+    /// returned as is.
+    pub async fn blocking_render<T: Send + 'static, E: Send + 'static>(
+        &self,
+        job: impl FnOnce() -> Result<T, E> + Send + 'static,
+    ) -> crate::error::ApiResult<Result<T, E>> {
+        let permit = self
+            .render_permits
+            .clone()
+            .acquire_owned()
+            .await
+            .map_err(anyhow::Error::from)?;
+        Ok(tokio::task::spawn_blocking(move || {
+            let _permit = permit;
+            job()
+        })
+        .await
+        .map_err(anyhow::Error::from)?)
+    }
+
     /// Builds the state.
     pub fn new(pool: PgPool, config: Config, mailer: Mailer) -> Self {
         let config_telegram = config.telegram.clone();

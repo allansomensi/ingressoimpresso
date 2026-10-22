@@ -75,15 +75,9 @@ pub async fn sheet(
             })
             .collect(),
     };
-    let _permit = state
-        .render_permits
-        .clone()
-        .acquire_owned()
-        .await
-        .map_err(anyhow::Error::from)?;
-    let pdf = tokio::task::spawn_blocking(move || ticket_render::home_pdf(&job))
-        .await
-        .map_err(anyhow::Error::from)?
+    let pdf = state
+        .blocking_render(move || ticket_render::home_pdf(&job))
+        .await?
         .map_err(|error| ApiError::Internal(error.into()))?;
     Ok((
         [

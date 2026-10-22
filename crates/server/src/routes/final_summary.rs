@@ -160,15 +160,9 @@ async fn render<T: Send + 'static>(
     state: &AppState,
     job: impl FnOnce() -> Result<T, ticket_render::RenderError> + Send + 'static,
 ) -> ApiResult<T> {
-    let _permit = state
-        .render_permits
-        .clone()
-        .acquire_owned()
-        .await
-        .map_err(anyhow::Error::from)?;
-    tokio::task::spawn_blocking(job)
-        .await
-        .map_err(anyhow::Error::from)?
+    state
+        .blocking_render(job)
+        .await?
         .map_err(|error| ApiError::Internal(error.into()))
 }
 
@@ -179,6 +173,7 @@ pub async fn pdf(
     Path(event_id): Path<Uuid>,
 ) -> ApiResult<Response> {
     let (card, name) = load(&state, &user, event_id).await?;
+    super::heavy_render(&state, &user).await?;
     let bytes = render(&state, move || ticket_render::summary_pdf(&card)).await?;
     Ok(attachment(&format!("{name}.pdf"), "application/pdf", bytes))
 }
@@ -190,6 +185,7 @@ pub async fn picture(
     Path(event_id): Path<Uuid>,
 ) -> ApiResult<Response> {
     let (card, name) = load(&state, &user, event_id).await?;
+    super::heavy_render(&state, &user).await?;
     let bytes = render(&state, move || {
         ticket_render::summary_png(&card, PICTURE_WIDTH)
     })
