@@ -12,6 +12,8 @@ e não acompanha estes números.
 
 ## [Não lançado]
 
+## [1.13.0] - 2026-10-22
+
 ### Adicionado
 
 - **Tour de boas-vindas** para quem acabou de criar a conta: mostra como funciona em quatro
@@ -681,7 +683,8 @@ Primeira versão numerada: o produto que já estava em produção, das fases 0 a
 - Política de segurança de conteúdo (CSP) com nonce por requisição em todo o site (ADR 0048).
 - Verificação anti-robô antes do envio do código de login (ADR 0044).
 
-[Não lançado]: https://github.com/allansomensi/ingressoimpresso/compare/v1.12.0...HEAD
+[Não lançado]: https://github.com/allansomensi/ingressoimpresso/compare/v1.13.0...HEAD
+[1.13.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.12.0...v1.13.0
 [1.12.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.11.0...v1.12.0
 [1.11.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.10.0...v1.11.0
 [1.10.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.9.0...v1.10.0
