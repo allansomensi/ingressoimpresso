@@ -74,7 +74,6 @@ Regras do envio:
 
 - **Pronunciamentos por e-mail:** a contagem de quem recebe ignora os envios pulados ou falhos, e
   enfileirar de novo refaz esses envios.
-- **Ficha da organização:** a linha do tempo inclui o item que está exatamente no limite da página.
 - **Resumo dos admins:**
   - o destaque usa a contagem real de alertas abertos;
   - a linha da cota mostra a média por dia quando o resumo é semanal.
