@@ -81,7 +81,7 @@ export function SeriesView({ seriesId }: { seriesId: string }) {
         />
       );
     }
-    return <ErrorMessage error={series.error} />;
+    return <ErrorMessage error={series.error} onRetry={() => void series.refetch()} />;
   }
   return <SeriesContent data={series.data} now={now} back={back} />;
 }

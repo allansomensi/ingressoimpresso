@@ -533,7 +533,7 @@ export function CourtesiesCard({ eventId, editable, onChange }: { eventId: strin
     },
   });
   if (data.data === undefined) {
-    return data.isError ? <ErrorMessage error={data.error} /> : null;
+    return data.isError ? <ErrorMessage error={data.error} onRetry={() => void data.refetch()} /> : null;
   }
   const { givers, courtesies } = data.data;
   const giverName = new Map(givers.map((item) => [item.id, item.name]));

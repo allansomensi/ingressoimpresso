@@ -358,7 +358,7 @@ export function OrganizationDetail({
     return <LoadingBlock rows={4} />;
   }
   if (detail.isError) {
-    return <ErrorMessage error={detail.error} />;
+    return <ErrorMessage error={detail.error} onRetry={() => void detail.refetch()} />;
   }
   const d = detail.data;
   const o = d.organization;

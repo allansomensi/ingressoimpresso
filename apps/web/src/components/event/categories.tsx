@@ -67,7 +67,7 @@ function CategoriesSection({ eventId, event, editable, onSelect }: { eventId: st
     return <LoadingBlock rows={2} />;
   }
   if (categories.isError) {
-    return <ErrorMessage error={categories.error} />;
+    return <ErrorMessage error={categories.error} onRetry={() => void categories.refetch()} />;
   }
   const list = categories.data;
   const paid = (batches.data ?? []).filter((batch) => batch.status === "paid").map(({ first, last }) => ({ first, last }));

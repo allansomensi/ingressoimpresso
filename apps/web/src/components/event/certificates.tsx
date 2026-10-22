@@ -94,7 +94,7 @@ export function CertificatesTab({ eventId, event }: { eventId: string; event: Ev
     return <LoadingBlock rows={3} />;
   }
   if (overview.isError) {
-    return <ErrorMessage error={overview.error} />;
+    return <ErrorMessage error={overview.error} onRetry={() => void overview.refetch()} />;
   }
   const people = overview.data.participants;
   const missing = people.filter((person) => person.certificate === null).length;

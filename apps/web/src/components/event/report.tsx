@@ -149,6 +149,33 @@ function rowClass(kind: LineKind): string {
   );
 }
 
+/** The seller column stays in view while the table scrolls sideways on a phone. */
+const STICKY = "sticky left-0 z-[1]";
+
+/**
+ * What each column means, one tap away: the dotted headers explain themselves only on a mouse's
+ * hover, never on a phone.
+ */
+function ColumnLegend({ items }: { items: readonly { label: string; hint: string }[] }) {
+  const t = useEventTexts().report;
+  return (
+    <details className="group border-t border-border px-5 py-3 text-sm">
+      <summary className="relative flex cursor-pointer list-none items-center gap-2 font-medium text-fg-muted touch-target hover:text-fg active:text-fg [&::-webkit-details-marker]:hidden">
+        <Info aria-hidden className="size-4 shrink-0 text-fg-subtle" />
+        {t.legend}
+      </summary>
+      <dl className="mt-3 grid gap-x-6 gap-y-2 sm:grid-cols-2">
+        {items.map((item) => (
+          <div key={item.label} className="flex flex-col">
+            <dt className="text-xs font-semibold text-fg">{item.label}</dt>
+            <dd className="text-xs leading-relaxed text-fg-muted">{item.hint}</dd>
+          </div>
+        ))}
+      </dl>
+    </details>
+  );
+}
+
 function HeaderCell({ column }: { column: (typeof SETTLEMENT_COLUMNS)[number] | (typeof DOOR_COLUMNS)[number] }) {
   const t = useEventTexts().report;
   return (
@@ -171,7 +198,7 @@ export function ReportTab({ eventId, onSelect }: { eventId: string; onSelect: Se
     return <LoadingBlock rows={3} />;
   }
   if (report.isError) {
-    return <ErrorMessage error={report.error} />;
+    return <ErrorMessage error={report.error} onRetry={() => void report.refetch()} />;
   }
   const data = report.data;
   const totals = settlementTotals(data.sellers);
@@ -267,7 +294,7 @@ export function ReportTab({ eventId, onSelect }: { eventId: string; onSelect: Se
           <table aria-label={t.sellersTitle} className="w-full min-w-[46rem] text-sm">
             <thead className="border-y border-border bg-surface-2 text-left text-xs font-medium text-fg-muted">
               <tr>
-                <th className="py-2.5 pr-2 pl-5 font-medium">{t.seller}</th>
+                <th className={cn(STICKY, "bg-surface-2 py-2.5 pr-2 pl-5 font-medium")}>{t.seller}</th>
                 {SETTLEMENT_COLUMNS.map((column) => (
                   <HeaderCell key={column} column={column} />
                 ))}
@@ -289,7 +316,9 @@ export function ReportTab({ eventId, onSelect }: { eventId: string; onSelect: Se
               )}
               {settlementLines.map(([row, kind]) => (
                 <tr key={row.sellerId ?? kind} className={rowClass(kind)}>
-                  <td className="py-3 pr-2 pl-5 text-fg">{kind === "totals" ? t.sellersTotal : lineName(t, row, kind)}</td>
+                  <td className={cn(STICKY, kind === "totals" ? "bg-surface-2" : "bg-surface", "py-3 pr-2 pl-5 text-fg")}>
+                    {kind === "totals" ? t.sellersTotal : lineName(t, row, kind)}
+                  </td>
                   {SETTLEMENT_COLUMNS.map((column) => (
                     <td key={column} className="px-2 py-3 text-right font-mono text-fg tabular">
                       {row[column]}
@@ -314,6 +343,7 @@ export function ReportTab({ eventId, onSelect }: { eventId: string; onSelect: Se
             </tbody>
           </table>
         </TableScroll>
+        <ColumnLegend items={[...SETTLEMENT_COLUMNS.map((column) => ({ label: t.columns[column], hint: t.hints[column] })), { label: t.balance, hint: t.balanceHint }]} />
         {data.unassigned.tickets > 0 && (
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-surface-2/60 px-5 py-3.5">
             <p className="flex items-center gap-2 text-sm text-fg-muted">
@@ -343,7 +373,7 @@ export function ReportTab({ eventId, onSelect }: { eventId: string; onSelect: Se
           <table aria-label={t.doorBySellerTitle} className="w-full min-w-[34rem] text-sm">
             <thead className="border-y border-border bg-surface-2 text-left text-xs font-medium text-fg-muted">
               <tr>
-                <th className="py-2.5 pr-2 pl-5 font-medium">{t.seller}</th>
+                <th className={cn(STICKY, "bg-surface-2 py-2.5 pr-2 pl-5 font-medium")}>{t.seller}</th>
                 {DOOR_COLUMNS.map((column) => (
                   <HeaderCell key={column} column={column} />
                 ))}
@@ -352,7 +382,7 @@ export function ReportTab({ eventId, onSelect }: { eventId: string; onSelect: Se
             <tbody className="divide-y divide-border">
               {lines(data).map(([row, kind]) => (
                 <tr key={row.sellerId ?? kind} className={rowClass(kind)}>
-                  <td className="py-3 pr-2 pl-5 text-fg">{lineName(t, row, kind)}</td>
+                  <td className={cn(STICKY, kind === "totals" ? "bg-surface-2" : "bg-surface", "py-3 pr-2 pl-5 text-fg")}>{lineName(t, row, kind)}</td>
                   {DOOR_COLUMNS.map((column, index) => (
                     <td
                       key={column}
@@ -370,6 +400,7 @@ export function ReportTab({ eventId, onSelect }: { eventId: string; onSelect: Se
             </tbody>
           </table>
         </TableScroll>
+        <ColumnLegend items={DOOR_COLUMNS.map((column) => ({ label: t.columns[column], hint: t.hints[column] }))} />
       </Card>
 
       <Card padded={false} className="overflow-hidden">

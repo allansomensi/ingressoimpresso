@@ -192,7 +192,7 @@ export function AdminChangelog() {
       {entries.isPending ? (
         <LoadingBlock rows={3} />
       ) : entries.isError ? (
-        <ErrorMessage error={entries.error} />
+        <ErrorMessage error={entries.error} onRetry={() => void entries.refetch()} />
       ) : entries.data.length === 0 ? (
         <EmptyState icon={Megaphone} title={t.empty} action={newButton} />
       ) : (

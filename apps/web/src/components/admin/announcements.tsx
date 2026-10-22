@@ -429,7 +429,7 @@ export function AdminAnnouncements() {
       {list.isPending ? (
         <LoadingBlock rows={3} />
       ) : list.isError ? (
-        <ErrorMessage error={list.error} />
+        <ErrorMessage error={list.error} onRetry={() => void list.refetch()} />
       ) : list.data.length === 0 ? (
         <EmptyState
           icon={Radio}

@@ -250,7 +250,7 @@ export function AdminAlerts() {
     return <LoadingBlock rows={4} />;
   }
   if (alerts.isError) {
-    return <ErrorMessage error={alerts.error} />;
+    return <ErrorMessage error={alerts.error} onRetry={() => void alerts.refetch()} />;
   }
   const data = alerts.data;
   return (

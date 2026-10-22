@@ -53,6 +53,11 @@ export function EventFormDialog({
   );
 }
 
+/** A mouse (not a finger): the only case where focusing the first field helps. */
+function finePointer(): boolean {
+  return typeof window !== "undefined" && window.matchMedia("(pointer: fine)").matches;
+}
+
 /** A new event starts with the venue, address and price of the organization's profile (ADR 0064). */
 function NewEventForm({ onClose, onSaved }: { onClose: () => void; onSaved: ((event: EventDto) => void) | undefined }) {
   const profile = useQuery({
@@ -190,7 +195,8 @@ function EventForm({
           maxLength={100}
           autoComplete="off"
           enterKeyHint="next"
-          autoFocus
+          // On a phone the keyboard would cover the first question (what it prints).
+          autoFocus={finePointer()}
         />
       </Field>
       <Field label={t.venue} optional>
@@ -279,7 +285,8 @@ function EventForm({
         </p>
       )}
       <ErrorMessage error={save.error} />
-      <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
+      {/* Stuck to the bottom of the dialog: on a phone the long form keeps "Criar" in reach. */}
+      <div className="sticky -bottom-4 z-10 -mx-5 flex flex-col-reverse gap-2 border-t border-border bg-surface px-5 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:static sm:mx-0 sm:flex-row sm:justify-end sm:border-0 sm:px-0 sm:pt-2 sm:pb-0">
         <Button variant="secondary" onClick={onClose}>
           {commonTexts.cancel}
         </Button>

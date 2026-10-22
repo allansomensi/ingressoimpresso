@@ -210,7 +210,8 @@ export function CashierSection({
                         setMethod(value);
                       }}
                       className={cn(
-                        "flex h-12 items-center justify-center gap-2 rounded-xl border px-2 text-sm font-semibold transition [&_svg]:size-4",
+                        // Icon over the word on a phone: "Dinheiro" beside an icon does not fit a third of 360px.
+                        "flex h-14 flex-col items-center justify-center gap-1 rounded-xl border px-1 text-[13px] font-semibold transition sm:h-12 sm:flex-row sm:gap-2 sm:px-2 sm:text-sm [&_svg]:size-4",
                         method === value
                           ? "border-brand bg-brand-soft text-brand-soft-fg ring-2 ring-brand/20"
                           : "border-border-strong bg-surface text-fg-muted hover:bg-surface-2 hover:text-fg active:bg-surface-2",

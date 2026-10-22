@@ -140,7 +140,7 @@ export function AdminDisputes() {
     return <LoadingBlock rows={3} />;
   }
   if (disputes.isError) {
-    return <ErrorMessage error={disputes.error} />;
+    return <ErrorMessage error={disputes.error} onRetry={() => void disputes.refetch()} />;
   }
   const open = disputes.data.filter((dispute) => dispute.open).length;
   return (

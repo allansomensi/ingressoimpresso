@@ -98,7 +98,8 @@ export function Stat({
     <div className="flex min-w-0 items-start justify-between gap-3 rounded-2xl border border-border bg-surface p-3.5 shadow-xs @container sm:p-5">
       <div className="flex min-w-0 flex-col gap-0.5 sm:gap-1">
         <span className="text-[13px] leading-snug font-medium text-fg-muted">{label}</span>
-        <span className="truncate text-xl font-semibold tracking-tight text-fg tabular @min-[15rem]:text-2xl">{value}</span>
+        {/* Never cut: "R$ 12.34…" reads as a wrong amount. Narrow cards step the size down. */}
+        <span className="text-lg leading-tight font-semibold tracking-tight [overflow-wrap:anywhere] text-fg tabular @min-[11rem]:text-xl @min-[15rem]:text-2xl">{value}</span>
         {hint !== undefined && <span className="min-w-0 text-xs leading-snug [overflow-wrap:anywhere] text-fg-subtle">{hint}</span>}
       </div>
       {Icon !== undefined && (

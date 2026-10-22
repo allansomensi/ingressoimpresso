@@ -305,7 +305,7 @@ export function AdminIncidents() {
       {list.isPending ? (
         <LoadingBlock rows={2} />
       ) : list.isError ? (
-        <ErrorMessage error={list.error} />
+        <ErrorMessage error={list.error} onRetry={() => void list.refetch()} />
       ) : list.data.length === 0 ? (
         <EmptyState icon={Activity} title={t.empty} description={t.emptyHint} action={newButton} />
       ) : (
