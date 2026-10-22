@@ -13,14 +13,15 @@ import { nav as navTexts } from "@/texts/pt-BR/nav";
 const t = navTexts;
 // Absolute anchors: the header also sits on the legal pages and the changelog. The pages of their
 // own (templates, guides, prices) are linked from every page, which is how search engines find
-// them first (ADR 0081).
+// them first (ADR 0081). `wide` links only fit the desktop bar from `xl` up; the phone menu has all.
 const LINKS = [
-  { href: "/#como-funciona", label: t.howItWorks },
-  { href: "/#exemplos", label: t.examples },
-  { href: "/modelos", label: t.templates },
-  { href: "/guias", label: t.guides },
-  { href: "/precos", label: t.pricing },
-  { href: "/#duvidas", label: t.faq },
+  { href: "/#como-funciona", label: t.howItWorks, wide: false },
+  { href: "/#recursos", label: t.features, wide: false },
+  { href: "/#exemplos", label: t.examples, wide: true },
+  { href: "/modelos", label: t.templates, wide: false },
+  { href: "/guias", label: t.guides, wide: false },
+  { href: "/precos", label: t.pricing, wide: false },
+  { href: "/#duvidas", label: t.faq, wide: true },
 ] as const;
 
 function useSignedIn(): boolean {
@@ -78,7 +79,10 @@ export function SiteHeader() {
               <Link
                 key={link.href}
                 href={link.href}
-                className="rounded-lg px-3 py-2 text-sm font-medium text-fg-muted transition hover:bg-surface-2 active:bg-surface-2 hover:text-fg"
+                className={cn(
+                  "rounded-lg px-3 py-2 text-sm font-medium text-fg-muted transition hover:bg-surface-2 active:bg-surface-2 hover:text-fg",
+                  link.wide && "max-xl:hidden",
+                )}
               >
                 {link.label}
               </Link>
