@@ -12,6 +12,8 @@
 
 mod common;
 
+use axum::http::Method;
+
 use common::TestApp;
 use common::door::{create_link, manifest, register, scan, sync_entries, upload};
 use sqlx::PgPool;
@@ -20,7 +22,19 @@ use sqlx::PgPool;
 async fn cursor_never_skips_a_late_commit(pool: PgPool) {
     let app = TestApp::new(pool.clone()).await;
     let token = app.login("banda@exemplo.com").await;
+    let admin = app.login(common::ADMIN).await;
     let event = app.create_event(&token, "Show").await;
+    let batch = app.create_batch(&token, &event, 10).await;
+    app.request(
+        Method::POST,
+        &format!(
+            "/api/admin/batches/{}/mark-paid",
+            batch["id"].as_str().unwrap()
+        ),
+        Some(&admin),
+        None,
+    )
+    .await;
     let (_, access_token) = create_link(&app, &token, &event).await;
     let door = register(&app, &access_token, "Porta").await;
     let cursor = manifest(&app, &door, None).await["cursor"]

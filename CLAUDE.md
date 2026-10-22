@@ -73,6 +73,18 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   no pool; worker de exportação supervisionado, com pausa entre tentativas e drenado no shutdown;
   Pix pendente há 3 dias dado como falho; cancelar o evento fecha os checkouts; ações do CI presas
   por SHA e imagens do Docker por digest.
+- **Blindagem, segunda rodada (ADR 0119): implementada.** Auditoria de 2026-10-22: bloqueio de
+  contestação travado contra `voids::undo`; leituras da portaria conferidas contra lotes pagos,
+  chaves e relógio (`door::check_scan_facts`) e 240 pedidos/min por celular; erros de código por
+  `(e-mail, endereço)` e código pedido por `(e-mail, endereço)`; cota de e-mail dividida (login ¾,
+  convites ¼); 204 silencioso para e-mail sem conta com cadastros fechados; `joined` = abriu o
+  evento; admins nunca em equipes; sessão vence em 90 dias e muda de 2FA encerra as outras;
+  ingressos grátis uma vez por caixa de e-mail (`known_mailboxes`, `free_tickets_eligible`);
+  indicação revogada devolve tudo (saldo pode ficar negativo); `give_back` idempotente
+  (`credit_returned_at`); cotação sem crédito para quem não tem `manage`; ZIP de certificados em
+  disco com teto de 1 GiB; tetos de eventos (500/org), faixas (300) e links da porta (60); CSP
+  por lugar do arquivo (`proxy.ts`) e `X-Frame-Options` estático; manutenção nos escritores com
+  token (`token_writers_maintenance`).
 - **Versionamento (ADR 0049): implementado, versão atual 1.14.0.** Uma versão SemVer para o produto
   inteiro (todos os manifestos, conferidos por `scripts/release.mjs check`), `CHANGELOG.md` em
   português (Keep a Changelog), `just release` no `staging` e tag `vX.Y.Z` + GitHub Release pelo

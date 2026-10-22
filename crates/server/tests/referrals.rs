@@ -464,7 +464,8 @@ async fn the_monthly_limit_holds_and_refunds_take_the_reward_back(pool: PgPool) 
         .clone();
     assert_eq!(revoked["revokeReason"], "batch_refunded");
 
-    // An admin revokes Caio's: only what is left of the credit comes off, never below zero.
+    // An admin revokes Caio's: the whole reward comes off, the part already spent included, and
+    // the balance stays owed until the next batches repay it (ADR 0119).
     let caio_id = overview["referrals"]
         .as_array()
         .unwrap()
@@ -479,7 +480,7 @@ async fn the_monthly_limit_holds_and_refunds_take_the_reward_back(pool: PgPool) 
         .request(Method::POST, &revoke_uri, Some(&admin), None)
         .await;
     assert_eq!(revoked.status, StatusCode::OK);
-    assert_eq!(balance(&app, &caio).await, 0);
+    assert_eq!(balance(&app, &caio).await, -290);
     let again = app
         .request(Method::POST, &revoke_uri, Some(&admin), None)
         .await;

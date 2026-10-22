@@ -257,7 +257,9 @@ impl AppState {
             .collect();
         if let Some(limit) = self.config.mail_daily_limit {
             let sent = sqlx::query!(
-                r#"select count(*) as "all!", count(*) filter (where kind = 'signup_code') as "signups!"
+                r#"select count(*) as "all!", count(*) filter (where kind = 'signup_code') as "signups!",
+                          count(*) filter (where kind in ('login_code', 'signup_code')) as "logins!",
+                          count(*) filter (where kind = 'team_invite') as "invites!"
                    from mail_sends where created_at > now() - interval '24 hours' and status <> 'quota'"#
             )
             .fetch_one(&self.pool)
@@ -271,7 +273,18 @@ impl AppState {
                 tokio::spawn(crate::alerts::raise(self.clone(), alert));
             }
             let signup_limit = (limit * 2 / 3).max(1);
-            if sent.all >= limit || (kind == MailKind::SignupCode && sent.signups >= signup_limit) {
+            // Codes anyone may ask for without a session never take the whole day (ADR 0119):
+            // the reserve stays for what an account already did (a paid batch, an invite, an
+            // alert). Invites, which one account sends to any address, get a quarter at most.
+            let login_limit = (limit - limit / 4).max(1);
+            let invite_limit = (limit / 4).max(1);
+            let over_share = match kind {
+                MailKind::SignupCode => sent.signups >= signup_limit || sent.logins >= login_limit,
+                MailKind::LoginCode => sent.logins >= login_limit,
+                MailKind::TeamInvite => sent.invites >= invite_limit,
+                _ => false,
+            };
+            if sent.all >= limit || over_share {
                 sqlx::query!(
                     "insert into mail_sends (kind, to_email, subject, status) values ($1, $2, $3, 'quota')",
                     kind.db(),

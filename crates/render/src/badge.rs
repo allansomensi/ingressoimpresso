@@ -16,6 +16,10 @@ const BADGE_TEMPLATE: &str = include_str!("../templates/badge.typ");
 
 /// Most badges in one PDF.
 pub const MAX_BADGES: usize = 500;
+/// Longest text of one badge field (names, roles, areas).
+pub const MAX_BADGE_TEXT_CHARS: usize = 200;
+/// Longest QR text of a badge (a v1 ticket text is 111 characters).
+pub const MAX_BADGE_QR_CHARS: usize = 512;
 
 /// The sheet of badges of an event.
 #[derive(Debug, Clone)]
@@ -85,6 +89,16 @@ pub fn badges_pdf(sheet: &BadgeSheet) -> Result<Vec<u8>, RenderError> {
     }
     if sheet.badges.iter().any(|badge| !is_hex_color(&badge.color)) {
         return Err(RenderError::Typst("invalid colour".to_owned()));
+    }
+    // The template clips long text; a megabyte of it would still be laid out first.
+    if sheet.badges.iter().any(|badge| {
+        [&badge.name, &badge.role, &badge.code, &badge.areas]
+            .into_iter()
+            .chain(badge.organization.iter())
+            .any(|text| text.chars().count() > MAX_BADGE_TEXT_CHARS)
+            || badge.qr_text.len() > MAX_BADGE_QR_CHARS
+    }) {
+        return Err(RenderError::Typst("badge text too long".to_owned()));
     }
     let file_error = |error: FileError| RenderError::Typst(error.to_string());
     let mut world = MemoryWorld::new("/main.typ", BADGE_TEMPLATE).map_err(file_error)?;

@@ -275,6 +275,10 @@ pub async fn flag(
 
 /// `POST /api/admin/moderation/{id}/resolve`: approve (the image prints again) or reject (it
 /// never prints; the organization is told and may be suspended).
+#[expect(
+    clippy::too_many_lines,
+    reason = "one decision and everything it touches, side by side"
+)]
 pub async fn resolve(
     State(state): State<AppState>,
     user: AuthUser,
@@ -327,6 +331,29 @@ pub async fn resolve(
                select sha256, $2 from blobs where id = $1 on conflict do nothing"#,
             flag.blob_id,
             user.id,
+        )
+        .execute(&mut *tx)
+        .await?;
+        // The same bytes waiting elsewhere (a copy of the event, another upload) are decided
+        // with it: one decision per image, and no open flag left behind (ADR 0119).
+        sqlx::query!(
+            r#"update moderation_flags f set status = 'rejected', resolution_note = $3,
+                      resolved_by = $4, resolved_at = now()
+               from blobs b
+               where f.blob_id = b.id and f.status = 'open'
+                 and b.sha256 = (select sha256 from blobs where id = $1)
+                 and f.id <> $2"#,
+            flag.blob_id,
+            flag_id,
+            note,
+            user.id,
+        )
+        .execute(&mut *tx)
+        .await?;
+        sqlx::query!(
+            r#"update blobs set moderation_status = 'rejected'
+               where sha256 = (select sha256 from blobs where id = $1) and moderation_status <> 'rejected'"#,
+            flag.blob_id,
         )
         .execute(&mut *tx)
         .await?;

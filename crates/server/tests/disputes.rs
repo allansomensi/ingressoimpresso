@@ -147,6 +147,18 @@ async fn a_disputed_payment_is_blocked_and_settled_by_the_admins(pool: PgPool) {
         .collect();
     assert_eq!(active.len(), 1);
     assert_eq!(active[0]["reason"], "revoked");
+    // The block is the admins' (ADR 0119): the organizer sees it locked and cannot undo it.
+    assert_eq!(active[0]["locked"], true);
+    assert_eq!(
+        app.post(
+            &format!("/api/voids/{}/undo", active[0]["id"].as_str().unwrap()),
+            &token,
+            json!({})
+        )
+        .await
+        .error_code(),
+        "void_locked"
+    );
     assert_eq!(
         app.post("/api/admin/disputes/dp_123/block", &admin, json!({}))
             .await

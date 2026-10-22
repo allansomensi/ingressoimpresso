@@ -128,3 +128,4 @@ feita e as consequências.
 | [0116](0116-tour-de-boas-vindas-e-marca-do-certificado.md) | Tour de boas-vindas no painel e marca com logo no certificado | Aceito |
 | [0117](0117-conexao-derrubada-pelo-banco.md) | Conexão derrubada pelo banco é 503, não 500 | Aceito |
 | [0118](0118-lembretes-marca-movel-e-revisao-de-producao.md) | Lembretes por e-mail, marca móvel no certificado e revisão para produção | Aceito |
+| [0119](0119-blindagem-segunda-rodada.md) | Blindagem, segunda rodada: abusos sem sessão, dinheiro, portaria e limites | Aceito |

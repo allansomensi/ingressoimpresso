@@ -30,10 +30,11 @@ use crate::texts;
 
 /// Upload limit for art (also enforced by the router body limit).
 pub const MAX_ART_BYTES: usize = 20 * 1024 * 1024;
-pub(crate) const MAX_ART_SIDE_PX: u32 = 10_000;
+/// The renderer's own ceiling (it refuses anything larger too).
+pub(crate) const MAX_ART_SIDE_PX: u32 = ticket_render::MAX_ART_SIDE_PX;
 /// 24 MP: a 300 × 200 mm ticket at 300 dpi is 8.4 MP, so this leaves room; a larger image would
 /// decode to hundreds of megabytes on the single API instance.
-pub(crate) const MAX_ART_PIXELS: u64 = 24_000_000;
+pub(crate) const MAX_ART_PIXELS: u64 = ticket_render::MAX_ART_PIXELS;
 /// Most memory one image decode may take (previews, moderation); beyond it the decoder stops.
 pub(crate) const MAX_DECODE_BYTES: u64 = 256 * 1024 * 1024;
 /// Design previews one user may ask for per minute: each one renders a sheet of samples.
@@ -48,6 +49,8 @@ const ART_PREVIEW_WIDTH_PX: u32 = 1600;
 /// Art previews one user may ask for per minute (the editor asks once per upload; browsers keep
 /// the answer).
 const ART_PREVIEWS_PER_MINUTE: usize = 60;
+/// Images one account may upload per hour (art and sponsor logos together).
+const ART_UPLOADS_PER_HOUR: usize = 30;
 /// Longest street address of a venue (ADR 0066).
 const MAX_ADDRESS: usize = 200;
 
@@ -371,6 +374,16 @@ pub async fn create(
     Json(body): Json<EventBody>,
 ) -> ApiResult<(StatusCode, Json<EventDto>)> {
     let valid = validate_event(&body)?;
+    if !state
+        .attempt(
+            &format!("event-create:{}", user.id),
+            EVENTS_CREATED_PER_HOUR,
+            std::time::Duration::from_hours(1),
+        )
+        .await
+    {
+        return Err(ApiError::TooManyRequests);
+    }
     let mut tx = state.pool.begin().await?;
     let organization = sqlx::query!(
         r#"select m.organization_id, o.name from memberships m join organizations o on o.id = m.organization_id
@@ -380,6 +393,7 @@ pub async fn create(
     .fetch_optional(&mut *tx)
     .await?
     .ok_or(ApiError::Forbidden)?;
+    ensure_room_for_event(&mut tx, organization.organization_id).await?;
     let event = insert_event(
         &state,
         &mut tx,
@@ -406,6 +420,37 @@ pub async fn create(
     Ok((StatusCode::CREATED, Json(dto)))
 }
 
+/// Events one organization may have (ADR 0119): the list, its checklist facts and its days are
+/// read whole on every visit to the panel, and no organizer runs more than this.
+pub(crate) const MAX_EVENTS_PER_ORGANIZATION: i64 = 500;
+/// Events one account may create (or copy) per hour.
+pub(crate) const EVENTS_CREATED_PER_HOUR: usize = 60;
+
+/// Refuses a new event (created, copied or added to a series) past
+/// [`MAX_EVENTS_PER_ORGANIZATION`].
+///
+/// # Errors
+///
+/// `too_many_events` as a 409.
+pub(crate) async fn ensure_room_for_event(
+    tx: &mut Transaction<'_, Postgres>,
+    organization_id: Uuid,
+) -> ApiResult<()> {
+    let count = sqlx::query_scalar!(
+        r#"select count(*) as "count!" from events where organization_id = $1"#,
+        organization_id
+    )
+    .fetch_one(&mut **tx)
+    .await?;
+    if count >= MAX_EVENTS_PER_ORGANIZATION {
+        return Err(ApiError::Conflict(
+            "too_many_events",
+            format!("an organization has at most {MAX_EVENTS_PER_ORGANIZATION} events"),
+        ));
+    }
+    Ok(())
+}
+
 /// The name of a copy: "Show (cópia)", cut to fit 100 characters.
 fn copy_name(name: &str) -> String {
     let suffix = texts::COPY_SUFFIX;
@@ -423,6 +468,16 @@ pub async fn duplicate(
     Path(event_id): Path<Uuid>,
 ) -> ApiResult<(StatusCode, Json<EventDto>)> {
     let access = event_access(&state.pool, &user, event_id).await?;
+    if !state
+        .attempt(
+            &format!("event-create:{}", user.id),
+            EVENTS_CREATED_PER_HOUR,
+            std::time::Duration::from_hours(1),
+        )
+        .await
+    {
+        return Err(ApiError::TooManyRequests);
+    }
     let source = access.event;
     let mut tx = state.pool.begin().await?;
     let name = copy_name(&source.name);
@@ -497,6 +552,7 @@ pub(crate) async fn copy_event(
     source: &EventRow,
     to: CopyOf<'_>,
 ) -> ApiResult<Copied> {
+    ensure_room_for_event(tx, to.organization_id).await?;
     let event_id = source.id;
     let organization_id = to.organization_id;
     let copy = insert_event(
@@ -766,6 +822,21 @@ pub async fn delete(
 ) -> ApiResult<StatusCode> {
     event_access(&state.pool, &user, event_id).await?;
     let mut tx = state.pool.begin().await?;
+    // An image waiting for the team's decision (ADR 0042) is not deleted from under it: the
+    // decision is what keeps the same bytes out for good (invariant 17).
+    let under_review = sqlx::query_scalar!(
+        r#"select exists(select 1 from moderation_flags f join blobs b on b.id = f.blob_id
+                         where b.event_id = $1 and f.status = 'open') as "open!""#,
+        event_id
+    )
+    .fetch_one(&mut *tx)
+    .await?;
+    if under_review {
+        return Err(ApiError::Conflict(
+            "art_under_review",
+            "the art is being reviewed by the team".to_owned(),
+        ));
+    }
     let deleted = sqlx::query!(
         r#"delete from events e where e.id = $1
            and not exists (select 1 from ticket_batches b
@@ -1054,19 +1125,17 @@ async fn sponsors_of(state: &AppState, event_id: Uuid, ids: &[Uuid]) -> ApiResul
         ));
     }
     let logos = arts_of_event(state, event_id, ids).await?;
-    if logos
-        .iter()
-        .any(|logo| logo.moderation_status == "rejected")
-    {
-        return Err(ApiError::Conflict(
-            "art_rejected",
-            "the art was refused by the team".to_owned(),
-        ));
+    for logo in &logos {
+        crate::moderation::check_printable(Some(&logo.moderation_status))?;
     }
     Ok(logos)
 }
 
 /// `POST /api/events/{id}/art`: raw PNG or JPEG body (max 20 MB).
+#[expect(
+    clippy::too_many_lines,
+    reason = "every check of an upload, in the order it runs"
+)]
 pub async fn upload_art(
     State(state): State<AppState>,
     user: AuthUser,
@@ -1077,6 +1146,18 @@ pub async fn upload_art(
     authorize_event(&state.pool, &user, event_id).await?;
     if body.len() > MAX_ART_BYTES {
         return Err(ApiError::PayloadTooLarge);
+    }
+    // Each new image is a decode and, with the classifier on, one of the day's analyses
+    // (ADR 0042): a loop of uploads must not spend either for everyone (ADR 0119).
+    if !state
+        .attempt(
+            &format!("art-upload:{}", user.id),
+            ART_UPLOADS_PER_HOUR,
+            std::time::Duration::from_hours(1),
+        )
+        .await
+    {
+        return Err(ApiError::TooManyRequests);
     }
     let content_type = match body.get(..8) {
         Some(b"\x89PNG\r\n\x1a\n") => "image/png",
@@ -1151,13 +1232,12 @@ pub async fn upload_art(
         i32::try_from(width).map_err(anyhow::Error::from)?,
         i32::try_from(height).map_err(anyhow::Error::from)?,
     );
-    let row = sqlx::query_as!(
-        ArtRow,
+    let row = sqlx::query!(
         r#"insert into blobs (id, event_id, sha256, content_type, width_px, height_px, byte_size, data,
                               moderation_status, uploaded_by)
            values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
            on conflict (event_id, sha256) do update set event_id = excluded.event_id
-           returning id, content_type, width_px, height_px, moderation_status"#,
+           returning id, content_type, width_px, height_px, moderation_status, (xmax = 0) as "inserted!""#,
         Uuid::new_v4(),
         event_id,
         digest,
@@ -1171,9 +1251,17 @@ pub async fn upload_art(
     )
     .fetch_one(&state.pool)
     .await?;
-    if row.moderation_status == "unchecked" {
+    // The same bytes again return the row already there; only a new image is analysed.
+    if row.inserted && row.moderation_status == "unchecked" {
         crate::moderation::spawn_check(&state, row.id);
     }
+    let row = ArtRow {
+        id: row.id,
+        content_type: row.content_type,
+        width_px: row.width_px,
+        height_px: row.height_px,
+        moderation_status: row.moderation_status,
+    };
     Ok((StatusCode::CREATED, Json(row.into())))
 }
 
@@ -1305,16 +1393,13 @@ async fn sample_job(
     {
         return Err(ApiError::TooManyRequests);
     }
-    if let Some(art_id) = body.art_id
-        && art_of_event(state, event_id, art_id)
+    // A sample is made to be shared: art under review or refused is not printed on it either
+    // (ADR 0042; the editor's own preview still shows the art being reviewed).
+    if let Some(art_id) = body.art_id {
+        let status = art_of_event(state, event_id, art_id)
             .await?
-            .moderation_status
-            == "rejected"
-    {
-        return Err(ApiError::Conflict(
-            "art_rejected",
-            "the art was refused by the team".to_owned(),
-        ));
+            .moderation_status;
+        crate::moderation::check_printable(Some(&status))?;
     }
     let art = match body.art_id {
         Some(art_id) => Some(load_art(state, event_id, art_id).await?),
@@ -1428,13 +1513,20 @@ pub async fn art_preview(
         return Err(ApiError::TooManyRequests);
     }
     let blob = sqlx::query!(
-        "select content_type, width_px from blobs where id = $1 and event_id = $2",
+        "select content_type, width_px, moderation_status from blobs where id = $1 and event_id = $2",
         art_id,
         event_id
     )
     .fetch_optional(&state.pool)
     .await?
     .ok_or(ApiError::NotFound)?;
+    // Refused art is not shown again, not even to its uploader (ADR 0042).
+    if blob.moderation_status == "rejected" {
+        return Err(ApiError::Conflict(
+            "art_rejected",
+            "the art was refused by the team".to_owned(),
+        ));
+    }
     let data = crate::art::bytes(&state, event_id, art_id)
         .await?
         .ok_or(ApiError::NotFound)?;

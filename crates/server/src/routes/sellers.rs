@@ -357,7 +357,20 @@ pub async fn delete(
     user: AuthUser,
     Path(seller_id): Path<Uuid>,
 ) -> ApiResult<StatusCode> {
-    seller_event(&state, &user, seller_id).await?;
+    let event_id = seller_event(&state, &user, seller_id).await?;
+    // Receipts and closed shifts go with the seller: only the money area removes a seller that
+    // has them (ADR 0119).
+    let has_money = sqlx::query_scalar!(
+        r#"select exists(select 1 from seller_payments where seller_id = $1)
+               or exists(select 1 from cashier_closings where seller_id = $1) as "has_money!""#,
+        seller_id
+    )
+    .fetch_one(&state.pool)
+    .await?;
+    if has_money {
+        let access = event_access(&state.pool, &user, event_id).await?;
+        need_money(&access)?;
+    }
     sqlx::query!("delete from sellers where id = $1", seller_id)
         .execute(&state.pool)
         .await?;
@@ -379,6 +392,7 @@ pub async fn assign(
             "every number must belong to a batch",
         ));
     }
+    super::ensure_ranges_room(&state.pool, super::RangeOwner::Seller(seller_id)).await?;
     let id = Uuid::new_v4();
     sqlx::query!(
         "insert into seller_assignments (id, event_id, seller_id, numbers) values ($1, $2, $3, $4)",

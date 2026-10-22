@@ -5,7 +5,8 @@
 
 use axum::Json;
 use axum::extract::{Path, State};
-use axum::http::{HeaderMap, StatusCode};
+use axum::http::header::{CACHE_CONTROL, CONTENT_DISPOSITION, CONTENT_LENGTH, CONTENT_TYPE};
+use axum::http::{HeaderMap, HeaderValue, StatusCode};
 use axum::response::{IntoResponse as _, Response};
 use base64::Engine as _;
 use sqlx::PgPool;
@@ -25,6 +26,11 @@ use crate::ratelimit;
 use crate::state::AppState;
 use crate::texts;
 
+/// Most bytes of images a certificate ZIP may carry (images × people): about what a phone
+/// downloads in a minute, and what the instance's disk and CPU take in stride.
+const MAX_ZIP_BYTES: usize = 1024 * 1024 * 1024;
+/// PDFs of one certificate per minute, whoever asks (its link is meant to be shared).
+const PDFS_PER_CERTIFICATE_MINUTE: usize = 4;
 /// Bytes of the token's signature.
 const TOKEN_MAC: usize = 12;
 const TOKEN_PURPOSE: &str = "certificate-link";
@@ -714,10 +720,7 @@ pub async fn sample_image(
         .nth(usize::from(side.back))
         .ok_or_else(|| anyhow::anyhow!("no sample picture"))?;
     Ok((
-        [(
-            axum::http::header::CONTENT_TYPE,
-            axum::http::HeaderValue::from_static("image/jpeg"),
-        )],
+        [(CONTENT_TYPE, HeaderValue::from_static("image/jpeg"))],
         picture,
     )
         .into_response())
@@ -757,12 +760,53 @@ pub async fn zip(
             )
         })
         .collect();
-    let bytes = render(&state, move || ticket_render::certificates_zip(&items)).await?;
-    Ok(super::ledger::attachment(
-        &format!("{base}.zip"),
-        "application/zip",
-        bytes,
-    ))
+    // Each PDF embeds the design's images: the archive weighs them once per person. Past the
+    // budget the ZIP is refused rather than rendered for minutes (ADR 0119).
+    let image_bytes = items.first().map_or(0, |(_, item)| item.image_bytes());
+    if image_bytes.saturating_mul(items.len()) > MAX_ZIP_BYTES {
+        return Err(ApiError::Conflict(
+            "certificates_too_heavy",
+            "the certificate's images are too large for this many people; use smaller images"
+                .to_owned(),
+        ));
+    }
+    // Written to the instance's disk, one PDF in memory at a time, and streamed from there;
+    // the file is unlinked as soon as it is open, so nothing stays behind.
+    let path = state
+        .config
+        .export_dir
+        .join(format!("certificates-{}.zip", Uuid::new_v4()));
+    let written = path.clone();
+    let result = render(&state, move || {
+        let file = std::fs::File::create(&written)
+            .map_err(|error| ticket_render::RenderError::Zip(error.to_string()))?;
+        let mut file = ticket_render::certificates_zip_to(&items, std::io::BufWriter::new(file))?;
+        std::io::Write::flush(&mut file)
+            .map_err(|error| ticket_render::RenderError::Zip(error.to_string()))?;
+        Ok(())
+    })
+    .await;
+    let file = match result {
+        Ok(()) => tokio::fs::File::open(&path)
+            .await
+            .map_err(|error| ApiError::Internal(error.into())),
+        Err(error) => Err(error),
+    };
+    let _ = tokio::fs::remove_file(&path).await;
+    let file = file?;
+    let length = file.metadata().await.map_err(anyhow::Error::from)?.len();
+    let disposition = HeaderValue::from_str(&format!("attachment; filename=\"{base}.zip\""))
+        .map_err(|error| ApiError::Internal(error.into()))?;
+    Ok((
+        [
+            (CONTENT_TYPE, HeaderValue::from_static("application/zip")),
+            (CONTENT_DISPOSITION, disposition),
+            (CONTENT_LENGTH, HeaderValue::from(length)),
+            (CACHE_CONTROL, HeaderValue::from_static("private, no-store")),
+        ],
+        axum::body::Body::from_stream(tokio_util::io::ReaderStream::new(file)),
+    )
+        .into_response())
 }
 
 /// The certificate of a public token, with its event.
@@ -832,6 +876,18 @@ pub async fn pdf(
 ) -> ApiResult<Response> {
     ratelimit::by_ip(&state, &headers, ratelimit::CERTIFICATE).await?;
     let (certificate, event) = by_token(&state, &body.token).await?;
+    // Each PDF is a render: one certificate's link, however many hands it passes through, does
+    // not keep the render permits for itself (ADR 0119).
+    if !state
+        .attempt(
+            &format!("certificate-pdf:{}", certificate.id),
+            PDFS_PER_CERTIFICATE_MINUTE,
+            std::time::Duration::from_mins(1),
+        )
+        .await
+    {
+        return Err(ApiError::TooManyRequests);
+    }
     let saved = saved(&state.pool, event.id).await?;
     let shared = shared(&state, event, saved).await?;
     let printed = render_one(

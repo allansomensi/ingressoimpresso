@@ -392,7 +392,7 @@ async fn sales(state: &AppState, link: &LinkRow) -> ApiResult<Vec<SellerSaleDto>
     .fetch_all(&state.pool)
     .await?;
     let sold: Vec<i32> = sales.iter().map(|sale| sale.ticket_number).collect();
-    let mut urls = super::tickets::active_urls(state, link.event_id, &sold).await?;
+    let mut urls = super::tickets::active_urls(state, link.event_id, link.seller_id, &sold).await?;
     Ok(sales
         .into_iter()
         .map(|sale| SellerSaleDto {

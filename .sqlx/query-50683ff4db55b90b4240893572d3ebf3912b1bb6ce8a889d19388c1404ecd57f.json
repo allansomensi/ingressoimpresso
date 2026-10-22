@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update event_team set joined_at = now() where event_id = $1 and user_id = $2 and joined_at is null",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "50683ff4db55b90b4240893572d3ebf3912b1bb6ce8a889d19388c1404ecd57f"
+}

@@ -1,0 +1,42 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select count(*) as \"all!\", count(*) filter (where kind = 'signup_code') as \"signups!\",\n                          count(*) filter (where kind in ('login_code', 'signup_code')) as \"logins!\",\n                          count(*) filter (where kind = 'team_invite') as \"invites!\"\n                   from mail_sends where created_at > now() - interval '24 hours' and status <> 'quota'",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "all!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "signups!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "logins!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "invites!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "713edfbe264a6a16cc48a7fc2a70f19bec1100581b856271be5876e05d8fd77c"
+}

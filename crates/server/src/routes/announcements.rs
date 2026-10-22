@@ -346,11 +346,12 @@ pub(crate) fn validate(body: &AnnouncementBody) -> ApiResult<Announcement> {
     ) {
         (None, None) => None,
         (Some(label), Some(url)) => {
+            // `/\evil.com` would be `//evil.com` to a browser: no backslash anywhere.
             let path = url.starts_with('/') && !url.starts_with("//");
             if label.chars().count() > MAX_CTA_LABEL
                 || url.len() > MAX_CTA_URL
                 || !(path || url.starts_with("https://"))
-                || url.chars().any(char::is_whitespace)
+                || url.chars().any(|c| c.is_whitespace() || c == '\\')
             {
                 return Err(bad_request(
                     "invalid_cta",

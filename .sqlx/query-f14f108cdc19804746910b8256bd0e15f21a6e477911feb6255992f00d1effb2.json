@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select id, numbers, reason, note, created_at, undone_at,\n                  exists(select 1 from ticket_batches b where b.event_id = ticket_voids.event_id\n                         and b.status = 'refunded' and b.numbers && ticket_voids.numbers) as \"locked!\",\n                  (select r.new_number from ticket_replacements r where r.void_id = ticket_voids.id) as \"replaced_by?\"\n           from ticket_voids where event_id = $1 order by created_at desc",
+  "query": "select id, numbers, reason, note, created_at, undone_at,\n                  (exists(select 1 from ticket_batches b where b.event_id = ticket_voids.event_id\n                          and b.status = 'refunded' and b.numbers && ticket_voids.numbers)\n                   or exists(select 1 from payment_disputes d where d.block_void_id = ticket_voids.id)) as \"locked!\",\n                  (select r.new_number from ticket_replacements r where r.void_id = ticket_voids.id) as \"replaced_by?\"\n           from ticket_voids where event_id = $1 order by created_at desc",
   "describe": {
     "columns": [
       {
@@ -98,5 +98,5 @@
       null
     ]
   },
-  "hash": "716b927ed171ff25161d9ad165b4e55894c8dcd9edef615b75dcb6122926f5d1"
+  "hash": "f14f108cdc19804746910b8256bd0e15f21a6e477911feb6255992f00d1effb2"
 }

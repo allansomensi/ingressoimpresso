@@ -68,10 +68,18 @@ async fn maintenance_pauses_organizers_but_not_admins(pool: PgPool) {
     assert_eq!(write.status, StatusCode::SERVICE_UNAVAILABLE);
     assert_eq!(write.error_code(), "maintenance");
     app.create_batch(&admin, &event, 5).await;
-    // Nobody new gets in during maintenance; people with an account still sign in.
+    // Nobody new gets in during maintenance (and the answer does not say the address is new,
+    // ADR 0119); people with an account still sign in.
     assert_eq!(
-        code_request(&app, "nova@exemplo.com").await.error_code(),
-        "maintenance"
+        code_request(&app, "nova@exemplo.com").await.status,
+        StatusCode::NO_CONTENT
+    );
+    assert!(
+        app.sent
+            .lock()
+            .unwrap()
+            .iter()
+            .all(|mail| mail.to != "nova@exemplo.com")
     );
     assert_eq!(
         code_request(&app, "banda@exemplo.com").await.status,
@@ -121,9 +129,9 @@ async fn sign_ups_can_close_and_domains_be_blocked(pool: PgPool) {
 
     app.settings(&admin, json!({ "registrationsOpen": false }))
         .await;
+    // Closed, and the answer does not say whether the address has an account (ADR 0119).
     let closed = code_request(&app, "nova@exemplo.com").await;
-    assert_eq!(closed.status, StatusCode::FORBIDDEN);
-    assert_eq!(closed.error_code(), "registrations_closed");
+    assert_eq!(closed.status, StatusCode::NO_CONTENT);
     assert!(
         app.sent
             .lock()
@@ -153,8 +161,16 @@ async fn sign_ups_can_close_and_domains_be_blocked(pool: PgPool) {
         json!(["mailinator.com", "tempmail.io"])
     );
     assert_eq!(saved["registrationsOpen"], true);
+    // A blocked domain is answered like any other address, and gets no e-mail (ADR 0119).
     let blocked = code_request(&app, "x@sub.mailinator.com").await;
-    assert_eq!(blocked.error_code(), "email_domain_blocked");
+    assert_eq!(blocked.status, StatusCode::NO_CONTENT);
+    assert!(
+        app.sent
+            .lock()
+            .unwrap()
+            .iter()
+            .all(|mail| mail.to != "x@sub.mailinator.com")
+    );
     assert_eq!(
         code_request(&app, "x@notmailinator.com").await.status,
         StatusCode::NO_CONTENT

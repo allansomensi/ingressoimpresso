@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update moderation_flags f set status = 'rejected', resolution_note = $3,\n                      resolved_by = $4, resolved_at = now()\n               from blobs b\n               where f.blob_id = b.id and f.status = 'open'\n                 and b.sha256 = (select sha256 from blobs where id = $1)\n                 and f.id <> $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "32e1da62c3ddc4831c47a8acdbaf1593a541177ca6eb5de1e861b8439b002a7c"
+}

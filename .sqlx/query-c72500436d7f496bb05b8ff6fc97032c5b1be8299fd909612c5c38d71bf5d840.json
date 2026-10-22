@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update blobs set moderation_status = 'rejected'\n               where sha256 = (select sha256 from blobs where id = $1) and moderation_status <> 'rejected'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c72500436d7f496bb05b8ff6fc97032c5b1be8299fd909612c5c38d71bf5d840"
+}

@@ -24,7 +24,7 @@ pub use badge::{Badge, BadgeSheet, MAX_BADGES, badges_pdf};
 pub use certificate::{
     CERTIFICATE_BRAND, CERTIFICATE_BRAND_CAPTION, CERTIFICATE_FIELDS, Certificate,
     CertificateFields, CertificateSegment, MAX_CERTIFICATES, certificate_pdf,
-    certificate_sample_images, certificates_zip, fill_certificate,
+    certificate_sample_images, certificates_zip, certificates_zip_to, fill_certificate,
 };
 pub use certificate_design::{
     BrandPosition, BrandStyle, CERTIFICATE_DESIGN_VERSION, CertificateDesign, CertificateElement,
@@ -42,10 +42,10 @@ pub use fields::{EventDetails, FIELDS};
 pub use layout::Paper;
 pub use qr::QrError;
 pub use render::{
-    Art, MAX_TICKETS_PER_JOB, PrintOptions, RenderError, RenderJob, SLUG_MM, TicketCategory,
-    TicketImage, TicketQr, TicketToRender, WHATSAPP_WIDTH_PX, control_sheet_pdf, home_pdf,
-    home_pdf_on, home_sheet_jpegs, home_sheet_pngs, paper_scale, print_pdf, sample_qr_text,
-    ticket_images, whatsapp_zip, write_whatsapp_zip,
+    Art, MAX_ART_PIXELS, MAX_ART_SIDE_PX, MAX_TICKETS_PER_JOB, PrintOptions, RenderError,
+    RenderJob, SLUG_MM, TicketCategory, TicketImage, TicketQr, TicketToRender, WHATSAPP_WIDTH_PX,
+    control_sheet_pdf, home_pdf, home_pdf_on, home_sheet_jpegs, home_sheet_pngs, paper_scale,
+    print_pdf, sample_qr_text, ticket_images, whatsapp_zip, write_whatsapp_zip,
 };
 pub use report_doc::{ReportDocument, ReportFact, ReportSection, ReportTable, report_pdf};
 pub use sheet::{Cell, Sheet, Workbook, xlsx};

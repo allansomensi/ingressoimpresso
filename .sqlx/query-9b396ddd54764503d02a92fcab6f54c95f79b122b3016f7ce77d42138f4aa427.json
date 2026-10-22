@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select\n             (select coalesce(bool_and(exists(\n                 select 1 from ticket_batches b\n                 where b.event_id = $1 and b.status in ('paid', 'refunded') and b.numbers @> n.number)), true)\n              from unnest($2::int[]) as n(number)) as \"numbers_ok!\",\n             (select coalesce(bool_and(exists(\n                 select 1 from event_signing_keys k where k.event_id = $1 and k.key_id = n.key_id)), true)\n              from unnest($3::smallint[]) as n(key_id)) as \"keys_ok!\",\n             (select coalesce(bool_and(exists(\n                 select 1 from event_credentials c where c.event_id = $1 and c.number = n.number)), true)\n              from unnest($4::int[]) as n(number)) as \"credentials_ok!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "numbers_ok!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "keys_ok!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "credentials_ok!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4Array",
+        "Int2Array",
+        "Int4Array"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "9b396ddd54764503d02a92fcab6f54c95f79b122b3016f7ce77d42138f4aa427"
+}

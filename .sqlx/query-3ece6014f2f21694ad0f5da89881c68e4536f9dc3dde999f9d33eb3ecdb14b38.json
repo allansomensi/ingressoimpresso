@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "insert into ticket_voids (id, event_id, numbers, reason, note, created_by)\n           values ($1, $2, $3, $4, $5, $6)\n           returning id, numbers, reason, note, created_at, undone_at,\n                     exists(select 1 from ticket_batches b where b.event_id = ticket_voids.event_id\n                         and b.status = 'refunded' and b.numbers && ticket_voids.numbers) as \"locked!\",\n                     null::int as \"replaced_by?\"",
+  "query": "update ticket_voids set undone_at = now(), undone_by = $2\n           where id = $1 and undone_at is null\n             and not exists(select 1 from ticket_batches b where b.event_id = ticket_voids.event_id\n                            and b.status = 'refunded' and b.numbers && ticket_voids.numbers)\n             and not exists(select 1 from payment_disputes d where d.block_void_id = ticket_voids.id)\n           returning id, numbers, reason, note, created_at, undone_at, false as \"locked!\",\n                     (select r.new_number from ticket_replacements r where r.void_id = ticket_voids.id) as \"replaced_by?\"",
   "describe": {
     "columns": [
       {
@@ -85,10 +85,6 @@
     "parameters": {
       "Left": [
         "Uuid",
-        "Uuid",
-        "Int4Range",
-        "Text",
-        "Text",
         "Uuid"
       ]
     },
@@ -103,5 +99,5 @@
       null
     ]
   },
-  "hash": "3ee2f3415bf5eee475db821df5c311253d49b5be70b64978113cae8ec8342367"
+  "hash": "3ece6014f2f21694ad0f5da89881c68e4536f9dc3dde999f9d33eb3ecdb14b38"
 }
