@@ -2,6 +2,7 @@
 
 import type { TicketPassDto, TicketPixDto } from "@ingressoimpresso/api-types";
 import {
+  AlertTriangle,
   Armchair,
   CalendarDays,
   CalendarPlus,
@@ -31,7 +32,7 @@ import { QrCode } from "@/components/qr";
 import { MyTicketsLink, MyTicketsList } from "@/components/ticket/my-tickets";
 import { TransferSection, WalletButtons } from "@/components/ticket/pass-actions";
 import { SeatMap } from "@/components/ticket/seat-map";
-import { Button, Dialog, Spinner, buttonClass } from "@/components/ui";
+import { Button, Dialog, Spinner, buttonClass, errorMessage } from "@/components/ui";
 import { ApiError, api, fetchBlobUrl } from "@/lib/api";
 import {
   calendarSequence,
@@ -70,7 +71,8 @@ type State =
   | { status: "not-found" }
   // Passed on to someone else (ADR 0097): this phone no longer holds it.
   | { status: "transferred" }
-  | { status: "error" }
+  // `server`: the API answered with an error (maintenance, a failure), in words; `null` is no internet.
+  | { status: "error"; server: string | null }
   // `saved`: opened from "Meus ingressos" without its link (only the copy on this phone).
   | { status: "ready"; pass: TicketPassDto; offline: boolean; saved?: boolean };
 
@@ -242,7 +244,7 @@ export function TicketPass() {
       } else if (cached !== null) {
         setState({ status: "ready", pass: cached, offline: true });
       } else {
-        setState({ status: "error" });
+        setState({ status: "error", server: error instanceof ApiError && error.status !== 0 ? errorMessage(error) : null });
       }
     }
   }, []);
@@ -276,8 +278,10 @@ export function TicketPass() {
   if (state.status === "loading") {
     return (
       <Centered>
-        <Spinner />
-        <p className="text-sm text-fg-muted">{t.loading}</p>
+        <div role="status" className="flex flex-col items-center gap-4">
+          <Spinner />
+          <p className="text-sm text-fg-muted">{t.loading}</p>
+        </div>
       </Centered>
     );
   }
@@ -304,11 +308,19 @@ export function TicketPass() {
   }
   if (state.status === "not-found" || state.status === "error" || state.status === "transferred") {
     const title = state.status === "not-found" ? t.notFoundTitle : state.status === "transferred" ? t.transferredTitle : t.errorTitle;
-    const body = state.status === "not-found" ? t.notFound : state.status === "transferred" ? t.transferred : t.error;
+    const body = state.status === "not-found" ? t.notFound : state.status === "transferred" ? t.transferred : (state.server ?? t.error);
     return (
       <Centered>
         <span className="flex size-14 items-center justify-center rounded-2xl bg-brand-soft text-brand-soft-fg">
-          {state.status === "error" ? <WifiOff className="size-7" aria-hidden /> : <Ticket className="size-7" aria-hidden />}
+          {state.status === "error" ? (
+            state.server === null ? (
+              <WifiOff className="size-7" aria-hidden />
+            ) : (
+              <AlertTriangle className="size-7" aria-hidden />
+            )
+          ) : (
+            <Ticket className="size-7" aria-hidden />
+          )}
         </span>
         <h1 className="text-xl font-semibold tracking-tight text-fg">{title}</h1>
         <p className="leading-relaxed text-fg-muted">{body}</p>
@@ -341,8 +353,10 @@ export function TicketPass() {
     setSaving(true);
     try {
       const blob = await passImage(pass, { ticket: words.image.ticket, show: words.image.show, site: SITE_URL.replace(/^https?:\/\//, "") });
-      await saveImage(blob, fileName);
-      toast.success(words.saved);
+      // Nothing to say when the share sheet was dismissed.
+      if (await saveImage(blob, fileName)) {
+        toast.success(words.saved);
+      }
     } catch {
       toast.error(errorsTexts.generic);
     } finally {

@@ -2,14 +2,15 @@
 
 import type { PublicCertificateDto } from "@ingressoimpresso/api-types";
 import { useMutation } from "@tanstack/react-query";
-import { Award, Download, Link2Off, ShieldCheck } from "lucide-react";
+import { Award, Download, Link2Off, RefreshCw, ShieldCheck, WifiOff } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 
 import { Logo } from "@/components/brand";
-import { Badge, Button, Card, Spinner } from "@/components/ui";
-import { api, fetchBlobUrl } from "@/lib/api";
+import { Badge, Button, Card, Spinner, errorMessage } from "@/components/ui";
+import { ApiError, api, fetchBlobUrl } from "@/lib/api";
 import { certificate as certificateTexts } from "@/texts/pt-BR/certificate";
+import { common as commonTexts } from "@/texts/pt-BR/common";
 
 const t = certificateTexts;
 
@@ -48,17 +49,37 @@ export function CertificatePage() {
   }, [mutate]);
 
   const data = view.data;
+  // Only a token the server does not know is an invalid link: a network failure or maintenance
+  // must never read as "this certificate is not real" to whoever is checking it.
+  const invalid = view.isError && view.error instanceof ApiError && (view.error.status === 404 || view.error.status === 400);
   return (
     <div className="flex w-full max-w-lg flex-col items-center gap-6">
       <Logo />
       <Card className="flex w-full flex-col gap-5">
-        {view.isError ? (
+        {invalid ? (
           <div className="flex flex-col items-center gap-3 text-center">
             <span className="flex size-12 items-center justify-center rounded-2xl bg-danger-soft text-danger-fg">
               <Link2Off className="size-6" aria-hidden />
             </span>
             <h1 className="text-xl font-semibold text-fg">{t.invalidTitle}</h1>
             <p className="text-sm text-fg-muted">{t.invalidBody}</p>
+          </div>
+        ) : view.isError ? (
+          <div className="flex flex-col items-center gap-3 text-center">
+            <span className="flex size-12 items-center justify-center rounded-2xl bg-warning-soft text-warning-fg">
+              <WifiOff className="size-6" aria-hidden />
+            </span>
+            <h1 className="text-xl font-semibold text-fg">{t.unavailableTitle}</h1>
+            <p className="text-sm text-fg-muted">{errorMessage(view.error)}</p>
+            <Button
+              variant="secondary"
+              icon={<RefreshCw />}
+              onClick={() => {
+                view.mutate();
+              }}
+            >
+              {commonTexts.retry}
+            </Button>
           </div>
         ) : data === undefined ? (
           <div className="flex items-center justify-center gap-2 py-8 text-sm text-fg-muted" role="status">

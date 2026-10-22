@@ -35,6 +35,7 @@ export const status = {
   daysClean: (clean: number, total: number) => `${String(clean)} de ${String(total)} dias sem incidentes`,
   historyLabel: (clean: number, total: number) => `Histórico: ${String(clean)} de ${String(total)} dias sem incidentes`,
   noIncidents: "sem incidentes",
+  historyUnknown: "Sem dados do histórico agora.",
   daysAgo: (days: number) => `há ${String(days)} dias`,
   today: "hoje",
   plannedTitle: "Manutenções programadas",

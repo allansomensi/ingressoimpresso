@@ -20,10 +20,10 @@ const VARIANTS: Record<ButtonVariant, string> = {
   inverse: "bg-white text-[#0e0d14] shadow-sm hover:bg-white/90 active:translate-y-px active:bg-white/85",
 };
 
-// Touch screens (`pointer-coarse`) get bigger buttons: 40–44 px, the size of a fingertip
+// Touch screens (`pointer-coarse`) get bigger buttons: 44 px, the size of a fingertip
 // (ADR 0060). A mouse keeps the compact desktop sizes.
 const SIZES: Record<ButtonSize, string> = {
-  sm: "h-8 gap-1.5 rounded-lg px-3 text-[13px] pointer-coarse:h-10 pointer-coarse:px-3.5 pointer-coarse:text-sm",
+  sm: "h-8 gap-1.5 rounded-lg px-3 text-[13px] pointer-coarse:h-11 pointer-coarse:px-3.5 pointer-coarse:text-sm",
   md: "h-10 gap-2 rounded-xl px-4 text-sm pointer-coarse:h-11",
   lg: "h-12 gap-2 rounded-xl px-6 text-base",
   icon: "size-9 rounded-lg pointer-coarse:size-11",

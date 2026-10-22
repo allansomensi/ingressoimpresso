@@ -202,7 +202,10 @@ export function passDate(iso: string): string {
   return `${day} · ${time}`;
 }
 
-/** Black or white, whichever reads better on `hex` (WCAG relative luminance). */
+/**
+ * Black or white, whichever has the higher WCAG contrast ratio on `hex`: white wins while
+ * (L + 0.05)² < 1.05 × 0.05, a luminance near 0.18; above it black reads better.
+ */
 export function textOn(hex: string): "#0e0d14" | "#ffffff" {
   const match = /^#([0-9a-f]{6})$/i.exec(hex);
   if (match === null) {
@@ -214,7 +217,7 @@ export function textOn(hex: string): "#0e0d14" | "#ffffff" {
     return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
   };
   const luminance = 0.2126 * channel(16) + 0.7152 * channel(8) + 0.0722 * channel(0);
-  return luminance > 0.4 ? "#0e0d14" : "#ffffff";
+  return luminance > 0.18 ? "#0e0d14" : "#ffffff";
 }
 
 /**
@@ -347,16 +350,19 @@ export async function passImage(pass: TicketPassDto, labels: { ticket: string; s
   });
 }
 
-/** Saves an image: the share sheet on phones that can share files (iOS "Salvar imagem"), a download elsewhere. */
-export async function saveImage(blob: Blob, fileName: string): Promise<void> {
+/**
+ * Saves an image: the share sheet on phones that can share files (iOS "Salvar imagem"), a download
+ * elsewhere. `false` when the person dismissed the share sheet (nothing was saved).
+ */
+export async function saveImage(blob: Blob, fileName: string): Promise<boolean> {
   const file = new File([blob], fileName, { type: blob.type });
   if (typeof navigator.canShare === "function" && navigator.canShare({ files: [file] })) {
     try {
       await navigator.share({ files: [file] });
-      return;
+      return true;
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") {
-        return;
+        return false;
       }
     }
   }
@@ -368,4 +374,5 @@ export async function saveImage(blob: Blob, fileName: string): Promise<void> {
   setTimeout(() => {
     URL.revokeObjectURL(url);
   }, 10_000);
+  return true;
 }

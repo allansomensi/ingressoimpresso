@@ -66,6 +66,7 @@ const ALERT: Record<Exclude<Tone, "neutral">, { box: string; icon: LucideIcon }>
 };
 
 export function Alert({
+  id,
   tone = "brand",
   title,
   children,
@@ -73,6 +74,7 @@ export function Alert({
   onDismiss,
   className,
 }: {
+  id?: string | undefined;
   tone?: Exclude<Tone, "neutral">;
   title?: ReactNode;
   children?: ReactNode;
@@ -84,6 +86,7 @@ export function Alert({
   const { box, icon: Icon } = ALERT[tone];
   return (
     <div
+      id={id}
       role={tone === "danger" ? "alert" : "status"}
       className={cn("relative flex flex-wrap items-start gap-x-3 gap-y-2.5 rounded-xl border px-4 py-3 text-sm animate-fade-in", box, className)}
     >
@@ -116,12 +119,24 @@ export function errorMessage(error: unknown): string {
 }
 
 /** An error in words; with `onRetry`, a "Tentar de novo" button (a screen that failed to load). */
-export function ErrorMessage({ error, className, onRetry }: { error: unknown; className?: string | undefined; onRetry?: () => void }) {
+export function ErrorMessage({
+  error,
+  id,
+  className,
+  onRetry,
+}: {
+  error: unknown;
+  /** For the `aria-describedby` of the field the error is about. */
+  id?: string | undefined;
+  className?: string | undefined;
+  onRetry?: () => void;
+}) {
   if (error === null || error === undefined) {
     return null;
   }
   return (
     <Alert
+      id={id}
       tone="danger"
       className={className}
       action={

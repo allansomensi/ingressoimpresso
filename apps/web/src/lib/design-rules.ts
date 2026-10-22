@@ -269,7 +269,9 @@ export function effectiveBand(design: TicketDesign): BandStyle | null {
 export function inkFor(color: string): string {
   const channel = (start: number) => (Number.parseInt(color.slice(start, start + 2), 16) || 0) / 255;
   const luminance = 0.2126 * channel(1) ** 2.2 + 0.7152 * channel(3) ** 2.2 + 0.0722 * channel(5) ** 2.2;
-  return luminance > 0.35 ? "#111111" : "#ffffff";
+  // The ink with the higher WCAG contrast ratio: white wins while (L + 0.05)² < 1.05 × 0.05, that
+  // is, up to a luminance near 0.18 (an orange or a mid green already read better in black).
+  return luminance > 0.18 ? "#111111" : "#ffffff";
 }
 
 /** A sponsor strip that fits the design: beside the QR along the bottom, else along the top. */

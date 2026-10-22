@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, type ClipboardEvent, type KeyboardEvent } from "react";
+import { useEffect, useRef, type ClipboardEvent, type KeyboardEvent } from "react";
 
 import { cn } from "@/lib/cn";
 import { login as loginTexts } from "@/texts/pt-BR/login";
@@ -8,6 +8,8 @@ import { login as loginTexts } from "@/texts/pt-BR/login";
 /**
  * Six boxes for the login code: typing advances, Backspace goes back, pasting fills them all.
  * The first box keeps `autocomplete="one-time-code"`, so phones offer the code from the e-mail.
+ * While the code is being checked the boxes are read-only (not disabled: the focus stays); a
+ * wrong code puts the focus back on the first box, ready to type again.
  */
 export function OtpInput({
   value,
@@ -16,18 +18,28 @@ export function OtpInput({
   length = 6,
   invalid = false,
   disabled = false,
+  describedBy,
 }: {
   value: string;
   onChange: (value: string) => void;
   onComplete?: (value: string) => void;
   length?: number;
   invalid?: boolean;
+  /** The code is being checked: typing waits. */
   disabled?: boolean;
+  /** `id` of the error message under the boxes, when there is one. */
+  describedBy?: string | undefined;
 }) {
   const inputs = useRef<(HTMLInputElement | null)[]>([]);
   const focus = (index: number) => {
     inputs.current[Math.max(0, Math.min(length - 1, index))]?.focus();
   };
+  useEffect(() => {
+    if (invalid) {
+      inputs.current[0]?.focus();
+      inputs.current[0]?.select();
+    }
+  }, [invalid]);
   const set = (next: string) => {
     const digits = next.replace(/\D/g, "").slice(0, length);
     onChange(digits);
@@ -39,7 +51,7 @@ export function OtpInput({
 
   const type = (index: number, text: string) => {
     const digits = text.replace(/\D/g, "");
-    if (digits === "") {
+    if (digits === "" || disabled) {
       return;
     }
     // Autofill and fast typists may deliver several digits at once.
@@ -48,6 +60,9 @@ export function OtpInput({
   };
 
   const keyDown = (index: number, event: KeyboardEvent<HTMLInputElement>) => {
+    if (disabled) {
+      return;
+    }
     if (event.key === "Backspace") {
       event.preventDefault();
       if (value[index] !== undefined) {
@@ -65,12 +80,15 @@ export function OtpInput({
 
   const paste = (event: ClipboardEvent<HTMLInputElement>) => {
     event.preventDefault();
+    if (disabled) {
+      return;
+    }
     const filled = set(event.clipboardData.getData("text"));
     focus(filled.length);
   };
 
   return (
-    <div className="flex justify-between gap-2" role="group" aria-label={loginTexts.codeLabel}>
+    <div className="flex justify-between gap-2" role="group" aria-label={loginTexts.codeLabel} aria-busy={disabled || undefined}>
       {Array.from({ length }, (_, index) => (
         <input
           key={index}
@@ -91,14 +109,15 @@ export function OtpInput({
           inputMode="numeric"
           autoComplete={index === 0 ? "one-time-code" : "off"}
           maxLength={length}
-          disabled={disabled}
+          readOnly={disabled}
           aria-label={loginTexts.codeDigit(index + 1)}
           aria-invalid={invalid || undefined}
+          aria-describedby={describedBy}
           autoFocus={index === 0}
           className={cn(
             "h-14 w-full min-w-0 rounded-xl border bg-surface text-center font-mono text-2xl font-semibold text-fg shadow-xs transition",
-            "focus:border-brand focus:ring-4 focus:ring-ring focus:outline-none",
-            invalid ? "border-danger" : "border-border-strong",
+            "focus:border-brand focus:ring-4 focus:ring-ring focus:outline-none read-only:opacity-70",
+            invalid ? "border-danger" : "border-border-input",
           )}
         />
       ))}

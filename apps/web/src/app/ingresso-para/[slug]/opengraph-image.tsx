@@ -8,7 +8,7 @@ import { meta as metaTexts } from "@/texts/pt-BR/meta";
 export const dynamic = "force-static";
 export const size = SHARE_SIZE;
 export const contentType = SHARE_CONTENT_TYPE;
-export const alt = metaTexts.shareImageAlt;
+export const alt = eventPagesTexts.shareImageAlt;
 
 export function generateStaticParams() {
   return eventSeoPages.map((page) => ({ slug: page.slug }));

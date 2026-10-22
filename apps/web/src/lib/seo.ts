@@ -16,6 +16,9 @@ export type PageSeo = {
   article?: { publishedAt: string; updatedAt: string };
 };
 
+/** The landing's share image (app/opengraph-image.png): the picture of the site itself. */
+export const SITE_SHARE_IMAGE = "/opengraph-image.png";
+
 /** `Sobre · Ingresso Impresso`: the brand after the page's own words. */
 export function withBrand(title: string): string {
   return `${title} · ${metaTexts.title}`;
@@ -31,6 +34,22 @@ export function withBrand(title: string): string {
  * public page has one (test/seo-content.test.ts): the root's image does not reach a page that sets
  * `openGraph`.
  */
+/**
+ * The metadata of a page people reach by a private link (the digital ticket, the seller's page,
+ * a certificate): kept out of search, but with its own words and the site's picture in the
+ * preview of WhatsApp and the like. A page that sets `openGraph` loses the root's image and site
+ * name, so they are set here again.
+ */
+export function privatePageMetadata({ title, description }: { title: string; description: string }): Metadata {
+  return {
+    title: { absolute: title },
+    description,
+    robots: { index: false, follow: false },
+    openGraph: { type: "website", locale: "pt_BR", siteName: metaTexts.title, title, description, images: [{ url: SITE_SHARE_IMAGE, alt: metaTexts.shareImageAlt }] },
+    twitter: { card: "summary_large_image", title, description, images: [SITE_SHARE_IMAGE] },
+  };
+}
+
 export function pageMetadata(page: PageSeo): Metadata {
   const shareTitle = page.shareTitle ?? page.title;
   const common = { locale: "pt_BR", siteName: metaTexts.title, url: page.path, title: shareTitle, description: page.description };

@@ -1,14 +1,11 @@
 import type { Metadata } from "next";
 
 import { CertificatePage } from "@/components/certificate/certificate-page";
+import { privatePageMetadata } from "@/lib/seo";
 import { certificate as certificateTexts } from "@/texts/pt-BR/certificate";
 
-// A private link (the token is in the fragment): never indexed.
-export const metadata: Metadata = {
-  title: { absolute: certificateTexts.metaTitle },
-  description: certificateTexts.metaDescription,
-  robots: { index: false, follow: false },
-};
+// A private link (the token is in the fragment): never indexed, but shared, so it has a preview.
+export const metadata: Metadata = privatePageMetadata({ title: certificateTexts.metaTitle, description: certificateTexts.metaDescription });
 
 export default function CertificateRoute() {
   return (

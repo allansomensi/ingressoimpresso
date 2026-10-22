@@ -64,12 +64,12 @@ export function SiteFooter() {
         </div>
         {COLUMNS.map((column) => (
           <nav key={column.title} aria-label={column.title} className="flex flex-col gap-3">
-            <h2 className="text-xs font-semibold tracking-wide text-fg-subtle uppercase">{column.title}</h2>
+            <p className="text-xs font-semibold tracking-wide text-fg-subtle uppercase">{column.title}</p>
             {/* Taller rows on touch screens: each link is easy to hit with a thumb. */}
             <ul className="flex flex-col gap-2 pointer-coarse:gap-0">
               {column.links.map((link) => (
                 <li key={link.href}>
-                  <Link href={link.href} className="inline-flex text-sm text-fg-muted transition hover:text-fg pointer-coarse:min-h-10 pointer-coarse:items-center">
+                  <Link href={link.href} className="inline-flex text-sm text-fg-muted transition hover:text-fg pointer-coarse:min-h-11 pointer-coarse:items-center">
                     {link.label}
                   </Link>
                 </li>
@@ -78,11 +78,11 @@ export function SiteFooter() {
           </nav>
         ))}
         <div className="col-span-2 flex flex-col gap-3 sm:col-span-3 lg:col-span-1">
-          <h2 className="text-xs font-semibold tracking-wide text-fg-subtle uppercase">{t.contact}</h2>
+          <p className="text-xs font-semibold tracking-wide text-fg-subtle uppercase">{t.contact}</p>
           <p className="text-sm leading-relaxed text-fg-muted">{t.contactBody}</p>
           <a
             href={`mailto:${LEGAL_ENTITY.email}`}
-            className="inline-flex w-fit items-center gap-2 text-sm font-medium text-brand transition hover:text-brand-hover pointer-coarse:min-h-10"
+            className="inline-flex w-fit items-center gap-2 text-sm font-medium text-brand transition hover:text-brand-hover pointer-coarse:min-h-11"
           >
             <Mail className="size-4" aria-hidden />
             {LEGAL_ENTITY.email}
@@ -92,13 +92,13 @@ export function SiteFooter() {
       {/* One page per kind of event (src/content/seo-event-pages.ts). */}
       <nav aria-label={t.eventTypes} className="border-t border-border">
         <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-6 sm:flex-row sm:items-baseline sm:gap-5 sm:px-6">
-          <h2 className="shrink-0 text-xs font-semibold tracking-wide text-fg-subtle uppercase">{t.eventTypes}</h2>
+          <p className="shrink-0 text-xs font-semibold tracking-wide text-fg-subtle uppercase">{t.eventTypes}</p>
           <ul className="flex flex-wrap gap-x-5 gap-y-2 pointer-coarse:gap-y-0">
             {eventSeoPages.map((page) => (
               <li key={page.slug}>
                 <Link
                   href={`/ingresso-para/${page.slug}`}
-                  className="inline-flex text-sm text-fg-muted transition hover:text-fg pointer-coarse:min-h-10 pointer-coarse:items-center"
+                  className="inline-flex text-sm text-fg-muted transition hover:text-fg pointer-coarse:min-h-11 pointer-coarse:items-center"
                 >
                   {page.label}
                 </Link>
@@ -110,13 +110,13 @@ export function SiteFooter() {
       {/* The guides (src/content/seo-guides.ts). */}
       <nav aria-label={t.guides} className="border-t border-border">
         <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-6 sm:flex-row sm:items-baseline sm:gap-5 sm:px-6">
-          <h2 className="shrink-0 text-xs font-semibold tracking-wide text-fg-subtle uppercase">{t.guides}</h2>
+          <p className="shrink-0 text-xs font-semibold tracking-wide text-fg-subtle uppercase">{t.guides}</p>
           <ul className="flex flex-wrap gap-x-5 gap-y-2 pointer-coarse:gap-y-0">
             {seoGuides.map((guide) => (
               <li key={guide.slug}>
                 <Link
                   href={`/guias/${guide.slug}`}
-                  className="inline-flex text-sm text-fg-muted transition hover:text-fg pointer-coarse:min-h-10 pointer-coarse:items-center"
+                  className="inline-flex text-sm text-fg-muted transition hover:text-fg pointer-coarse:min-h-11 pointer-coarse:items-center"
                 >
                   {guide.label}
                 </Link>

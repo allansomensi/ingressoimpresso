@@ -52,8 +52,11 @@ export function Dialog({
     if (open && !dialog.open) {
       dialog.showModal();
       // The browser focuses the first control (the close button), which then shows a focus
-      // ring for no reason: start from the dialog body instead; Tab still reaches everything.
-      dialog.querySelector<HTMLElement>("[data-dialog-start]")?.focus({ preventScroll: true });
+      // ring for no reason: start from the control marked `data-autofocus` (React's `autoFocus`
+      // ran while the dialog was still closed) or from the dialog body; Tab reaches everything.
+      (dialog.querySelector<HTMLElement>("[data-autofocus]") ?? dialog.querySelector<HTMLElement>("[data-dialog-start]"))?.focus({
+        preventScroll: true,
+      });
     } else if (!open && dialog.open) {
       dialog.close();
     }
@@ -106,7 +109,11 @@ export function Dialog({
               </Button>
             </header>
           </div>
-          {children !== undefined && <div className="overflow-y-auto overscroll-contain px-5 py-4 sm:px-6">{children}</div>}
+          {children !== undefined && (
+            <div className={cn("overflow-y-auto overscroll-contain px-5 py-4 sm:px-6", footer === undefined && "pb-[max(1rem,env(safe-area-inset-bottom))] sm:pb-4")}>
+              {children}
+            </div>
+          )}
           {footer !== undefined && (
             <footer className="flex flex-col-reverse gap-2 border-t border-border px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex-row sm:justify-end sm:px-6 sm:pb-4">
               {footer}
@@ -174,7 +181,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
             <Button
               variant="secondary"
               // Destructive confirmations start on "Cancelar": Enter must not destroy anything.
-              autoFocus={danger}
+              data-autofocus={danger || undefined}
               onClick={() => {
                 finish(false);
               }}
@@ -183,7 +190,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
             </Button>
             <Button
               variant={danger ? "danger" : "primary"}
-              autoFocus={!danger}
+              data-autofocus={!danger || undefined}
               onClick={() => {
                 finish(true);
               }}

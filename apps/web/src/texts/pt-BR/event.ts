@@ -681,6 +681,7 @@ export const event = {
     live: "No ar",
     copy: "Copiar o link",
     copied: "Link copiado.",
+    copyFailed: "Não foi possível copiar. Selecione o endereço e copie à mão.",
     open: "Abrir",
     shareWhatsapp: "Mandar no WhatsApp",
     shareMessage: (event: string, url: string) => `${event}: veja data, local e onde comprar o ingresso.\n${url}`,

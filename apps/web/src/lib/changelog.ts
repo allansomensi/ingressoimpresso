@@ -17,12 +17,13 @@ let memorySeen: string | null = null;
 
 export const CHANGELOG_KINDS: readonly ChangelogKind[] = ["new", "improvement", "fix", "security"];
 
-/** Published notes, newest first (no login). */
-export function useChangelog() {
+/** Published notes, newest first (no login); `initial` is what the server already read. */
+export function useChangelog(initial: ChangelogEntryDto[] | null = null) {
   return useQuery({
     queryKey: ["changelog"],
     queryFn: () => api<ChangelogEntryDto[]>("/api/changelog"),
     staleTime: 10 * 60_000,
+    ...(initial === null ? {} : { initialData: initial }),
   });
 }
 

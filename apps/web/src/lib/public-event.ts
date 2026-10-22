@@ -17,20 +17,44 @@ export function isPublicSlug(slug: string): boolean {
   return /^[a-z0-9]+(-[a-z0-9]+)*$/.test(slug) && slug.length >= 3 && slug.length <= 60;
 }
 
-/** The page of `slug`; `null` when it does not exist, is off or the API cannot answer. */
+/** The API did not answer, or answered with an error: the page is not gone, it cannot be shown now. */
+export class PublicEventUnavailable extends Error {
+  constructor(readonly status: number) {
+    super(`public event unavailable (${String(status)})`);
+  }
+}
+
+/**
+ * The page of `slug`: `null` when it does not exist or is off (a 404 to show), and an error when
+ * the API is down, slow or in maintenance (the page's error boundary offers a retry: a shared
+ * link must not read "not found" during an outage).
+ */
 export async function fetchPublicEvent(slug: string): Promise<PublicEventDto | null> {
   if (!isPublicSlug(slug)) {
     return null;
   }
+  let response: Response;
   try {
-    const response = await fetch(`${API_URL}/api/public/events/${slug}`, {
+    response = await fetch(`${API_URL}/api/public/events/${slug}`, {
       next: { revalidate: PAGE_REVALIDATE, tags: [`public-event-${slug}`] },
       signal: AbortSignal.timeout(PAGE_TIMEOUT_MS),
     });
-    if (!response.ok) {
-      return null;
-    }
-    return (await response.json()) as PublicEventDto;
+  } catch {
+    throw new PublicEventUnavailable(0);
+  }
+  if (response.status === 404) {
+    return null;
+  }
+  if (!response.ok) {
+    throw new PublicEventUnavailable(response.status);
+  }
+  return (await response.json()) as PublicEventDto;
+}
+
+/** `fetchPublicEvent` for the metadata: an outage gives no event (the page itself shows the error). */
+export async function fetchPublicEventOrNull(slug: string): Promise<PublicEventDto | null> {
+  try {
+    return await fetchPublicEvent(slug);
   } catch {
     return null;
   }
@@ -42,6 +66,24 @@ export function publicDate(iso: string): string {
   const day = date.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
   const time = date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" });
   return `${day} · ${time}`;
+}
+
+/** "21/11, 21:00": the date for a title, in the event's own wall-clock time. */
+export function publicShortDate(iso: string): string {
+  const date = wallClockDate(iso);
+  const day = date.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", timeZone: "UTC" });
+  const time = date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" });
+  return `${day}, ${time}`;
+}
+
+/** `text` cut to `max` characters at a word, with an ellipsis (a meta description's snippet). */
+export function clip(text: string, max: number): string {
+  if (text.length <= max) {
+    return text;
+  }
+  const cut = text.slice(0, max - 1);
+  const space = cut.lastIndexOf(" ");
+  return `${(space > max * 0.6 ? cut.slice(0, space) : cut).replace(/[\s,.:;]+$/, "")}…`;
 }
 
 /** "R$ 30,00", "Grátis" or `null` without a price. */

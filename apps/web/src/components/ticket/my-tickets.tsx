@@ -2,6 +2,7 @@
 
 import { ChevronRight, Ticket, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
 
 import { OrganizationLogo } from "@/components/organization/organization";
 import { Button, Spinner, useConfirm } from "@/components/ui";
@@ -11,6 +12,7 @@ import { changeKind } from "@/lib/event-change";
 import { forKind } from "@/lib/event-kind";
 import { forgetLink, myTickets, sortMyTickets, type MyTicket } from "@/lib/my-tickets";
 import { forgetStoredPass, passDate } from "@/lib/ticket-pass";
+import { common as commonTexts } from "@/texts/pt-BR/common";
 import { ticket as ticketTexts } from "@/texts/pt-BR/ticket";
 
 const t = ticketTexts.mine;
@@ -32,7 +34,7 @@ function Row({ ticket, past, onOpen, onRemove }: { ticket: MyTicket; past: boole
   const words = forKind(ticketTexts, ticketTexts.tokens, pass.event.kind);
   const canceled = changeKind(pass.event.change, pass.event.startsAt) === "canceled";
   const status =
-    pass.state === "voided" ? t.voided(words.number) : pass.state === "entered" ? t.used : canceled ? t.canceled : past ? t.past : null;
+    pass.state === "voided" ? words.mine.voided(words.number) : pass.state === "entered" ? words.mine.used : canceled ? t.canceled : past ? t.past : null;
   const prefix = pass.numberPrefix.trim() === "" ? "Nº" : pass.numberPrefix.trim();
   return (
     <li className="flex items-stretch overflow-hidden rounded-2xl border border-border bg-surface shadow-xs">
@@ -85,8 +87,9 @@ export function MyTicketsList({ onOpen }: { onOpen: (ticket: MyTicket) => void }
 
   if (tickets === null) {
     return (
-      <div className="m-auto flex flex-col items-center gap-4 py-16">
+      <div role="status" className="m-auto flex flex-col items-center gap-4 py-16">
         <Spinner />
+        <p className="text-sm text-fg-muted">{commonTexts.loading}</p>
       </div>
     );
   }
@@ -109,6 +112,7 @@ export function MyTicketsList({ onOpen }: { onOpen: (ticket: MyTicket) => void }
     forgetStoredPass(ticket.key);
     await forgetLink(ticket.key);
     reload();
+    toast.success(t.removed);
   };
   const list = (items: readonly MyTicket[], isPast: boolean) => (
     <ul className="flex flex-col gap-2">

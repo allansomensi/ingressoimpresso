@@ -9,12 +9,11 @@ import { SHARE_CONTENT_TYPE, SHARE_SIZE } from "@/lib/share-image";
 import { SITE_URL } from "@/lib/site";
 import { textOn } from "@/lib/ticket-pass";
 import { brand as brandTexts } from "@/texts/pt-BR/brand";
-import { meta as metaTexts } from "@/texts/pt-BR/meta";
 import { publicEvent as publicEventTexts } from "@/texts/pt-BR/public-event";
 
 export const size = SHARE_SIZE;
 export const contentType = SHARE_CONTENT_TYPE;
-export const alt = metaTexts.shareImageAlt;
+export const alt = publicEventTexts.shareImageAlt;
 
 // Each read names its folder, so only those files are traced into the server output.
 function font(file: string): Promise<Buffer> {

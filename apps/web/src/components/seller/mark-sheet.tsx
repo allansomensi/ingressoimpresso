@@ -11,7 +11,7 @@ import { useState, type FormEvent } from "react";
 
 import { DeadlinePicker, useDeadline } from "@/components/seller/deadline-picker";
 import { useSellerTexts } from "@/components/seller/seller-texts";
-import { Button, Dialog, Field, Input } from "@/components/ui";
+import { Button, Dialog, Field, Input, segmentTabIndex, segmentedKeys } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { NUMBER_LIST_INPUT, firstOutside, firstShared, formatRanges, parseNumberList, type NumberRange } from "@/lib/number-list";
 import { newId } from "@/lib/seller-offline";
@@ -37,6 +37,9 @@ export type SheetStart = {
 function each(ranges: readonly NumberRange[]): number[] {
   return ranges.flatMap((range) => Array.from({ length: range.last - range.first + 1 }, (_, index) => range.first + index));
 }
+
+/** Sell now, or hold the numbers for someone (ADR 0072). */
+const MODES = ["sell", "reserve"] as const;
 
 export function MarkSheet({
   view,
@@ -181,13 +184,14 @@ export function MarkSheet({
     >
       <form id="seller-mark" onSubmit={submit} className="flex flex-col gap-5">
         {canReserve && editing === undefined && start.edit !== true && (
-          <div role="radiogroup" aria-label={s.modesLabel} className="grid grid-cols-2 gap-1 rounded-2xl bg-surface-2 p-1">
-            {(["sell", "reserve"] as const).map((option) => (
+          <div role="radiogroup" aria-label={s.modesLabel} onKeyDown={segmentedKeys(MODES, mode, setMode)} className="grid grid-cols-2 gap-1 rounded-2xl bg-surface-2 p-1">
+            {MODES.map((option) => (
               <button
                 key={option}
                 type="button"
                 role="radio"
                 aria-checked={mode === option}
+                tabIndex={segmentTabIndex(MODES, mode, option)}
                 onClick={() => {
                   setMode(option);
                 }}
@@ -255,7 +259,7 @@ export function MarkSheet({
             {!reserving && <span className="text-xs font-normal text-fg-subtle">({commonTexts.optional})</span>}
           </legend>
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label={reserving ? s.holderName : s.buyerName}>
+            <Field label={reserving ? s.holderName : s.buyerName} hint={holderMissing ? <span className="text-danger-fg">{s.errors.holderMissing}</span> : undefined}>
               <Input
                 value={name}
                 onChange={(event) => {

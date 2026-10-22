@@ -2,7 +2,7 @@
 
 import type { GoogleWalletDto, TicketPassDto, TransferTicketDto } from "@ingressoimpresso/api-types";
 import { Check, Copy, MessageCircle, Repeat, Wallet } from "lucide-react";
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 
 import { Button, Dialog, ErrorMessage, Field, Input, buttonClass } from "@/components/ui";
@@ -97,6 +97,9 @@ export function TransferSection({ pass, token, onTransferred }: { pass: TicketPa
   const words = forKind(ticketTexts, ticketTexts.tokens, pass.event.kind);
   const t = words.transfer;
   const [open, setOpen] = useState(false);
+  // The transfer that was made: closing the dialog in any way (Escape, the backdrop, a swipe)
+  // then counts as done, so the page shows the ticket as transferred instead of forgetting it.
+  const [done, setDone] = useState<TransferTicketDto | null>(null);
   return (
     <section className="flex items-center gap-3 rounded-2xl border border-border bg-surface p-4">
       <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-brand-soft-fg">
@@ -118,31 +121,57 @@ export function TransferSection({ pass, token, onTransferred }: { pass: TicketPa
       <Dialog
         open={open}
         onClose={() => {
-          setOpen(false);
+          if (done === null) {
+            setOpen(false);
+          } else {
+            onTransferred();
+          }
         }}
         title={t.title}
         description={t.description}
       >
-        {open && <TransferForm pass={pass} token={token} onTransferred={onTransferred} />}
+        {open && <TransferForm pass={pass} token={token} done={done} onDone={setDone} onTransferred={onTransferred} />}
       </Dialog>
     </section>
   );
 }
 
-function TransferForm({ pass, token, onTransferred }: { pass: TicketPassDto; token: string; onTransferred: () => void }) {
+function TransferForm({
+  pass,
+  token,
+  done,
+  onDone,
+  onTransferred,
+}: {
+  pass: TicketPassDto;
+  token: string;
+  done: TransferTicketDto | null;
+  onDone: (done: TransferTicketDto) => void;
+  onTransferred: () => void;
+}) {
   const words = forKind(ticketTexts, ticketTexts.tokens, pass.event.kind);
   const t = words.transfer;
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
-  const [done, setDone] = useState<TransferTicketDto | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const result = useRef<HTMLParagraphElement>(null);
+  useEffect(() => {
+    if (done !== null) {
+      result.current?.focus({ preventScroll: true });
+    }
+  }, [done]);
 
   if (done !== null) {
     const message = t.message(done.holderName, pass.event.name, done.url);
     return (
       <div className="flex flex-col gap-4">
-        <p className="flex items-start gap-2 rounded-xl bg-success-soft px-3.5 py-3 text-sm font-medium text-success-fg">
+        <p
+          ref={result}
+          role="status"
+          tabIndex={-1}
+          className="flex items-start gap-2 rounded-xl bg-success-soft px-3.5 py-3 text-sm font-medium text-success-fg outline-none"
+        >
           <Check className="mt-0.5 size-4 shrink-0" aria-hidden />
           {t.done(done.holderName)}
         </p>
@@ -155,9 +184,7 @@ function TransferForm({ pass, token, onTransferred }: { pass: TicketPassDto; tok
           icon={<Copy />}
           onClick={() => {
             void copyText(done.url).then((ok) => {
-              if (ok) {
-                toast.success(t.copied);
-              }
+              toast[ok ? "success" : "error"](ok ? t.copied : t.copyFailed);
             });
           }}
         >
@@ -174,7 +201,7 @@ function TransferForm({ pass, token, onTransferred }: { pass: TicketPassDto; tok
     setBusy(true);
     setError(null);
     try {
-      setDone(await api<TransferTicketDto>("/api/ticket/transfer", { method: "POST", body: { token, holderName: name.trim() } }));
+      onDone(await api<TransferTicketDto>("/api/ticket/transfer", { method: "POST", body: { token, holderName: name.trim() } }));
     } catch (failure) {
       setError(failure);
       setConfirming(false);
@@ -198,7 +225,7 @@ function TransferForm({ pass, token, onTransferred }: { pass: TicketPassDto; tok
         <Input
           value={name}
           maxLength={80}
-          autoFocus
+          data-autofocus
           autoComplete="name"
           placeholder={t.namePlaceholder}
           onChange={(event) => {

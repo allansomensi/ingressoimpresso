@@ -1,5 +1,6 @@
 import { ArrowRight, Check } from "lucide-react";
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -16,9 +17,10 @@ import { TemplateSample } from "@/components/marketing/template-sample";
 import { ButtonLink } from "@/components/ui";
 import { eventSeoPage } from "@/content/seo-event-pages";
 import { guidesForTemplate } from "@/content/seo-guides";
-import { eventSlugForTemplate, relatedTemplatePages, templateSeoBySlug, templateSeoPages } from "@/content/seo-templates";
+import { eventSlugForTemplate, relatedTemplatePages, templateImagePath, templateSeoBySlug, templateSeoPages } from "@/content/seo-templates";
 import { pageMetadata } from "@/lib/seo";
 import { templateById } from "@/lib/templates/catalog";
+import { templateImageSize } from "@/lib/templates/images";
 import { eventPages as eventPagesTexts } from "@/texts/pt-BR/event-pages";
 import { guides as guidesTexts } from "@/texts/pt-BR/guides";
 import { templateGallery as templateGalleryTexts } from "@/texts/pt-BR/template-gallery";
@@ -26,7 +28,7 @@ import { templates as templatesTexts } from "@/texts/pt-BR/templates";
 
 const t = templateGalleryTexts;
 
-type Props = { params: Promise<{ slug: string }> };
+type Props = { params: Promise<{ slug: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
 
 // Only the templates of the catalog have a page; any other slug is a 404.
 export const dynamicParams = false;
@@ -44,9 +46,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return pageMetadata({ title: page.title, description: page.description, path: `/modelos/${page.slug}` });
 }
 
-/** One template: a large sample, its colours, what it brings and the templates next to it. */
-export default async function TemplatePage({ params }: Props) {
-  const page = templateSeoBySlug((await params).slug);
+/**
+ * One template: its picture, large, its colours, what it brings and the templates next to it. The
+ * picture is the file in public/modelos (in the HTML, so image search ties it to this page; the
+ * browser gets no template code above the fold). `?captura=1` renders the live sample instead: that
+ * is what `just template-images` photographs to make the file.
+ */
+export default async function TemplatePage({ params, searchParams }: Props) {
+  const [{ slug }, query] = await Promise.all([params, searchParams]);
+  const page = templateSeoBySlug(slug);
+  const capture = query["captura"] === "1";
   const template = page === undefined ? undefined : templateById(page.id);
   if (page === undefined || template === undefined) {
     notFound();
@@ -66,7 +75,7 @@ export default async function TemplatePage({ params }: Props) {
     <div className="flex min-h-dvh flex-col">
       <JsonLd data={templatePageJsonLd(page)} />
       <SiteHeader />
-      <main className="flex-1">
+      <main id="conteudo" className="flex-1">
         {/* Hero: the template, large, with the sample event. */}
         <section className="relative overflow-hidden bg-glow">
           <div aria-hidden className="absolute inset-0 bg-dots [mask-image:radial-gradient(ellipse_at_top,black,transparent_70%)] opacity-60" />
@@ -92,7 +101,18 @@ export default async function TemplatePage({ params }: Props) {
             </div>
             <figure className="flex flex-col items-center gap-3">
               <div className={tall ? "w-full max-w-[18rem]" : "w-full max-w-2xl"}>
-                <TemplateSample id={page.id} capture className="rounded-[3px] shadow-xl ring-1 ring-black/10" />
+                {capture ? (
+                  <TemplateSample id={page.id} capture className="rounded-[3px] shadow-xl ring-1 ring-black/10" />
+                ) : (
+                  <Image
+                    src={templateImagePath(page)}
+                    {...templateImageSize(page.id)}
+                    alt={t.imageAlt(page.h1)}
+                    priority
+                    sizes="(min-width: 1024px) 42rem, calc(100vw - 2rem)"
+                    className="h-auto w-full rounded-[3px] shadow-xl ring-1 ring-black/10"
+                  />
+                )}
               </div>
               <figcaption className="text-center text-xs text-fg-subtle">{t.sample}</figcaption>
             </figure>
@@ -101,7 +121,7 @@ export default async function TemplatePage({ params }: Props) {
 
         {/* Colours */}
         {template.palettes.length > 1 && (
-          <section className="border-y border-border bg-surface">
+          <section className="defer-render border-y border-border bg-surface">
             <div className="mx-auto flex max-w-6xl flex-col gap-10 px-4 py-16 sm:px-6 lg:py-20">
               <SectionHeading title={t.colorsTitle} lead={t.colorsLead} />
               {/* Centered rows: two palettes sit in the middle, not on the left of a grid of three. */}

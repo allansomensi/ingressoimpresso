@@ -2,8 +2,12 @@
 
 import { ChevronDown } from "lucide-react";
 import {
+  Children,
+  cloneElement,
+  isValidElement,
   useId,
   type ComponentProps,
+  type ReactElement,
   type ReactNode,
   type SelectHTMLAttributes,
 } from "react";
@@ -12,14 +16,20 @@ import { cn } from "@/lib/cn";
 import { common as commonTexts } from "@/texts/pt-BR/common";
 
 export const controlClass = cn(
-  // 16px on phones: iOS zooms into any field with smaller text.
-  "w-full rounded-xl border border-border-input bg-surface px-3.5 text-base text-fg shadow-xs transition sm:text-[15px]",
+  // 16px wherever there is a touch screen (an iPhone on its side is wider than `sm`): iOS zooms
+  // into any field with smaller text.
+  "w-full rounded-xl border border-border-input bg-surface px-3.5 text-base text-fg shadow-xs transition pointer-fine:sm:text-[15px]",
   "placeholder:text-fg-subtle hover:border-fg-muted",
   "focus:border-brand focus:ring-4 focus:ring-ring focus:outline-none",
   "disabled:cursor-not-allowed disabled:opacity-60 aria-invalid:border-danger",
 );
 
-/** A labelled form control. The label wraps the control, so `getByLabel` and screen readers find it. */
+/**
+ * A labelled form control. The label wraps the control, so `getByLabel` and screen readers find
+ * it. The hint sits outside the label and is tied to the control by `aria-describedby` (when the
+ * control is the only child and does not describe itself): it is read as a description, not as
+ * part of the field's name, and a change in it (an error) is announced.
+ */
 export function Field({
   label,
   children,
@@ -33,16 +43,37 @@ export function Field({
   optional?: boolean;
   className?: string | undefined;
 }) {
+  const hintId = useId();
+  const described = hint !== undefined ? describe(children, hintId) : children;
   return (
-    <label className={cn("flex min-w-0 flex-col gap-1.5", className)}>
-      <span className="flex items-baseline gap-1.5 text-sm font-medium text-fg">
-        {label}
-        {optional && <span className="text-xs font-normal text-fg-subtle">({commonTexts.optional})</span>}
-      </span>
-      {children}
-      {hint !== undefined && <span className="text-xs leading-relaxed text-fg-muted">{hint}</span>}
-    </label>
+    <div className={cn("flex min-w-0 flex-col gap-1.5", className)}>
+      <label className="flex min-w-0 flex-col gap-1.5">
+        <span className="flex items-baseline gap-1.5 text-sm font-medium text-fg">
+          {label}
+          {optional && <span className="text-xs font-normal text-fg-subtle">({commonTexts.optional})</span>}
+        </span>
+        {described}
+      </label>
+      {hint !== undefined && (
+        <span id={hintId} aria-live="polite" className="text-xs leading-relaxed text-fg-muted">
+          {hint}
+        </span>
+      )}
+    </div>
   );
+}
+
+/** The single child control with `aria-describedby` pointing at the hint, unless it has its own. */
+function describe(children: ReactNode, hintId: string): ReactNode {
+  const only = Children.count(children) === 1 ? Children.toArray(children)[0] : undefined;
+  if (!isValidElement(only)) {
+    return children;
+  }
+  const element = only as ReactElement<{ "aria-describedby"?: string | undefined }>;
+  if (element.props["aria-describedby"] !== undefined) {
+    return children;
+  }
+  return cloneElement(element, { "aria-describedby": hintId });
 }
 
 export function Input({ className, ...props }: ComponentProps<"input">) {
@@ -148,7 +179,7 @@ export function Switch({
         }}
         className={cn(
           "relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors touch-target",
-          checked ? "bg-brand" : "bg-surface-3",
+          checked ? "bg-brand" : "bg-surface-3 ring-1 ring-border-input ring-inset",
         )}
       >
         <span

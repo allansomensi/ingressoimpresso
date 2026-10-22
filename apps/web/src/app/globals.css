@@ -74,6 +74,7 @@
   --danger-soft: #2d1415;
   --danger-fg: #fca5a5;
   --danger-solid: #dc2626;
+  --accent: #ffc247;
   --shadow-color: 250 40% 2%;
 }
 
@@ -257,6 +258,9 @@
   html {
     -webkit-tap-highlight-color: transparent;
     scroll-behavior: smooth;
+    /* An anchor target stops below the sticky header (4rem plus the notch) with some air, on every
+       page: the sections themselves need no scroll margin. */
+    scroll-padding-top: calc(5rem + env(safe-area-inset-top));
   }
 
   body {
@@ -299,6 +303,7 @@
     *::before,
     *::after {
       animation-duration: 0.01ms !important;
+      animation-delay: 0s !important;
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
       scroll-behavior: auto !important;
@@ -346,7 +351,6 @@
   background-attachment: local, local, scroll, scroll;
 }
 
-/* A strip that scrolls sideways with a finger, without a scrollbar. */
 /*
  * A long section below the fold: the browser skips laying it out (and fetching the fonts of its
  * ticket samples) until it nears the screen. `auto` keeps the real height once it has been seen.
@@ -356,6 +360,7 @@
   contain-intrinsic-size: auto 900px;
 }
 
+/* A strip that scrolls sideways with a finger, without a scrollbar. */
 @utility scrollbar-none {
   scrollbar-width: none;
   &::-webkit-scrollbar {

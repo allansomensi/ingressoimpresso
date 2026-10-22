@@ -1,5 +1,5 @@
 export const login = {
-  title: "Entrar",
+  title: "Entrar ou criar conta",
   metaTitle: "Criar conta grátis ou entrar · Ingresso Impresso",
   metaDescription: "Entre ou crie a sua conta grátis, sem senha: com o Google ou com um código no e-mail. Os primeiros 30 ingressos são por nossa conta.",
   subtitle: "Sem senha. Entre com o Google ou receba um código no seu e-mail.",

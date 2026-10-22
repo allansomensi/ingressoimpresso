@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { WifiOff } from "lucide-react";
 
 import { Logo } from "@/components/brand";
-import { ButtonLink } from "@/components/ui";
+import { OfflineActions } from "@/components/offline-actions";
 import { pwa as pwaTexts } from "@/texts/pt-BR/pwa";
 
 const t = pwaTexts;
@@ -19,15 +19,7 @@ export default function OfflinePage() {
           <WifiOff className="size-8" aria-hidden />
         </span>
         <h1 className="text-2xl font-semibold tracking-tight text-fg">{t.offlineTitle}</h1>
-        <p className="leading-relaxed text-fg-muted">{t.offlineBody}</p>
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <ButtonLink href="/painel" prefetch={false}>
-            {t.offlineRetry}
-          </ButtonLink>
-          <ButtonLink href="/portaria" variant="secondary" prefetch={false}>
-            {t.offlineDoor}
-          </ButtonLink>
-        </div>
+        <OfflineActions />
       </div>
     </main>
   );

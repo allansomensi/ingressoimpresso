@@ -83,13 +83,14 @@ function Timeline({ incident }: { incident: IncidentDto }) {
 }
 
 /** The public status page (ADR 0043): live checks of the API plus what the team reported. */
-export function StatusPage() {
+export function StatusPage({ initial = null }: { initial?: StatusDto | null }) {
   const status = useQuery({
     queryKey: ["status"],
     queryFn: () => api<StatusDto>("/api/status"),
     refetchInterval: 60_000,
     refetchIntervalInBackground: false,
     retry: 1,
+    ...(initial === null ? {} : { initialData: initial }),
   });
   // The API not answering is itself the news: the site is up (this page loaded), the rest is not.
   const unreachable = status.isError;
@@ -112,7 +113,8 @@ export function StatusPage() {
       {status.isPending ? (
         <Skeleton className="h-20 w-full rounded-2xl" />
       ) : (
-        <div className={cn("flex items-center gap-4 rounded-2xl border px-5 py-4", style.box)}>
+        // Refreshed every minute: a change is announced.
+        <div role="status" className={cn("flex items-center gap-4 rounded-2xl border px-5 py-4", style.box)}>
           <Icon className="size-7 shrink-0" aria-hidden />
           <div className="flex min-w-0 flex-1 flex-col">
             <p className="text-lg font-semibold">{unreachable ? t.unreachable : t.overall[overall]}</p>
@@ -179,24 +181,45 @@ export function StatusPage() {
           <h2 id="historico" className="text-sm font-semibold tracking-wide text-fg-subtle uppercase">
             {t.historyTitle}
           </h2>
-          <span className="text-xs text-fg-muted tabular">{t.daysClean(clean, DAYS)}</span>
+          {data !== undefined && <span className="text-xs text-fg-muted tabular">{t.daysClean(clean, DAYS)}</span>}
         </div>
-        <div className="flex h-10 items-stretch gap-[2px]" role="img" aria-label={t.historyLabel(clean, DAYS)}>
-          {days.map((day) => (
-            <span
-              key={day.day.getTime()}
-              title={`${day.day.toLocaleDateString("pt-BR")}: ${day.titles.length === 0 ? t.noIncidents : day.titles.join(", ")}`}
-              className={cn(
-                "flex-1 rounded-[3px] transition hover:opacity-70",
-                day.rank >= 3 ? "bg-danger" : day.rank >= 1 ? "bg-warning" : day.rank > 0 ? "bg-brand/60" : "bg-success/70",
-              )}
-            />
-          ))}
-        </div>
-        <div className="flex justify-between text-xs text-fg-subtle">
-          <span>{t.daysAgo(DAYS)}</span>
-          <span>{t.today}</span>
-        </div>
+        {data === undefined ? (
+          // Nothing read yet (or the API is down): no row of green days that would say "all fine".
+          status.isPending ? (
+            <Skeleton className="h-10 w-full rounded-lg" />
+          ) : (
+            <p className="rounded-2xl border border-dashed border-border-strong px-5 py-6 text-center text-sm text-fg-muted">{t.historyUnknown}</p>
+          )
+        ) : (
+          <>
+            <div className="flex h-10 items-stretch gap-[2px]" role="img" aria-label={t.historyLabel(clean, DAYS)}>
+              {days.map((day) => (
+                <span
+                  key={day.day.getTime()}
+                  title={`${day.day.toLocaleDateString("pt-BR")}: ${day.titles.length === 0 ? t.noIncidents : day.titles.join(", ")}`}
+                  className={cn(
+                    "flex-1 rounded-[3px] transition hover:opacity-70",
+                    day.rank >= 3 ? "bg-danger" : day.rank >= 1 ? "bg-warning" : day.rank > 0 ? "bg-brand/60" : "bg-success/70",
+                  )}
+                />
+              ))}
+            </div>
+            {/* The days with something, for whoever cannot hover the row (touch, keyboard, screen reader). */}
+            {days.some((day) => day.titles.length > 0) && (
+              <ul className="sr-only">
+                {days
+                  .filter((day) => day.titles.length > 0)
+                  .map((day) => (
+                    <li key={day.day.getTime()}>{`${day.day.toLocaleDateString("pt-BR")}: ${day.titles.join(", ")}`}</li>
+                  ))}
+              </ul>
+            )}
+            <div className="flex justify-between text-xs text-fg-subtle">
+              <span>{t.daysAgo(DAYS)}</span>
+              <span>{t.today}</span>
+            </div>
+          </>
+        )}
       </section>
 
       {planned.length > 0 && (
@@ -226,7 +249,9 @@ export function StatusPage() {
         <h2 id="passados" className="text-sm font-semibold tracking-wide text-fg-subtle uppercase">
           {t.pastTitle}
         </h2>
-        {(data?.recent ?? []).length === 0 ? (
+        {data === undefined ? (
+          <p className="rounded-2xl border border-dashed border-border-strong px-5 py-6 text-center text-sm text-fg-muted">{t.historyUnknown}</p>
+        ) : data.recent.length === 0 ? (
           <p className="rounded-2xl border border-dashed border-border-strong px-5 py-6 text-center text-sm text-fg-muted">{t.noPast}</p>
         ) : (
           (data?.recent ?? []).map((incident) => <Timeline key={incident.id} incident={incident} />)

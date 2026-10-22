@@ -2,9 +2,10 @@
 
 import { ArrowRight, Menu, X } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import { Logo } from "@/components/brand";
+import { SkipLink } from "@/components/skip-link";
 import { ButtonLink, useScrollLock } from "@/components/ui";
 import { readToken, subscribeToken } from "@/lib/api";
 import { cn } from "@/lib/cn";
@@ -23,6 +24,8 @@ const LINKS = [
   { href: "/precos", label: t.pricing, wide: false },
   { href: "/#duvidas", label: t.faq, wide: true },
 ] as const;
+const MENU_ID = "menu-do-site";
+const FOCUSABLE = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 function useSignedIn(): boolean {
   return useSyncExternalStore(
@@ -32,10 +35,16 @@ function useSignedIn(): boolean {
   );
 }
 
+/**
+ * Header of the public pages. The first thing in the tab order is a link that skips to the
+ * page's content (`<main id="conteudo">`), as in the panel (WCAG 2.4.1).
+ */
 export function SiteHeader() {
   const signedIn = useSignedIn();
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const toggle = useRef<HTMLButtonElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const onScroll = () => {
@@ -47,25 +56,54 @@ export function SiteHeader() {
     };
   }, []);
 
-  // The open menu is the page for a moment: the page under it stays put, and Escape closes it.
+  // The open menu is the page for a moment: the page under it stays put, focus moves into the
+  // menu and stays there (Tab wraps around), Escape closes it, and closing gives the focus back
+  // to the button that opened it.
   useScrollLock(open);
   useEffect(() => {
     if (!open) {
       return;
     }
+    const opener = toggle.current;
+    const items = () => [...(panel.current?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? [])];
+    items()[0]?.focus();
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setOpen(false);
+        return;
+      }
+      if (event.key !== "Tab") {
+        return;
+      }
+      const focusable = items();
+      const first = focusable[0];
+      const last = focusable.at(-1);
+      if (first === undefined || last === undefined) {
+        return;
+      }
+      const inside = panel.current?.contains(document.activeElement) ?? false;
+      if (event.shiftKey && (document.activeElement === first || !inside)) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (document.activeElement === last || !inside)) {
+        event.preventDefault();
+        first.focus();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => {
       window.removeEventListener("keydown", onKey);
+      opener?.focus();
     };
   }, [open]);
 
+  const close = () => {
+    setOpen(false);
+  };
+
   return (
     <>
+      <SkipLink />
       <header
         className={cn(
           "sticky top-0 z-40 pt-[env(safe-area-inset-top)] transition-[background,border,backdrop-filter] duration-200",
@@ -74,13 +112,13 @@ export function SiteHeader() {
       >
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
           <Logo />
-          <nav className="hidden items-center gap-1 lg:flex" aria-label={t.menu}>
+          <nav className="hidden items-center gap-1 lg:flex" aria-label={t.mainMenu}>
             {LINKS.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
                 className={cn(
-                  "rounded-lg px-3 py-2 text-sm font-medium text-fg-muted transition hover:bg-surface-2 active:bg-surface-2 hover:text-fg",
+                  "rounded-lg px-3 py-2 text-sm font-medium text-fg-muted transition hover:bg-surface-2 hover:text-fg active:bg-surface-2 pointer-coarse:py-3",
                   link.wide && "max-xl:hidden",
                 )}
               >
@@ -103,11 +141,12 @@ export function SiteHeader() {
             )}
           </div>
           <button
+            ref={toggle}
             type="button"
             className="-mr-2 flex size-11 items-center justify-center rounded-lg text-fg transition active:bg-surface-2 lg:hidden"
-            aria-label={t.menu}
+            aria-label={open ? t.closeMenu : t.menu}
             aria-expanded={open}
-            aria-controls="menu-do-site"
+            aria-controls={open ? MENU_ID : undefined}
             onClick={() => {
               setOpen(!open);
             }}
@@ -117,7 +156,8 @@ export function SiteHeader() {
         </div>
         {open && (
           <div
-            id="menu-do-site"
+            id={MENU_ID}
+            ref={panel}
             className="max-h-[calc(100dvh-4rem-env(safe-area-inset-top))] overflow-y-auto overscroll-contain border-t border-border bg-bg px-4 pt-2 pb-[max(1.25rem,env(safe-area-inset-bottom))] lg:hidden animate-fade-in"
           >
             <nav className="flex flex-col" aria-label={t.menu}>
@@ -125,9 +165,7 @@ export function SiteHeader() {
                 <Link
                   key={link.href}
                   href={link.href}
-                  onClick={() => {
-                    setOpen(false);
-                  }}
+                  onClick={close}
                   className="rounded-lg px-2 py-3 text-base font-medium text-fg transition active:bg-surface-2"
                 >
                   {link.label}
@@ -136,15 +174,19 @@ export function SiteHeader() {
             </nav>
             <div className="mt-3 grid gap-2">
               {signedIn ? (
-                <ButtonLink href="/painel" size="lg">
+                <ButtonLink href="/painel" size="lg" onClick={close}>
                   {t.panel}
                 </ButtonLink>
               ) : (
                 <>
-                  <ButtonLink href="/entrar" size="lg">
+                  <ButtonLink href="/entrar" size="lg" onClick={close}>
                     {t.start}
                   </ButtonLink>
-                  <Link href="/entrar" className="flex min-h-11 items-center justify-center rounded-lg text-sm font-medium text-fg-muted active:bg-surface-2">
+                  <Link
+                    href="/entrar"
+                    onClick={close}
+                    className="flex min-h-11 items-center justify-center rounded-lg text-sm font-medium text-fg-muted active:bg-surface-2"
+                  >
                     {t.signIn}
                   </Link>
                 </>
@@ -155,13 +197,7 @@ export function SiteHeader() {
       </header>
       {open && (
         // A tap outside the menu closes it. Outside the header: its blur would confine a fixed box.
-        <div
-          aria-hidden
-          onClick={() => {
-            setOpen(false);
-          }}
-          className="fixed inset-0 z-30 bg-black/30 backdrop-blur-[2px] lg:hidden animate-fade-in"
-        />
+        <div aria-hidden onClick={close} className="fixed inset-0 z-30 bg-black/30 backdrop-blur-[2px] lg:hidden animate-fade-in" />
       )}
     </>
   );

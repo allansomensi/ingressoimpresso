@@ -1,11 +1,11 @@
 "use client";
 
 import type { CashierClosingDto, SaleMethod, SellerOp, SellerViewDto } from "@ingressoimpresso/api-types";
-import { Banknote, Calculator, CreditCard, Lock, Minus, QrCode, Trash2 } from "lucide-react";
+import { Banknote, Calculator, ChevronDown, CreditCard, Lock, Minus, QrCode, Trash2 } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
-import { Badge, Button, Dialog, ErrorMessage, Field, Input } from "@/components/ui";
+import { Badge, Button, Dialog, ErrorMessage, Field, Input, segmentTabIndex, segmentedKeys } from "@/components/ui";
 import { api } from "@/lib/api";
 import { SALE_METHODS, cartCount, cartRanges, cartTotal, cashierProducts, changeDue, openShift, type Cart } from "@/lib/cashier";
 import { cn } from "@/lib/cn";
@@ -140,7 +140,6 @@ export function CashierSection({
                   <button
                     type="button"
                     disabled={left <= 0}
-                    aria-label={t.add(name)}
                     onClick={() => {
                       setQuantity(index, quantity + 1);
                     }}
@@ -158,10 +157,15 @@ export function CashierSection({
                       <span className="text-lg font-semibold text-fg tabular">{product.priceCents === null ? t.noPrice : money(product.priceCents)}</span>
                       <span className="text-xs text-fg-subtle">{t.available(Math.max(left, 0))}</span>
                     </span>
+                    {/* The badge over the corner is decoration: the count is said here. */}
+                    {quantity > 0 && <span className="sr-only">{t.inOrder(quantity)}</span>}
                   </button>
                   {quantity > 0 && (
                     <>
-                      <span className="pointer-events-none absolute -top-2 -right-1.5 flex h-7 min-w-7 items-center justify-center rounded-full bg-brand-solid px-2 text-sm font-bold text-brand-fg shadow-sm tabular">
+                      <span
+                        aria-hidden
+                        className="pointer-events-none absolute -top-2 -right-1.5 flex h-7 min-w-7 items-center justify-center rounded-full bg-brand-solid px-2 text-sm font-bold text-brand-fg shadow-sm tabular"
+                      >
                         {quantity}
                       </span>
                       <button
@@ -199,13 +203,14 @@ export function CashierSection({
               </div>
               <div className="flex flex-col gap-1.5">
                 <span className="text-sm font-medium text-fg">{t.method}</span>
-                <div role="radiogroup" aria-label={t.method} className="grid grid-cols-3 gap-2">
+                <div role="radiogroup" aria-label={t.method} onKeyDown={segmentedKeys(SALE_METHODS, method, setMethod)} className="grid grid-cols-3 gap-2">
                   {SALE_METHODS.map((value) => (
                     <button
                       key={value}
                       type="button"
                       role="radio"
                       aria-checked={method === value}
+                      tabIndex={segmentTabIndex(SALE_METHODS, method, value)}
                       onClick={() => {
                         setMethod(value);
                       }}
@@ -246,7 +251,7 @@ export function CashierSection({
                         onClick={() => {
                           setReceived((value / 100).toFixed(2).replace(".", ","));
                         }}
-                        className="min-h-9 rounded-full border border-border-strong bg-surface px-3.5 text-[13px] font-semibold text-fg tabular transition hover:bg-surface-2 active:bg-surface-2"
+                        className="min-h-9 rounded-full border border-border-strong bg-surface px-3.5 text-[13px] font-semibold text-fg tabular transition hover:bg-surface-2 active:bg-surface-2 pointer-coarse:min-h-11 pointer-coarse:text-sm"
                       >
                         {position === 0 ? t.exact : money(value)}
                       </button>
@@ -338,9 +343,12 @@ export function DifferenceBadge({ difference }: { difference: number | null }) {
 function ClosingList({ closings }: { closings: readonly CashierClosingDto[] }) {
   return (
     <details className="group rounded-2xl border border-border">
-      <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 px-3.5 text-sm font-medium text-fg">
+      <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 px-3.5 text-sm font-medium text-fg [&::-webkit-details-marker]:hidden">
         {t.closings}
-        <span className="text-xs text-fg-muted tabular">{closings.length}</span>
+        <span className="flex items-center gap-2 text-xs text-fg-muted tabular">
+          {closings.length}
+          <ChevronDown className="size-4 transition-transform group-open:rotate-180" aria-hidden />
+        </span>
       </summary>
       <ul className="flex flex-col divide-y divide-border border-t border-border">
         {closings.map((item) => (

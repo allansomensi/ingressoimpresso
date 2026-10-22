@@ -95,7 +95,7 @@ function ActiveCard({ reservation, view, now, canceled, onOpen, onSell }: { rese
             size="sm"
             variant="secondary"
             icon={<Check />}
-            aria-label={t.sellLabel(reservation.holderName)}
+            aria-label={`${t.sell}: ${t.sellLabel(reservation.holderName)}`}
             className="flex-1"
             onClick={() => {
               onSell(reservation);

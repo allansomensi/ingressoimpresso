@@ -29,10 +29,15 @@ const nextConfig: NextConfig = {
     ];
     // Service workers must never be served stale, or an update would wait for the HTTP cache.
     const worker = [{ key: "Cache-Control", value: "no-cache, no-store, must-revalidate" }];
+    // The template pictures (ADR 0062) and the ticket fonts change only with a release and have no
+    // hash in their names: a day in the browser, a week more while revalidating at the edge.
+    const assets = [{ key: "Cache-Control", value: "public, max-age=86400, stale-while-revalidate=604800" }];
     return Promise.resolve([
       { source: "/:path*", headers: security },
       { source: "/sw.js", headers: worker },
       { source: "/portaria-sw.js", headers: worker },
+      { source: "/modelos/:file(.*\\.jpg)", headers: assets },
+      { source: "/fonts/:path*", headers: assets },
     ]);
   },
 };

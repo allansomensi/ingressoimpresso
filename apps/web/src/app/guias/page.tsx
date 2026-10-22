@@ -23,16 +23,18 @@ export default function GuidesPage() {
     <div className="flex min-h-dvh flex-col">
       <JsonLd data={guideIndexJsonLd(seoGuides, t.metaTitle, t.metaDescription)} />
       <SiteHeader />
-      <main className="flex-1">
+      <main id="conteudo" className="flex-1">
         <section className="relative overflow-hidden bg-glow">
           <div aria-hidden className="absolute inset-0 bg-dots [mask-image:radial-gradient(ellipse_at_top,black,transparent_70%)] opacity-60" />
           <div className="relative mx-auto flex max-w-3xl flex-col items-start gap-6 px-4 pt-10 pb-14 sm:items-center sm:px-6 sm:text-center lg:pt-16">
             <Breadcrumb items={[{ label: eventPagesTexts.home, href: "/" }, { label: t.breadcrumb }]} />
             <h1 className="text-4xl leading-[1.05] font-semibold tracking-tight text-balance text-fg sm:text-5xl">{t.headline}</h1>
-            <p className="text-lg leading-relaxed text-pretty text-fg-muted">{t.lead}</p>
+            <p id="comecar" className="text-lg leading-relaxed text-pretty text-fg-muted">
+              {t.lead}
+            </p>
           </div>
         </section>
-        <section id="comecar" className="border-t border-border bg-bg">
+        <section className="border-t border-border bg-bg">
           <ul className="mx-auto grid max-w-6xl gap-4 px-4 py-14 sm:grid-cols-2 sm:px-6 lg:grid-cols-3 lg:py-20">
             {seoGuides.map((guide) => (
               <li key={guide.slug}>

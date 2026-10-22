@@ -85,7 +85,7 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   disco com teto de 1 GiB; tetos de eventos (500/org), faixas (300) e links da porta (60); CSP
   por lugar do arquivo (`proxy.ts`) e `X-Frame-Options` estático; manutenção nos escritores com
   token (`token_writers_maintenance`).
-- **Versionamento (ADR 0049): implementado, versão atual 1.14.0.** Uma versão SemVer para o produto
+- **Versionamento (ADR 0049): implementado, versão atual 1.16.0.** Uma versão SemVer para o produto
   inteiro (todos os manifestos, conferidos por `scripts/release.mjs check`), `CHANGELOG.md` em
   português (Keep a Changelog), `just release` no `staging` e tag `vX.Y.Z` + GitHub Release pelo
   job **Release** do CI no `main`; versão em Minha conta, em `/sobre`, em `/status` (site e API) e
@@ -406,6 +406,18 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   - Landing com a seção "Muito além do ingresso" (`landing.platform`, `#evento-inteiro`);
     `ErrorMessage` com `onRetry`; `--border-input` nos campos; sininho conta só as novidades
     depois da criação da conta.
+
+- **Auditoria de interface e SEO (ADR 0120): implementada.** Rastreamento das 112 páginas públicas
+  sem achados; link "Pular para o conteúdo" e `<main id="conteudo">` em toda página pública,
+  `scroll-padding-top` único no `html`; controles segmentados com um ponto de tabulação e setas
+  (`components/ui/segmented.ts`); faixa de modelos com pausa; `Field` com a dica fora do `label`
+  (`aria-describedby`); "link inválido" só quando o servidor recusa o token (descadastro,
+  certificado), `/e/<endereço>` só 404 com 404 (`PublicEventUnavailable`), página offline que
+  recarrega o mesmo endereço (`components/offline-actions.tsx`), timeout de 60 s em `api.ts`;
+  tinta sobre cor pela razão de contraste (limiar 0,18 em `inkFor`, `ink_for` e `textOn`); 44 px
+  no `Button sm` e nos controles pequenos; `privatePageMetadata` (`lib/seo.ts`) para os links
+  privados; foto do modelo como herói em `/modelos/<slug>` (o ao vivo só com `?captura=1`);
+  Novidades e Status com dados no HTML (`lib/server-fetch.ts`).
 
 Plano completo em `docs/arquitetura.md` §12.
 
@@ -824,6 +836,15 @@ just backup-restore-test <dump.age> <chave-age>   # restaura um backup num banco
   ganha a versão das fichas na seção `tokens` do seu módulo (ficha, usada, barraca, produto, com a
   concordância certa); leia os textos por `useEventTexts()`/`forKind`, nunca por uma constante do
   módulo dentro de um componente do evento.
+- **Acessibilidade (ADR 0120):** página pública começa por `SiteHeader` (que traz o link "Pular
+  para o conteúdo") e tem `<main id="conteudo">`; nada leva `scroll-mt` para compensar o cabeçalho
+  (o `html` já tem `scroll-padding-top`). Controle segmentado (`role="radiogroup"`/`tablist` de
+  botões) usa `segmentedKeys` no grupo e `segmentTabIndex` em cada opção. Dica ou erro de um campo
+  vai em `Field hint` (vira `aria-describedby`); um erro solto aponta para o campo por
+  `ErrorMessage id`. Uma tela que troca de conteúdo foca o novo título (`tabIndex={-1}`); espera
+  longa tem `role="status"` e texto; o controle que deve receber o foco num `Dialog` leva
+  `data-autofocus`, nunca `autoFocus`. "Link inválido" só quando o servidor recusa o token (400,
+  404, 410); o resto é erro com "Tentar de novo". Texto sobre uma cor usa `inkFor`/`textOn`.
 - **Textos de interface centralizados:** `apps/web/src/texts/pt-BR/<seção>.ts` no web (um módulo
   por seção, importado como `import { event as eventTexts } from "@/texts/pt-BR/event"`: cada
   página leva só as seções que usa; `pt-BR.ts` só lista as seções e importá-lo traz tudo) e

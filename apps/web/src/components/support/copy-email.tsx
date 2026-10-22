@@ -5,6 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui";
+import { copyText } from "@/lib/share";
 import { helpCenter as helpCenterTexts } from "@/texts/pt-BR/help-center";
 
 const t = helpCenterTexts;
@@ -17,15 +18,11 @@ export function CopyEmail({ email }: { email: string }) {
       variant="secondary"
       icon={copied ? <Check /> : <Copy />}
       onClick={() => {
-        navigator.clipboard.writeText(email).then(
-          () => {
-            setCopied(true);
-            toast.success(t.emailCopied);
-          },
-          () => {
-            toast.error(t.copyFailed);
-          },
-        );
+        // `copyText` also covers a browser without the clipboard API (an in-app browser, plain HTTP).
+        void copyText(email).then((ok) => {
+          setCopied(ok);
+          toast[ok ? "success" : "error"](ok ? t.emailCopied : t.copyFailed);
+        });
       }}
     >
       {t.copyEmail}

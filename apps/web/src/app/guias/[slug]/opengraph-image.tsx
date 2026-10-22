@@ -2,13 +2,12 @@ import { seoGuide, seoGuides } from "@/content/seo-guides";
 import { templateSeoById } from "@/content/seo-templates";
 import { SHARE_CONTENT_TYPE, SHARE_SIZE, shareImage } from "@/lib/share-image";
 import { guides as guidesTexts } from "@/texts/pt-BR/guides";
-import { meta as metaTexts } from "@/texts/pt-BR/meta";
 
 // Built with the site (fonts and pictures are read from disk), one per guide.
 export const dynamic = "force-static";
 export const size = SHARE_SIZE;
 export const contentType = SHARE_CONTENT_TYPE;
-export const alt = metaTexts.shareImageAlt;
+export const alt = guidesTexts.shareImageAlt;
 
 export function generateStaticParams() {
   return seoGuides.map((guide) => ({ slug: guide.slug }));

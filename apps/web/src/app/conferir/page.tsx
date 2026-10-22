@@ -29,7 +29,7 @@ export default function VerifyPage() {
     <div className="flex min-h-dvh flex-col">
       <JsonLd data={verifyPageJsonLd({ title: t.metaTitle, description: t.metaDescription, name: t.breadcrumb, faq: t.faq })} />
       <SiteHeader />
-      <main className="flex-1">
+      <main id="conteudo" className="flex-1">
         <section className="relative overflow-hidden bg-glow">
           <div aria-hidden className="absolute inset-0 bg-dots [mask-image:radial-gradient(ellipse_at_top,black,transparent_70%)] opacity-60" />
           <div className="relative mx-auto grid max-w-6xl items-start gap-8 px-4 pt-8 pb-16 sm:px-6 lg:grid-cols-[1fr_minmax(0,30rem)] lg:gap-14 lg:pt-14 lg:pb-24">

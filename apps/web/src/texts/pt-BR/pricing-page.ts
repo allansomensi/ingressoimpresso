@@ -19,7 +19,7 @@ export const pricingPage = {
     },
     {
       title: "Grátis para começar",
-      body: "Toda conta nova ganha ingressos grátis, descontados do primeiro lote. Dá para testar com um evento de verdade.",
+      body: "Toda conta nova ganha ingressos grátis, descontados dos primeiros lotes. Dá para testar com um evento de verdade.",
     },
     {
       title: "Sem porcentagem da venda",
