@@ -520,22 +520,40 @@ pub(crate) async fn send_for_seller(
     .fetch_one(&state.pool)
     .await?;
     if !active {
+        // A number that already went through the door is not sold again by a phone.
+        let entered = sqlx::query_scalar!(
+            r#"select exists(select 1 from entries where event_id = $1 and ticket_number = $2) as "entered!""#,
+            event.id,
+            number
+        )
+        .fetch_one(&state.pool)
+        .await?;
+        if entered {
+            return Err(ApiError::Conflict(
+                "ticket_entered",
+                "this ticket already entered".to_owned(),
+            ));
+        }
         create_links(state, event, &numbers, holder, Sender::Seller(seller_id)).await?;
     }
     Ok(())
 }
 
-/// The active digital tickets of an event's numbers, as links to send (for the seller's page).
+/// The active digital tickets a seller sent for an event's numbers, as links to send again
+/// (for the seller's page). A link the organizer made, or the holder got by a transfer, is the
+/// holder's own (ADR 0061, 0119).
 pub(crate) async fn active_urls(
     state: &AppState,
     event_id: Uuid,
+    seller_id: Uuid,
     numbers: &[i32],
 ) -> ApiResult<std::collections::HashMap<i32, String>> {
     let rows = sqlx::query!(
         r#"select id, ticket_number, sealed from ticket_links
-           where event_id = $1 and revoked_at is null and ticket_number = any($2)"#,
+           where event_id = $1 and seller_id = $3 and revoked_at is null and ticket_number = any($2)"#,
         event_id,
         numbers,
+        seller_id,
     )
     .fetch_all(&state.pool)
     .await?;
@@ -1387,7 +1405,7 @@ pub async fn image(
     } else {
         // Wait for a render slot (shared with the design previews) before loading anything big,
         // and give up after a while instead of queueing without bound.
-        let _permit =
+        let permit =
             tokio::time::timeout(RENDER_WAIT, state.render_permits.clone().acquire_owned())
                 .await
                 .map_err(|_| ApiError::Unavailable("busy"))?
@@ -1396,7 +1414,7 @@ pub async fn image(
         if let Ok(bytes) = tokio::fs::read(&cached).await {
             bytes
         } else {
-            let jpeg = render_image(&state, &link).await?;
+            let jpeg = render_image(&state, &link, permit).await?;
             let partial = cached.with_extension("partial");
             if tokio::fs::write(&partial, &jpeg).await.is_ok() {
                 let _ = tokio::fs::rename(&partial, &cached).await;
@@ -1419,7 +1437,13 @@ pub async fn image(
 
 /// The ticket of a link drawn with the event's current design, art and its signed QR. The
 /// caller holds a render permit.
-async fn render_image(state: &AppState, link: &OpenRow) -> ApiResult<Vec<u8>> {
+/// Draws the ticket under `permit`, which goes with the render into the blocking task: a request
+/// dropped at its timeout no longer frees the slot while the drawing keeps the CPU (ADR 0118).
+async fn render_image(
+    state: &AppState,
+    link: &OpenRow,
+    permit: tokio::sync::OwnedSemaphorePermit,
+) -> ApiResult<Vec<u8>> {
     let secret = unseal(state, link.id, &link.sealed)?;
     let ticket = SignedTicket::from_qr_text(&secret.qr_text)
         .map_err(|error| ApiError::Internal(error.into()))?;
@@ -1450,11 +1474,13 @@ async fn render_image(state: &AppState, link: &OpenRow) -> ApiResult<Vec<u8>> {
             seat: tags.seat(number),
         }],
     };
-    let images =
-        tokio::task::spawn_blocking(move || ticket_render::ticket_images(&job, IMAGE_WIDTH_PX))
-            .await
-            .map_err(anyhow::Error::from)?
-            .map_err(|error| ApiError::Internal(error.into()))?;
+    let images = tokio::task::spawn_blocking(move || {
+        let _permit = permit;
+        ticket_render::ticket_images(&job, IMAGE_WIDTH_PX)
+    })
+    .await
+    .map_err(anyhow::Error::from)?
+    .map_err(|error| ApiError::Internal(error.into()))?;
     Ok(images
         .into_iter()
         .next()

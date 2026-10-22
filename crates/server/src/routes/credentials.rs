@@ -23,6 +23,8 @@ use crate::state::AppState;
 
 /// Credential numbers start above this one; tickets stop at `MAX_TICKET_NUMBER` (9,999,999).
 pub const CREDENTIAL_BASE: i32 = 2_000_000_000;
+/// `?ids=` of the badges: 500 credentials of 36 characters and a comma each.
+const MAX_BADGE_IDS_CHARS: usize = 500 * 37;
 /// Credentials of any event; more come with the paid tickets.
 const FREE_CREDENTIALS: i64 = 20;
 /// One more credential for every this many paid tickets.
@@ -358,6 +360,9 @@ pub async fn badges(
         .ids
         .as_deref()
         .map(|ids| {
+            if ids.len() > MAX_BADGE_IDS_CHARS {
+                return Err(bad_request("invalid_ids", "too many ids"));
+            }
             ids.split(',')
                 .filter(|id| !id.trim().is_empty())
                 .map(|id| {

@@ -700,7 +700,7 @@ async fn prune(pool: &PgPool) -> ApiResult<()> {
         .await?;
     // The answers kept for repeated changes of the seller's page (ADR 0074): a phone retries
     // within hours, not weeks.
-    sqlx::query!("delete from seller_sync_ops where created_at < now() - interval '30 days'")
+    sqlx::query!("delete from seller_sync_ops where created_at < now() - interval '7 days'")
         .execute(pool)
         .await?;
     // Old export rows (their files went long ago; the download links go with them).

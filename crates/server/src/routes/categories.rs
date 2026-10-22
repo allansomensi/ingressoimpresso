@@ -336,6 +336,7 @@ pub async fn assign(
 ) -> ApiResult<(StatusCode, Json<RangeDto>)> {
     let event_id = category_event(&state, &user, category_id).await?;
     let numbers = range(body.first, body.last)?;
+    super::ensure_ranges_room(&state.pool, super::RangeOwner::Category(category_id)).await?;
     let id = Uuid::new_v4();
     sqlx::query!(
         "insert into category_ranges (id, event_id, category_id, numbers) values ($1, $2, $3, $4)",
