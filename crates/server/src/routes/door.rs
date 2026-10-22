@@ -27,7 +27,16 @@ use crate::state::AppState;
 /// Links keep working until the end of the event plus this grace (ADR 0007).
 pub(crate) const ACCESS_GRACE: Duration = Duration::hours(12);
 const MAX_DEVICES_PER_ACCESS: i64 = 50;
+/// Active door links of one event (each registers up to 50 phones).
+const MAX_DOOR_ACCESSES: i64 = 60;
 const MAX_SCANS_PER_UPLOAD: usize = 500;
+/// Requests one registered phone may make per minute (manifests, uploads, the guest list).
+const DEVICE_REQUESTS_PER_MINUTE: usize = 240;
+/// No door reads a ticket before this (the product did not exist): an earlier clock is a lie.
+const EARLIEST_SCAN_UNIX: i64 = 1_577_836_800; // 2020-01-01
+/// How far ahead of the server a phone's clock may be: wrong by a time zone or a day at worst,
+/// never by seasons (an earlier scan takes the entry; a later one is only ordered after).
+const SCAN_FUTURE_TOLERANCE: Duration = Duration::days(31);
 const MAX_LABEL_CHARS: usize = 60;
 const MAX_DEVICE_NAME_CHARS: usize = 40;
 /// `last_seen_at` is written at most this often per phone (it syncs every few seconds).
@@ -228,6 +237,18 @@ pub async fn create_access(
         ));
     }
     one_line(label, "invalid_label")?;
+    let links = sqlx::query_scalar!(
+        r#"select count(*) as "count!" from door_accesses where event_id = $1 and revoked_at is null"#,
+        event_id
+    )
+    .fetch_one(&state.pool)
+    .await?;
+    if links >= MAX_DOOR_ACCESSES {
+        return Err(ApiError::Conflict(
+            "too_many_door_links",
+            format!("an event has at most {MAX_DOOR_ACCESSES} active door links"),
+        ));
+    }
     // A checkpoint's link reads that checkpoint (ADR 0092): who has the right is the checkpoint's
     // own setting, so the door's categories do not apply.
     let checkpoint = match body.checkpoint_id {
@@ -505,6 +526,18 @@ impl FromRequestParts<AppState> for DoorDevice {
         .fetch_optional(&state.pool)
         .await?
         .ok_or(ApiError::Unauthorized)?;
+        // One phone syncs every few seconds at most; a script replaying manifests or uploads
+        // in a loop holds locks and rows of the whole event (ADR 0119).
+        if !state
+            .attempt(
+                &format!("door-device:{}", device.id),
+                DEVICE_REQUESTS_PER_MINUTE,
+                std::time::Duration::from_mins(1),
+            )
+            .await
+        {
+            return Err(ApiError::TooManyRequests);
+        }
         sqlx::query!(
             r#"update door_devices set last_seen_at = now()
                where id = $1 and (last_seen_at is null or last_seen_at < now() - make_interval(secs => $2))"#,
@@ -954,6 +987,7 @@ pub async fn upload_scans(
         .iter()
         .map(|scan| ValidScan::new(scan, &device, days))
         .collect::<ApiResult<Vec<_>>>()?;
+    check_scan_facts(&state, &device, &scans).await?;
     // Entries are locked in ticket order, so concurrent uploads cannot deadlock. Within a ticket,
     // its movements go in the order they happened (an exit after an entry at the same instant):
     // a phone's batch comes in any order, and each scan is classified against the ones before it.
@@ -986,6 +1020,71 @@ pub async fn upload_scans(
     Ok(Json(DoorScansResponse {
         results: results.into_iter().flatten().collect(),
     }))
+}
+
+/// What an honest phone can only have read from a signed QR of this event (ADR 0119): a
+/// ticket's number inside a paid (or refunded: the range stays taken, invariant 10) batch of the
+/// event and a key of the event; a credential that the event issued. A phone that says
+/// otherwise is not reporting the door, and its whole upload is refused.
+async fn check_scan_facts(
+    state: &AppState,
+    device: &DoorDevice,
+    scans: &[ValidScan],
+) -> ApiResult<()> {
+    let mut numbers: Vec<i32> = Vec::new();
+    let mut keys: Vec<i16> = Vec::new();
+    let mut credentials: Vec<i32> = Vec::new();
+    for scan in scans {
+        match (scan.outcome, scan.number) {
+            (ScanOutcome::CredentialAdmitted, Some(number)) => credentials.push(number),
+            (_, Some(number)) if scan.vouched() => {
+                if number > super::MAX_TICKET_NUMBER {
+                    return Err(bad_request(
+                        "invalid_scans",
+                        "a ticket number of this event was expected",
+                    ));
+                }
+                numbers.push(number);
+                if let Some(key) = scan.key_id {
+                    keys.push(key);
+                }
+            }
+            _ => {}
+        }
+    }
+    numbers.sort_unstable();
+    numbers.dedup();
+    keys.sort_unstable();
+    keys.dedup();
+    credentials.sort_unstable();
+    credentials.dedup();
+    let facts = sqlx::query!(
+        r#"select
+             (select coalesce(bool_and(exists(
+                 select 1 from ticket_batches b
+                 where b.event_id = $1 and b.status in ('paid', 'refunded') and b.numbers @> n.number)), true)
+              from unnest($2::int[]) as n(number)) as "numbers_ok!",
+             (select coalesce(bool_and(exists(
+                 select 1 from event_signing_keys k where k.event_id = $1 and k.key_id = n.key_id)), true)
+              from unnest($3::smallint[]) as n(key_id)) as "keys_ok!",
+             (select coalesce(bool_and(exists(
+                 select 1 from event_credentials c where c.event_id = $1 and c.number = n.number)), true)
+              from unnest($4::int[]) as n(number)) as "credentials_ok!""#,
+        device.event_id,
+        &numbers,
+        &keys,
+        &credentials,
+    )
+    .fetch_one(&state.pool)
+    .await?;
+    if !(facts.numbers_ok && facts.keys_ok && facts.credentials_ok) {
+        tracing::warn!(device = %device.id, event = %device.event_id, "scans of numbers the event never issued");
+        return Err(bad_request(
+            "invalid_scans",
+            "a ticket number or key of this event was expected",
+        ));
+    }
+    Ok(())
 }
 
 /// An uploaded scan with its values checked and converted.
@@ -1111,6 +1210,14 @@ impl ValidScan {
         let scanned_at =
             OffsetDateTime::from_unix_timestamp_nanos(i128::from(scan.scanned_at_ms) * 1_000_000)
                 .map_err(|_| invalid())?;
+        // A phone's clock may be off by hours, never by years: a scan "from 1970" would stand
+        // in front of every real entry (invariant 3 dedups by number), and a far future one
+        // would never be undone.
+        if scanned_at.unix_timestamp() < EARLIEST_SCAN_UNIX
+            || scanned_at > OffsetDateTime::now_utc() + SCAN_FUTURE_TOLERANCE
+        {
+            return Err(invalid());
+        }
         // Only a checkpoint hands over several items (ADR 0112); the first is no slot at all.
         let slot = match scan.slot {
             None | Some(1) => None,
@@ -1133,6 +1240,26 @@ impl ValidScan {
             ledger_day,
             slot,
         })
+    }
+
+    /// Whether the phone says the QR was authentic for this event: a ticket's number and key
+    /// must then be the event's own (ADR 0119). Invalid, foreign and credential scans carry
+    /// numbers the server cannot vouch for.
+    const fn vouched(&self) -> bool {
+        matches!(
+            self.outcome,
+            ScanOutcome::Admitted
+                | ScanOutcome::RejectedUsed
+                | ScanOutcome::RejectedVoid
+                | ScanOutcome::RejectedWrongDoor
+                | ScanOutcome::Readmitted
+                | ScanOutcome::Exited
+                | ScanOutcome::RejectedAlreadyOut
+                | ScanOutcome::RejectedWrongDay
+                | ScanOutcome::BenefitGranted
+                | ScanOutcome::RejectedBenefitUsed
+                | ScanOutcome::RejectedNotEntitled
+        )
     }
 
     /// Whether the server classifies it: an entry, a return or a use.
