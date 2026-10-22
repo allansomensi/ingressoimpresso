@@ -3,7 +3,7 @@
 import type { AccountDto, MeUser, TourOutcome } from "@ingressoimpresso/api-types";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ArrowRight, CalendarPlus, PartyPopper, Printer, QrCode, Ticket, X, type LucideIcon } from "lucide-react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 
 import { LogoMark } from "@/components/brand";
@@ -337,30 +337,21 @@ function Done({ onCreate, onExplore, onBack }: { onCreate: () => void; onExplore
 }
 
 /**
- * Shows the tour to an account that has not seen it (`tourPending`) on the events page, or to
- * anyone who asked for it again (`?tour=1`, from Minha conta), and records how it ended. While it
- * shows, `children` (the announcements' window) waits, so the two never stack. Reads the URL:
- * render it inside a `<Suspense>`.
+ * Shows the tour, on the events page, to an account that has not finished nor skipped it
+ * (`tourPending`), and records how it ended. While it shows, `children` (the announcements'
+ * window) waits, so the two never stack.
  */
 export function TourGate({ user, blocked, children }: { user: MeUser; blocked: boolean; children: ReactNode }) {
   const queryClient = useQueryClient();
-  const router = useRouter();
   const pathname = usePathname();
-  const search = useSearchParams();
   const [ended, setEnded] = useState(false);
-  const replay = search.has("tour");
-  const open = pathname === "/painel" && !blocked && (replay || (user.tourPending && !ended));
+  const open = pathname === "/painel" && !blocked && user.tourPending && !ended;
 
   const end = (outcome: TourOutcome) => {
-    if (replay) {
-      router.replace("/painel", { scroll: false });
-    }
-    if (user.tourPending) {
-      setEnded(true);
-      queryClient.setQueriesData<MeUser>({ queryKey: ["me"] }, (old) => (old === undefined ? old : { ...old, tourPending: false }));
-      // A failure only means the tour shows again on the next visit.
-      void api<undefined>("/api/account/tour", { method: "POST", body: { outcome } }).catch(() => undefined);
-    }
+    setEnded(true);
+    queryClient.setQueriesData<MeUser>({ queryKey: ["me"] }, (old) => (old === undefined ? old : { ...old, tourPending: false }));
+    // A failure only means the tour shows again on the next visit.
+    void api<undefined>("/api/account/tour", { method: "POST", body: { outcome } }).catch(() => undefined);
   };
-  return open ? <WelcomeTour key={search.toString()} onEnd={end} /> : children;
+  return open ? <WelcomeTour onEnd={end} /> : children;
 }
