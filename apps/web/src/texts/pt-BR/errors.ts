@@ -107,7 +107,8 @@ export const errors = {
   range_overlap: "Essa faixa se sobrepõe a outra já entregue.",
   invalid_note: "Observação muito longa.",
   already_undone: "Esse cancelamento já foi desfeito.",
-  void_locked: "Esse cancelamento veio de um estorno e não pode ser desfeito.",
+  void_locked:
+    "Esse cancelamento veio de um estorno ou de uma contestação e não pode ser desfeito daqui.",
   invalid_scope: "Seleção inválida.",
   export_not_ready: "O arquivo ainda não está pronto.",
   export_expired: "O arquivo expirou. Gere de novo.",
@@ -273,4 +274,10 @@ export const errors = {
   too_many_checkpoints: "Um evento pode ter até 10 pontos de controle.",
   checkpoints_tokens:
     "Fichas de consumo não têm pontos de controle: cada ficha já é o consumo.",
+  already_admin: "Essa pessoa administra a plataforma e já alcança todos os eventos.",
+  too_many_events: "A organização chegou ao limite de 500 eventos. Exclua eventos antigos.",
+  too_many_ranges: "São no máximo 300 faixas de números por vendedor ou categoria.",
+  too_many_door_links: "Um evento tem até 60 links de portaria ativos. Revogue os que não usa.",
+  certificates_too_heavy:
+    "As imagens do certificado são grandes demais para tantas pessoas. Use imagens menores.",
 } as const;

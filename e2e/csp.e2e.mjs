@@ -35,6 +35,11 @@ const PAGES = [
   "/reembolso",
   "/offline",
   "/nao-existe",
+  // Pages whose path ends like a static file are pages all the same (ADR 0119).
+  "/nao-existe.js",
+  "/i/abc.json",
+  "/e/nao-existe.txt",
+  "/painel/eventos/x.map",
 ];
 
 const browser = await chromium.launch();

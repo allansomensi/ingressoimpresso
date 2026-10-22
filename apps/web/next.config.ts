@@ -23,6 +23,8 @@ const nextConfig: NextConfig = {
       { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
       { key: "Referrer-Policy", value: "no-referrer" },
       { key: "X-Content-Type-Options", value: "nosniff" },
+      // The CSP's frame-ancestors says the same per page; this one holds for every answer.
+      { key: "X-Frame-Options", value: "DENY" },
       { key: "Permissions-Policy", value: "camera=(self), microphone=(), geolocation=()" },
     ];
     // Service workers must never be served stale, or an update would wait for the HTTP cache.
