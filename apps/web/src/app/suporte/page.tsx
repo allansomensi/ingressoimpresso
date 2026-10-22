@@ -25,7 +25,7 @@ export default function Support() {
         })}
       />
       <SiteHeader />
-      <main className="flex-1">
+      <main id="conteudo" className="flex-1">
         <SupportPage />
       </main>
       <SiteFooter />

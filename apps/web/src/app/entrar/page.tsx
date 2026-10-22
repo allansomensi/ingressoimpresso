@@ -5,7 +5,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Check, Gift, Mail } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
+import { Suspense, useEffect, useId, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
 import { toast } from "sonner";
 
 import { Logo, LogoMark } from "@/components/brand";
@@ -13,7 +13,7 @@ import { GoogleSignIn } from "@/components/google-sign-in";
 import { OtpInput } from "@/components/otp-input";
 import { Turnstile, type TurnstileHandle } from "@/components/turnstile";
 import { TwoFactorStep } from "@/components/two-factor-step";
-import { Alert, Button, ErrorMessage, Field, Input, Spinner } from "@/components/ui";
+import { Alert, Button, ErrorMessage, Field, Input, Skeleton, Spinner } from "@/components/ui";
 import { ApiError, api } from "@/lib/api";
 import { money } from "@/lib/format";
 import { usePlatform } from "@/lib/platform";
@@ -220,6 +220,17 @@ function SignIn() {
     onSuccess: finish,
   });
 
+  const codeErrorId = useId();
+  const emailErrorId = useId();
+  const emailInput = useRef<HTMLInputElement>(null);
+  // The e-mail field takes the focus once it is known to be the only way in (no Google button):
+  // `autoFocus` would fire before the options arrive and the keyboard would push the form around.
+  useEffect(() => {
+    if (!options.isPending && googleClientId === null && !codeSent && secondStep === null && mode !== "full") {
+      emailInput.current?.focus({ preventScroll: true });
+    }
+  }, [options.isPending, googleClientId, codeSent, secondStep, mode]);
+
   const submit = (event: FormEvent) => {
     event.preventDefault();
     if (codeSent) {
@@ -245,7 +256,7 @@ function SignIn() {
     );
 
   const googleButton =
-    googleClientId === null ? null : (
+    googleClientId === null || mode === "full" ? null : (
       <div className="flex flex-col gap-3">
         {google.isPending ? (
           <div className="flex h-11 items-center justify-center gap-2 rounded-full border border-border bg-surface text-sm font-medium text-fg-muted">
@@ -276,7 +287,7 @@ function SignIn() {
         <Logo inverse className="relative" />
         <div className="relative flex flex-col gap-8">
           <LogoMark className="size-16" />
-          <h2 className="max-w-md text-4xl leading-tight font-semibold tracking-tight">{t.asideTitle}</h2>
+          <p className="max-w-md text-4xl leading-tight font-semibold tracking-tight">{t.asideTitle}</p>
           <ul className="flex flex-col gap-3">
             {t.asidePoints.map((point) => (
               <li key={point} className="flex items-center gap-3 text-white/80">
@@ -291,7 +302,7 @@ function SignIn() {
         <p className="relative text-sm text-white/50">{metaTexts.description}</p>
       </aside>
 
-      <main className="flex flex-col bg-glow px-4 py-6 sm:px-8">
+      <main id="conteudo" className="flex flex-col bg-glow px-4 py-6 sm:px-8">
         <Logo className="lg:invisible" />
         <div className="m-auto flex w-full max-w-sm flex-col gap-8 py-12 animate-rise">
           {secondStep !== null ? (
@@ -342,8 +353,9 @@ function SignIn() {
                     }}
                     invalid={verify.isError}
                     disabled={verify.isPending}
+                    describedBy={verify.isError ? codeErrorId : undefined}
                   />
-                  <ErrorMessage error={verify.error} />
+                  <ErrorMessage id={codeErrorId} error={verify.error} />
                   <Button type="submit" size="lg" disabled={code.length !== 6} loading={verify.isPending}>
                     {verify.isPending ? t.verifying : t.verify}
                   </Button>
@@ -355,6 +367,7 @@ function SignIn() {
                         setCodeSent(false);
                         setCode("");
                         verify.reset();
+                        requestCode.reset();
                       }}
                     >
                       <ArrowLeft className="size-4" aria-hidden />
@@ -386,8 +399,9 @@ function SignIn() {
                       {t.quotaBody}
                     </Alert>
                   )}
-                  {googleButton}
-                  {googleButton !== null && (
+                  {/* The Google button's place is held while the options load: the form does not jump. */}
+                  {options.isPending && !googleBlocked ? <Skeleton className="h-11 w-full rounded-full" /> : googleButton}
+                  {(googleButton !== null || (options.isPending && !googleBlocked)) && (
                     <div className="flex items-center gap-3 text-xs font-medium tracking-wide text-fg-subtle uppercase">
                       <span className="h-px flex-1 bg-border" />
                       {t.or}
@@ -397,6 +411,7 @@ function SignIn() {
                   <form onSubmit={submit} className="flex flex-col gap-4">
                     <Field label={t.emailLabel}>
                       <Input
+                        ref={emailInput}
                         type="email"
                         value={email}
                         onChange={(event) => {
@@ -407,17 +422,20 @@ function SignIn() {
                         autoCapitalize="none"
                         spellCheck={false}
                         enterKeyHint="send"
-                        autoFocus={googleButton === null}
+                        aria-invalid={requestCode.isError && !quota ? true : undefined}
+                        aria-describedby={requestCode.isError && !quota ? emailErrorId : undefined}
+                        disabled={mode === "full"}
                         required
                       />
                     </Field>
                     {captcha}
-                    {!(quota && googleButton !== null) && <ErrorMessage error={requestCode.error} />}
+                    {!(quota && googleButton !== null) && <ErrorMessage id={emailErrorId} error={requestCode.error} />}
                     <Button
                       type="submit"
                       size="lg"
                       variant={googleButton === null ? "primary" : "secondary"}
                       loading={requestCode.isPending}
+                      disabled={mode === "full"}
                     >
                       {requestCode.isPending ? t.sending : t.sendCode}
                     </Button>

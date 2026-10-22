@@ -1023,7 +1023,7 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
           </Section>
 
           {selection.length > 1 && (
-            <div ref={inspectorRef} className="scroll-mt-36 scroll-mb-28 max-xl:order-first">
+            <div ref={inspectorRef} className="scroll-mt-16 scroll-mb-28 max-xl:order-first">
               <Card className="animate-fade-in ring-1 ring-brand/30">
                 <SelectionInspector
                   labels={selection.map((element) => elementLabel(element))}
@@ -1043,7 +1043,7 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
           {selected !== null && (
             // Below xl the columns stack: the inspector comes right after the ticket, so what was
             // just tapped is edited without hunting for it further down.
-            <div ref={inspectorRef} className="scroll-mt-36 scroll-mb-28 max-xl:order-first">
+            <div ref={inspectorRef} className="scroll-mt-16 scroll-mb-28 max-xl:order-first">
             <Card className="animate-fade-in ring-1 ring-brand/30">
               <CardHeader
                 icon={selected.kind === "text" ? Type : selected.kind === "number" ? Hash : selected.kind === "sponsors" ? Handshake : QrCode}

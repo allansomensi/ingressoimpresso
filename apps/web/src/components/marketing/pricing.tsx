@@ -71,7 +71,7 @@ function Simulator({ pricing }: { pricing: PricingDto }) {
               onChange={(event) => {
                 setFromText(event.target.value);
               }}
-              className="w-28 rounded-xl border border-border-strong bg-surface px-3 py-1.5 text-right text-2xl font-semibold tracking-tight text-fg tabular shadow-xs focus:border-brand focus:ring-4 focus:ring-ring focus:outline-none"
+              className="w-28 rounded-xl border border-border-input bg-surface px-3 py-1.5 text-right text-2xl font-semibold tracking-tight text-fg tabular shadow-xs focus:border-brand focus:ring-4 focus:ring-ring focus:outline-none"
             />
             <span className="text-sm text-fg-muted">{s.quantityUnit}</span>
           </span>
@@ -107,10 +107,10 @@ function Simulator({ pricing }: { pricing: PricingDto }) {
                 setQuantity(preset);
               }}
               className={cn(
-                "rounded-full border px-3 py-1 text-[13px] font-medium tabular transition",
+                "relative rounded-full border px-3 py-1 text-[13px] font-medium tabular transition touch-target pointer-coarse:min-h-10 pointer-coarse:px-3.5 pointer-coarse:text-sm",
                 quantity === preset
                   ? "border-brand bg-brand-soft text-brand-soft-fg"
-                  : "border-border bg-surface text-fg-muted hover:border-border-strong hover:text-fg",
+                  : "border-border bg-surface text-fg-muted hover:border-border-strong hover:text-fg active:bg-surface-2 active:text-fg",
               )}
             >
               {preset.toLocaleString("pt-BR")}
@@ -190,7 +190,7 @@ function Simulator({ pricing }: { pricing: PricingDto }) {
               }}
               inputMode="decimal"
               placeholder={s.pricePlaceholder}
-              className="h-11 w-full rounded-xl border border-border-strong bg-surface pr-3.5 pl-10 text-base text-fg shadow-xs focus:border-brand focus:ring-4 focus:ring-ring focus:outline-none sm:text-[15px]"
+              className="h-11 w-full rounded-xl border border-border-input bg-surface pr-3.5 pl-10 text-base text-fg shadow-xs focus:border-brand focus:ring-4 focus:ring-ring focus:outline-none pointer-fine:sm:text-[15px]"
             />
           </span>
           {revenue !== null && (
@@ -264,7 +264,7 @@ export function PricingSection({ initial = null }: { initial?: PricingDto | null
         ) : (
           <div className="flex flex-col gap-6">
             {pricing.data.promotion !== null && (
-              <div className="flex items-center gap-3 rounded-2xl bg-gradient-to-r from-success-solid to-[#16a34a] px-4 py-3 text-white shadow-sm">
+              <div className="flex items-center gap-3 rounded-2xl bg-success-solid px-4 py-3 text-white shadow-sm">
                 <BadgePercent className="size-5 shrink-0" aria-hidden />
                 <span className="flex min-w-0 flex-col">
                   <span className="font-semibold">{pricing.data.promotion.headline ?? t.pricingPromotion(pricing.data.promotion.discountPercent)}</span>

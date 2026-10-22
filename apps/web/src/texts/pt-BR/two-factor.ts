@@ -47,5 +47,5 @@ export const twoFactor = {
   recoveryLabel: "Código de recuperação",
   continue: "Entrar",
   back: "Voltar",
-  lostPhone: "Perdeu o celular e os códigos? Escreva para o contato do site a partir do e-mail da conta.",
+  lostPhone: "Perdeu o celular e os códigos? Escreva para o [suporte](/suporte) a partir do e-mail da conta.",
 } as const;

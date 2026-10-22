@@ -32,7 +32,7 @@ export default async function PricingPage() {
     <div className="flex min-h-dvh flex-col">
       <JsonLd data={pricingJsonLd({ title: t.metaTitle, description: t.metaDescription, name: t.breadcrumb, faq: t.faq, pricing })} />
       <SiteHeader />
-      <main className="flex-1">
+      <main id="conteudo" className="flex-1">
         <section className="relative overflow-hidden bg-glow">
           <div aria-hidden className="absolute inset-0 bg-dots [mask-image:radial-gradient(ellipse_at_top,black,transparent_70%)] opacity-60" />
           <div className="relative mx-auto flex max-w-3xl flex-col items-start gap-6 px-4 pt-10 pb-12 sm:items-center sm:px-6 sm:text-center lg:pt-16">
@@ -42,7 +42,7 @@ export default async function PricingPage() {
           </div>
         </section>
 
-        <section id="comecar" className="scroll-mt-16">
+        <section id="comecar">
           <div className="mx-auto max-w-5xl px-4 pb-20 sm:px-6">
             <PricingSection initial={pricing} />
           </div>
@@ -81,7 +81,7 @@ export default async function PricingPage() {
           </div>
         </section>
 
-        <section id="duvidas" className="scroll-mt-16 bg-bg">
+        <section id="duvidas" className="bg-bg">
           <div className="mx-auto flex max-w-3xl flex-col gap-10 px-4 py-20 sm:px-6 lg:py-24">
             <SectionHeading title={t.faqTitle} />
             <FaqList items={t.faq} />

@@ -113,7 +113,7 @@ export function ReferralsCard() {
   const invited = data?.invitedBy ?? null;
 
   return (
-    <div id="indique" className="scroll-mt-24">
+    <div id="indique" className="scroll-mt-4">
       <Card>
         <CardHeader icon={Gift} title={t.title} description={data === undefined ? undefined : t.headline(referrer)} className="mb-4" />
         {data === undefined ? (

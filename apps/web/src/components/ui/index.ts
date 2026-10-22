@@ -4,6 +4,7 @@ export { Alert, Badge, EmptyState, ErrorMessage, LoadingBlock, Skeleton, errorMe
 export { Field, Input, NumberInput, Select, Switch, Textarea, controlClass } from "./form";
 export { Card, CardHeader, Lead, List, ListItem, PageHeader, Stat, TableScroll } from "./layout";
 export { Menu, MenuItem, Popover, useIsPhone } from "./popover";
+export { segmentTabIndex, segmentedKeys } from "./segmented";
 export { useScrollLock, useSheetDrag } from "./sheet";
 export { Spinner } from "./spinner";
 export { useScrollEdges, type ScrollEdges } from "./scroll-edges";

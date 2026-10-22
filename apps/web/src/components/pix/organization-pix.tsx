@@ -40,7 +40,7 @@ export function OrganizationPix({ organizationName }: { organizationName: string
   });
 
   return (
-    <Card className="scroll-mt-28">
+    <Card className="scroll-mt-8">
       <CardHeader icon={QrCode} title={t.orgTitle} description={t.orgDescription} />
       {account.isPending ? (
         <LoadingBlock rows={2} />

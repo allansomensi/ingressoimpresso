@@ -302,14 +302,29 @@ const CASES: readonly Case[] = [
 ];
 
 /** Three events told step by step, each step with a drawing of what happens (landing page). */
-export function UseCases() {
+export function UseCases({ initial }: { initial: PricingDto | null }) {
   const [selected, setSelected] = useState(0);
   const tabs = useRef<(HTMLButtonElement | null)[]>([]);
-  const pricing = useQuery({ queryKey: ["pricing"], queryFn: () => api<PricingDto>("/api/pricing"), staleTime: 60 * 60_000 });
+  // The table the page read on the server (lib/pricing-server.ts): no second request for it.
+  const pricing = useQuery({
+    queryKey: ["pricing"],
+    queryFn: () => api<PricingDto>("/api/pricing"),
+    staleTime: 60 * 60_000,
+    ...(initial === null ? {} : { initialData: initial }),
+  });
   const current = CASES[selected] ?? CASES[0];
 
   const keyDown = (event: KeyboardEvent, index: number) => {
-    const next = event.key === "ArrowRight" ? (index + 1) % CASES.length : event.key === "ArrowLeft" ? (index - 1 + CASES.length) % CASES.length : null;
+    const next =
+      event.key === "ArrowRight"
+        ? (index + 1) % CASES.length
+        : event.key === "ArrowLeft"
+          ? (index - 1 + CASES.length) % CASES.length
+          : event.key === "Home"
+            ? 0
+            : event.key === "End"
+              ? CASES.length - 1
+              : null;
     if (next !== null) {
       event.preventDefault();
       setSelected(next);
@@ -342,7 +357,7 @@ export function UseCases() {
               role="tab"
               id={`caso-${item.key}`}
               aria-selected={active}
-              aria-controls={`painel-caso-${item.key}`}
+              aria-controls={active ? `painel-caso-${item.key}` : undefined}
               tabIndex={active ? 0 : -1}
               onClick={() => {
                 setSelected(index);

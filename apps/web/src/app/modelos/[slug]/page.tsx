@@ -66,7 +66,7 @@ export default async function TemplatePage({ params }: Props) {
     <div className="flex min-h-dvh flex-col">
       <JsonLd data={templatePageJsonLd(page)} />
       <SiteHeader />
-      <main className="flex-1">
+      <main id="conteudo" className="flex-1">
         {/* Hero: the template, large, with the sample event. */}
         <section className="relative overflow-hidden bg-glow">
           <div aria-hidden className="absolute inset-0 bg-dots [mask-image:radial-gradient(ellipse_at_top,black,transparent_70%)] opacity-60" />

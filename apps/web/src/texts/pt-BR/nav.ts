@@ -10,4 +10,6 @@ export const nav = {
   start: "Começar grátis",
   panel: "Abrir o painel",
   menu: "Menu",
+  closeMenu: "Fechar o menu",
+  mainMenu: "Navegação principal",
 } as const;

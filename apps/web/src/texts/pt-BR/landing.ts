@@ -1,5 +1,5 @@
 export const landing = {
-  metaTitle: "Ingresso numerado com QR code para imprimir · Ingresso Impresso",
+  metaTitle: "Ingresso numerado com QR para imprimir · Ingresso Impresso",
   metaDescription:
     "Crie ingressos numerados com QR code à prova de cópia, imprima em casa ou na gráfica e confira a entrada pelo celular, mesmo sem internet. 30 grátis.",
   eyebrow: "Para quem vende ingresso na mão",
@@ -103,6 +103,8 @@ export const landing = {
     ],
   },
   templatesTitle: "Um modelo pronto para cada tipo de evento",
+  templatesPause: "Pausar o movimento",
+  templatesPlay: "Retomar o movimento",
   templatesLead:
     "Escolha o modelo e troque as cores. O nome, a data e o local do evento entram sozinhos. Tem a sua arte? Envie e posicione tudo arrastando.",
   templatesCta: "Montar meu ingresso",
@@ -332,7 +334,7 @@ export const landing = {
           {
             key: "badges",
             title: "Credenciais da equipe",
-            body: "Crachás com QR para staff, imprensa e artistas, com acesso por área. Não contam como público.",
+            body: "Crachás com QR para a equipe, a imprensa e os artistas, com acesso por área. Não contam como público.",
           },
           {
             key: "guests",
@@ -378,7 +380,7 @@ export const landing = {
     { title: "Imprima ou envie", body: "Baixe o PDF para imprimir em casa ou na gráfica, ou mande o ingresso pelo WhatsApp para quem não vai buscar o papel." },
     { title: "Confira na porta", body: "Mande o link da portaria para a equipe. Cada celular lê os ingressos, com ou sem internet." },
   ],
-  digitalTitle: "Comprou de longe? Manda pelo WhatsApp.",
+  digitalTitle: "Comprou de longe? Mande pelo WhatsApp.",
   digitalBody:
     "Nem todo mundo consegue buscar o papel. Crie o link do ingresso com o nome de quem comprou e envie no WhatsApp. A pessoa abre no celular, mostra o QR e entra. É o mesmo ingresso do papel: o primeiro que passar na porta entra, a cópia é barrada.",
   digitalPoints: [
@@ -482,7 +484,7 @@ export const landing = {
     },
     {
       q: "Me arrependi da compra. E agora?",
-      a: "Você tem 7 dias depois do pagamento para pedir o reembolso integral. Os números do lote reembolsado ficam bloqueados na porta. Veja a Política de Reembolso.",
+      a: "Você tem 7 dias depois do pagamento para pedir o reembolso integral. Os números do lote reembolsado ficam bloqueados na porta. Veja a [Política de Reembolso](/reembolso).",
     },
   ],
   finalTitle: "Seu próximo evento merece uma entrada tranquila",

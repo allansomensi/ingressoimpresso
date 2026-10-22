@@ -20,12 +20,13 @@ export function AboutPage() {
       <section className="relative overflow-hidden bg-glow">
         <div aria-hidden className="absolute inset-0 bg-dots [mask-image:radial-gradient(ellipse_at_top,black,transparent_70%)] opacity-50" />
         <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-4 pt-14 pb-16 sm:px-6 lg:grid-cols-[1.25fr_1fr] lg:pt-20 lg:pb-24">
-          <div className="flex flex-col items-start gap-5 animate-rise">
+          <div className="flex flex-col items-start gap-5">
             <span className="text-sm font-semibold tracking-wide text-brand uppercase">{t.eyebrow}</span>
             <h1 className="text-4xl leading-[1.08] font-semibold tracking-tight text-balance text-fg sm:text-5xl">{t.headline}</h1>
             <p className="max-w-xl text-lg leading-relaxed text-pretty text-fg-muted">{t.lead}</p>
           </div>
-          <div className="hidden justify-center lg:flex">
+          {/* A drawing of what the text says: decorative for screen readers. */}
+          <div aria-hidden className="hidden justify-center lg:flex">
             <TicketMock className="rotate-3 animate-rise [animation-delay:120ms]" />
           </div>
         </div>
@@ -63,7 +64,7 @@ export function AboutPage() {
       </section>
 
       <section className="mx-auto grid max-w-6xl gap-4 px-4 pb-16 sm:px-6 md:grid-cols-2 lg:pb-20">
-        <div id="versao" className="flex scroll-mt-20 flex-col gap-4 rounded-3xl border border-border bg-surface p-6 shadow-xs sm:p-8">
+        <div id="versao" className="flex flex-col gap-4 rounded-3xl border border-border bg-surface p-6 shadow-xs sm:p-8">
           <span className="flex size-10 items-center justify-center rounded-xl bg-surface-2 text-fg-muted">
             <Sparkles aria-hidden className="size-5" />
           </span>

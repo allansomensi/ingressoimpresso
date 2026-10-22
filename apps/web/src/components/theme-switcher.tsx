@@ -2,6 +2,7 @@
 
 import { Monitor, Moon, Sun, type LucideIcon } from "lucide-react";
 
+import { segmentTabIndex, segmentedKeys } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { setTheme, useTheme, type ThemePreference } from "@/lib/theme";
 import { theme as themeTexts } from "@/texts/pt-BR/theme";
@@ -13,13 +14,16 @@ const OPTIONS: readonly { value: ThemePreference; icon: LucideIcon }[] = [
   { value: "system", icon: Monitor },
 ];
 
-/** Light / dark / system, as a segmented control (radio group). */
+const VALUES = OPTIONS.map((option) => option.value);
+
+/** Light / dark / system, as a segmented control (radio group: one tab stop, arrows to choose). */
 export function ThemeSwitcher({ className, labels = false }: { className?: string | undefined; labels?: boolean }) {
   const { preference } = useTheme();
   return (
     <div
       role="radiogroup"
       aria-label={t.label}
+      onKeyDown={segmentedKeys(VALUES, preference, setTheme)}
       className={cn("inline-flex items-center gap-0.5 rounded-full border border-border bg-surface-2 p-0.5", className)}
     >
       {OPTIONS.map(({ value, icon: Icon }) => {
@@ -30,15 +34,16 @@ export function ThemeSwitcher({ className, labels = false }: { className?: strin
             type="button"
             role="radio"
             aria-checked={selected}
+            tabIndex={segmentTabIndex(VALUES, preference, value)}
             aria-label={t.options[value]}
             title={t.options[value]}
             onClick={() => {
               setTheme(value);
             }}
             className={cn(
-              "inline-flex h-7 items-center justify-center gap-1.5 rounded-full text-xs font-medium transition pointer-coarse:h-9",
-              labels ? "flex-1 px-2.5" : "w-7 pointer-coarse:w-9",
-              selected ? "bg-surface text-fg shadow-sm ring-1 ring-border" : "text-fg-subtle hover:text-fg",
+              "inline-flex h-7 items-center justify-center gap-1.5 rounded-full text-xs font-medium transition pointer-coarse:h-11",
+              labels ? "flex-1 px-2.5" : "w-7 pointer-coarse:w-11",
+              selected ? "bg-surface text-fg shadow-sm ring-1 ring-border" : "text-fg-subtle hover:text-fg active:text-fg",
             )}
           >
             <Icon className="size-3.5" aria-hidden />

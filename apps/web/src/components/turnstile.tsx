@@ -176,6 +176,14 @@ export function Turnstile({
           }
           waiting.current?.reject(new Error("turnstile superseded"));
           waiting.current = { resolve, reject };
+          // A challenge nobody answers (or that never loads) gives up: the form shows the
+          // anti-robot error instead of spinning forever.
+          window.setTimeout(() => {
+            if (waiting.current?.reject === reject) {
+              waiting.current = null;
+              reject(new Error("turnstile timed out"));
+            }
+          }, 90_000);
           // A token works once: start over after the first.
           if (used.current) {
             current.api.reset(current.id);

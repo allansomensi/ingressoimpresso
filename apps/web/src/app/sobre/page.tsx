@@ -14,7 +14,7 @@ export default function About() {
     <div className="flex min-h-dvh flex-col">
       <JsonLd data={aboutJsonLd({ title: aboutTexts.metaTitle, description: aboutTexts.metaDescription, name: aboutTexts.title })} />
       <SiteHeader />
-      <main className="flex-1">
+      <main id="conteudo" className="flex-1">
         <AboutPage />
       </main>
       <SiteFooter />

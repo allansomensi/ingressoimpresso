@@ -27,7 +27,7 @@ export default function TemplateGalleryPage() {
     <div className="flex min-h-dvh flex-col">
       <JsonLd data={templateGalleryJsonLd(templateSeoPages, t.title, t.metaDescription)} />
       <SiteHeader />
-      <main className="flex-1">
+      <main id="conteudo" className="flex-1">
         <section className="relative overflow-hidden bg-glow">
           <div aria-hidden className="absolute inset-0 bg-dots [mask-image:radial-gradient(ellipse_at_top,black,transparent_70%)] opacity-60" />
           <div className="relative mx-auto flex max-w-3xl flex-col items-start gap-6 px-4 pt-10 pb-14 sm:items-center sm:px-6 sm:text-center lg:pt-16">

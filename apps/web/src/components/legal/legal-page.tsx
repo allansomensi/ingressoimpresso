@@ -66,7 +66,7 @@ export function LegalPage({ document }: { document: LegalDocument }) {
   return (
     <div className="flex min-h-dvh flex-col">
       <SiteHeader />
-      <main className="flex-1">
+      <main id="conteudo" className="flex-1">
         <section className="border-b border-border bg-glow">
           <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 pt-12 pb-10 sm:px-6 lg:pt-16">
             <span className="flex size-12 items-center justify-center rounded-2xl bg-brand-soft text-brand-soft-fg">
@@ -136,7 +136,7 @@ export function LegalPage({ document }: { document: LegalDocument }) {
             </section>
 
             {document.sections.map((section) => (
-              <section key={section.id} id={section.id} className="flex scroll-mt-24 flex-col gap-4">
+              <section key={section.id} id={section.id} className="flex flex-col gap-4">
                 <h2 className="text-xl font-semibold tracking-tight text-fg">{section.title}</h2>
                 <div className="flex flex-col gap-4 text-[15px] leading-relaxed text-fg-muted">
                   {section.blocks.map((block, index) => (

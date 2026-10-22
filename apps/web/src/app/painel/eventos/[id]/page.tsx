@@ -333,7 +333,7 @@ function EventView() {
             aria-labelledby={tabHeadingId(tab)}
             // Under the panel header and the section bar (which is taller by the safe area in an
             // installed iPhone app); under the header alone with the sections down the side.
-            className="flex min-w-0 scroll-mt-[calc(8.25rem+env(safe-area-inset-top))] flex-col gap-6 animate-fade-in lg:scroll-mt-24"
+            className="flex min-w-0 scroll-mt-[3.25rem] flex-col gap-6 animate-fade-in lg:scroll-mt-4"
           >
             {tab === "overview" && <OverviewTab eventId={eventId} onSelect={select} event={data} onEditEvent={openEditor} />}
             {tab === "design" && <DesignTab eventId={eventId} />}

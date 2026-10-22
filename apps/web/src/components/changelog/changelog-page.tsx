@@ -54,7 +54,7 @@ function GroupHeading({ group }: { group: ChangelogGroup }) {
   return (
     <h2
       id={versionAnchor(group.version)}
-      className="sticky top-16 z-10 -mx-1 flex scroll-mt-20 flex-wrap items-baseline gap-x-2 gap-y-1 bg-bg/90 px-1 py-2 backdrop-blur"
+      className="sticky top-16 z-10 -mx-1 flex flex-wrap items-baseline gap-x-2 gap-y-1 bg-bg/90 px-1 py-2 backdrop-blur"
     >
       <a href={`#${versionAnchor(group.version)}`} className="text-base font-semibold text-fg tabular hover:underline">
         {t.release(group.version)}

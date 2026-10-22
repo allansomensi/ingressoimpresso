@@ -8,6 +8,7 @@ export const templateGallery = {
   lead: "Escolha o modelo do seu tipo de evento. O nome, a data, o local e o preço entram sozinhos, cada ingresso sai com o seu número e um QR que não dá para copiar, e tudo pode ser editado.",
   see: "Ver modelo",
   filterLabel: "Tipo de evento",
+  shownCount: (count: number) => (count === 1 ? "1 modelo" : `${String(count)} modelos`),
   colors: (count: number) => (count === 1 ? "1 combinação de cores" : `${String(count)} combinações de cores`),
   imageAlt: (h1: string) => `${h1}, preenchido com um evento de exemplo`,
   // Template page.

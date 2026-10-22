@@ -58,12 +58,12 @@ export default async function EventTypePage({ params }: Props) {
     <div className="flex min-h-dvh flex-col">
       <JsonLd data={eventPageJsonLd(page)} />
       <SiteHeader />
-      <main className="flex-1">
+      <main id="conteudo" className="flex-1">
         {/* Hero */}
         <section className="relative overflow-hidden bg-glow">
           <div aria-hidden className="absolute inset-0 bg-dots [mask-image:radial-gradient(ellipse_at_top,black,transparent_70%)] opacity-60" />
           <div className="relative mx-auto grid max-w-6xl items-center gap-14 px-4 pt-10 pb-20 sm:px-6 lg:grid-cols-[1.1fr_1fr] lg:pt-16 lg:pb-28">
-            <div className="flex flex-col items-start gap-6 animate-rise">
+            <div className="flex flex-col items-start gap-6">
               <Breadcrumb items={[{ label: t.home, href: "/" }, { label: t.hubBreadcrumb, href: "/ingresso-para" }, { label: page.label }]} />
               <span className="inline-flex items-center gap-2 rounded-full border border-brand/20 bg-brand-soft px-3 py-1 text-[13px] font-medium text-brand-soft-fg">
                 <span className="size-1.5 rounded-full bg-brand" />
@@ -156,7 +156,7 @@ export default async function EventTypePage({ params }: Props) {
         </section>
 
         {/* FAQ */}
-        <section id="duvidas" className="scroll-mt-16 border-t border-border bg-bg">
+        <section id="duvidas" className="border-t border-border bg-bg">
           <div className="mx-auto flex max-w-3xl flex-col gap-10 px-4 py-20 sm:px-6 lg:py-28">
             <SectionHeading title={landingTexts.faqTitle} />
             <FaqList items={page.faq.map((item) => ({ question: item.pergunta, answer: item.resposta }))} />

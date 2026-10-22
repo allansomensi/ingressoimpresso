@@ -273,7 +273,7 @@ export function TicketChecker() {
   };
 
   return (
-    <div ref={box} className="flex scroll-mt-24 flex-col gap-5 rounded-3xl border border-border bg-surface p-4 shadow-lg shadow-black/5 sm:p-6">
+    <div ref={box} className="flex scroll-mt-4 flex-col gap-5 rounded-3xl border border-border bg-surface p-4 shadow-lg shadow-black/5 sm:p-6">
       {check.data !== undefined ? (
         <VerifyResult
           result={check.data}

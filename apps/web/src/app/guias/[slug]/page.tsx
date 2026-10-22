@@ -103,7 +103,7 @@ export default async function GuidePage({ params }: Props) {
     <div className="flex min-h-dvh flex-col">
       <JsonLd data={guideJsonLd(guide)} />
       <SiteHeader />
-      <main className="flex-1">
+      <main id="conteudo" className="flex-1">
         <article>
           <header className="relative overflow-hidden bg-glow">
             <div aria-hidden className="absolute inset-0 bg-dots [mask-image:radial-gradient(ellipse_at_top,black,transparent_70%)] opacity-60" />
@@ -156,7 +156,7 @@ export default async function GuidePage({ params }: Props) {
               </nav>
               <div className="flex max-w-3xl min-w-0 flex-col gap-12">
                 {guide.sections.map((section) => (
-                  <section key={section.id} id={section.id} className="flex scroll-mt-20 flex-col gap-4">
+                  <section key={section.id} id={section.id} className="flex flex-col gap-4">
                     <h2 className="text-2xl font-semibold tracking-tight text-balance text-fg sm:text-3xl">{section.heading}</h2>
                     {section.blocks.map((block, index) => (
                       <Block key={index} block={block} />
@@ -168,7 +168,7 @@ export default async function GuidePage({ params }: Props) {
           </div>
 
           {guide.faq.length > 0 && (
-            <section id="duvidas" className="scroll-mt-16 border-t border-border bg-surface">
+            <section id="duvidas" className="border-t border-border bg-surface">
               <div className="mx-auto flex max-w-3xl flex-col gap-10 px-4 py-16 sm:px-6 lg:py-20">
                 <SectionHeading title={t.faqTitle} />
                 <FaqList items={guide.faq} />

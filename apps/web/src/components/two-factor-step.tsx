@@ -3,6 +3,7 @@
 import { ArrowLeft, ShieldCheck } from "lucide-react";
 import { useState, type FormEvent } from "react";
 
+import { RichText } from "@/components/marketing/rich-text";
 import { OtpInput } from "@/components/otp-input";
 import { Button, ErrorMessage, Field, Input } from "@/components/ui";
 import { twoFactor as twoFactorTexts } from "@/texts/pt-BR/two-factor";
@@ -82,7 +83,7 @@ export function TwoFactorStep({
         <div className="flex items-center justify-between gap-2 text-sm">
           <button
             type="button"
-            className="inline-flex items-center gap-1.5 font-medium text-fg-muted hover:text-fg"
+            className="relative inline-flex items-center gap-1.5 rounded-lg font-medium text-fg-muted touch-target hover:text-fg active:text-fg"
             onClick={onBack}
           >
             <ArrowLeft className="size-4" aria-hidden />
@@ -90,7 +91,7 @@ export function TwoFactorStep({
           </button>
           <button
             type="button"
-            className="font-medium text-brand"
+            className="relative rounded-lg font-medium text-brand touch-target active:opacity-70"
             onClick={() => {
               setRecovery(!recovery);
               setCode("");
@@ -100,7 +101,9 @@ export function TwoFactorStep({
             {recovery ? t.useApp : t.useRecovery}
           </button>
         </div>
-        <p className="text-xs leading-relaxed text-fg-subtle">{t.lostPhone}</p>
+        <p className="text-xs leading-relaxed text-fg-subtle">
+          <RichText text={t.lostPhone} />
+        </p>
       </form>
     </div>
   );

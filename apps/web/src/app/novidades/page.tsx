@@ -16,7 +16,7 @@ export default function NewsPage() {
   return (
     <div className="flex min-h-dvh flex-col">
       <SiteHeader />
-      <main className="flex-1 bg-glow">
+      <main id="conteudo" className="flex-1 bg-glow">
         <ChangelogPage />
       </main>
       <SiteFooter />

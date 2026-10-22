@@ -38,6 +38,7 @@ import Link from "next/link";
 
 import { JsonLd, homeJsonLd } from "@/components/json-ld";
 import { FaqList } from "@/components/marketing/faq-list";
+import { FinalCta } from "@/components/marketing/final-cta";
 import { DigitalTicketMock, PhoneMock, TicketMock } from "@/components/marketing/mockups";
 import { MobileCta } from "@/components/marketing/mobile-cta";
 import { PricingSection } from "@/components/marketing/pricing";
@@ -118,12 +119,12 @@ export default async function LandingPage() {
         })}
       />
       <SiteHeader />
-      <main className="flex-1">
+      <main id="conteudo" className="flex-1">
         {/* Hero */}
         <section className="relative overflow-hidden bg-glow">
           <div aria-hidden className="absolute inset-0 bg-dots [mask-image:radial-gradient(ellipse_at_top,black,transparent_70%)] opacity-60" />
           <div className="relative mx-auto grid max-w-6xl items-center gap-14 px-4 pt-14 pb-20 sm:px-6 lg:grid-cols-[1.1fr_1fr] lg:pt-24 lg:pb-28">
-            <div className="flex flex-col items-start gap-6 animate-rise">
+            <div className="flex flex-col items-start gap-6">
               <span className="inline-flex items-center gap-2 rounded-full border border-brand/20 bg-brand-soft px-3 py-1 text-[13px] font-medium text-brand-soft-fg">
                 <span className="size-1.5 rounded-full bg-brand" />
                 {t.eyebrow}
@@ -191,7 +192,7 @@ export default async function LandingPage() {
         </section>
 
         {/* How it works */}
-        <section id="como-funciona" className="scroll-mt-16">
+        <section id="como-funciona">
           <div className="mx-auto flex max-w-6xl flex-col gap-14 px-4 py-20 sm:px-6 lg:py-28">
             <SectionHeading eyebrow={t.stepsTitle} title={t.stepsLead} />
             {/* Phones: icon beside the text, so the four steps fit in about a screen. */}
@@ -207,7 +208,9 @@ export default async function LandingPage() {
                       <span className="flex size-11 items-center justify-center rounded-2xl bg-brand-solid text-brand-fg shadow-sm shadow-brand/30">
                         <Icon className="size-5" aria-hidden />
                       </span>
-                      <span className="font-mono text-sm font-semibold text-fg-subtle">0{index + 1}</span>
+                      <span aria-hidden className="font-mono text-sm font-semibold text-fg-subtle">
+                        0{index + 1}
+                      </span>
                     </div>
                     <div className="flex min-w-0 flex-col gap-1.5 sm:gap-4">
                       <h3 className="text-lg font-semibold tracking-tight text-fg">{step.title}</h3>
@@ -221,15 +224,15 @@ export default async function LandingPage() {
         </section>
 
         {/* Use cases */}
-        <section id="exemplos" className="defer-render scroll-mt-16 border-t border-border bg-surface">
+        <section id="exemplos" className="defer-render border-t border-border bg-surface">
           <div className="mx-auto flex max-w-6xl flex-col gap-12 px-4 py-20 sm:px-6 lg:py-28">
             <SectionHeading eyebrow={t.cases.eyebrow} title={t.cases.title} lead={t.cases.lead} />
-            <UseCases />
+            <UseCases initial={pricing} />
           </div>
         </section>
 
         {/* Templates */}
-        <section id="modelos" className="defer-render scroll-mt-16 overflow-hidden border-y border-border bg-bg">
+        <section id="modelos" className="defer-render overflow-hidden border-y border-border bg-bg">
           <div className="flex flex-col gap-12 py-20 lg:py-28">
             <div className="px-4 sm:px-6">
               <SectionHeading eyebrow={navTexts.templates} title={t.templatesTitle} lead={t.templatesLead} />
@@ -247,14 +250,14 @@ export default async function LandingPage() {
         </section>
 
         {/* Features */}
-        <section id="recursos" className="scroll-mt-16 bg-surface">
+        <section id="recursos" className="bg-surface">
           <div className="mx-auto flex max-w-6xl flex-col gap-14 px-4 py-20 sm:px-6 lg:py-28">
             <SectionHeading title={t.featuresTitle} lead={t.featuresLead} />
             <ul className="grid gap-px overflow-hidden rounded-3xl border border-border bg-border sm:grid-cols-2 lg:grid-cols-3">
               {t.features.map((feature, index) => {
                 const Icon = FEATURE_ICONS[index] ?? ShieldCheck;
                 return (
-                  <li key={feature.title} className="flex gap-4 bg-surface p-5 transition hover:bg-bg sm:flex-col sm:gap-3 sm:p-7">
+                  <li key={feature.title} className="flex gap-4 bg-surface p-5 sm:flex-col sm:gap-3 sm:p-7">
                     <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-brand-soft-fg">
                       <Icon className="size-5" aria-hidden />
                     </span>
@@ -270,7 +273,7 @@ export default async function LandingPage() {
         </section>
 
         {/* Everything around the ticket, by moment */}
-        <section id="evento-inteiro" className="defer-render scroll-mt-16 border-t border-border bg-bg">
+        <section id="evento-inteiro" className="defer-render border-t border-border bg-bg">
           <div className="mx-auto flex max-w-6xl flex-col gap-12 px-4 py-20 sm:px-6 lg:py-28">
             <SectionHeading eyebrow={t.platform.eyebrow} title={t.platform.title} lead={t.platform.lead} />
             <div className="grid gap-4 sm:gap-5 lg:grid-cols-2">
@@ -322,13 +325,13 @@ export default async function LandingPage() {
         </section>
 
         {/* Digital tickets */}
-        <section id="no-celular" className="defer-render scroll-mt-16 border-t border-border bg-surface">
+        <section id="no-celular" className="defer-render overflow-x-clip border-t border-border bg-surface">
           <div className="mx-auto grid max-w-6xl items-center gap-12 px-4 py-20 sm:px-6 lg:grid-cols-2 lg:py-28">
             <div aria-hidden className="order-2 flex justify-center lg:order-1">
               <div className="relative">
                 <div aria-hidden className="absolute -inset-10 rounded-full bg-brand/15 blur-3xl" />
                 <DigitalTicketMock className="relative -rotate-2" />
-                <span className="absolute top-28 -right-12 flex items-center gap-2 rounded-2xl bg-[#15803d] px-3.5 py-2 text-sm font-semibold text-white shadow-lg animate-pop [animation-delay:300ms]">
+                <span className="absolute top-28 -right-12 flex items-center gap-2 rounded-2xl bg-success-solid px-3.5 py-2 text-sm font-semibold text-white shadow-lg animate-pop [animation-delay:300ms] max-sm:-right-4">
                   <MessageCircle className="size-4" aria-hidden />
                   WhatsApp
                 </span>
@@ -379,7 +382,7 @@ export default async function LandingPage() {
         </section>
 
         {/* Pricing */}
-        <section id="precos" className="defer-render scroll-mt-16">
+        <section id="precos" className="defer-render">
           <div className="mx-auto flex max-w-5xl flex-col gap-12 px-4 py-20 sm:px-6 lg:py-28">
             <SectionHeading eyebrow={navTexts.pricing} title={t.pricingTitle} lead={t.pricingLead} />
             <PricingSection initial={pricing} />
@@ -387,24 +390,14 @@ export default async function LandingPage() {
         </section>
 
         {/* FAQ */}
-        <section id="duvidas" className="scroll-mt-16 border-t border-border bg-surface">
+        <section id="duvidas" className="border-t border-border bg-surface">
           <div className="mx-auto flex max-w-3xl flex-col gap-10 px-4 py-20 sm:px-6 lg:py-28">
             <SectionHeading title={t.faqTitle} />
             <FaqList items={t.faq.map((item) => ({ question: item.q, answer: item.a }))} />
           </div>
         </section>
 
-        {/* Final CTA */}
-        <section id="criar" className="px-4 py-20 sm:px-6">
-          <div className="relative mx-auto flex max-w-5xl flex-col items-center gap-6 overflow-hidden rounded-[2rem] bg-brand-solid px-6 py-16 text-center text-white shadow-lg shadow-brand/30">
-            <div aria-hidden className="absolute inset-0 bg-[radial-gradient(60%_80%_at_50%_0%,rgba(255,255,255,0.25),transparent)]" />
-            <h2 className="relative max-w-2xl text-3xl font-semibold tracking-tight text-balance sm:text-4xl">{t.finalTitle}</h2>
-            <p className="relative max-w-xl text-lg text-white/80">{t.finalBody}</p>
-            <ButtonLink href="/entrar" size="lg" variant="inverse" icon={<ArrowRight />} className="relative flex-row-reverse">
-              {t.primaryCta}
-            </ButtonLink>
-          </div>
-        </section>
+        <FinalCta title={t.finalTitle} />
       </main>
 
       <SiteFooter />

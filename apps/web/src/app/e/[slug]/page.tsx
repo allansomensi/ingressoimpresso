@@ -105,7 +105,7 @@ export default async function PublicEventPage({ params }: Props) {
   return (
     <div className="flex min-h-dvh flex-col bg-bg">
       <JsonLd data={eventJsonLd(event, url)} />
-      <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-4 pt-5 pb-12 sm:pt-8">
+      <main id="conteudo" className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-4 pt-5 pb-12 sm:pt-8">
         <section
           className="relative overflow-hidden rounded-[1.75rem] bg-brand-solid p-6 text-white shadow-lg sm:p-8"
           style={color === null ? undefined : { backgroundColor: color }}
