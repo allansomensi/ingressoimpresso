@@ -76,7 +76,7 @@ export function CertificateGallery({
             () => {
               onFront(template, palette);
             },
-            <CertificateView page={template.build(full)} orientation={template.orientation} fields={fields} imageUrls={imageUrls} logoUrl={logoUrl} brand={false} />,
+            <CertificateView page={template.build(full)} orientation={template.orientation} fields={fields} imageUrls={imageUrls} logoUrl={logoUrl} brand={null} />,
           ),
         )}
       </ul>
@@ -94,7 +94,7 @@ export function CertificateGallery({
             () => {
               onBack(template, palette);
             },
-            <CertificateView page={template.build(full, orientation)} orientation={orientation} fields={fields} imageUrls={imageUrls} logoUrl={logoUrl} brand={false} />,
+            <CertificateView page={template.build(full, orientation)} orientation={orientation} fields={fields} imageUrls={imageUrls} logoUrl={logoUrl} brand={null} />,
           ),
         )}
       </ul>

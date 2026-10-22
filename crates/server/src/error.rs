@@ -108,6 +108,12 @@ impl IntoResponse for ApiError {
 
 impl From<sqlx::Error> for ApiError {
     fn from(error: sqlx::Error) -> Self {
+        if crate::db_health::is_dropped_connection(&error) {
+            // The database restarted under this connection: a moment's outage, not a bug.
+            crate::db_health::note_dropped();
+            tracing::warn!(error = %error, "the database dropped a connection");
+            return Self::Unavailable("database_reconnecting");
+        }
         if let sqlx::Error::Database(db) = &error {
             // The database's own message names tables and constraints: it goes to the log, and
             // the client gets a stable code with a neutral hint.

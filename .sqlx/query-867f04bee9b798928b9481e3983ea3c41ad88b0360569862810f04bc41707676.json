@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update users set tour_finished_at = now(), tour_outcome = $2\n         where id = $1 and tour_finished_at is null",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "867f04bee9b798928b9481e3983ea3c41ad88b0360569862810f04bc41707676"
+}

@@ -375,3 +375,37 @@ async fn deleting_keeps_only_fiscal_records(pool: PgPool) {
     let events = app.get("/api/events", &again).await.json();
     assert_eq!(events.as_array().unwrap().len(), 0);
 }
+
+#[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
+async fn the_welcome_tour_shows_until_it_ends(pool: PgPool) {
+    let app = TestApp::new(pool.clone()).await;
+    let token = app.login("nova@exemplo.com").await;
+    assert_eq!(app.get("/api/me", &token).await.json()["tourPending"], true);
+
+    let bad = app
+        .post("/api/account/tour", &token, json!({ "outcome": "later" }))
+        .await;
+    assert!(bad.status.is_client_error());
+    let skipped = app
+        .post("/api/account/tour", &token, json!({ "outcome": "skipped" }))
+        .await;
+    assert_eq!(skipped.status, StatusCode::NO_CONTENT);
+    assert_eq!(
+        app.get("/api/me", &token).await.json()["tourPending"],
+        false
+    );
+
+    // Seeing it again from Minha conta keeps how it first ended.
+    app.post(
+        "/api/account/tour",
+        &token,
+        json!({ "outcome": "finished" }),
+    )
+    .await;
+    let outcome: String =
+        sqlx::query_scalar("select tour_outcome from users where email = 'nova@exemplo.com'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(outcome, "skipped");
+}

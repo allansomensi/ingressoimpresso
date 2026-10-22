@@ -15,6 +15,7 @@ pub mod auth;
 pub mod capacity;
 pub mod captcha;
 pub mod config;
+pub mod db_health;
 pub mod emails;
 pub mod error;
 pub mod event_days;

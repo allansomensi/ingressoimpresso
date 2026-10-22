@@ -216,9 +216,11 @@ export default function EventsPage() {
   // The dates of a series go together, in the place of the one that needs attention first (ADR 0077).
   const entries = groupSeries(shown);
 
-  const newButton = (
+  const newButton = (tour: boolean) => (
     <Button
       icon={<Plus />}
+      // The welcome tour (ADR 0116) points at the header's button and its last step presses it.
+      data-tour={tour ? "new-event" : undefined}
       onClick={() => {
         setCreating(true);
       }}
@@ -229,7 +231,7 @@ export default function EventsPage() {
 
   return (
     <main className="flex flex-col gap-8 animate-fade-in">
-      <PageHeader title={t.title} description={t.subtitle} actions={newButton} />
+      <PageHeader title={t.title} description={t.subtitle} actions={newButton(true)} />
       {events.isPending ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {[0, 1, 2].map((item) => (
@@ -239,7 +241,7 @@ export default function EventsPage() {
       ) : events.isError ? (
         <ErrorMessage error={events.error} />
       ) : events.data.length === 0 ? (
-        <EmptyState icon={CalendarPlus} title={t.emptyTitle} description={t.empty} action={newButton} />
+        <EmptyState icon={CalendarPlus} title={t.emptyTitle} description={t.empty} action={newButton(false)} />
       ) : (
         <div className="flex flex-col gap-4">
           {archived.length > 0 && (
@@ -264,7 +266,7 @@ export default function EventsPage() {
             </div>
           )}
           {shown.length === 0 ? (
-            <EmptyState icon={CalendarPlus} title={t.noActiveTitle} description={t.empty} action={newButton} />
+            <EmptyState icon={CalendarPlus} title={t.noActiveTitle} description={t.empty} action={newButton(false)} />
           ) : (
             <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
               {entries.map((entry) =>

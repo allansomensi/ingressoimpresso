@@ -9,7 +9,7 @@ use typst::foundations::Bytes;
 use typst_layout::PagedDocument;
 
 use crate::certificate_design::{
-    CertificateDesign, CertificateElement, CertificatePage, ImageSource,
+    BrandStyle, CertificateDesign, CertificateElement, CertificatePage, ImageSource,
 };
 use crate::qr;
 use crate::render::{Art, RenderError, describe, pdf};
@@ -19,6 +19,56 @@ const CERTIFICATE_TEMPLATE: &str = include_str!("../templates/certificate.typ");
 
 /// The line at the bottom of the front when the design keeps the brand.
 pub const CERTIFICATE_BRAND: &str = "Emitido com Ingresso Impresso · ingressoimpresso.com.br";
+
+/// The words before the logo in the watermark style of the brand (ADR 0116).
+pub const CERTIFICATE_BRAND_CAPTION: &str = "Emitido com";
+
+/// The brand's mark (`apps/web/public/brand/logo-mark.svg`) in one ink, the check and the tear
+/// line cut out of the ticket, so it reads as a watermark on any paper.
+fn brand_mark_svg(ink: &str) -> String {
+    format!(
+        concat!(
+            r##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">"##,
+            r##"<defs><mask id="cut"><rect width="64" height="64" fill="#fff"/>"##,
+            r##"<g transform="rotate(-12 32 32)">"##,
+            r##"<path d="M45 20v3.2M45 26.9v3.2M45 33.8v3.2M45 40.7v3.2" stroke="#000" stroke-width="2.4" stroke-linecap="round"/>"##,
+            r##"<path d="M18 32.5l5.5 5.5 12-12" fill="none" stroke="#000" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round"/>"##,
+            r##"</g></mask></defs>"##,
+            r##"<path transform="rotate(-12 32 32)" mask="url(#cut)" fill="{ink}" fill-opacity=".5" "##,
+            r##"d="M10 14h44a6 6 0 0 1 6 6v6.5a5.5 5.5 0 0 0 0 11V44a6 6 0 0 1-6 6H10a6 6 0 0 1-6-6v-6.5a5.5 5.5 0 0 0 0-11V20a6 6 0 0 1 6-6z"/>"##,
+            r##"</svg>"##,
+        ),
+        ink = ink,
+    )
+}
+
+/// Whether a `#rrggbb` paper is dark (relative luminance under 0.4): the watermark then turns
+/// light. The panel's preview decides the same way (`certificate-view.tsx`).
+pub(crate) fn dark_paper(color: &str) -> bool {
+    let channel = |start: usize| {
+        color
+            .get(start..start + 2)
+            .and_then(|hex| u8::from_str_radix(hex, 16).ok())
+            .map_or(1.0, |value| {
+                let c = f64::from(value) / 255.0;
+                if c <= 0.039_28 {
+                    c / 12.92
+                } else {
+                    ((c + 0.055) / 1.055).powf(2.4)
+                }
+            })
+    };
+    0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5) < 0.4
+}
+
+/// The ink of the watermark on paper of this colour.
+fn brand_ink(paper: &str) -> &'static str {
+    if dark_paper(paper) {
+        "#ffffff"
+    } else {
+        "#2a2838"
+    }
+}
 
 /// Fields of a certificate's texts, without braces. The panel's preview mirrors them
 /// (`apps/web/src/lib/certificates.ts`), tested with the same examples.
@@ -239,7 +289,15 @@ impl Certificate {
             "backgroundImage": page.background_image.and_then(|index| self.upload_path(index)),
             "frame": page.frame,
             "elements": elements,
-            "brand": (front && self.design.brand).then_some(CERTIFICATE_BRAND),
+            "brand": (front && self.design.brand).then(|| match self.design.brand_style {
+                BrandStyle::Line => json!({ "style": "line", "text": CERTIFICATE_BRAND }),
+                BrandStyle::Mark => json!({
+                    "style": "mark",
+                    "caption": CERTIFICATE_BRAND_CAPTION,
+                    "ink": brand_ink(&page.background_color),
+                    "paper": page.background_color,
+                }),
+            }),
         }))
     }
 
@@ -290,6 +348,16 @@ pub fn certificate_pdf(certificate: &Certificate) -> Result<Vec<u8>, RenderError
             .add_file(
                 &format!("{LOGO_PATH}{}", logo.extension()),
                 logo.bytes.clone(),
+            )
+            .map_err(file_error)?;
+    }
+    if certificate.design.brand && certificate.design.brand_style == BrandStyle::Mark {
+        world
+            .add_file(
+                "/brand-mark.svg",
+                Bytes::from_string(brand_mark_svg(brand_ink(
+                    &certificate.design.front.background_color,
+                ))),
             )
             .map_err(file_error)?;
     }
@@ -463,6 +531,40 @@ mod tests {
                 strong: false
             }]
         );
+    }
+
+    #[test]
+    fn the_watermark_brand_on_light_and_dark_paper() {
+        assert!(!dark_paper("#fffdf7"));
+        assert!(!dark_paper("#f4efe2"));
+        assert!(dark_paper("#1f3a5f"));
+        assert!(dark_paper("#000000"));
+        let svg = brand_mark_svg("#2a2838");
+        assert!(svg.contains(r##"fill="#2a2838""##) && svg.contains("mask"));
+        for paper in ["#fffdf7", "#1f3a5f"] {
+            let mut certificate = certificate();
+            certificate.design.brand_style = BrandStyle::Mark;
+            certificate.design.front.background_color = paper.to_owned();
+            let data = certificate.data().unwrap();
+            assert_eq!(data["pages"][0]["brand"]["style"], "mark");
+            assert_eq!(data["pages"][0]["brand"]["ink"], brand_ink(paper));
+            let bytes = certificate_pdf(&certificate).unwrap();
+            assert_eq!(
+                lopdf::Document::load_mem(&bytes).unwrap().get_pages().len(),
+                1
+            );
+        }
+        // Designs saved before ADR 0116 have no style: the line.
+        let mut json = serde_json::to_value(CertificateDesign::classic(
+            "Certificado",
+            "Texto",
+            &[],
+            "#1f3a5f",
+        ))
+        .unwrap();
+        json.as_object_mut().unwrap().remove("brandStyle");
+        let old: CertificateDesign = serde_json::from_value(json).unwrap();
+        assert_eq!(old.brand_style, BrandStyle::Line);
     }
 
     #[test]

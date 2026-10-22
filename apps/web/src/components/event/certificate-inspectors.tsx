@@ -2,6 +2,7 @@
 
 import type {
   ArtDto,
+  BrandStyle,
   CertificateDesign,
   CertificateElement,
   CertificateFrame,
@@ -29,6 +30,7 @@ import {
 } from "lucide-react";
 import { useRef, type ReactNode } from "react";
 
+import { CertificateBrand } from "@/components/certificate/certificate-view";
 import { useEventTexts } from "@/components/event/access";
 import { Badge, Button, Field, Input, NumberInput, Select, Switch, Textarea } from "@/components/ui";
 import {
@@ -654,6 +656,14 @@ export function PageInspector({
       </fieldset>
       <div className="border-t border-border pt-4">
         <Switch label={p.brand} description={p.brandHint} checked={design.brand} onChange={(brand) => { onDesign({ brand }, "brand"); }} />
+        {design.brand && (
+          <BrandStylePicker
+            value={design.brandStyle}
+            onChange={(brandStyle) => {
+              onDesign({ brandStyle }, "brand-style");
+            }}
+          />
+        )}
       </div>
     </div>
   );
@@ -728,5 +738,51 @@ export function ImagesPanel({
       </Button>
       {images.length >= MAX_CERTIFICATE_IMAGES && <p className="text-xs text-fg-muted">{i.full}</p>}
     </div>
+  );
+}
+
+/** Paper of the brand samples: they show the print, not the panel's theme. */
+const SAMPLE_PAPER = "#fffdf7";
+
+/** The two looks of "Emitido com Ingresso Impresso", each drawn as it prints (ADR 0116). */
+function BrandStylePicker({ value, onChange }: { value: BrandStyle; onChange: (value: BrandStyle) => void }) {
+  const p = texts.page;
+  return (
+    <fieldset className="mt-3 flex flex-col gap-2">
+      <legend className="mb-1.5 text-xs font-medium text-fg-muted">{p.brandStyle}</legend>
+      <div className="grid grid-cols-2 gap-2">
+        {(["line", "mark"] as const).map((style) => {
+          const checked = value === style;
+          return (
+            <label
+              key={style}
+              className={cn(
+                "flex cursor-pointer flex-col gap-2 rounded-xl border p-2.5 transition has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand",
+                checked ? "border-brand bg-brand-soft/60" : "border-border hover:border-border-strong hover:bg-surface-2 active:bg-surface-2",
+              )}
+            >
+              <input
+                type="radio"
+                name="brand-style"
+                className="sr-only"
+                checked={checked}
+                onChange={() => {
+                  onChange(style);
+                }}
+              />
+              {/* A slice of paper with the brand as it prints. */}
+              <span aria-hidden className="@container relative block h-10 overflow-hidden rounded-md border border-border" style={{ background: SAMPLE_PAPER }}>
+                {/* 75 mm of the paper's bottom edge across the card. */}
+                <CertificateBrand style={style} paper={SAMPLE_PAPER} u={(mm) => `${String((mm / 75) * 100)}cqw`} />
+              </span>
+              <span className="flex flex-col gap-0.5">
+                <span className="text-sm font-semibold text-fg">{p.brandStyles[style].label}</span>
+                <span className="text-xs leading-snug text-fg-muted">{p.brandStyles[style].hint}</span>
+              </span>
+            </label>
+          );
+        })}
+      </div>
+    </fieldset>
   );
 }

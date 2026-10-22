@@ -25,6 +25,7 @@ function design(templateIndex = 0): CertificateDesign {
     front: template.build({ title: "Certificado de participação", palette, signers }),
     back: null,
     brand: true,
+    brandStyle: "line",
   };
 }
 
@@ -35,7 +36,7 @@ describe("certificate design (ADR 0114)", () => {
       for (const palette of CERTIFICATE_PALETTES) {
         for (const kept of [[], signers.slice(0, 1), signers]) {
           const front = template.build({ title: "Certificado", palette, signers: kept });
-          const built: CertificateDesign = { version: 1, orientation: template.orientation, title: "Certificado", front, back: null, brand: true };
+          const built: CertificateDesign = { version: 1, orientation: template.orientation, title: "Certificado", front, back: null, brand: true, brandStyle: "mark" };
           expect(certificateIssues(built, 1), `${template.id} ${palette.id}`).toEqual([]);
         }
       }
@@ -58,6 +59,7 @@ describe("certificate design (ADR 0114)", () => {
           front: front.build(input),
           back: template.build(input, orientation),
           brand: false,
+          brandStyle: "line",
         };
         expect(certificateIssues(built, 0), `${template.id} ${orientation}`).toEqual([]);
       }

@@ -3,12 +3,13 @@
 import { BarChart3, Building2, CalendarDays, LifeBuoy, LogOut, Megaphone, RefreshCw, ShieldAlert, ShieldCheck, UserRound, WifiOff } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import type { MouseEvent, ReactNode } from "react";
+import { Suspense, type MouseEvent, type ReactNode } from "react";
 
 import { Logo } from "@/components/brand";
 import { InstallButton } from "@/components/install-button";
 import { Inbox } from "@/components/panel/inbox";
 import { AnnouncementHost, MaintenanceBanner, MaintenanceScreen } from "@/components/panel/platform-notices";
+import { TourGate } from "@/components/panel/tour";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { Badge, Button, EmptyState, Popover, Skeleton, errorMessage, useConfirm } from "@/components/ui";
 import { cn } from "@/lib/cn";
@@ -93,9 +94,9 @@ function TabBar({
   pathname: string;
   guard: (event: MouseEvent<HTMLElement>) => void;
 }) {
-  const items: { href: string; label: string; icon: typeof CalendarDays; active: boolean }[] = [
+  const items: { href: string; label: string; icon: typeof CalendarDays; active: boolean; tour?: string }[] = [
     { href: "/painel", label: t.events, icon: CalendarDays, active: pathname === "/painel" || pathname.startsWith("/painel/eventos") },
-    { href: "/painel/resultados", label: t.results, icon: BarChart3, active: pathname.startsWith("/painel/resultados") },
+    { href: "/painel/resultados", label: t.results, icon: BarChart3, active: pathname.startsWith("/painel/resultados"), tour: "results" },
     ...(isAdmin ? [{ href: "/painel/admin", label: adminTexts.nav, icon: ShieldCheck, active: pathname.startsWith("/painel/admin") }] : []),
     { href: "/painel/conta", label: t.account, icon: UserRound, active: pathname.startsWith("/painel/conta") || pathname.startsWith("/painel/organizacao") },
   ];
@@ -110,6 +111,7 @@ function TabBar({
           <li key={item.href} className="flex-1">
             <Link
               href={item.href}
+              data-tour={item.tour}
               aria-current={item.active ? "page" : undefined}
               className={cn(
                 "flex h-16 flex-col items-center justify-center gap-1 text-[11px] font-medium transition active:scale-95",
@@ -201,6 +203,7 @@ export function PanelShell({ children }: { children: ReactNode }) {
               </Link>
               <Link
                 href="/painel/resultados"
+                data-tour="results"
                 aria-current={pathname === "/painel/resultados" ? "page" : undefined}
                 className={cn(
                   "inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition",
@@ -227,9 +230,15 @@ export function PanelShell({ children }: { children: ReactNode }) {
           </div>
           <div className="flex items-center gap-1.5">
             <InstallButton />
-            {session.status === "signed-in" && <Inbox />}
+            {session.status === "signed-in" && (
+              <div data-tour="inbox" className="flex">
+                <Inbox />
+              </div>
+            )}
             {session.status === "signed-in" ? (
-              <UserMenu email={session.user.email} isAdmin={session.user.isAdmin} onSignOut={() => void signOut()} />
+              <div data-tour="account" className="flex">
+                <UserMenu email={session.user.email} isAdmin={session.user.isAdmin} onSignOut={() => void signOut()} />
+              </div>
             ) : (
               <Skeleton className="size-9 rounded-full" />
             )}
@@ -271,7 +280,13 @@ export function PanelShell({ children }: { children: ReactNode }) {
           ) : (
             <>
               {children}
-              <AnnouncementHost />
+              {/* The welcome tour (ADR 0116), when the panel can be used as usual; an
+                  announcement's window waits for it. */}
+              <Suspense fallback={<AnnouncementHost />}>
+                <TourGate user={session.user} blocked={maintenance === undefined || maintenance.mode !== "off" || session.user.suspended}>
+                  <AnnouncementHost />
+                </TourGate>
+              </Suspense>
             </>
           )
         ) : session.status === "error" ? (

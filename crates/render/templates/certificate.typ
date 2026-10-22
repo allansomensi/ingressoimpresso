@@ -236,8 +236,19 @@
   }
   if p.frame != none { frame(p.frame) }
   for e in p.elements { element(e) }
-  if p.brand != none {
+  if p.brand != none and p.brand.style == "line" {
     place(bottom + center, dy: -3mm, box(fill: white.transparentize(15%), inset: (x: 2.2mm, y: 1mm), radius: 1mm,
-      text(font: "Lato", size: 6.5pt, fill: rgb("#6b6b78"), p.brand)))
+      text(font: "Lato", size: 6.5pt, fill: rgb("#6b6b78"), p.brand.text)))
+  }
+  // The watermark (ADR 0116): "EMITIDO COM", the mark and the name, faint in the paper's ink, on
+  // a strip of the paper that interrupts a frame passing under it.
+  if p.brand != none and p.brand.style == "mark" {
+    let ink = rgb(p.brand.ink)
+    place(bottom + center, dy: -3mm, box(fill: rgb(p.brand.paper), inset: (x: 2.6mm, y: 0.9mm), radius: 1mm,
+      grid(columns: 3, column-gutter: 1.5mm, align: horizon,
+        text(font: "Lato", size: 5pt, tracking: 0.14em, fill: ink.transparentize(55%), upper(p.brand.caption)),
+        box(height: 3.8mm, image("/brand-mark.svg", height: 3.8mm)),
+        text(font: "Lato", size: 7.5pt, tracking: -0.01em, fill: ink.transparentize(42%),
+          [#text(weight: "bold")[Ingresso] Impresso]))))
   }
 }
