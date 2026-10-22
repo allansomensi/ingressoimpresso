@@ -20,7 +20,7 @@ use crate::api::{
     CreditAdjustBody, CreditEntryDto, CreditReason, CreditsDto, NotificationKind,
     PendingDiscountDto, PriceTableBody, PromoCodeBody, PromoCodeDto, PromoCodeKind,
     PromoCodeUpdateBody, PromoRedemptionDto, PromotionBody, PromotionDto, RedeemBody,
-    RedeemResultDto,
+    RedeemResultDto, TeamArea,
 };
 use crate::auth::AuthUser;
 use crate::emails::money;
@@ -51,7 +51,8 @@ pub(crate) async fn credit_balance<'e, E: PgExecutor<'e>>(
     )
     .fetch_one(executor)
     .await?;
-    Ok(i32::try_from(sum).unwrap_or(i32::MAX))
+    // A revoked referral may leave a debt (ADR 0119): the balance can be negative.
+    Ok(i32::try_from(sum.clamp(i64::from(i32::MIN), i64::from(i32::MAX))).unwrap_or(0))
 }
 
 /// The largest discount code the organization redeemed and has not used.
@@ -87,7 +88,7 @@ async fn free_left(
     table: &PriceTable,
 ) -> ApiResult<i32> {
     let row = sqlx::query!(
-        r#"select o.bonus_free_tickets,
+        r#"select o.bonus_free_tickets, o.free_tickets_eligible,
                   (select coalesce(sum(b.free_tickets), 0)::int from ticket_batches b
                    join events e on e.id = b.event_id
                    where e.organization_id = o.id and b.status <> 'canceled') as "used!"
@@ -96,7 +97,13 @@ async fn free_left(
     )
     .fetch_one(&mut **tx)
     .await?;
-    Ok((table.free_tickets + row.bonus_free_tickets - row.used).max(0))
+    // A second account of the same mailbox (ADR 0119) gets only what the admins gave it.
+    let table_free = if row.free_tickets_eligible {
+        table.free_tickets
+    } else {
+        0
+    };
+    Ok((table_free + row.bonus_free_tickets - row.used).max(0))
 }
 
 /// The price of a new batch of `quantity` for an organization, with what it is made of. Locks
@@ -189,13 +196,20 @@ pub(crate) async fn give_back(
     reason: CreditReason,
     actor: Option<Uuid>,
 ) -> ApiResult<()> {
+    // Once per batch, whoever calls (cancel, a price set to zero, a refund): the first call marks
+    // the batch and inserts the line; the next ones find it marked.
     let batch = sqlx::query!(
-        r#"select b.credit_cents, e.organization_id from ticket_batches b
-           join events e on e.id = b.event_id where b.id = $1"#,
+        r#"update ticket_batches b set credit_returned_at = now()
+           from events e
+           where b.id = $1 and e.id = b.event_id and b.credit_returned_at is null
+           returning b.credit_cents, e.organization_id"#,
         batch_id
     )
-    .fetch_one(&mut **tx)
+    .fetch_optional(&mut **tx)
     .await?;
+    let Some(batch) = batch else {
+        return Ok(());
+    };
     if batch.credit_cents > 0 {
         sqlx::query!(
             r#"insert into credit_ledger (id, organization_id, amount_cents, reason, reference_id, actor_id)
@@ -232,6 +246,9 @@ pub async fn quote(
     if !(1..=pricing::LARGEST_BATCH).contains(&body.quantity) {
         return Err(bad_request("invalid_quantity", "quantity must be 1-5000"));
     }
+    // The organization's money is the coordinators' business: a team member who only takes
+    // care of the door or the art sees the price, not the credit balance or the pending code.
+    let money = access.can(TeamArea::Manage);
     let mut tx = state.pool.begin().await?;
     let (_, breakdown, code, promotion, balance) =
         price_new_batch(&mut tx, access.organization_id, body.quantity).await?;
@@ -245,6 +262,7 @@ pub async fn quote(
             .filter(|promotion| breakdown.promotion_id == Some(promotion.id))
             .map(|promotion| promotion.dto),
         discount_code: code
+            .filter(|_| money)
             .filter(|code| breakdown.code_redemption_id == Some(code.redemption_id))
             .map(|code| PendingDiscountDto {
                 code: code.code,
@@ -253,7 +271,7 @@ pub async fn quote(
         discount_cents: breakdown.discount_cents,
         credit_cents: breakdown.credit_cents,
         total_cents: breakdown.total_cents,
-        credit_balance_cents: balance,
+        credit_balance_cents: if money { balance } else { 0 },
     }))
 }
 

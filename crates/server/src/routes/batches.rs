@@ -33,6 +33,8 @@ const MAX_BATCH: i32 = 5_000;
 /// An open checkout is reused only if it still has this long to live; otherwise it is expired
 /// and a new one is opened (the payer needs time to scan a Pix code or type a card).
 const REUSE_MARGIN_MINUTES: i32 = 15;
+/// Checkout syncs one account may ask for per minute (each may call Stripe).
+const CHECKOUT_SYNCS_PER_MINUTE: usize = 12;
 
 pub(crate) struct BatchRow {
     pub(crate) id: Uuid,
@@ -397,6 +399,18 @@ pub async fn sync_checkout(
 ) -> ApiResult<Json<BatchDto>> {
     let event_id = batch_event(&state, batch_id).await?;
     authorize_event(&state.pool, &user, event_id).await?;
+    // Each unsettled session is one request to Stripe: a page reloaded in a loop must not spend
+    // the platform's Stripe rate limit.
+    if !state
+        .attempt(
+            &format!("checkout-sync:{}", user.id),
+            CHECKOUT_SYNCS_PER_MINUTE,
+            std::time::Duration::from_mins(1),
+        )
+        .await
+    {
+        return Err(ApiError::TooManyRequests);
+    }
     if state.payments.enabled() {
         let sessions = sqlx::query_scalar!(
             "select checkout_session_id from payments where batch_id = $1 and status in ('open', 'processing')",
@@ -486,12 +500,28 @@ pub async fn apply_session(state: &AppState, session: &CheckoutSession) -> ApiRe
         tracing::info!(batch_id = %payment.batch_id, session = %session.id, "batch paid online");
         notify_paid(state, payment.batch_id).await;
     } else if needs_refund(state, payment.batch_id).await? {
-        // Money without tickets: someone has to refund it in the Stripe dashboard.
+        // Money without tickets: someone has to refund it in the Stripe dashboard. The admins
+        // hear of it (ADR 0103) instead of it waiting in the log.
         tracing::error!(
             batch_id = %payment.batch_id,
             session = %session.id,
             "payment received for a batch that is canceled or already paid: refund it in Stripe"
         );
+        crate::alerts::raise(
+            state.clone(),
+            crate::alerts::NewAlert {
+                kind: AlertKind::StripeWebhook,
+                key: format!("orphan_payment:{}", payment.batch_id),
+                severity: AlertSeverity::Critical,
+                title: "Pagamento recebido para um lote cancelado ou já pago".to_owned(),
+                detail: Some(format!(
+                    "Lote {} (sessão {}). O dinheiro precisa ser devolvido no painel da Stripe.",
+                    payment.batch_id, session.id
+                )),
+                section: "lotes",
+            },
+        )
+        .await;
     }
     Ok(())
 }

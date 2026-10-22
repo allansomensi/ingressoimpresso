@@ -17,7 +17,6 @@ use uuid::Uuid;
 
 use super::admin::{audit, require_admin};
 use super::announcements::notify_organization;
-use super::billing::credit_balance;
 use super::privacy::{optional_rfc3339, rfc3339};
 use crate::api::{
     AdminReferralDto, AdminReferralsDto, CreditReason, InvitedByDto, NotificationKind, ReferralDto,
@@ -444,20 +443,20 @@ pub(crate) async fn revoke(
         )
         .fetch_one(&mut **tx)
         .await?;
-        let take = cents.min(credit_balance(&mut **tx, organization).await?);
-        if take > 0 {
-            sqlx::query!(
-                r#"insert into credit_ledger (id, organization_id, amount_cents, reason, reference_id)
-                   values ($1, $2, $3, $4, $5)"#,
-                Uuid::new_v4(),
-                organization,
-                -take,
-                CreditReason::ReferralRevoked.db(),
-                referral_id,
-            )
-            .execute(&mut **tx)
-            .await?;
-        }
+        // The whole reward goes back, spent or not (ADR 0119): credit already turned into
+        // tickets leaves a debt that the organization's next batches repay (pricing clamps a
+        // negative balance at zero, so it never discounts anything until then).
+        sqlx::query!(
+            r#"insert into credit_ledger (id, organization_id, amount_cents, reason, reference_id)
+               values ($1, $2, $3, $4, $5)"#,
+            Uuid::new_v4(),
+            organization,
+            -cents,
+            CreditReason::ReferralRevoked.db(),
+            referral_id,
+        )
+        .execute(&mut **tx)
+        .await?;
     }
     tracing::info!(referral = %referral_id, reason, "referral revoked");
     Ok(true)
