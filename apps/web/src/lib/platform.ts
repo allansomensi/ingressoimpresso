@@ -54,6 +54,10 @@ export function safeLink(url: string | null): string | null {
   if (url === null) {
     return null;
   }
+  // A backslash is a slash to the browser: `/\evil.com` would leave the site.
+  if (url.includes("\\")) {
+    return null;
+  }
   if (url.startsWith("/") && !url.startsWith("//")) {
     return url;
   }

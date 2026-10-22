@@ -12,6 +12,51 @@ e não acompanha estes números.
 
 ## [Não lançado]
 
+## [1.15.0] - 2026-10-22
+
+### Alterado
+
+- Na equipe do evento, "entrou" passa a significar que a pessoa abriu o evento depois do
+  convite, e não que o e-mail já tinha conta.
+- A cotação de um lote mostra saldo de crédito e cupom só para quem coordena o evento.
+- Excluir um vendedor que já tem recebimentos ou fechamentos de caixa exige a parte Dinheiro.
+- Excluir um evento com uma imagem em revisão espera a decisão da equipe.
+- Os ingressos grátis da tabela de preços valem uma vez por caixa de e-mail: uma segunda conta
+  do mesmo e-mail (com `+algo` ou pontos trocados) não ganha outros (ADR 0119).
+
+### Segurança
+
+- **Contestações:** o bloqueio dos números de um lote contestado só é desfeito pelo admin; o
+  organizador o vê como travado em Cancelamentos (ADR 0119).
+- **Portaria:** o servidor confere cada leitura enviada por um celular contra os lotes pagos, as
+  chaves e o relógio do evento; um celular que invente números tem o envio inteiro recusado e
+  tem 240 pedidos por minuto; um evento tem até 60 links de portaria ativos.
+- **Login:** os erros de código são contados por endereço, então um estranho chutando códigos
+  não bloqueia o dono do e-mail; pedir um código com cadastros fechados ou domínio bloqueado não
+  revela se o e-mail tem conta; a sessão vence de vez em 90 dias; ligar ou desligar a verificação
+  em duas etapas encerra as outras sessões da conta.
+- **E-mail:** códigos de login usam no máximo três quartos da cota do dia e convites à equipe um
+  quarto (20 por hora por conta): os e-mails de lote pago e os alertas sempre têm espaço.
+- **Indicações:** uma indicação revogada devolve o crédito inteiro, mesmo já gasto (o saldo fica
+  devendo); o crédito de um lote volta uma vez só; dinheiro recebido para um lote cancelado ou já
+  pago vira alerta aos admins.
+- **Conferir ingresso** não diz se um QR é autêntico quando a conferência pública está desligada;
+  a página do vendedor mostra só os links digitais que ele mesmo mandou; um número que já entrou
+  não é mandado de novo pelo vendedor.
+- **Imagens:** 30 envios por hora por conta, reenvio dos mesmos bytes não gasta análise, arte em
+  revisão não sai na amostra, e o esgotamento da análise automática avisa os admins.
+- **Arquivos pesados:** o ZIP de certificados é escrito em disco (um PDF por vez) e recusa
+  conjuntos acima de 1 GB; o PDF público de um certificado tem 4 por minuto.
+- **Tetos:** 500 eventos por organização, 300 faixas por vendedor ou categoria, 8 assinaturas
+  por webhook da Stripe.
+- **Site:** a política de segurança de conteúdo vale para toda página, inclusive as cujo
+  endereço termina como um arquivo (`/i/abc.js`); `X-Frame-Options: DENY` em toda resposta.
+- **Manutenção** vale também para a portaria e a transferência do ingresso digital.
+- **Privacidade:** excluir a conta tira o e-mail do histórico dos eventos de outras
+  organizações; admins não entram em equipes (sempre modo suporte, auditado).
+- **CI:** o token do checkout não fica no repositório clonado; permissões por job no workflow
+  Branches; o teste de restauração do backup não expõe a URL do banco na linha de comando.
+
 ## [1.14.0] - 2026-10-22
 
 ### Adicionado
@@ -737,7 +782,8 @@ Primeira versão numerada: o produto que já estava em produção, das fases 0 a
 - Política de segurança de conteúdo (CSP) com nonce por requisição em todo o site (ADR 0048).
 - Verificação anti-robô antes do envio do código de login (ADR 0044).
 
-[Não lançado]: https://github.com/allansomensi/ingressoimpresso/compare/v1.14.0...HEAD
+[Não lançado]: https://github.com/allansomensi/ingressoimpresso/compare/v1.15.0...HEAD
+[1.15.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.14.0...v1.15.0
 [1.14.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.13.0...v1.14.0
 [1.13.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.12.0...v1.13.0
 [1.12.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.11.0...v1.12.0

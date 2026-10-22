@@ -106,6 +106,7 @@ pub async fn enable(
     .execute(&mut *tx)
     .await?;
     let codes = two_factor::replace_recovery_codes(&state, &mut tx, user.id).await?;
+    end_other_sessions(&mut tx, user.id, Some(user.session_hash())).await?;
     tx.commit().await?;
     Ok(Json(RecoveryCodesDto { codes }))
 }
@@ -134,6 +135,7 @@ pub async fn disable(
     require_on(&mut tx, user.id).await?;
     two_factor::check(&state, &mut tx, user.id, Some(&body.code)).await?;
     turn_off(&mut tx, user.id).await?;
+    end_other_sessions(&mut tx, user.id, Some(user.session_hash())).await?;
     tx.commit().await?;
     Ok(StatusCode::NO_CONTENT)
 }
@@ -158,6 +160,7 @@ pub async fn admin_reset(
     .await?
     .ok_or(ApiError::NotFound)?;
     turn_off(&mut tx, user_id).await?;
+    end_other_sessions(&mut tx, user_id, None).await?;
     tx.commit().await?;
     audit(
         &state,
@@ -209,5 +212,22 @@ async fn turn_off(tx: &mut sqlx::Transaction<'_, sqlx::Postgres>, user_id: Uuid)
     sqlx::query!("delete from recovery_codes where user_id = $1", user_id)
         .execute(&mut **tx)
         .await?;
+    Ok(())
+}
+
+/// Ends every session of `user_id` but `keep` (ADR 0119): a change of the second step is the
+/// moment to sign out whoever else holds a token, the person who lost the phone included.
+async fn end_other_sessions(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    user_id: Uuid,
+    keep: Option<&[u8]>,
+) -> ApiResult<()> {
+    sqlx::query!(
+        "delete from sessions where user_id = $1 and ($2::bytea is null or token_hash <> $2)",
+        user_id,
+        keep,
+    )
+    .execute(&mut **tx)
+    .await?;
     Ok(())
 }

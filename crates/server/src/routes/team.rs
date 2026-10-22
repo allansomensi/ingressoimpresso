@@ -27,7 +27,7 @@ pub const MAX_TEAM: i64 = 30;
 const MAX_NAME: usize = 80;
 /// People one account may add to its teams per hour: every addition e-mails an invite written
 /// with the event's name, and the daily e-mail quota (ADR 0028) is shared by everyone.
-const INVITES_PER_HOUR: usize = 40;
+const INVITES_PER_HOUR: usize = 20;
 
 /// What a request on an event needs from a team member.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -331,6 +331,7 @@ struct MemberRow {
     name: Option<String>,
     areas: Vec<String>,
     user_id: Option<Uuid>,
+    joined_at: Option<time::OffsetDateTime>,
     created_at: time::OffsetDateTime,
 }
 
@@ -341,7 +342,9 @@ impl MemberRow {
             email: self.email,
             name: self.name,
             areas: parse_areas(&self.areas),
-            joined: self.user_id.is_some(),
+            // Joined means the person opened the panel since the invite: whether the e-mail
+            // already had an account is nobody's business (ADR 0119).
+            joined: self.joined_at.is_some(),
             you: self.user_id == Some(viewer),
             created_at: self.created_at,
         }
@@ -353,7 +356,7 @@ async fn member(state: &AppState, member_id: Uuid) -> ApiResult<(Uuid, MemberRow
         // The overrides keep the columns of `t` non-null whatever plan the database picks for the
         // outer join (sqlx infers nullability from it).
         r#"select t.id as "id!", t.event_id as "event_id!", t.email::text as "email!",
-                  coalesce(t.name, u.name) as name, t.areas as "areas!", t.user_id,
+                  coalesce(t.name, u.name) as name, t.areas as "areas!", t.user_id, t.joined_at,
                   t.created_at as "created_at!"
            from event_team t left join users u on u.id = t.user_id where t.id = $1"#,
         member_id
@@ -369,6 +372,7 @@ async fn member(state: &AppState, member_id: Uuid) -> ApiResult<(Uuid, MemberRow
             name: row.name,
             areas: row.areas,
             user_id: row.user_id,
+            joined_at: row.joined_at,
             created_at: row.created_at,
         },
     ))
@@ -398,7 +402,7 @@ pub async fn list(
     let members = sqlx::query_as!(
         MemberRow,
         r#"select t.id, t.email::text as "email!", coalesce(t.name, u.name) as name, t.areas,
-                  t.user_id, t.created_at
+                  t.user_id, t.joined_at, t.created_at
            from event_team t left join users u on u.id = t.user_id
            where t.event_id = $1 order by t.created_at"#,
         event_id
@@ -418,6 +422,7 @@ pub async fn list(
 /// Refuses the organization's own people (they already do everything) and a full team.
 async fn check_addable(
     tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    admin_emails: &crate::config::Config,
     organization_id: Uuid,
     event_id: Uuid,
     email: &str,
@@ -434,6 +439,14 @@ async fn check_addable(
         return Err(ApiError::Conflict(
             "already_owner",
             "this person already manages the organization's events".to_owned(),
+        ));
+    }
+    // The platform's admins reach any event in support mode, audited (ADR 0032); on a team they
+    // would be a plain member, unaudited and listed to everyone (ADR 0119).
+    if admin_emails.is_admin(email) {
+        return Err(ApiError::Conflict(
+            "already_admin",
+            "this person already reaches every event".to_owned(),
         ));
     }
     let size = sqlx::query_scalar!(
@@ -470,6 +483,10 @@ async fn within_invite_limit(state: &AppState, user: &AuthUser) -> ApiResult<()>
 /// `POST /api/events/{id}/team`: adds a person by e-mail. An existing account sees the event at
 /// once (and gets a notification); a new e-mail finds it on the first sign-in. Either way an
 /// e-mail goes out, within the daily quota.
+#[expect(
+    clippy::too_many_lines,
+    reason = "the checks, the row, the notification and the e-mail of one invite"
+)]
 pub async fn add(
     State(state): State<AppState>,
     user: AuthUser,
@@ -488,14 +505,21 @@ pub async fn add(
     }
     within_invite_limit(&state, &user).await?;
     let mut tx = state.pool.begin().await?;
-    check_addable(&mut tx, access.organization_id, event_id, &email).await?;
+    check_addable(
+        &mut tx,
+        &state.config,
+        access.organization_id,
+        event_id,
+        &email,
+    )
+    .await?;
     let account = sqlx::query!("select id, name from users where email = $1", email)
         .fetch_optional(&mut *tx)
         .await?;
     let id = Uuid::new_v4();
     let row = sqlx::query!(
         r#"insert into event_team (id, event_id, email, name, user_id, areas, invited_by, joined_at)
-           values ($1, $2, $3, $4, $5, $6, $7, case when $5::uuid is null then null else now() end)
+           values ($1, $2, $3, $4, $5, $6, $7, null)
            on conflict (event_id, email) do nothing
            returning created_at"#,
         id,
@@ -564,6 +588,7 @@ pub async fn add(
         name: name.or_else(|| account.as_ref().and_then(|account| account.name.clone())),
         areas: db_areas(&areas),
         user_id: account.map(|account| account.id),
+        joined_at: None,
         created_at: row.created_at,
     }
     .into_dto(user.id);
@@ -641,7 +666,8 @@ pub(crate) async fn link_invites<'e, E: sqlx::PgExecutor<'e>>(
 ) -> ApiResult<()> {
     sqlx::query!(
         r#"update event_team set user_id = $1, joined_at = now()
-           where user_id is null and email = (select email from users where id = $1)"#,
+           where joined_at is null
+             and (user_id = $1 or (user_id is null and email = (select email from users where id = $1)))"#,
         user_id
     )
     .execute(executor)

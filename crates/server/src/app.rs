@@ -528,6 +528,12 @@ pub fn router(state: AppState) -> Router {
             state.clone(),
             crate::activity::record,
         ))
+        // Maintenance (ADR 0037) also holds the writers that carry a token instead of a session
+        // (ADR 0119); their phones keep the work and retry (invariant 6).
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            token_writers_maintenance,
+        ))
         // A burst of unexpected errors reaches the admins (ADR 0103).
         .layer(middleware::from_fn_with_state(
             state.clone(),
@@ -586,6 +592,40 @@ pub fn router(state: AppState) -> Router {
         .layer(SetRequestIdLayer::x_request_id(MakeRequestUuid))
         // Always ours: a client may not choose what goes into the logs under that name.
         .layer(middleware::map_request(drop_client_request_id))
+}
+
+/// The endpoints that write with a token, not a session: during maintenance they answer like
+/// the panel does (`check_request`), since the extractor that enforces it never sees them.
+const TOKEN_WRITERS: &[&str] = &[
+    "/api/door/register",
+    "/api/door/scans",
+    "/api/door/guests",
+    "/api/door/rehearsal",
+    "/api/ticket/transfer",
+];
+
+async fn token_writers_maintenance(
+    State(state): State<AppState>,
+    request: axum::http::Request<axum::body::Body>,
+    next: middleware::Next,
+) -> Response {
+    let path = request
+        .extensions()
+        .get::<axum::extract::OriginalUri>()
+        .map_or_else(
+            || request.uri().path().to_owned(),
+            |uri| uri.path().to_owned(),
+        );
+    if request.method() != Method::GET && TOKEN_WRITERS.contains(&path.as_str()) {
+        let checked = match state.settings.get(&state.pool).await {
+            Ok(settings) => settings.check_request(request.method(), &path),
+            Err(error) => Err(error),
+        };
+        if let Err(error) = checked {
+            return error.into_response();
+        }
+    }
+    next.run(request).await
 }
 
 async fn drop_client_request_id(

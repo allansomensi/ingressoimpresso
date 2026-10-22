@@ -201,12 +201,16 @@ pub async fn check_art(state: &AppState, blob_id: Uuid) {
     }
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "the budget, the permit and the verdict of one image read best in sequence"
+)]
 async fn try_check_art(state: &AppState, blob_id: Uuid) -> ApiResult<()> {
     let Some(classifier) = state.classifier.clone() else {
         return Ok(());
     };
     let Some(blob) = sqlx::query!(
-        r#"select b.data, b.moderation_status, b.event_id,
+        r#"select b.moderation_status, b.event_id,
                   coalesce(e.organization_id, b.organization_id) as "organization_id!"
            from blobs b left join events e on e.id = b.event_id where b.id = $1"#,
         blob_id
@@ -231,11 +235,27 @@ async fn try_check_art(state: &AppState, blob_id: Uuid) -> ApiResult<()> {
     .await?;
     if allowed.is_none() {
         tracing::warn!(%blob_id, "moderation budget spent: image left for manual review");
+        // The admins look at the recent uploads by hand for the rest of the day (ADR 0103).
+        crate::alerts::raise(
+            state.clone(),
+            crate::alerts::NewAlert {
+                kind: crate::api::AlertKind::ApiErrors,
+                key: "moderation_budget".to_owned(),
+                severity: crate::api::AlertSeverity::Warning,
+                title: "A análise automática das artes parou por hoje".to_owned(),
+                detail: Some(
+                    "O limite diário do Cloud Vision acabou: as artes enviadas até amanhã ficam sem análise. Confira os envios recentes na moderação."
+                        .to_owned(),
+                ),
+                section: "moderacao",
+            },
+        )
+        .await;
         return Ok(());
     }
-    let data = blob.data;
     // Decoding is the memory-hungry part: it shares the render permits, so a burst of uploads
-    // never decodes more than a couple of images at once.
+    // never decodes more than a couple of images at once. The bytes are read only once the
+    // permit is held: a queue of uploads waits with nothing of its own in memory.
     let jpeg = {
         let _permit = state
             .render_permits
@@ -243,6 +263,12 @@ async fn try_check_art(state: &AppState, blob_id: Uuid) -> ApiResult<()> {
             .acquire_owned()
             .await
             .map_err(anyhow::Error::from)?;
+        let Some(data) = sqlx::query_scalar!("select data from blobs where id = $1", blob_id)
+            .fetch_optional(&state.pool)
+            .await?
+        else {
+            return Ok(());
+        };
         tokio::task::spawn_blocking(move || {
             crate::routes::events::shrink_to_jpeg(&data, CLASSIFY_WIDTH_PX)
         })
@@ -340,7 +366,11 @@ pub async fn ensure_event_printable(pool: &sqlx::PgPool, event_id: Uuid) -> ApiR
 }
 
 /// The rule of [`ensure_printable`] on a status already read.
-fn check_printable(status: Option<&str>) -> ApiResult<()> {
+///
+/// # Errors
+///
+/// `art_under_review` or `art_rejected` as a 409.
+pub fn check_printable(status: Option<&str>) -> ApiResult<()> {
     match status {
         Some("flagged") => Err(ApiError::Conflict(
             "art_under_review",

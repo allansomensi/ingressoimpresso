@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update event_team set user_id = $1, joined_at = now()\n           where joined_at is null\n             and (user_id = $1 or (user_id is null and email = (select email from users where id = $1)))",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "96883fc5ecdff753a080bd4d368a6f13c5d21cd5220db08a9f6e0059f176912c"
+}

@@ -202,6 +202,10 @@ impl EventAccess {
 /// admin (support mode); 404 otherwise (never reveals that another organization's event exists).
 /// A team member reads everything and changes only their areas ([`team::need`] maps the request
 /// to an area). Every change an admin makes in support mode is written to the audit log.
+#[expect(
+    clippy::too_many_lines,
+    reason = "the whole access rule of an event in one place"
+)]
 pub async fn event_access(
     pool: &PgPool,
     user: &AuthUser,
@@ -215,7 +219,8 @@ pub async fn event_access(
                   o.suspended_at is not null as "organization_suspended!",
                   exists(select 1 from memberships m
                          where m.organization_id = e.organization_id and m.user_id = $2) as "member!",
-                  (select t.areas from event_team t where t.event_id = e.id and t.user_id = $2) as "areas?: Vec<String>"
+                  (select t.areas from event_team t where t.event_id = e.id and t.user_id = $2) as "areas?: Vec<String>",
+                  (select t.joined_at is null from event_team t where t.event_id = e.id and t.user_id = $2) as "first_visit?"
            from events e join organizations o on o.id = e.organization_id where e.id = $1"#,
         event_id,
         user.id,
@@ -223,7 +228,9 @@ pub async fn event_access(
     .fetch_optional(pool)
     .await?
     .ok_or(ApiError::NotFound)?;
-    let team = match (row.member, row.areas) {
+    // An admin is in support mode wherever they are not a member (ADR 0032), a team row for
+    // their e-mail notwithstanding: support stays audited and unrestricted (ADR 0119).
+    let team = match (row.member || user.is_admin, row.areas) {
         (true, _) => None,
         (false, Some(areas)) => Some(
             areas
@@ -231,10 +238,19 @@ pub async fn event_access(
                 .filter_map(|area| TeamArea::from_db(area))
                 .collect::<Vec<_>>(),
         ),
-        (false, None) if user.is_admin => None,
         (false, None) => return Err(ApiError::NotFound),
     };
     let support = !row.member && team.is_none();
+    // The first time a team member opens the event is when they joined it (ADR 0119).
+    if team.is_some() && row.first_visit == Some(true) {
+        sqlx::query!(
+            "update event_team set joined_at = now() where event_id = $1 and user_id = $2 and joined_at is null",
+            row.id,
+            user.id
+        )
+        .execute(pool)
+        .await?;
+    }
     let writing = !matches!(user.method, Method::GET | Method::HEAD);
     if let Some(areas) = &team {
         let allowed = match team::need(&user.method, &user.path) {
@@ -358,6 +374,52 @@ pub async fn is_issued(pool: &PgPool, event_id: Uuid, numbers: &PgRange<i32>) ->
     .fetch_one(pool)
     .await?;
     Ok(covered == i64::from(last) - i64::from(first) + 1)
+}
+
+/// Ranges one seller or category may hold (ADR 0119): the door's manifest, the files and the
+/// number tags walk every range of the event, and "12, 15, 40-50" never needs this many.
+pub const MAX_RANGES_PER_OWNER: i64 = 300;
+
+/// Whose ranges [`ensure_ranges_room`] counts.
+#[derive(Debug, Clone, Copy)]
+pub enum RangeOwner {
+    /// A category's ranges (`category_ranges`).
+    Category(Uuid),
+    /// A seller's ranges (`seller_assignments`).
+    Seller(Uuid),
+}
+
+/// Refuses one more range for `owner` past [`MAX_RANGES_PER_OWNER`].
+///
+/// # Errors
+///
+/// `too_many_ranges` as a 409.
+pub async fn ensure_ranges_room(pool: &PgPool, owner: RangeOwner) -> ApiResult<()> {
+    let count = match owner {
+        RangeOwner::Category(id) => {
+            sqlx::query_scalar!(
+                r#"select count(*) as "count!" from category_ranges where category_id = $1"#,
+                id
+            )
+            .fetch_one(pool)
+            .await?
+        }
+        RangeOwner::Seller(id) => {
+            sqlx::query_scalar!(
+                r#"select count(*) as "count!" from seller_assignments where seller_id = $1"#,
+                id
+            )
+            .fetch_one(pool)
+            .await?
+        }
+    };
+    if count >= MAX_RANGES_PER_OWNER {
+        return Err(ApiError::Conflict(
+            "too_many_ranges",
+            format!("at most {MAX_RANGES_PER_OWNER} ranges each"),
+        ));
+    }
+    Ok(())
 }
 
 /// Refuses names and labels with control characters (line breaks included): they are printed,

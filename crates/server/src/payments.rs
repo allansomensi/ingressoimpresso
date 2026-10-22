@@ -18,6 +18,10 @@ use uuid::Uuid;
 const STRIPE_API: &str = "https://api.stripe.com";
 /// Events older than this are refused (replayed webhook), as Stripe's own libraries do.
 pub const WEBHOOK_TOLERANCE_SECS: i64 = 300;
+/// Signatures of one `Stripe-Signature` header that are checked: Stripe sends one `v1` per secret
+/// (two during a rotation); each one costs an HMAC over the whole body, so a header stuffed with
+/// thousands of `v1=` entries must not become CPU time for the webhook, which has no session.
+const MAX_WEBHOOK_SIGNATURES: usize = 8;
 /// Longest part of a provider error kept in the log.
 const MAX_ERROR_CHARS: usize = 500;
 
@@ -620,11 +624,19 @@ pub fn verify_signature(
 ) -> Result<(), WebhookError> {
     let mut timestamp = None;
     let mut signatures = Vec::new();
+    let mut seen = 0usize;
     for part in header.split(',') {
         match part.trim().split_once('=') {
             Some(("t", value)) => timestamp = value.parse::<i64>().ok(),
             Some(("v1", value)) => {
-                if let Ok(bytes) = hex::decode(value) {
+                seen += 1;
+                if seen > MAX_WEBHOOK_SIGNATURES {
+                    return Err(WebhookError::MalformedHeader);
+                }
+                // Only a 32-byte HMAC-SHA256 could ever match; anything else is not worth hashing.
+                if let Ok(bytes) = hex::decode(value)
+                    && bytes.len() == 32
+                {
                     signatures.push(bytes);
                 }
             }
@@ -704,6 +716,19 @@ mod tests {
                 "{bad}"
             );
         }
+    }
+
+    #[test]
+    fn refuses_a_header_stuffed_with_signatures() {
+        let payload = br#"{"id":"evt_1"}"#;
+        let header = sign_payload(SECRET, payload, 1_000);
+        let stuffed = format!("{header}{}", ",v1=00".repeat(MAX_WEBHOOK_SIGNATURES));
+        assert_eq!(
+            verify_signature(SECRET, &stuffed, payload, 1_000),
+            Err(WebhookError::MalformedHeader)
+        );
+        let rotation = format!("{header},v1={}", "ab".repeat(32));
+        assert_eq!(verify_signature(SECRET, &rotation, payload, 1_000), Ok(()));
     }
 
     #[test]

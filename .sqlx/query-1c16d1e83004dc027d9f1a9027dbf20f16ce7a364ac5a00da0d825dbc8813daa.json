@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select b.credit_cents, e.organization_id from ticket_batches b\n           join events e on e.id = b.event_id where b.id = $1",
+  "query": "update ticket_batches b set credit_returned_at = now()\n           from events e\n           where b.id = $1 and e.id = b.event_id and b.credit_returned_at is null\n           returning b.credit_cents, e.organization_id",
   "describe": {
     "columns": [
       {
@@ -36,5 +36,5 @@
       false
     ]
   },
-  "hash": "5147f2bb613a97053175a0b168487f3a97bd1c4510ad24929bf9bf3914844e69"
+  "hash": "1c16d1e83004dc027d9f1a9027dbf20f16ce7a364ac5a00da0d825dbc8813daa"
 }

@@ -138,6 +138,14 @@ pub async fn verify(
     else {
         return Ok(answer(VerifyVerdict::NotOurs));
     };
+    // The organizer turned the public check off (ADR 0075): then nobody learns from this route
+    // whether a QR with the event's tag is real, not even that much (ADR 0119).
+    let public = sqlx::query_scalar!("select public_verify from events where id = $1", event.id)
+        .fetch_one(&state.pool)
+        .await?;
+    if !public {
+        return Ok(answer(VerifyVerdict::Private));
+    }
     let Some(verified) = verifier(&state, event.id, tag)
         .await?
         .and_then(|verifier| verifier.verify(&ticket).ok())

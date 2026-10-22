@@ -17,11 +17,11 @@ use common::{ADMIN, TestApp};
 use serde_json::{Value, json};
 use sqlx::PgPool;
 
-/// An event with 20 paid tickets; returns its id.
+/// An event with 50 paid tickets; returns its id.
 async fn paid_event(app: &TestApp, token: &str) -> String {
     let admin = app.login(ADMIN).await;
     let event = app.create_event(token, "Formatura").await;
-    let batch = app.create_batch(token, &event, 20).await;
+    let batch = app.create_batch(token, &event, 50).await;
     if batch["status"] != "paid" {
         app.request(
             Method::POST,

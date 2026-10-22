@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select exists(select 1 from seller_payments where seller_id = $1)\n               or exists(select 1 from cashier_closings where seller_id = $1) as \"has_money!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "has_money!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "e1c2b2f461770e0ab445b2c033b4e3a9bae95375653fe34ccda83c6e85167e93"
+}

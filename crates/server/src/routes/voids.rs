@@ -53,8 +53,9 @@ pub async fn list(
     let rows = sqlx::query_as!(
         VoidRow,
         r#"select id, numbers, reason, note, created_at, undone_at,
-                  exists(select 1 from ticket_batches b where b.event_id = ticket_voids.event_id
-                         and b.status = 'refunded' and b.numbers && ticket_voids.numbers) as "locked!",
+                  (exists(select 1 from ticket_batches b where b.event_id = ticket_voids.event_id
+                          and b.status = 'refunded' and b.numbers && ticket_voids.numbers)
+                   or exists(select 1 from payment_disputes d where d.block_void_id = ticket_voids.id)) as "locked!",
                   (select r.new_number from ticket_replacements r where r.void_id = ticket_voids.id) as "replaced_by?"
            from ticket_voids where event_id = $1 order by created_at desc"#,
         event_id
@@ -97,8 +98,9 @@ pub async fn create(
         r#"insert into ticket_voids (id, event_id, numbers, reason, note, created_by)
            values ($1, $2, $3, $4, $5, $6)
            returning id, numbers, reason, note, created_at, undone_at,
-                     exists(select 1 from ticket_batches b where b.event_id = ticket_voids.event_id
-                         and b.status = 'refunded' and b.numbers && ticket_voids.numbers) as "locked!",
+                     (exists(select 1 from ticket_batches b where b.event_id = ticket_voids.event_id
+                          and b.status = 'refunded' and b.numbers && ticket_voids.numbers)
+                   or exists(select 1 from payment_disputes d where d.block_void_id = ticket_voids.id)) as "locked!",
                      null::int as "replaced_by?""#,
         Uuid::new_v4(),
         event_id,
@@ -123,13 +125,15 @@ pub async fn undo(
         .await?
         .ok_or(ApiError::NotFound)?;
     authorize_event(&state.pool, &user, event_id).await?;
-    // A void over a refunded batch is permanent (ADR 0032): its tickets were paid back.
+    // A void over a refunded batch is permanent (ADR 0032): its tickets were paid back. So is
+    // the block of a disputed payment (ADR 0104): only the admin lifts it, from the dispute.
     let row = sqlx::query_as!(
         VoidRow,
         r#"update ticket_voids set undone_at = now(), undone_by = $2
            where id = $1 and undone_at is null
              and not exists(select 1 from ticket_batches b where b.event_id = ticket_voids.event_id
                             and b.status = 'refunded' and b.numbers && ticket_voids.numbers)
+             and not exists(select 1 from payment_disputes d where d.block_void_id = ticket_voids.id)
            returning id, numbers, reason, note, created_at, undone_at, false as "locked!",
                      (select r.new_number from ticket_replacements r where r.void_id = ticket_voids.id) as "replaced_by?""#,
         void_id,
@@ -152,7 +156,7 @@ pub async fn undo(
     } else {
         ApiError::Conflict(
             "void_locked",
-            "the void of a refunded batch is permanent".to_owned(),
+            "the void of a refunded or disputed batch is not undone from here".to_owned(),
         )
     })
 }

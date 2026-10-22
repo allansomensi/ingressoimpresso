@@ -183,8 +183,19 @@ async fn coordinators_manage_the_team(pool: PgPool) {
     .await;
     assert_eq!(reply.status, StatusCode::CREATED);
     let added = reply.json();
-    assert_eq!(added["member"]["joined"], true);
+    // Whether the e-mail already had an account is not told (ADR 0119): "joined" means the
+    // person opened the event since.
+    assert_eq!(added["member"]["joined"], false);
     assert_eq!(added["member"]["areas"], json!(["manage"]));
+    assert_eq!(
+        app.get(&format!("/api/events/{event}"), &bia).await.status,
+        StatusCode::OK
+    );
+    let team = app
+        .get(&format!("/api/events/{event}/team"), &owner)
+        .await
+        .json();
+    assert_eq!(team["members"][0]["joined"], true);
     let inbox = app.get("/api/inbox", &bia).await.json();
     assert_eq!(inbox["notifications"][0]["kind"], "team_added");
     assert_eq!(inbox["notifications"][0]["data"]["eventName"], "Show");
@@ -309,9 +320,18 @@ async fn invited_people_get_in_while_sign_ups_are_closed(pool: PgPool) {
             Some(json!({ "email": email })),
         )
     };
+    // Closed to a stranger, and the answer does not say whether the address has an account
+    // (ADR 0119): 204 and no e-mail.
     assert_eq!(
-        code("nova@exemplo.com").await.error_code(),
-        "registrations_closed"
+        code("nova@exemplo.com").await.status,
+        StatusCode::NO_CONTENT
+    );
+    assert!(
+        !app.sent
+            .lock()
+            .unwrap()
+            .iter()
+            .any(|mail| mail.to == "nova@exemplo.com")
     );
     add(&app, &owner, &event, "nova@exemplo.com", json!(["door"])).await;
     let nova = app.login("nova@exemplo.com").await;
@@ -520,7 +540,7 @@ async fn invites_are_limited_per_account(pool: PgPool) {
         app.create_event(&owner, "Show").await,
         app.create_event(&owner, "Festa").await,
     ];
-    for n in 0..40 {
+    for n in 0..20 {
         let event = &events[n / 30];
         let reply = add(
             &app,

@@ -29,18 +29,29 @@ use crate::{emails, keys, ratelimit, two_factor};
 
 const CODE_TTL: Duration = Duration::minutes(10);
 const MAX_ATTEMPTS_PER_CODE: i16 = 5;
+/// Codes one address may ask for one e-mail in [`CODE_WINDOW`]: a stranger asking for codes
+/// never stops the owner from getting theirs (ADR 0119).
 const MAX_CODES_PER_WINDOW: i64 = 5;
 const CODE_WINDOW: Duration = Duration::minutes(15);
+/// Codes one e-mail receives per hour, whoever asks: the inbox is never flooded.
+const MAX_CODES_PER_EMAIL_HOUR: i64 = 20;
 /// Codes one IP address may ask for per hour, whatever the e-mails (ADR 0028).
 const MAX_CODES_PER_IP: i64 = 10;
 const IP_WINDOW: Duration = Duration::hours(1);
-/// Wrong codes allowed per e-mail (across all its codes) before verification pauses: asking for
-/// new codes must not reset the guessing budget.
-const MAX_FAILURES_PER_WINDOW: i64 = 10;
+/// Wrong codes one address may try for one e-mail per hour before its verification pauses:
+/// asking for new codes must not reset the guessing budget, and a stranger guessing must not
+/// lock the owner out (ADR 0119). Counted in memory (one instance, ADR 0013).
+const MAX_FAILURES_PER_ADDRESS: usize = 10;
+/// Wrong codes for one e-mail per hour from every address together, the backstop against a
+/// guesser with many addresses (each code already allows [`MAX_ATTEMPTS_PER_CODE`] tries).
+const MAX_FAILURES_PER_WINDOW: i64 = 50;
 const FAILURE_WINDOW: Duration = Duration::hours(1);
 /// `organizations.name` holds at most this many characters.
 const MAX_ORGANIZATION_NAME: usize = 100;
 const SESSION_TTL: Duration = Duration::days(30);
+/// A session ends for good this long after it started, however often it is used (ADR 0119): a
+/// token copied from a phone does not live forever.
+const SESSION_MAX_AGE: Duration = Duration::days(90);
 /// Sliding expiry is refreshed at most this often, to avoid a write on every request.
 const SESSION_REFRESH_EVERY: Duration = Duration::hours(1);
 /// Version of the Terms of Use and Privacy Policy accepted by signing in (ADR 0033). Same value
@@ -68,6 +79,13 @@ pub struct AuthUser {
     token_hash: Vec<u8>,
 }
 
+impl AuthUser {
+    /// Hash of the session token of this request (to keep this session while ending the others).
+    pub fn session_hash(&self) -> &[u8] {
+        &self.token_hash
+    }
+}
+
 fn sha256(parts: &[&[u8]]) -> Vec<u8> {
     let mut hasher = Sha256::new();
     for part in parts {
@@ -82,6 +100,7 @@ pub(crate) fn normalize_email(raw: &str) -> ApiResult<String> {
     let valid = email.len() <= 254
         && email.split_once('@').is_some_and(|(local, domain)| {
             !local.is_empty()
+                && !domain.contains('@')
                 && domain.contains('.')
                 && !domain.starts_with('.')
                 && !domain.ends_with('.')
@@ -204,23 +223,35 @@ pub async fn request_code(
     .await?;
     let invited = !known && crate::routes::team::invited(&state.pool, &email).await?;
     let settings = state.settings.get(&state.pool).await?;
-    check_sign_in(&state, &settings, &email, known || invited)?;
-    let recent = sqlx::query_scalar!(
-        "select count(*) from login_codes where email = $1 and created_at > $2",
-        email,
-        OffsetDateTime::now_utc() - CODE_WINDOW,
-    )
-    .fetch_one(&state.pool)
-    .await?
-    .unwrap_or(0);
-    if recent >= MAX_CODES_PER_WINDOW {
-        return Err(ApiError::TooManyRequests);
+    if let Err(error) = check_sign_in(&state, &settings, &email, known, invited) {
+        // An address with no account, while new accounts are closed, blocked by domain or
+        // waiting for maintenance to end, is answered like any other: 204 and no e-mail. The
+        // sign-in page already says that new accounts are closed; the answer must not say
+        // whether this one exists.
+        if !known && !matches!(settings.maintenance_mode, MaintenanceMode::Full) {
+            return Ok(StatusCode::NO_CONTENT);
+        }
+        return Err(error);
     }
     // In production every request comes through the proxy; one without an address shares a
     // single bucket rather than escaping the limit.
     let ip = client_ip(&headers).or_else(|| state.config.production.then(|| "unknown".to_owned()));
     let ip_hash =
         ip.map(|ip| keys::keyed_hash(&state.config.master_key, "login-ip", ip.as_bytes()).to_vec());
+    let counts = sqlx::query!(
+        r#"select count(*) filter (where created_at > $2 and ip_hash is not distinct from $3) as "recent_here!",
+                  count(*) filter (where created_at > $4) as "last_hour!"
+           from login_codes where email = $1"#,
+        email,
+        OffsetDateTime::now_utc() - CODE_WINDOW,
+        ip_hash.as_deref(),
+        OffsetDateTime::now_utc() - Duration::hours(1),
+    )
+    .fetch_one(&state.pool)
+    .await?;
+    if counts.recent_here >= MAX_CODES_PER_WINDOW || counts.last_hour >= MAX_CODES_PER_EMAIL_HOUR {
+        return Err(ApiError::TooManyRequests);
+    }
     if let Some(ip_hash) = &ip_hash {
         let from_ip = sqlx::query_scalar!(
             r#"select count(*) as "count!" from login_codes where ip_hash = $1 and created_at > $2"#,
@@ -278,6 +309,15 @@ pub async fn verify_code(
     if code.len() != 6 || !code.chars().all(|c| c.is_ascii_digit()) {
         return Err(invalid());
     }
+    let ip = client_ip(&headers).or_else(|| state.config.production.then(|| "unknown".to_owned()));
+    let failure_key = format!("verify-fail:{email}:{}", ip.as_deref().unwrap_or("-"));
+    let hour = std::time::Duration::from_hours(1);
+    if state
+        .exhausted(&failure_key, MAX_FAILURES_PER_ADDRESS, hour)
+        .await
+    {
+        return Err(ApiError::TooManyRequests);
+    }
     let failures = sqlx::query_scalar!(
         r#"select coalesce(sum(attempts), 0)::bigint as "failures!" from login_codes
            where email = $1 and created_at > $2"#,
@@ -312,6 +352,9 @@ pub async fn verify_code(
         .execute(&mut *tx)
         .await?;
         tx.commit().await?;
+        state
+            .attempt(&failure_key, MAX_FAILURES_PER_ADDRESS, hour)
+            .await;
         return Err(invalid());
     }
     sqlx::query!(
@@ -330,11 +373,11 @@ pub async fn verify_code(
     }
     let settings = state.settings.get(&state.pool).await?;
     let invited = existing.is_none() && crate::routes::team::invited(&mut *tx, &email).await?;
-    check_sign_in(&state, &settings, &email, existing.is_some() || invited)?;
+    check_sign_in(&state, &settings, &email, existing.is_some(), invited)?;
     let (user_id, referred) = if let Some(id) = existing {
         (id, false)
     } else {
-        let (user_id, organization_id) = create_user(&mut tx, &email, None, None).await?;
+        let (user_id, organization_id) = create_user(&state, &mut tx, &email, None, None).await?;
         let referred = crate::routes::referrals::attach(
             &state,
             &mut tx,
@@ -397,7 +440,7 @@ pub async fn google(
         .fetch_one(&mut *tx)
         .await?;
     let invited = !known && crate::routes::team::invited(&mut *tx, &email).await?;
-    check_sign_in(&state, &settings, &email, known || invited)?;
+    check_sign_in(&state, &settings, &email, known, invited)?;
     let mut referred = false;
     let user_id = if let Some(user) = by_subject {
         // The Google account's e-mail changed: follow it unless another account owns it.
@@ -437,6 +480,7 @@ pub async fn google(
         user.id
     } else {
         let (user_id, organization_id) = create_user(
+            &state,
             &mut tx,
             &email,
             Some(&identity.subject),
@@ -460,12 +504,15 @@ pub async fn google(
 }
 
 /// What the platform settings say about a sign-in (ADR 0037): during full maintenance only
-/// admins get in; new accounts need sign-ups open, no maintenance and an allowed domain.
+/// admins get in; new accounts need sign-ups open, no maintenance and an allowed domain. An
+/// e-mail someone added to a team (`invited`, ADR 0055) may create its account with sign-ups
+/// closed, and nothing else: maintenance and blocked domains hold for it too (ADR 0119).
 fn check_sign_in(
     state: &AppState,
     settings: &PlatformSettings,
     email: &str,
     known: bool,
+    invited: bool,
 ) -> ApiResult<()> {
     if state.config.is_admin(email) {
         return Ok(());
@@ -477,7 +524,7 @@ fn check_sign_in(
         if settings.maintenance_mode != MaintenanceMode::Off {
             return Err(ApiError::Maintenance);
         }
-        if !settings.registrations_open {
+        if !settings.registrations_open && !invited {
             return Err(ApiError::Refused(
                 "registrations_closed",
                 "new accounts are closed for now".to_owned(),
@@ -495,6 +542,7 @@ fn check_sign_in(
 
 /// First login: the user and a personal organization named after the e-mail. Returns both ids.
 async fn create_user(
+    state: &AppState,
     tx: &mut Transaction<'_, Postgres>,
     email: &str,
     google_sub: Option<&str>,
@@ -511,15 +559,30 @@ async fn create_user(
     )
     .execute(&mut **tx)
     .await?;
+    // The free tickets of the price table go once per mailbox (ADR 0119): `me+2@gmail.com`
+    // and a deleted-and-recreated account are the same mailbox. The hash is keyed, kept for
+    // good, and tells nothing about the address.
+    let mailbox = crate::routes::referrals::canonical_email(email);
+    let mailbox_hash =
+        keys::keyed_hash(&state.config.master_key, "mailbox", mailbox.as_bytes()).to_vec();
+    let first_account = sqlx::query_scalar!(
+        r#"insert into known_mailboxes (mailbox_hash) values ($1)
+           on conflict (mailbox_hash) do nothing returning true as "first!""#,
+        mailbox_hash
+    )
+    .fetch_optional(&mut **tx)
+    .await?
+    .is_some();
     let organization: String = name
         .unwrap_or(email)
         .chars()
         .take(MAX_ORGANIZATION_NAME)
         .collect();
     sqlx::query!(
-        "insert into organizations (id, name) values ($1, $2)",
+        "insert into organizations (id, name, free_tickets_eligible) values ($1, $2, $3)",
         organization_id,
-        organization
+        organization,
+        first_account,
     )
     .execute(&mut **tx)
     .await?;
@@ -637,8 +700,9 @@ impl FromRequestParts<AppState> for AuthUser {
                       exists(select 1 from memberships m join organizations o on o.id = m.organization_id
                              where m.user_id = u.id and o.suspended_at is not null) as "suspended!"
                from sessions s join users u on u.id = s.user_id
-               where s.token_hash = $1 and s.expires_at > now()"#,
+               where s.token_hash = $1 and s.expires_at > now() and s.created_at > $2"#,
             hash,
+            OffsetDateTime::now_utc() - SESSION_MAX_AGE,
         )
         .fetch_optional(&state.pool)
         .await?
@@ -705,6 +769,7 @@ mod tests {
             "eu@.com",
             "e u@exemplo.com",
             "eu@exemplo.com.",
+            "eu@outro@exemplo.com",
         ] {
             assert!(normalize_email(bad).is_err(), "{bad}");
         }

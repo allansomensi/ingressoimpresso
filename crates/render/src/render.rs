@@ -122,6 +122,21 @@ impl Art {
         } else {
             return Err(RenderError::UnsupportedArt);
         };
+        // The header says how big the picture decodes to: a small file that opens to gigabytes
+        // never reaches Typst, whoever hands it in (the server checks the same at upload).
+        let (width, height) = image::ImageReader::new(Cursor::new(&bytes))
+            .with_guessed_format()
+            .map_err(|_| RenderError::UnsupportedArt)?
+            .into_dimensions()
+            .map_err(|_| RenderError::UnsupportedArt)?;
+        if width == 0
+            || height == 0
+            || width > MAX_ART_SIDE_PX
+            || height > MAX_ART_SIDE_PX
+            || u64::from(width) * u64::from(height) > MAX_ART_PIXELS
+        {
+            return Err(RenderError::UnsupportedArt);
+        }
         Ok(Self {
             bytes: Bytes::new(bytes),
             path,
@@ -129,7 +144,24 @@ impl Art {
     }
 }
 
+/// Longest side of a picture the renderer decodes.
+pub const MAX_ART_SIDE_PX: u32 = 10_000;
+/// Most pixels of a picture the renderer decodes (24 MP: about 100 MB once decoded).
+pub const MAX_ART_PIXELS: u64 = 24_000_000;
+
 impl Art {
+    /// Size of the image file in bytes.
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.bytes.len()
+    }
+
+    /// Whether the image has no bytes at all (never, for an image `from_bytes` accepted).
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.bytes.is_empty()
+    }
+
     /// `.png` or `.jpg`.
     pub(crate) fn extension(&self) -> &'static str {
         // `path` is one of the two constants set by `from_bytes`.
@@ -1501,10 +1533,43 @@ mod tests {
 
     #[test]
     fn art_is_detected_by_content() {
-        assert!(Art::from_bytes(b"\x89PNG\r\n\x1a\nrest".to_vec()).is_ok());
-        assert!(Art::from_bytes(vec![0xFF, 0xD8, 0xFF, 0xE0]).is_ok());
+        let picture = |format: image::ImageFormat| {
+            let mut bytes = Vec::new();
+            image::DynamicImage::ImageRgb8(image::RgbImage::from_pixel(
+                4,
+                3,
+                image::Rgb([20, 40, 90]),
+            ))
+            .write_to(&mut Cursor::new(&mut bytes), format)
+            .unwrap();
+            bytes
+        };
+        assert!(Art::from_bytes(picture(image::ImageFormat::Png)).is_ok());
+        assert!(Art::from_bytes(picture(image::ImageFormat::Jpeg)).is_ok());
+        for bad in [
+            b"<svg/>".to_vec(),
+            // A PNG header with nothing behind it: no picture to measure.
+            b"\x89PNG\r\n\x1a\nrest".to_vec(),
+        ] {
+            assert!(matches!(
+                Art::from_bytes(bad),
+                Err(RenderError::UnsupportedArt)
+            ));
+        }
+    }
+
+    #[test]
+    fn art_refuses_pictures_too_large_to_decode() {
+        // A PNG header claiming 20,000 × 20,000 pixels: refused before any decoding.
+        let mut bytes = b"\x89PNG\r\n\x1a\n".to_vec();
+        bytes.extend_from_slice(&13u32.to_be_bytes());
+        bytes.extend_from_slice(b"IHDR");
+        bytes.extend_from_slice(&20_000u32.to_be_bytes());
+        bytes.extend_from_slice(&20_000u32.to_be_bytes());
+        bytes.extend_from_slice(&[8, 2, 0, 0, 0]);
+        bytes.extend_from_slice(&[0, 0, 0, 0]);
         assert!(matches!(
-            Art::from_bytes(b"<svg/>".to_vec()),
+            Art::from_bytes(bytes),
             Err(RenderError::UnsupportedArt)
         ));
     }
