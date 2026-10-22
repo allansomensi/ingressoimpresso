@@ -22,6 +22,22 @@ export function brasiliaDateTime(iso: string): string {
   return new Date(iso).toLocaleString("pt-BR", { dateStyle: "medium", timeStyle: "short", timeZone: "America/Sao_Paulo" });
 }
 
+/** `20/11/26 22:00` in Brasília time, the same on the server and in any browser (see `brasiliaDateTime`). */
+export function brasiliaShortDateTime(iso: string): string {
+  return new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
+}
+
+/** The start of today in Brasília (no daylight saving since 2019: a fixed -03:00), as a timestamp. */
+export function brasiliaMidnight(now = new Date()): number {
+  const day = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
+  return Date.parse(`${day}T00:00:00-03:00`);
+}
+
+/** `20/11/2026` in Brasília time. */
+export function brasiliaDate(timestamp: number): string {
+  return new Date(timestamp).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+}
+
 /** `20/11/26 22:00`. */
 export function shortDateTime(iso: string): string {
   return new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });

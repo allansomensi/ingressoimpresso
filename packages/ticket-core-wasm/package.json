@@ -1,6 +1,6 @@
 {
   "name": "@ingressoimpresso/ticket-core-wasm",
-  "version": "1.16.0",
+  "version": "1.16.1",
   "private": true,
   "description": "Typed wrapper around the ticket-core WebAssembly build (door verification and decision).",
   "type": "module",

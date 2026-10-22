@@ -12,6 +12,15 @@ e não acompanha estes números.
 
 ## [Não lançado]
 
+## [1.16.1] - 2026-10-22
+
+### Corrigido
+
+- As páginas Status e Novidades deixavam o tema escolhido e voltavam ao claro ao abrir: as datas
+  eram escritas no fuso do servidor e refeitas no do navegador, e a página era remontada do zero.
+  Agora as datas dessas páginas saem no horário de Brasília nos dois lados, e o tema é reaplicado
+  se a página for remontada.
+
 ## [1.16.0] - 2026-10-22
 
 ### Adicionado
@@ -835,7 +844,8 @@ Primeira versão numerada: o produto que já estava em produção, das fases 0 a
 - Política de segurança de conteúdo (CSP) com nonce por requisição em todo o site (ADR 0048).
 - Verificação anti-robô antes do envio do código de login (ADR 0044).
 
-[Não lançado]: https://github.com/allansomensi/ingressoimpresso/compare/v1.16.0...HEAD
+[Não lançado]: https://github.com/allansomensi/ingressoimpresso/compare/v1.16.1...HEAD
+[1.16.1]: https://github.com/allansomensi/ingressoimpresso/compare/v1.16.0...v1.16.1
 [1.16.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.15.0...v1.16.0
 [1.15.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.14.0...v1.15.0
 [1.14.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.13.0...v1.14.0

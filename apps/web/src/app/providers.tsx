@@ -53,6 +53,11 @@ function useTapToDismiss() {
 export function Providers({ children }: { children: ReactNode }) {
   useTapToDismiss();
   const { theme } = useTheme();
+  // The inline script sets `data-theme` before the first paint; if React ever rebuilds the document
+  // (a hydration failure), the attribute is set again here, so the page never falls back to light.
+  useEffect(() => {
+    document.documentElement.dataset["theme"] = theme;
+  }, [theme]);
   const [client] = useState(
     () =>
       new QueryClient({

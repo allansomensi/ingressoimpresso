@@ -103,8 +103,9 @@ export function groupChangelog(entries: readonly ChangelogEntryDto[]): Changelog
   const groups = new Map<string, ChangelogGroup>();
   for (const entry of entries) {
     const at = noteDate(entry);
-    const date = new Date(at);
-    const key = entry.version === null ? `month:${String(date.getFullYear())}-${String(date.getMonth())}` : `release:${entry.version}`;
+    // The month in Brasília time, the same on the server and in any browser.
+    const month = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit" }).format(new Date(at));
+    const key = entry.version === null ? `month:${month}` : `release:${entry.version}`;
     const group = groups.get(key);
     if (group === undefined) {
       groups.set(
