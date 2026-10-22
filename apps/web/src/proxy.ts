@@ -58,11 +58,12 @@ export const config = {
   // have no scripts of their own and keep the cache the CDN gives them. They are told apart by
   // where they live, never by how the path ends: `/i/abc.js` or `/painel/eventos/x.json` are
   // pages too (any string fits a dynamic segment), and a page without this policy would be a
-  // page without the nonce, the frame rule and the connect-src limit (ADR 0119).
+  // page without the nonce, the frame rule and the connect-src limit (ADR 0119). `/modelos/`
+  // holds both the template pictures (`.jpg`) and the template pages.
   matcher: [
     {
       source:
-        "/((?!_next/|icons/|brand/|fonts/|modelos/|\\.well-known/|sw\\.js$|portaria-sw\\.js$|portaria\\.webmanifest$|portaria-[^/]*\\.png$|manifest\\.webmanifest$|robots\\.txt$|sitemap\\.xml$|llms\\.txt$|favicon\\.ico$|icon\\.svg$|apple-icon\\.png$|(?:.*/)?opengraph-image[^/]*$|(?:.*/)?twitter-image[^/]*$).*)",
+        "/((?!_next/|icons/|brand/|fonts/|modelos/[^/]+\\.jpg$|\\.well-known/|sw\\.js$|portaria-sw\\.js$|portaria\\.webmanifest$|portaria-[^/]*\\.png$|manifest\\.webmanifest$|robots\\.txt$|sitemap\\.xml$|llms\\.txt$|favicon\\.ico$|icon\\.svg$|apple-icon\\.png$|(?:.*/)?opengraph-image[^/]*$|(?:.*/)?twitter-image[^/]*$).*)",
       missing: [
         { type: "header", key: "next-router-prefetch" },
         { type: "header", key: "purpose", value: "prefetch" },

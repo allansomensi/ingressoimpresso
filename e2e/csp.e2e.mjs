@@ -40,6 +40,7 @@ const PAGES = [
   "/i/abc.json",
   "/e/nao-existe.txt",
   "/painel/eventos/x.map",
+  "/modelos/festa-junina.js",
 ];
 
 const browser = await chromium.launch();
