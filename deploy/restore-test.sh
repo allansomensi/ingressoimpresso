@@ -18,7 +18,9 @@ else
     # The image has no root certificates: the host's are mounted for `sslmode=verify-full`.
     run() { docker run --rm -i --network host -e RESTORE_DATABASE_URL -v /etc/ssl/certs:/etc/ssl/certs:ro postgres:18 "$@"; }
 fi
-psql() { run psql "$RESTORE_DATABASE_URL" -v ON_ERROR_STOP=1 "$@"; }
+# The URL (with its password) reaches the tools through the environment, never through the
+# process list: the shell that runs them expands it (inside the container, when there is one).
+psql() { run sh -c 'exec psql --dbname "$RESTORE_DATABASE_URL" -v ON_ERROR_STOP=1 "$@"' sh "$@"; }
 
 if [ -n "$(psql -tAc "select to_regclass('public.events')")" ]; then
     echo "refusing: the target database already has an events table (use an empty database)" >&2
@@ -26,7 +28,7 @@ if [ -n "$(psql -tAc "select to_regclass('public.events')")" ]; then
 fi
 
 age --decrypt --identity "$identity" "$dump" \
-    | run pg_restore --no-owner --no-privileges --exit-on-error --dbname "$RESTORE_DATABASE_URL"
+    | run sh -c 'exec pg_restore --no-owner --no-privileges --exit-on-error --dbname "$RESTORE_DATABASE_URL"' sh
 
 psql -c "select
     (select count(*) from events) as events,

@@ -15,13 +15,15 @@ on:
         type: boolean
         default: false
 
-permissions:
-  contents: write
-  pull-requests: read
+# Least privilege: each job asks for what it uses (deleting a ref needs `contents: write`).
+permissions: {}
 
 jobs:
   merged-head:
     name: Delete the merged branch
+    permissions:
+      contents: write
+      pull-requests: read
     # Same-repository pull requests only (a fork's branch is not ours to delete).
     if: >-
       github.event_name == 'pull_request' && github.event.pull_request.merged &&
@@ -51,11 +53,14 @@ jobs:
   prune:
     name: Merged branches
     if: github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: write
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           fetch-depth: 0
 
       - name: List or delete the branches merged into main
