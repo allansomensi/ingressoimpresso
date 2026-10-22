@@ -12,6 +12,13 @@ e não acompanha estes números.
 
 ## [Não lançado]
 
+### Corrigido
+
+- As páginas Status e Novidades deixavam o tema escolhido e voltavam ao claro ao abrir: as datas
+  eram escritas no fuso do servidor e refeitas no do navegador, e a página era remontada do zero.
+  Agora as datas dessas páginas saem no horário de Brasília nos dois lados, e o tema é reaplicado
+  se a página for remontada.
+
 ## [1.16.0] - 2026-10-22
 
 ### Adicionado

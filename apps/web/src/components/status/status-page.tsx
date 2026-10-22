@@ -8,7 +8,7 @@ import Link from "next/link";
 import { Button, Skeleton } from "@/components/ui";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
-import { dateTime, shortDateTime } from "@/lib/format";
+import { brasiliaDate, brasiliaDateTime, brasiliaMidnight, brasiliaShortDateTime } from "@/lib/format";
 import { APP_COMMIT, RELEASE_NOTES_HREF, VERSION_LABEL } from "@/lib/version";
 import { maintenance as maintenanceTexts } from "@/texts/pt-BR/maintenance";
 import { status as statusTexts } from "@/texts/pt-BR/status";
@@ -32,19 +32,21 @@ function componentLabel(key: string): string {
 }
 
 /** Worst impact of the incidents that touched each of the last 90 days (oldest first). */
-function history(incidents: readonly IncidentDto[]): { day: Date; rank: number; titles: string[] }[] {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+// Days in Brasília time: the page is rendered on the server (UTC) and hydrated in the browser, and
+// the two must draw the same row, or React throws the server's HTML away (and the theme with it).
+function history(incidents: readonly IncidentDto[]): { day: number; rank: number; titles: string[] }[] {
+  const now = Date.now();
+  const today = brasiliaMidnight(new Date(now));
   return Array.from({ length: DAYS }, (_, index) => {
-    const day = new Date(today.getTime() - (DAYS - 1 - index) * DAY_MS);
-    const end = day.getTime() + DAY_MS;
+    const day = today - (DAYS - 1 - index) * DAY_MS;
+    const end = day + DAY_MS;
     const touching = incidents.filter((incident) => {
       if (incident.kind === "maintenance" && incident.status === "scheduled") {
         return false;
       }
       const start = Date.parse(incident.startedAt);
-      const stop = incident.resolvedAt === null ? Date.now() : Date.parse(incident.resolvedAt);
-      return start < end && stop >= day.getTime();
+      const stop = incident.resolvedAt === null ? now : Date.parse(incident.resolvedAt);
+      return start < end && stop >= day;
     });
     return {
       day,
@@ -61,8 +63,8 @@ function Timeline({ incident }: { incident: IncidentDto }) {
         <h3 className="font-semibold text-fg">{incident.title}</h3>
         <span className="text-xs text-fg-subtle">
           {incident.kind === "maintenance" && incident.scheduledFor !== null
-            ? t.window(dateTime(incident.scheduledFor), incident.scheduledUntil === null ? "" : dateTime(incident.scheduledUntil))
-            : t.startedAt(dateTime(incident.startedAt))}
+            ? t.window(brasiliaDateTime(incident.scheduledFor), incident.scheduledUntil === null ? "" : brasiliaDateTime(incident.scheduledUntil))
+            : t.startedAt(brasiliaDateTime(incident.startedAt))}
         </span>
       </header>
       {incident.components.length > 0 && (
@@ -72,7 +74,7 @@ function Timeline({ incident }: { incident: IncidentDto }) {
         {incident.updates.map((update) => (
           <li key={update.id} className="flex flex-col gap-0.5">
             <span className="text-sm font-semibold text-fg">
-              {t.incidentStatuses[update.status]} <span className="text-xs font-normal text-fg-subtle">· {shortDateTime(update.createdAt)}</span>
+              {t.incidentStatuses[update.status]} <span className="text-xs font-normal text-fg-subtle">· {brasiliaShortDateTime(update.createdAt)}</span>
             </span>
             <span className="text-sm leading-relaxed whitespace-pre-line text-fg-muted">{update.body}</span>
           </li>
@@ -119,7 +121,7 @@ export function StatusPage({ initial = null }: { initial?: StatusDto | null }) {
           <div className="flex min-w-0 flex-1 flex-col">
             <p className="text-lg font-semibold">{unreachable ? t.unreachable : t.overall[overall]}</p>
             <p className="text-sm">
-              {data !== undefined && !unreachable ? t.checkedAt(shortDateTime(data.checkedAt)) : t.unreachableHint}
+              {data !== undefined && !unreachable ? t.checkedAt(brasiliaShortDateTime(data.checkedAt)) : t.unreachableHint}
             </p>
           </div>
           <Button
@@ -139,7 +141,7 @@ export function StatusPage({ initial = null }: { initial?: StatusDto | null }) {
           <Wrench className="mt-0.5 size-4 shrink-0" aria-hidden />
           <span>
             {data.maintenance.message ?? t.maintenanceNow}
-            {data.maintenance.endsAt !== null && ` ${maintenanceTexts.expected(dateTime(data.maintenance.endsAt))}`}
+            {data.maintenance.endsAt !== null && ` ${maintenanceTexts.expected(brasiliaDateTime(data.maintenance.endsAt))}`}
           </span>
         </p>
       )}
@@ -195,8 +197,8 @@ export function StatusPage({ initial = null }: { initial?: StatusDto | null }) {
             <div className="flex h-10 items-stretch gap-[2px]" role="img" aria-label={t.historyLabel(clean, DAYS)}>
               {days.map((day) => (
                 <span
-                  key={day.day.getTime()}
-                  title={`${day.day.toLocaleDateString("pt-BR")}: ${day.titles.length === 0 ? t.noIncidents : day.titles.join(", ")}`}
+                  key={day.day}
+                  title={`${brasiliaDate(day.day)}: ${day.titles.length === 0 ? t.noIncidents : day.titles.join(", ")}`}
                   className={cn(
                     "flex-1 rounded-[3px] transition hover:opacity-70",
                     day.rank >= 3 ? "bg-danger" : day.rank >= 1 ? "bg-warning" : day.rank > 0 ? "bg-brand/60" : "bg-success/70",
@@ -210,7 +212,7 @@ export function StatusPage({ initial = null }: { initial?: StatusDto | null }) {
                 {days
                   .filter((day) => day.titles.length > 0)
                   .map((day) => (
-                    <li key={day.day.getTime()}>{`${day.day.toLocaleDateString("pt-BR")}: ${day.titles.join(", ")}`}</li>
+                    <li key={day.day}>{`${brasiliaDate(day.day)}: ${day.titles.join(", ")}`}</li>
                   ))}
               </ul>
             )}
