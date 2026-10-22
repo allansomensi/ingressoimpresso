@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select s.user_id, s.last_seen_at, u.email as \"email: String\",\n                      u.totp_enabled_at is not null as \"two_factor!\",\n                      exists(select 1 from memberships m join organizations o on o.id = m.organization_id\n                             where m.user_id = u.id and o.suspended_at is not null) as \"suspended!\"\n               from sessions s join users u on u.id = s.user_id\n               where s.token_hash = $1 and s.expires_at > now()",
+  "query": "select s.user_id, s.last_seen_at, u.email as \"email: String\",\n                      u.totp_enabled_at is not null as \"two_factor!\",\n                      exists(select 1 from memberships m join organizations o on o.id = m.organization_id\n                             where m.user_id = u.id and o.suspended_at is not null) as \"suspended!\"\n               from sessions s join users u on u.id = s.user_id\n               where s.token_hash = $1 and s.expires_at > now() and s.created_at > $2",
   "describe": {
     "columns": [
       {
@@ -56,7 +56,8 @@
     ],
     "parameters": {
       "Left": [
-        "Bytea"
+        "Bytea",
+        "Timestamptz"
       ]
     },
     "nullable": [
@@ -67,5 +68,5 @@
       null
     ]
   },
-  "hash": "0d6cf250e5490bb93fbc72a8c017556a0029a2739ce1e4b2562e35a4fba08f87"
+  "hash": "7fa7016fead05ca2aac575acf6e828dd7421d26718d7c0a58941511603ba2cbe"
 }

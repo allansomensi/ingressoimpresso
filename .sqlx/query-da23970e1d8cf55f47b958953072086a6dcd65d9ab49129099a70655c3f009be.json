@@ -1,11 +1,11 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select t.id, t.email::text as \"email!\", coalesce(t.name, u.name) as name, t.areas,\n                  t.user_id, t.created_at\n           from event_team t left join users u on u.id = t.user_id\n           where t.event_id = $1 order by t.created_at",
+  "query": "select t.id as \"id!\", t.event_id as \"event_id!\", t.email::text as \"email!\",\n                  coalesce(t.name, u.name) as name, t.areas as \"areas!\", t.user_id, t.joined_at,\n                  t.created_at as \"created_at!\"\n           from event_team t left join users u on u.id = t.user_id where t.id = $1",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "id",
+        "name": "id!",
         "type_info": "Uuid",
         "origin": {
           "Table": {
@@ -16,19 +16,30 @@
       },
       {
         "ordinal": 1,
+        "name": "event_id!",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "event_team",
+            "name": "event_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
         "name": "email!",
         "type_info": "Text",
         "origin": "Expression"
       },
       {
-        "ordinal": 2,
+        "ordinal": 3,
         "name": "name",
         "type_info": "Text",
         "origin": "Expression"
       },
       {
-        "ordinal": 3,
-        "name": "areas",
+        "ordinal": 4,
+        "name": "areas!",
         "type_info": "TextArray",
         "origin": {
           "Table": {
@@ -38,7 +49,7 @@
         }
       },
       {
-        "ordinal": 4,
+        "ordinal": 5,
         "name": "user_id",
         "type_info": "Uuid",
         "origin": {
@@ -49,8 +60,19 @@
         }
       },
       {
-        "ordinal": 5,
-        "name": "created_at",
+        "ordinal": 6,
+        "name": "joined_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "event_team",
+            "name": "joined_at"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "created_at!",
         "type_info": "Timestamptz",
         "origin": {
           "Table": {
@@ -67,12 +89,14 @@
     },
     "nullable": [
       false,
+      false,
       null,
       null,
       false,
       true,
+      true,
       false
     ]
   },
-  "hash": "48bf0c1980e89927436c22381d08fc1574f9a0adcf47c66848e02ff1d915de26"
+  "hash": "da23970e1d8cf55f47b958953072086a6dcd65d9ab49129099a70655c3f009be"
 }

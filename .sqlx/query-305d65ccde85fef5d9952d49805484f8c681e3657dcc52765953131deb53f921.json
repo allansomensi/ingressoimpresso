@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select exists(select 1 from moderation_flags f join blobs b on b.id = f.blob_id\n                         where b.event_id = $1 and f.status = 'open') as \"open!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "open!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "305d65ccde85fef5d9952d49805484f8c681e3657dcc52765953131deb53f921"
+}

@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update event_activity set actor_email = 'conta excluída', actor_name = null where user_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c2428a4c2aee864d0978c0b685620a9feeec20ecbb8fe25573245ee367a31c8d"
+}

@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into known_mailboxes (mailbox_hash) values ($1)\n           on conflict (mailbox_hash) do nothing returning true as \"first!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "first!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "1f417d111183f1e205b9fb9b61102402f93730356c85888b9b56344f696affe0"
+}

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "insert into blobs (id, event_id, sha256, content_type, width_px, height_px, byte_size, data,\n                              moderation_status, uploaded_by)\n           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)\n           on conflict (event_id, sha256) do update set event_id = excluded.event_id\n           returning id, content_type, width_px, height_px, moderation_status",
+  "query": "insert into blobs (id, event_id, sha256, content_type, width_px, height_px, byte_size, data,\n                              moderation_status, uploaded_by)\n           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)\n           on conflict (event_id, sha256) do update set event_id = excluded.event_id\n           returning id, content_type, width_px, height_px, moderation_status, (xmax = 0) as \"inserted!\"",
   "describe": {
     "columns": [
       {
@@ -57,6 +57,12 @@
             "name": "moderation_status"
           }
         }
+      },
+      {
+        "ordinal": 5,
+        "name": "inserted!",
+        "type_info": "Bool",
+        "origin": "Expression"
       }
     ],
     "parameters": {
@@ -78,8 +84,9 @@
       false,
       false,
       false,
-      false
+      false,
+      null
     ]
   },
-  "hash": "b0c0d73415cae61614d6ef9e62c98a23cedd359f2dbe11b2797f07a82affd2fb"
+  "hash": "20fc8b3882fd562cb59512724456d054c3ce4137f0e3588a7cb4108e9aeb78ea"
 }
