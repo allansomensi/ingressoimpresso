@@ -18,7 +18,8 @@ type Filter = ChangelogKind | "all";
 const FILTERS: readonly Filter[] = ["all", ...CHANGELOG_KINDS];
 
 function monthLabel(iso: string): string {
-  const label = new Date(iso).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+  // Brasília time: the server (UTC) and the browser must agree on the month, or hydration fails.
+  const label = new Date(iso).toLocaleDateString("pt-BR", { month: "long", year: "numeric", timeZone: "America/Sao_Paulo" });
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
