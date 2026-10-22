@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update users set reminder_emails = $2 where id = $1 returning email::text as \"email!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "email!",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Bool"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "bea7b8f498d229bf3d1be0dfdda7caa43c9407760f1a188346f35f1f9e4b274d"
+}

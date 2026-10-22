@@ -777,8 +777,9 @@ function SellerCard({
             {initials(seller.name)}
           </span>
           <div className="flex min-w-0 flex-col">
-            <span className="flex min-w-0 items-center gap-2">
-              <span className="truncate font-semibold text-fg">{seller.name}</span>
+            {/* The name keeps its line; the badges wrap under it instead of squeezing it to "A…". */}
+            <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+              <span className="min-w-0 truncate font-semibold text-fg">{seller.name}</span>
               {seller.boxOffice && (
                 <Badge tone="brand" className="shrink-0">
                   <Store className="size-3" aria-hidden />
@@ -1462,7 +1463,7 @@ export function SellersTab({ eventId, event, onEditEvent }: { eventId: string; e
   if (sellers.isPending) {
     content = <LoadingBlock rows={2} />;
   } else if (sellers.isError) {
-    content = <ErrorMessage error={sellers.error} />;
+    content = <ErrorMessage error={sellers.error} onRetry={() => void sellers.refetch()} />;
   } else if (list.length === 0) {
     content = <HowItWorks action={newButton} />;
   } else {

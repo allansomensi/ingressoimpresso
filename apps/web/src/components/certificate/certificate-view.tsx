@@ -1,6 +1,7 @@
 "use client";
 
 import type {
+  BrandPosition,
   BrandStyle,
   CertificateElement,
   CertificateFrame,
@@ -448,6 +449,8 @@ export function CertificateView({
   imageUrls,
   logoUrl,
   brand,
+  brandPosition = null,
+  onBrandMove,
   className,
   selected = [],
   problems = [],
@@ -464,6 +467,10 @@ export function CertificateView({
   logoUrl: string | null;
   /** Draws the "Emitido com Ingresso Impresso" in this style (the front of a design that keeps it). */
   brand: BrandStyle | null;
+  /** Where the brand sits (`null`: centred at the bottom). */
+  brandPosition?: BrandPosition | null;
+  /** Drags the brand somewhere else (the editor); every change of one gesture shares `gesture`. */
+  onBrandMove?: (position: BrandPosition, gesture: string) => void;
   className?: string;
   selected?: readonly number[];
   problems?: readonly number[];
@@ -626,6 +633,53 @@ export function CertificateView({
     }
   };
 
+  // The brand moves on its own, by its centre, kept inside the page; it snaps to the middle.
+  const brandDrag = useRef<{ x: number; y: number; cx: number; cy: number; halfW: number; halfH: number; mmPerPx: number; gesture: string; moved: boolean } | null>(null);
+  const startBrand = (pointer: PointerEvent<HTMLSpanElement>) => {
+    const page = root.current?.getBoundingClientRect();
+    if (onBrandMove === undefined || page === undefined || page.width === 0 || pointer.button !== 0) {
+      return;
+    }
+    pointer.preventDefault();
+    pointer.stopPropagation();
+    pointer.currentTarget.setPointerCapture(pointer.pointerId);
+    const box = pointer.currentTarget.getBoundingClientRect();
+    const mmPerPx = W / page.width;
+    gestures.current += 1;
+    brandDrag.current = {
+      x: pointer.clientX,
+      y: pointer.clientY,
+      cx: (box.left + box.width / 2 - page.left) * mmPerPx,
+      cy: (box.top + box.height / 2 - page.top) * mmPerPx,
+      halfW: (box.width / 2) * mmPerPx,
+      halfH: (box.height / 2) * mmPerPx,
+      mmPerPx,
+      gesture: `brand-${String(gestures.current)}`,
+      moved: false,
+    };
+  };
+  const moveBrand = (pointer: PointerEvent<HTMLSpanElement>) => {
+    const current = brandDrag.current;
+    if (current === null || onBrandMove === undefined) {
+      return;
+    }
+    const px = pointer.clientX - current.x;
+    const py = pointer.clientY - current.y;
+    if (!current.moved && Math.hypot(px, py) < DRAG_THRESHOLD_PX) {
+      return;
+    }
+    current.moved = true;
+    let x = clamp(current.cx + px * current.mmPerPx, current.halfW, W - current.halfW);
+    const y = clamp(current.cy + py * current.mmPerPx, current.halfH, H - current.halfH);
+    if (!pointer.altKey && Math.abs(x - W / 2) <= SNAP_PX * current.mmPerPx) {
+      x = W / 2;
+    }
+    onBrandMove({ xMm: roundMm(x), yMm: roundMm(y) }, current.gesture);
+  };
+  const endBrand = () => {
+    brandDrag.current = null;
+  };
+
   const single = selected.length === 1;
   const drawn = (element: CertificateElement): { node: ReactNode; label: string } | null => {
     switch (element.kind) {
@@ -746,7 +800,17 @@ export function CertificateView({
           </div>
         );
       })}
-      {brand !== null && <CertificateBrand style={brand} paper={page.backgroundColor} u={u} />}
+      {brand !== null && (
+        <CertificateBrand
+          style={brand}
+          paper={page.backgroundColor}
+          u={u}
+          position={brandPosition}
+          {...(editable && onBrandMove !== undefined
+            ? { onPointerDown: startBrand, onPointerMove: moveBrand, onPointerUp: endBrand, title: t.moveBrand }
+            : {})}
+        />
+      )}
       {editable && (
         <>
           {groupBounds !== null && (
@@ -785,19 +849,72 @@ export function CertificateView({
   );
 }
 
+/** Where the brand goes: centred at the bottom, or centred on the point the editor saved. */
+function brandPlacement(position: BrandPosition | null, u: (mm: number) => string): CSSProperties {
+  return position === null
+    ? { left: "50%", bottom: u(3), transform: "translateX(-50%)" }
+    : { left: u(position.xMm), top: u(position.yMm), transform: "translate(-50%, -50%)" };
+}
+
 /**
- * "Emitido com Ingresso Impresso" at the bottom of a page, in either style, with the geometry of
- * `templates/certificate.typ`; `u` turns millimetres into the container's units.
+ * "Emitido com Ingresso Impresso" on a page, in either style, with the geometry of
+ * `templates/certificate.typ`; `u` turns millimetres into the container's units. With `onPointerDown`
+ * it can be dragged (the editor, ADR 0118).
  */
-export function CertificateBrand({ style, paper, u }: { style: BrandStyle; paper: string; u: (mm: number) => string }) {
+export function CertificateBrand({
+  style,
+  paper,
+  u,
+  position = null,
+  onPointerDown,
+  onPointerMove,
+  onPointerUp,
+  title,
+}: {
+  style: BrandStyle;
+  paper: string;
+  u: (mm: number) => string;
+  position?: BrandPosition | null;
+  onPointerDown?: (pointer: PointerEvent<HTMLSpanElement>) => void;
+  onPointerMove?: (pointer: PointerEvent<HTMLSpanElement>) => void;
+  onPointerUp?: () => void;
+  title?: string;
+}) {
+  const movable = onPointerDown !== undefined;
+  const common = {
+    title,
+    onPointerDown,
+    onPointerMove,
+    onPointerUp,
+    onPointerCancel: onPointerUp,
+    className: cn(
+      "absolute rounded-[0.35cqw] whitespace-nowrap",
+      movable
+        ? "z-30 cursor-move touch-none select-none hover:outline-1 hover:outline-brand/70 hover:outline-dashed"
+        : "pointer-events-none",
+      style === "mark" && "flex items-center",
+    ),
+  };
   if (style === "mark") {
-    return <BrandWatermark paper={paper} u={u} />;
+    const ink = brandInk(paper);
+    return (
+      <span
+        {...common}
+        style={{ ...brandPlacement(position, u), padding: `${u(0.9)} ${u(2.6)}`, background: paper, gap: u(1.5), fontFamily: FONT_FAMILIES.sans, lineHeight: 1, color: ink }}
+      >
+        <span style={{ fontSize: u(5 * MM_PER_PT), letterSpacing: "0.14em", textTransform: "uppercase", opacity: 0.45 }}>{CERTIFICATE_BRAND_CAPTION}</span>
+        <BrandMark ink={ink} height={u(3.8)} />
+        <span style={{ fontSize: u(7.5 * MM_PER_PT), letterSpacing: "-0.01em", opacity: 0.58 }}>
+          <span style={{ fontWeight: 700 }}>Ingresso</span> Impresso
+        </span>
+      </span>
+    );
   }
   return (
     <span
-      className="pointer-events-none absolute left-1/2 -translate-x-1/2 rounded-[0.35cqw] whitespace-nowrap"
+      {...common}
       style={{
-        bottom: u(3),
+        ...brandPlacement(position, u),
         padding: `${u(1)} ${u(2.2)}`,
         background: "rgb(255 255 255 / 0.85)",
         color: "#6b6b78",
@@ -807,23 +924,6 @@ export function CertificateBrand({ style, paper, u }: { style: BrandStyle; paper
       }}
     >
       {CERTIFICATE_BRAND}
-    </span>
-  );
-}
-
-/** The watermark style of the brand. */
-function BrandWatermark({ paper, u }: { paper: string; u: (mm: number) => string }) {
-  const ink = brandInk(paper);
-  return (
-    <span
-      className="pointer-events-none absolute left-1/2 flex -translate-x-1/2 items-center rounded-[0.35cqw] whitespace-nowrap"
-      style={{ bottom: u(3), padding: `${u(0.9)} ${u(2.6)}`, background: paper, gap: u(1.5), fontFamily: FONT_FAMILIES.sans, lineHeight: 1, color: ink }}
-    >
-      <span style={{ fontSize: u(5 * MM_PER_PT), letterSpacing: "0.14em", textTransform: "uppercase", opacity: 0.45 }}>{CERTIFICATE_BRAND_CAPTION}</span>
-      <BrandMark ink={ink} height={u(3.8)} />
-      <span style={{ fontSize: u(7.5 * MM_PER_PT), letterSpacing: "-0.01em", opacity: 0.58 }}>
-        <span style={{ fontWeight: 700 }}>Ingresso</span> Impresso
-      </span>
     </span>
   );
 }

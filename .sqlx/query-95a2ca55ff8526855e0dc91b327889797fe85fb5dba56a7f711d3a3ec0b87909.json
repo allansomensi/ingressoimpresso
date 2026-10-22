@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into reminder_sends (id, user_id, kind, event_id, status)\n               values ($1, $2, $3, $4, 'sent') on conflict do nothing",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "95a2ca55ff8526855e0dc91b327889797fe85fb5dba56a7f711d3a3ec0b87909"
+}

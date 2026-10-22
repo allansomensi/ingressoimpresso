@@ -3,7 +3,7 @@
 import { BarChart3, Building2, CalendarDays, LifeBuoy, LogOut, Megaphone, RefreshCw, ShieldAlert, ShieldCheck, UserRound, WifiOff } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Suspense, type MouseEvent, type ReactNode } from "react";
+import type { MouseEvent, ReactNode } from "react";
 
 import { Logo } from "@/components/brand";
 import { InstallButton } from "@/components/install-button";
@@ -282,11 +282,9 @@ export function PanelShell({ children }: { children: ReactNode }) {
               {children}
               {/* The welcome tour (ADR 0116), when the panel can be used as usual; an
                   announcement's window waits for it. */}
-              <Suspense fallback={<AnnouncementHost />}>
-                <TourGate user={session.user} blocked={maintenance === undefined || maintenance.mode !== "off" || session.user.suspended}>
-                  <AnnouncementHost />
-                </TourGate>
-              </Suspense>
+              <TourGate user={session.user} blocked={maintenance === undefined || maintenance.mode !== "off" || session.user.suspended}>
+                <AnnouncementHost />
+              </TourGate>
             </>
           )
         ) : session.status === "error" ? (

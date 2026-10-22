@@ -79,7 +79,7 @@ export function AdminOverview() {
     return <LoadingBlock rows={4} />;
   }
   if (overview.isError) {
-    return <ErrorMessage error={overview.error} />;
+    return <ErrorMessage error={overview.error} onRetry={() => void overview.refetch()} />;
   }
   const o = overview.data;
   const perTicket =
@@ -354,7 +354,7 @@ export function AdminOrganizations() {
       {organizations.isPending ? (
         <LoadingBlock rows={4} />
       ) : organizations.isError ? (
-        <ErrorMessage error={organizations.error} />
+        <ErrorMessage error={organizations.error} onRetry={() => void organizations.refetch()} />
       ) : organizations.data.length === 0 ? (
         <EmptyState icon={Building2} title={t.organizations.empty} />
       ) : (
@@ -703,7 +703,7 @@ export function AdminBatches() {
       {batches.isPending ? (
         <LoadingBlock rows={4} />
       ) : batches.isError ? (
-        <ErrorMessage error={batches.error} />
+        <ErrorMessage error={batches.error} onRetry={() => void batches.refetch()} />
       ) : batches.data.length === 0 ? (
         <EmptyState icon={Ticket} title={t.batches.empty} />
       ) : (

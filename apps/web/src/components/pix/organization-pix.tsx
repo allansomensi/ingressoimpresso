@@ -45,7 +45,7 @@ export function OrganizationPix({ organizationName }: { organizationName: string
       {account.isPending ? (
         <LoadingBlock rows={2} />
       ) : account.isError ? (
-        <ErrorMessage error={account.error} />
+        <ErrorMessage error={account.error} onRetry={() => void account.refetch()} />
       ) : (
         <PixAccountForm
           key={account.dataUpdatedAt}

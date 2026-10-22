@@ -49,7 +49,7 @@ const STATUS_TONE: Record<MailStatus, Tone> = {
   failed: "danger",
   quota: "warning",
 };
-const KINDS = ["login_code", "signup_code", "batch_paid", "test", "team_invite"] as const;
+const KINDS = ["login_code", "signup_code", "batch_paid", "test", "team_invite", "alert", "announcement", "reminder"] as const;
 
 function kindLabel(kind: string): string {
   const labels: Readonly<Record<string, string>> = t.kinds;
@@ -196,7 +196,7 @@ export function AdminEmails() {
   return (
     <div className="flex flex-col gap-4">
       <Lead>{t.intro}</Lead>
-      {summary.isPending ? <LoadingBlock rows={2} /> : summary.isError ? <ErrorMessage error={summary.error} /> : <Summary summary={summary.data} />}
+      {summary.isPending ? <LoadingBlock rows={2} /> : summary.isError ? <ErrorMessage error={summary.error} onRetry={() => void summary.refetch()} /> : <Summary summary={summary.data} />}
       <div className="flex flex-col gap-3 sm:flex-row">
         <span className="relative flex flex-1">
           <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-fg-subtle" aria-hidden />
@@ -248,7 +248,7 @@ export function AdminEmails() {
       {log.isPending ? (
         <LoadingBlock rows={4} />
       ) : log.isError ? (
-        <ErrorMessage error={log.error} />
+        <ErrorMessage error={log.error} onRetry={() => void log.refetch()} />
       ) : log.data.items.length === 0 ? (
         <EmptyState icon={Mail} title={t.empty} />
       ) : (

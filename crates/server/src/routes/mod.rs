@@ -379,3 +379,27 @@ pub fn optional_text(value: Option<String>) -> Option<String> {
         .map(|text| text.trim().to_owned())
         .filter(|text| !text.is_empty())
 }
+
+/// Heavy renders (certificate ZIPs, badges, report PDFs, final summaries) one account may ask for
+/// per minute: each holds one of the two render permits for seconds (ADR 0118).
+pub const HEAVY_RENDERS_PER_MINUTE: usize = 6;
+
+/// Refuses a heavy render beyond [`HEAVY_RENDERS_PER_MINUTE`] for this account.
+///
+/// # Errors
+///
+/// [`ApiError::TooManyRequests`] past the limit.
+pub async fn heavy_render(state: &crate::state::AppState, user: &AuthUser) -> ApiResult<()> {
+    if state
+        .attempt(
+            &format!("heavy-render:{}", user.id),
+            HEAVY_RENDERS_PER_MINUTE,
+            std::time::Duration::from_mins(1),
+        )
+        .await
+    {
+        Ok(())
+    } else {
+        Err(ApiError::TooManyRequests)
+    }
+}

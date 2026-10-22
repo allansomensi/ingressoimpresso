@@ -2,6 +2,7 @@
 
 import type {
   ArtDto,
+  BrandPosition,
   CertificateDesign,
   CertificateElement,
   CertificatePage,
@@ -47,6 +48,7 @@ import { CertificateView, type PlacedElement } from "@/components/certificate/ce
 import { useEventTexts } from "@/components/event/access";
 import { CertificateGallery } from "@/components/event/certificate-gallery";
 import { ElementInspector, ImagesPanel, PageInspector } from "@/components/event/certificate-inspectors";
+import { CertificatePreview } from "@/components/event/certificate-preview";
 import { SelectionInspector, ShortcutsHelp } from "@/components/event/design-tools";
 import { useLogo } from "@/components/organization/organization";
 import { Alert, Badge, Button, Card, CardHeader, ErrorMessage, Menu, MenuItem, errorMessage, useConfirm } from "@/components/ui";
@@ -107,17 +109,6 @@ const KIND_ICONS: Record<CertificateElement["kind"], LucideIcon> = {
 /** Whether a keyboard shortcut should leave the event to a form field (its own undo, typing). */
 function typingIn(target: EventTarget | null): boolean {
   return target instanceof HTMLElement && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
-}
-
-/** Saves a downloaded file of the API. */
-function save(url: string, name: string) {
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = name;
-  link.click();
-  setTimeout(() => {
-    URL.revokeObjectURL(url);
-  }, 60_000);
 }
 
 /**
@@ -381,15 +372,7 @@ export function CertificateEditor({
       onSaved(data);
     },
   });
-  const sample = useMutation({
-    mutationFn: () => fetchBlobUrl(`/api/events/${eventId}/certificates/sample`, body()),
-    onSuccess: (url) => {
-      save(url, texts.sampleFile);
-    },
-    onError: (error) => {
-      toast.error(errorMessage(error));
-    },
-  });
+  const [previewOpen, setPreviewOpen] = useState(false);
   const canSave = editable && issues.length === 0 && !saveMutation.isPending;
   const doSave = () => {
     if (canSave) {
@@ -741,7 +724,15 @@ export function CertificateEditor({
             <div className="flex flex-wrap items-center gap-2 max-sm:justify-between">
               {editable && status}
               <div className="flex items-center gap-2 max-sm:ml-auto">
-                <Button variant="secondary" size="sm" icon={<Eye />} loading={sample.isPending} disabled={issues.length > 0} onClick={() => sample.mutate()}>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  icon={<Eye />}
+                  disabled={issues.length > 0}
+                  onClick={() => {
+                    setPreviewOpen(true);
+                  }}
+                >
                   <span className="hidden sm:inline">{texts.toolbar.sample}</span>
                   <span className="sm:hidden">{texts.toolbar.sampleShort}</span>
                 </Button>
@@ -819,7 +810,16 @@ export function CertificateEditor({
                   selected={editing ? selection : []}
                   problems={problems}
                   additive={additive}
-                  {...(editable && editing ? { onSelect: setSelected, onChange: placeAll } : {})}
+                  brandPosition={design.brandPosition ?? null}
+                  {...(editable && editing
+                    ? {
+                        onSelect: setSelected,
+                        onChange: placeAll,
+                        onBrandMove: (brandPosition: BrandPosition, gesture: string) => {
+                          updateDesign((current) => ({ ...current, brandPosition }), gesture);
+                        },
+                      }
+                    : {})}
                 />
               </div>
             )}
@@ -1011,6 +1011,16 @@ export function CertificateEditor({
           onBack={(template, palette) => void applyBack(template, palette)}
         />
       )}
+      <CertificatePreview
+        open={previewOpen}
+        onClose={() => {
+          setPreviewOpen(false);
+        }}
+        eventId={eventId}
+        eventName={event.name}
+        body={body}
+        hasBack={design.back != null}
+      />
     </div>
   );
 }

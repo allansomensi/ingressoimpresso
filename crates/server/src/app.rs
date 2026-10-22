@@ -375,6 +375,10 @@ pub fn router(state: AppState) -> Router {
             "/events/{id}/certificates/sample",
             post(certificates::sample),
         )
+        .route(
+            "/events/{id}/certificates/sample-image",
+            post(certificates::sample_image),
+        )
         .route("/events/{id}/certificates/zip", get(certificates::zip))
         .route(
             "/certificates/{id}",
@@ -621,7 +625,7 @@ fn loggable_path(path: &str) -> String {
         } else {
             out.push_str(segment);
         }
-        mask_next = matches!(segment, "downloads" | "referrals");
+        mask_next = matches!(segment, "downloads" | "referrals" | "unsubscribe");
     }
     out
 }
@@ -724,6 +728,10 @@ mod tests {
         assert_eq!(
             loggable_path("/api/events/8f1d6a52-3c1e-4b6f-9a2d-6c0e5b7a9d01/report"),
             "/api/events/8f1d6a52-3c1e-4b6f-9a2d-6c0e5b7a9d01/report"
+        );
+        assert_eq!(
+            loggable_path("/api/email/unsubscribe/v1.abc"),
+            "/api/email/unsubscribe/<masked>"
         );
         assert_eq!(loggable_path("/api/downloads/"), "/api/downloads/");
         assert_eq!(loggable_path("/healthz"), "/healthz");

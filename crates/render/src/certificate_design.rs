@@ -67,6 +67,23 @@ pub struct CertificateDesign {
     /// (ADR 0116). Designs saved before keep the line.
     #[serde(default)]
     pub brand_style: BrandStyle,
+    /// Where the brand sits, by its centre; `None` keeps it centred at the bottom of the front
+    /// (ADR 0118: it can be moved off a frame).
+    #[serde(default)]
+    pub brand_position: Option<BrandPosition>,
+}
+
+/// The centre of the brand on the front, in millimetres from the top left (ADR 0118).
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[cfg_attr(
+    feature = "ts",
+    derive(ts_rs::TS),
+    ts(export, export_to = "api-types/src/generated/")
+)]
+pub struct BrandPosition {
+    pub x_mm: f64,
+    pub y_mm: f64,
 }
 
 /// How the "Emitido com Ingresso Impresso" of a certificate looks (ADR 0116).
@@ -462,6 +479,8 @@ pub enum CertificateIssue {
     },
     #[error("the certificate needs a QR code, which proves it is real")]
     MissingQr,
+    #[error("the brand must lie inside the page")]
+    BrandOutOfBounds,
     #[error("a signature has a name up to {max_name} characters and a role up to {max_role}")]
     Signature {
         side: CertificateSide,
@@ -526,6 +545,16 @@ impl CertificateDesign {
         }
         if qrs == 0 {
             issues.push(CertificateIssue::MissingQr);
+        }
+        if let Some(position) = self.brand_position {
+            let (width, height) = self.page_size_mm();
+            if !(position.x_mm.is_finite()
+                && position.y_mm.is_finite()
+                && (0.0..=width).contains(&position.x_mm)
+                && (0.0..=height).contains(&position.y_mm))
+            {
+                issues.push(CertificateIssue::BrandOutOfBounds);
+            }
         }
         if issues.is_empty() {
             Ok(())
@@ -877,6 +906,7 @@ impl CertificateDesign {
             back: None,
             brand: true,
             brand_style: BrandStyle::Line,
+            brand_position: None,
         }
     }
 }

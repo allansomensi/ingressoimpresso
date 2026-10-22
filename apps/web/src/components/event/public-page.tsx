@@ -48,7 +48,7 @@ export function PublicPageCard({ eventId, eventName }: { eventId: string; eventN
     },
   });
   if (settings.data === undefined) {
-    return settings.isError ? <ErrorMessage error={settings.error} /> : null;
+    return settings.isError ? <ErrorMessage error={settings.error} onRetry={() => void settings.refetch()} /> : null;
   }
   const data = settings.data;
   const body = (patch: Partial<PublicPageBody>): PublicPageBody => ({

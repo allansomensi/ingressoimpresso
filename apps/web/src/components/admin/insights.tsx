@@ -63,7 +63,7 @@ export function AdminFunnel() {
   if (funnel.isPending) {
     body = <LoadingBlock rows={4} />;
   } else if (funnel.isError) {
-    body = <ErrorMessage error={funnel.error} />;
+    body = <ErrorMessage error={funnel.error} onRetry={() => void funnel.refetch()} />;
   } else {
     const steps = funnel.data.steps;
     const total = steps[0]?.organizations ?? 0;
@@ -173,7 +173,7 @@ export function AdminLive() {
     return <LoadingBlock rows={4} />;
   }
   if (live.isError) {
-    return <ErrorMessage error={live.error} />;
+    return <ErrorMessage error={live.error} onRetry={() => void live.refetch()} />;
   }
   const { events, generatedAt } = live.data;
   const troubled = events.filter((event) => event.problems.length > 0).length;

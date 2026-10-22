@@ -47,7 +47,7 @@ function SupportProfile({ organizationId }: { organizationId: string }) {
       {profile.isPending ? (
         <LoadingBlock rows={5} />
       ) : profile.isError ? (
-        <ErrorMessage error={profile.error} />
+        <ErrorMessage error={profile.error} onRetry={() => void profile.refetch()} />
       ) : (
         <ProfileEditor key={profile.dataUpdatedAt} profile={profile.data} target={{ endpoint, queryKey, support: true }} />
       )}

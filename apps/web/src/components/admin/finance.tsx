@@ -57,7 +57,7 @@ export function AdminFinance() {
     return <LoadingBlock rows={4} />;
   }
   if (finance.isError) {
-    return <ErrorMessage error={finance.error} />;
+    return <ErrorMessage error={finance.error} onRetry={() => void finance.refetch()} />;
   }
   const f = finance.data;
   const change = growth(f.revenueCents, f.previousRevenueCents);

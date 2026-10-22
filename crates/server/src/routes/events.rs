@@ -1348,15 +1348,9 @@ async fn render_samples<T: Send + 'static>(
     job: RenderJob,
     render: impl FnOnce(&RenderJob) -> Result<T, ticket_render::RenderError> + Send + 'static,
 ) -> ApiResult<T> {
-    let _permit = state
-        .render_permits
-        .clone()
-        .acquire_owned()
-        .await
-        .map_err(anyhow::Error::from)?;
-    tokio::task::spawn_blocking(move || render(&job))
-        .await
-        .map_err(anyhow::Error::from)?
+    state
+        .blocking_render(move || render(&job))
+        .await?
         .map_err(|error| match error {
             ticket_render::RenderError::TooLargeForA4 => {
                 bad_request("too_large_for_a4", "ticket does not fit on A4")

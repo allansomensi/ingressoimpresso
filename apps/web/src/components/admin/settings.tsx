@@ -174,7 +174,7 @@ export function AdminSettings() {
       {settings.isPending ? (
         <LoadingBlock rows={3} />
       ) : settings.isError ? (
-        <ErrorMessage error={settings.error} />
+        <ErrorMessage error={settings.error} onRetry={() => void settings.refetch()} />
       ) : (
         <>
           {settings.data.maintenance.mode !== "off" && <Alert tone="warning">{t.activeNow}</Alert>}

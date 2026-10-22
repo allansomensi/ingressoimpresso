@@ -447,6 +447,70 @@ async fn seller_links_reach_only_who_hands_them_out(pool: PgPool) {
 }
 
 #[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
+async fn valid_tickets_reach_only_who_delivers_or_runs_the_door(pool: PgPool) {
+    let app = TestApp::with_free_tickets(pool, 50).await;
+    let owner = app.login("banda@exemplo.com").await;
+    let event = app.create_event(&owner, "Show").await;
+    app.create_batch(&owner, &event, 20).await;
+    let created = app
+        .post(
+            &format!("/api/events/{event}/tickets"),
+            &owner,
+            json!({ "number": 7, "holderName": "Maria" }),
+        )
+        .await;
+    assert_eq!(created.status, StatusCode::CREATED);
+    add(&app, &owner, &event, "caio@exemplo.com", json!(["art"])).await;
+    add(
+        &app,
+        &owner,
+        &event,
+        "dani@exemplo.com",
+        json!(["delivery"]),
+    )
+    .await;
+    let caio = app.login("caio@exemplo.com").await;
+    let dani = app.login("dani@exemplo.com").await;
+
+    // Each digital ticket link is a valid ticket: the art person sees the list, not the links.
+    let seen = app
+        .get(&format!("/api/events/{event}/tickets"), &caio)
+        .await
+        .json();
+    assert_eq!(seen["links"][0]["holderName"], "Maria", "{seen}");
+    assert_eq!(seen["links"][0]["url"], "");
+    let delivered = app
+        .get(&format!("/api/events/{event}/tickets"), &dani)
+        .await
+        .json();
+    assert!(
+        delivered["links"][0]["url"]
+            .as_str()
+            .unwrap()
+            .contains("/ingresso#")
+    );
+
+    // A download link opens every signed ticket of a file; badges are credentials.
+    let export = app
+        .post(
+            &format!("/api/events/{event}/exports"),
+            &owner,
+            json!({ "kind": "home", "scope": { "type": "all" } }),
+        )
+        .await
+        .json();
+    let export = export["id"].as_str().unwrap().to_owned();
+    let link = app
+        .post(&format!("/api/exports/{export}/link"), &caio, json!({}))
+        .await;
+    assert_eq!(link.status, StatusCode::FORBIDDEN);
+    let badges = app
+        .get(&format!("/api/events/{event}/credentials/badges"), &dani)
+        .await;
+    assert_eq!(badges.status, StatusCode::FORBIDDEN);
+}
+
+#[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
 async fn invites_are_limited_per_account(pool: PgPool) {
     let app = TestApp::new(pool).await;
     let owner = app.login("banda@exemplo.com").await;

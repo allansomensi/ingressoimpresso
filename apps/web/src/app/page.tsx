@@ -1,17 +1,34 @@
 import {
+  Activity,
   ArrowRight,
+  Award,
   BarChart3,
   Check,
+  Coins,
+  DoorOpen,
+  FileSpreadsheet,
   FileText,
+  Globe,
+  IdCard,
+  Image as ImageIcon,
   LayoutTemplate,
+  ListChecks,
   MousePointerClick,
   MessageCircle,
+  PartyPopper,
   Printer,
+  QrCode,
+  Scissors,
   Send,
   ShieldCheck,
   Smartphone,
+  Store,
+  Tags,
   Ticket,
+  UserCog,
   Users,
+  UsersRound,
+  Wallet,
   WifiOff,
   XCircle,
   type LucideIcon,
@@ -58,6 +75,35 @@ const FEATURE_ICONS: readonly LucideIcon[] = [
   MousePointerClick,
 ];
 const STEP_ICONS: readonly LucideIcon[] = [FileText, Ticket, Printer, Smartphone];
+const PLATFORM_ICONS: Record<string, LucideIcon> = {
+  sell: Store,
+  deliver: Send,
+  door: DoorOpen,
+  after: PartyPopper,
+  seller: Smartphone,
+  pix: QrCode,
+  page: Globe,
+  team: UserCog,
+  wallet: Wallet,
+  categories: Tags,
+  papers: Scissors,
+  tokens: Coins,
+  days: ListChecks,
+  capacity: UsersRound,
+  badges: IdCard,
+  guests: Users,
+  certificates: Award,
+  accountability: FileSpreadsheet,
+  summary: ImageIcon,
+  live: Activity,
+};
+// One colour per moment, from the semantic tokens (both themes).
+const PLATFORM_TONES = [
+  "bg-brand-soft text-brand-soft-fg",
+  "bg-success-soft text-success-fg",
+  "bg-warning-soft text-warning-fg",
+  "bg-brand-soft text-brand-soft-fg",
+] as const;
 
 export default async function LandingPage() {
   const pricing = await fetchPricing();
@@ -223,8 +269,60 @@ export default async function LandingPage() {
           </div>
         </section>
 
+        {/* Everything around the ticket, by moment */}
+        <section id="evento-inteiro" className="defer-render scroll-mt-16 border-t border-border bg-bg">
+          <div className="mx-auto flex max-w-6xl flex-col gap-12 px-4 py-20 sm:px-6 lg:py-28">
+            <SectionHeading eyebrow={t.platform.eyebrow} title={t.platform.title} lead={t.platform.lead} />
+            <div className="grid gap-4 sm:gap-5 lg:grid-cols-2">
+              {t.platform.groups.map((group, index) => {
+                const GroupIcon = PLATFORM_ICONS[group.key] ?? Ticket;
+                const tone = PLATFORM_TONES[index] ?? PLATFORM_TONES[0];
+                return (
+                  <article
+                    key={group.key}
+                    aria-labelledby={`grupo-${group.key}`}
+                    className="flex flex-col gap-5 rounded-3xl border border-border bg-surface p-5 shadow-xs sm:p-7"
+                  >
+                    <header className="flex items-center gap-3">
+                      <span className={`flex size-11 shrink-0 items-center justify-center rounded-2xl ${tone}`}>
+                        <GroupIcon className="size-5" aria-hidden />
+                      </span>
+                      <div className="flex min-w-0 flex-col">
+                        <h3 id={`grupo-${group.key}`} className="text-lg font-semibold tracking-tight text-fg">
+                          {group.title}
+                        </h3>
+                        <p className="text-sm text-fg-muted">{group.lead}</p>
+                      </div>
+                    </header>
+                    <ul className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
+                      {group.items.map((item) => {
+                        const Icon = PLATFORM_ICONS[item.key] ?? Check;
+                        return (
+                          <li key={item.key} className="flex gap-3">
+                            <Icon className="mt-0.5 size-5 shrink-0 text-brand" aria-hidden />
+                            <div className="flex min-w-0 flex-col gap-1">
+                              <h4 className="text-[15px] font-semibold text-fg">{item.title}</h4>
+                              <p className="text-sm leading-relaxed text-fg-muted">{item.body}</p>
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </article>
+                );
+              })}
+            </div>
+            {/* Phones already have the bar at the bottom (MobileCta). */}
+            <div className="flex justify-center max-sm:hidden">
+              <ButtonLink href="/entrar" size="lg" icon={<ArrowRight />} className="flex-row-reverse">
+                {t.primaryCta}
+              </ButtonLink>
+            </div>
+          </div>
+        </section>
+
         {/* Digital tickets */}
-        <section id="no-celular" className="defer-render scroll-mt-16 border-t border-border bg-bg">
+        <section id="no-celular" className="defer-render scroll-mt-16 border-t border-border bg-surface">
           <div className="mx-auto grid max-w-6xl items-center gap-12 px-4 py-20 sm:px-6 lg:grid-cols-2 lg:py-28">
             <div aria-hidden className="order-2 flex justify-center lg:order-1">
               <div className="relative">

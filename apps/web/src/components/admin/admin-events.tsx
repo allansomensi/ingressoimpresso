@@ -36,7 +36,7 @@ export function AdminEvents() {
       {events.isPending ? (
         <LoadingBlock rows={4} />
       ) : events.isError ? (
-        <ErrorMessage error={events.error} />
+        <ErrorMessage error={events.error} onRetry={() => void events.refetch()} />
       ) : events.data.length === 0 ? (
         <EmptyState icon={CalendarDays} title={t.empty} />
       ) : (

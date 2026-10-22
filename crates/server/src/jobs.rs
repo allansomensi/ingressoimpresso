@@ -123,6 +123,10 @@ pub async fn run_worker(state: AppState) {
                 tracing::error!(?error, "announcement e-mails not queued");
             }
             crate::mailings::wake(&state);
+            // E-mails that bring people back (ADR 0118), within the quota and working hours.
+            if let Err(error) = crate::reminders::run(&state).await {
+                tracing::error!(?error, "reminders not sent");
+            }
             last_cleanup = std::time::Instant::now();
         }
         let wait = match next_stale(&state).await {

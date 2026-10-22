@@ -199,12 +199,22 @@ pub async fn list(
     user: AuthUser,
     Path(event_id): Path<Uuid>,
 ) -> ApiResult<Json<TicketLinksDto>> {
-    authorize_event(&state.pool, &user, event_id).await?;
+    let access = super::event_access(&state.pool, &user, event_id).await?;
+    // Each link is a valid ticket: only who delivers tickets sees them (ADR 0055); the others
+    // see the list with the links blank.
+    let delivers = access.can(crate::api::TeamArea::Delivery);
     let (_, digits) = number_style(&state, event_id).await?;
     let links = load_links(&state, event_id, None)
         .await?
         .into_iter()
-        .map(|row| row.into_dto(&state, digits))
+        .map(|row| {
+            row.into_dto(&state, digits).map(|mut dto| {
+                if !delivers {
+                    dto.url = String::new();
+                }
+                dto
+            })
+        })
         .collect::<ApiResult<Vec<_>>>()?;
     let paid_tickets = sqlx::query_scalar!(
         r#"select coalesce(sum(upper(numbers) - lower(numbers)), 0)::bigint as "count!"

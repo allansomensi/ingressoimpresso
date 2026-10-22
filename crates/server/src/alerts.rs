@@ -502,6 +502,10 @@ pub async fn send_summary(state: &AppState) -> ApiResult<AlertDeliveryDto> {
 type Sections = Vec<(String, Vec<(String, String)>)>;
 
 /// The summary in words: the highlights and the sections with their rows.
+#[expect(
+    clippy::too_many_lines,
+    reason = "one block per section of the summary, in the order they are read"
+)]
 async fn summary_content(state: &AppState, days: i32) -> ApiResult<(Vec<String>, Sections)> {
     let day = sqlx::query!(
         r#"select
@@ -519,7 +523,8 @@ async fn summary_content(state: &AppState, days: i32) -> ApiResult<(Vec<String>,
                 and status <> 'quota') as "mails!",
              (select count(*) from mail_sends where created_at > now() - make_interval(days => $1)
                 and status in ('failed', 'bounced')) as "mail_failures!",
-             (select count(*) from scans where scanned_at > now() - make_interval(days => $1)) as "scans!""#,
+             (select count(*) from scans where scanned_at > now() - make_interval(days => $1)) as "scans!",
+             (select count(*) from admin_alerts where resolved_at is null) as "open_alerts!""#,
         days
     )
     .fetch_one(&state.pool)
@@ -534,11 +539,12 @@ async fn summary_content(state: &AppState, days: i32) -> ApiResult<(Vec<String>,
     let disputes = open_disputes(state).await?;
 
     let mut highlights = Vec::new();
-    if !alerts.is_empty() {
-        highlights.push(if alerts.len() == 1 {
+    // The list shows the first eight; the count is all of them.
+    if day.open_alerts > 0 {
+        highlights.push(if day.open_alerts == 1 {
             "1 alerta aberto".to_owned()
         } else {
-            format!("{} alertas abertos", alerts.len())
+            format!("{} alertas abertos", day.open_alerts)
         });
     }
     if disputes > 0 {
@@ -569,10 +575,16 @@ async fn summary_content(state: &AppState, days: i32) -> ApiResult<(Vec<String>,
             ("Leituras na portaria".to_owned(), day.scans.to_string()),
         ],
     )];
-    let quota = state.config.mail_daily_limit.map_or_else(
-        || day.mails.to_string(),
-        |limit| format!("{} de {limit}", day.mails),
-    );
+    // The limit is per day: a weekly summary compares with a day's average, never "412 de 95".
+    let quota = match state.config.mail_daily_limit {
+        Some(limit) if days == 1 => format!("{} de {limit}", day.mails),
+        Some(limit) => format!(
+            "{} (média de {} por dia; o limite é {limit})",
+            day.mails,
+            day.mails / i64::from(days.max(1))
+        ),
+        None => day.mails.to_string(),
+    };
     sections.push((
         "E-mails".to_owned(),
         vec![

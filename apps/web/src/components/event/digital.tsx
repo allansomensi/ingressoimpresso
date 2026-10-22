@@ -598,7 +598,7 @@ export function DigitalTab({ eventId, onSelect }: { eventId: string; onSelect: S
     return <LoadingBlock rows={3} />;
   }
   if (tickets.isError) {
-    return <ErrorMessage error={tickets.error} />;
+    return <ErrorMessage error={tickets.error} onRetry={() => void tickets.refetch()} />;
   }
   const data = tickets.data;
   const eventName = event.data?.name ?? "";
@@ -725,7 +725,8 @@ export function DigitalTab({ eventId, onSelect }: { eventId: string; onSelect: S
         ) : (
           <List>
             {shown.map((link) => {
-              const usable = link.revokedAt === null;
+              // A team member without the delivery part sees the list, not the links (url is empty).
+              const usable = link.revokedAt === null && link.url !== "";
               return (
                 <ListItem key={link.id} className={cn("justify-between", !usable && "opacity-60")}>
                   <div className="flex min-w-0 items-center gap-3">

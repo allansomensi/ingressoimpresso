@@ -12,7 +12,7 @@ import type {
   SellerDto,
 } from "@ingressoimpresso/api-types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ClipboardList, Download, FileDown, FolderArchive, Home, Layers, MessageCircle, Plus, Printer, type LucideIcon } from "lucide-react";
+import { ClipboardList, Download, FileDown, FolderArchive, Home, Layers, MessageCircle, Plus, Printer, RefreshCw, type LucideIcon } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
@@ -100,7 +100,7 @@ function PaperPicker({ eventId, value, onChange }: { eventId: string; value: Pap
   return (
     <fieldset className="flex flex-col gap-3">
       <legend className="mb-1 text-sm font-medium text-fg">{t.label}</legend>
-      {papers.isError && <ErrorMessage error={papers.error} />}
+      {papers.isError && <ErrorMessage error={papers.error} onRetry={() => void papers.refetch()} />}
       {PAPER_GROUPS.map((group) => (
         <div key={group.key} className="flex flex-col gap-1.5">
           <span className="text-xs font-semibold tracking-wide text-fg-subtle uppercase">{t.groups[group.key]}</span>
@@ -333,6 +333,21 @@ export function FilesTab({ eventId, onSelect }: { eventId: string; onSelect: Sel
     },
   });
 
+  // A file that failed is asked for again as it was (crop marks on, the default).
+  const queryClient = useQueryClient();
+  const retry = useMutation({
+    mutationFn: (item: ExportDto) => {
+      const body: CreateExportBody = { kind: item.kind, scope: item.scope, cropMarks: true, ...(item.kind === "home" ? { paper: item.paper } : {}) };
+      return api<ExportDto>(`/api/events/${eventId}/exports`, { method: "POST", body });
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["exports", eventId] });
+    },
+    onError: (error) => {
+      toast.error(errorMessage(error));
+    },
+  });
+
   const paidBatches = (batches.data ?? []).filter((batch) => batch.status === "paid");
   const sellerList = sellers.data ?? [];
   const noPaid = batches.data !== undefined && paidBatches.length === 0;
@@ -386,7 +401,7 @@ export function FilesTab({ eventId, onSelect }: { eventId: string; onSelect: Sel
         {exports.isPending ? (
           <LoadingBlock rows={1} />
         ) : exports.isError ? (
-          <ErrorMessage error={exports.error} />
+          <ErrorMessage error={exports.error} onRetry={() => void exports.refetch()} />
         ) : exports.data.length === 0 ? (
           <EmptyState icon={FolderArchive} title={t.emptyTitle} description={t.empty} />
         ) : (
@@ -417,6 +432,19 @@ export function FilesTab({ eventId, onSelect }: { eventId: string; onSelect: Sel
                     <p className="w-full text-xs leading-relaxed text-danger-fg">
                       {(errorsTexts as Readonly<Record<string, string>>)[item.error] ?? errorsTexts.generic}
                     </p>
+                  )}
+                  {item.status === "failed" && can("delivery") && (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      icon={<RefreshCw />}
+                      loading={retry.isPending && retry.variables?.id === item.id}
+                      onClick={() => {
+                        retry.mutate(item);
+                      }}
+                    >
+                      {commonTexts.retry}
+                    </Button>
                   )}
                   {item.status === "done" && (
                     <Button

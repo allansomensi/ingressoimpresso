@@ -350,7 +350,7 @@ export function AdminPrices() {
     return <LoadingBlock rows={3} />;
   }
   if (prices.isError) {
-    return <ErrorMessage error={prices.error} />;
+    return <ErrorMessage error={prices.error} onRetry={() => void prices.refetch()} />;
   }
   const { current, upcoming, history } = prices.data;
   return (
@@ -601,7 +601,7 @@ export function AdminPromotions() {
       {list.isPending ? (
         <LoadingBlock rows={2} />
       ) : list.isError ? (
-        <ErrorMessage error={list.error} />
+        <ErrorMessage error={list.error} onRetry={() => void list.refetch()} />
       ) : list.data.length === 0 ? (
         <EmptyState icon={BadgePercent} title={t.noPromotions} description={t.noPromotionsHint} action={newButton} />
       ) : (
@@ -857,7 +857,7 @@ function Redemptions({ code, onClose }: { code: PromoCodeDto; onClose: () => voi
       {uses.isPending ? (
         <LoadingBlock rows={2} />
       ) : uses.isError ? (
-        <ErrorMessage error={uses.error} />
+        <ErrorMessage error={uses.error} onRetry={() => void uses.refetch()} />
       ) : uses.data.length === 0 ? (
         <p className="py-6 text-center text-sm text-fg-muted">{t.noRedemptions}</p>
       ) : (
@@ -925,7 +925,7 @@ export function AdminCodes() {
       {list.isPending ? (
         <LoadingBlock rows={3} />
       ) : list.isError ? (
-        <ErrorMessage error={list.error} />
+        <ErrorMessage error={list.error} onRetry={() => void list.refetch()} />
       ) : list.data.length === 0 ? (
         <EmptyState icon={TicketPercent} title={t.noCodes} description={t.noCodesHint} action={newButton} />
       ) : (

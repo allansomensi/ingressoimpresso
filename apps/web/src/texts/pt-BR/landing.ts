@@ -254,6 +254,122 @@ export const landing = {
       body: "Arraste textos, número e QR, troque fontes e cores e veja na hora como vai sair na impressão.",
     },
   ],
+  // Everything around the ticket, by the moment of the event (the icons follow `key` in page.tsx).
+  platform: {
+    eyebrow: "Muito além do ingresso",
+    title: "Do primeiro vendedor ao último certificado",
+    lead: "Tudo o que um evento pequeno precisa, no mesmo lugar e pensado para o celular. Use só o que fizer sentido para o seu.",
+    groups: [
+      {
+        key: "sell",
+        title: "Para vender",
+        lead: "A equipe vende, você acompanha.",
+        items: [
+          {
+            key: "seller",
+            title: "Link do vendedor",
+            body: "Cada vendedor marca no celular o que vendeu e para quem, mesmo sem internet, e vê o próprio acerto. Metas e ranking, se quiser.",
+          },
+          {
+            key: "pix",
+            title: "Pix copia e cola",
+            body: "O QR do Pix aparece na hora da venda, com a chave da organização ou do vendedor. O dinheiro vai direto para vocês.",
+          },
+          {
+            key: "page",
+            title: "Página do evento",
+            body: "Um endereço para divulgar, com data, mapa, preço de cada categoria e o WhatsApp de quem está vendendo.",
+          },
+          {
+            key: "team",
+            title: "Equipe com permissões",
+            body: "Chame pessoas por e-mail para cuidar só da parte delas: dinheiro, entrega, arte ou portaria.",
+          },
+        ],
+      },
+      {
+        key: "deliver",
+        title: "Para entregar",
+        lead: "No papel, no celular ou na carteira.",
+        items: [
+          {
+            key: "wallet",
+            title: "Carteira do celular",
+            body: "O ingresso digital abre sem internet, entra na Apple Wallet e no Google Wallet e pode ser passado para outra pessoa.",
+          },
+          {
+            key: "categories",
+            title: "Categorias e mesas",
+            body: "Pista, VIP e meia com cor e preço próprios. Mesas com mapa e o lugar impresso no ingresso.",
+          },
+          {
+            key: "papers",
+            title: "Papéis prontos",
+            body: "Além do A4 com marcas de corte e do PDF da gráfica: folha picotada e folhas de etiquetas.",
+          },
+          {
+            key: "tokens",
+            title: "Fichas e caixa",
+            body: "Fichas numeradas para bebida e comida, com um caixa no celular que calcula o troco e fecha o turno.",
+          },
+        ],
+      },
+      {
+        key: "door",
+        title: "Na porta",
+        lead: "Rápido para quem entra, seguro para você.",
+        items: [
+          {
+            key: "days",
+            title: "Vários dias e pontos de controle",
+            body: "Passaporte, ingresso de um dia, open bar e brinde: cada ponto confere o que o ingresso dá direito, combos incluídos.",
+          },
+          {
+            key: "capacity",
+            title: "Lotação na tela",
+            body: "A portaria mostra quantos faltam para lotar, e você recebe um aviso quando o local está chegando no limite.",
+          },
+          {
+            key: "badges",
+            title: "Credenciais da equipe",
+            body: "Crachás com QR para staff, imprensa e artistas, com acesso por área. Não contam como público.",
+          },
+          {
+            key: "guests",
+            title: "Lista, meia e saída e volta",
+            body: "Convidados pelo nome, aviso para pedir o documento da meia e quem sai pode voltar com o mesmo ingresso.",
+          },
+        ],
+      },
+      {
+        key: "after",
+        title: "Depois do evento",
+        lead: "O fechamento sem caderno.",
+        items: [
+          {
+            key: "certificates",
+            title: "Certificados",
+            body: "Certificados de participação com editor e modelos prontos. Cada pessoa baixa o seu pelo link.",
+          },
+          {
+            key: "accountability",
+            title: "Prestação de contas",
+            body: "Despesas, receitas, saldo e o acerto de cada vendedor, em PDF e planilha para a comissão.",
+          },
+          {
+            key: "summary",
+            title: "Resumo final",
+            body: "Público, arrecadação e destaques numa página só, em PDF ou imagem para mandar no grupo.",
+          },
+          {
+            key: "live",
+            title: "Ao vivo e resultados",
+            body: "Quantos entraram, por qual porta e em que horário, enquanto o evento acontece e depois dele.",
+          },
+        ],
+      },
+    ],
+  },
   stepsTitle: "Como funciona",
   stepsLead: "Do primeiro clique ao último convidado, em quatro passos.",
   steps: [
@@ -274,7 +390,12 @@ export const landing = {
   offlineTitle: "A porta não pode parar. Por isso ela não depende da internet.",
   offlineBody:
     "A portaria roda no navegador do celular e decide cada leitura na hora, com a mesma criptografia do servidor. Sem sinal, continua funcionando. Quando a conexão volta, os celulares trocam as leituras e qualquer cópia aparece no relatório.",
-  offlinePoints: ["Verde, vermelho ou amarelo em tela cheia, com som", "Lanterna para lugares escuros", "Vários celulares na mesma porta"],
+  offlinePoints: [
+    "Verde, vermelho ou amarelo em tela cheia, com som",
+    "Lanterna para lugares escuros",
+    "Vários celulares na mesma porta",
+    "Modo ensaio para treinar a equipe antes de abrir",
+  ],
   pricingTitle: "Centavos por ingresso. Sem mensalidade.",
   pricingLead: "Você paga uma vez por lote, só quando precisa. Quanto mais ingressos, menor o preço de cada um. E os primeiros são por nossa conta.",
   pricingTier: (from: number, to: number) => `Do ${from.toLocaleString("pt-BR")}º ao ${to.toLocaleString("pt-BR")}º ingresso`,
@@ -285,6 +406,7 @@ export const landing = {
     "Ingressos no celular pelo WhatsApp",
     "Portaria com quantos celulares quiser",
     "Relatório, resultados e acerto por vendedor",
+    "Certificados e crachás da equipe sem custo extra",
     "Pix ou cartão, pago com segurança pela Stripe",
   ],
   pricingUnavailable: "Os preços aparecem aqui assim que o servidor responder.",
@@ -345,6 +467,14 @@ export const landing = {
     {
       q: "Dá para imprimir rifa ou cartela numerada?",
       a: "Dá. O modelo de rifa tem número grande e canhoto para nome e telefone, 12 por folha A4. O Ingresso Impresso só imprime os números: o sorteio, os prêmios e a autorização exigida por lei ficam com o organizador.",
+    },
+    {
+      q: "Serve para festival de vários dias ou com open bar?",
+      a: "Serve. Cadastre os dias do evento e escolha, em cada categoria, se o ingresso vale todos os dias, só alguns ou um dia à escolha. Pontos de controle conferem bebida, brinde ou área VIP, inclusive combos como duas bebidas por pessoa.",
+    },
+    {
+      q: "Dá para fazer fichas de bar e de quermesse?",
+      a: "Dá. Crie o evento como fichas de consumo: cada produto vira uma categoria, com modelos de ficha prontos e um caixa no celular que calcula o troco e fecha o turno.",
     },
     {
       q: "Funciona no iPhone?",

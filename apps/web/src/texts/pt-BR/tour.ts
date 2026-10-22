@@ -44,9 +44,4 @@ export const tour = {
     create: "Criar meu primeiro evento",
     explore: "Explorar sozinho",
   },
-  replay: {
-    title: "Tour do painel",
-    hint: "Reveja onde fica cada coisa no painel.",
-    action: "Ver o tour de novo",
-  },
 };

@@ -1,0 +1,86 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select\n             (select count(*) from organizations where created_at > now() - make_interval(days => $1)) as \"organizations!\",\n             (select count(*) from events where created_at > now() - make_interval(days => $1)) as \"events!\",\n             (select count(*) from ticket_batches where paid_at > now() - make_interval(days => $1)\n                and status in ('paid', 'refunded')) as \"batches!\",\n             (select coalesce(sum(upper(numbers) - lower(numbers)), 0) from ticket_batches\n               where paid_at > now() - make_interval(days => $1) and status in ('paid', 'refunded'))::bigint as \"tickets!\",\n             (select coalesce(sum(cents), 0) from revenue_entries\n               where kind = 'gross' and at > now() - make_interval(days => $1))::bigint as \"gross!\",\n             (select coalesce(sum(cents), 0) from revenue_entries\n               where kind = 'refund' and at > now() - make_interval(days => $1))::bigint as \"refunds!\",\n             (select count(*) from mail_sends where created_at > now() - make_interval(days => $1)\n                and status <> 'quota') as \"mails!\",\n             (select count(*) from mail_sends where created_at > now() - make_interval(days => $1)\n                and status in ('failed', 'bounced')) as \"mail_failures!\",\n             (select count(*) from scans where scanned_at > now() - make_interval(days => $1)) as \"scans!\",\n             (select count(*) from admin_alerts where resolved_at is null) as \"open_alerts!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "organizations!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "events!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "batches!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "tickets!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "gross!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "refunds!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "mails!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 7,
+        "name": "mail_failures!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 8,
+        "name": "scans!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 9,
+        "name": "open_alerts!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "ccffcf64b13e7e32dceaf566d10d691031a2b05c1acc3ad478e1d040ddeb26f0"
+}

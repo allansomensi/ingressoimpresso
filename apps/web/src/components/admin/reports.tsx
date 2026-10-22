@@ -171,7 +171,7 @@ function Closing() {
         {closing.isPending ? (
           <LoadingBlock rows={3} />
         ) : closing.isError ? (
-          <ErrorMessage error={closing.error} />
+          <ErrorMessage error={closing.error} onRetry={() => void closing.refetch()} />
         ) : (
           <div
             className={cn(
@@ -339,7 +339,7 @@ function Cohorts() {
         </div>
       ) : cohorts.isError ? (
         <div className="px-6 pb-6">
-          <ErrorMessage error={cohorts.error} />
+          <ErrorMessage error={cohorts.error} onRetry={() => void cohorts.refetch()} />
         </div>
       ) : (
         <TableScroll label={t.cohortsTitle}>
@@ -450,7 +450,7 @@ function Coupons() {
         </div>
       ) : coupons.isError ? (
         <div className="px-6 pb-6">
-          <ErrorMessage error={coupons.error} />
+          <ErrorMessage error={coupons.error} onRetry={() => void coupons.refetch()} />
         </div>
       ) : coupons.data.length === 0 ? (
         <div className="px-6 pb-6">

@@ -127,3 +127,4 @@ feita e as consequências.
 | [0115](0115-aviso-de-cota-nos-pronunciamentos.md) | Aviso de cota antes de mandar um pronunciamento por e-mail | Aceito |
 | [0116](0116-tour-de-boas-vindas-e-marca-do-certificado.md) | Tour de boas-vindas no painel e marca com logo no certificado | Aceito |
 | [0117](0117-conexao-derrubada-pelo-banco.md) | Conexão derrubada pelo banco é 503, não 500 | Aceito |
+| [0118](0118-lembretes-marca-movel-e-revisao-de-producao.md) | Lembretes por e-mail, marca móvel no certificado e revisão para produção | Aceito |

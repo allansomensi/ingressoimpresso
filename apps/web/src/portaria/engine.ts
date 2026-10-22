@@ -517,8 +517,8 @@ export class DoorEngine {
   /**
    * A credential (ADR 0111): authentic (the core read its number), let through any day at the
    * entrance when it opens it, at a checkpoint when it is one of its areas. Never a movement nor
-   * an entry; the read is persisted before the screen (invariant 6), except in a rehearsal or a
-   * check, which record nothing.
+   * an entry; the read is persisted before the screen (invariant 6), except in a rehearsal, a
+   * check or at the exit, which record nothing.
    */
   async #credential(text: string, number: number, mode: DoorMode, context: DoorContext): Promise<void> {
     const verdict = credentialVerdict(this.#state.manifest?.credentials ?? [], number, this.checkpoint?.id ?? null);
@@ -529,11 +529,14 @@ export class DoorEngine {
       this.#set({ result: shown, testScanDone: true });
       return;
     }
-    const at = Math.round(Date.now() + (this.#state.manifest?.offsetMs ?? 0));
-    await this.#persist(
-      { id: crypto.randomUUID(), number, outcome: verdict.kind === "admit" ? "credential_admitted" : "rejected_credential", scannedAtMs: at, synced: 0 },
-      null,
-    );
+    // A phone at the exit only shows whose credential it is: the server counts reads as admissions.
+    if (mode !== "exit") {
+      const at = Math.round(Date.now() + (this.#state.manifest?.offsetMs ?? 0));
+      await this.#persist(
+        { id: crypto.randomUUID(), number, outcome: verdict.kind === "admit" ? "credential_admitted" : "rejected_credential", scannedAtMs: at, synced: 0 },
+        null,
+      );
+    }
     this.#remember(text, view);
     this.#set({ result: view, checking: false, testScanDone: true });
   }

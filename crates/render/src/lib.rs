@@ -23,11 +23,11 @@ mod world;
 pub use badge::{Badge, BadgeSheet, MAX_BADGES, badges_pdf};
 pub use certificate::{
     CERTIFICATE_BRAND, CERTIFICATE_BRAND_CAPTION, CERTIFICATE_FIELDS, Certificate,
-    CertificateFields, CertificateSegment, MAX_CERTIFICATES, certificate_pdf, certificates_zip,
-    fill_certificate,
+    CertificateFields, CertificateSegment, MAX_CERTIFICATES, certificate_pdf,
+    certificate_sample_images, certificates_zip, fill_certificate,
 };
 pub use certificate_design::{
-    BrandStyle, CERTIFICATE_DESIGN_VERSION, CertificateDesign, CertificateElement,
+    BrandPosition, BrandStyle, CERTIFICATE_DESIGN_VERSION, CertificateDesign, CertificateElement,
     CertificateFrame, CertificateImage, CertificateIssue, CertificateLine, CertificatePage,
     CertificateQr, CertificateSeal, CertificateShape, CertificateSide, CertificateSignature,
     CertificateText, FrameStyle, ImageSource, LineStyle, MAX_CERTIFICATE_IMAGES, MAX_PAGE_ELEMENTS,

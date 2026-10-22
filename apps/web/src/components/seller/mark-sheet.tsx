@@ -13,7 +13,7 @@ import { DeadlinePicker, useDeadline } from "@/components/seller/deadline-picker
 import { useSellerTexts } from "@/components/seller/seller-texts";
 import { Button, Dialog, Field, Input } from "@/components/ui";
 import { cn } from "@/lib/cn";
-import { firstOutside, firstShared, formatRanges, parseNumberList, type NumberRange } from "@/lib/number-list";
+import { NUMBER_LIST_INPUT, firstOutside, firstShared, formatRanges, parseNumberList, type NumberRange } from "@/lib/number-list";
 import { newId } from "@/lib/seller-offline";
 import { nextAvailable, padNumber, type NumberCell } from "@/lib/seller-page";
 import { common as commonTexts } from "@/texts/pt-BR/common";
@@ -226,10 +226,9 @@ export function MarkSheet({
               onChange={(event) => {
                 setNumbers(event.target.value);
               }}
-              // The seller usually types one number: a number pad that still has the comma for a
-              // list ("12,15"); a range can also be written "20 a 25" on a full keyboard.
-              inputMode="decimal"
-              autoComplete="off"
+              // A full keyboard (NUMBER_LIST_INPUT): the iPhone's number pad has no hyphen nor
+              // space, and the hint asks for "20-25".
+              {...NUMBER_LIST_INPUT}
               enterKeyHint="done"
               aria-invalid={problem !== null}
               readOnly={editing !== undefined}

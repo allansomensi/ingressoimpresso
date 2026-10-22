@@ -67,6 +67,7 @@ export type * from "./generated/BandStyle";
 export type * from "./generated/BatchDto";
 export type * from "./generated/BatchQuoteDto";
 export type * from "./generated/BatchStatus";
+export type * from "./generated/BrandPosition";
 export type * from "./generated/BrandStyle";
 export type * from "./generated/CancelEventBody";
 export type * from "./generated/CapacityBody";

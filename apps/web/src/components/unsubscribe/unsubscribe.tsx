@@ -13,8 +13,9 @@ import { unsubscribe as unsubscribeTexts } from "@/texts/pt-BR/unsubscribe";
 const t = unsubscribeTexts;
 
 /**
- * The link of an announcement e-mail (ADR 0107): the token comes in the fragment, never in the
- * server's logs; opening the page stops the e-mails, and one tap brings them back.
+ * The link of an announcement e-mail (ADR 0107) or of a reminder (ADR 0118): the token comes in
+ * the fragment, never in the server's logs; opening the page stops those e-mails, and one tap
+ * brings them back.
  */
 export function Unsubscribe() {
   // Kept for the button that undoes it; the address bar no longer has it.
@@ -69,8 +70,8 @@ export function Unsubscribe() {
             <span className="flex size-12 items-center justify-center rounded-2xl bg-success-soft text-success-fg">
               <BellRing className="size-6" aria-hidden />
             </span>
-            <h1 className="text-xl font-semibold text-fg">{t.backTitle}</h1>
-            <p className="text-sm text-fg-muted">{t.backBody(result.email)}</p>
+            <h1 className="text-xl font-semibold text-fg">{(result.reminders ? t.reminders : t.announcements).backTitle}</h1>
+            <p className="text-sm text-fg-muted">{(result.reminders ? t.reminders : t.announcements).backBody(result.email)}</p>
             <Button
               variant="ghost"
               loading={change.isPending}
@@ -86,8 +87,8 @@ export function Unsubscribe() {
             <span className="flex size-12 items-center justify-center rounded-2xl bg-brand-soft text-brand-soft-fg">
               <BellOff className="size-6" aria-hidden />
             </span>
-            <h1 className="text-xl font-semibold text-fg">{t.doneTitle}</h1>
-            <p className="text-sm text-fg-muted">{t.doneBody(result.email)}</p>
+            <h1 className="text-xl font-semibold text-fg">{(result.reminders ? t.reminders : t.announcements).doneTitle}</h1>
+            <p className="text-sm text-fg-muted">{(result.reminders ? t.reminders : t.announcements).doneBody(result.email)}</p>
             <Button
               variant="secondary"
               loading={change.isPending}

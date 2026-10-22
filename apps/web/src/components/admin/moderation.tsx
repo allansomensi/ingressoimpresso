@@ -348,7 +348,7 @@ export function AdminModeration() {
         recent.isPending ? (
           <LoadingBlock rows={2} />
         ) : recent.isError ? (
-          <ErrorMessage error={recent.error} />
+          <ErrorMessage error={recent.error} onRetry={() => void recent.refetch()} />
         ) : recent.data.length === 0 ? (
           <EmptyState icon={ShieldCheck} title={t.noUploads} />
         ) : (
@@ -361,7 +361,7 @@ export function AdminModeration() {
       ) : flags.isPending ? (
         <LoadingBlock rows={2} />
       ) : flags.isError ? (
-        <ErrorMessage error={flags.error} />
+        <ErrorMessage error={flags.error} onRetry={() => void flags.refetch()} />
       ) : flags.data.length === 0 ? (
         view === "open" ? (
           <EmptyState icon={ShieldCheck} title={t.allClear} description={t.allClearHint} />

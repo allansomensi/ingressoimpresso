@@ -100,7 +100,7 @@ function SetupDialog({ onClose, onCodes }: { onClose: () => void; onCodes: (code
   return (
     <Dialog open onClose={onClose} title={t.setupTitle}>
       {setup.isError ? (
-        <ErrorMessage error={setup.error} />
+        <ErrorMessage error={setup.error} onRetry={() => void setup.refetch()} />
       ) : (
         <form onSubmit={submit} className="flex flex-col gap-5">
           <ol className="flex list-decimal flex-col gap-1.5 pl-5 text-sm leading-relaxed text-fg-muted">
@@ -247,7 +247,7 @@ export function TwoFactorCard({ email }: { email: string }) {
         actions={data === undefined ? null : <Badge tone={data.enabled ? "success" : "neutral"} dot>{data.enabled ? t.on : t.off}</Badge>}
       />
       {data === undefined ? (
-        status.isError ? <ErrorMessage error={status.error} /> : <Skeleton className="h-10 w-full" />
+        status.isError ? <ErrorMessage error={status.error} onRetry={() => void status.refetch()} /> : <Skeleton className="h-10 w-full" />
       ) : data.enabled ? (
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-1 text-sm text-fg-muted">

@@ -9,6 +9,10 @@ export type UnsubscribeDto = {
  */
 email: string, 
 /**
- * Receives announcements now.
+ * Receives these e-mails now.
  */
-subscribed: boolean, };
+subscribed: boolean, 
+/**
+ * The link was of a reminder (ADR 0118), not of an announcement.
+ */
+reminders: boolean, };

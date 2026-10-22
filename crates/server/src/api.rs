@@ -505,6 +505,8 @@ dto! {
         pub terms_accepted_at: Option<OffsetDateTime>,
         /// Receives the platform's announcements by e-mail (ADR 0107).
         pub announcement_emails: bool,
+        /// Receives the reminders that bring people back (ADR 0118).
+        pub reminder_emails: bool,
     }
 
     /// `PUT /api/account`.
@@ -6801,6 +6803,10 @@ dto! {
     pub struct AccountPreferencesBody {
         /// Receive the platform's announcements by e-mail.
         pub announcement_emails: bool,
+        /// Receive the reminders that bring people back (ADR 0118); unchanged when left out.
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional))]
+        pub reminder_emails: Option<bool>,
     }
 
     /// `POST /api/email/unsubscribe`: the link of an announcement e-mail (no session).
@@ -6817,8 +6823,10 @@ dto! {
     pub struct UnsubscribeDto {
         /// The address, partly hidden (`an•••@gmail.com`).
         pub email: String,
-        /// Receives announcements now.
+        /// Receives these e-mails now.
         pub subscribed: bool,
+        /// The link was of a reminder (ADR 0118), not of an announcement.
+        pub reminders: bool,
     }
 }
 
