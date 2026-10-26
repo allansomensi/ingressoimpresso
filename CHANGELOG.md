@@ -12,6 +12,16 @@ e não acompanha estes números.
 
 ## [Não lançado]
 
+### Adicionado
+
+- Fotos por cima do modelo do ingresso: escolha um modelo e ponha até 4 fotos ou imagens (a turma,
+  a banda, o aniversariante) sem refazer a arte. Cada foto se arrasta e redimensiona na prévia,
+  preenche o quadro ou aparece inteira, com cantos retos, arredondados ou redondos, e fica por
+  baixo dos textos, do número e do QR code. Passa pela mesma revisão da arte e vai junto ao
+  duplicar o evento (ADR 0121).
+- Imagem no canhoto: um logo ou uma foto na largura do canhoto, em cima do número ou embaixo dos
+  campos, com a altura que você escolher (ADR 0121).
+
 ## [1.16.1] - 2026-10-22
 
 ### Corrigido

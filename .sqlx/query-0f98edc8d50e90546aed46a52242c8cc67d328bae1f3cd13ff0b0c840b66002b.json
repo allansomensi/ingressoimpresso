@@ -1,0 +1,88 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select version, spec, art_blob_id, sponsor_blob_ids, photo_blob_ids, stub_image_blob_id from ticket_designs where event_id = $1 order by version desc limit 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "version",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "ticket_designs",
+            "name": "version"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "spec",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "ticket_designs",
+            "name": "spec"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "art_blob_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "ticket_designs",
+            "name": "art_blob_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "sponsor_blob_ids",
+        "type_info": "UuidArray",
+        "origin": {
+          "Table": {
+            "table": "ticket_designs",
+            "name": "sponsor_blob_ids"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "photo_blob_ids",
+        "type_info": "UuidArray",
+        "origin": {
+          "Table": {
+            "table": "ticket_designs",
+            "name": "photo_blob_ids"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "stub_image_blob_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "ticket_designs",
+            "name": "stub_image_blob_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "0f98edc8d50e90546aed46a52242c8cc67d328bae1f3cd13ff0b0c840b66002b"
+}

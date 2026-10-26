@@ -172,9 +172,10 @@ function clash(a: Box, b: Box, gap: number): boolean {
   return a.x < b.x + b.width + gap && b.x < a.x + a.width + gap && a.y < b.y + b.height + gap && b.y < a.y + a.height + gap;
 }
 
-/** Everything printed on the ticket body: texts, number, QR, the category band and sponsors. */
+/** Everything printed on the ticket body: photos, texts, number, QR, the category band and sponsors. */
 function taken(design: TicketDesign): Box[] {
   const boxes: Box[] = [
+    ...design.photos.map((photo) => ({ x: photo.xMm, y: photo.yMm, width: photo.widthMm, height: photo.heightMm })),
     ...design.texts.map((text) => ({ x: text.xMm, y: text.yMm, width: text.widthMm, height: text.heightMm })),
     { x: design.number.xMm, y: design.number.yMm, width: design.number.widthMm, height: design.number.heightMm },
     // The QR's white card goes a little beyond the code.

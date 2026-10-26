@@ -1,0 +1,34 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into ticket_designs (id, event_id, version, spec, art_blob_id, sponsor_blob_ids, photo_blob_ids,\n                                      stub_image_blob_id)\n           values ($1, $2, (select coalesce(max(version), 0) + 1 from ticket_designs where event_id = $2), $3, $4, $5, $6, $7)\n           returning version",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "version",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "ticket_designs",
+            "name": "version"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Jsonb",
+        "Uuid",
+        "UuidArray",
+        "UuidArray",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "332be5f760ebd3ecdccbeb0be896987fdb890d8d0516112a827d693bf2d44472"
+}

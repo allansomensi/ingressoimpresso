@@ -347,7 +347,7 @@ async fn generate(state: &AppState, export: &ExportRow) -> Result<(i32, String, 
         return Err(JobError::Final("too_many_tickets"));
     }
 
-    let (design, art, sponsors) = current_design(state, export.event_id).await?;
+    let saved = current_design(state, export.event_id).await?;
 
     let issuers = issuers(state, export.event_id, event.qr_tag, &tickets).await?;
     let tags = ticket_tags(state, export.event_id).await?;
@@ -373,15 +373,7 @@ async fn generate(state: &AppState, export: &ExportRow) -> Result<(i32, String, 
     // Signing thousands of tickets is CPU work like the rendering: both stay off the runtime.
     tokio::task::spawn_blocking(move || {
         let rendered = sign_tickets(&tickets, &issuers, &tags)?;
-        let job = RenderJob {
-            tokens,
-            details,
-            design,
-            art,
-            sponsors,
-            event_name,
-            tickets: rendered,
-        };
+        let job = saved.job(tokens, details, event_name, rendered);
         render_to_file(&job, kind, crop_marks, paper, &write_path)
     })
     .await
@@ -403,17 +395,45 @@ async fn generate(state: &AppState, export: &ExportRow) -> Result<(i32, String, 
     ))
 }
 
-/// The latest saved design, its art and its sponsors' logos, or the default design.
-pub(crate) async fn current_design(
-    state: &AppState,
-    event_id: Uuid,
-) -> ApiResult<(
-    TicketDesign,
-    Option<ticket_render::Art>,
-    Vec<ticket_render::Art>,
-)> {
+/// A saved design with its images.
+pub(crate) struct SavedDesign {
+    pub design: TicketDesign,
+    pub art: Option<ticket_render::Art>,
+    /// The sponsors' logos, in order (ADR 0059).
+    pub sponsors: Vec<ticket_render::Art>,
+    /// One image per photo of the design, in order (ADR 0121).
+    pub photos: Vec<ticket_render::Art>,
+    /// The stub's picture (ADR 0121).
+    pub stub_image: Option<ticket_render::Art>,
+}
+
+impl SavedDesign {
+    /// The render job of `tickets` with this design and its images.
+    pub(crate) fn job(
+        self,
+        tokens: bool,
+        details: ticket_render::EventDetails,
+        event_name: String,
+        tickets: Vec<TicketToRender>,
+    ) -> RenderJob {
+        RenderJob {
+            tokens,
+            details,
+            design: self.design,
+            art: self.art,
+            sponsors: self.sponsors,
+            photos: self.photos,
+            stub_image: self.stub_image,
+            event_name,
+            tickets,
+        }
+    }
+}
+
+/// The latest saved design and its images, or the default design.
+pub(crate) async fn current_design(state: &AppState, event_id: Uuid) -> ApiResult<SavedDesign> {
     let row = sqlx::query!(
-        "select spec, art_blob_id, sponsor_blob_ids from ticket_designs where event_id = $1 order by version desc limit 1",
+        "select spec, art_blob_id, sponsor_blob_ids, photo_blob_ids, stub_image_blob_id from ticket_designs where event_id = $1 order by version desc limit 1",
         event_id
     )
     .fetch_optional(&state.pool)
@@ -426,7 +446,13 @@ pub(crate) async fn current_design(
         )
         .fetch_one(&state.pool)
         .await?;
-        return Ok((TicketDesign::default_for(tokens), None, Vec::new()));
+        return Ok(SavedDesign {
+            design: TicketDesign::default_for(tokens),
+            art: None,
+            sponsors: Vec::new(),
+            photos: Vec::new(),
+            stub_image: None,
+        });
     };
     let design: TicketDesign =
         serde_json::from_value(row.spec).map_err(|error| ApiError::Internal(error.into()))?;
@@ -435,7 +461,18 @@ pub(crate) async fn current_design(
         None => None,
     };
     let sponsors = crate::routes::events::load_arts(state, event_id, &row.sponsor_blob_ids).await?;
-    Ok((design, art, sponsors))
+    let photos = crate::routes::events::load_arts(state, event_id, &row.photo_blob_ids).await?;
+    let stub_image = match row.stub_image_blob_id {
+        Some(blob_id) => Some(load_art(state, event_id, blob_id).await?),
+        None => None,
+    };
+    Ok(SavedDesign {
+        design,
+        art,
+        sponsors,
+        photos,
+        stub_image,
+    })
 }
 
 /// Signs the QR texts of `numbers` (number, key id) for a digital ticket (ADR 0030): the same
@@ -719,7 +756,8 @@ async fn prune(pool: &PgPool) -> ApiResult<()> {
            and b.created_at < now() - interval '2 hours'
            and b.moderation_status not in ('flagged', 'rejected')
            and not exists (select 1 from ticket_designs d
-                           where d.art_blob_id = b.id or b.id = any(d.sponsor_blob_ids))
+                           where d.art_blob_id = b.id or b.id = any(d.sponsor_blob_ids)
+                              or b.id = any(d.photo_blob_ids) or d.stub_image_blob_id = b.id)
            and not exists (select 1 from certificate_settings c where b.id = any(c.image_blob_ids))"#
     )
     .execute(pool)

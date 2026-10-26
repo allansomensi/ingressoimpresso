@@ -7,7 +7,12 @@
 import type { TicketDesign } from "@ingressoimpresso/api-types";
 
 /** An element of the body the editor can select, move and resize. */
-export type TicketElement = { kind: "number" } | { kind: "qr" } | { kind: "sponsors" } | { kind: "text"; index: number };
+export type TicketElement =
+  | { kind: "number" }
+  | { kind: "qr" }
+  | { kind: "sponsors" }
+  | { kind: "photo"; index: number }
+  | { kind: "text"; index: number };
 
 /** A box in millimetres, relative to the body. */
 export interface Box {
@@ -52,17 +57,21 @@ export function sameElement(a: TicketElement | null, b: TicketElement | null): b
   if (a === null || b === null) {
     return a === b;
   }
-  return a.kind === b.kind && (a.kind !== "text" || (b.kind === "text" && a.index === b.index));
+  if (a.kind === "text" || a.kind === "photo") {
+    return b.kind === a.kind && a.index === b.index;
+  }
+  return a.kind === b.kind;
 }
 
-/** A stable key for lists and undo steps: `text-2`, `number`, `qr`, `sponsors`. */
+/** A stable key for lists and undo steps: `text-2`, `photo-0`, `number`, `qr`, `sponsors`. */
 export function elementKey(element: TicketElement): string {
-  return element.kind === "text" ? `text-${String(element.index)}` : element.kind;
+  return element.kind === "text" || element.kind === "photo" ? `${element.kind}-${String(element.index)}` : element.kind;
 }
 
-/** Every element of the design, in the editor's order (texts, number, QR, sponsors). */
+/** Every element of the design, in the editor's order (photos, texts, number, QR, sponsors). */
 export function designElements(design: TicketDesign): TicketElement[] {
   return [
+    ...design.photos.map((_, index): TicketElement => ({ kind: "photo", index })),
     ...design.texts.map((_, index): TicketElement => ({ kind: "text", index })),
     { kind: "number" },
     { kind: "qr" },
@@ -83,6 +92,10 @@ export function elementBox(design: TicketDesign, element: TicketElement): Box | 
     const strip = design.sponsors ?? null;
     return strip === null ? null : { x: strip.xMm, y: strip.yMm, width: strip.widthMm, height: strip.heightMm };
   }
+  if (element.kind === "photo") {
+    const photo = design.photos[element.index];
+    return photo === undefined ? null : { x: photo.xMm, y: photo.yMm, width: photo.widthMm, height: photo.heightMm };
+  }
   const block = design.texts[element.index];
   return block === undefined ? null : { x: block.xMm, y: block.yMm, width: block.widthMm, height: block.heightMm };
 }
@@ -98,6 +111,14 @@ export function withBox(design: TicketDesign, element: TicketElement, box: Box):
   if (element.kind === "sponsors") {
     const strip = design.sponsors ?? null;
     return strip === null ? design : { ...design, sponsors: { ...strip, xMm: box.x, yMm: box.y, widthMm: box.width, heightMm: box.height } };
+  }
+  if (element.kind === "photo") {
+    return {
+      ...design,
+      photos: design.photos.map((photo, index) =>
+        index === element.index ? { ...photo, xMm: box.x, yMm: box.y, widthMm: box.width, heightMm: box.height } : photo,
+      ),
+    };
   }
   return {
     ...design,

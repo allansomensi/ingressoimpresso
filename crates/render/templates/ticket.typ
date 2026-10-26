@@ -98,7 +98,15 @@
           align(center + horizon, image(path, width: cell-w, height: logo-h, fit: "contain")))))))
 }
 
-// The ticket body (art, texts, number, QR). The art always covers body + bleed on every side.
+// A photo (ADR 0121): the image fitted to its box ("cover" cuts what goes past it), clipped to
+// the box's corners (radius computed in render.rs, `PhotoLayer::corner_radius_mm`).
+#let photo(p) = {
+  let (w, h) = (mm(p.widthMm), mm(p.heightMm))
+  box(width: w, height: h, radius: mm(p.radiusMm), clip: true,
+    align(center + horizon, image(p.path, width: w, height: h, fit: p.fit)))
+}
+
+// The ticket body (art, photos, texts, number, QR). The art always covers body + bleed on every side.
 // `clip`: cut everything at the trim (home sheets, images); `false` lets the art run into the
 // bleed (print-shop output).
 #let body(data, t, clip: true) = {
@@ -112,6 +120,9 @@
     if data.art != none {
       place(top + left, dx: -b, dy: -b,
         image(data.art, width: w + 2 * b, height: h + 2 * b, fit: "cover"))
+    }
+    for p in data.photos {
+      place(top + left, dx: mm(p.xMm), dy: mm(p.yMm), photo(p))
     }
     // A category with its own price brings its own texts (the `{preco}` field).
     let values = if t.textValues != none { t.textValues } else { data.textValues }
@@ -146,8 +157,9 @@
 }
 
 // The stub (canhoto): number, event name (at most two lines) and blank fields sharing the rest
-// of the height. Opaque white and clipped at its trim. Validation guarantees the minimum
-// height (design.rs, `stub_min_height_mm`).
+// of the height, with an optional picture across it above the number or below the fields
+// (ADR 0121). Opaque white and clipped at its trim. Validation guarantees the minimum height
+// (design.rs, `stub_min_height_mm`).
 #let stub(data, t) = {
   let s = data.design.stub
   let h = mm(data.design.heightMm)
@@ -155,10 +167,8 @@
   box(width: mm(s.widthMm), height: h, fill: white, clip: true, inset: 2.5mm, {
     set text(font: "Lato", size: 6.5pt, fill: black, hyphenate: true)
     set par(leading: 0.4em)
-    grid(
-      columns: (inner,),
-      rows: (auto, auto, ..s.fields.map(_ => 1fr)),
-      row-gutter: 1.6mm,
+    let rows = (auto, auto, ..s.fields.map(_ => 1fr))
+    let cells = (
       fit(inner, 4mm, text(font: "Space Mono", weight: "bold", size: 10pt,
         if t.tag == none { t.label } else { t.label + " · " + t.tag.text })),
       clamp(data.eventName, inner, 2, value => text(weight: "bold", value)),
@@ -167,6 +177,23 @@
         1fr,
         line(length: 100%, stroke: 0.4pt + luma(120)))),
     )
+    if s.at("image", default: none) != none and data.stubImage != none {
+      let ih = mm(s.image.heightMm)
+      let picture = box(width: inner, height: ih, clip: true,
+        align(center + horizon, image(data.stubImage, width: inner, height: ih, fit: s.image.fit)))
+      if s.image.position == "top" {
+        rows = (ih,) + rows
+        cells = (picture,) + cells
+      } else if s.fields.len() == 0 {
+        // Nothing to share the height: the picture still sits at the bottom.
+        rows.push(1fr)
+        cells.push(align(bottom, picture))
+      } else {
+        rows.push(ih)
+        cells.push(picture)
+      }
+    }
+    grid(columns: (inner,), rows: rows, row-gutter: 1.6mm, ..cells)
   })
 }
 

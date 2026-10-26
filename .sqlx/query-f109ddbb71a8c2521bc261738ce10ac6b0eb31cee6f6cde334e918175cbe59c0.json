@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select spec, art_blob_id, sponsor_blob_ids from ticket_designs where event_id = $1 order by version desc limit 1",
+  "query": "select spec, art_blob_id, sponsor_blob_ids, photo_blob_ids, stub_image_blob_id from ticket_designs where event_id = $1 order by version desc limit 1",
   "describe": {
     "columns": [
       {
@@ -35,6 +35,28 @@
             "name": "sponsor_blob_ids"
           }
         }
+      },
+      {
+        "ordinal": 3,
+        "name": "photo_blob_ids",
+        "type_info": "UuidArray",
+        "origin": {
+          "Table": {
+            "table": "ticket_designs",
+            "name": "photo_blob_ids"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "stub_image_blob_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "ticket_designs",
+            "name": "stub_image_blob_id"
+          }
+        }
       }
     ],
     "parameters": {
@@ -45,8 +67,10 @@
     "nullable": [
       false,
       true,
-      false
+      false,
+      false,
+      true
     ]
   },
-  "hash": "cc1efba5302e4226dda0a31c438e9851ee967812a7c3cb34c947aa00f54ee786"
+  "hash": "f109ddbb71a8c2521bc261738ce10ac6b0eb31cee6f6cde334e918175cbe59c0"
 }

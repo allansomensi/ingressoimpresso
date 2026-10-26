@@ -573,7 +573,7 @@ pub(crate) async fn copy_event(
     .await?;
 
     let design = sqlx::query!(
-        "select spec, art_blob_id, sponsor_blob_ids from ticket_designs where event_id = $1 order by version desc limit 1",
+        "select spec, art_blob_id, sponsor_blob_ids, photo_blob_ids, stub_image_blob_id from ticket_designs where event_id = $1 order by version desc limit 1",
         event_id
     )
     .fetch_optional(&mut **tx)
@@ -604,14 +604,60 @@ pub(crate) async fn copy_event(
                 Err(other) => return Err(other),
             }
         }
+        // A refused photo stays behind with its place on the ticket: each photo has its image.
+        let mut spec = design.spec;
+        let mut photos = Vec::with_capacity(design.photo_blob_ids.len());
+        let mut dropped = Vec::new();
+        for (index, blob_id) in design.photo_blob_ids.into_iter().enumerate() {
+            match copy_art(tx, organization_id, blob_id, copy.id).await {
+                Ok((id, fresh)) => {
+                    if fresh {
+                        unchecked.push(id);
+                    }
+                    photos.push(id);
+                }
+                Err(ApiError::Conflict("art_rejected", _)) => dropped.push(index),
+                Err(other) => return Err(other),
+            }
+        }
+        let stub_image = match design.stub_image_blob_id {
+            Some(blob_id) => match copy_art(tx, organization_id, blob_id, copy.id).await {
+                Ok((id, fresh)) => {
+                    if fresh {
+                        unchecked.push(id);
+                    }
+                    Some(id)
+                }
+                Err(ApiError::Conflict("art_rejected", _)) => None,
+                Err(other) => return Err(other),
+            },
+            None => None,
+        };
+        let stub_dropped = design.stub_image_blob_id.is_some() && stub_image.is_none();
+        if !dropped.is_empty() || stub_dropped {
+            let mut kept: TicketDesign =
+                serde_json::from_value(spec).map_err(anyhow::Error::from)?;
+            kept.photos = std::mem::take(&mut kept.photos)
+                .into_iter()
+                .enumerate()
+                .filter_map(|(index, photo)| (!dropped.contains(&index)).then_some(photo))
+                .collect();
+            if stub_dropped && let Some(stub) = kept.stub.as_mut() {
+                stub.image = None;
+            }
+            spec = serde_json::to_value(&kept).map_err(anyhow::Error::from)?;
+        }
         sqlx::query!(
-            r#"insert into ticket_designs (id, event_id, version, spec, art_blob_id, sponsor_blob_ids)
-               values ($1, $2, 1, $3, $4, $5)"#,
+            r#"insert into ticket_designs (id, event_id, version, spec, art_blob_id, sponsor_blob_ids, photo_blob_ids,
+                                          stub_image_blob_id)
+               values ($1, $2, 1, $3, $4, $5, $6, $7)"#,
             Uuid::new_v4(),
             copy.id,
-            design.spec,
+            spec,
             art,
             &sponsors,
+            &photos,
+            stub_image,
         )
         .execute(&mut **tx)
         .await?;
@@ -1024,7 +1070,7 @@ pub async fn get_design(
     let event = authorize_event(&state.pool, &user, event_id).await?;
     let organization = super::organization::event_organization(&state.pool, event_id).await?;
     let latest = sqlx::query!(
-        "select version, spec, art_blob_id, sponsor_blob_ids from ticket_designs where event_id = $1 order by version desc limit 1",
+        "select version, spec, art_blob_id, sponsor_blob_ids, photo_blob_ids, stub_image_blob_id from ticket_designs where event_id = $1 order by version desc limit 1",
         event_id
     )
     .fetch_optional(&state.pool)
@@ -1036,6 +1082,8 @@ pub async fn get_design(
             design: TicketDesign::default_for(event.tokens()),
             art: None,
             sponsors: Vec::new(),
+            photos: Vec::new(),
+            stub_image: None,
             organization,
         }));
     };
@@ -1049,11 +1097,22 @@ pub async fn get_design(
         .into_iter()
         .map(Into::into)
         .collect();
+    let photos = arts_of_event(&state, event_id, &latest.photo_blob_ids)
+        .await?
+        .into_iter()
+        .map(Into::into)
+        .collect();
+    let stub_image = match latest.stub_image_blob_id {
+        Some(image_id) => Some(art_of_event(&state, event_id, image_id).await?.into()),
+        None => None,
+    };
     Ok(Json(DesignResponse {
         version: latest.version,
         design,
         art,
         sponsors,
+        photos,
+        stub_image,
         organization,
     }))
 }
@@ -1094,16 +1153,21 @@ pub async fn save_design(
         ));
     }
     let sponsors = sponsors_of(&state, event_id, &body.sponsor_ids).await?;
+    let photos = photos_of(&state, event_id, &body.design, &body.photo_ids).await?;
+    let stub_image = stub_image_of(&state, event_id, &body.design, body.stub_image_id).await?;
     let spec = serde_json::to_value(&body.design).map_err(anyhow::Error::from)?;
     let version = sqlx::query_scalar!(
-        r#"insert into ticket_designs (id, event_id, version, spec, art_blob_id, sponsor_blob_ids)
-           values ($1, $2, (select coalesce(max(version), 0) + 1 from ticket_designs where event_id = $2), $3, $4, $5)
+        r#"insert into ticket_designs (id, event_id, version, spec, art_blob_id, sponsor_blob_ids, photo_blob_ids,
+                                      stub_image_blob_id)
+           values ($1, $2, (select coalesce(max(version), 0) + 1 from ticket_designs where event_id = $2), $3, $4, $5, $6, $7)
            returning version"#,
         Uuid::new_v4(),
         event_id,
         spec,
         body.art_id,
         &body.sponsor_ids,
+        &body.photo_ids,
+        body.stub_image_id,
     )
     .fetch_one(&state.pool)
     .await?;
@@ -1112,6 +1176,8 @@ pub async fn save_design(
         design: body.design,
         art: art.map(Into::into),
         sponsors: sponsors.into_iter().map(Into::into).collect(),
+        photos: photos.into_iter().map(Into::into).collect(),
+        stub_image: stub_image.map(Into::into),
         organization: super::organization::event_organization(&state.pool, event_id).await?,
     }))
 }
@@ -1129,6 +1195,53 @@ async fn sponsors_of(state: &AppState, event_id: Uuid, ids: &[Uuid]) -> ApiResul
         crate::moderation::check_printable(Some(&logo.moderation_status))?;
     }
     Ok(logos)
+}
+
+/// The images of a design's photos: one per photo, uploaded to this event, none under review or
+/// refused (the same rule as the sponsors' logos).
+async fn photos_of(
+    state: &AppState,
+    event_id: Uuid,
+    design: &TicketDesign,
+    ids: &[Uuid],
+) -> ApiResult<Vec<ArtRow>> {
+    if ids.len() != design.photos.len() {
+        return Err(bad_request(
+            "photo_images",
+            "every photo needs exactly one image",
+        ));
+    }
+    let photos = arts_of_event(state, event_id, ids).await?;
+    for photo in &photos {
+        crate::moderation::check_printable(Some(&photo.moderation_status))?;
+    }
+    Ok(photos)
+}
+
+/// The image of the stub's picture: there exactly when the design's stub has a picture, uploaded
+/// to this event, not under review nor refused.
+async fn stub_image_of(
+    state: &AppState,
+    event_id: Uuid,
+    design: &TicketDesign,
+    id: Option<Uuid>,
+) -> ApiResult<Option<ArtRow>> {
+    let wanted = design
+        .stub
+        .as_ref()
+        .is_some_and(|stub| stub.image.is_some());
+    if wanted != id.is_some() {
+        return Err(bad_request(
+            "stub_image",
+            "the stub's picture needs exactly one image",
+        ));
+    }
+    let Some(id) = id else {
+        return Ok(None);
+    };
+    let image = art_of_event(state, event_id, id).await?;
+    crate::moderation::check_printable(Some(&image.moderation_status))?;
+    Ok(Some(image))
 }
 
 /// `POST /api/events/{id}/art`: raw PNG or JPEG body (max 20 MB).
@@ -1205,7 +1318,8 @@ pub async fn upload_art(
            and b.created_at < now() - interval '2 hours'
            and b.moderation_status not in ('flagged', 'rejected')
            and not exists (select 1 from ticket_designs d
-                           where d.art_blob_id = b.id or b.id = any(d.sponsor_blob_ids))
+                           where d.art_blob_id = b.id or b.id = any(d.sponsor_blob_ids)
+                              or b.id = any(d.photo_blob_ids) or d.stub_image_blob_id = b.id)
            and not exists (select 1 from certificate_settings c where b.id = any(c.image_blob_ids))"#,
         event_id,
         digest,
@@ -1407,6 +1521,12 @@ async fn sample_job(
     };
     sponsors_of(state, event_id, &body.sponsor_ids).await?;
     let sponsors = load_arts(state, event_id, &body.sponsor_ids).await?;
+    photos_of(state, event_id, &body.design, &body.photo_ids).await?;
+    let photos = load_arts(state, event_id, &body.photo_ids).await?;
+    let stub_image = match stub_image_of(state, event_id, &body.design, body.stub_image_id).await? {
+        Some(image) => Some(load_art(state, event_id, image.id).await?),
+        None => None,
+    };
     // Samples show the band of the event's categories and seats, as printed (ADR 0056).
     let tags = super::categories::NumberTags::load(&state.pool, event_id).await?;
     Ok(RenderJob {
@@ -1415,6 +1535,8 @@ async fn sample_job(
         design: body.design,
         art,
         sponsors,
+        photos,
+        stub_image,
         event_name: event.name,
         tickets: (1..=count)
             .map(|number| TicketToRender {
