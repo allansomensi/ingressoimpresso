@@ -404,6 +404,8 @@ create table event_ledger (id uuid primary key, event_id uuid not null reference
   kind text not null,   -- expense | income
   description text not null, category text, amount_cents integer not null, occurred_on date not null);
 -- Patrocinadores (ADR 0059): ticket_designs.sponsor_blob_ids uuid[] (até 6 logos, em ordem)
+-- Fotos por cima do modelo (ADR 0121): ticket_designs.photo_blob_ids uuid[] (até 4, uma por foto do design)
+--   e stub_image_blob_id uuid (a imagem do canhoto, StubStyle.image)
 
 -- Portaria
 create table door_accesses (id uuid primary key, event_id uuid not null references events, label text not null,
