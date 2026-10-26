@@ -336,7 +336,7 @@ pub fn spawn_check(state: &AppState, blob_id: Uuid) {
 /// As [`ensure_printable`].
 pub async fn ensure_event_printable(pool: &sqlx::PgPool, event_id: Uuid) -> ApiResult<()> {
     let Some(design) = sqlx::query!(
-        "select art_blob_id, sponsor_blob_ids from ticket_designs where event_id = $1 order by version desc limit 1",
+        "select art_blob_id, sponsor_blob_ids, photo_blob_ids, stub_image_blob_id from ticket_designs where event_id = $1 order by version desc limit 1",
         event_id
     )
     .fetch_optional(pool)
@@ -344,11 +344,14 @@ pub async fn ensure_event_printable(pool: &sqlx::PgPool, event_id: Uuid) -> ApiR
     else {
         return Ok(());
     };
-    // The sponsors' logos are printed too (ADR 0059): the same rule as the art, all in one read.
+    // The sponsors' logos, the photos and the stub's picture are printed too (ADRs 0059, 0121):
+    // the same rule as the art, all in one read.
     let blobs: Vec<Uuid> = design
         .art_blob_id
         .into_iter()
         .chain(design.sponsor_blob_ids)
+        .chain(design.photo_blob_ids)
+        .chain(design.stub_image_blob_id)
         .collect();
     if blobs.is_empty() {
         return Ok(());

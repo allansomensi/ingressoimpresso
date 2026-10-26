@@ -85,7 +85,7 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   disco com teto de 1 GiB; tetos de eventos (500/org), faixas (300) e links da porta (60); CSP
   por lugar do arquivo (`proxy.ts`) e `X-Frame-Options` estático; manutenção nos escritores com
   token (`token_writers_maintenance`).
-- **Versionamento (ADR 0049): implementado, versão atual 1.16.1.** Uma versão SemVer para o produto
+- **Versionamento (ADR 0049): implementado, versão atual 1.17.0.** Uma versão SemVer para o produto
   inteiro (todos os manifestos, conferidos por `scripts/release.mjs check`), `CHANGELOG.md` em
   português (Keep a Changelog), `just release` no `staging` e tag `vX.Y.Z` + GitHub Release pelo
   job **Release** do CI no `main`; versão em Minha conta, em `/sobre`, em `/status` (site e API) e
@@ -418,6 +418,16 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   no `Button sm` e nos controles pequenos; `privatePageMetadata` (`lib/seo.ts`) para os links
   privados; foto do modelo como herói em `/modelos/<slug>` (o ao vivo só com `?captura=1`);
   Novidades e Status com dados no HTML (`lib/server-fetch.ts`).
+- **Fotos por cima do modelo e imagem no canhoto (ADR 0121): implementadas.** `TicketDesign.photos` (até 4, caixa em
+  mm, `fit` `cover`/`contain`, `shape` `square`/`rounded`/`round`), impressas entre a arte e os
+  textos (`photo` no `ticket.typ`, `RenderJob.photos`); imagens em `ticket_designs.photo_blob_ids`,
+  uma por foto e na mesma ordem (`DesignBody.photoIds`, `photos_of`), moderadas como os logos;
+  `copy_event` deixa a foto recusada para trás junto com o seu lugar. No painel, elemento `photo`
+  em `lib/design-selection.ts`, regras e `newPhoto`/`photosInside` em `lib/design-rules.ts`,
+  `PhotoInspector` e a seção **Fotos e imagens** do editor; `jobs::current_design` devolve um
+  `SavedDesign` (`.job(...)` monta o `RenderJob`). Imagem do canhoto em `StubStyle.image` (faixa
+  `top`/`bottom` de 5 a 40 mm, soma na altura mínima), imagem em
+  `ticket_designs.stub_image_blob_id` (`stubImageId`, `stub_image_of`).
 
 Plano completo em `docs/arquitetura.md` §12.
 
@@ -449,7 +459,8 @@ crates/render        Typst embutido (pacote `ticket-render`): design versionado,
                      0113, 0114); papéis prontos
                      (picotado, etiquetas) em layout.rs (Paper, ADR 0102); resumo final em
                      summary_card.rs (templates/summary.typ, ADR 0101); faixa da categoria
-                     e patrocinadores no design (ADRs 0056, 0059); relatórios em PDF em
+                     e patrocinadores no design (ADRs 0056, 0059); fotos por cima da arte
+                     (`photos`, ADR 0121); relatórios em PDF em
                      report_doc.rs (templates/report.typ) e planilhas em sheet.rs (ADR 0058)
 crates/cli           binário `ii`: vectors generate|check, job init, render, verify
 crates/server        API (pacote `ingressoimpresso-server`, binário `ingressoimpresso`): Axum 0.8 + sqlx 0.9,

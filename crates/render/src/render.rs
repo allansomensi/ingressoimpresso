@@ -177,6 +177,14 @@ fn sponsor_path(index: usize, logo: &Art) -> String {
     format!("/sponsor-{index}{}", logo.extension())
 }
 
+fn photo_path(index: usize, photo: &Art) -> String {
+    format!("/photo-{index}{}", photo.extension())
+}
+
+fn stub_image_path(image: &Art) -> String {
+    format!("/stub-image{}", image.extension())
+}
+
 impl std::fmt::Debug for Art {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Art")
@@ -249,6 +257,10 @@ pub struct RenderJob {
     pub art: Option<Art>,
     /// Sponsors' logos, in order, drawn in the design's sponsor strip (ADR 0059).
     pub sponsors: Vec<Art>,
+    /// Images of the design's photos, one per photo and in the same order (ADR 0121).
+    pub photos: Vec<Art>,
+    /// Image of the stub's picture (ADR 0121), drawn when the design's stub has one.
+    pub stub_image: Option<Art>,
     /// Event name, printed on stubs and control sheets.
     pub event_name: String,
     /// Venue, date and price, for the design's text blocks.
@@ -717,6 +729,10 @@ struct TemplateData<'a> {
     band: Option<BandStyle>,
     /// Paths of the sponsors' logos (empty without a strip).
     sponsors: Vec<String>,
+    /// Each photo of the design with the path of its image (a photo without one is left out).
+    photos: Vec<TemplatePhoto<'a>>,
+    /// Path of the stub's picture, when the stub has one and its image is here.
+    stub_image: Option<String>,
     tickets: Vec<TemplateTicket>,
     grid: Option<Grid>,
     print: Option<PrintData>,
@@ -756,12 +772,44 @@ impl<'a> TemplateData<'a> {
             } else {
                 Vec::new()
             },
+            photos: job
+                .design
+                .photos
+                .iter()
+                .zip(&job.photos)
+                .take(crate::design::MAX_PHOTOS)
+                .enumerate()
+                .map(|(index, (layer, image))| TemplatePhoto {
+                    layer,
+                    path: photo_path(index, image),
+                    radius_mm: layer.corner_radius_mm(),
+                })
+                .collect(),
+            stub_image: job
+                .stub_image
+                .as_ref()
+                .filter(|_| {
+                    job.design
+                        .stub
+                        .as_ref()
+                        .is_some_and(|stub| stub.image.is_some())
+                })
+                .map(stub_image_path),
             grid: None,
             print: None,
             groups: Vec::new(),
             page_offset: 0,
         }
     }
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct TemplatePhoto<'a> {
+    #[serde(flatten)]
+    layer: &'a crate::design::PhotoLayer,
+    path: String,
+    radius_mm: f64,
 }
 
 #[derive(Serialize)]
@@ -902,6 +950,21 @@ fn compile(
     {
         world
             .add_file(&sponsor_path(index, logo), logo.bytes.clone())
+            .map_err(file_error)?;
+    }
+    for (index, photo) in job
+        .photos
+        .iter()
+        .take(job.design.photos.len().min(crate::design::MAX_PHOTOS))
+        .enumerate()
+    {
+        world
+            .add_file(&photo_path(index, photo), photo.bytes.clone())
+            .map_err(file_error)?;
+    }
+    if let Some(image) = &job.stub_image {
+        world
+            .add_file(&stub_image_path(image), image.bytes.clone())
             .map_err(file_error)?;
     }
     for (index, ticket) in tickets.iter().enumerate() {
@@ -1047,6 +1110,8 @@ mod tests {
             design: TicketDesign::default_v1(),
             art: None,
             sponsors: Vec::new(),
+            photos: Vec::new(),
+            stub_image: None,
             event_name: "Evento".to_owned(),
             details: EventDetails::default(),
             tickets: (1..=count)
@@ -1388,6 +1453,7 @@ mod tests {
             side: crate::StubSide::Right,
             width_mm: 20.0,
             fields: vec!["Nome completo do comprad".to_owned(); 4],
+            image: None,
         });
         assert_eq!(design.validate(), Ok(()));
         assert_eq!(design.stub_min_height_mm(), Some(45.5));

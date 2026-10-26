@@ -254,6 +254,8 @@ impl JobFile {
             design: self.design.clone(),
             art,
             sponsors: Vec::new(),
+            photos: Vec::new(),
+            stub_image: None,
             event_name: self.event.name.clone(),
             details: self.details()?,
             tickets,

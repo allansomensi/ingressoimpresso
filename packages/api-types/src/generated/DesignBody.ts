@@ -16,4 +16,13 @@ artId: string | null,
 /**
  * Sponsors' logos uploaded to this event, in order (up to 6, ADR 0059).
  */
-sponsorIds?: Array<string>, };
+sponsorIds?: Array<string>, 
+/**
+ * The image of each photo of the design, uploaded to this event, in the same order
+ * (ADR 0121).
+ */
+photoIds?: Array<string>, 
+/**
+ * The image of the stub's picture, uploaded to this event (ADR 0121).
+ */
+stubImageId?: string | null, };

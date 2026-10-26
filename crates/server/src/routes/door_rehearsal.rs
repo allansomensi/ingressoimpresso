@@ -50,13 +50,21 @@ pub async fn sheet(
     {
         return Err(ApiError::TooManyRequests);
     }
-    let (design, mut art, mut sponsors) = crate::jobs::current_design(&state, event_id).await?;
+    let crate::jobs::SavedDesign {
+        design,
+        mut art,
+        mut sponsors,
+        mut photos,
+        mut stub_image,
+    } = crate::jobs::current_design(&state, event_id).await?;
     if crate::moderation::ensure_event_printable(&state.pool, event_id)
         .await
         .is_err()
     {
         art = None;
         sponsors.clear();
+        photos.clear();
+        stub_image = None;
     }
     let tags = super::categories::NumberTags::load(&state.pool, event_id).await?;
     let job = RenderJob {
@@ -65,6 +73,8 @@ pub async fn sheet(
         design,
         art,
         sponsors,
+        photos,
+        stub_image,
         event_name: event.name.clone(),
         tickets: (1..=SHEET_TICKETS)
             .map(|number| TicketToRender {

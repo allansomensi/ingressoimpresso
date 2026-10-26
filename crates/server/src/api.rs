@@ -378,6 +378,10 @@ dto! {
         pub art: Option<ArtDto>,
         /// Sponsors' logos, in order (ADR 0059).
         pub sponsors: Vec<ArtDto>,
+        /// The image of each photo of the design, in order (ADR 0121).
+        pub photos: Vec<ArtDto>,
+        /// The image of the stub's picture (ADR 0121).
+        pub stub_image: Option<ArtDto>,
         /// The organization's colour and logo, for the templates in its colours (ADR 0100).
         pub organization: PublicOrganizationDto,
     }
@@ -393,6 +397,15 @@ dto! {
         #[serde(default)]
         #[cfg_attr(feature = "ts", ts(type = "Array<string>", optional))]
         pub sponsor_ids: Vec<Uuid>,
+        /// The image of each photo of the design, uploaded to this event, in the same order
+        /// (ADR 0121).
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(type = "Array<string>", optional))]
+        pub photo_ids: Vec<Uuid>,
+        /// The image of the stub's picture, uploaded to this event (ADR 0121).
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(type = "string | null", optional))]
+        pub stub_image_id: Option<Uuid>,
     }
 
     /// `POST /api/events/{id}/batches`.

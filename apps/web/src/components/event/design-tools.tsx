@@ -186,7 +186,7 @@ export function AlignBar({
 /** The inspector of a selection of two or more elements: group actions only. */
 export function SelectionInspector({
   labels,
-  textCount,
+  removableCount,
   onAlign,
   onDistribute,
   onDuplicate,
@@ -195,8 +195,8 @@ export function SelectionInspector({
 }: {
   /** Names of the selected elements, in the selection's order. */
   labels: readonly string[];
-  /** How many of them are texts (the only ones that can be duplicated or removed). */
-  textCount: number;
+  /** How many of them are texts or photos (the only ones that can be duplicated or removed). */
+  removableCount: number;
   onAlign: (edge: AlignEdge) => void;
   onDistribute: (axis: Axis) => void;
   onDuplicate: () => void;
@@ -233,14 +233,14 @@ export function SelectionInspector({
         <AlignBar label={s.align} onAlign={onAlign} onDistribute={onDistribute} canDistribute={labels.length >= 3} />
         <div className="flex flex-col gap-2 border-t border-border pt-4">
           <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" size="sm" icon={<Copy />} disabled={textCount === 0} onClick={onDuplicate} title={`${s.duplicate} (${mod}+D)`}>
+            <Button variant="secondary" size="sm" icon={<Copy />} disabled={removableCount === 0} onClick={onDuplicate} title={`${s.duplicate} (${mod}+D)`}>
               {s.duplicate}
             </Button>
-            <Button variant="danger-ghost" size="sm" icon={<Trash2 />} disabled={textCount === 0} onClick={onRemove} title={`${s.remove} (Delete)`}>
+            <Button variant="danger-ghost" size="sm" icon={<Trash2 />} disabled={removableCount === 0} onClick={onRemove} title={`${s.remove} (Delete)`}>
               {s.remove}
             </Button>
           </div>
-          {textCount < labels.length && <p className="text-xs leading-relaxed text-fg-muted">{s.fixedHint}</p>}
+          {removableCount < labels.length && <p className="text-xs leading-relaxed text-fg-muted">{s.fixedHint}</p>}
         </div>
       </div>
     </>

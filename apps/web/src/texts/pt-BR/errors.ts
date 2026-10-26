@@ -69,6 +69,7 @@ export const errors = {
     "Nome da categoria com até 30 caracteres, numa linha só.",
   invalid_entry_date: "Data inválida.",
   too_many_sponsors: "Até 6 logos de patrocinadores.",
+  photo_images: "Cada foto do ingresso precisa da sua imagem. Envie a foto de novo.",
   invalid_description: "Descrição com até 120 caracteres, numa linha só.",
   invalid_category: "Categoria com até 40 caracteres, numa linha só.",
   too_many_entries: "O evento chegou ao limite de 500 lançamentos.",

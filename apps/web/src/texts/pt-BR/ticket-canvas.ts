@@ -17,6 +17,7 @@ export const ticketCanvas = {
     numberElement: "Número do ingresso",
     qrElement: "QR code",
     sponsorsElement: "Patrocinadores",
+    photoElement: (index: number) => `Foto ${String(index)}`,
   },
   sponsorsEmpty: "Logos aqui",
   issues: {
@@ -34,12 +35,15 @@ export const ticketCanvas = {
     stubFields: (fields: number, chars: number) => `O canhoto aceita até ${String(fields)} campos de até ${String(chars)} caracteres.`,
     stubTooShort: (height: number) =>
       `Com esses campos no canhoto, o ingresso precisa ter pelo menos ${height.toLocaleString("pt-BR")} mm de altura.`,
+    stubImage: (range: readonly [number, number]) => `A imagem do canhoto vai de ${String(range[0])} a ${String(range[1])} mm de altura.`,
     tooManyTexts: (max: number) => `O ingresso aceita até ${String(max)} textos.`,
     bandSize: (range: readonly [number, number]) => `A faixa da categoria vai de ${String(range[0])} a ${String(range[1])} mm.`,
     bandOverQr: "A faixa da categoria não pode cobrir o QR code: mude a borda da faixa ou mova o QR.",
     sponsorsOutside: "A faixa de patrocinadores precisa ficar inteira dentro do ingresso.",
     sponsors: (min: readonly [number, number], chars: number) =>
       `A faixa de patrocinadores precisa ter pelo menos ${String(min[0])} × ${String(min[1])} mm, texto de até ${String(chars)} caracteres e ficar fora do QR code.`,
+    photoOutside: (index: number) => `A foto ${String(index)} precisa ficar inteira dentro do ingresso.`,
+    photos: (max: number, min: number) => `O ingresso aceita até ${String(max)} fotos, cada uma com pelo menos ${String(min)} mm de lado.`,
     textTooLong: (index: number, max: number) => `O texto ${String(index)} passa de ${String(max)} caracteres.`,
     textOutside: (index: number) => `O texto ${String(index)} precisa ficar inteiro dentro do ingresso.`,
     textStyle: (index: number) => `O texto ${String(index)} tem tamanho, linhas ou espaçamento fora do permitido.`,
@@ -57,6 +61,8 @@ export const ticketCanvas = {
       bandSize: (range: readonly [number, number]) => `A faixa do produto vai de ${String(range[0])} a ${String(range[1])} mm.`,
       bandOverQr: "A faixa do produto não pode cobrir o QR code: mude a borda da faixa ou mova o QR.",
       sponsorsOutside: "A faixa de patrocinadores precisa ficar inteira dentro da ficha.",
+      photoOutside: (index: number) => `A foto ${String(index)} precisa ficar inteira dentro da ficha.`,
+      photos: (max: number, min: number) => `A ficha aceita até ${String(max)} fotos, cada uma com pelo menos ${String(min)} mm de lado.`,
       textOutside: (index: number) => `O texto ${String(index)} precisa ficar inteiro dentro da ficha.`,
     },
   },

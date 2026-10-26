@@ -12,6 +12,18 @@ e não acompanha estes números.
 
 ## [Não lançado]
 
+## [1.17.0] - 2026-10-26
+
+### Adicionado
+
+- Fotos por cima do modelo do ingresso: escolha um modelo e ponha até 4 fotos ou imagens (a turma,
+  a banda, o aniversariante) sem refazer a arte. Cada foto se arrasta e redimensiona na prévia,
+  preenche o quadro ou aparece inteira, com cantos retos, arredondados ou redondos, e fica por
+  baixo dos textos, do número e do QR code. Passa pela mesma revisão da arte e vai junto ao
+  duplicar o evento (ADR 0121).
+- Imagem no canhoto: um logo ou uma foto na largura do canhoto, em cima do número ou embaixo dos
+  campos, com a altura que você escolher (ADR 0121).
+
 ## [1.16.1] - 2026-10-22
 
 ### Corrigido
@@ -844,7 +856,8 @@ Primeira versão numerada: o produto que já estava em produção, das fases 0 a
 - Política de segurança de conteúdo (CSP) com nonce por requisição em todo o site (ADR 0048).
 - Verificação anti-robô antes do envio do código de login (ADR 0044).
 
-[Não lançado]: https://github.com/allansomensi/ingressoimpresso/compare/v1.16.1...HEAD
+[Não lançado]: https://github.com/allansomensi/ingressoimpresso/compare/v1.17.0...HEAD
+[1.17.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.16.1...v1.17.0
 [1.16.1]: https://github.com/allansomensi/ingressoimpresso/compare/v1.16.0...v1.16.1
 [1.16.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.15.0...v1.16.0
 [1.15.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.14.0...v1.15.0

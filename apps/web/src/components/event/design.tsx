@@ -8,6 +8,7 @@ import type {
   DesignResponse,
   EventDto,
   SponsorStrip,
+  StubImagePosition,
   StubSide,
   TableDto,
   TextBlock,
@@ -21,6 +22,7 @@ import {
   Eye,
   Handshake,
   Hash,
+  ImageIcon,
   ImagePlus,
   ImageUp,
   LayoutTemplate,
@@ -48,7 +50,7 @@ import { toast } from "sonner";
 
 import { ReadOnlyNotice, useEventKind, useEventTexts } from "@/components/event/access";
 import { ArtPicker } from "@/components/event/art-picker";
-import { NumberInspector, QrInspector, TextInspector } from "@/components/event/design-inspectors";
+import { NumberInspector, PhotoInspector, QrInspector, TextInspector } from "@/components/event/design-inspectors";
 import { AlignBar, SelectionInspector, ShortcutsHelp, useMarquee } from "@/components/event/design-tools";
 import { TabHeader } from "@/components/event/tab-header";
 import { useLogo } from "@/components/organization/organization";
@@ -77,12 +79,17 @@ import { cn } from "@/lib/cn";
 import { bandText, seatLabel } from "@/lib/categories";
 import {
   AUTO_BAND_MM,
+  MAX_PHOTOS,
   MAX_SPONSORS,
   MAX_TEXT_BLOCKS,
   SEAT_BAND_COLOR,
   defaultSponsorStrip,
   designIssues,
   effectiveBand,
+  newPhoto,
+  photoToAspect,
+  photosInside,
+  stubMinHeight,
   type IssueTarget,
 } from "@/lib/design-rules";
 import {
@@ -157,6 +164,22 @@ function useSampleTag(eventId: string): { text: string; color: string; category:
     : { text, color: category?.color ?? SEAT_BAND_COLOR, category: category?.name ?? null, priceCents: category?.priceCents ?? null };
 }
 
+/** Object URLs of uploaded images, by position: `undefined` while one loads (photos, ADR 0121). */
+function useArtUrls(eventId: string, arts: readonly ArtDto[]): (string | undefined)[] {
+  return useQueries({
+    queries: arts.map((image) => ({
+      queryKey: ["art", eventId, image.id],
+      queryFn: () => fetchBlobUrl(`/api/events/${eventId}/art/${image.id}`),
+      staleTime: Number.POSITIVE_INFINITY,
+    })),
+  }).map((query) => query.data);
+}
+
+/** Width ÷ height of an uploaded image. */
+function aspectOf(image: ArtDto): number {
+  return image.widthPx / Math.max(image.heightPx, 1);
+}
+
 /** The ticket as saved, for team members who do not take care of the art (ADR 0055). */
 function DesignReadOnly({ eventId, event, current }: { eventId: string; event: EventDto; current: DesignResponse }) {
   const t = useEventTexts().design;
@@ -179,6 +202,8 @@ function DesignReadOnly({ eventId, event, current }: { eventId: string; event: E
   })
     .map((query) => query.data)
     .filter((url): url is string => url !== undefined);
+  const photoUrls = useArtUrls(eventId, current.photos);
+  const [stubImageUrl] = useArtUrls(eventId, current.stubImage === null ? [] : [current.stubImage]);
   return (
     <div className="flex flex-col gap-6">
       <ReadOnlyNotice eventId={eventId} area="art" />
@@ -190,7 +215,7 @@ function DesignReadOnly({ eventId, event, current }: { eventId: string; event: E
             className="shadow-xl ring-1 ring-black/10"
             style={{ width: `min(100%, calc(60vh * ${String(ratio)}))` }}
           >
-            <TicketView design={design} event={event} artUrl={artUrl.data ?? null} tag={tag} sponsorUrls={sponsorUrls} />
+            <TicketView design={design} event={event} artUrl={artUrl.data ?? null} tag={tag} sponsorUrls={sponsorUrls} photoUrls={photoUrls} stubImageUrl={stubImageUrl ?? null} />
           </div>
         </div>
       </Card>
@@ -225,10 +250,19 @@ interface Draft {
   art: ArtDto | null;
   /** Sponsors' logos, in order (ADR 0059). */
   sponsors: ArtDto[];
+  /** The image of each photo of the design, in the same order (ADR 0121). */
+  photos: ArtDto[];
+  /** The image of the stub's picture (ADR 0121). */
+  stubImage: ArtDto | null;
 }
 
 function issueElement(target: IssueTarget): TicketElement | null {
-  return target.kind === "number" || target.kind === "qr" || target.kind === "sponsors" || target.kind === "text" ? target : null;
+  return target.kind === "body" || target.kind === "stub" ? null : target;
+}
+
+/** `items` without the positions in `gone`. */
+function without<T>(items: readonly T[], gone: ReadonlySet<number>): T[] {
+  return items.filter((_, index) => !gone.has(index));
 }
 
 /** Whether a keyboard shortcut should leave the event to a form field (its own undo, typing). */
@@ -293,9 +327,16 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
   const t = useEventTexts().design;
   const queryClient = useQueryClient();
   const confirm = useConfirm();
-  const initialDraft = useMemo<Draft>(() => ({ design: initial.design, art: initial.art, sponsors: initial.sponsors }), [initial]);
+  const initialDraft = useMemo<Draft>(
+    () => ({ design: initial.design, art: initial.art, sponsors: initial.sponsors, photos: initial.photos, stubImage: initial.stubImage }),
+    [initial],
+  );
   const { draft, change, undo, redo, canUndo, canRedo } = useHistory(initialDraft);
-  const { design, art, sponsors } = draft;
+  const { design, art, sponsors, photos, stubImage } = draft;
+  const photoUrls = useArtUrls(eventId, photos);
+  const [stubImageUrl] = useArtUrls(eventId, stubImage === null ? [] : [stubImage]);
+  const photoInput = useRef<HTMLInputElement>(null);
+  const stubImageInput = useRef<HTMLInputElement>(null);
   // The organization's logo for the templates in its colours (ADR 0100), kept on the device.
   const organizationLogo = useLogo(initial.organization.logoPath);
   const sponsorUrls = useQueries({
@@ -382,7 +423,14 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
     [sample],
   );
 
-  const body = (): DesignBody => ({ design, artId, sponsorIds: sponsors.map((logo) => logo.id) });
+  const body = (): DesignBody => ({
+    design,
+    artId,
+    sponsorIds: sponsors.map((logo) => logo.id),
+    photoIds: photos.map((photo) => photo.id),
+    // The picture's image goes only while the stub has the picture (the server checks both).
+    stubImageId: design.stub?.image == null ? null : (stubImage?.id ?? null),
+  });
   const update = (next: (design: TicketDesign) => TicketDesign, key: string | null = null) => {
     change((current) => ({ ...current, design: next(current.design) }), key);
   };
@@ -419,23 +467,100 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
     },
     onError: (error) => toast.error(errorMessage(error)),
   });
+  // Photos go over the template, one after another, each with the shape of its picture.
+  const uploadPhotos = useMutation({
+    mutationFn: async (files: File[]) => {
+      const uploaded: { file: File; photo: ArtDto }[] = [];
+      for (const file of files) {
+        uploaded.push({ file, photo: await upload<ArtDto>(`/api/events/${eventId}/art`, file) });
+      }
+      return uploaded;
+    },
+    onSuccess: (uploaded) => {
+      for (const { file, photo } of uploaded) {
+        rememberArt(photo, file);
+      }
+      const room = Math.max(0, MAX_PHOTOS - draft.photos.length);
+      const added = uploaded.slice(0, room);
+      if (added.length === 0) {
+        return;
+      }
+      const first = draft.photos.length;
+      change((current) => {
+        const layers = added.map(({ photo }, offset) => {
+          const layer = newPhoto(current.design, aspectOf(photo));
+          // Several at once: a small step apart, so none hides the other completely.
+          const shift = Math.min(offset * 4, current.design.widthMm - layer.xMm - layer.widthMm, current.design.heightMm - layer.yMm - layer.heightMm);
+          return { ...layer, xMm: layer.xMm + Math.max(0, shift), yMm: layer.yMm + Math.max(0, shift) };
+        });
+        return {
+          ...current,
+          design: { ...current.design, photos: [...current.design.photos, ...layers] },
+          photos: [...current.photos, ...added.map(({ photo }) => photo)],
+        };
+      });
+      setSelected([{ kind: "photo", index: first + added.length - 1 }]);
+    },
+    onError: (error) => toast.error(errorMessage(error)),
+  });
+  const pickPhotos = () => {
+    photoInput.current?.click();
+  };
+  // The stub's picture: a new one keeps the strip's settings, a first one gets a height that
+  // still fits the ticket when it can.
+  const uploadStubImage = useMutation({
+    mutationFn: async (file: File) => ({ file, image: await upload<ArtDto>(`/api/events/${eventId}/art`, file) }),
+    onSuccess: ({ file, image }) => {
+      rememberArt(image, file);
+      change((current) => {
+        const stub = current.design.stub;
+        if (stub === null) {
+          return current;
+        }
+        const room = current.design.heightMm - (stubMinHeight({ ...current.design, stub: { ...stub, image: null } }) ?? 0) - 1.6;
+        const picture = stub.image ?? { position: "top", heightMm: Math.min(40, Math.max(5, Math.min(12, Math.floor(room)))), fit: "contain" };
+        return { ...current, design: { ...current.design, stub: { ...stub, image: picture } }, stubImage: image };
+      });
+    },
+    onError: (error) => toast.error(errorMessage(error)),
+  });
+  const removeStubImage = () => {
+    change((current) => ({
+      ...current,
+      design: current.design.stub === null ? current.design : { ...current.design, stub: { ...current.design.stub, image: null } },
+      stubImage: null,
+    }));
+  };
   const applyTemplate = useMutation({
     mutationFn: async ({ template, palette, logo }: { template: TicketTemplate; palette: Palette; logo: string | null }) => {
       const built = template.build(palette);
-      // The organization's logo on a free corner (ADR 0100), drawn into the art.
-      const background = artWithLogo(built.background, built.design, logo);
+      // The organization's logo on a free corner (ADR 0100), drawn into the art, clear of the
+      // photos that stay on the new template.
+      const background = artWithLogo(built.background, { ...built.design, photos: photosInside(design.photos, built.design) }, logo);
       const file = await rasterizeBackground(background, built.design.widthMm, built.design.heightMm);
       const uploaded = await upload<ArtDto>(`/api/events/${eventId}/art`, file);
       return { template, design: built.design, file, uploaded };
     },
     onSuccess: ({ template, design: next, file, uploaded }) => {
       rememberArt(uploaded, file);
-      // Sponsors stay: their strip moves to a free spot of the new layout.
-      change((current) => ({
-        design: current.design.sponsors == null ? next : { ...next, sponsors: defaultSponsorStrip(next, current.design.sponsors.label) },
-        art: uploaded,
-        sponsors: current.sponsors,
-      }));
+      // Sponsors and photos stay: the strip moves to a free spot of the new layout, the photos
+      // keep their place inside the new size.
+      change((current) => {
+        // The stub's picture stays when the new template has a stub too.
+        const picture = current.design.stub?.image ?? null;
+        const placed = {
+          ...next,
+          photos: photosInside(current.design.photos, next),
+          stub: next.stub === null || picture === null ? next.stub : { ...next.stub, image: picture },
+        };
+        return {
+          design: current.design.sponsors == null ? placed : { ...placed, sponsors: defaultSponsorStrip(placed, current.design.sponsors.label) },
+          art: uploaded,
+          sponsors: current.sponsors,
+          photos: current.photos,
+          stubImage: placed.stub?.image == null ? null : current.stubImage,
+        };
+      });
       setStubText(next.stub?.fields.join("\n") ?? "");
       setSelected([]);
       setGalleryOpen(false);
@@ -532,23 +657,41 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
   };
 
   const selectedTexts = selection.flatMap((element) => (element.kind === "text" ? [element.index] : []));
+  const selectedPhotos = selection.flatMap((element) => (element.kind === "photo" ? [element.index] : []));
 
-  /** Removes the selected texts (number, QR and sponsors stay: they are not removed this way). */
+  /** Removes the selected texts and photos (number, QR and sponsors stay: they are not removed this way). */
   const removeSelection = () => {
-    if (selectedTexts.length === 0) {
+    if (selectedTexts.length + selectedPhotos.length === 0) {
       toast(t.selection.cannotRemove);
       return;
     }
-    const gone = new Set(selectedTexts);
-    update((d) => ({ ...d, texts: d.texts.filter((_, index) => !gone.has(index)) }));
+    const texts = new Set(selectedTexts);
+    const gonePhotos = new Set(selectedPhotos);
+    change((current) => ({
+      ...current,
+      design: { ...current.design, texts: without(current.design.texts, texts), photos: without(current.design.photos, gonePhotos) },
+      photos: without(current.photos, gonePhotos),
+    }));
     setSelected([]);
-    toast(t.selection.removed(gone.size), { action: { label: t.toolbar.undo, onClick: undo } });
+    toast(t.selection.removed(texts.size + gonePhotos.size), { action: { label: t.toolbar.undo, onClick: undo } });
   };
 
-  /** Copies the selected texts 2 mm down and right, and selects the copies. */
+  /** A box 2 mm down and right, still inside the body. */
+  const nudged = <T extends { xMm: number; yMm: number; widthMm: number; heightMm: number }>(box: T): T => ({
+    ...box,
+    xMm: Math.min(box.xMm + 2, Math.max(0, design.widthMm - box.widthMm)),
+    yMm: Math.min(box.yMm + 2, Math.max(0, design.heightMm - box.heightMm)),
+  });
+
+  /** Copies the selected texts and photos 2 mm down and right, and selects the copies. */
   const duplicateSelection = () => {
     const blocks = selectedTexts.flatMap((index) => design.texts[index] ?? []);
-    if (blocks.length === 0) {
+    const pictures = selectedPhotos.flatMap((index) => {
+      const layer = design.photos[index];
+      const image = photos[index];
+      return layer === undefined || image === undefined ? [] : [{ layer, image }];
+    });
+    if (blocks.length + pictures.length === 0) {
       toast(t.selection.cannotDuplicate);
       return;
     }
@@ -556,13 +699,60 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
       toast.error(t.selection.duplicateLimit(MAX_TEXT_BLOCKS));
       return;
     }
-    const copies = blocks.map((block) => ({
-      ...block,
-      xMm: Math.min(block.xMm + 2, Math.max(0, design.widthMm - block.widthMm)),
-      yMm: Math.min(block.yMm + 2, Math.max(0, design.heightMm - block.heightMm)),
+    if (design.photos.length + pictures.length > MAX_PHOTOS) {
+      toast.error(t.selection.photoLimit(MAX_PHOTOS));
+      return;
+    }
+    const copies = blocks.map(nudged);
+    const photoCopies = pictures.map(({ layer }) => nudged(layer));
+    change((current) => ({
+      ...current,
+      design: { ...current.design, texts: [...current.design.texts, ...copies], photos: [...current.design.photos, ...photoCopies] },
+      photos: [...current.photos, ...pictures.map(({ image }) => image)],
     }));
-    update((d) => ({ ...d, texts: [...d.texts, ...copies] }));
-    setSelected(copies.map((_, offset): TicketElement => ({ kind: "text", index: design.texts.length + offset })));
+    setSelected([
+      ...copies.map((_, offset): TicketElement => ({ kind: "text", index: design.texts.length + offset })),
+      ...photoCopies.map((_, offset): TicketElement => ({ kind: "photo", index: design.photos.length + offset })),
+    ]);
+  };
+
+  const removePhoto = (index: number) => {
+    const gone = new Set([index]);
+    change((current) => ({
+      ...current,
+      design: { ...current.design, photos: without(current.design.photos, gone) },
+      photos: without(current.photos, gone),
+    }));
+    setSelected([]);
+    toast(t.photos.removed, { action: { label: t.toolbar.undo, onClick: undo } });
+  };
+
+  const duplicatePhoto = (index: number) => {
+    const layer = design.photos[index];
+    const image = photos[index];
+    if (layer === undefined || image === undefined || design.photos.length >= MAX_PHOTOS) {
+      return;
+    }
+    change((current) => ({
+      ...current,
+      design: { ...current.design, photos: [...current.design.photos.slice(0, index + 1), nudged(layer), ...current.design.photos.slice(index + 1)] },
+      photos: [...current.photos.slice(0, index + 1), image, ...current.photos.slice(index + 1)],
+    }));
+    setSelected([{ kind: "photo", index: index + 1 }]);
+  };
+
+  /** Moves a photo above (1) or below (-1) its neighbour; its image goes along. */
+  const reorderPhoto = (index: number, direction: -1 | 1) => {
+    const target = index + direction;
+    if (target < 0 || target >= design.photos.length) {
+      return;
+    }
+    change((current) => ({
+      ...current,
+      design: { ...current.design, photos: swap(current.design.photos, index, target) },
+      photos: swap(current.photos, index, target),
+    }));
+    setSelected([{ kind: "photo", index: target }]);
   };
 
   const selectionItems = () =>
@@ -769,16 +959,23 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
   const total = design.widthMm + (design.stub?.widthMm ?? 0);
   const ratio = total / Math.max(design.heightMm, 1);
   const selectedText = selected?.kind === "text" ? design.texts[selected.index] : undefined;
+  const selectedPhoto = selected?.kind === "photo" ? design.photos[selected.index] : undefined;
 
   const elementLabel = (element: TicketElement): string => {
     if (element.kind === "text") {
       const block = design.texts[element.index];
       return block === undefined ? t.text : (blockValue(block, event) ?? block.text);
     }
+    if (element.kind === "photo") {
+      return t.photos.photo(element.index + 1);
+    }
     return element.kind === "number" ? t.number : element.kind === "qr" ? t.qr : t.sponsors.title;
   };
+  const elementIcon = (element: TicketElement): LucideIcon =>
+    ({ text: Type, photo: ImageIcon, number: Hash, qr: QrCode, sponsors: Handshake })[element.kind];
 
   const elementRows: { element: TicketElement; icon: LucideIcon; label: string; muted?: boolean }[] = [
+    ...design.photos.map((_, index) => ({ element: { kind: "photo", index } as TicketElement, icon: ImageIcon, label: t.photos.photo(index + 1) })),
     ...design.texts.map((block, index) => {
       const value = blockValue(block, event);
       return {
@@ -834,6 +1031,17 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
                 </Button>
                 <Button variant="secondary" size="sm" icon={<Plus />} className="max-sm:hidden" onClick={addText} disabled={design.texts.length >= MAX_TEXT_BLOCKS}>
                   {t.toolbar.addText}
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  icon={<ImagePlus />}
+                  className="max-sm:hidden"
+                  loading={uploadPhotos.isPending}
+                  onClick={pickPhotos}
+                  disabled={photos.length >= MAX_PHOTOS}
+                >
+                  {t.photos.addShort}
                 </Button>
                 <span className="mx-1 hidden h-5 w-px bg-border sm:block" aria-hidden />
                 <Button
@@ -910,6 +1118,8 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
                   artUrl={artUrl.data ?? null}
                   tag={tag}
                   sponsorUrls={sponsorUrls}
+                  photoUrls={photoUrls}
+                  stubImageUrl={stubImageUrl ?? null}
                   selected={editing ? selection : []}
                   additive={additive}
                   problems={problems}
@@ -1027,7 +1237,7 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
               <Card className="animate-fade-in ring-1 ring-brand/30">
                 <SelectionInspector
                   labels={selection.map((element) => elementLabel(element))}
-                  textCount={selectedTexts.length}
+                  removableCount={selectedTexts.length + selectedPhotos.length}
                   onAlign={alignSelection}
                   onDistribute={distributeSelection}
                   onDuplicate={duplicateSelection}
@@ -1046,8 +1256,8 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
             <div ref={inspectorRef} className="scroll-mt-16 scroll-mb-28 max-xl:order-first">
             <Card className="animate-fade-in ring-1 ring-brand/30">
               <CardHeader
-                icon={selected.kind === "text" ? Type : selected.kind === "number" ? Hash : selected.kind === "sponsors" ? Handshake : QrCode}
-                title={selected.kind === "text" ? t.text : selected.kind === "number" ? t.number : selected.kind === "sponsors" ? t.sponsors.title : t.qr}
+                icon={elementIcon(selected)}
+                title={selected.kind === "text" ? t.text : elementLabel(selected)}
                 actions={
                   <Button
                     variant="ghost"
@@ -1085,6 +1295,35 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
                   }}
                   onReorder={(direction) => {
                     reorderText(selected.index, direction);
+                  }}
+                />
+              )}
+              {selected.kind === "photo" && selectedPhoto !== undefined && (
+                <PhotoInspector
+                  key={selected.index}
+                  photo={selectedPhoto}
+                  index={selected.index}
+                  count={design.photos.length}
+                  canDuplicate={design.photos.length < MAX_PHOTOS}
+                  onChange={(changes, key) => {
+                    update((d) => ({ ...d, photos: d.photos.map((photo, index) => (index === selected.index ? { ...photo, ...changes } : photo)) }), key);
+                  }}
+                  onOriginalShape={(() => {
+                    const image = photos[selected.index];
+                    return image === undefined
+                      ? null
+                      : () => {
+                          update((d) => ({ ...d, photos: d.photos.map((photo, index) => (index === selected.index ? photoToAspect(photo, aspectOf(image)) : photo)) }));
+                        };
+                  })()}
+                  onDuplicate={() => {
+                    duplicatePhoto(selected.index);
+                  }}
+                  onRemove={() => {
+                    removePhoto(selected.index);
+                  }}
+                  onReorder={(direction) => {
+                    reorderPhoto(selected.index, direction);
                   }}
                 />
               )}
@@ -1130,6 +1369,85 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
             />
           </Section>
 
+          <Section icon={ImageIcon} title={t.photos.title} description={t.photos.hint}>
+            <div className="flex flex-col gap-3">
+              <ul className="grid grid-cols-3 gap-2">
+                {photos.map((photo, index) => {
+                  const element: TicketElement = { kind: "photo", index };
+                  const chosen = selection.some((item) => sameElement(item, element));
+                  return (
+                    <li
+                      key={`${photo.id}-${String(index)}`}
+                      className={cn(
+                        "group relative aspect-square overflow-hidden rounded-xl border border-border bg-surface-2",
+                        chosen && "ring-2 ring-brand",
+                      )}
+                    >
+                      <button
+                        type="button"
+                        aria-label={t.photos.photo(index + 1)}
+                        aria-pressed={chosen}
+                        className="block size-full"
+                        onClick={() => {
+                          setSelected([element]);
+                        }}
+                      >
+                        {photoUrls[index] !== undefined && (
+                          // eslint-disable-next-line @next/next/no-img-element -- object URL of an uploaded photo
+                          <img src={photoUrls[index]} alt="" className="size-full object-cover" />
+                        )}
+                      </button>
+                      <Button
+                        variant="secondary"
+                        size="icon-sm"
+                        className="absolute right-1 bottom-1 text-danger-fg opacity-100 sm:opacity-0 sm:transition sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
+                        aria-label={t.photos.remove(index + 1)}
+                        onClick={() => {
+                          removePhoto(index);
+                        }}
+                      >
+                        <Trash2 />
+                      </Button>
+                      {photo.moderation === "flagged" && (
+                        <span className="absolute top-1 left-1 rounded-full bg-warning-soft px-1.5 text-[10px] font-medium text-warning-fg">{t.photos.review}</span>
+                      )}
+                    </li>
+                  );
+                })}
+                {photos.length < MAX_PHOTOS && (
+                  <li>
+                    <button
+                      type="button"
+                      disabled={uploadPhotos.isPending}
+                      onClick={pickPhotos}
+                      className="flex aspect-square w-full flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-border-strong text-xs font-medium text-fg-muted transition hover:border-brand hover:text-brand active:border-brand active:text-brand focus-visible:ring-2 focus-visible:ring-brand focus-visible:outline-none"
+                    >
+                      {uploadPhotos.isPending ? <Spinner /> : <ImagePlus className="size-5" aria-hidden />}
+                      {t.photos.add}
+                    </button>
+                  </li>
+                )}
+              </ul>
+              <p className="text-xs leading-relaxed text-fg-muted">{t.photos.limitHint(MAX_PHOTOS)}</p>
+              <input
+                ref={photoInput}
+                type="file"
+                accept="image/png,image/jpeg"
+                multiple
+                className="sr-only"
+                tabIndex={-1}
+                aria-hidden
+                onChange={(e) => {
+                  const files = [...(e.target.files ?? [])].slice(0, MAX_PHOTOS - photos.length);
+                  e.target.value = "";
+                  if (files.length > 0) {
+                    uploadPhotos.mutate(files);
+                  }
+                }}
+              />
+            </div>
+          </Section>
+
           <Section icon={Ruler} title={t.size} description={t.sizeHint}>
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-2">
               <Field label={t.width}>
@@ -1152,7 +1470,11 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
                 onChange={(checked) => {
                   const fields = [...ticketCanvasTexts.defaultStubFields];
                   setStubText(fields.join("\n"));
-                  update((d) => ({ ...d, stub: checked ? { side: "left", widthMm: 40, fields } : null }));
+                  change((current) => ({
+                    ...current,
+                    design: { ...current.design, stub: checked ? { side: "left", widthMm: 40, fields, image: null } : null },
+                    stubImage: null,
+                  }));
                 }}
               />
               {design.stub !== null && (
@@ -1194,6 +1516,101 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
                       }}
                     />
                   </Field>
+                  <div className="flex flex-col gap-3 rounded-xl border border-border p-3 sm:col-span-2">
+                    <div className="flex items-center gap-3">
+                      <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-surface-2">
+                        {design.stub.image !== null && stubImageUrl !== undefined ? (
+                          // eslint-disable-next-line @next/next/no-img-element -- object URL of the stub's picture
+                          <img src={stubImageUrl} alt={t.stubImage.title} className="size-full object-contain" />
+                        ) : (
+                          <ImageIcon className="size-5 text-fg-subtle" aria-hidden />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-fg">{t.stubImage.title}</p>
+                        <p className="text-xs leading-relaxed text-fg-muted">{t.stubImage.hint}</p>
+                        {stubImage?.moderation === "flagged" && design.stub.image !== null && (
+                          <Badge tone="warning" className="mt-1">
+                            {t.photos.review}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        icon={<ImagePlus />}
+                        loading={uploadStubImage.isPending}
+                        onClick={() => {
+                          stubImageInput.current?.click();
+                        }}
+                      >
+                        {design.stub.image === null ? t.stubImage.add : t.stubImage.replace}
+                      </Button>
+                      {design.stub.image !== null && (
+                        <Button variant="danger-ghost" size="sm" icon={<Trash2 />} onClick={removeStubImage}>
+                          {t.stubImage.remove}
+                        </Button>
+                      )}
+                    </div>
+                    {design.stub.image !== null && (
+                      <div className="grid gap-3 sm:grid-cols-3">
+                        <Field label={t.stubImage.position}>
+                          <Select
+                            value={design.stub.image.position}
+                            onChange={(e) => {
+                              const position = e.target.value as StubImagePosition;
+                              update((d) => (d.stub?.image == null ? d : { ...d, stub: { ...d.stub, image: { ...d.stub.image, position } } }));
+                            }}
+                          >
+                            {(Object.keys(t.stubImage.positions) as StubImagePosition[]).map((position) => (
+                              <option key={position} value={position}>
+                                {t.stubImage.positions[position]}
+                              </option>
+                            ))}
+                          </Select>
+                        </Field>
+                        <Field label={t.stubImage.height}>
+                          <NumberInput
+                            value={design.stub.image.heightMm}
+                            step={0.5}
+                            onChange={(heightMm) => {
+                              update((d) => (d.stub?.image == null ? d : { ...d, stub: { ...d.stub, image: { ...d.stub.image, heightMm } } }), "stub-image-height");
+                            }}
+                            suffix={commonTexts.mm}
+                          />
+                        </Field>
+                        <Field label={t.photos.fit}>
+                          <Select
+                            value={design.stub.image.fit}
+                            onChange={(e) => {
+                              const fit = e.target.value === "cover" ? "cover" : "contain";
+                              update((d) => (d.stub?.image == null ? d : { ...d, stub: { ...d.stub, image: { ...d.stub.image, fit } } }));
+                            }}
+                          >
+                            <option value="contain">{t.photos.fits.contain}</option>
+                            <option value="cover">{t.photos.fits.cover}</option>
+                          </Select>
+                        </Field>
+                      </div>
+                    )}
+                    <input
+                      ref={stubImageInput}
+                      type="file"
+                      accept="image/png,image/jpeg"
+                      className="sr-only"
+                      tabIndex={-1}
+                      aria-hidden
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        e.target.value = "";
+                        if (file !== undefined) {
+                          uploadStubImage.mutate(file);
+                        }
+                      }}
+                    />
+                  </div>
                 </div>
               )}
             </div>

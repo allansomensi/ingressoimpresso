@@ -8,6 +8,7 @@ import {
   designElements,
   distributeBoxes,
   elementBox,
+  elementKey,
   existingSelection,
   guidesFor,
   hitTest,
@@ -15,6 +16,7 @@ import {
   moveBoxes,
   rectBetween,
   roundTo,
+  sameElement,
   snapMove,
   snapResize,
   toggleElement,
@@ -50,6 +52,7 @@ const design: TicketDesign = {
   ],
   band: null,
   sponsors: null,
+  photos: [],
 };
 const area = { width: 150, height: 55 };
 const box = (x: number, y: number, width: number, height: number): Box => ({ x, y, width, height });
@@ -59,6 +62,16 @@ describe("elements of a design", () => {
     expect(designElements(design)).toEqual([{ kind: "text", index: 0 }, { kind: "number" }, { kind: "qr" }]);
     const withStrip = { ...design, sponsors: { xMm: 5, yMm: 40, widthMm: 50, heightMm: 10, label: "", labelColor: "#555555", panel: false } };
     expect(designElements(withStrip).at(-1)).toEqual({ kind: "sponsors" });
+  });
+
+  it("lists photos first: they lie under everything else", () => {
+    const withPhoto = { ...design, photos: [{ xMm: 5, yMm: 5, widthMm: 20, heightMm: 20, fit: "cover", shape: "square" } as const] };
+    expect(designElements(withPhoto)[0]).toEqual({ kind: "photo", index: 0 });
+    expect(elementKey({ kind: "photo", index: 0 })).toBe("photo-0");
+    expect(sameElement({ kind: "photo", index: 0 }, { kind: "text", index: 0 })).toBe(false);
+    const moved = withBox(withPhoto, { kind: "photo", index: 0 }, box(1, 2, 30, 40));
+    expect(elementBox(moved, { kind: "photo", index: 0 })).toEqual(box(1, 2, 30, 40));
+    expect(moved.photos[0]?.fit).toBe("cover");
   });
 
   it("drops elements that are gone and repeats from a selection", () => {

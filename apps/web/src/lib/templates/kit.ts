@@ -57,7 +57,7 @@ export function number(x: number, y: number, width: number, height: number, font
   return { xMm: x, yMm: y, widthMm: width, heightMm: height, font, sizePt, color, align, prefix: "Nº ", digits: 4 };
 }
 
-export const STUB: StubStyle = { side: "left", widthMm: 40, fields: [...ticketCanvasTexts.defaultStubFields] };
+export const STUB: StubStyle = { side: "left", widthMm: 40, fields: [...ticketCanvasTexts.defaultStubFields], image: null };
 
 export function design(
   width: number,
@@ -77,6 +77,7 @@ export function design(
     texts: parts.texts,
     band: null,
     sponsors: null,
+    photos: [],
   };
 }
 

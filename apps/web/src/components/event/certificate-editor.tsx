@@ -859,7 +859,7 @@ export function CertificateEditor({
             <Card className="animate-fade-in ring-1 ring-brand/30 lg:col-span-2 2xl:col-span-1">
               <SelectionInspector
                 labels={selection.map((index) => (elements[index] === undefined ? "" : elementLabel(elements[index])))}
-                textCount={selection.length}
+                removableCount={selection.length}
                 onAlign={alignSelection}
                 onDistribute={distributeSelection}
                 onDuplicate={duplicateSelection}

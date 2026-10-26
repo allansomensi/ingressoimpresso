@@ -616,7 +616,7 @@ const raffleGift: TicketTemplate = {
       design: design(w, h, p.bg, {
         number: number(4, 1.6, 44, 10.5, "slab", 24, "#ffffff", "left"),
         qr: [45, 21, 22],
-        stub: { side: "left", widthMm: 25, fields: [...STUB.fields] },
+        stub: { side: "left", widthMm: 25, fields: [...STUB.fields], image: null },
         texts: [
           block("{evento}", 4, 18.5, 38, 10, { sizePt: 9.5, bold: true, color: p.ink, lines: 2 }),
           block(c.drawDate, 4, 29, 38, 4, { sizePt: 7, color: p.muted }),
@@ -694,7 +694,7 @@ const lottery: TicketTemplate = {
       design: design(w, h, p.bg, {
         number: number(56, 5.5, 32, 6, "mono", 11, p.ink, "center"),
         qr: [62, 13.5, 22],
-        stub: { side: "left", widthMm: 25, fields: [...STUB.fields] },
+        stub: { side: "left", widthMm: 25, fields: [...STUB.fields], image: null },
         texts: [
           block(c.lotteryLabel, 6.5, 5.8, 48, 4, { bold: true, sizePt: 6.5, color: p.accent, uppercase: true, letterSpacing: 0.3 }),
           block("{evento}", 6.5, 10.5, 50, 14, { font: "serif", sizePt: 17, color: p.ink, lines: 2 }),

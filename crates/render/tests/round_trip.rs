@@ -17,9 +17,10 @@ use ticket_core::{
     TicketIssuer, TicketNumber,
 };
 use ticket_render::{
-    Art, EventDetails, FontChoice, PrintOptions, RenderJob, SponsorStrip, StubSide, TextAlign,
-    TextBlock, TicketCategory, TicketDesign, TicketQr, TicketToRender, control_sheet_pdf, home_pdf,
-    home_sheet_pngs, print_pdf, ticket_images, whatsapp_zip,
+    Art, EventDetails, FontChoice, PhotoFit, PhotoLayer, PhotoShape, PrintOptions, RenderJob,
+    SponsorStrip, StubImage, StubImagePosition, StubSide, TextAlign, TextBlock, TicketCategory,
+    TicketDesign, TicketQr, TicketToRender, control_sheet_pdf, home_pdf, home_sheet_pngs,
+    print_pdf, ticket_images, whatsapp_zip,
 };
 
 const SEED: [u8; 32] = [7; 32];
@@ -72,6 +73,8 @@ fn job(numbers: &[u32], design: TicketDesign) -> RenderJob {
         design,
         art: Some(art()),
         sponsors: vec![art()],
+        photos: Vec::new(),
+        stub_image: None,
         event_name: "Show de Lançamento — Banda Teste".to_owned(),
         details: EventDetails::default(),
         tickets: numbers
@@ -148,6 +151,91 @@ fn sponsors_print_without_hiding_the_qr() {
         let texts = decode_all(&decoded.to_luma8());
         assert_eq!(verified_numbers(&texts), BTreeSet::from([image.number]));
     }
+}
+
+/// A plain black picture, `width` × `height` px.
+fn black(width: u32, height: u32) -> Art {
+    let image = image::RgbImage::from_pixel(width, height, image::Rgb([0, 0, 0]));
+    let mut png = Vec::new();
+    image::DynamicImage::ImageRgb8(image)
+        .write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png)
+        .unwrap();
+    Art::from_bytes(png).unwrap()
+}
+
+#[test]
+fn photos_print_in_their_box_under_the_qr() {
+    let mut design = TicketDesign::default_v1();
+    design.photos = vec![
+        // Under part of the QR (x 117–145): the QR is printed on top and still reads.
+        PhotoLayer {
+            x_mm: 100.0,
+            y_mm: 10.0,
+            width_mm: 30.0,
+            height_mm: 30.0,
+            fit: PhotoFit::Cover,
+            shape: PhotoShape::Square,
+        },
+        PhotoLayer {
+            x_mm: 40.0,
+            y_mm: 20.0,
+            width_mm: 30.0,
+            height_mm: 30.0,
+            fit: PhotoFit::Cover,
+            shape: PhotoShape::Round,
+        },
+    ];
+    let mut job = job(&[5], design);
+    job.art = None;
+    job.photos = vec![black(300, 200), black(200, 200)];
+    let images = ticket_images(&job, 600).unwrap();
+    let decoded = image::load_from_memory(&images[0].jpeg).unwrap();
+    assert_eq!(
+        verified_numbers(&decode_all(&decoded.to_luma8())),
+        BTreeSet::from([5])
+    );
+    // 4 px/mm: dark inside each photo, white around them and in the round one's corners.
+    let gray = decoded.to_luma8();
+    let at = |x: f64, y: f64| gray.get_pixel((x * 4.0) as u32, (y * 4.0) as u32)[0];
+    assert!(at(105.0, 25.0) < 60, "inside the square photo");
+    assert!(at(55.0, 35.0) < 60, "centre of the round photo");
+    assert!(at(41.0, 21.0) > 200, "corner cut off the round photo");
+    assert!(at(85.0, 45.0) > 200, "between the photos");
+    // Without its image, a photo is left out.
+    job.photos.truncate(1);
+    let images = ticket_images(&job, 600).unwrap();
+    let gray = image::load_from_memory(&images[0].jpeg).unwrap().to_luma8();
+    assert!(gray.get_pixel(55 * 4, 35 * 4)[0] > 200);
+}
+
+#[test]
+fn the_stub_picture_prints_across_the_stub() {
+    let mut design = TicketDesign::default_v1();
+    if let Some(stub) = design.stub.as_mut() {
+        stub.image = Some(StubImage {
+            position: StubImagePosition::Bottom,
+            height_mm: 12.0,
+            fit: PhotoFit::Cover,
+        });
+    }
+    let mut job = job(&[6], design);
+    job.stub_image = Some(black(400, 100));
+    // The stub (40 mm, left) has the picture at the bottom, inside its 2.5 mm margins.
+    let with_picture = home_sheet_pngs(&job, 150, 1).unwrap();
+    job.stub_image = None;
+    let without = home_sheet_pngs(&job, 150, 1).unwrap();
+    assert_ne!(with_picture[0], without[0], "the picture changes the sheet");
+    let dark = |png: &[u8]| {
+        image::load_from_memory(png)
+            .unwrap()
+            .to_luma8()
+            .pixels()
+            .filter(|p| p[0] < 40)
+            .count()
+    };
+    // 35 × 12 mm of black more with the picture: about 14,600 px at 150 dpi.
+    let more = dark(&with_picture[0]) - dark(&without[0]);
+    assert!((12_000..17_000).contains(&more), "{more}");
 }
 
 #[test]
