@@ -30,7 +30,7 @@ pub(crate) struct Facts {
     pub has_venue: bool,
     pub has_address: bool,
     pub designed: bool,
-    /// Images of the latest design (art and sponsors' logos), and how many are flagged or
+    /// Images of the latest design (art, sponsors' logos and photos), and how many are flagged or
     /// refused (ADR 0042).
     pub images: i64,
     pub flagged: i64,
@@ -108,14 +108,16 @@ pub(crate) async fn facts(pool: &PgPool, ids: &[Uuid]) -> ApiResult<HashMap<Uuid
                   exists(select 1 from organization_profiles p where p.organization_id = e.organization_id
                          and (p.whatsapp is not null or p.contact_email is not null)) as "contact!"
            from events e
-           left join lateral (select true as found, t.art_blob_id, t.sponsor_blob_ids
+           left join lateral (select true as found, t.art_blob_id, t.sponsor_blob_ids, t.photo_blob_ids,
+                                     t.stub_image_blob_id
                               from ticket_designs t where t.event_id = e.id
                               order by t.version desc limit 1) d on true
            left join lateral (select count(*) as images,
                                      count(*) filter (where b.moderation_status = 'flagged') as flagged,
                                      count(*) filter (where b.moderation_status = 'rejected') as rejected
                               from blobs b
-                              where b.id = d.art_blob_id or b.id = any(d.sponsor_blob_ids)) art on true
+                              where b.id = d.art_blob_id or b.id = any(d.sponsor_blob_ids)
+                                 or b.id = any(d.photo_blob_ids) or b.id = d.stub_image_blob_id) art on true
            where e.id = any($1)"#,
         ids
     )

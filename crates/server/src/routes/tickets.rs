@@ -1457,7 +1457,13 @@ async fn render_image(
     )
     .fetch_one(&state.pool)
     .await?;
-    let (design, art, sponsors) = jobs::current_design(state, link.event_id).await?;
+    let jobs::SavedDesign {
+        design,
+        art,
+        sponsors,
+        photos,
+        stub_image,
+    } = jobs::current_design(state, link.event_id).await?;
     let tags = super::categories::NumberTags::load(&state.pool, link.event_id).await?;
     let number = i32::try_from(ticket.header().number.get()).unwrap_or(i32::MAX);
     let job = RenderJob {
@@ -1466,6 +1472,8 @@ async fn render_image(
         design,
         art,
         sponsors,
+        photos,
+        stub_image,
         event_name: event.name,
         tickets: vec![TicketToRender {
             qr: TicketQr::Signed(ticket),

@@ -1,10 +1,10 @@
 "use client";
 
-import type { FontChoice, NumberStyle, QrPlacement, TextAlign, TextBlock } from "@ingressoimpresso/api-types";
-import { AlignCenter, AlignLeft, AlignRight, ArrowDown, ArrowUp, Copy, Trash2, type LucideIcon } from "lucide-react";
+import type { FontChoice, NumberStyle, PhotoFit, PhotoLayer, PhotoShape, QrPlacement, TextAlign, TextBlock } from "@ingressoimpresso/api-types";
+import { AlignCenter, AlignLeft, AlignRight, ArrowDown, ArrowUp, Copy, Crop, Trash2, type LucideIcon } from "lucide-react";
 import { useRef } from "react";
 
-import { Button, Field, Input, NumberInput, Select, Switch } from "@/components/ui";
+import { Button, Field, Input, NumberInput, Select, Switch, segmentTabIndex, segmentedKeys } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { FONTS_WITH_BOLD, MAX_PREFIX_CHARS, MAX_TEXT_CHARS, MAX_TEXT_LINES, MIN_QR_SIZE_MM } from "@/lib/design-rules";
 import { FIELDS } from "@/lib/ticket-fields";
@@ -300,6 +300,101 @@ export function QrInspector({ qr, onChange }: { qr: QrPlacement; onChange: (chan
         <Field label={t.qrSize}>
           <NumberInput value={qr.sizeMm} min={MIN_QR_SIZE_MM} onChange={(sizeMm) => { onChange({ sizeMm }, "qr-box"); }} suffix={commonTexts.mm} />
         </Field>
+      </div>
+    </div>
+  );
+}
+
+const PHOTO_FITS: readonly PhotoFit[] = ["cover", "contain"];
+const PHOTO_SHAPES: readonly PhotoShape[] = ["square", "rounded", "round"];
+
+/** A row of text options as a segmented control (one tab stop, arrows move the choice). */
+function Segmented<T extends string>({ label, options, names, value, onChange }: { label: string; options: readonly T[]; names: Record<T, string>; value: T; onChange: (value: T) => void }) {
+  return (
+    <div role="radiogroup" aria-label={label} onKeyDown={segmentedKeys(options, value, onChange)} className="flex min-h-11 items-stretch gap-0.5 rounded-xl border border-border-strong bg-surface-2 p-1">
+      {options.map((option) => (
+        <button
+          key={option}
+          type="button"
+          role="radio"
+          aria-checked={value === option}
+          tabIndex={segmentTabIndex(options, value, option)}
+          onClick={() => {
+            onChange(option);
+          }}
+          className={cn(
+            "flex-1 rounded-lg px-2 text-sm font-medium transition",
+            value === option ? "bg-surface text-fg shadow-sm ring-1 ring-border" : "text-fg-muted hover:text-fg active:text-fg",
+          )}
+        >
+          {names[option]}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** Editor of a photo over the art (ADR 0121): how it fills its box, its corners, its box. */
+export function PhotoInspector({
+  photo,
+  index,
+  count,
+  canDuplicate,
+  onChange,
+  onOriginalShape,
+  onDuplicate,
+  onRemove,
+  onReorder,
+}: {
+  photo: PhotoLayer;
+  index: number;
+  count: number;
+  canDuplicate: boolean;
+  onChange: (change: Partial<PhotoLayer>, key: string | null) => void;
+  /** Gives the box the image's own proportions; `null` while they are not known. */
+  onOriginalShape: (() => void) | null;
+  onDuplicate: () => void;
+  onRemove: () => void;
+  onReorder: (direction: -1 | 1) => void;
+}) {
+  const t = useEventTexts().design.photos;
+  const d = useEventTexts().design;
+  return (
+    <div className="flex flex-col gap-5">
+      <p className="text-sm text-fg-muted">{t.inspectorHint}</p>
+      <Field label={t.fit}>
+        <Segmented label={t.fit} options={PHOTO_FITS} names={t.fits} value={photo.fit} onChange={(fit) => { onChange({ fit }, null); }} />
+      </Field>
+      <Field label={t.shape}>
+        <Segmented label={t.shape} options={PHOTO_SHAPES} names={t.shapes} value={photo.shape} onChange={(shape) => { onChange({ shape }, null); }} />
+      </Field>
+      {onOriginalShape !== null && (
+        <Button variant="secondary" size="sm" icon={<Crop />} className="self-start" onClick={onOriginalShape}>
+          {t.original}
+        </Button>
+      )}
+      <BoxFields
+        x={photo.xMm}
+        y={photo.yMm}
+        width={photo.widthMm}
+        height={photo.heightMm}
+        onChange={(change) => {
+          onChange(change, `photo-box-${String(index)}`);
+        }}
+      />
+      <div className="flex flex-wrap gap-2 border-t border-border pt-4">
+        <Button variant="secondary" size="sm" icon={<Copy />} disabled={!canDuplicate} onClick={onDuplicate}>
+          {d.duplicate}
+        </Button>
+        <Button variant="secondary" size="sm" icon={<ArrowUp />} disabled={index === count - 1} onClick={() => { onReorder(1); }}>
+          {d.forward}
+        </Button>
+        <Button variant="secondary" size="sm" icon={<ArrowDown />} disabled={index === 0} onClick={() => { onReorder(-1); }}>
+          {d.backward}
+        </Button>
+        <Button variant="danger-ghost" size="sm" icon={<Trash2 />} onClick={onRemove} className="ml-auto">
+          {d.remove}
+        </Button>
       </div>
     </div>
   );

@@ -24,6 +24,14 @@ art: ArtDto | null,
  */
 sponsors: Array<ArtDto>, 
 /**
+ * The image of each photo of the design, in order (ADR 0121).
+ */
+photos: Array<ArtDto>, 
+/**
+ * The image of the stub's picture (ADR 0121).
+ */
+stubImage: ArtDto | null, 
+/**
  * The organization's colour and logo, for the templates in its colours (ADR 0100).
  */
 organization: PublicOrganizationDto, };

@@ -3,7 +3,7 @@
  * (the server checks them again on save). Messages come from `ticketCanvasTexts.issues`.
  */
 
-import type { BandEdge, BandStyle, EventKind, FontChoice, SponsorStrip, TextBlock, TicketDesign } from "@ingressoimpresso/api-types";
+import type { BandEdge, BandStyle, EventKind, FontChoice, PhotoLayer, SponsorStrip, TextBlock, TicketDesign } from "@ingressoimpresso/api-types";
 
 import { forKind } from "@/lib/event-kind";
 import { ticketCanvas as ticketCanvasTexts } from "@/texts/pt-BR/ticket-canvas";
@@ -34,8 +34,14 @@ export const SEAT_BAND_COLOR = "#1f1d2b";
 export const SPONSORS_MIN_MM = [15, 6] as const;
 export const MAX_SPONSOR_LABEL_CHARS = 24;
 export const MAX_SPONSORS = 6;
+/** Most photos over the art and their smallest side (design.rs, ADR 0121). */
+export const MAX_PHOTOS = 4;
+export const PHOTO_MIN_MM = 3;
 const STUB_BASE_HEIGHT_MM = 15.1;
 const STUB_FIELD_HEIGHT_MM = 7.6;
+/** Height of the stub's picture and the gap that comes with it (design.rs, ADR 0121). */
+export const STUB_IMAGE_HEIGHT_MM = [5, 40] as const;
+const STUB_IMAGE_GAP_MM = 1.6;
 /** Usable A4 area for home printing (crates/render/src/layout.rs). */
 const A4_USABLE_MM = [190, 277] as const;
 /** Millimetres per typographic point. */
@@ -68,6 +74,7 @@ export type IssueTarget =
   | { kind: "qr" }
   | { kind: "stub" }
   | { kind: "sponsors" }
+  | { kind: "photo"; index: number }
   | { kind: "text"; index: number };
 
 export interface DesignIssue {
@@ -91,12 +98,14 @@ export function insideBody(design: TicketDesign, x: number, y: number, width: nu
   );
 }
 
-/** Smallest ticket height that leaves room for the stub's fields. */
+/** Smallest ticket height that leaves room for the stub's fields and picture. */
 export function stubMinHeight(design: TicketDesign): number | null {
   if (design.stub === null) {
     return null;
   }
-  return Math.round((STUB_BASE_HEIGHT_MM + STUB_FIELD_HEIGHT_MM * design.stub.fields.length) * 10) / 10;
+  const image = design.stub.image ?? null;
+  const picture = image === null ? 0 : image.heightMm + STUB_IMAGE_GAP_MM;
+  return Math.round((STUB_BASE_HEIGHT_MM + STUB_FIELD_HEIGHT_MM * design.stub.fields.length + picture) * 10) / 10;
 }
 
 /** Whether `width × height` fits an A4 sheet at least once, upright or turned. */
@@ -176,7 +185,10 @@ export function designIssues(design: TicketDesign, kind?: EventKind): DesignIssu
       issues.push({ message: m.stubFields(MAX_STUB_FIELDS, MAX_STUB_FIELD_CHARS), target });
     }
     const minHeight = stubMinHeight(design);
-    if (minHeight !== null && design.heightMm < minHeight) {
+    const image = stub.image ?? null;
+    if (image !== null && !within(image.heightMm, STUB_IMAGE_HEIGHT_MM)) {
+      issues.push({ message: m.stubImage(STUB_IMAGE_HEIGHT_MM), target });
+    } else if (minHeight !== null && design.heightMm < minHeight) {
       issues.push({ message: m.stubTooShort(minHeight), target });
     }
   }
@@ -206,6 +218,18 @@ export function designIssues(design: TicketDesign, kind?: EventKind): DesignIssu
       issues.push({ message: m.bandOverQr, target: { kind: "qr" } });
     }
   }
+  if (design.photos.length > MAX_PHOTOS) {
+    issues.push({ message: m.photos(MAX_PHOTOS, PHOTO_MIN_MM), target: body });
+  }
+  design.photos.forEach((photo, index) => {
+    const target: IssueTarget = { kind: "photo", index };
+    if (!insideBody(design, photo.xMm, photo.yMm, photo.widthMm, photo.heightMm)) {
+      issues.push({ message: m.photoOutside(index + 1), target });
+    }
+    if (photo.widthMm < PHOTO_MIN_MM || photo.heightMm < PHOTO_MIN_MM) {
+      issues.push({ message: m.photos(MAX_PHOTOS, PHOTO_MIN_MM), target });
+    }
+  });
   if (design.texts.length > MAX_TEXT_BLOCKS) {
     issues.push({ message: m.tooManyTexts(MAX_TEXT_BLOCKS), target: body });
   }
@@ -263,6 +287,78 @@ export function effectiveBand(design: TicketDesign): BandStyle | null {
     edges.find((item) => !bandCoversQr(design, item, AUTO_BAND_MM) && !bandCoversSponsors(design, item, AUTO_BAND_MM)) ??
     edges.find((item) => !bandCoversQr(design, item, AUTO_BAND_MM));
   return edge === undefined ? null : { edge, sizeMm: AUTO_BAND_MM };
+}
+
+/** Radius of a photo's corners, from its shape and shorter side (design.rs `corner_radius_mm`). */
+export function photoRadius(photo: PhotoLayer): number {
+  const short = Math.min(photo.widthMm, photo.heightMm);
+  switch (photo.shape) {
+    case "square":
+      return 0;
+    case "rounded":
+      return short * 0.15;
+    case "round":
+      return short / 2;
+  }
+}
+
+/**
+ * A new photo of `aspect` (width ÷ height): half the ticket's height, centred, kept inside the
+ * body. A picture wider than the ticket allows is narrowed and keeps its shape.
+ */
+export function newPhoto(design: TicketDesign, aspect: number): PhotoLayer {
+  const ratio = Number.isFinite(aspect) && aspect > 0 ? aspect : 1;
+  let height = Math.max(PHOTO_MIN_MM, Math.round(design.heightMm * 0.6 * 2) / 2);
+  let width = height * ratio;
+  const room = design.widthMm * 0.6;
+  if (width > room) {
+    width = room;
+    height = Math.max(PHOTO_MIN_MM, width / ratio);
+  }
+  width = Math.max(PHOTO_MIN_MM, Math.round(width * 2) / 2);
+  height = Math.min(design.heightMm, Math.round(height * 2) / 2);
+  return {
+    xMm: Math.round(((design.widthMm - width) / 2) * 2) / 2,
+    yMm: Math.round(((design.heightMm - height) / 2) * 2) / 2,
+    widthMm: width,
+    heightMm: height,
+    fit: "cover",
+    shape: "rounded",
+  };
+}
+
+/** `photo` reshaped to `aspect` (width ÷ height) inside the same box, centred on it. */
+export function photoToAspect(photo: PhotoLayer, aspect: number): PhotoLayer {
+  if (!(Number.isFinite(aspect) && aspect > 0)) {
+    return photo;
+  }
+  const round = (value: number) => Math.round(value * 100) / 100;
+  const fitsWidth = photo.widthMm / photo.heightMm <= aspect;
+  const width = fitsWidth ? photo.widthMm : photo.heightMm * aspect;
+  const height = fitsWidth ? photo.widthMm / aspect : photo.heightMm;
+  return {
+    ...photo,
+    xMm: round(photo.xMm + (photo.widthMm - width) / 2),
+    yMm: round(photo.yMm + (photo.heightMm - height) / 2),
+    widthMm: round(width),
+    heightMm: round(height),
+  };
+}
+
+/** Photos kept inside a body of another size (a template applied): shrunk if needed, pulled in. */
+export function photosInside(photos: readonly PhotoLayer[], design: TicketDesign): PhotoLayer[] {
+  return photos.map((photo) => {
+    const scale = Math.min(1, design.widthMm / photo.widthMm, design.heightMm / photo.heightMm);
+    const widthMm = Math.max(PHOTO_MIN_MM, Math.floor(photo.widthMm * scale * 100) / 100);
+    const heightMm = Math.max(PHOTO_MIN_MM, Math.floor(photo.heightMm * scale * 100) / 100);
+    return {
+      ...photo,
+      widthMm,
+      heightMm,
+      xMm: Math.min(Math.max(0, photo.xMm), Math.max(0, design.widthMm - widthMm)),
+      yMm: Math.min(Math.max(0, photo.yMm), Math.max(0, design.heightMm - heightMm)),
+    };
+  });
 }
 
 /** Black or white, whichever reads better on `color` (render.rs `ink_for`). */

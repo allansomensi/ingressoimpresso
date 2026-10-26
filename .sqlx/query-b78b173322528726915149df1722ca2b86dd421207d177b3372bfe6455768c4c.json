@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into ticket_designs (id, event_id, version, spec, art_blob_id, sponsor_blob_ids, photo_blob_ids,\n                                          stub_image_blob_id)\n               values ($1, $2, 1, $3, $4, $5, $6, $7)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Jsonb",
+        "Uuid",
+        "UuidArray",
+        "UuidArray",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b78b173322528726915149df1722ca2b86dd421207d177b3372bfe6455768c4c"
+}

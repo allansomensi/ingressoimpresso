@@ -390,7 +390,7 @@ const raffle: TicketTemplate = {
       design: design(w, h, p.bg, {
         number: number(4, 2.5, 48, 10.5, "slab", 26, p.ink, "left"),
         qr: [45, 20, 22],
-        stub: { side: "left", widthMm: 25, fields: [...ticketCanvasTexts.defaultStubFields] },
+        stub: { side: "left", widthMm: 25, fields: [...ticketCanvasTexts.defaultStubFields], image: null },
         texts: [
           block("{evento}", 4, 17, 38, 10, { sizePt: 9.5, bold: true, color: p.ink, lines: 2 }),
           block(c.drawDate, 4, 28.5, 38, 4, { sizePt: 7, color: p.muted }),

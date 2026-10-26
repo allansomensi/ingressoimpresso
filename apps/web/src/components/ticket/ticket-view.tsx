@@ -1,6 +1,6 @@
 "use client";
 
-import type { BandStyle, NumberStyle, SponsorStrip, TextAlign, TextBlock, TicketDesign } from "@ingressoimpresso/api-types";
+import type { BandStyle, NumberStyle, PhotoLayer, SponsorStrip, TextAlign, TextBlock, TicketDesign } from "@ingressoimpresso/api-types";
 import {
   useEffect,
   useLayoutEffect,
@@ -33,7 +33,18 @@ import {
   type Guide,
   type TicketElement,
 } from "@/lib/design-selection";
-import { BLEED_MM, FONT_FAMILIES, FONTS_WITH_BOLD, MIN_QR_SIZE_MM, MM_PER_PT, bandRect, effectiveBand, inkFor } from "@/lib/design-rules";
+import {
+  BLEED_MM,
+  FONT_FAMILIES,
+  FONTS_WITH_BOLD,
+  MIN_QR_SIZE_MM,
+  MM_PER_PT,
+  PHOTO_MIN_MM,
+  bandRect,
+  effectiveBand,
+  inkFor,
+  photoRadius,
+} from "@/lib/design-rules";
 import { ticketNumber } from "@/lib/format";
 import { random } from "@/lib/templates/svg";
 import { blockValue, type EventFields } from "@/lib/ticket-fields";
@@ -251,6 +262,8 @@ export function TicketView({
   onChange,
   tag = null,
   sponsorUrls = [],
+  photoUrls = [],
+  stubImageUrl = null,
 }: {
   design: TicketDesign;
   event: EventFields;
@@ -273,6 +286,10 @@ export function TicketView({
   tag?: { text: string; color: string; category?: string | null; priceCents?: number | null } | null;
   /** Object URLs of the sponsors' logos, in order (ADR 0059). */
   sponsorUrls?: readonly string[];
+  /** Object URL of each photo's image, by position (`undefined` while it loads, ADR 0121). */
+  photoUrls?: readonly (string | undefined)[];
+  /** Object URL of the stub's picture, when the stub has one (ADR 0121). */
+  stubImageUrl?: string | null;
 }) {
   // `{categoria}` prints the ticket's category, known here from its band (ADR 0084), and `{preco}`
   // its own price when it has one, as the printed file does (`category_texts`, ADR 0080).
@@ -417,12 +434,13 @@ export function TicketView({
       const size = clamp(roundTo(start.width + Math.max(dx, dy), GRID_MM), MIN_QR_SIZE_MM, Math.min(design.widthMm - start.x, design.heightMm - start.y));
       box = { ...start, width: size, height: size };
     } else {
+      const least = element.kind === "photo" ? PHOTO_MIN_MM : 2;
       let width = roundTo(start.width + dx, GRID_MM);
       let height = roundTo(start.height + dy, GRID_MM);
       if (guides) {
         ({ width, height } = snapResize({ ...start, width, height }, current.targets, area, threshold));
       }
-      box = { ...start, width: roundMm(clamp(width, 2, design.widthMm - start.x)), height: roundMm(clamp(height, 2, design.heightMm - start.y)) };
+      box = { ...start, width: roundMm(clamp(width, least, design.widthMm - start.x)), height: roundMm(clamp(height, least, design.heightMm - start.y)) };
     }
     setDragView({ mode: "resize", box, guides: guides && element.kind !== "qr" ? guidesFor(box, current.targets, area, "end") : [] });
     onChange([{ element, box }], current.gesture);
@@ -534,6 +552,21 @@ export function TicketView({
   const q = design.qr;
   const stub = design.stub;
   const stubX = stub?.side === "left" ? 0 : design.widthMm;
+  const stubImage = stub?.image ?? null;
+  // The stub's picture across its width (ticket.typ `stub`); a grey block while it loads.
+  const stubPicture = stubImage !== null && (
+    <div
+      className={cn("shrink-0 overflow-hidden", stubImage.position === "bottom" && stub?.fields.length === 0 && "mt-auto")}
+      style={{ height: u(stubImage.heightMm) }}
+    >
+      {stubImageUrl === null ? (
+        <span className="block size-full bg-black/10" />
+      ) : (
+        // eslint-disable-next-line @next/next/no-img-element -- object URL of the stub's uploaded picture
+        <img src={stubImageUrl} alt="" draggable={false} className="pointer-events-none size-full max-w-none" style={{ objectFit: stubImage.fit }} />
+      )}
+    </div>
+  );
 
   return (
     <div
@@ -558,6 +591,15 @@ export function TicketView({
       </div>
       {/* The editor finds the body by this attribute to turn marquee pixels into millimetres. */}
       <div className="absolute inset-y-0" style={{ left: u(bodyX), width: u(design.widthMm) }} data-ticket-body={editable ? "" : undefined}>
+        {/* Photos lie over the art and under everything else, as printed (ticket.typ `photo`). */}
+        {design.photos.map((photo, index) =>
+          frame(
+            { kind: "photo", index },
+            { x: photo.xMm, y: photo.yMm, width: photo.widthMm, height: photo.heightMm },
+            <Photo photo={photo} url={photoUrls[index]} u={u} />,
+            t.photoElement(index + 1),
+          ),
+        )}
         {design.texts.map((block, index) => {
           const value = blockValue(block, fields);
           const element: TicketElement = { kind: "text", index };
@@ -601,6 +643,7 @@ export function TicketView({
             className="absolute inset-y-0 flex flex-col overflow-hidden bg-white text-black"
             style={{ left: u(stubX), width: u(stub.widthMm), padding: u(2.5), gap: u(1.6), fontFamily: FONT_FAMILIES.sans, fontSize: pt(6.5) }}
           >
+            {stubImage?.position === "top" && stubPicture}
             <div style={{ height: u(4) }}>
               <FitText
                 value={tag === null ? label : `${label} · ${tag.text}`}
@@ -620,6 +663,7 @@ export function TicketView({
                 <span className="block" style={{ borderBottom: `${pt(0.4)} solid #787878` }} />
               </div>
             ))}
+            {stubImage?.position === "bottom" && stubPicture}
           </div>
           <div
             className="absolute inset-y-0"
@@ -653,6 +697,20 @@ function Band({ design, band, tag, u }: { design: TicketDesign; band: BandStyle;
           style={{ fontFamily: FONT_FAMILIES.sans, fontWeight: 700, fontSize: u(band.sizeMm * 0.5), color: inkFor(tag.color), letterSpacing: "0.04em" }}
         />
       </div>
+    </div>
+  );
+}
+
+/** A photo (ticket.typ `photo`): the image fitted to its box and clipped to its corners. */
+function Photo({ photo, url, u }: { photo: PhotoLayer; url: string | undefined; u: (mm: number) => string }) {
+  return (
+    <div className="size-full overflow-hidden" style={{ borderRadius: u(photoRadius(photo)) }}>
+      {url === undefined ? (
+        <span className="block size-full animate-pulse bg-black/15" />
+      ) : (
+        // eslint-disable-next-line @next/next/no-img-element -- object URL of an uploaded photo
+        <img src={url} alt="" draggable={false} className="pointer-events-none size-full max-w-none" style={{ objectFit: photo.fit }} />
+      )}
     </div>
   );
 }

@@ -27,6 +27,9 @@ const MAX_STUB_FIELD_CHARS: usize = 24;
 const STUB_BASE_HEIGHT_MM: f64 = 15.1;
 /// Height of each stub field: gap, label and room to write by hand above the line.
 const STUB_FIELD_HEIGHT_MM: f64 = 7.6;
+/// Height of the stub's image (ADR 0121), and the gap that comes with it (ticket.typ `stub`).
+const STUB_IMAGE_HEIGHT_MM: (f64, f64) = (5.0, 40.0);
+const STUB_IMAGE_GAP_MM: f64 = 1.6;
 const MAX_TEXT_BLOCKS: usize = 8;
 const MAX_TEXT_CHARS: usize = 200;
 const TEXT_SIZE_PT: (f64, f64) = (3.0, 200.0);
@@ -40,6 +43,10 @@ const MAX_SPONSOR_LABEL_CHARS: usize = 24;
 pub const MAX_SPONSORS: usize = 6;
 /// Size of the band placed by [`TicketDesign::effective_band`] when the design has none.
 pub const AUTO_BAND_MM: f64 = 6.0;
+/// Most photos laid over a ticket's art (ADR 0121).
+pub const MAX_PHOTOS: usize = 4;
+/// Smallest side of a photo.
+const PHOTO_MIN_MM: f64 = 3.0;
 
 /// A ticket design.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -76,6 +83,77 @@ pub struct TicketDesign {
     /// art, by id.
     #[serde(default)]
     pub sponsors: Option<SponsorStrip>,
+    /// Photos laid over the art, under the texts (ADR 0121); like the sponsors' logos, the
+    /// images travel beside the design, one per photo and in the same order.
+    #[serde(default)]
+    pub photos: Vec<PhotoLayer>,
+}
+
+/// A photo or picture placed on the body, over the art and under the texts, number and QR.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[cfg_attr(
+    feature = "ts",
+    derive(ts_rs::TS),
+    ts(export, export_to = "api-types/src/generated/")
+)]
+pub struct PhotoLayer {
+    /// Left edge.
+    pub x_mm: f64,
+    /// Top edge.
+    pub y_mm: f64,
+    /// Width.
+    pub width_mm: f64,
+    /// Height.
+    pub height_mm: f64,
+    /// How the image fills its box.
+    pub fit: PhotoFit,
+    /// Shape of the corners.
+    pub shape: PhotoShape,
+}
+
+/// How a photo fills its box.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(
+    feature = "ts",
+    derive(ts_rs::TS),
+    ts(export, export_to = "api-types/src/generated/")
+)]
+pub enum PhotoFit {
+    /// Fills the whole box, cutting what goes past it.
+    Cover,
+    /// Shows the whole image inside the box (a logo, a drawing with a transparent background).
+    Contain,
+}
+
+/// Corners of a photo.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(
+    feature = "ts",
+    derive(ts_rs::TS),
+    ts(export, export_to = "api-types/src/generated/")
+)]
+pub enum PhotoShape {
+    /// Square corners.
+    Square,
+    /// Rounded corners: 15% of the shorter side.
+    Rounded,
+    /// Round: a circle in a square box, a pill otherwise (half the shorter side).
+    Round,
+}
+
+impl PhotoLayer {
+    /// Radius of the corners, from the shape and the shorter side (ticket.typ `photo`).
+    pub fn corner_radius_mm(&self) -> f64 {
+        let short = self.width_mm.min(self.height_mm);
+        match self.shape {
+            PhotoShape::Square => 0.0,
+            PhotoShape::Rounded => short * 0.15,
+            PhotoShape::Round => short / 2.0,
+        }
+    }
 }
 
 /// Where the sponsors' logos go: side by side, centred, each fitted to the strip's height.
@@ -286,6 +364,42 @@ pub struct StubStyle {
     pub width_mm: f64,
     /// Blank fields to fill by hand, e.g. `["Nome", "Telefone"]`.
     pub fields: Vec<String>,
+    /// A picture across the stub (ADR 0121), its image travelling beside the design. Designs
+    /// saved before it existed have none.
+    #[serde(default)]
+    pub image: Option<StubImage>,
+}
+
+/// A picture across the whole width of the stub, above its number or below its fields.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[cfg_attr(
+    feature = "ts",
+    derive(ts_rs::TS),
+    ts(export, export_to = "api-types/src/generated/")
+)]
+pub struct StubImage {
+    /// Above the number or below the fields.
+    pub position: StubImagePosition,
+    /// Height; the width is the stub's, inside its margins.
+    pub height_mm: f64,
+    /// How the image fills its strip.
+    pub fit: PhotoFit,
+}
+
+/// Where the stub's picture goes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(
+    feature = "ts",
+    derive(ts_rs::TS),
+    ts(export, export_to = "api-types/src/generated/")
+)]
+pub enum StubImagePosition {
+    /// At the top, above the number.
+    Top,
+    /// At the bottom, below the fields.
+    Bottom,
 }
 
 /// Stub side.
@@ -428,6 +542,22 @@ pub enum DesignIssue {
         /// Maximum text length.
         max_chars: usize,
     },
+    /// The stub's picture is too short or too tall.
+    #[error("the stub's picture must be {min}–{max} mm tall")]
+    StubImage {
+        /// Minimum.
+        min: f64,
+        /// Maximum.
+        max: f64,
+    },
+    /// Too many photos, or one too small.
+    #[error("a ticket accepts up to {max} photos of at least {min_mm} mm")]
+    Photos {
+        /// Most photos.
+        max: usize,
+        /// Smallest side.
+        min_mm: f64,
+    },
 }
 
 impl TicketDesign {
@@ -459,10 +589,12 @@ impl TicketDesign {
                 side: StubSide::Left,
                 width_mm: 40.0,
                 fields: vec!["Nome".to_owned(), "Telefone".to_owned()],
+                image: None,
             }),
             texts: Vec::new(),
             band: None,
             sponsors: None,
+            photos: Vec::new(),
         }
     }
 
@@ -540,6 +672,7 @@ impl TicketDesign {
                 size_mm: 5.0,
             }),
             sponsors: None,
+            photos: Vec::new(),
         }
     }
 
@@ -621,12 +754,17 @@ impl TicketDesign {
         self.width_mm + self.stub_width_mm()
     }
 
-    /// Smallest ticket height that leaves room to write in every stub field, or `None`
-    /// without a stub.
+    /// Smallest ticket height that leaves room to write in every stub field (and for the
+    /// stub's picture), or `None` without a stub.
     pub fn stub_min_height_mm(&self) -> Option<f64> {
         #[expect(clippy::cast_precision_loss, reason = "at most a handful of fields")]
         self.stub.as_ref().map(|stub| {
-            let height = STUB_BASE_HEIGHT_MM + STUB_FIELD_HEIGHT_MM * stub.fields.len() as f64;
+            let image = stub
+                .image
+                .as_ref()
+                .map_or(0.0, |image| image.height_mm + STUB_IMAGE_GAP_MM);
+            let height =
+                STUB_BASE_HEIGHT_MM + STUB_FIELD_HEIGHT_MM * stub.fields.len() as f64 + image;
             // Whole tenths of a millimetre, as shown in the editor.
             (height * 10.0).round() / 10.0
         })
@@ -677,6 +815,7 @@ impl TicketDesign {
         if let Some(strip) = &self.sponsors {
             self.validate_sponsors(strip, &mut issues);
         }
+        self.validate_photos(&mut issues);
         if let Some(stub) = &self.stub {
             if !within(stub.width_mm, STUB_WIDTH_MM) {
                 issues.push(DesignIssue::StubWidth {
@@ -695,7 +834,16 @@ impl TicketDesign {
                     max_chars: MAX_STUB_FIELD_CHARS,
                 });
             }
-            if let Some(min_height_mm) = self.stub_min_height_mm()
+            if stub
+                .image
+                .as_ref()
+                .is_some_and(|image| !within(image.height_mm, STUB_IMAGE_HEIGHT_MM))
+            {
+                issues.push(DesignIssue::StubImage {
+                    min: STUB_IMAGE_HEIGHT_MM.0,
+                    max: STUB_IMAGE_HEIGHT_MM.1,
+                });
+            } else if let Some(min_height_mm) = self.stub_min_height_mm()
                 && self.height_mm < min_height_mm
             {
                 issues.push(DesignIssue::StubTooShort { min_height_mm });
@@ -813,6 +961,26 @@ impl TicketDesign {
         }
     }
 
+    fn validate_photos(&self, issues: &mut Vec<DesignIssue>) {
+        let photos = &self.photos;
+        if photos
+            .iter()
+            .any(|p| !self.contains(p.x_mm, p.y_mm, p.width_mm, p.height_mm))
+        {
+            issues.push(DesignIssue::OutOfBounds { element: "photo" });
+        }
+        if photos.len() > MAX_PHOTOS
+            || photos
+                .iter()
+                .any(|p| p.width_mm < PHOTO_MIN_MM || p.height_mm < PHOTO_MIN_MM)
+        {
+            issues.push(DesignIssue::Photos {
+                max: MAX_PHOTOS,
+                min_mm: PHOTO_MIN_MM,
+            });
+        }
+    }
+
     /// Whether the box lies inside the body. Rejects NaN and infinities.
     fn contains(&self, x: f64, y: f64, width: f64, height: f64) -> bool {
         [x, y, width, height].iter().all(|value| value.is_finite())
@@ -915,6 +1083,7 @@ mod tests {
             side: StubSide::Right,
             width_mm: 10.0,
             fields: vec!["a".to_owned(); 5],
+            image: None,
         });
         assert_eq!(design.validate().unwrap_err().len(), 2);
     }
@@ -1058,12 +1227,104 @@ mod tests {
         assert_eq!(design.validate().unwrap_err().len(), 2);
     }
 
+    fn photo() -> PhotoLayer {
+        PhotoLayer {
+            x_mm: 70.0,
+            y_mm: 10.0,
+            width_mm: 30.0,
+            height_mm: 40.0,
+            fit: PhotoFit::Cover,
+            shape: PhotoShape::Rounded,
+        }
+    }
+
+    #[test]
+    fn photos_stay_inside_and_are_counted() {
+        let mut design = TicketDesign::default_v1();
+        design.photos = vec![photo()];
+        assert_eq!(design.validate(), Ok(()));
+        // Over the QR is fine: the QR is printed on top of the photos.
+        design.photos[0].x_mm = 110.0;
+        assert_eq!(design.validate(), Ok(()));
+        design.photos[0].x_mm = 130.0;
+        assert_eq!(
+            design.validate(),
+            Err(vec![DesignIssue::OutOfBounds { element: "photo" }])
+        );
+        design.photos = vec![photo(); MAX_PHOTOS + 1];
+        assert!(matches!(
+            design.validate().unwrap_err().as_slice(),
+            [DesignIssue::Photos { .. }]
+        ));
+        let mut tiny = photo();
+        tiny.width_mm = 2.0;
+        design.photos = vec![tiny];
+        assert!(matches!(
+            design.validate().unwrap_err().as_slice(),
+            [DesignIssue::Photos { .. }]
+        ));
+    }
+
+    #[test]
+    fn photo_corners_follow_the_shorter_side() {
+        let mut layer = photo();
+        assert!((layer.corner_radius_mm() - 4.5).abs() < 1e-9);
+        layer.shape = PhotoShape::Round;
+        assert!((layer.corner_radius_mm() - 15.0).abs() < 1e-9);
+        layer.shape = PhotoShape::Square;
+        assert!(layer.corner_radius_mm().abs() < 1e-9);
+        let json = serde_json::to_value(&layer).unwrap();
+        assert_eq!(json["fit"], "cover");
+        assert_eq!(json["shape"], "square");
+    }
+
+    #[test]
+    fn the_stub_picture_takes_its_height() {
+        let mut design = TicketDesign::default_v1();
+        if let Some(stub) = design.stub.as_mut() {
+            stub.image = Some(StubImage {
+                position: StubImagePosition::Top,
+                height_mm: 20.0,
+                fit: PhotoFit::Cover,
+            });
+        }
+        // 15.1 + 2 × 7.6 + 20 + 1.6 = 51.9 mm: the default 55 mm still fits.
+        assert_eq!(design.stub_min_height_mm(), Some(51.9));
+        assert_eq!(design.validate(), Ok(()));
+        design.height_mm = 50.0;
+        design.qr.y_mm = 10.0;
+        assert_eq!(
+            design.validate(),
+            Err(vec![DesignIssue::StubTooShort {
+                min_height_mm: 51.9
+            }])
+        );
+        if let Some(image) = design.stub.as_mut().and_then(|stub| stub.image.as_mut()) {
+            image.height_mm = 4.0;
+        }
+        assert_eq!(
+            design.validate(),
+            Err(vec![DesignIssue::StubImage {
+                min: STUB_IMAGE_HEIGHT_MM.0,
+                max: STUB_IMAGE_HEIGHT_MM.1
+            }])
+        );
+        let json = serde_json::to_value(TicketDesign::default_v1()).unwrap();
+        let mut old = json.clone();
+        old["stub"].as_object_mut().unwrap().remove("image");
+        assert_eq!(
+            serde_json::from_value::<TicketDesign>(old).unwrap(),
+            TicketDesign::default_v1()
+        );
+    }
+
     #[test]
     fn designs_without_texts_still_load() {
         let mut json = serde_json::to_value(TicketDesign::default_v1()).unwrap();
         json.as_object_mut().unwrap().remove("texts");
         json.as_object_mut().unwrap().remove("band");
         json.as_object_mut().unwrap().remove("sponsors");
+        json.as_object_mut().unwrap().remove("photos");
         let design: TicketDesign = serde_json::from_value(json).unwrap();
         assert_eq!(design, TicketDesign::default_v1());
     }
