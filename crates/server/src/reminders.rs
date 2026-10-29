@@ -1,6 +1,7 @@
-//! E-mails that bring people back (ADR 0118): an account that never made an event (two days
-//! after, and once more a week later), an event that stopped before its tickets, a door not set
-//! up days before the event, and "how did it go?" after it. Each goes once per account (and
+//! E-mails that bring people back (ADR 0118): an account that never made an event (the day
+//! after, ADR 0122, and once more a week later), an event that stopped before its tickets, a batch
+//! left at the checkout (ADR 0122), a door not set up days before the event, and "how did it go?"
+//! after it. Each goes once per account (and
 //! event), between 9h and 20h in Brasília, only with what the day's quota leaves after codes and
 //! announcements, and never to someone who turned them off (`users.reminder_emails`).
 
@@ -21,12 +22,15 @@ const SEND_HOURS: std::ops::RangeInclusive<u8> = 9..=19;
 /// What a reminder is about.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ReminderKind {
-    /// An account two days old with no event.
+    /// An account a day old with no event (two days before ADR 0122).
     NoEventFirst,
     /// The same, a week after the first one.
     NoEventSecond,
     /// An event three days old with no tickets generated, the event still ahead.
     EventStalled,
+    /// A batch ordered and left unpaid for a day, nothing pending at Stripe, the event still
+    /// ahead (ADR 0122).
+    UnpaidBatch,
     /// Tickets out, the event within three days and no door link yet.
     DoorSetup,
     /// The event ended (half a day to three days ago) with tickets out.
@@ -39,6 +43,7 @@ impl ReminderKind {
             Self::NoEventFirst => "no_event_first",
             Self::NoEventSecond => "no_event_second",
             Self::EventStalled => "event_stalled",
+            Self::UnpaidBatch => "unpaid_batch",
             Self::DoorSetup => "door_setup",
             Self::AfterEvent => "after_event",
         }
@@ -166,14 +171,29 @@ async fn candidates(state: &AppState, limit: i64) -> ApiResult<Vec<Candidate>> {
                  and exists (select 1 from ticket_batches b where b.event_id = e.id and b.status = 'paid')
                  and not exists (select 1 from door_accesses d where d.event_id = e.id and d.revoked_at is null)
                union all
-               select 'event_stalled', 1
+               select 'unpaid_batch', 1
+               where e.starts_at > now() + interval '1 day'
+                 and not exists (select 1 from ticket_batches b where b.event_id = e.id
+                                 and b.status in ('paid', 'refunded'))
+                 and exists (select 1 from ticket_batches b where b.event_id = e.id
+                             and b.status = 'awaiting_payment' and b.price_cents > 0
+                             and b.created_at < now() - interval '1 day'
+                             and not exists (select 1 from payments p where p.batch_id = b.id
+                                             and (p.status = 'processing'
+                                                  or (p.status = 'open' and p.expires_at > now())
+                                                  or p.created_at > now() - interval '1 day')))
+               union all
+               select 'event_stalled', 2
                where e.created_at < now() - interval '3 days'
                  and e.starts_at > now() + interval '1 day'
                  and coalesce(u.last_login_at, u.created_at) < now() - interval '2 days'
                  and not exists (select 1 from ticket_batches b where b.event_id = e.id
                                  and b.status in ('paid', 'refunded'))
+                 -- A batch waiting for its payment has its own reminder.
+                 and not exists (select 1 from ticket_batches b where b.event_id = e.id
+                                 and b.status = 'awaiting_payment' and b.price_cents > 0)
                union all
-               select 'after_event', 2
+               select 'after_event', 3
                where e.ends_at between now() - interval '3 days' and now() - interval '12 hours'
                  and exists (select 1 from ticket_batches b where b.event_id = e.id and b.status = 'paid')
              ) k
@@ -191,6 +211,7 @@ async fn candidates(state: &AppState, limit: i64) -> ApiResult<Vec<Candidate>> {
         let kind = match row.kind.as_str() {
             "door_setup" => ReminderKind::DoorSetup,
             "event_stalled" => ReminderKind::EventStalled,
+            "unpaid_batch" => ReminderKind::UnpaidBatch,
             _ => ReminderKind::AfterEvent,
         };
         out.push(Candidate {
@@ -217,7 +238,7 @@ async fn candidates(state: &AppState, limit: i64) -> ApiResult<Vec<Candidate>> {
                          and r.kind = 'no_event_first') as "had_first!"
            from users u
            where u.reminder_emails
-             and u.created_at < now() - interval '2 days'
+             and u.created_at < now() - interval '1 day'
              and not exists (select 1 from memberships m join events e on e.organization_id = m.organization_id
                              where m.user_id = u.id)
              and not exists (select 1 from event_team t where t.user_id = u.id)
@@ -397,6 +418,29 @@ fn content(site: &str, candidate: &Candidate, free: i32) -> Content {
             event_url("visao-geral"),
             Some("O card O que falta, na página do evento, mostra o próximo passo."),
         ),
+        (ReminderKind::UnpaidBatch, Some(event)) => {
+            let what = if event.tokens { "fichas" } else { "ingressos" };
+            (
+                format!("{}: o lote de {what} está esperando o pagamento", event.name),
+                "Falta só o pagamento".to_owned(),
+                vec![
+                    format!(
+                        "Você pediu um lote de {what} para {}, que é {}, mas o pagamento não foi concluído.",
+                        event.name,
+                        when(event)
+                    ),
+                    format!("Os números continuam reservados para você: pagando, os arquivos com os {what} ficam prontos em minutos."),
+                ],
+                vec![
+                    ("Abra o lote", "Na seção Lotes do evento."),
+                    ("Pague com Pix ou cartão", "O pagamento é confirmado na hora."),
+                    ("Gere e imprima", "Em casa, na gráfica ou pelo celular."),
+                ],
+                "Pagar o lote",
+                event_url("lotes"),
+                Some("Teve algum problema para pagar? É só responder este e-mail."),
+            )
+        }
         (ReminderKind::DoorSetup, Some(event)) => (
             format!("{}: prepare a portaria", event.name),
             "Falta preparar a portaria".to_owned(),

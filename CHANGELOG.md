@@ -12,6 +12,28 @@ e não acompanha estes números.
 
 ## [Não lançado]
 
+### Adicionado
+
+- Primeiros passos no painel: quem ainda não tem evento vê os três passos até o ingresso e escolhe
+  o tipo de evento (show, festa, formatura, escola, igreja, rifa, esporte ou fichas). O primeiro
+  evento abre direto no ingresso, com os modelos daquele tipo, e o modelo escolhido já fica salvo
+  (ADR 0122).
+- Lembrete por e-mail para quem pediu um lote e não terminou de pagar, um dia depois, com o botão
+  para pagar (ADR 0122).
+- Lotes do admin dizem quando o organizador largou o pagamento na Stripe e quando nem chegou a
+  abrir, com a data do último checkout (ADR 0122).
+
+### Alterado
+
+- As boas-vindas do painel começam por "Criar meu primeiro evento"; o tour do painel continua em
+  "Conhecer o painel" (ADR 0122).
+- O lembrete para quem criou a conta e não criou um evento sai um dia depois, não dois (ADR 0122).
+
+### Corrigido
+
+- Campos numéricos com unidade ("ingressos", "pessoas", "mm") mostravam a unidade por cima das
+  setas do campo e do número; agora a unidade fica ao lado.
+
 ## [1.17.0] - 2026-10-26
 
 ### Adicionado

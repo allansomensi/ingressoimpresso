@@ -341,6 +341,7 @@ export function TemplateGallery({
   applying,
   brandColor = null,
   logo = null,
+  initialCategory = null,
   onApply,
 }: {
   open: boolean;
@@ -354,10 +355,12 @@ export function TemplateGallery({
   brandColor?: string | null;
   /** The organization's logo as a data URL, when it has one. */
   logo?: string | null;
+  /** The category it opens on (the kind of a first event, ADR 0122); every template when `null`. */
+  initialCategory?: TemplateCategory | null;
   /** `logo` is the one to lay on the art, or `null`. */
   onApply: (template: TicketTemplate, palette: Palette, logo: string | null) => void;
 }) {
-  const [category, setCategory] = useState<TemplateCategory | null>(kind === "tokens" ? "tokens" : null);
+  const [category, setCategory] = useState<TemplateCategory | null>(kind === "tokens" ? "tokens" : initialCategory);
   const [source, setSource] = useState<ColorSource>("template");
   const [logoOn, setLogoOn] = useState(true);
   const organizationColors = useOrganizationColors(brandColor, logo);

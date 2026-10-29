@@ -700,6 +700,9 @@ export function AdminBatches() {
         </div>
         <SearchBox value={query} onChange={setQuery} />
       </div>
+      {filter === "awaiting_payment" && (
+        <p className="text-sm text-fg-muted">{t.batches.awaitingHint}</p>
+      )}
       {batches.isPending ? (
         <LoadingBlock rows={4} />
       ) : batches.isError ? (
@@ -709,7 +712,7 @@ export function AdminBatches() {
       ) : (
         <List className={cn(batches.isPlaceholderData && "opacity-60")}>
           {batches.data.map(
-            ({ batch, eventId, eventName, organizationName, ownerEmail }) => {
+            ({ batch, eventId, eventName, organizationName, ownerEmail, lastCheckoutAt }) => {
               const quantity = batch.last - batch.first + 1;
               const payable =
                 batch.status === "awaiting_payment" &&
@@ -727,12 +730,18 @@ export function AdminBatches() {
                       {batch.paidVia !== null && batch.status === "paid" && (
                         <Badge tone="neutral">{b.paidVia[batch.paidVia]}</Badge>
                       )}
-                      {batch.pendingPayment !== null &&
-                        batch.status === "awaiting_payment" && (
+                      {batch.status === "awaiting_payment" &&
+                        (batch.pendingPayment !== null ? (
                           <Badge tone="brand">
                             {b.pendingState[batch.pendingPayment]}
                           </Badge>
-                        )}
+                        ) : (
+                          <Badge tone="neutral">
+                            {lastCheckoutAt === null
+                              ? t.batches.notStarted
+                              : t.batches.abandoned}
+                          </Badge>
+                        ))}
                     </span>
                     <span className="truncate text-sm text-fg-muted">
                       {organizationName}
@@ -748,6 +757,14 @@ export function AdminBatches() {
                           {t.batches.paid(shortDateTime(batch.paidAt))}
                         </span>
                       )}
+                      {batch.status === "awaiting_payment" &&
+                        lastCheckoutAt !== null && (
+                          <span>
+                            {t.batches.lastCheckout(
+                              shortDateTime(lastCheckoutAt),
+                            )}
+                          </span>
+                        )}
                       {batch.refundedAt !== null && (
                         <span>
                           {t.batches.refundedAt(

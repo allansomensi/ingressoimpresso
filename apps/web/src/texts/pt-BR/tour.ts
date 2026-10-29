@@ -19,7 +19,9 @@ export const tour = {
       { title: "Gere e distribua", body: "Imprima em casa ou na gráfica, ou mande pelo WhatsApp." },
       { title: "Confira na porta", body: "Qualquer celular lê o QR, até sem internet." },
     ],
-    start: "Começar o tour",
+    // Creating the first event comes first; the tour of the panel is the second choice (ADR 0122).
+    create: "Criar meu primeiro evento",
+    start: "Conhecer o painel",
     later: "Agora não",
   },
   newEvent: {

@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { EventFormDialog } from "@/components/panel/event-form";
+import { FirstEvent, type FirstEventStart } from "@/components/panel/first-event";
 import { MissingBadge, PhaseBadge } from "@/components/panel/event-phase";
 import { Badge, Button, EmptyState, ErrorMessage, PageHeader, Skeleton } from "@/components/ui";
 import { api } from "@/lib/api";
@@ -208,6 +209,8 @@ export default function EventsPage() {
   const router = useRouter();
   const events = useQuery({ queryKey: ["events"], queryFn: () => api<EventDto[]>("/api/events") });
   const [creating, setCreating] = useState(false);
+  // The quick start picked on the first event (ADR 0122); `null` for any other new event.
+  const [start, setStart] = useState<FirstEventStart | null>(null);
   const [showArchived, setShowArchived] = useState(false);
   const now = events.dataUpdatedAt;
   const archived = events.data?.filter((event) => event.status === "closed") ?? [];
@@ -222,6 +225,7 @@ export default function EventsPage() {
       // The welcome tour (ADR 0116) points at the header's button and its last step presses it.
       data-tour={tour ? "new-event" : undefined}
       onClick={() => {
+        setStart(null);
         setCreating(true);
       }}
     >
@@ -241,7 +245,12 @@ export default function EventsPage() {
       ) : events.isError ? (
         <ErrorMessage error={events.error} onRetry={() => void events.refetch()} />
       ) : events.data.length === 0 ? (
-        <EmptyState icon={CalendarPlus} title={t.emptyTitle} description={t.empty} action={newButton(false)} />
+        <FirstEvent
+          onStart={(picked) => {
+            setStart(picked);
+            setCreating(true);
+          }}
+        />
       ) : (
         <div className="flex flex-col gap-4">
           {archived.length > 0 && (
@@ -285,8 +294,13 @@ export default function EventsPage() {
         onClose={() => {
           setCreating(false);
         }}
+        preset={start?.preset ?? null}
         onSaved={(event) => {
-          router.push(`/painel/eventos/${event.id}`);
+          // The first event goes straight to its ticket, with the templates open (ADR 0122).
+          const first = events.data?.length === 0;
+          router.push(
+            first ? `/painel/eventos/${event.id}?aba=ingresso&modelos=${start?.category ?? "todos"}` : `/painel/eventos/${event.id}`,
+          );
         }}
       />
     </main>
