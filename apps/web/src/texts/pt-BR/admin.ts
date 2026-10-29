@@ -1216,6 +1216,12 @@ export const admin = {
       all: "Todos",
     },
     empty: "Nenhum lote neste filtro.",
+    // A batch is payable until it is paid or canceled: these say where it stopped (ADR 0122).
+    awaitingHint:
+      "Lotes pedidos e ainda não pagos. Os números ficam reservados e o organizador pode pagar quando quiser; um dia depois de largar o pagamento, ele recebe um lembrete por e-mail.",
+    abandoned: "Largou o pagamento",
+    notStarted: "Pagamento não iniciado",
+    lastCheckout: (date: string) => `Último checkout em ${date}`,
     numbers: (first: number, last: number) =>
       `Nº ${first.toLocaleString("pt-BR")} a ${last.toLocaleString("pt-BR")}`,
     quantity: (count: number) => `${count.toLocaleString("pt-BR")} ingressos`,

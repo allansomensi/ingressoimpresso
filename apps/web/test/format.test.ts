@@ -1,8 +1,15 @@
 import { describe, expect, it } from "vitest";
 
-import { initials, parseMoney, ticketNumber } from "@/lib/format";
+import { initials, parseMoney, phoneLabel, ticketNumber } from "@/lib/format";
 
 describe("format", () => {
+  it("shows Brazilian phones as people read them", () => {
+    expect(phoneLabel("11999990000")).toBe("(11) 99999-0000");
+    expect(phoneLabel("+55 (11) 3333-4444")).toBe("(11) 3333-4444");
+    expect(phoneLabel("+351 912 345 678")).toBe("+351 912 345 678");
+    expect(phoneLabel("ramal 12")).toBe("ramal 12");
+  });
+
   it("parses Brazilian amounts into centavos", () => {
     expect(parseMoney("30")).toEqual({ ok: true, cents: 3000 });
     expect(parseMoney("30,50")).toEqual({ ok: true, cents: 3050 });

@@ -131,3 +131,4 @@ feita e as consequências.
 | [0119](0119-blindagem-segunda-rodada.md) | Blindagem, segunda rodada: abusos sem sessão, dinheiro, portaria e limites | Aceito |
 | [0120](0120-auditoria-de-interface-e-seo.md) | Auditoria de interface e SEO: acessibilidade, estados honestos e páginas indexáveis | Aceito |
 | [0121](0121-fotos-por-cima-do-modelo.md) | Fotos por cima do modelo do ingresso e imagem no canhoto | Aceito |
+| [0122](0122-primeiro-evento-e-lote-largado.md) | Primeiro evento guiado e lote largado no pagamento | Aceito |

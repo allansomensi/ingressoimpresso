@@ -1,0 +1,97 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select kind as \"kind!\", user_id as \"user_id!\", email as \"email!\", event_id as \"event_id!\",\n                  name as \"name!\", starts_at as \"starts_at!\", utc_offset_minutes as \"utc_offset_minutes!\",\n                  tokens as \"tokens!\"\n           from (\n             select distinct on (k.kind, u.id, e.id) k.kind, u.id as user_id, u.email::text as email,\n                    e.id as event_id, e.name, e.starts_at, e.utc_offset_minutes,\n                    e.kind = 'tokens' as tokens, k.priority\n             from events e\n             join organizations o on o.id = e.organization_id and o.suspended_at is null\n             join memberships m on m.organization_id = e.organization_id and m.role = 'owner'\n             join users u on u.id = m.user_id and u.reminder_emails\n             cross join lateral (\n               select 'door_setup' as kind, 0 as priority\n               where e.starts_at between now() + interval '12 hours' and now() + interval '3 days'\n                 and exists (select 1 from ticket_batches b where b.event_id = e.id and b.status = 'paid')\n                 and not exists (select 1 from door_accesses d where d.event_id = e.id and d.revoked_at is null)\n               union all\n               select 'unpaid_batch', 1\n               where e.starts_at > now() + interval '1 day'\n                 and not exists (select 1 from ticket_batches b where b.event_id = e.id\n                                 and b.status in ('paid', 'refunded'))\n                 and exists (select 1 from ticket_batches b where b.event_id = e.id\n                             and b.status = 'awaiting_payment' and b.price_cents > 0\n                             and b.created_at < now() - interval '1 day'\n                             and not exists (select 1 from payments p where p.batch_id = b.id\n                                             and (p.status = 'processing'\n                                                  or (p.status = 'open' and p.expires_at > now())\n                                                  or p.created_at > now() - interval '1 day')))\n               union all\n               select 'event_stalled', 2\n               where e.created_at < now() - interval '3 days'\n                 and e.starts_at > now() + interval '1 day'\n                 and coalesce(u.last_login_at, u.created_at) < now() - interval '2 days'\n                 and not exists (select 1 from ticket_batches b where b.event_id = e.id\n                                 and b.status in ('paid', 'refunded'))\n                 -- A batch waiting for its payment has its own reminder.\n                 and not exists (select 1 from ticket_batches b where b.event_id = e.id\n                                 and b.status = 'awaiting_payment' and b.price_cents > 0)\n               union all\n               select 'after_event', 3\n               where e.ends_at between now() - interval '3 days' and now() - interval '12 hours'\n                 and exists (select 1 from ticket_batches b where b.event_id = e.id and b.status = 'paid')\n             ) k\n             where e.status = 'active' and e.canceled_at is null\n               and not exists (select 1 from reminder_sends r\n                               where r.user_id = u.id and r.kind = k.kind and r.event_id = e.id)\n           ) due\n           order by priority, starts_at\n           limit $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "kind!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "user_id!",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "users",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "email!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "event_id!",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "name!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "starts_at!",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "starts_at"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "utc_offset_minutes!",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "utc_offset_minutes"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "tokens!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null,
+      false,
+      null,
+      false,
+      false,
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "e22da2c954ebae541c89e09a76d1c6c94ca5ff0d97e5c4384837308dac36067c"
+}

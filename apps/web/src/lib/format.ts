@@ -65,6 +65,19 @@ export function ticketNumber(number: number, digits = 4): string {
   return String(number).padStart(digits, "0");
 }
 
+/**
+ * A Brazilian phone as people read it: "11999990000" or "+55 11 99999-0000" → "(11) 99999-0000".
+ * Anything else (another country, a typo) is shown as typed.
+ */
+export function phoneLabel(phone: string): string {
+  const digits = phone.replace(/\D/g, "");
+  const match = /^(?:55)?(\d{2})(\d{4,5})(\d{4})$/.exec(digits);
+  if (match === null) {
+    return phone;
+  }
+  return `(${match[1] ?? ""}) ${match[2] ?? ""}-${match[3] ?? ""}`;
+}
+
 /** Initials for an avatar: "João Silva" → "JS". */
 export function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter((part) => part !== "");

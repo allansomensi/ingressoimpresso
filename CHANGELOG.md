@@ -12,6 +12,30 @@ e não acompanha estes números.
 
 ## [Não lançado]
 
+## [1.18.0] - 2026-10-29
+
+### Adicionado
+
+- Primeiros passos no painel: quem ainda não tem evento vê os três passos até o ingresso e escolhe
+  o tipo de evento (show, festa, formatura, escola, igreja, rifa, esporte ou fichas). O primeiro
+  evento abre direto no ingresso, com os modelos daquele tipo, e o modelo escolhido já fica salvo
+  (ADR 0122).
+- Lembrete por e-mail para quem pediu um lote e não terminou de pagar, um dia depois, com o botão
+  para pagar (ADR 0122).
+- Lotes do admin dizem quando o organizador largou o pagamento na Stripe e quando nem chegou a
+  abrir, com a data do último checkout (ADR 0122).
+
+### Alterado
+
+- As boas-vindas do painel começam por "Criar meu primeiro evento"; o tour do painel continua em
+  "Conhecer o painel" (ADR 0122).
+- O lembrete para quem criou a conta e não criou um evento sai um dia depois, não dois (ADR 0122).
+
+### Corrigido
+
+- Campos numéricos com unidade ("ingressos", "pessoas", "mm") mostravam a unidade por cima das
+  setas do campo e do número; agora a unidade fica ao lado.
+
 ## [1.17.0] - 2026-10-26
 
 ### Adicionado
@@ -856,7 +880,8 @@ Primeira versão numerada: o produto que já estava em produção, das fases 0 a
 - Política de segurança de conteúdo (CSP) com nonce por requisição em todo o site (ADR 0048).
 - Verificação anti-robô antes do envio do código de login (ADR 0044).
 
-[Não lançado]: https://github.com/allansomensi/ingressoimpresso/compare/v1.17.0...HEAD
+[Não lançado]: https://github.com/allansomensi/ingressoimpresso/compare/v1.18.0...HEAD
+[1.18.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.17.0...v1.18.0
 [1.17.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.16.1...v1.17.0
 [1.16.1]: https://github.com/allansomensi/ingressoimpresso/compare/v1.16.0...v1.16.1
 [1.16.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.15.0...v1.16.0

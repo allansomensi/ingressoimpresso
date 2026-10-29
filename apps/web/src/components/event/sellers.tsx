@@ -86,7 +86,7 @@ import {
 } from "@/components/ui";
 import { api, isUuid } from "@/lib/api";
 import { cn } from "@/lib/cn";
-import { initials, money, shortDateTime, ticketNumber } from "@/lib/format";
+import { initials, money, phoneLabel, shortDateTime, ticketNumber } from "@/lib/format";
 import { NUMBER_LIST_INPUT, countNumbers, formatRanges, intersect, parseNumberList, type NumberRange } from "@/lib/number-list";
 import { netDue, receivedPercent, settlementMessage, settlementState, settlementTotals, shortDay, whatsappLink, type SettlementState } from "@/lib/settlement";
 import { common as commonTexts } from "@/texts/pt-BR/common";
@@ -804,7 +804,7 @@ function SellerCard({
               {seller.phone !== null && (
                 <>
                   <Phone className="size-3.5 shrink-0" aria-hidden />
-                  <span className="truncate">{seller.phone}</span>
+                  <span className="truncate">{phoneLabel(seller.phone)}</span>
                 </>
               )}
               {/* With numbers, the money line below already says how many. */}

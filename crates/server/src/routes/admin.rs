@@ -426,6 +426,7 @@ struct AdminBatchRow {
     event_name: String,
     organization_name: String,
     owner_email: Option<String>,
+    last_checkout_at: Option<OffsetDateTime>,
 }
 
 /// `GET /api/admin/batches?status=&q=`: newest first, at most 200.
@@ -453,7 +454,8 @@ pub async fn batches(
                   e.id as event_id, e.name as event_name, o.name as organization_name,
                   (select u.email::text from memberships m join users u on u.id = m.user_id
                    where m.organization_id = o.id and m.role = 'owner'
-                   order by m.created_at limit 1) as owner_email
+                   order by m.created_at limit 1) as owner_email,
+                  (select max(p.created_at) from payments p where p.batch_id = b.id) as last_checkout_at
            from ticket_batches b
            join events e on e.id = b.event_id
            join organizations o on o.id = e.organization_id
@@ -492,6 +494,7 @@ pub async fn batches(
                 event_name: row.event_name,
                 organization_name: row.organization_name,
                 owner_email: row.owner_email,
+                last_checkout_at: row.last_checkout_at,
             })
         })
         .collect::<ApiResult<Vec<_>>>()
