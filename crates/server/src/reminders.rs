@@ -432,7 +432,11 @@ fn content(site: &str, candidate: &Candidate, free: i32) -> Content {
                     format!("Os números continuam reservados para você: pagando, os arquivos com os {what} ficam prontos em minutos."),
                 ],
                 vec![
-                    ("Abra o lote", "Na seção Lotes do evento."),
+                    if event.tokens {
+                        ("Abra Gerar fichas", "Na página do evento.")
+                    } else {
+                        ("Abra Gerar ingressos", "Na página do evento.")
+                    },
                     ("Pague com Pix ou cartão", "O pagamento é confirmado na hora."),
                     ("Gere e imprima", "Em casa, na gráfica ou pelo celular."),
                 ],

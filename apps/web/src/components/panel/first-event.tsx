@@ -70,7 +70,7 @@ export function FirstEvent({ onStart }: { onStart: (start: FirstEventStart | nul
         </h2>
         <p className="mt-2 max-w-xl text-sm leading-relaxed opacity-90 sm:text-base">{t.body}</p>
         {free > 0 && (
-          <p className="mt-4 inline-flex items-center gap-2 rounded-full bg-white/95 px-3 py-1.5 text-sm font-semibold text-brand-soft-fg shadow-sm">
+          <p className="mt-4 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1.5 text-sm font-semibold text-brand-fg ring-1 ring-white/30">
             <PartyPopper className="size-4 shrink-0" aria-hidden />
             {t.free(free)}
           </p>

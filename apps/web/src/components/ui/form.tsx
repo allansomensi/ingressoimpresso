@@ -129,7 +129,7 @@ export function NumberInput({
   const input = (
     <input
       className={
-        suffix === undefined ? cn(controlClass, "h-11 tabular", className) : "h-full w-full min-w-0 flex-1 rounded-l-xl bg-transparent pl-3.5 tabular outline-none"
+        suffix === undefined ? cn(controlClass, "h-11 tabular", className) : "h-full w-full min-w-0 flex-1 bg-transparent tabular outline-none"
       }
       type="number"
       inputMode="decimal"
@@ -149,9 +149,9 @@ export function NumberInput({
   // The suffix sits beside the number, never over it: drawn on top, it hid the browser's arrows
   // (and long numbers) whenever it was wider than the room kept for it.
   return (
-    <span className={cn(controlClass, "flex h-11 items-center gap-2 px-0 focus-within:border-brand focus-within:ring-4 focus-within:ring-ring", className)}>
+    <span className={cn(controlClass, "flex h-11 items-center gap-2 focus-within:border-brand focus-within:ring-4 focus-within:ring-ring", className)}>
       {input}
-      <span aria-hidden className="shrink-0 pr-3.5 text-sm whitespace-nowrap text-fg-subtle select-none">
+      <span aria-hidden className="shrink-0 text-sm whitespace-nowrap text-fg-subtle select-none">
         {suffix}
       </span>
     </span>

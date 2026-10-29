@@ -9,7 +9,7 @@ export const tour = {
   welcome: {
     eyebrow: "Boas-vindas",
     title: "Seu primeiro evento sai em poucos minutos",
-    body: "Ingressos impressos e numerados, cada um com um QR único, conferidos na porta pelo celular, mesmo sem internet. Veja em um minuto onde fica cada coisa.",
+    body: "Ingressos impressos e numerados, cada um com um QR único, conferidos na porta pelo celular, mesmo sem internet. Comece pelo evento: em poucos minutos o ingresso está pronto.",
     free: (count: number) =>
       count === 1 ? "Você tem 1 ingresso grátis para começar." : `Você tem ${count.toLocaleString("pt-BR")} ingressos grátis para começar.`,
     how: "Como funciona",

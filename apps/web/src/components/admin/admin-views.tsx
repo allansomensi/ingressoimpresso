@@ -789,7 +789,7 @@ export function AdminBatches() {
                       href={`/painel/eventos/${eventId}?aba=lotes`}
                       aria-label={t.batches.openEvent}
                       title={t.batches.openEvent}
-                      className="flex size-9 items-center justify-center rounded-lg text-fg-muted transition hover:bg-surface-2 active:bg-surface-2 hover:text-fg"
+                      className="flex size-9 items-center justify-center rounded-lg text-fg-muted transition hover:bg-surface-2 active:bg-surface-2 hover:text-fg pointer-coarse:size-11"
                     >
                       <ExternalLink className="size-4" aria-hidden />
                     </Link>
@@ -799,7 +799,7 @@ export function AdminBatches() {
                         trigger={
                           <MoreHorizontal className="size-4" aria-hidden />
                         }
-                        triggerClassName="flex size-9 items-center justify-center rounded-lg text-fg-muted transition hover:bg-surface-2 active:bg-surface-2 hover:text-fg"
+                        triggerClassName="flex size-9 items-center justify-center rounded-lg text-fg-muted transition hover:bg-surface-2 active:bg-surface-2 hover:text-fg pointer-coarse:size-11"
                       >
                         {payable && (
                           <MenuItem

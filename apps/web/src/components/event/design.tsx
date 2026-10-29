@@ -16,6 +16,7 @@ import type {
 } from "@ingressoimpresso/api-types";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  ArrowRight,
   Check,
   ChevronLeft,
   Download,
@@ -388,6 +389,8 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
   const router = useRouter();
   const pathname = usePathname();
   const [start] = useState(() => (initial.version === 0 ? startCategory(search.get("modelos")) : undefined));
+  // The first template went in by itself (ADR 0122): the next step shows above the editor.
+  const [firstSaved, setFirstSaved] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
   // "loading" while the gallery's chunk is on its way; "ready" keeps it mounted afterwards.
   const [gallery, setGallery] = useState<"idle" | "loading" | "ready">(start === undefined ? "idle" : "loading");
@@ -584,7 +587,14 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
       // The first template of a ticket never saved is saved at once (ADR 0122): leaving the page
       // right after choosing it never loses the ticket.
       if (saved.version === 0 && !save.isPending && designIssues(applied.design, kind).length === 0) {
-        save.mutate({ body: bodyOf(applied), draft: applied, quiet: true });
+        save.mutate(
+          { body: bodyOf(applied), draft: applied, quiet: true },
+          {
+            onSuccess: () => {
+              setFirstSaved(true);
+            },
+          },
+        );
         toast.success(templatesTexts.appliedSaved(name));
       } else {
         toast.success(templatesTexts.applied(name));
@@ -1192,6 +1202,30 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
               )}
             </p>
           </Card>
+          {firstSaved && (
+            <Alert
+              tone="success"
+              title={t.firstSaved.title}
+              onDismiss={() => {
+                setFirstSaved(false);
+              }}
+              action={
+                <Button
+                  size="sm"
+                  icon={<ArrowRight />}
+                  onClick={() => {
+                    const query = new URLSearchParams(search.toString());
+                    query.set("aba", "lotes");
+                    router.push(`${pathname}?${query.toString()}`);
+                  }}
+                >
+                  {t.firstSaved.action}
+                </Button>
+              }
+            >
+              {t.firstSaved.body}
+            </Alert>
+          )}
           {saved.version === 0 && art === null && design.texts.length === 0 && (
             <Alert
               tone="brand"

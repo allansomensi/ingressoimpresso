@@ -140,6 +140,11 @@ export const event = {
         "Comece por um modelo ou monte do zero: toque em Editar para arrastar os elementos e edite os textos. Ver como fica mostra uma ficha de AMOSTRA para baixar e a folha A4, exatamente como saem.",
       canvas: { label: "Ficha (área de edição)" },
       startBody: "Modelos prontos de ficha de consumo e de festa junina, com o produto em destaque e os dados do seu evento.",
+      firstSaved: {
+        title: "Sua ficha está salva",
+        body: "Troque os textos e a arte quando quiser. O próximo passo é gerar as fichas para imprimir ou mandar.",
+        action: "Gerar fichas",
+      },
       elementsHint: "Clique num elemento aqui ou na ficha para editar. Com Shift, selecione vários.",
       selection: {
         alignToTicket: "Alinhar à ficha",
@@ -957,6 +962,12 @@ export const event = {
     startTitle: "Comece por um modelo",
     startBody: "Mais de 70 modelos prontos para shows, festas juninas, formaturas, aniversários, igrejas, rifas e mais, já com os dados do seu evento.",
     startAction: "Ver modelos",
+    // After the first template is saved by itself (ADR 0122): the next step.
+    firstSaved: {
+      title: "Seu ingresso está salvo",
+      body: "Troque os textos e a arte quando quiser. O próximo passo é gerar os ingressos para imprimir ou mandar.",
+      action: "Gerar ingressos",
+    },
     elements: "Elementos",
     elementsHint: "Clique num elemento aqui ou no ingresso para editar. Com Shift, selecione vários.",
     texts: "Textos",

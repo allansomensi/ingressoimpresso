@@ -30,7 +30,7 @@ function EventBadges({ event, now }: { event: EventDto; now: number }) {
   // A postponed event (ADR 0065) says so next to its phase, until it ends.
   const postponed = event.change.postponedFromStartsAt !== null && (phase === "upcoming" || phase === "today");
   return (
-    <span className="flex flex-wrap items-center justify-end gap-1.5">
+    <span className="flex flex-wrap items-center gap-1.5 sm:justify-end">
       <PhaseBadge phase={phase} />
       {event.kind === "tokens" && <Badge tone="brand">{t.tokensBadge}</Badge>}
       {postponed && <Badge tone="warning">{eventChangeTexts.postponedBadge}</Badge>}
@@ -125,7 +125,7 @@ function SeriesCard({ entry, now }: { entry: Extract<ListEntry<EventDto>, { kind
   const when = `${dayLabel(lead.startsAt)} ${hourLabel(lead.startsAt)}`;
   const s = seriesTexts;
   const badges = (
-    <span className="flex flex-wrap items-center justify-end gap-1.5">
+    <span className="flex flex-wrap items-center gap-1.5 sm:justify-end">
       <PhaseBadge phase={leadPhase} />
       <MissingBadge count={entry.missing} />
     </span>
