@@ -231,7 +231,12 @@ async fn candidates(state: &AppState, limit: i64) -> ApiResult<Vec<Candidate>> {
     if left <= 0 {
         return Ok(out);
     }
-    // Accounts that never made an event (theirs or as part of a team), newest first.
+    out.extend(accounts_without_events(state, left).await?);
+    Ok(out)
+}
+
+/// Accounts that never made an event (theirs or as part of a team), newest first.
+async fn accounts_without_events(state: &AppState, limit: i64) -> ApiResult<Vec<Candidate>> {
     let accounts = sqlx::query!(
         r#"select u.id, u.email::text as "email!",
                   exists(select 1 from reminder_sends r where r.user_id = u.id
@@ -250,21 +255,23 @@ async fn candidates(state: &AppState, limit: i64) -> ApiResult<Vec<Candidate>> {
                              and r.kind = 'no_event_first' and r.created_at > now() - interval '7 days')
            order by u.created_at desc
            limit $1"#,
-        left
+        limit
     )
     .fetch_all(&state.pool)
     .await?;
-    out.extend(accounts.into_iter().map(|row| Candidate {
-        kind: if row.had_first {
-            ReminderKind::NoEventSecond
-        } else {
-            ReminderKind::NoEventFirst
-        },
-        user_id: row.id,
-        email: row.email,
-        event: None,
-    }));
-    Ok(out)
+    Ok(accounts
+        .into_iter()
+        .map(|row| Candidate {
+            kind: if row.had_first {
+                ReminderKind::NoEventSecond
+            } else {
+                ReminderKind::NoEventFirst
+            },
+            user_id: row.id,
+            email: row.email,
+            event: None,
+        })
+        .collect())
 }
 
 /// "sábado, 20 de novembro, às 22h" in the event's own time.
