@@ -974,6 +974,11 @@ dto! {
         pub organization_name: String,
         /// E-mail of the organization's first owner.
         pub owner_email: Option<String>,
+        /// When the last Stripe checkout of the batch was opened; with no payment pending, an
+        /// awaiting batch that has one was abandoned at the checkout (ADR 0122).
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub last_checkout_at: Option<OffsetDateTime>,
     }
 
     /// `POST /api/events/{id}/tickets`: a digital ticket link (ADR 0030).

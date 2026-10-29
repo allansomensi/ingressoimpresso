@@ -104,8 +104,15 @@ export function WelcomeTour({ onEnd }: { onEnd: (outcome: TourOutcome) => void }
   };
   const createEvent = () => {
     finish("finished");
-    // The events page's own button opens its form.
-    findAnchor("new-event")?.click();
+    // An account without events has the first steps on the page (ADR 0122): its question (the
+    // kind of event) takes the focus. Otherwise the events page's own button opens its form.
+    const first = document.querySelector<HTMLElement>("[data-first-event]");
+    if (first === null) {
+      findAnchor("new-event")?.click();
+      return;
+    }
+    first.scrollIntoView({ block: "center" });
+    first.querySelector<HTMLElement>("button")?.focus({ preventScroll: true });
   };
   const onKeyDown = (event: KeyboardEvent) => {
     if (event.key === "ArrowRight" && !last) {
@@ -152,6 +159,7 @@ export function WelcomeTour({ onEnd }: { onEnd: (outcome: TourOutcome) => void }
         {step?.id === "welcome" ? (
           <Welcome
             free={free}
+            onCreate={createEvent}
             onStart={() => {
               go(1);
             }}
@@ -243,7 +251,7 @@ function Dots({ index }: { index: number }) {
   );
 }
 
-function Welcome({ free, onStart, onSkip }: { free: number; onStart: () => void; onSkip: () => void }) {
+function Welcome({ free, onCreate, onStart, onSkip }: { free: number; onCreate: () => void; onStart: () => void; onSkip: () => void }) {
   const w = t.welcome;
   return (
     <div className="flex max-h-[calc(100dvh-2rem)] flex-col overflow-y-auto overscroll-contain">
@@ -291,14 +299,19 @@ function Welcome({ free, onStart, onSkip }: { free: number; onStart: () => void;
           </ol>
         </div>
       </div>
-      <div className="flex flex-col-reverse gap-2 border-t border-border px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex-row sm:justify-end sm:px-6 sm:pb-4">
-        <Button variant="ghost" onClick={onSkip}>
-          {w.later}
+      <div className="flex flex-col gap-2 border-t border-border px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6 sm:pb-4">
+        <Button data-tour-primary icon={<CalendarPlus />} className="w-full" onClick={onCreate}>
+          {w.create}
         </Button>
-        <Button data-tour-primary onClick={onStart}>
-          {w.start}
-          <ArrowRight />
-        </Button>
+        <div className="grid grid-cols-2 gap-2">
+          <Button variant="ghost" onClick={onSkip}>
+            {w.later}
+          </Button>
+          <Button variant="secondary" onClick={onStart}>
+            {w.start}
+            <ArrowRight />
+          </Button>
+        </div>
       </div>
     </div>
   );

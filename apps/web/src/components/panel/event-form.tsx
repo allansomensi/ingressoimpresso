@@ -28,16 +28,25 @@ function priceText(cents: number | null): string {
   return cents === null ? "" : (cents / 100).toFixed(2).replace(".", ",");
 }
 
+/** What a quick start of the first event fills in (ADR 0122). */
+export interface EventPreset {
+  kind: EventKind;
+  /** An example name for this kind of event. */
+  placeholder: string;
+}
+
 /** Create (no `event`) or edit an event, in a dialog. */
 export function EventFormDialog({
   open,
   onClose,
   event,
+  preset,
   onSaved,
 }: {
   open: boolean;
   onClose: () => void;
   event?: EventDto;
+  preset?: EventPreset | null;
   onSaved?: (event: EventDto) => void;
 }) {
   return (
@@ -48,7 +57,7 @@ export function EventFormDialog({
       description={t.newEventDescription}
     >
       {/* Remount on open so the fields start from the current values. */}
-      {open && (event === undefined ? <NewEventForm onClose={onClose} onSaved={onSaved} /> : <EventForm event={event} onClose={onClose} onSaved={onSaved} />)}
+      {open && (event === undefined ? <NewEventForm preset={preset ?? null} onClose={onClose} onSaved={onSaved} /> : <EventForm event={event} onClose={onClose} onSaved={onSaved} />)}
     </Dialog>
   );
 }
@@ -59,7 +68,15 @@ function finePointer(): boolean {
 }
 
 /** A new event starts with the venue, address and price of the organization's profile (ADR 0064). */
-function NewEventForm({ onClose, onSaved }: { onClose: () => void; onSaved: ((event: EventDto) => void) | undefined }) {
+function NewEventForm({
+  preset,
+  onClose,
+  onSaved,
+}: {
+  preset: EventPreset | null;
+  onClose: () => void;
+  onSaved: ((event: EventDto) => void) | undefined;
+}) {
   const profile = useQuery({
     queryKey: ["organization-profile"],
     queryFn: () => api<OrganizationProfileDto>("/api/account/profile"),
@@ -70,17 +87,19 @@ function NewEventForm({ onClose, onSaved }: { onClose: () => void; onSaved: ((ev
     return <LoadingBlock rows={3} />;
   }
   // Without a profile (an error, or someone only on other teams) the form starts empty.
-  return <EventForm event={undefined} defaults={profile.data ?? null} onClose={onClose} onSaved={onSaved} />;
+  return <EventForm event={undefined} defaults={profile.data ?? null} preset={preset} onClose={onClose} onSaved={onSaved} />;
 }
 
 function EventForm({
   event,
   defaults = null,
+  preset = null,
   onClose,
   onSaved,
 }: {
   event: EventDto | undefined;
   defaults?: OrganizationProfileDto | null;
+  preset?: EventPreset | null;
   onClose: () => void;
   onSaved: ((event: EventDto) => void) | undefined;
 }) {
@@ -95,8 +114,11 @@ function EventForm({
   // Times are typed in the event's own wall-clock time (ADR 0025).
   const [startsAt, setStartsAt] = useState(event === undefined ? "" : wallClockInput(event.startsAt));
   const [endsAt, setEndsAt] = useState(event === undefined ? "" : wallClockInput(event.endsAt));
-  const [price, setPrice] = useState(priceText(event === undefined ? (defaults?.defaultTicketPriceCents ?? null) : event.ticketPriceCents));
-  const [kind, setKind] = useState<EventKind>(event?.kind ?? "tickets");
+  const [kind, setKind] = useState<EventKind>(event?.kind ?? preset?.kind ?? "tickets");
+  // The organization's default is a ticket price: a token event starts without it.
+  const [price, setPrice] = useState(
+    priceText(event === undefined ? (kind === "tokens" ? null : (defaults?.defaultTicketPriceCents ?? null)) : event.ticketPriceCents),
+  );
   // The end follows the start (+5 h) until it is edited by hand.
   const [endTouched, setEndTouched] = useState(event !== undefined);
   // An event of several days (ADR 0091): its days replace the start and the end.
@@ -190,7 +212,7 @@ function EventForm({
           onChange={(e) => {
             setName(e.target.value);
           }}
-          placeholder={t.eventNamePlaceholder}
+          placeholder={preset?.placeholder ?? t.eventNamePlaceholder}
           required
           maxLength={100}
           autoComplete="off"

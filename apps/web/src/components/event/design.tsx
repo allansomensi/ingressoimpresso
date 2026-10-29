@@ -16,6 +16,7 @@ import type {
 } from "@ingressoimpresso/api-types";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  ArrowRight,
   Check,
   ChevronLeft,
   Download,
@@ -46,6 +47,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 
 import { ReadOnlyNotice, useEventKind, useEventTexts } from "@/components/event/access";
@@ -114,7 +116,7 @@ import {
 import { artWithLogo } from "@/lib/brand-palette";
 import { rasterizeBackground } from "@/lib/rasterize";
 import { sampleFileName, sampleMockup } from "@/lib/sample-image";
-import type { Palette, TicketTemplate } from "@/lib/templates/catalog";
+import type { Palette, TemplateCategory, TicketTemplate } from "@/lib/templates/catalog";
 import { canDo } from "@/lib/team";
 import { blockValue } from "@/lib/ticket-fields";
 import { useUnsavedChanges } from "@/lib/unsaved";
@@ -128,6 +130,17 @@ import { templates as templatesTexts } from "@/texts/pt-BR/templates";
 // pressed (or pointed at), never with the editor.
 const loadGallery = () => import("@/components/event/template-gallery");
 const TemplateGallery = lazy(() => loadGallery().then((m) => ({ default: m.TemplateGallery })));
+
+/**
+ * `?modelos=` of a first event (ADR 0122): the gallery opens by itself on the kind of event
+ * picked ("todos" for every template), once, while the ticket was never saved.
+ */
+function startCategory(value: string | null): TemplateCategory | null | undefined {
+  if (value === null) {
+    return undefined;
+  }
+  return Object.hasOwn(templatesTexts.categories, value) ? (value as TemplateCategory) : null;
+}
 
 
 export function DesignTab({ eventId }: { eventId: string }) {
@@ -372,9 +385,15 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
   const editorRef = useRef<HTMLDivElement>(null);
   const pasteboardRef = useRef<HTMLDivElement>(null);
   const marquee = useMarquee({ ref: pasteboardRef, design, selection, additive, onSelect: setSelected });
+  const search = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const [start] = useState(() => (initial.version === 0 ? startCategory(search.get("modelos")) : undefined));
+  // The first template went in by itself (ADR 0122): the next step shows above the editor.
+  const [firstSaved, setFirstSaved] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
   // "loading" while the gallery's chunk is on its way; "ready" keeps it mounted afterwards.
-  const [gallery, setGallery] = useState<"idle" | "loading" | "ready">("idle");
+  const [gallery, setGallery] = useState<"idle" | "loading" | "ready">(start === undefined ? "idle" : "loading");
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewView, setPreviewView] = useState<"sample" | "sheet">("sample");
   const [preview, setPreview] = useState<string | null>(null);
@@ -423,14 +442,15 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
     [sample],
   );
 
-  const body = (): DesignBody => ({
-    design,
-    artId,
-    sponsorIds: sponsors.map((logo) => logo.id),
-    photoIds: photos.map((photo) => photo.id),
+  const bodyOf = (of: Draft): DesignBody => ({
+    design: of.design,
+    artId: of.art?.id ?? null,
+    sponsorIds: of.sponsors.map((logo) => logo.id),
+    photoIds: of.photos.map((photo) => photo.id),
     // The picture's image goes only while the stub has the picture (the server checks both).
-    stubImageId: design.stub?.image == null ? null : (stubImage?.id ?? null),
+    stubImageId: of.design.stub?.image == null ? null : (of.stubImage?.id ?? null),
   });
+  const body = (): DesignBody => bodyOf(draft);
   const update = (next: (design: TicketDesign) => TicketDesign, key: string | null = null) => {
     change((current) => ({ ...current, design: next(current.design) }), key);
   };
@@ -544,36 +564,52 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
     onSuccess: ({ template, design: next, file, uploaded }) => {
       rememberArt(uploaded, file);
       // Sponsors and photos stay: the strip moves to a free spot of the new layout, the photos
-      // keep their place inside the new size.
-      change((current) => {
-        // The stub's picture stays when the new template has a stub too.
-        const picture = current.design.stub?.image ?? null;
-        const placed = {
-          ...next,
-          photos: photosInside(current.design.photos, next),
-          stub: next.stub === null || picture === null ? next.stub : { ...next.stub, image: picture },
-        };
-        return {
-          design: current.design.sponsors == null ? placed : { ...placed, sponsors: defaultSponsorStrip(placed, current.design.sponsors.label) },
-          art: uploaded,
-          sponsors: current.sponsors,
-          photos: current.photos,
-          stubImage: placed.stub?.image == null ? null : current.stubImage,
-        };
-      });
+      // keep their place inside the new size. The stub's picture stays when the new template has
+      // a stub too.
+      const picture = draft.design.stub?.image ?? null;
+      const placed = {
+        ...next,
+        photos: photosInside(draft.design.photos, next),
+        stub: next.stub === null || picture === null ? next.stub : { ...next.stub, image: picture },
+      };
+      const applied: Draft = {
+        design: draft.design.sponsors == null ? placed : { ...placed, sponsors: defaultSponsorStrip(placed, draft.design.sponsors.label) },
+        art: uploaded,
+        sponsors: draft.sponsors,
+        photos: draft.photos,
+        stubImage: placed.stub?.image == null ? null : draft.stubImage,
+      };
+      change(() => applied);
       setStubText(next.stub?.fields.join("\n") ?? "");
       setSelected([]);
       setGalleryOpen(false);
-      toast.success(templatesTexts.applied(templatesTexts.items[template.id].name));
+      const name = templatesTexts.items[template.id].name;
+      // The first template of a ticket never saved is saved at once (ADR 0122): leaving the page
+      // right after choosing it never loses the ticket.
+      if (saved.version === 0 && !save.isPending && designIssues(applied.design, kind).length === 0) {
+        save.mutate(
+          { body: bodyOf(applied), draft: applied, quiet: true },
+          {
+            onSuccess: () => {
+              setFirstSaved(true);
+            },
+          },
+        );
+        toast.success(templatesTexts.appliedSaved(name));
+      } else {
+        toast.success(templatesTexts.applied(name));
+      }
     },
   });
   const save = useMutation({
-    mutationFn: (payload: { body: DesignBody; draft: Draft }) =>
+    mutationFn: (payload: { body: DesignBody; draft: Draft; quiet?: boolean }) =>
       api<DesignResponse>(`/api/events/${eventId}/design`, { method: "PUT", body: payload.body }),
     onSuccess: (response, payload) => {
       // Keep editing in place; the cache is refreshed for the next visit.
       setSaved({ version: response.version, draft: payload.draft });
-      toast.success(t.savedToast(response.version));
+      if (payload.quiet !== true) {
+        toast.success(t.savedToast(response.version));
+      }
       void queryClient.invalidateQueries({ queryKey: ["design", eventId], refetchType: "none" });
     },
   });
@@ -930,6 +966,30 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
   const prefetchGallery = () => {
     void loadGallery().catch(() => undefined);
   };
+  // A first event lands here with `?modelos=` (ADR 0122): the gallery opens on its kind, and the
+  // parameter goes away so a reload does not open it again.
+  const started = useRef(false);
+  useEffect(() => {
+    if (started.current || search.get("modelos") === null) {
+      return;
+    }
+    started.current = true;
+    const query = new URLSearchParams(search.toString());
+    query.delete("modelos");
+    router.replace(`${pathname}?${query.toString()}`, { scroll: false });
+    if (start === undefined) {
+      return;
+    }
+    loadGallery().then(
+      () => {
+        setGallery("ready");
+        setGalleryOpen(true);
+      },
+      () => {
+        setGallery("idle");
+      },
+    );
+  }, [search, router, pathname, start]);
 
   const chooseTemplate = async (template: TicketTemplate, palette: Palette, logo: string | null) => {
     const customized = saved.version > 0 || dirty;
@@ -1142,6 +1202,30 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
               )}
             </p>
           </Card>
+          {firstSaved && (
+            <Alert
+              tone="success"
+              title={t.firstSaved.title}
+              onDismiss={() => {
+                setFirstSaved(false);
+              }}
+              action={
+                <Button
+                  size="sm"
+                  icon={<ArrowRight />}
+                  onClick={() => {
+                    const query = new URLSearchParams(search.toString());
+                    query.set("aba", "lotes");
+                    router.push(`${pathname}?${query.toString()}`);
+                  }}
+                >
+                  {t.firstSaved.action}
+                </Button>
+              }
+            >
+              {t.firstSaved.body}
+            </Alert>
+          )}
           {saved.version === 0 && art === null && design.texts.length === 0 && (
             <Alert
               tone="brand"
@@ -1746,6 +1830,7 @@ function DesignEditor({ eventId, event, initial }: { eventId: string; event: Eve
         <Suspense fallback={null}>
           <TemplateGallery
             open={galleryOpen}
+            initialCategory={start ?? null}
             onClose={() => {
               setGalleryOpen(false);
             }}

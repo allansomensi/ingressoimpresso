@@ -24,4 +24,9 @@ organizationName: string,
 /**
  * E-mail of the organization's first owner.
  */
-ownerEmail: string | null, };
+ownerEmail: string | null, 
+/**
+ * When the last Stripe checkout of the batch was opened; with no payment pending, an
+ * awaiting batch that has one was abandoned at the checkout (ADR 0122).
+ */
+lastCheckoutAt: string | null, };

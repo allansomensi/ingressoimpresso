@@ -428,6 +428,16 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   `SavedDesign` (`.job(...)` monta o `RenderJob`). Imagem do canhoto em `StubStyle.image` (faixa
   `top`/`bottom` de 5 a 40 mm, soma na altura mínima), imagem em
   `ticket_designs.stub_image_blob_id` (`stubImageId`, `stub_image_of`).
+- **Primeiro evento guiado e lote largado (ADR 0122): implementados.** Lista vazia vira
+  "Primeiros passos" (`components/panel/first-event.tsx`: três passos, ingressos grátis e oito
+  atalhos por tipo de evento, `EventPreset` no formulário); o primeiro evento abre em
+  `?aba=ingresso&modelos=<categoria>` (galeria aberta nessa categoria, `TemplateGallery
+  initialCategory`) e o primeiro modelo num ingresso nunca salvo salva sozinho, com o aviso
+  "Gerar ingressos"; as boas-vindas do tour começam por "Criar meu primeiro evento"
+  (`[data-first-event]`). Lembretes: `no_event_first` com um dia e `unpaid_batch` (lote pedido há
+  um dia, sem pagamento pendente; segura o `event_stalled`); `AdminBatchDto.lastCheckoutAt` separa
+  "Largou o pagamento" de "Pagamento não iniciado". `NumberInput` com `suffix` põe a unidade ao
+  lado do número; `phoneLabel` (`lib/format.ts`) mostra telefones como "(11) 99999-0000".
 
 Plano completo em `docs/arquitetura.md` §12.
 

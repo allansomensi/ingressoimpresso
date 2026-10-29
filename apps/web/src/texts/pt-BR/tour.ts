@@ -9,7 +9,7 @@ export const tour = {
   welcome: {
     eyebrow: "Boas-vindas",
     title: "Seu primeiro evento sai em poucos minutos",
-    body: "Ingressos impressos e numerados, cada um com um QR único, conferidos na porta pelo celular, mesmo sem internet. Veja em um minuto onde fica cada coisa.",
+    body: "Ingressos impressos e numerados, cada um com um QR único, conferidos na porta pelo celular, mesmo sem internet. Comece pelo evento: em poucos minutos o ingresso está pronto.",
     free: (count: number) =>
       count === 1 ? "Você tem 1 ingresso grátis para começar." : `Você tem ${count.toLocaleString("pt-BR")} ingressos grátis para começar.`,
     how: "Como funciona",
@@ -19,7 +19,9 @@ export const tour = {
       { title: "Gere e distribua", body: "Imprima em casa ou na gráfica, ou mande pelo WhatsApp." },
       { title: "Confira na porta", body: "Qualquer celular lê o QR, até sem internet." },
     ],
-    start: "Começar o tour",
+    // Creating the first event comes first; the tour of the panel is the second choice (ADR 0122).
+    create: "Criar meu primeiro evento",
+    start: "Conhecer o painel",
     later: "Agora não",
   },
   newEvent: {

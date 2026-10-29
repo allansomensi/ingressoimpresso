@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select b.id, b.numbers, b.status, b.created_at, b.paid_at, b.price_cents, b.free_tickets, b.paid_via,\n                  b.list_price_cents, b.discount_cents, b.credit_cents,\n                  b.refunded_at,\n                  (select case when bool_or(p.status = 'processing') then 'processing'\n                               when bool_or(p.status = 'open' and p.expires_at > now()) then 'open' end\n                   from payments p where p.batch_id = b.id) as pending_payment,\n                  e.id as event_id, e.name as event_name, o.name as organization_name,\n                  (select u.email::text from memberships m join users u on u.id = m.user_id\n                   where m.organization_id = o.id and m.role = 'owner'\n                   order by m.created_at limit 1) as owner_email\n           from ticket_batches b\n           join events e on e.id = b.event_id\n           join organizations o on o.id = e.organization_id\n           where ($1::text is null or b.status = $1)\n             and ($2::text is null or e.name ilike $2 or o.name ilike $2\n                  or exists (select 1 from memberships m join users u on u.id = m.user_id\n                             where m.organization_id = o.id and u.email::text ilike $2))\n           order by b.created_at desc\n           limit $3",
+  "query": "select b.id, b.numbers, b.status, b.created_at, b.paid_at, b.price_cents, b.free_tickets, b.paid_via,\n                  b.list_price_cents, b.discount_cents, b.credit_cents,\n                  b.refunded_at,\n                  (select case when bool_or(p.status = 'processing') then 'processing'\n                               when bool_or(p.status = 'open' and p.expires_at > now()) then 'open' end\n                   from payments p where p.batch_id = b.id) as pending_payment,\n                  e.id as event_id, e.name as event_name, o.name as organization_name,\n                  (select u.email::text from memberships m join users u on u.id = m.user_id\n                   where m.organization_id = o.id and m.role = 'owner'\n                   order by m.created_at limit 1) as owner_email,\n                  (select max(p.created_at) from payments p where p.batch_id = b.id) as last_checkout_at\n           from ticket_batches b\n           join events e on e.id = b.event_id\n           join organizations o on o.id = e.organization_id\n           where ($1::text is null or b.status = $1)\n             and ($2::text is null or e.name ilike $2 or o.name ilike $2\n                  or exists (select 1 from memberships m join users u on u.id = m.user_id\n                             where m.organization_id = o.id and u.email::text ilike $2))\n           order by b.created_at desc\n           limit $3",
   "describe": {
     "columns": [
       {
@@ -179,6 +179,12 @@
         "name": "owner_email",
         "type_info": "Text",
         "origin": "Expression"
+      },
+      {
+        "ordinal": 17,
+        "name": "last_checkout_at",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
       }
     ],
     "parameters": {
@@ -205,8 +211,9 @@
       false,
       false,
       false,
+      null,
       null
     ]
   },
-  "hash": "c8765d7419e684ea4115160b4f8c5aa395b6ce19edaadee6d7b8de2c254cf792"
+  "hash": "5b9ded0cac116d2d4d5a2769357e434cdf47123983985ababa1b130e08c73fb4"
 }

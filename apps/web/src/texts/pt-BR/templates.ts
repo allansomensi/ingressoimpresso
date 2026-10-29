@@ -6,6 +6,7 @@ export const templates = {
   apply: "Usar este modelo",
   applying: "Aplicando o modelo…",
   applied: (name: string) => `Modelo "${name}" aplicado. Ajuste o que quiser e salve.`,
+  appliedSaved: (name: string) => `Modelo "${name}" aplicado e salvo. Troque os textos e as cores quando quiser.`,
   replaceTitle: "Trocar o ingresso pelo modelo?",
   replaceBody: "A arte, as posições e os textos atuais serão substituídos. Nada é salvo até você clicar em Salvar.",
   replaceConfirm: "Usar o modelo",
