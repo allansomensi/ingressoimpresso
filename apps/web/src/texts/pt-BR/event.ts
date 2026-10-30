@@ -65,6 +65,8 @@ export const event = {
     },
     accountability: {
       hint: "Para mostrar os números ao grupo: o dinheiro das fichas, as outras receitas, as despesas e o saldo, em PDF ou planilha.",
+      received: "Recebido pelas fichas",
+      digitalIncluded: (amount: string) => `Inclui ${amount} das fichas digitais`,
     },
     // The Products tab (categories of a token event).
     categories: {
@@ -403,6 +405,20 @@ export const event = {
     },
     report: {
       categories: { title: "Por produto", category: "Produto", tickets: "Emitidas", sold: "Vendidas", entries: "Usadas", none: "Sem produto" },
+      digital: {
+        description: "Fichas que a organização enviou pelo celular, sem vendedor. Cada uma conta como vendida, pelo preço do produto.",
+        descriptionOnly: "Cada ficha enviada pelo celular conta como vendida, pelo preço do produto. O que ainda não foi enviado fica livre.",
+        sent: "Enviadas",
+        opened: "Abertas",
+        entries: "Usadas",
+        share: (percent: number) => `${String(percent)}% das enviadas`,
+        unpriced: "Há fichas sem preço: defina o preço do produto.",
+        free: (count: number) =>
+          count === 0 ? "Nenhuma ficha livre: todos os números pagos foram enviados." : count === 1 ? "1 ficha livre para enviar." : `${count.toLocaleString("pt-BR")} fichas livres para enviar.`,
+        byCategory: "Vendas digitais por produto",
+        category: "Produto",
+        none: "Sem produto",
+      },
       intro:
         "O acerto de cada vendedor (o que levou, devolveu, vendeu, pagou e quanto falta) e o que aconteceu nas barracas. Pagamentos e devoluções são registrados na aba Vendedores.",
       noSellers: "Nenhum vendedor com fichas ainda.",
@@ -424,6 +440,9 @@ export const event = {
         sold: "Vendidas",
         reservedHint: (count: number) => (count === 1 ? "e 1 reservada" : `e ${count.toLocaleString("pt-BR")} reservadas`),
         entries: "Usadas",
+        soldDigital: "fichas enviadas pelo celular",
+        valueHint: "pelo preço de cada produto",
+        entriesHint: (missing: number) => (missing <= 0 ? "todas já usadas" : missing === 1 ? "falta 1 usar" : `faltam ${missing.toLocaleString("pt-BR")} usar`),
       },
       columns: {
         unsold: "Devolvidas",
@@ -562,7 +581,8 @@ export const event = {
     pdf: "PDF",
     sheet: "Planilha",
     fileName: (event: string, format: string) => `prestacao-de-contas-${event.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}.${format}`,
-    received: "Recebido dos vendedores",
+    received: "Recebido pelos ingressos",
+    digitalIncluded: (amount: string) => `Inclui ${amount} dos ingressos digitais`,
     outstanding: (amount: string) => `Falta receber ${amount}`,
     otherIncome: "Outras receitas",
     spent: "Despesas",
@@ -2089,7 +2109,31 @@ export const event = {
       total: "Total",
       none: "Sem categoria",
       free: "Cortesia",
+      digital: "Digitais",
     },
+    // The organization's own digital tickets (ADR 0124).
+    digital: {
+      title: "Vendas digitais",
+      description: "Ingressos que a organização enviou pelo celular, sem vendedor. Cada um conta como vendido, pelo preço da categoria.",
+      descriptionOnly: "Cada ingresso enviado pelo celular conta como vendido, pelo preço da categoria. O que ainda não foi enviado fica livre.",
+      open: "Abrir Digitais",
+      sent: "Enviados",
+      amount: "Valor",
+      opened: "Abertos",
+      entries: "Entraram",
+      share: (percent: number) => `${String(percent)}% dos enviados`,
+      courtesies: (count: number) => (count === 1 ? "1 cortesia, sem valor" : `${count.toLocaleString("pt-BR")} cortesias, sem valor`),
+      unpriced: "Há ingressos sem preço: defina o preço da categoria.",
+      pix: (amount: string) => `${amount} já registrados em Conferir Pix`,
+      free: (count: number) =>
+        count === 0 ? "Nenhum ingresso livre: todos os números pagos foram enviados." : count === 1 ? "1 ingresso livre para enviar." : `${count.toLocaleString("pt-BR")} ingressos livres para enviar.`,
+      byCategory: "Vendas digitais por categoria",
+      category: "Categoria",
+      price: "Preço",
+      none: "Sem categoria",
+      total: "Total",
+    },
+    organization: "Organização (digitais)",
     intro:
       "O acerto de cada vendedor (o que levou, devolveu, vendeu, pagou e quanto falta) e o que aconteceu na portaria. Pagamentos e devoluções são registrados na aba Vendedores.",
     csv: "Baixar CSV",
@@ -2148,6 +2192,12 @@ export const event = {
       receivedHint: (due: string) => `de ${due} a acertar`,
       outstanding: "Falta receber",
       outstandingDone: "Tudo recebido",
+      // An event of digital tickets only (ADR 0123).
+      soldDigital: "ingressos enviados pelo celular",
+      soldMixed: (digital: number) => `${digital.toLocaleString("pt-BR")} pelo celular, o resto pelos vendedores`,
+      value: "Valor vendido",
+      valueHint: "pelo preço de cada categoria",
+      entriesHint: (missing: number) => (missing <= 0 ? "todos já entraram" : missing === 1 ? "falta 1 entrar" : `faltam ${missing.toLocaleString("pt-BR")} entrar`),
       overpaidHint: (amount: string) => `e ${amount} pagos a mais`,
     },
     columns: {

@@ -1997,9 +1997,15 @@ dto! {
         /// What the sellers' tickets are worth (`null` without prices).
         #[cfg_attr(feature = "ts", ts(type = "number | null"))]
         pub ticket_sales_cents: Option<i64>,
-        /// Money the sellers handed over.
+        /// Money the sellers handed over, with what the digital tickets of the organization
+        /// brought in (ADR 0124).
         #[cfg_attr(feature = "ts", ts(type = "number"))]
         pub received_cents: i64,
+        /// What the digital tickets the organization sent are worth (ADR 0124); `null` when none
+        /// was sent or one has no price.
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(type = "number | null"))]
+        pub digital_cents: Option<i64>,
         /// Kept by the sellers as their commission (ADR 0096).
         #[cfg_attr(feature = "ts", ts(type = "number"))]
         pub commissions_cents: i64,
@@ -2048,6 +2054,40 @@ dto! {
         /// (Sold − courtesies) × price, when there is a price.
         #[cfg_attr(feature = "ts", ts(type = "number | null"))]
         pub amount_cents: Option<i64>,
+        /// Of the sold, digital tickets the organization sent itself (ADR 0124).
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub digital: i64,
+        /// What those digital tickets are worth; `null` without a price.
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(type = "number | null"))]
+        pub digital_amount_cents: Option<i64>,
+    }
+
+    /// Digital tickets the organization sent itself (ADR 0124): numbers of no seller with an
+    /// active link, not voided. Each one is a sale of the organization.
+    pub struct ReportDigitalDto {
+        /// Tickets sent.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub tickets: i64,
+        /// Of them, opened at least once by the holder.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub opened: i64,
+        /// Of them, entered.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub entries: i64,
+        /// Of them, courtesies (ADR 0096): worth nothing.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub courtesies: i64,
+        /// What they are worth at each number's price; `null` when one has no price.
+        #[cfg_attr(feature = "ts", ts(type = "number | null"))]
+        pub amount_cents: Option<i64>,
+        /// Of that, the buyers' Pix the organization already recorded for them (ADR 0085).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub pix_cents: i64,
+        /// Paid numbers of no seller with no digital ticket and no void: still free to send.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub free: i64,
     }
 
     /// A ticket category (ADR 0056).
@@ -2937,6 +2977,12 @@ dto! {
         /// Paid tickets by category (ADR 0056); empty without categories. The line without a
         /// category has `categoryId: null`.
         pub categories: Vec<ReportCategoryDto>,
+        /// Digital tickets the organization sent itself (ADR 0124).
+        pub digital: ReportDigitalDto,
+        /// The tickets only go to phones (ADR 0123): numbers of no seller without a digital
+        /// ticket are free, not sold.
+        #[serde(default)]
+        pub digital_only: bool,
         /// Door phones, in name order.
         pub devices: Vec<ReportDeviceDto>,
         /// Scans of forged, damaged or unknown QR codes.

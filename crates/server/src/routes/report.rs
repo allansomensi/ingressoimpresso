@@ -13,7 +13,8 @@ use uuid::Uuid;
 
 use super::{EventRow, authorize_event};
 use crate::api::{
-    CommissionDto, CommissionKind, EventReportDto, ReportCategoryDto, ReportDeviceDto, ReportRowDto,
+    CommissionDto, CommissionKind, EventReportDto, ReportCategoryDto, ReportDeviceDto,
+    ReportDigitalDto, ReportRowDto,
 };
 use crate::auth::AuthUser;
 use crate::error::ApiResult;
@@ -208,9 +209,18 @@ pub(crate) async fn build(state: &AppState, event: &EventRow) -> ApiResult<Event
             seller.box_office,
         ));
     }
+    let digital_lines = digital_by_category(state, event_id, price).await?;
+    let digital = digital_total(&digital_lines, state, event_id).await?;
     let mut unassigned = by_seller.remove(&None).unwrap_or_default();
     unassigned.pix_cents = pix.remove(&None).unwrap_or_default();
     unassigned.received_cents = unassigned.pix_cents;
+    if event.digital_only {
+        // Nothing is printed (ADR 0123): a number of no seller is sold once it was sent.
+        unassigned.declared_sold = digital.tickets;
+        unassigned.courtesies = digital.courtesies;
+        unassigned.due_cents = digital.amount_cents.unwrap_or_default();
+        unassigned.unpriced = digital_lines.values().map(|line| line.unpriced).sum();
+    }
     totals.add(unassigned);
     // The total balance is what sellers still owe (net): unassigned tickets are nobody's debt.
     let mut totals_row = totals.row(None, priced, false, false);
@@ -249,8 +259,10 @@ pub(crate) async fn build(state: &AppState, event: &EventRow) -> ApiResult<Event
         ticket_price_cents: price,
         sellers: rows,
         unassigned: unassigned.row(None, priced, false, false),
-        categories: by_category(state, event_id, price).await?,
+        categories: by_category(state, event_id, price, &digital_lines, event.digital_only).await?,
         totals: totals_row,
+        digital,
+        digital_only: event.digital_only,
         devices,
         invalid_scans: rejected.invalid,
         other_event_scans: rejected.other_event,
@@ -388,12 +400,117 @@ async fn counts_by_seller(
         .collect())
 }
 
+/// Digital tickets of the organization in one category (ADR 0124).
+#[derive(Debug, Default, Clone, Copy)]
+pub(crate) struct DigitalLine {
+    tickets: i64,
+    opened: i64,
+    entries: i64,
+    courtesies: i64,
+    amount_cents: i64,
+    unpriced: i64,
+}
+
+/// The digital tickets the organization sent itself, by category (ADR 0124): numbers of no
+/// seller (a seller's are in their settlement) with an active link, not voided, of a paid batch.
+async fn digital_by_category(
+    state: &AppState,
+    event_id: Uuid,
+    price: Option<i32>,
+) -> ApiResult<HashMap<Option<Uuid>, DigitalLine>> {
+    let rows = sqlx::query!(
+        r#"select cr.category_id as "category_id?",
+                  count(*) as "tickets!",
+                  count(*) filter (where l.first_opened_at is not null) as "opened!",
+                  count(e.ticket_number) as "entries!",
+                  count(co.id) as "courtesies!",
+                  coalesce(sum(case when co.id is not null then 0 else coalesce(tc.price_cents, $2::int4) end), 0)::bigint as "amount!",
+                  count(*) filter (where co.id is null and coalesce(tc.price_cents, $2::int4) is null) as "unpriced!"
+           from ticket_links l
+           left join category_ranges cr on cr.event_id = $1 and cr.numbers @> l.ticket_number
+           left join ticket_categories tc on tc.id = cr.category_id
+           left join entries e on e.event_id = $1 and e.ticket_number = l.ticket_number
+           left join courtesies co on co.event_id = $1 and co.ticket_number = l.ticket_number
+           where l.event_id = $1 and l.revoked_at is null
+             and exists (select 1 from ticket_batches b where b.event_id = $1 and b.status = 'paid'
+                         and b.numbers @> l.ticket_number)
+             and not exists (select 1 from seller_assignments a where a.event_id = $1
+                             and a.numbers @> l.ticket_number)
+             and not exists (select 1 from ticket_voids v where v.event_id = $1 and v.undone_at is null
+                             and v.numbers @> l.ticket_number)
+           group by cr.category_id"#,
+        event_id,
+        price,
+    )
+    .fetch_all(&state.pool)
+    .await?;
+    Ok(rows
+        .into_iter()
+        .map(|row| {
+            (
+                row.category_id,
+                DigitalLine {
+                    tickets: row.tickets,
+                    opened: row.opened,
+                    entries: row.entries,
+                    courtesies: row.courtesies,
+                    amount_cents: row.amount,
+                    unpriced: row.unpriced,
+                },
+            )
+        })
+        .collect())
+}
+
+/// The lines added up, with the Pix already recorded for those numbers and the free stock.
+async fn digital_total(
+    lines: &HashMap<Option<Uuid>, DigitalLine>,
+    state: &AppState,
+    event_id: Uuid,
+) -> ApiResult<ReportDigitalDto> {
+    let facts = sqlx::query!(
+        r#"select
+             coalesce((select sum(p.amount_cents) from ticket_payments p
+                       join ticket_links l on l.event_id = p.event_id and l.ticket_number = p.ticket_number
+                                          and l.revoked_at is null
+                       where p.event_id = $1 and p.received_by = 'organization'
+                         and not exists (select 1 from seller_assignments a where a.event_id = $1
+                                         and a.numbers @> p.ticket_number)), 0)::bigint as "pix!",
+             (select count(*) from ticket_batches b
+              cross join lateral generate_series(lower(b.numbers), upper(b.numbers) - 1) as n
+              where b.event_id = $1 and b.status = 'paid'
+                and not exists (select 1 from seller_assignments a where a.event_id = $1 and a.numbers @> n)
+                and not exists (select 1 from ticket_voids v where v.event_id = $1 and v.undone_at is null
+                                and v.numbers @> n)
+                and not exists (select 1 from ticket_links l where l.event_id = $1 and l.ticket_number = n
+                                and l.revoked_at is null)
+                and not exists (select 1 from courtesies co where co.event_id = $1 and co.ticket_number = n)
+             ) as "free!""#,
+        event_id
+    )
+    .fetch_one(&state.pool)
+    .await?;
+    let sum = |pick: fn(&DigitalLine) -> i64| lines.values().map(pick).sum::<i64>();
+    Ok(ReportDigitalDto {
+        tickets: sum(|line| line.tickets),
+        opened: sum(|line| line.opened),
+        entries: sum(|line| line.entries),
+        courtesies: sum(|line| line.courtesies),
+        amount_cents: (sum(|line| line.unpriced) == 0).then(|| sum(|line| line.amount_cents)),
+        pix_cents: facts.pix,
+        free: facts.free,
+    })
+}
+
 /// Paid tickets by category (ADR 0056): how many, declared sold, entries and the amount at the
-/// category's price. Empty when the event has no categories.
+/// category's price. Empty when the event has no categories. In an event of digital tickets
+/// only (ADR 0123), a number of no seller without a digital ticket is free, not sold.
 pub(crate) async fn by_category(
     state: &AppState,
     event_id: Uuid,
     price: Option<i32>,
+    digital: &HashMap<Option<Uuid>, DigitalLine>,
+    digital_only: bool,
 ) -> ApiResult<Vec<ReportCategoryDto>> {
     let rows = sqlx::query!(
         r#"with issued as (
@@ -412,13 +529,18 @@ pub(crate) async fn by_category(
                   count(*) as "tickets!",
                   count(*) filter (where v.reason is distinct from 'unsold' and v.reason is distinct from 'lost') as "sold!",
                   count(co.id) filter (where v.reason is distinct from 'unsold' and v.reason is distinct from 'lost') as "courtesies!",
-                  count(e.ticket_number) as "entries!"
+                  count(e.ticket_number) as "entries!",
+                  count(*) filter (where a.seller_id is null and l.id is null and v.number is null
+                                     and co.id is null) as "idle!"
            from issued i
            left join voided v on v.number = i.number
            left join entries e on e.event_id = $1 and e.ticket_number = i.number
            left join category_ranges cr on cr.event_id = $1 and cr.numbers @> i.number
            left join ticket_categories tc on tc.id = cr.category_id
            left join courtesies co on co.event_id = $1 and co.ticket_number = i.number
+           left join seller_assignments a on a.event_id = $1 and a.numbers @> i.number
+           left join ticket_links l on l.event_id = $1 and l.ticket_number = i.number
+                                   and l.revoked_at is null
            group by tc.id, tc.name, tc.color, tc.price_cents, tc.position
            order by tc.position nulls last, tc.name"#,
         event_id,
@@ -431,19 +553,32 @@ pub(crate) async fn by_category(
     }
     Ok(rows
         .into_iter()
-        .map(|row| ReportCategoryDto {
-            category_id: row.id,
-            name: row.name,
-            color: row.color,
-            price_cents: row.price_cents,
-            tickets: row.tickets,
-            sold: row.sold,
-            entries: row.entries,
-            courtesies: row.courtesies,
-            // Courtesies (ADR 0096) are worth nothing.
-            amount_cents: row
-                .price_cents
-                .map(|price| (row.sold - row.courtesies) * i64::from(price)),
+        .map(|row| {
+            let sold = if digital_only {
+                row.sold - row.idle
+            } else {
+                row.sold
+            };
+            ReportCategoryDto {
+                category_id: row.id,
+                name: row.name,
+                color: row.color,
+                price_cents: row.price_cents,
+                tickets: row.tickets,
+                sold,
+                entries: row.entries,
+                courtesies: row.courtesies,
+                // Courtesies (ADR 0096) are worth nothing.
+                amount_cents: row
+                    .price_cents
+                    .map(|price| (sold - row.courtesies) * i64::from(price)),
+                digital: digital.get(&row.id).map_or(0, |line| line.tickets),
+                digital_amount_cents: match digital.get(&row.id) {
+                    Some(line) if line.unpriced == 0 => Some(line.amount_cents),
+                    Some(_) => None,
+                    None => row.price_cents.map(|_| 0),
+                },
+            }
         })
         .collect())
 }

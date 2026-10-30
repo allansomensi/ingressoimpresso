@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select\n             coalesce((select sum(p.amount_cents) from ticket_payments p\n                       join ticket_links l on l.event_id = p.event_id and l.ticket_number = p.ticket_number\n                                          and l.revoked_at is null\n                       where p.event_id = $1 and p.received_by = 'organization'\n                         and not exists (select 1 from seller_assignments a where a.event_id = $1\n                                         and a.numbers @> p.ticket_number)), 0)::bigint as \"pix!\",\n             (select count(*) from ticket_batches b\n              cross join lateral generate_series(lower(b.numbers), upper(b.numbers) - 1) as n\n              where b.event_id = $1 and b.status = 'paid'\n                and not exists (select 1 from seller_assignments a where a.event_id = $1 and a.numbers @> n)\n                and not exists (select 1 from ticket_voids v where v.event_id = $1 and v.undone_at is null\n                                and v.numbers @> n)\n                and not exists (select 1 from ticket_links l where l.event_id = $1 and l.ticket_number = n\n                                and l.revoked_at is null)\n                and not exists (select 1 from courtesies co where co.event_id = $1 and co.ticket_number = n)\n             ) as \"free!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "pix!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "free!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "899ab7c1a75804972c39a9671c0f457e17643da51345d2aef0e381c82837dc62"
+}

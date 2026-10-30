@@ -328,6 +328,7 @@ export type * from "./generated/RefundSyncDto";
 export type * from "./generated/ReplaceTicketBody";
 export type * from "./generated/ReportCategoryDto";
 export type * from "./generated/ReportDeviceDto";
+export type * from "./generated/ReportDigitalDto";
 export type * from "./generated/ReportRowDto";
 export type * from "./generated/RequestCodeBody";
 export type * from "./generated/ReservationBody";

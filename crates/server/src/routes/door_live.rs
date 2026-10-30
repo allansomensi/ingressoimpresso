@@ -100,13 +100,15 @@ pub async fn live(
         })
         .collect();
     let today = crate::event_days::current(&day_bounds, now);
+    // The live view counts entries per category; the sales side (ADR 0124) is the report's.
+    let no_digital = std::collections::HashMap::new();
     // Polled every few seconds: the independent reads go out together.
     let (tickets, entries, doors, devices, categories, refusals, guests, box_office, reentry) = tokio::try_join!(
         async { Ok(tickets.await?) },
         async { Ok(entries.await?) },
         doors(pool, event_id),
         async { Ok(devices.await?) },
-        super::report::by_category(&state, event_id, price),
+        super::report::by_category(&state, event_id, price, &no_digital, false),
         async { Ok(refusals.await?) },
         guests(pool, event_id),
         box_office(pool, event_id, price),

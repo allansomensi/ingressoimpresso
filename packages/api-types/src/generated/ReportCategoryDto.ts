@@ -39,4 +39,12 @@ courtesies: number,
 /**
  * (Sold − courtesies) × price, when there is a price.
  */
-amountCents: number | null, };
+amountCents: number | null, 
+/**
+ * Of the sold, digital tickets the organization sent itself (ADR 0124).
+ */
+digital: number, 
+/**
+ * What those digital tickets are worth; `null` without a price.
+ */
+digitalAmountCents: number | null, };
