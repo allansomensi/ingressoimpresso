@@ -32,6 +32,7 @@ pub mod mail_admin;
 pub mod mailings;
 pub mod moderation;
 pub mod organization;
+pub mod page_design;
 pub mod pix;
 pub mod platform;
 pub mod privacy;

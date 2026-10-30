@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "delete from blobs b where b.event_id = $1 and b.sha256 <> $2\n           and b.created_at < now() - interval '2 hours'\n           and b.moderation_status not in ('flagged', 'rejected')\n           and not exists (select 1 from ticket_designs d\n                           where d.art_blob_id = b.id or b.id = any(d.sponsor_blob_ids)\n                              or b.id = any(d.photo_blob_ids) or d.stub_image_blob_id = b.id)\n           and not exists (select 1 from certificate_settings c where b.id = any(c.image_blob_ids))\n           and not exists (select 1 from events e where e.public_cover_blob_id = b.id)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Bytea"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b4bc8bfb17d267457f7b5768c1beadfed0b067298c01335afd9ede4351b35121"
+}

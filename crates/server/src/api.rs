@@ -6117,6 +6117,10 @@ dto! {
         /// Sold-out categories take names for a waiting list (ADR 0124).
         #[serde(default)]
         pub waitlist: bool,
+        /// How the page looks (ADR 0125).
+        pub design: PublicPageDesign,
+        /// The cover image, if any.
+        pub cover: Option<PageCoverDto>,
     }
 
     /// `PUT /api/events/{id}/public-page`.
@@ -6205,6 +6209,11 @@ dto! {
         /// (ADR 0124).
         #[serde(default)]
         pub waitlist: bool,
+        /// How the page looks (ADR 0125).
+        pub design: PublicPageDesign,
+        /// The cover image's address on the API (`/api/public/covers/…`), when there is one
+        /// the page may show.
+        pub cover_path: Option<String>,
     }
 
     /// `POST /api/public/events/{slug}/waitlist` (no login): a place in a sold-out category's
@@ -7252,5 +7261,164 @@ dto! {
         pub organization: Option<String>,
         /// Workload.
         pub workload: Option<String>,
+    }
+}
+
+dto_enum! {
+    /// The background of the event's public page (ADR 0125).
+    pub enum PageBackground {
+        /// The site's own, light or dark as the visitor's phone.
+        Plain,
+        /// A light wash of the accent colour.
+        Tinted,
+        /// Always dark, for a night out.
+        Dark,
+    }
+
+    /// The top of the event's public page (ADR 0125).
+    pub enum PageHero {
+        /// The accent colour, flat.
+        Color,
+        /// The accent colour fading to a darker one.
+        Gradient,
+        /// The cover image, darkened under the text.
+        Cover,
+    }
+
+    /// A part of the event's public page, in the order the organizer chose (ADR 0125).
+    pub enum PageSection {
+        /// Prices of each category.
+        Prices,
+        /// The waiting list of a sold-out category (ADR 0124).
+        Waitlist,
+        /// Where to buy: the sellers, or the organization's contact.
+        Buy,
+        /// The program of the event.
+        Schedule,
+        /// The days of an event of several days.
+        Days,
+        /// The place and its map.
+        Where,
+        /// The organizer's paragraph.
+        About,
+        /// Questions and answers.
+        Faq,
+        /// Links (Instagram, a form, a playlist).
+        Links,
+        /// The public check of tickets (ADR 0075).
+        Verify,
+    }
+}
+
+dto! {
+    /// A link of the public page: the main button or one of the links (ADR 0125).
+    pub struct PageLinkDto {
+        /// What the button says (1–40 characters).
+        pub label: String,
+        /// Where it goes (`https://…`).
+        pub url: String,
+    }
+
+    /// A part of the page and whether it shows.
+    pub struct PageSectionDto {
+        /// Which part.
+        pub kind: PageSection,
+        /// Shown.
+        pub visible: bool,
+    }
+
+    /// One line of the program ("21h · Abertura com a banda").
+    pub struct PageScheduleItemDto {
+        /// When, as written ("21h", "Sábado, 14h").
+        pub time: String,
+        /// What (1–80 characters).
+        pub title: String,
+        /// A line more (up to 160 characters).
+        pub detail: Option<String>,
+    }
+
+    /// A question and its answer.
+    pub struct PageFaqItemDto {
+        /// The question (1–140 characters).
+        pub question: String,
+        /// The answer (1–600 characters, line breaks allowed).
+        pub answer: String,
+    }
+
+    /// How the event's public page looks (ADR 0125): colours, the top, the title's font, a main
+    /// button, the order of its parts and the organizer's own blocks.
+    pub struct PublicPageDesign {
+        /// Accent colour (`#rrggbb`); `null`: the organization's, else the product's.
+        pub accent: Option<String>,
+        /// The page's background.
+        pub background: PageBackground,
+        /// The top of the page.
+        pub hero: PageHero,
+        /// The font of the event's name (the ticket's fonts); `null`: the site's.
+        pub title_font: Option<ticket_render::FontChoice>,
+        /// The main button under the date ("Comprar pelo formulário").
+        pub cta: Option<PageLinkDto>,
+        /// Every part, in order.
+        pub sections: Vec<PageSectionDto>,
+        /// The program (up to 30 lines).
+        pub schedule: Vec<PageScheduleItemDto>,
+        /// Questions and answers (up to 15).
+        pub faq: Vec<PageFaqItemDto>,
+        /// Links (up to 8).
+        pub links: Vec<PageLinkDto>,
+    }
+
+    /// The cover image of the public page, as the panel sees it.
+    pub struct PageCoverDto {
+        /// Blob id (an image of the event, sent like the ticket's art).
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// Moderation (ADR 0042): the page shows it unless flagged or rejected.
+        pub moderation: String,
+        /// Where the page loads it from.
+        pub url: String,
+    }
+
+    /// `PUT /api/events/{id}/public-page/design`.
+    pub struct PublicPageDesignBody {
+        /// The design.
+        pub design: PublicPageDesign,
+        /// The cover: an image of the event sent with `POST /api/events/{id}/art`; `null`: none.
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub cover_id: Option<Uuid>,
+    }
+}
+
+impl Default for PublicPageDesign {
+    fn default() -> Self {
+        use PageSection as S;
+        Self {
+            accent: None,
+            background: PageBackground::Plain,
+            hero: PageHero::Color,
+            title_font: None,
+            cta: None,
+            sections: [
+                S::Prices,
+                S::Waitlist,
+                S::Buy,
+                S::Schedule,
+                S::Days,
+                S::Where,
+                S::About,
+                S::Faq,
+                S::Links,
+                S::Verify,
+            ]
+            .into_iter()
+            .map(|kind| PageSectionDto {
+                kind,
+                visible: true,
+            })
+            .collect(),
+            schedule: Vec::new(),
+            faq: Vec::new(),
+            links: Vec::new(),
+        }
     }
 }

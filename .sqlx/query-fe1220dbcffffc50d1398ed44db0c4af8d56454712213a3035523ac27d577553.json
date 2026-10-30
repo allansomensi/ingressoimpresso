@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select e.id, e.public_sold_out, e.public_description, e.public_verify, e.public_waitlist,\n                  o.suspended_at is not null as \"suspended!\"\n           from events e join organizations o on o.id = e.organization_id\n           where e.public_slug = $1 and e.public_page",
+  "query": "select id, public_sold_out, public_description, public_verify, public_waitlist\n           from events where id = $1",
   "describe": {
     "columns": [
       {
@@ -57,17 +57,11 @@
             "name": "public_waitlist"
           }
         }
-      },
-      {
-        "ordinal": 5,
-        "name": "suspended!",
-        "type_info": "Bool",
-        "origin": "Expression"
       }
     ],
     "parameters": {
       "Left": [
-        "Text"
+        "Uuid"
       ]
     },
     "nullable": [
@@ -75,9 +69,8 @@
       false,
       true,
       false,
-      false,
-      null
+      false
     ]
   },
-  "hash": "8d237055b85ca68dd71c712dafa58ec95f12679ece661448ff89556dc307734f"
+  "hash": "fe1220dbcffffc50d1398ed44db0c4af8d56454712213a3035523ac27d577553"
 }

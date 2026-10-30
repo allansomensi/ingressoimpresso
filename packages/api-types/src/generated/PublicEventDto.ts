@@ -4,6 +4,7 @@ import type { EventDayDto } from "./EventDayDto";
 import type { EventKind } from "./EventKind";
 import type { PublicCategoryDto } from "./PublicCategoryDto";
 import type { PublicOrganizationDto } from "./PublicOrganizationDto";
+import type { PublicPageDesign } from "./PublicPageDesign";
 import type { PublicSellerDto } from "./PublicSellerDto";
 
 /**
@@ -78,4 +79,13 @@ publicVerify: boolean,
  * A sold-out category (or the whole event) takes names for its waiting list now
  * (ADR 0124).
  */
-waitlist: boolean, };
+waitlist: boolean, 
+/**
+ * How the page looks (ADR 0125).
+ */
+design: PublicPageDesign, 
+/**
+ * The cover image's address on the API (`/api/public/covers/…`), when there is one
+ * the page may show.
+ */
+coverPath: string | null, };

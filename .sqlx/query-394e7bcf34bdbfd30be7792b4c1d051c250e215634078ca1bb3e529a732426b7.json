@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select exists(select 1 from blobs where id = $1 and event_id = $2\n                             and moderation_status <> 'rejected') as \"ours!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "ours!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "394e7bcf34bdbfd30be7792b4c1d051c250e215634078ca1bb3e529a732426b7"
+}

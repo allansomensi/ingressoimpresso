@@ -247,6 +247,12 @@ const LATER: &[(&str, &str, Need)] = &[
         "waitlist-entries/{id}",
         Need::Area(TeamArea::Delivery),
     ),
+    // The look of the public page (ADR 0125), with the page itself: coordination.
+    (
+        "PUT",
+        "events/{id}/public-page/design",
+        Need::Area(TeamArea::Manage),
+    ),
     // The event's public page (ADR 0095) speaks for the event: coordination.
     (
         "PUT",

@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update events c set public_design = s.public_design\n           from events s where s.id = $1 and c.id = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "699889214cb0627ec090b03964f591eb7b94a100b91ed1add3ef4666e8192a25"
+}

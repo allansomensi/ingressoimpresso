@@ -116,7 +116,10 @@ pub(crate) async fn availability(
     Ok((issued > 0 && gone >= issued, by_category))
 }
 
-async fn settings_of(state: &AppState, event_id: Uuid) -> ApiResult<PublicPageSettingsDto> {
+pub(crate) async fn settings_of(
+    state: &AppState,
+    event_id: Uuid,
+) -> ApiResult<PublicPageSettingsDto> {
     let row = sqlx::query!(
         "select name, public_page, public_slug, public_sold_out, public_description, public_waitlist from events where id = $1",
         event_id
@@ -138,6 +141,7 @@ async fn settings_of(state: &AppState, event_id: Uuid) -> ApiResult<PublicPageSe
     })
     .collect();
     let (sold_out_auto, _) = availability(state, event_id).await?;
+    let (design, cover) = super::page_design::of_event(&state.pool, event_id).await?;
     Ok(PublicPageSettingsDto {
         enabled: row.public_page,
         url: row
@@ -155,6 +159,8 @@ async fn settings_of(state: &AppState, event_id: Uuid) -> ApiResult<PublicPageSe
         description: row.public_description,
         sellers,
         waitlist: row.public_waitlist,
+        design,
+        cover,
     })
 }
 
@@ -250,9 +256,8 @@ pub async fn public(
 ) -> ApiResult<Json<PublicEventDto>> {
     ratelimit::by_ip(&state, &headers, ratelimit::PUBLIC_PAGE).await?;
     let slug = clean_slug(&slug).map_err(|_| ApiError::NotFound)?;
-    let event = sqlx::query!(
-        r#"select e.id, e.public_sold_out, e.public_description, e.public_verify, e.public_waitlist,
-                  o.suspended_at is not null as "suspended!"
+    let found = sqlx::query!(
+        r#"select e.id, o.suspended_at is not null as "suspended!"
            from events e join organizations o on o.id = e.organization_id
            where e.public_slug = $1 and e.public_page"#,
         slug
@@ -261,16 +266,51 @@ pub async fn public(
     .await?
     .ok_or(ApiError::NotFound)?;
     // A suspended organization's page goes dark with it (ADR 0032).
-    if event.suspended {
+    if found.suspended {
         return Err(ApiError::NotFound);
     }
-    let row = super::seller_links::event_row(&state, event.id).await?;
+    Ok(Json(build(&state, found.id, slug).await?))
+}
+
+/// `GET /api/events/{id}/public-page/preview`: the page as the public would see it, on or off,
+/// for the editor's live preview (ADR 0125).
+pub async fn preview(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(event_id): Path<Uuid>,
+) -> ApiResult<Json<PublicEventDto>> {
+    authorize_event(&state.pool, &user, event_id).await?;
+    let slug = sqlx::query_scalar!("select public_slug from events where id = $1", event_id)
+        .fetch_one(&state.pool)
+        .await?;
+    let slug = if let Some(slug) = slug {
+        slug
+    } else {
+        let name = sqlx::query_scalar!("select name from events where id = $1", event_id)
+            .fetch_one(&state.pool)
+            .await?;
+        suggest(&state, event_id, &name).await?
+    };
+    Ok(Json(build(&state, event_id, slug).await?))
+}
+
+/// The public page of an event.
+async fn build(state: &AppState, event_id: Uuid, slug: String) -> ApiResult<PublicEventDto> {
+    let event = sqlx::query!(
+        r#"select id, public_sold_out, public_description, public_verify, public_waitlist
+           from events where id = $1"#,
+        event_id
+    )
+    .fetch_one(&state.pool)
+    .await?;
+    let row = super::seller_links::event_row(state, event.id).await?;
     let offset = row.offset();
+    let (design, cover) = super::page_design::of_event(&state.pool, event.id).await?;
     let (organization, days, categories, (sold_out_auto, sold_out_by_category), sellers) = tokio::try_join!(
         super::organization::event_organization(&state.pool, event.id),
         crate::event_days::of_event(&state.pool, event.id, offset),
         super::categories::load(&state.pool, event.id),
-        availability(&state, event.id),
+        availability(state, event.id),
         async {
             Ok(sqlx::query!(
                     "select name, phone from sellers where event_id = $1 and on_public_page and not box_office order by name",
@@ -286,7 +326,7 @@ pub async fn public(
         && (event.public_sold_out
             || sold_out_auto
             || sold_out_by_category.values().any(|sold_out| *sold_out));
-    Ok(Json(PublicEventDto {
+    Ok(PublicEventDto {
         slug,
         name: row.name.clone(),
         kind: row.kind(),
@@ -324,7 +364,9 @@ pub async fn public(
         change: row.change(),
         public_verify: event.public_verify,
         waitlist: waiting_open,
-    }))
+        cover_path: super::page_design::public_cover(cover.as_ref()),
+        design,
+    })
 }
 
 #[cfg(test)]

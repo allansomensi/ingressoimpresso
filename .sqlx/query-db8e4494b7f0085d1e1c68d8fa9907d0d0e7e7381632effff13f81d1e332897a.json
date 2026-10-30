@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update events set public_design = $2, public_cover_blob_id = $3 where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Jsonb",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "db8e4494b7f0085d1e1c68d8fa9907d0d0e7e7381632effff13f81d1e332897a"
+}
