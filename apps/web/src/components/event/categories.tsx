@@ -3,7 +3,7 @@
 import type { BatchDto, CategoryBody, CategoryDto, DayRule, EventDayDto, EventDto, EventKind, RangeDto } from "@ingressoimpresso/api-types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarDays, Check, HandHelping, IdCard, MoreHorizontal, Pencil, Plus, Sparkles, Tags, Trash2, X } from "lucide-react";
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
 import { ReadOnlyNotice, useEventAccess } from "@/components/event/access";
@@ -72,6 +72,8 @@ function CategoriesSection({ eventId, event, editable, onSelect }: { eventId: st
   const list = categories.data;
   const paid = (batches.data ?? []).filter((batch) => batch.status === "paid").map(({ first, last }) => ({ first, last }));
   const missing = list.length === 0 ? 0 : uncategorized(paid, list);
+  // Where the next category's numbers would start: right after the last one given.
+  const nextStart = Math.max(0, ...list.flatMap((category) => category.ranges.map((range) => range.last))) + 1;
 
   return (
     <section className="flex flex-col gap-4">
@@ -129,6 +131,7 @@ function CategoriesSection({ eventId, event, editable, onSelect }: { eventId: st
                 key={category.id}
                 t={t}
                 category={category}
+                nextStart={nextStart}
                 eventPrice={event.ticketPriceCents}
                 days={event.days}
                 editable={editable}
@@ -188,6 +191,7 @@ function CategoriesSection({ eventId, event, editable, onSelect }: { eventId: st
 function CategoryCard({
   t,
   category,
+  nextStart,
   eventPrice,
   days,
   editable,
@@ -196,6 +200,8 @@ function CategoryCard({
 }: {
   t: CategoryTexts;
   category: CategoryDto;
+  /** The first number no category has yet (ADR 0123: categories set up by count). */
+  nextStart: number;
   eventPrice: number | null;
   /** The days of an event of several days (ADR 0091). */
   days: readonly EventDayDto[];
@@ -205,6 +211,7 @@ function CategoryCard({
 }) {
   const confirm = useConfirm();
   const [text, setText] = useState("");
+  const input = useRef<HTMLInputElement>(null);
   const parsed = parseNumberList(text);
   const count = category.ranges.reduce((sum, range) => sum + range.last - range.first + 1, 0);
   const add = useMutation({
@@ -352,6 +359,7 @@ function CategoryCard({
           <form onSubmit={submit} className="flex flex-col gap-2">
             <div className="flex gap-2">
               <Input
+                ref={input}
                 aria-label={t.numbers}
                 value={text}
                 placeholder={t.numbersPlaceholder}
@@ -367,6 +375,18 @@ function CategoryCard({
             </div>
             {text.trim() !== "" && !parsed.ok && <p className="text-xs text-danger-fg">{errorsTexts.invalid_range}</p>}
             {parsed.ok && <p className="text-xs text-fg-muted">{t.ticketCount(parsed.count)}</p>}
+            {text === "" && category.ranges.length === 0 && (
+              <button
+                type="button"
+                className="relative w-fit text-left text-xs font-medium text-brand touch-target hover:underline active:underline"
+                onClick={() => {
+                  setText(`${String(nextStart)}-`);
+                  input.current?.focus();
+                }}
+              >
+                {t.startAt(ticketNumber(nextStart))}
+              </button>
+            )}
             <ErrorMessage error={add.error} />
           </form>
         )}

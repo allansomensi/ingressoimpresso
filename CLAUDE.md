@@ -439,6 +439,18 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   "Largou o pagamento" de "Pagamento não iniciado". `NumberInput` com `suffix` põe a unidade ao
   lado do número; `phoneLabel` (`lib/format.ts`) mostra telefones como "(11) 99999-0000".
 
+- **Evento só no celular (ADR 0123): implementado.** `events.digital_only` (formulário do evento e
+  cartão em Digitais) esconde Arquivos, põe Digitais antes de Vendedores (`tabsOf(kind, tabs,
+  digitalOnly)`, `useDigitalOnly()`) e leva "Entrega" de O que falta a Digitais
+  (`checklistTarget(key, digitalOnly)`). Emissão por pedido em `POST /api/events/{id}/tickets/issue`
+  (categoria, quantidade até 50, nome, WhatsApp, observação; até 500, tudo ou nada; livres por
+  categoria em `TicketLinksDto.stock`; número com link revogado nunca volta a ser escolhido);
+  `ticket_links.holder_phone`/`note`/`sent_at` (telefone apagado 90 dias depois do evento em
+  `jobs::prune`), `POST …/tickets/sent` fora do histórico. No painel: `components/event/digital.tsx`
+  (lista, filtros, "Para enviar"), `digital-send.tsx` (envio, cartão do criado, envio em
+  sequência, edição) e `digital-import.tsx` (planilha do Google Forms); regras em
+  `lib/digital-tickets.ts` (agrupar por pessoa, mensagem, colunas e categorias da planilha).
+
 Plano completo em `docs/arquitetura.md` §12.
 
 ## Onde está cada coisa
@@ -562,7 +574,8 @@ apps/web             landing em src/app/page.tsx (+ src/components/marketing: si
                      o layout raiz lê x-nonce; script inline novo precisa de nonce={nonce});
                      ingresso digital: app/ingresso + components/ticket/ticket-pass.tsx +
                      lib/ticket-pass.ts, aba components/event/digital.tsx (segunda via em
-                     ReplaceDialog);
+                     ReplaceDialog; envio por categoria e em sequência em digital-send.tsx,
+                     planilha em digital-import.tsx, regras em lib/digital-tickets.ts, ADR 0123);
                      documentos legais em src/content/legal.ts (LEGAL_ENTITY, TERMS_VERSION) e
                      components/legal; rodapé em components/marketing/site-footer.tsx;
                      novidades em app/novidades + components/changelog + lib/changelog.ts

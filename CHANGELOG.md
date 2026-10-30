@@ -12,6 +12,27 @@ e não acompanha estes números.
 
 ## [Não lançado]
 
+### Adicionado
+
+- Evento só no celular: no formulário do evento, escolha "Só no celular" e o painel deixa de lado
+  o que é de impressão (Arquivos some, Digitais vem antes de Vendedores e o pagamento do lote leva
+  direto ao envio). Dá para ligar e desligar na seção Digitais (ADR 0123).
+- Enviar ingresso por tipo: escolha a categoria (por exemplo "Sábado com janta"), a quantidade, o
+  nome e o WhatsApp, e os próximos números livres daquele tipo saem prontos, numa mensagem só para
+  a família toda. A seção mostra quantos livres sobram de cada tipo (ADR 0123).
+- Importar planilha em Digitais: cole as respostas do Google Forms (ou escolha o CSV) e cada
+  pessoa recebe o seu tipo de ingresso; as colunas e os tipos são reconhecidos sozinhos, dá para
+  corrigir, e quem já tem ingresso vem desmarcado (ADR 0123).
+- Enviar em sequência: quem ainda não recebeu aparece uma pessoa por vez, com o botão do WhatsApp
+  e "Próximo". A lista mostra quem está "Para enviar", quando cada um foi enviado, a observação da
+  equipe ("Pix conferido") e baixa uma planilha com tudo (ADR 0123).
+- Categorias sem números sugerem começar logo depois da última faixa.
+
+### Alterado
+
+- O WhatsApp de quem recebe um ingresso digital fica guardado para reenviar e é apagado 90 dias
+  depois do evento (ADR 0123).
+
 ## [1.18.0] - 2026-10-29
 
 ### Adicionado

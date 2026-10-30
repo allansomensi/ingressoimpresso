@@ -2,7 +2,7 @@
 
 import type { AccountDto, BatchDto, BatchQuoteDto, CheckoutDto, CreateBatchBody, EventDto, PricingDto } from "@ingressoimpresso/api-types";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, CreditCard, FileDown, Layers, Lock, MoreHorizontal, Plus, RefreshCw, ShieldCheck, X } from "lucide-react";
+import { CheckCircle2, CreditCard, FileDown, Layers, Lock, MoreHorizontal, Plus, RefreshCw, Send, ShieldCheck, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useDeferredValue, useEffect, useRef, useState, type FormEvent } from "react";
@@ -33,7 +33,7 @@ import { money, shortDateTime, ticketNumber } from "@/lib/format";
 import { quote } from "@/lib/pricing";
 import { useSession } from "@/lib/session";
 import { errors as errorsTexts } from "@/texts/pt-BR/errors";
-import { useEventTexts } from "@/components/event/access";
+import { useDigitalOnly, useEventTexts } from "@/components/event/access";
 import { event as eventTexts } from "@/texts/pt-BR/event";
 import { common as commonTexts } from "@/texts/pt-BR/common";
 import { landing as landingTexts } from "@/texts/pt-BR/landing";
@@ -412,6 +412,7 @@ function PaymentReturn({
   onSelect: SelectTab;
 }) {
   const t = useEventTexts().batches;
+  const digitalOnly = useDigitalOnly();
   const search = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -477,12 +478,12 @@ function PaymentReturn({
         action={
           <Button
             size="sm"
-            icon={<FileDown />}
+            icon={digitalOnly ? <Send /> : <FileDown />}
             onClick={() => {
-              onSelect("files");
+              onSelect(digitalOnly ? "digital" : "files");
             }}
           >
-            {t.goToFiles}
+            {digitalOnly ? t.goToDigital : t.goToFiles}
           </Button>
         }
       />
@@ -519,6 +520,7 @@ function PaymentReturn({
 
 export function BatchesTab({ eventId, onSelect }: { eventId: string; onSelect: SelectTab }) {
   const t = useEventTexts().batches;
+  const digitalOnly = useDigitalOnly();
   const { session } = useSession();
   const search = useSearchParams();
   const isAdmin = session.status === "signed-in" && session.user.isAdmin;
@@ -562,7 +564,7 @@ export function BatchesTab({ eventId, onSelect }: { eventId: string; onSelect: S
 
   return (
     <div className="flex flex-col gap-6">
-      <TabHeader tab="batches" help={t.intro} actions={list.length > 0 && newButton} />
+      <TabHeader tab="batches" help={digitalOnly ? t.introDigital : t.intro} actions={list.length > 0 && newButton} />
       <PaymentReturn batches={list} eventId={eventId} onSelect={onSelect} />
       {closed && <Alert tone="warning">{eventTexts.actions.archivedNote}</Alert>}
       {pricing.data !== undefined && !onlinePayment && hasUnpaid && !isAdmin && <Alert tone="warning">{t.paymentDisabled}</Alert>}

@@ -2,7 +2,7 @@
 
 import type { EventBody, EventDto, EventKind, OrganizationProfileDto } from "@ingressoimpresso/api-types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Coins, Sparkles, Ticket } from "lucide-react";
+import { Coins, Printer, Smartphone, Sparkles, Ticket } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
@@ -33,6 +33,8 @@ export interface EventPreset {
   kind: EventKind;
   /** An example name for this kind of event. */
   placeholder: string;
+  /** The tickets only go to phones (ADR 0123). */
+  digitalOnly?: boolean;
 }
 
 /** Create (no `event`) or edit an event, in a dialog. */
@@ -115,6 +117,7 @@ function EventForm({
   const [startsAt, setStartsAt] = useState(event === undefined ? "" : wallClockInput(event.startsAt));
   const [endsAt, setEndsAt] = useState(event === undefined ? "" : wallClockInput(event.endsAt));
   const [kind, setKind] = useState<EventKind>(event?.kind ?? preset?.kind ?? "tickets");
+  const [digitalOnly, setDigitalOnly] = useState(event?.digitalOnly ?? preset?.digitalOnly ?? false);
   // The organization's default is a ticket price: a token event starts without it.
   const [price, setPrice] = useState(
     priceText(event === undefined ? (kind === "tokens" ? null : (defaults?.defaultTicketPriceCents ?? null)) : event.ticketPriceCents),
@@ -149,6 +152,7 @@ function EventForm({
         endsAt: withOffset(last?.endsAt ?? endsAt, offset),
         ticketPriceCents: parsedPrice.ok ? parsedPrice.cents : null,
         kind,
+        digitalOnly,
         // Days set, or taken away (the event is of one day again); otherwise left as they are.
         ...(severalDays
           ? { days: days.map((day) => ({ startsAt: withOffset(day.startsAt, offset), endsAt: withOffset(day.endsAt, offset) })) }
@@ -206,6 +210,7 @@ function EventForm({
           }
         }}
       />
+      <DeliveryPicker kind={kind} digitalOnly={digitalOnly} onChange={setDigitalOnly} />
       <Field label={t.eventName}>
         <Input
           value={name}
@@ -322,15 +327,58 @@ function EventForm({
 
 /** Tickets or consumption tokens (ADR 0084): two cards, the first thing the form asks. */
 function KindPicker({ value, onChange }: { value: EventKind; onChange: (kind: EventKind) => void }) {
-  const options = [
-    { kind: "tickets", Icon: Ticket },
-    { kind: "tokens", Icon: Coins },
-  ] as const satisfies readonly { kind: EventKind; Icon: typeof Ticket }[];
+  return (
+    <ChoiceCards
+      name="event-kind"
+      legend={t.kind}
+      value={value}
+      onChange={onChange}
+      options={[
+        { value: "tickets", Icon: Ticket, ...t.kinds.tickets },
+        { value: "tokens", Icon: Coins, ...t.kinds.tokens },
+      ]}
+    />
+  );
+}
+
+/** Paper and phones, or phones only (ADR 0123): the panel leads with what the event uses. */
+function DeliveryPicker({ kind, digitalOnly, onChange }: { kind: EventKind; digitalOnly: boolean; onChange: (digitalOnly: boolean) => void }) {
+  const texts = kind === "tokens" ? t.delivery.tokens : t.delivery.tickets;
+  return (
+    <ChoiceCards
+      name="event-delivery"
+      legend={t.delivery.legend}
+      value={digitalOnly ? "digital" : "paper"}
+      onChange={(value) => {
+        onChange(value === "digital");
+      }}
+      options={[
+        { value: "paper", Icon: Printer, ...texts.paper },
+        { value: "digital", Icon: Smartphone, ...texts.digital },
+      ]}
+    />
+  );
+}
+
+/** Two choices as cards with an icon, a title and one line. */
+function ChoiceCards<T extends string>({
+  name,
+  legend,
+  value,
+  options,
+  onChange,
+}: {
+  name: string;
+  legend: string;
+  value: T;
+  options: readonly { value: T; Icon: typeof Ticket; title: string; body: string }[];
+  onChange: (value: T) => void;
+}) {
   return (
     <fieldset className="flex flex-col gap-2">
-      <legend className="mb-1.5 text-sm font-medium text-fg">{t.kind}</legend>
+      <legend className="mb-1.5 text-sm font-medium text-fg">{legend}</legend>
       <div className="grid grid-cols-2 gap-2">
-        {options.map(({ kind, Icon }) => {
+        {options.map(({ value: kind, Icon, title, body }) => {
           const selected = value === kind;
           return (
             <label
@@ -342,7 +390,7 @@ function KindPicker({ value, onChange }: { value: EventKind; onChange: (kind: Ev
             >
               <input
                 type="radio"
-                name="event-kind"
+                name={name}
                 className="sr-only"
                 checked={selected}
                 onChange={() => {
@@ -353,9 +401,9 @@ function KindPicker({ value, onChange }: { value: EventKind; onChange: (kind: Ev
                 <span className={cn("flex size-8 items-center justify-center rounded-lg", selected ? "bg-brand-solid text-white" : "bg-surface-2 text-fg-muted")}>
                   <Icon className="size-4" aria-hidden />
                 </span>
-                {t.kinds[kind].title}
+                {title}
               </span>
-              <span className="text-xs leading-relaxed text-fg-muted">{t.kinds[kind].body}</span>
+              <span className="text-xs leading-relaxed text-fg-muted">{body}</span>
             </label>
           );
         })}
