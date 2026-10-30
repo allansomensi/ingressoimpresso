@@ -258,7 +258,9 @@ const LATER: &[(&str, &str, Need)] = &[
         "PUT",
         "events/{id}/public-page",
         Need::Area(TeamArea::Manage),
-    ),
+    ), // The setup assistant creates categories and checkpoints (ADR 0126): coordination, like a
+    // category.
+    ("POST", "events/{id}/setup", Need::Area(TeamArea::Manage)),
 ];
 
 fn later_area(method: &str, shape: &str) -> Option<Need> {
