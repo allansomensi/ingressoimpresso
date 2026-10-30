@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update ticket_links l set holder_phone = null\n           from events e where e.id = l.event_id and l.holder_phone is not null\n             and e.ends_at < now() - interval '90 days'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "666c628d8c96686d646e15e60e3f47939519358a87b20974e9c40c4884b9800f"
+}

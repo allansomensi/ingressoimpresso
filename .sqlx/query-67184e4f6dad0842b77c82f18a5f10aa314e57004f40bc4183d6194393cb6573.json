@@ -1,0 +1,37 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with free as (\n                 select n, (select r.category_id from category_ranges r\n                            where r.event_id = b.event_id and r.numbers @> n) as category_id\n                 from ticket_batches b\n                 cross join lateral generate_series(lower(b.numbers), upper(b.numbers) - 1) as n\n                 where b.event_id = $1 and b.status = 'paid'\n                   and not exists (select 1 from seller_assignments a where a.event_id = b.event_id and a.numbers @> n)\n                   and not exists (select 1 from ticket_voids v where v.event_id = b.event_id and v.undone_at is null\n                                   and v.numbers @> n)\n                   and not exists (select 1 from ticket_links l where l.event_id = b.event_id and l.ticket_number = n)\n                   and not exists (select 1 from entries e where e.event_id = b.event_id and e.ticket_number = n))\n               select category_id, count(*)::int4 as \"free!\", min(n) as \"next!\" from free group by category_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "category_id",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "free!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "next!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "67184e4f6dad0842b77c82f18a5f10aa314e57004f40bc4183d6194393cb6573"
+}

@@ -62,10 +62,22 @@ export const TAB_GROUPS = [
 
 /**
  * Tabs an event of `kind` shows (ADR 0084): consumption tokens have no guest list (nobody enters
- * by name at a stall), credentials (ADR 0111) nor certificates (ADR 0113).
+ * by name at a stall), credentials (ADR 0111) nor certificates (ADR 0113). An event of digital
+ * tickets only (ADR 0123) has nothing to print and puts its digital tickets before the sellers.
  */
-export function tabsOf(kind: EventKind | undefined, tabs: readonly Tab[] = TABS): Tab[] {
-  return tabs.filter((tab) => kind !== "tokens" || !(["guests", "credentials", "certificates"] as const).some((hidden) => hidden === tab));
+export function tabsOf(kind: EventKind | undefined, tabs: readonly Tab[] = TABS, digitalOnly = false): Tab[] {
+  const shown = tabs.filter(
+    (tab) =>
+      (kind !== "tokens" || !(["guests", "credentials", "certificates"] as const).some((hidden) => hidden === tab)) &&
+      !(digitalOnly && tab === "files"),
+  );
+  const sellers = shown.indexOf("sellers");
+  const digital = shown.indexOf("digital");
+  if (digitalOnly && sellers !== -1 && digital > sellers) {
+    shown.splice(digital, 1);
+    shown.splice(sellers, 0, "digital");
+  }
+  return shown;
 }
 
 /** The tab's name: "Ficha", "Produtos" and "Barracas" for consumption tokens (ADR 0084). */

@@ -76,10 +76,10 @@ function HeaderSkeleton() {
 }
 
 /** Sections where the checklist still misses something the user can do there (ADR 0078). */
-function attentionTabs(list: ChecklistDto | undefined): Set<Tab> {
+function attentionTabs(list: ChecklistDto | undefined, digitalOnly: boolean): Set<Tab> {
   const tabs = new Set<Tab>();
   for (const item of list?.items ?? []) {
-    const target = checklistTarget(item.key);
+    const target = checklistTarget(item.key, digitalOnly);
     if (item.state === "missing" && item.canAct && target.kind === "tab") {
       tabs.add(target.tab);
     }
@@ -112,7 +112,7 @@ function EventView() {
   const kind = event.data?.kind;
   // The header and the leave dialog are outside the sections' provider: they read the words here.
   const words = forKind(eventTexts, eventTexts.tokens, kind);
-  const tab = tabsOf(kind).includes(requested) ? requested : "overview";
+  const tab = tabsOf(kind, undefined, event.data?.digitalOnly ?? false).includes(requested) ? requested : "overview";
 
   const confirm = useConfirm();
   const leaveAllowed = async () =>
@@ -319,8 +319,9 @@ function EventView() {
           <div className="lg:sticky lg:top-[calc(5rem+env(safe-area-inset-top))] lg:max-h-[calc(100dvh-6rem)] lg:overflow-y-auto">
             <EventNav
               kind={kind}
+              digitalOnly={data.digitalOnly}
               current={tab}
-              attention={attentionTabs(checklist.data)}
+              attention={attentionTabs(checklist.data, data.digitalOnly)}
               live={isDoorDay(data.startsAt, data.endsAt, event.dataUpdatedAt)}
               onSelect={(next) => {
                 void select(next);

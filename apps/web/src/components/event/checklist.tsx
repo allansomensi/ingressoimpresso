@@ -11,7 +11,7 @@ import { cn } from "@/lib/cn";
 import { forKind } from "@/lib/event-kind";
 import { checklist as checklistTexts } from "@/texts/pt-BR/checklist";
 
-import { useEventKind } from "./access";
+import { useDigitalOnly, useEventKind } from "./access";
 import type { SelectTab } from "./tabs";
 
 
@@ -161,7 +161,7 @@ function ItemRow({
 }) {
   const t = forKind(checklistTexts, checklistTexts.tokens, useEventKind());
   const isDone = item.state === "done";
-  const target = checklistTarget(item.key);
+  const target = checklistTarget(item.key, useDigitalOnly());
   const someoneElse = !item.canAct && !isDone && (item.area === null ? t.organizationOnly : t.otherPerson);
   const content = (
     <>

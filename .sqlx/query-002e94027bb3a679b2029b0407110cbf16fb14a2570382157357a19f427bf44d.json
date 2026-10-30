@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select e.id, e.name, e.venue, e.starts_at, e.ends_at, e.ticket_price_cents, e.status, e.qr_tag,\n                  e.utc_offset_minutes, e.address, e.postponed_from_starts_at, e.postponed_at,\n                  e.postpone_reason, e.canceled_at, e.cancel_reason, e.kind,\n                  e.organization_id, o.name as organization_name,\n                  o.suspended_at is not null as \"organization_suspended!\",\n                  exists(select 1 from memberships m\n                         where m.organization_id = e.organization_id and m.user_id = $2) as \"member!\",\n                  (select t.areas from event_team t where t.event_id = e.id and t.user_id = $2) as \"areas?: Vec<String>\",\n                  (select t.joined_at is null from event_team t where t.event_id = e.id and t.user_id = $2) as \"first_visit?\"\n           from events e join organizations o on o.id = e.organization_id where e.id = $1",
+  "query": "select e.id, e.name, e.venue, e.starts_at, e.ends_at, e.ticket_price_cents, e.status, e.qr_tag,\n                  e.utc_offset_minutes, e.address, e.postponed_from_starts_at, e.postponed_at,\n                  e.postpone_reason, e.canceled_at, e.cancel_reason, e.kind, e.digital_only,\n                  e.organization_id, o.name as organization_name,\n                  o.suspended_at is not null as \"organization_suspended!\",\n                  exists(select 1 from memberships m\n                         where m.organization_id = e.organization_id and m.user_id = $2) as \"member!\",\n                  (select t.areas from event_team t where t.event_id = e.id and t.user_id = $2) as \"areas?: Vec<String>\",\n                  (select t.joined_at is null from event_team t where t.event_id = e.id and t.user_id = $2) as \"first_visit?\"\n           from events e join organizations o on o.id = e.organization_id where e.id = $1",
   "describe": {
     "columns": [
       {
@@ -181,6 +181,17 @@
       },
       {
         "ordinal": 16,
+        "name": "digital_only",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "digital_only"
+          }
+        }
+      },
+      {
+        "ordinal": 17,
         "name": "organization_id",
         "type_info": "Uuid",
         "origin": {
@@ -191,7 +202,7 @@
         }
       },
       {
-        "ordinal": 17,
+        "ordinal": 18,
         "name": "organization_name",
         "type_info": "Text",
         "origin": {
@@ -202,25 +213,25 @@
         }
       },
       {
-        "ordinal": 18,
+        "ordinal": 19,
         "name": "organization_suspended!",
         "type_info": "Bool",
         "origin": "Expression"
       },
       {
-        "ordinal": 19,
+        "ordinal": 20,
         "name": "member!",
         "type_info": "Bool",
         "origin": "Expression"
       },
       {
-        "ordinal": 20,
+        "ordinal": 21,
         "name": "areas?: Vec<String>",
         "type_info": "TextArray",
         "origin": "Expression"
       },
       {
-        "ordinal": 21,
+        "ordinal": 22,
         "name": "first_visit?",
         "type_info": "Bool",
         "origin": "Expression"
@@ -251,11 +262,12 @@
       false,
       false,
       false,
+      false,
       null,
       null,
       null,
       null
     ]
   },
-  "hash": "8f773edd38920a55b0725fa4b3170496385a3435ae8a81cae0f3335061bd3152"
+  "hash": "002e94027bb3a679b2029b0407110cbf16fb14a2570382157357a19f427bf44d"
 }

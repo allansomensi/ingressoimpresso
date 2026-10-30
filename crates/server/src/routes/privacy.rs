@@ -292,7 +292,8 @@ async fn export_event(state: &AppState, event_id: Uuid) -> ApiResult<Value> {
         }));
     }
     let links = sqlx::query!(
-        r#"select ticket_number, holder_name, created_at, first_opened_at, revoked_at
+        r#"select ticket_number, holder_name, holder_phone, note, created_at, sent_at, first_opened_at,
+                  revoked_at
            from ticket_links where event_id = $1 order by ticket_number"#,
         event_id
     )
@@ -302,7 +303,9 @@ async fn export_event(state: &AppState, event_id: Uuid) -> ApiResult<Value> {
     .map(|link| {
         json!({
             "number": link.ticket_number, "holderName": link.holder_name,
-            "createdAt": rfc3339(link.created_at), "firstOpenedAt": optional_rfc3339(link.first_opened_at),
+            "holderPhone": link.holder_phone, "note": link.note,
+            "createdAt": rfc3339(link.created_at), "sentAt": optional_rfc3339(link.sent_at),
+            "firstOpenedAt": optional_rfc3339(link.first_opened_at),
             "revokedAt": optional_rfc3339(link.revoked_at),
         })
     })

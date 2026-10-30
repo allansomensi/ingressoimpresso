@@ -1,0 +1,36 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into ticket_links (id, event_id, ticket_number, holder_name, holder_phone, note,\n                                         token_hash, sealed, created_by)\n               select t.id, $2, t.number, t.holder, t.phone, t.note, t.hash, t.sealed, $3\n               from unnest($1::uuid[], $4::int4[], $5::text[], $6::text[], $7::text[], $8::bytea[], $9::bytea[])\n                    as t(id, number, holder, phone, note, hash, sealed)\n               on conflict (event_id, ticket_number) where revoked_at is null do nothing\n               returning id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "ticket_links",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray",
+        "Uuid",
+        "Uuid",
+        "Int4Array",
+        "TextArray",
+        "TextArray",
+        "TextArray",
+        "ByteaArray",
+        "ByteaArray"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "ec97d8ae1bf270874043d95cc574fe2569d01c7e54779361d0999181976091e7"
+}

@@ -75,4 +75,8 @@ kind: EventKind,
 /**
  * The days of an event of several days (ADR 0091); empty for an event of one day.
  */
-days: Array<EventDayDto>, };
+days: Array<EventDayDto>, 
+/**
+ * The tickets only go to phones (ADR 0123).
+ */
+digitalOnly: boolean, };

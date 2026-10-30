@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select l.id, l.ticket_number, l.holder_name, l.sealed, l.created_at, l.revoked_at,\n                  l.first_opened_at, l.last_opened_at, l.open_count,\n                  exists(select 1 from ticket_voids v where v.event_id = l.event_id and v.undone_at is null\n                         and v.numbers @> l.ticket_number) as \"voided!\",\n                  (select s.scanned_at from entries en join scans s on s.id = en.first_scan_id\n                   where en.event_id = l.event_id and en.ticket_number = l.ticket_number) as \"entered_at?\",\n                  (select se.name from sellers se where se.id = l.seller_id) as \"seller?\"\n           from ticket_links l\n           where l.event_id = $1 and ($2::uuid[] is null or l.id = any($2))\n           order by l.revoked_at is not null, l.created_at desc",
+  "query": "select l.id, l.ticket_number, l.holder_name, l.sealed, l.created_at, l.revoked_at,\n                  l.first_opened_at, l.last_opened_at, l.open_count,\n                  exists(select 1 from ticket_voids v where v.event_id = l.event_id and v.undone_at is null\n                         and v.numbers @> l.ticket_number) as \"voided!\",\n                  (select s.scanned_at from entries en join scans s on s.id = en.first_scan_id\n                   where en.event_id = l.event_id and en.ticket_number = l.ticket_number) as \"entered_at?\",\n                  (select se.name from sellers se where se.id = l.seller_id) as \"seller?\",\n                  (select r.category_id from category_ranges r where r.event_id = l.event_id\n                   and r.numbers @> l.ticket_number) as \"category_id?\",\n                  l.holder_phone, l.note, l.sent_at\n           from ticket_links l\n           where l.event_id = $1 and ($2::uuid[] is null or l.id = any($2))\n           order by l.revoked_at is not null, l.created_at desc",
   "describe": {
     "columns": [
       {
@@ -119,6 +119,45 @@
         "name": "seller?",
         "type_info": "Text",
         "origin": "Expression"
+      },
+      {
+        "ordinal": 12,
+        "name": "category_id?",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 13,
+        "name": "holder_phone",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ticket_links",
+            "name": "holder_phone"
+          }
+        }
+      },
+      {
+        "ordinal": 14,
+        "name": "note",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ticket_links",
+            "name": "note"
+          }
+        }
+      },
+      {
+        "ordinal": 15,
+        "name": "sent_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "ticket_links",
+            "name": "sent_at"
+          }
+        }
       }
     ],
     "parameters": {
@@ -139,8 +178,12 @@
       false,
       null,
       null,
-      null
+      null,
+      null,
+      true,
+      true,
+      true
     ]
   },
-  "hash": "fa120b688a2dbd570cc1778754379b6e656479e4683937dd7b13ac31481c84b6"
+  "hash": "310e2019a2105852aaa4ffe8b6b5faed82b31d90ece89e7169bb8e49f1d5e138"
 }

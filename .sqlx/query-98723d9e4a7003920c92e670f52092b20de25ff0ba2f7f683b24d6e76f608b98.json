@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag, utc_offset_minutes,\n                  address, postponed_from_starts_at, postponed_at, postpone_reason, canceled_at, cancel_reason, kind\n           from events where id = $1",
+  "query": "update events set name = $2, venue = $3, starts_at = $4, ends_at = $5, ticket_price_cents = $6,\n                             utc_offset_minutes = $7, address = $8, kind = coalesce($9, kind),\n                             -- A consumption token is used once: no exit and return (ADR 0084).\n                             reentry = reentry and coalesce($9, kind) = 'tickets',\n                             digital_only = coalesce($10, digital_only)\n           where id = $1\n           returning id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag,\n                     utc_offset_minutes, address, postponed_from_starts_at, postponed_at,\n                     postpone_reason, canceled_at, cancel_reason, kind, digital_only",
   "describe": {
     "columns": [
       {
@@ -178,11 +178,31 @@
             "name": "kind"
           }
         }
+      },
+      {
+        "ordinal": 16,
+        "name": "digital_only",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "digital_only"
+          }
+        }
       }
     ],
     "parameters": {
       "Left": [
-        "Uuid"
+        "Uuid",
+        "Text",
+        "Text",
+        "Timestamptz",
+        "Timestamptz",
+        "Int4",
+        "Int2",
+        "Text",
+        "Text",
+        "Bool"
       ]
     },
     "nullable": [
@@ -201,8 +221,9 @@
       true,
       true,
       true,
+      false,
       false
     ]
   },
-  "hash": "3269a66fc48c6db47619d493c0514f0fe8f43f1fc849c1d22b739d0f3b071f95"
+  "hash": "98723d9e4a7003920c92e670f52092b20de25ff0ba2f7f683b24d6e76f608b98"
 }

@@ -75,7 +75,7 @@ const HEADERS = {
 } as const;
 type Column = keyof typeof HEADERS;
 
-function plain(text: string): string {
+export function plain(text: string): string {
   return text
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
@@ -132,7 +132,7 @@ export function splitDelimited(text: string, delimiter: string): string[][] {
  * then semicolons (CSV saved by Excel in Portuguese) on most lines; commas only for a file, since
  * a pasted "Silva, Maria" is a name.
  */
-function delimiterOf(text: string, file: boolean): string | null {
+export function delimiterOf(text: string, file: boolean): string | null {
   const lines = text.split(/\r?\n/).filter((line) => line.trim() !== "");
   if (lines.length === 0) {
     return null;

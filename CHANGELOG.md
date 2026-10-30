@@ -12,6 +12,29 @@ e não acompanha estes números.
 
 ## [Não lançado]
 
+## [1.19.0] - 2026-10-30
+
+### Adicionado
+
+- Evento só no celular: no formulário do evento, escolha "Só no celular" e o painel deixa de lado
+  o que é de impressão (Arquivos some, Digitais vem antes de Vendedores e o pagamento do lote leva
+  direto ao envio). Dá para ligar e desligar na seção Digitais (ADR 0123).
+- Enviar ingresso por tipo: escolha a categoria (por exemplo "Sábado com janta"), a quantidade, o
+  nome e o WhatsApp, e os próximos números livres daquele tipo saem prontos, numa mensagem só para
+  a família toda. A seção mostra quantos livres sobram de cada tipo (ADR 0123).
+- Importar planilha em Digitais: cole as respostas do Google Forms (ou escolha o CSV) e cada
+  pessoa recebe o seu tipo de ingresso; as colunas e os tipos são reconhecidos sozinhos, dá para
+  corrigir, e quem já tem ingresso vem desmarcado (ADR 0123).
+- Enviar em sequência: quem ainda não recebeu aparece uma pessoa por vez, com o botão do WhatsApp
+  e "Próximo". A lista mostra quem está "Para enviar", quando cada um foi enviado, a observação da
+  equipe ("Pix conferido") e baixa uma planilha com tudo (ADR 0123).
+- Categorias sem números sugerem começar logo depois da última faixa.
+
+### Alterado
+
+- O WhatsApp de quem recebe um ingresso digital fica guardado para reenviar e é apagado 90 dias
+  depois do evento (ADR 0123).
+
 ## [1.18.0] - 2026-10-29
 
 ### Adicionado
@@ -880,7 +903,8 @@ Primeira versão numerada: o produto que já estava em produção, das fases 0 a
 - Política de segurança de conteúdo (CSP) com nonce por requisição em todo o site (ADR 0048).
 - Verificação anti-robô antes do envio do código de login (ADR 0044).
 
-[Não lançado]: https://github.com/allansomensi/ingressoimpresso/compare/v1.18.0...HEAD
+[Não lançado]: https://github.com/allansomensi/ingressoimpresso/compare/v1.19.0...HEAD
+[1.19.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.18.0...v1.19.0
 [1.18.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.17.0...v1.18.0
 [1.17.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.16.1...v1.17.0
 [1.16.1]: https://github.com/allansomensi/ingressoimpresso/compare/v1.16.0...v1.16.1
