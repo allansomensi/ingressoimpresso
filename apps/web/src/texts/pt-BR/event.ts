@@ -75,11 +75,6 @@ export const event = {
       title: "Produtos",
       hint: "Cada número é de um produto só. Sem produto, vale o preço do evento. Toque no preço para mudar.",
       add: "Novo produto",
-      suggest: "Usar Bebida, Comida, Doce e Brincadeira",
-      suggested: "Produtos criados. Agora diga quais números são de cada um.",
-      suggestTitle: "Produtos sugeridos",
-      suggestBody: "Marque os que vai usar e confira o preço de cada um. Em branco, vale o preço do evento.",
-      suggestCreate: (count: number) => (count === 1 ? "Criar 1 produto" : `Criar ${String(count)} produtos`),
       presets: [
         { name: "Bebida", color: "#2563eb", price: "event", document: null },
         { name: "Comida", color: "#ea580c", price: "event", document: null },
@@ -644,14 +639,6 @@ export const event = {
     title: "Categorias",
     hint: "Cada número pertence a uma categoria só. Sem categoria, vale o preço do evento. Toque no preço para mudar.",
     add: "Nova categoria",
-    suggest: "Usar Inteira, Meia, VIP e Cortesia",
-    suggested: "Categorias criadas. Agora diga quais números são de cada uma.",
-    suggestTitle: "Categorias sugeridas",
-    suggestBody: "Marque as que vai usar e confira o preço de cada uma. Em branco, vale o preço do evento.",
-    suggestCreate: (count: number) => (count === 1 ? "Criar 1 categoria" : `Criar ${String(count)} categorias`),
-    suggestPrice: (name: string) => `Preço de ${name}`,
-    suggestUse: (name: string) => `Usar ${name}`,
-    freeShort: "Grátis",
     presets: [
       { name: "Inteira", color: "#2563eb", price: "event", document: null },
       // Meia-entrada (Lei 12.933/2013): the door asks for proof (ADR 0082).
@@ -704,7 +691,6 @@ export const event = {
     documentNoteHint: "Aparece na portaria e no ingresso digital. Em branco: qualquer comprovante com foto.",
     documentBadge: "Pede documento",
     documentBadgeHint: (note: string) => `Na portaria: ${note}`,
-    suggestDocument: (name: string) => `${name} pede documento na portaria`,
     // What the door does for the category (ADR 0089).
     doorSection: "Na portaria",
     instruction: "Instrução na portaria",
