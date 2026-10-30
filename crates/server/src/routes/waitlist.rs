@@ -73,30 +73,7 @@ pub async fn join(
         ));
     }
     // Only what is sold out takes names: while tickets remain, the page says where to buy.
-    let (event_sold_out, by_category) = super::public_page::availability(&state, event.id).await?;
-    let sold_out = event.public_sold_out || event_sold_out;
-    match body.category_id {
-        Some(id) => match by_category.get(&id) {
-            Some(category_sold_out) if *category_sold_out || sold_out => {}
-            Some(_) => {
-                return Err(ApiError::Conflict(
-                    "waitlist_not_sold_out",
-                    "this category still has tickets".to_owned(),
-                ));
-            }
-            None => return Err(ApiError::NotFound),
-        },
-        None if !by_category.is_empty() && !sold_out => {
-            return Err(bad_request("invalid_category", "choose a category"));
-        }
-        None if !sold_out => {
-            return Err(ApiError::Conflict(
-                "waitlist_not_sold_out",
-                "the event still has tickets".to_owned(),
-            ));
-        }
-        None => {}
-    }
+    ensure_sold_out(&state, event.id, event.public_sold_out, body.category_id).await?;
     let count = sqlx::query_scalar!(
         r#"select count(*) as "count!" from waitlist_entries where event_id = $1"#,
         event.id
@@ -136,6 +113,35 @@ pub async fn join(
     .fetch_one(&state.pool)
     .await?;
     Ok((StatusCode::CREATED, Json(JoinedWaitlistDto { position })))
+}
+
+/// Refuses a waiting list for `category` (`None`: the event) while it still has tickets.
+async fn ensure_sold_out(
+    state: &AppState,
+    event_id: Uuid,
+    marked_sold_out: bool,
+    category: Option<Uuid>,
+) -> ApiResult<()> {
+    let (event_sold_out, by_category) = super::public_page::availability(state, event_id).await?;
+    let sold_out = marked_sold_out || event_sold_out;
+    match category {
+        Some(id) => match by_category.get(&id) {
+            Some(category_sold_out) if *category_sold_out || sold_out => Ok(()),
+            Some(_) => Err(ApiError::Conflict(
+                "waitlist_not_sold_out",
+                "this category still has tickets".to_owned(),
+            )),
+            None => Err(ApiError::NotFound),
+        },
+        None if !by_category.is_empty() && !sold_out => {
+            Err(bad_request("invalid_category", "choose a category"))
+        }
+        None if !sold_out => Err(ApiError::Conflict(
+            "waitlist_not_sold_out",
+            "the event still has tickets".to_owned(),
+        )),
+        None => Ok(()),
+    }
 }
 
 /// `GET /api/events/{id}/waitlist`: everyone on the list, waiting first. The phones are for who

@@ -6093,6 +6093,10 @@ dto! {
     }
 
     /// `GET /api/events/{id}/public-page`: the event's public page (ADR 0095).
+    #[expect(
+        clippy::struct_excessive_bools,
+        reason = "independent switches of the page, as the panel shows them"
+    )]
     pub struct PublicPageSettingsDto {
         /// The page is on.
         pub enabled: bool,
