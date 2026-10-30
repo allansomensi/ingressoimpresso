@@ -168,10 +168,10 @@ async fn tickets_go_by_category_to_people(pool: PgPool) {
 
     // Bad input.
     for (body, code) in [
-        (json!({ "orders": [] }), "invalid_quantity"),
+        (json!({ "orders": [] }), "invalid_ticket_quantity"),
         (
             json!({ "orders": [{ "categoryId": null, "quantity": 51, "holderName": null, "holderPhone": null, "note": null }] }),
-            "invalid_quantity",
+            "invalid_ticket_quantity",
         ),
         (
             json!({ "orders": [{ "categoryId": null, "quantity": 1, "holderName": null, "holderPhone": "12", "note": null }] }),

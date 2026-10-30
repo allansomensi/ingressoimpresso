@@ -626,7 +626,10 @@ fn note(value: Option<String>) -> ApiResult<Option<String>> {
 
 fn check_orders(body: IssueTicketsBody, categories: &[Uuid]) -> ApiResult<Vec<Order>> {
     if body.orders.is_empty() {
-        return Err(bad_request("invalid_quantity", "at least one ticket"));
+        return Err(bad_request(
+            "invalid_ticket_quantity",
+            "at least one ticket",
+        ));
     }
     let mut total = 0;
     body.orders
@@ -634,14 +637,14 @@ fn check_orders(body: IssueTicketsBody, categories: &[Uuid]) -> ApiResult<Vec<Or
         .map(|order| {
             if !(1..=MAX_ORDER_QUANTITY).contains(&order.quantity) {
                 return Err(bad_request(
-                    "invalid_quantity",
+                    "invalid_ticket_quantity",
                     format!("1 to {MAX_ORDER_QUANTITY} tickets per person"),
                 ));
             }
             total += order.quantity;
             if total > MAX_BULK {
                 return Err(bad_request(
-                    "invalid_quantity",
+                    "invalid_ticket_quantity",
                     format!("up to {MAX_BULK} tickets at once"),
                 ));
             }
