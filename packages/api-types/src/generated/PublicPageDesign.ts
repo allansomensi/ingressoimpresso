@@ -37,7 +37,7 @@ cta: PageLinkDto | null,
  */
 sections: Array<PageSectionDto>, 
 /**
- * The program (up to 30 lines).
+ * The program (up to 60 lines), each line with its day in an event of several days.
  */
 schedule: Array<PageScheduleItemDto>, 
 /**

@@ -72,7 +72,7 @@ async fn the_page_takes_the_organizers_look(pool: PgPool) {
         "titleFont": "display",
         "cta": { "label": "Comprar pelo formulário", "url": "forms.gle/abc" },
         "sections": [{ "kind": "schedule", "visible": true }, { "kind": "verify", "visible": false }],
-        "schedule": [{ "time": "21h", "title": "Abertura com a banda", "detail": null }],
+        "schedule": [{ "time": "21h", "title": "Abertura com a banda", "detail": null, "day": 1 }],
         "faq": [{ "question": "Pode levar criança?", "answer": "Pode.\nAté 12 anos não paga." }],
         "links": [{ "label": "Instagram", "url": "https://instagram.com/festa" }],
     });
@@ -88,6 +88,7 @@ async fn the_page_takes_the_organizers_look(pool: PgPool) {
     assert_eq!(saved["design"]["accent"], "#e11d48");
     assert_eq!(saved["design"]["cta"]["url"], "https://forms.gle/abc");
     assert_eq!(saved["design"]["sections"][0]["kind"], "schedule");
+    assert_eq!(saved["design"]["schedule"][0]["day"], 1);
     assert_eq!(
         saved["design"]["sections"][1],
         json!({ "kind": "verify", "visible": false })

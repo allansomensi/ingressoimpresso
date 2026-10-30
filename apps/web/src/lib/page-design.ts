@@ -3,11 +3,11 @@
  * shared by `/e/<slug>` and the editor's live preview, and the checks the API makes, so the
  * editor points at a mistake before saving.
  */
-import type { PageLinkDto, PageSection, PageSectionDto, PublicOrganizationDto, PublicPageDesign } from "@ingressoimpresso/api-types";
+import type { PageLinkDto, PageScheduleItemDto, PageSection, PageSectionDto, PublicOrganizationDto, PublicPageDesign } from "@ingressoimpresso/api-types";
 
 import { textOn } from "@/lib/ticket-pass";
 
-export const MAX_SCHEDULE = 30;
+export const MAX_SCHEDULE = 60;
 export const MAX_FAQ = 15;
 export const MAX_LINKS = 8;
 export const MAX_LINK_LABEL = 40;
@@ -217,8 +217,52 @@ export function designBody(design: PublicPageDesign): PublicPageDesign {
     links: design.links.map(link),
     schedule: design.schedule.map((item) => {
       const detail = (item.detail ?? "").trim();
-      return { time: item.time.trim(), title: item.title.trim(), detail: detail === "" ? null : detail };
+      return { time: item.time.trim(), title: item.title.trim(), detail: detail === "" ? null : detail, day: item.day };
     }),
     faq: design.faq.map((item) => ({ question: item.question.trim(), answer: item.answer.trim() })),
   };
+}
+
+/** The day a line of the program belongs to: one of the event's days, else `null` (no day). */
+export function scheduleDayOf(item: Pick<PageScheduleItemDto, "day">, days: readonly { position: number }[]): number | null {
+  return days.length > 1 && item.day !== null && days.some((day) => day.position === item.day) ? item.day : null;
+}
+
+/**
+ * The program in groups: one per day of an event of several days, in the days' order and only
+ * the days with lines, after the lines with no day; a single group (`null`) otherwise.
+ */
+export function scheduleGroups<T extends Pick<PageScheduleItemDto, "day">>(
+  schedule: readonly T[],
+  days: readonly { position: number }[],
+): { day: number | null; items: T[] }[] {
+  const loose = schedule.filter((item) => scheduleDayOf(item, days) === null);
+  const groups = days.length > 1 ? days.map((day) => ({ day: day.position, items: schedule.filter((item) => scheduleDayOf(item, days) === day.position) })) : [];
+  return [...(loose.length > 0 ? [{ day: null, items: loose }] : []), ...groups.filter((group) => group.items.length > 0)];
+}
+
+/** Moves the line at `index` past the next line of the same day (`delta` ±1); the others stay. */
+export function moveScheduleLine<T extends Pick<PageScheduleItemDto, "day">>(
+  schedule: readonly T[],
+  index: number,
+  delta: number,
+  days: readonly { position: number }[],
+): T[] {
+  const line = schedule[index];
+  if (line === undefined) {
+    return [...schedule];
+  }
+  const day = scheduleDayOf(line, days);
+  let target = index + delta;
+  while (target >= 0 && target < schedule.length && scheduleDayOf(schedule[target] ?? line, days) !== day) {
+    target += delta;
+  }
+  const other = schedule[target];
+  if (other === undefined) {
+    return [...schedule];
+  }
+  const next = [...schedule];
+  next[index] = other;
+  next[target] = line;
+  return next;
 }
