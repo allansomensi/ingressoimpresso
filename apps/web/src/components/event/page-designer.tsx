@@ -22,6 +22,7 @@ import { Button, Dialog, ErrorMessage, Field, Input, Spinner, Switch, Textarea, 
 import { api, fetchBlobUrl, upload } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { FONT_FAMILIES } from "@/lib/design-rules";
+import { dayLabel } from "@/lib/event-days";
 import {
   MAX_ANSWER,
   MAX_FAQ,
@@ -38,9 +39,11 @@ import {
   everySection,
   hasIssues,
   isHexColor,
+  moveScheduleLine,
   moveSection,
   pageAccent,
   pageDesignIssues,
+  scheduleDayOf,
 } from "@/lib/page-design";
 import { useUnsavedChanges } from "@/lib/unsaved";
 import { useHistory } from "@/lib/use-history";
@@ -202,6 +205,7 @@ export function PageDesigner({ eventId, settings, open, onClose }: { eventId: st
   const [device, setDevice] = useState<Device>("phone");
   const [localCovers, setLocalCovers] = useState<Record<string, string>>({});
   const [showIssues, setShowIssues] = useState(false);
+  const [scheduleDay, setScheduleDay] = useState<number | null | undefined>(undefined);
   const fileInput = useRef<HTMLInputElement>(null);
   const dirty = JSON.stringify(draft) !== JSON.stringify(initial);
   useUnsavedChanges(open && dirty);
@@ -281,6 +285,9 @@ export function PageDesigner({ eventId, settings, open, onClose }: { eventId: st
   };
 
   const event = preview.data;
+  const days = event?.days ?? [];
+  // The day whose program is open (events of several days); `null`: the lines with no day.
+  const selectedDay = days.length > 1 ? (scheduleDay === undefined ? (days[0]?.position ?? null) : scheduleDay) : null;
   const effectiveAccent = event === undefined ? design.accent : pageAccent(design, event.organization);
   const customAccent = design.accent !== null && !PAGE_ACCENTS.includes(design.accent);
 
@@ -562,18 +569,56 @@ export function PageDesigner({ eventId, settings, open, onClose }: { eventId: st
         </ol>
       </Group>
 
-      <Group title={t.groups.schedule} hint={t.scheduleHint} aside={design.schedule.length > 0 ? t.count(design.schedule.length, MAX_SCHEDULE) : undefined}>
+      <Group
+        title={t.groups.schedule}
+        hint={days.length > 1 ? t.scheduleDaysHint : t.scheduleHint}
+        aside={design.schedule.length > 0 ? t.count(design.schedule.length, MAX_SCHEDULE) : undefined}
+      >
+        {days.length > 1 && (
+          <div role="radiogroup" aria-label={t.scheduleDay} className="flex flex-wrap gap-2">
+            {[...(design.schedule.some((item) => scheduleDayOf(item, days) === null) ? [null] : []), ...days.map((day) => day.position)].map((position) => {
+              const count = design.schedule.filter((item) => scheduleDayOf(item, days) === position).length;
+              const day = days.find((item) => item.position === position);
+              return (
+                <button
+                  key={position ?? "none"}
+                  type="button"
+                  role="radio"
+                  aria-checked={selectedDay === position}
+                  onClick={() => {
+                    setScheduleDay(position);
+                  }}
+                  className={cn(
+                    "relative flex min-h-11 flex-col items-start justify-center rounded-xl border px-3 py-1.5 text-left transition",
+                    selectedDay === position ? "border-brand bg-brand-soft ring-2 ring-brand/20" : "border-border-strong hover:bg-surface-2 active:bg-surface-2",
+                  )}
+                >
+                  <span className={cn("flex items-center gap-1.5 text-sm font-semibold", selectedDay === position ? "text-brand-soft-fg" : "text-fg")}>
+                    {day === undefined ? t.scheduleNoDay : t.scheduleDayName(day.position)}
+                    {count > 0 && <span className="rounded-full bg-surface-2 px-1.5 text-xs font-medium text-fg-muted tabular">{count}</span>}
+                  </span>
+                  {day !== undefined && <span className="text-xs text-fg-muted first-letter:uppercase">{dayLabel(day.startsAt)}</span>}
+                </button>
+              );
+            })}
+          </div>
+        )}
         {design.schedule.map((item, index) => {
+          if (days.length > 1 && scheduleDayOf(item, days) !== selectedDay) {
+            return null;
+          }
           const invalid = showIssues && issues.schedule.has(index);
+          const label = t.itemLabel(design.schedule.slice(0, index).filter((other) => days.length < 2 || scheduleDayOf(other, days) === selectedDay).length);
+          const sameDay = design.schedule.filter((other) => days.length < 2 || scheduleDayOf(other, days) === selectedDay);
+          const place = sameDay.indexOf(item);
           return (
             <div key={index} className={cn("flex flex-col gap-2 rounded-xl border p-3", invalid ? "border-danger" : "border-border")}>
-              <div className="flex items-start gap-2">
+              <div className="grid grid-cols-[5.5rem_minmax(0,1fr)] gap-2">
                 <Input
-                  className="w-24 shrink-0"
                   value={item.time}
                   maxLength={MAX_SCHEDULE_TIME}
                   placeholder={t.scheduleTimePlaceholder}
-                  aria-label={`${t.scheduleTime} · ${t.itemLabel(index)}`}
+                  aria-label={`${t.scheduleTime} · ${label}`}
                   onChange={(event) => {
                     set({ schedule: design.schedule.map((line, position) => (position === index ? { ...line, time: event.target.value } : line)) }, `schedule-time-${String(index)}`);
                   }}
@@ -582,7 +627,7 @@ export function PageDesigner({ eventId, settings, open, onClose }: { eventId: st
                   value={item.title}
                   maxLength={MAX_SCHEDULE_TITLE}
                   placeholder={t.scheduleTitlePlaceholder}
-                  aria-label={`${t.scheduleTitle} · ${t.itemLabel(index)}`}
+                  aria-label={`${t.scheduleTitle} · ${label}`}
                   aria-invalid={invalid || undefined}
                   onChange={(event) => {
                     set({ schedule: design.schedule.map((line, position) => (position === index ? { ...line, title: event.target.value } : line)) }, `schedule-title-${String(index)}`);
@@ -594,17 +639,18 @@ export function PageDesigner({ eventId, settings, open, onClose }: { eventId: st
                   value={item.detail ?? ""}
                   maxLength={MAX_SCHEDULE_DETAIL}
                   placeholder={t.scheduleDetailPlaceholder}
-                  aria-label={`${t.scheduleDetail} · ${t.itemLabel(index)}`}
+                  aria-label={`${t.scheduleDetail} · ${label}`}
+                  className="min-w-0 flex-1"
                   onChange={(event) => {
                     set({ schedule: design.schedule.map((line, position) => (position === index ? { ...line, detail: event.target.value } : line)) }, `schedule-detail-${String(index)}`);
                   }}
                 />
                 <ItemActions
-                  index={index}
-                  count={design.schedule.length}
-                  label={t.itemLabel(index)}
+                  index={place}
+                  count={sameDay.length}
+                  label={label}
                   onMove={(delta) => {
-                    set({ schedule: move(design.schedule, index, delta) });
+                    set({ schedule: moveScheduleLine(design.schedule, index, delta, days) });
                   }}
                   onRemove={() => {
                     set({ schedule: design.schedule.filter((_, position) => position !== index) });
@@ -622,10 +668,10 @@ export function PageDesigner({ eventId, settings, open, onClose }: { eventId: st
             icon={<Plus />}
             className="w-fit"
             onClick={() => {
-              set({ schedule: [...design.schedule, { time: "", title: "", detail: null }] });
+              set({ schedule: [...design.schedule, { time: "", title: "", detail: null, day: days.length > 1 ? selectedDay : null }] });
             }}
           >
-            {t.scheduleAdd}
+            {days.length > 1 && selectedDay !== null ? t.scheduleAddTo(selectedDay) : t.scheduleAdd}
           </Button>
         )}
       </Group>

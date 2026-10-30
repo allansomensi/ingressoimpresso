@@ -8,10 +8,12 @@ import {
   everySection,
   hasIssues,
   heroLook,
+  moveScheduleLine,
   moveSection,
   normalizeLink,
   pageAccent,
   pageDesignIssues,
+  scheduleGroups,
   shownSections,
 } from "@/lib/page-design";
 import { textOn } from "@/lib/ticket-pass";
@@ -72,7 +74,7 @@ describe("links and texts", () => {
       ...defaultPageDesign(),
       cta: { label: "Comprar", url: "forms.gle/x" },
       links: [{ label: "", url: "instagram.com/x" }],
-      schedule: [{ time: "21h", title: " ", detail: null }],
+      schedule: [{ time: "21h", title: " ", detail: null, day: null }],
       faq: [{ question: "Pode criança?", answer: "Pode." }],
     };
     const issues = pageDesignIssues(design);
@@ -89,10 +91,33 @@ describe("links and texts", () => {
       ...defaultPageDesign(),
       accent: "#ABCDEF",
       cta: { label: " Comprar ", url: "forms.gle/x" },
-      schedule: [{ time: " 21h ", title: " Show ", detail: "  " }],
+      schedule: [{ time: " 21h ", title: " Show ", detail: "  ", day: 2 }],
     });
     expect(body.accent).toBe("#abcdef");
     expect(body.cta).toEqual({ label: "Comprar", url: "https://forms.gle/x" });
-    expect(body.schedule).toEqual([{ time: "21h", title: "Show", detail: null }]);
+    expect(body.schedule).toEqual([{ time: "21h", title: "Show", detail: null, day: 2 }]);
+  });
+});
+
+describe("the program by day", () => {
+  const days = [{ position: 1 }, { position: 2 }];
+  const line = (title: string, day: number | null) => ({ time: "", title, detail: null, day });
+  const program = [line("Abertura", 1), line("Show", 2), line("Recado", null), line("Jantar", 1), line("Perdido", 7)];
+
+  it("groups by day, the lines with no day (or a day gone) first", () => {
+    const groups = scheduleGroups(program, days).map((group) => [group.day, group.items.map((item) => item.title)]);
+    expect(groups).toEqual([
+      [null, ["Recado", "Perdido"]],
+      [1, ["Abertura", "Jantar"]],
+      [2, ["Show"]],
+    ]);
+    // An event of one day shows everything in one list, whatever day a line says.
+    expect(scheduleGroups(program, [{ position: 1 }])).toEqual([{ day: null, items: program }]);
+  });
+
+  it("moves a line past the next one of the same day", () => {
+    expect(moveScheduleLine(program, 0, 1, days).map((item) => item.title)).toEqual(["Jantar", "Show", "Recado", "Abertura", "Perdido"]);
+    expect(moveScheduleLine(program, 0, -1, days)).toEqual(program);
+    expect(moveScheduleLine(program, 1, 1, days)).toEqual(program);
   });
 });

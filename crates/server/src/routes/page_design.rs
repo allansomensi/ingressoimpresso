@@ -22,7 +22,9 @@ use crate::auth::AuthUser;
 use crate::error::{ApiError, ApiResult, bad_request};
 use crate::state::AppState;
 
-const MAX_SCHEDULE: usize = 30;
+const MAX_SCHEDULE: usize = 60;
+/// The most days an event has (ADR 0091).
+const MAX_DAY: u8 = 31;
 const MAX_FAQ: usize = 15;
 const MAX_LINKS: usize = 8;
 /// Width of the cover the page loads: sharp on a phone and a laptop, light on a mobile network.
@@ -116,6 +118,12 @@ pub(crate) fn clean(design: PublicPageDesign) -> ApiResult<PublicPageDesign> {
                     .map(|detail| text(detail, 0, 160, "invalid_page_text", false))
                     .transpose()?
                     .filter(|detail| !detail.is_empty()),
+                day: match item.day {
+                    Some(day) if !(1..=MAX_DAY).contains(&day) => {
+                        return Err(bad_request("invalid_page_text", "a day of the event"));
+                    }
+                    day => day,
+                },
             })
         })
         .collect::<ApiResult<Vec<_>>>()?;
@@ -365,10 +373,30 @@ mod tests {
                 time: "21h".to_owned(),
                 title: " ".to_owned(),
                 detail: None,
+                day: None,
             }],
             ..PublicPageDesign::default()
         };
         assert!(clean(empty_title).is_err());
+        let line = |day| PublicPageDesign {
+            schedule: vec![PageScheduleItemDto {
+                time: "21h".to_owned(),
+                title: "Show".to_owned(),
+                detail: None,
+                day,
+            }],
+            ..PublicPageDesign::default()
+        };
+        assert_eq!(clean(line(Some(2))).unwrap().schedule[0].day, Some(2));
+        assert!(clean(line(Some(0))).is_err());
+        assert!(clean(line(Some(32))).is_err());
+        // A design saved before the days keeps its program, without a day.
+        let old = from_json(Some(serde_json::json!({
+            "accent": null, "background": "plain", "hero": "color", "titleFont": null, "cta": null,
+            "sections": [], "schedule": [{ "time": "21h", "title": "Show", "detail": null }],
+            "faq": [], "links": [],
+        })));
+        assert_eq!(old.schedule[0].day, None);
         assert_eq!(
             from_json(Some(serde_json::json!({"nonsense": true}))),
             PublicPageDesign::default()
