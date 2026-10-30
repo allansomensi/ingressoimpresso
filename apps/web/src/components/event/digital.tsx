@@ -505,8 +505,8 @@ function LinkRow({
   const text = message(link.holderName, together);
   const category = categoryName(link.categoryId);
   return (
-    <ListItem className={cn("items-start justify-between gap-3", !usable && "opacity-60")}>
-      <div className="flex min-w-0 items-start gap-3">
+    <ListItem className={cn("flex-nowrap items-start justify-between gap-x-3 sm:gap-x-4", !usable && "opacity-60")}>
+      <div className="flex min-w-0 flex-1 items-start gap-3">
         <NumberChip label={link.numberLabel} color={color(link.categoryId)} />
         <div className="flex min-w-0 flex-col gap-1">
           <span className={cn("truncate text-sm font-medium", link.holderName === null ? "text-fg-subtle" : "text-fg")}>{link.holderName ?? t.noHolder}</span>

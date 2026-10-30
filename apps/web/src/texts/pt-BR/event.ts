@@ -1772,7 +1772,7 @@ export const event = {
     },
     intro:
       "Para quem não vai buscar o ingresso em papel: envie um link pelo WhatsApp. A pessoa abre no celular e mostra o QR na porta, mesmo sem internet. É o mesmo ingresso do papel: vale quem chegar primeiro.",
-    stats: { active: "Enviados", pending: "Para enviar", opened: "Já abertos", entered: "Já entraram" },
+    stats: { active: "Criados", pending: "Para enviar", opened: "Já abertos", entered: "Já entraram" },
     noPaidTitle: "Nenhum ingresso pago ainda",
     noPaid: "Crie e pague um lote para enviar ingressos pelo celular.",
     goToBatches: "Ir para os lotes",

@@ -286,7 +286,7 @@ export function ImportDialog({
             <h3 className="text-sm font-semibold text-fg">{m.columnsTitle}</h3>
             <p className="text-xs text-fg-muted">{m.columnsHint}</p>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
             {IMPORT_FIELDS.filter((field) => field !== "category" || picker).map((field) => (
               <Field key={field} label={m.fields[field]}>
                 <Select
