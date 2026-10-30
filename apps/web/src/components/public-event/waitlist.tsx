@@ -8,6 +8,7 @@ import { Button, Field, Input, Select } from "@/components/ui";
 import { ApiError, api } from "@/lib/api";
 import { normalizePhone } from "@/lib/digital-tickets";
 import { forKind } from "@/lib/event-kind";
+import { accentInk } from "@/lib/page-design";
 import { publicEvent as publicEventTexts } from "@/texts/pt-BR/public-event";
 
 const MAX_QUANTITY = 10;
@@ -78,7 +79,7 @@ export function WaitlistCard({
       <div className="flex items-start gap-3">
         <span
           className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-brand-soft-fg"
-          style={accent === undefined ? undefined : { backgroundColor: `${accent}1f`, color: accent }}
+          style={accent === undefined ? undefined : { backgroundColor: accent, color: accentInk(accent) }}
         >
           <BellRing className="size-5" aria-hidden />
         </span>

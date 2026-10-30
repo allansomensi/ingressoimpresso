@@ -2,13 +2,15 @@
 
 import type { PublicPageBody, PublicPageSettingsDto } from "@ingressoimpresso/api-types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Copy, ExternalLink, Globe, MessageCircle, Pencil } from "lucide-react";
+import { Copy, ExternalLink, Globe, MessageCircle, Paintbrush, Pencil } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
 import { useEventAccess, useEventTexts } from "@/components/event/access";
 import { Badge, Button, Card, CardHeader, Dialog, ErrorMessage, Field, Switch, Textarea, buttonClass, errorMessage } from "@/components/ui";
 import { api } from "@/lib/api";
+
+import { PageDesigner } from "./page-designer";
 import { copyText, whatsappUrl } from "@/lib/share";
 import { SITE_URL } from "@/lib/site";
 import { common as commonTexts } from "@/texts/pt-BR/common";
@@ -38,6 +40,7 @@ export function PublicPageCard({ eventId, eventName }: { eventId: string; eventN
   const key = ["public-page", eventId];
   const settings = useQuery({ queryKey: key, queryFn: () => api<PublicPageSettingsDto>(`/api/events/${eventId}/public-page`) });
   const [editing, setEditing] = useState(false);
+  const [designing, setDesigning] = useState(false);
   const save = useMutation({
     mutationFn: (body: PublicPageBody) => api<PublicPageSettingsDto>(`/api/events/${eventId}/public-page`, { method: "PUT", body }),
     onSuccess: (saved) => {
@@ -119,6 +122,18 @@ export function PublicPageCard({ eventId, eventName }: { eventId: string; eventN
               <Button
                 variant="secondary"
                 size="sm"
+                icon={<Paintbrush />}
+                onClick={() => {
+                  setDesigning(true);
+                }}
+              >
+                {t.designer.open}
+              </Button>
+            )}
+            {editable && (
+              <Button
+                variant="secondary"
+                size="sm"
                 icon={<Pencil />}
                 onClick={() => {
                   setEditing(true);
@@ -164,6 +179,16 @@ export function PublicPageCard({ eventId, eventName }: { eventId: string; eventN
             </div>
           )}
         </div>
+      )}
+      {designing && (
+        <PageDesigner
+          eventId={eventId}
+          settings={data}
+          open
+          onClose={() => {
+            setDesigning(false);
+          }}
+        />
       )}
       <Dialog
         open={editing}

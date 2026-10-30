@@ -7,6 +7,7 @@ import { placeLine } from "@/lib/calendar";
 import { fetchPublicEvent, publicDate } from "@/lib/public-event";
 import { SHARE_CONTENT_TYPE, SHARE_SIZE } from "@/lib/share-image";
 import { SITE_URL } from "@/lib/site";
+import { pageAccent } from "@/lib/page-design";
 import { textOn } from "@/lib/ticket-pass";
 import { brand as brandTexts } from "@/texts/pt-BR/brand";
 import { publicEvent as publicEventTexts } from "@/texts/pt-BR/public-event";
@@ -37,8 +38,10 @@ export default async function Image({ params }: { params: Promise<{ slug: string
     font("Geist-SemiBold.ttf"),
     logo(),
   ]);
-  const brand = event?.organization.brandColor ?? null;
-  const background = brand !== null && textOn(brand) === "#ffffff" ? brand : "#5b3df5";
+  // The page's accent (ADR 0125), so the preview looks like the page.
+  const accent = event === null ? null : pageAccent(event.design, event.organization);
+  const background = accent ?? "#5b3df5";
+  const ink = accent === null ? "#ffffff" : textOn(accent);
   const title = event?.name ?? publicEventTexts.notFoundTitle;
   const place = event === null ? null : placeLine(event.venue, event.address);
   return new ImageResponse(
@@ -52,7 +55,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
         backgroundColor: background,
         backgroundImage: "linear-gradient(135deg, rgba(255,255,255,0.14) 0%, rgba(0,0,0,0) 45%, rgba(0,0,0,0.25) 100%)",
         fontFamily: "Geist",
-        color: "#ffffff",
+        color: ink,
         padding: 64,
       }}
     >
@@ -70,7 +73,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
           <span style={{ fontSize: 26, fontWeight: 600 }}>{brandTexts.name}</span>
         </div>
         {event?.soldOut === true ? (
-          <span style={{ display: "flex", fontSize: 30, fontWeight: 600, padding: "6px 20px", border: "4px solid #ffffff", borderRadius: 14, letterSpacing: 4 }}>
+          <span style={{ display: "flex", fontSize: 30, fontWeight: 600, padding: "6px 20px", border: `4px solid ${ink}`, borderRadius: 14, letterSpacing: 4 }}>
             {publicEventTexts.soldOut.toUpperCase()}
           </span>
         ) : (

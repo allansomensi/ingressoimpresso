@@ -55,6 +55,10 @@ export const publicEvent = {
   mapHint: "O mapa é do Google e só carrega quando você toca.",
   directions: "Como chegar",
   aboutTitle: "Sobre o evento",
+  // The organizer's own parts (ADR 0125).
+  scheduleTitle: "Programação",
+  faqTitle: "Perguntas frequentes",
+  linksTitle: "Links",
   verifyTitle: "Comprou de alguém?",
   verifyBody: "Confira se o QR code do ingresso é verdadeiro antes de pagar.",
   verifyLink: "Conferir ingresso",
