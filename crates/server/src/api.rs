@@ -7378,6 +7378,9 @@ dto! {
         pub title: String,
         /// A line more (up to 160 characters).
         pub detail: Option<String>,
+        /// The day of an event of several days (1 for the first, ADR 0091); `null`: no day.
+        #[serde(default)]
+        pub day: Option<u8>,
     }
 
     /// A question and its answer.
@@ -7403,7 +7406,7 @@ dto! {
         pub cta: Option<PageLinkDto>,
         /// Every part, in order.
         pub sections: Vec<PageSectionDto>,
-        /// The program (up to 30 lines).
+        /// The program (up to 60 lines), each line with its day in an event of several days.
         pub schedule: Vec<PageScheduleItemDto>,
         /// Questions and answers (up to 15).
         pub faq: Vec<PageFaqItemDto>,

@@ -15,4 +15,8 @@ title: string,
 /**
  * A line more (up to 160 characters).
  */
-detail: string | null, };
+detail: string | null, 
+/**
+ * The day of an event of several days (1 for the first, ADR 0091); `null`: no day.
+ */
+day: number | null, };
