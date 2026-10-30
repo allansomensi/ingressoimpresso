@@ -451,6 +451,26 @@ Arquitetura aprovada em 2026-10-08 (todos os ADRs `Aceito`).
   sequência, edição) e `digital-import.tsx` (planilha do Google Forms); regras em
   `lib/digital-tickets.ts` (agrupar por pessoa, mensagem, colunas e categorias da planilha).
 
+- **Vendas digitais, lista de espera, página personalizada e assistente (ADRs 0124–0126):
+  implementados.**
+  - Relatório: `report::digital_by_category` (sem vendedor, link ativo, lote pago, sem
+    cancelamento) dá `digital` e a coluna "Digitais"; num evento só no celular o não enviado é
+    estoque; a prestação de contas soma ao recebido menos o Pix já registrado. Cartão em
+    `components/event/report-digital.tsx`.
+  - Lista de espera: `waitlist_entries`, `events.public_waitlist`, `routes/waitlist.rs`
+    (`ratelimit::WAITLIST`, campo-isca, só categoria esgotada, 2.000 por evento, apagada 60 dias
+    depois); formulário em `components/public-event/waitlist.tsx`, fila em Digitais
+    (`components/event/digital-waitlist.tsx`, "Enviar" abre o `SendDialog` com `initial`).
+  - Página personalizada: `events.public_design` + `public_cover_blob_id`, `routes/page_design.rs`
+    (`clean`, capa em `GET /api/public/covers/{id}` a 1600 px, poupada pela limpeza, não vai na
+    cópia), prévia em `GET /api/events/{id}/public-page/preview`. A página e a prévia usam
+    `components/public-event/event-page.tsx` (consultas de contêiner `@xl:`; regras em
+    `lib/page-design.ts`); editor em `components/event/page-designer.tsx`. CSP: `img-src` aceita a
+    API.
+  - Assistente: `POST /api/events/{id}/setup` (`routes/setup.rs`, transação, só evento sem
+    categorias nem pontos, números em sequência do 1); `components/event/setup-wizard.tsx`, regras
+    em `lib/event-setup.ts`, textos em `texts/pt-BR/event-setup.ts`.
+
 Plano completo em `docs/arquitetura.md` §12.
 
 ## Onde está cada coisa
@@ -525,6 +545,9 @@ crates/server        API (pacote `ingressoimpresso-server`, binário `ingressoim
                      routes/credentials.rs, certificados (ADRs 0113, 0114) em routes/certificates.rs,
                      carteiras do celular (ADR 0097) em wallet.rs, caixa de fichas (ADR 0098) em
                      routes/cashier.rs, resumo final (ADR 0101) em routes/final_summary.rs,
+                     lista de espera (ADR 0124) em routes/waitlist.rs, visual da página do evento
+                     (ADR 0125) em routes/page_design.rs, assistente do evento (ADR 0126) em
+                     routes/setup.rs,
                      conferir ingresso (público, ADR 0075) em routes/verify.rs, dias do evento
                      (ADR 0091) em event_days.rs, pontos de controle (ADR 0092) em
                      routes/checkpoints.rs, Pix copia e cola
