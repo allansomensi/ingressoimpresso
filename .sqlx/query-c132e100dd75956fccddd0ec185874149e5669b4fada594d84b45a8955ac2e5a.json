@@ -1,0 +1,100 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select id, category_id, name, phone, quantity, created_at, done_at\n           from waitlist_entries where event_id = $1\n           order by done_at is not null, created_at, id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "waitlist_entries",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "category_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "waitlist_entries",
+            "name": "category_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "waitlist_entries",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "phone",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "waitlist_entries",
+            "name": "phone"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "quantity",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "waitlist_entries",
+            "name": "quantity"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "waitlist_entries",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "done_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "waitlist_entries",
+            "name": "done_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "c132e100dd75956fccddd0ec185874149e5669b4fada594d84b45a8955ac2e5a"
+}

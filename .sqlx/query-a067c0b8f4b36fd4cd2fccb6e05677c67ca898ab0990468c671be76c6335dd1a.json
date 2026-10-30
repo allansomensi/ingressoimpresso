@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update events set public_page = $2, public_slug = $3, public_sold_out = $4, public_description = $5,\n                             public_waitlist = coalesce($6, public_waitlist)\n           where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Bool",
+        "Text",
+        "Bool",
+        "Text",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "a067c0b8f4b36fd4cd2fccb6e05677c67ca898ab0990468c671be76c6335dd1a"
+}

@@ -35,7 +35,7 @@ use crate::routes::{
     admin_insights, alerts, cashier, certificates, checklist, checkpoints, courtesies, credentials,
     crm, disputes, history, pix, public_page, series,
 };
-use crate::routes::{mailings, referrals, revenue_reports, verify};
+use crate::routes::{mailings, referrals, revenue_reports, verify, waitlist};
 use crate::state::AppState;
 
 /// JSON bodies are small; only art uploads get a bigger limit.
@@ -111,6 +111,12 @@ pub fn router(state: AppState) -> Router {
         .route("/events/{id}/tickets/bulk", post(tickets::create_bulk))
         .route("/events/{id}/tickets/issue", post(tickets::issue))
         .route("/events/{id}/tickets/sent", post(tickets::mark_sent))
+        .route("/events/{id}/waitlist", get(waitlist::list))
+        .route(
+            "/waitlist-entries/{id}",
+            put(waitlist::update).delete(waitlist::remove),
+        )
+        .route("/public/events/{slug}/waitlist", post(waitlist::join))
         .route("/events/{id}/tickets/replace", post(tickets::replace))
         .route("/ticket-links/{id}", put(tickets::update))
         .route("/ticket-links/{id}/revoke", post(tickets::revoke))

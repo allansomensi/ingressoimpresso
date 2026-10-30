@@ -144,6 +144,23 @@ export function PublicPageCard({ eventId, eventName }: { eventId: string; eventN
                 label={t.soldOut}
                 description={data.soldOutAuto ? t.soldOutAuto : t.soldOutHint}
               />
+              <div className="mt-4">
+                <Switch
+                  checked={save.isPending && save.variables.waitlist !== undefined ? save.variables.waitlist : data.waitlist}
+                  onChange={(waitlist) => {
+                    if (!save.isPending) {
+                      save.mutate(body({ waitlist }), {
+                        onSuccess: () => {
+                          void queryClient.invalidateQueries({ queryKey: ["waitlist", eventId] });
+                          toast.success(waitlist ? t.waitlistOn : t.waitlistOff);
+                        },
+                      });
+                    }
+                  }}
+                  label={t.waitlist}
+                  description={t.waitlistHint}
+                />
+              </div>
             </div>
           )}
         </div>

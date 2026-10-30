@@ -334,6 +334,20 @@ export const event = {
       exportFile: "fichas-digitais.csv",
       exportHeader: ["Número", "Produto", "Nome", "WhatsApp", "Observação", "Link", "Enviada", "Aberta", "Usada", "Situação"],
       exportStates: { valid: "Válida", entered: "Usada", voided: "Cancelada", revoked: "Link revogado" },
+      waitlist: {
+        description: (count: number) =>
+          count === 1
+            ? "1 pessoa pediu pela página do evento. Quando abrir vaga, envie a ficha ou avise no WhatsApp."
+            : `${count.toLocaleString("pt-BR")} pessoas pediram pela página do evento, por ordem de chegada. Quando abrir vaga, envie a ficha ou avise no WhatsApp.`,
+        demand: (people: number, tickets: number) =>
+          `${people === 1 ? "1 pessoa" : `${people.toLocaleString("pt-BR")} pessoas`} · ${tickets === 1 ? "1 ficha" : `${tickets.toLocaleString("pt-BR")} fichas`}`,
+        anyCategory: "Qualquer ficha",
+        tickets: (count: number) => (count === 1 ? "1 ficha" : `${count.toLocaleString("pt-BR")} fichas`),
+        send: "Enviar ficha",
+        message: (name: string, event: string) =>
+          `Olá, ${name}! Aqui é da organização de ${event}. Você está na nossa lista de espera: abriu vaga! Ainda quer a ficha?`,
+        batchHint: "Faltam fichas livres para todos que esperam.",
+      },
       digitalOnly: {
         title: "Fichas só no celular",
         toggle: "Fichas só no celular",
@@ -774,6 +788,11 @@ export const event = {
     shareMessage: (event: string, url: string) => `${event}: veja data, local e onde comprar o ingresso.\n${url}`,
     soldOut: "Marcar como esgotado",
     soldOutHint: "A página mostra o selo “Esgotado” e esconde os botões de compra.",
+    // The waiting list (ADR 0124).
+    waitlist: "Lista de espera",
+    waitlistHint: "Quando um tipo esgotar, a página aceita nome e WhatsApp de quem quer. Você vê a lista em Digitais.",
+    waitlistOn: "Lista de espera ligada.",
+    waitlistOff: "Lista de espera desligada.",
     soldOutAuto: "Todos os números pagos já foram vendidos, enviados ou dados: a página já diz “Esgotado” sozinha.",
     soldOutBadge: "Esgotado",
     soldOutOn: "A página agora diz “Esgotado”.",
@@ -1871,6 +1890,39 @@ export const event = {
     exportStates: { valid: "Válido", entered: "Entrou", voided: "Cancelado", revoked: "Link revogado" },
     yes: "Sim",
     no: "Não",
+    // The waiting list of the public page (ADR 0124).
+    waitlist: {
+      title: "Lista de espera",
+      description: (count: number) =>
+        count === 1
+          ? "1 pessoa pediu pela página do evento. Quando abrir vaga, envie o ingresso ou avise no WhatsApp."
+          : `${count.toLocaleString("pt-BR")} pessoas pediram pela página do evento, por ordem de chegada. Quando abrir vaga, envie o ingresso ou avise no WhatsApp.`,
+      emptyOpen: "Quando um tipo esgotar, a página do evento passa a aceitar nomes aqui, por ordem de chegada.",
+      emptyClosed: "Ninguém na lista.",
+      off: "Desligada na página",
+      demandLabel: "Quem espera, por tipo",
+      demand: (people: number, tickets: number) =>
+        `${people === 1 ? "1 pessoa" : `${people.toLocaleString("pt-BR")} pessoas`} · ${tickets === 1 ? "1 ingresso" : `${tickets.toLocaleString("pt-BR")} ingressos`}`,
+      available: (free: number) => (free === 1 ? "1 livre" : `${free.toLocaleString("pt-BR")} livres`),
+      anyCategory: "Qualquer ingresso",
+      tickets: (count: number) => (count === 1 ? "1 ingresso" : `${count.toLocaleString("pt-BR")} ingressos`),
+      since: (time: string) => `Na lista desde ${time}`,
+      send: "Enviar ingresso",
+      notify: "Avisar no WhatsApp",
+      message: (name: string, event: string) =>
+        `Olá, ${name}! Aqui é da organização de ${event}. Você está na nossa lista de espera: abriu vaga! Ainda quer o ingresso?`,
+      actions: (name: string) => `Opções de ${name}`,
+      markDone: "Marcar como atendido",
+      markedDone: "Marcado como atendido.",
+      remove: "Tirar da lista",
+      removeTitle: (name: string) => `Tirar ${name} da lista?`,
+      removeBody: "A pessoa sai da lista de espera. Se quiser, ela pode se inscrever de novo pela página.",
+      removed: "Tirado da lista.",
+      doneList: (count: number) => (count === 1 ? "1 atendido" : `${count.toLocaleString("pt-BR")} atendidos`),
+      undo: "Voltar para a lista",
+      batchHint: "Faltam ingressos livres para todos que esperam.",
+      newBatch: "Pagar outro lote",
+    },
     // The event's tickets only go to phones (ADR 0123).
     digitalOnly: {
       title: "Evento só no celular",

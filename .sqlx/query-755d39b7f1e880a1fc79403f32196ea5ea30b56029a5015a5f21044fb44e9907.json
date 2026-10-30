@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select public_page, public_waitlist from events where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "public_page",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "public_page"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "public_waitlist",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "public_waitlist"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "755d39b7f1e880a1fc79403f32196ea5ea30b56029a5015a5f21044fb44e9907"
+}

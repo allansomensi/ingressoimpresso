@@ -56,6 +56,7 @@ pub mod tickets;
 pub mod two_factor;
 pub mod verify;
 pub mod voids;
+pub mod waitlist;
 
 use std::ops::Bound;
 

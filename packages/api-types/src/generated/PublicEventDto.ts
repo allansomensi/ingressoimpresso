@@ -73,4 +73,9 @@ change: EventChangeDto,
 /**
  * Anyone may check a ticket at /conferir (ADR 0075).
  */
-publicVerify: boolean, };
+publicVerify: boolean, 
+/**
+ * A sold-out category (or the whole event) takes names for its waiting list now
+ * (ADR 0124).
+ */
+waitlist: boolean, };

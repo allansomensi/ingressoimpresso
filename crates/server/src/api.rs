@@ -6110,6 +6110,9 @@ dto! {
         pub description: Option<String>,
         /// The sellers, and who shows on the page.
         pub sellers: Vec<PublicPageSellerDto>,
+        /// Sold-out categories take names for a waiting list (ADR 0124).
+        #[serde(default)]
+        pub waitlist: bool,
     }
 
     /// `PUT /api/events/{id}/public-page`.
@@ -6124,6 +6127,10 @@ dto! {
         #[serde(default)]
         #[cfg_attr(feature = "ts", ts(optional))]
         pub description: Option<String>,
+        /// Sold-out categories take names for a waiting list (ADR 0124); missing: unchanged.
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional))]
+        pub waitlist: Option<bool>,
         /// Sellers listed with a WhatsApp button (their phones become public).
         #[cfg_attr(feature = "ts", ts(type = "Array<string>"))]
         pub seller_ids: Vec<Uuid>,
@@ -6131,6 +6138,9 @@ dto! {
 
     /// A category on the public page.
     pub struct PublicCategoryDto {
+        /// Id, to join its waiting list (ADR 0124).
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
         /// Name.
         pub name: String,
         /// Band colour.
@@ -6187,6 +6197,74 @@ dto! {
         pub change: EventChangeDto,
         /// Anyone may check a ticket at /conferir (ADR 0075).
         pub public_verify: bool,
+        /// A sold-out category (or the whole event) takes names for its waiting list now
+        /// (ADR 0124).
+        #[serde(default)]
+        pub waitlist: bool,
+    }
+
+    /// `POST /api/public/events/{slug}/waitlist` (no login): a place in a sold-out category's
+    /// waiting list (ADR 0124). The same WhatsApp in the same category updates its line.
+    pub struct JoinWaitlistBody {
+        /// A sold-out category of the event; `null` for an event without categories.
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub category_id: Option<Uuid>,
+        /// Who (1–80 characters).
+        pub name: String,
+        /// Their WhatsApp, as typed.
+        pub phone: String,
+        /// How many tickets (1–10).
+        pub quantity: i16,
+        /// Left empty by people; robots fill it.
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional))]
+        pub website: Option<String>,
+    }
+
+    /// The answer to joining a waiting list.
+    pub struct JoinedWaitlistDto {
+        /// Their place among those still waiting in the same category (1 for the first).
+        pub position: i32,
+    }
+
+    /// One person on a waiting list, as the organization sees it (ADR 0124).
+    pub struct WaitlistEntryDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// The category; `null` for the event as a whole.
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub category_id: Option<Uuid>,
+        /// Name.
+        pub name: String,
+        /// WhatsApp digits with the country code.
+        pub phone: String,
+        /// Tickets wanted.
+        pub quantity: i16,
+        /// When they signed up.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub created_at: OffsetDateTime,
+        /// When the organization took care of it.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub done_at: Option<OffsetDateTime>,
+    }
+
+    /// `GET /api/events/{id}/waitlist`.
+    pub struct WaitlistDto {
+        /// The public page takes names (page on, list on).
+        pub open: bool,
+        /// The list is on (on the public page's settings).
+        pub enabled: bool,
+        /// Everyone, waiting first, oldest first.
+        pub entries: Vec<WaitlistEntryDto>,
+    }
+
+    /// `PUT /api/waitlist-entries/{id}`.
+    pub struct UpdateWaitlistEntryBody {
+        /// Taken care of (`false` puts it back on the list).
+        pub done: bool,
     }
 }
 

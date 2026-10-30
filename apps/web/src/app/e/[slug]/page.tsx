@@ -8,6 +8,7 @@ import { LogoMark } from "@/components/brand";
 import { JsonLd } from "@/components/json-ld";
 import { EventChangeNotice, OrganizationContact, OrganizationLogo } from "@/components/organization/organization";
 import { CalendarButton, PlaceMap, ShareButton } from "@/components/public-event/public-event-actions";
+import { WaitlistCard } from "@/components/public-event/waitlist";
 import { calendarSequence } from "@/lib/calendar";
 import { ButtonLink, buttonClass } from "@/components/ui";
 import { placeLine } from "@/lib/calendar";
@@ -153,7 +154,7 @@ export default async function PublicEventPage({ params }: Props) {
 
         {event.soldOut && !canceled && (
           <p role="status" className="rounded-2xl border border-danger/30 bg-danger-soft px-4 py-3 text-sm leading-relaxed font-medium text-danger-fg">
-            {t.soldOutBody}
+            {event.waitlist ? t.soldOutWaitlist : t.soldOutBody}
           </p>
         )}
 
@@ -208,6 +209,9 @@ export default async function PublicEventPage({ params }: Props) {
             </p>
           )}
         </section>
+
+        {/* A sold-out category (or event) takes names for its waiting list (ADR 0124). */}
+        {event.waitlist && <WaitlistCard slug={event.slug} kind={event.kind} eventSoldOut={event.soldOut} categories={event.categories} />}
 
         {/* Where to buy: the sellers the organizer listed, else the organization itself. */}
         {sellingOpen && event.sellers.length > 0 && (

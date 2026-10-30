@@ -8,6 +8,29 @@ export const publicEvent = {
   by: (organizer: string) => `Organizado por ${organizer}`,
   soldOut: "Esgotado",
   soldOutBody: "Os ingressos deste evento acabaram. Fale com a organização para saber de uma lista de espera.",
+  soldOutWaitlist: "Os ingressos deste evento acabaram. Entre na lista de espera abaixo: se abrir vaga, a organização chama você.",
+  // The waiting list (ADR 0124).
+  waitlist: {
+    title: "Lista de espera",
+    lead: "Esgotou? Deixe seu nome e WhatsApp. Se abrir vaga, a organização chama você, por ordem de chegada.",
+    leadCategories: "Algum tipo esgotou? Deixe seu nome e WhatsApp. Se abrir vaga, a organização chama você, por ordem de chegada.",
+    category: "Qual ingresso?",
+    name: "Seu nome",
+    namePlaceholder: "Maria Souza",
+    phone: "WhatsApp com DDD",
+    phonePlaceholder: "(11) 99999-0000",
+    quantity: "Quantos ingressos?",
+    submit: "Entrar na lista",
+    privacy: "Seu WhatsApp vai só para a organização deste evento e é apagado depois dele.",
+    doneTitle: "Você está na lista!",
+    done: (position: number, category: string | null) =>
+      `Você é o ${position.toLocaleString("pt-BR")}º da fila${category === null ? "" : ` de ${category}`}. Se abrir vaga, a organização chama você no WhatsApp.`,
+    again: "Colocar outra pessoa",
+    invalidPhone: "Confira o número: DDD e o número, como (11) 99999-0000.",
+    error: "Não foi possível entrar na lista. Tente de novo em instantes.",
+    closed: "A lista de espera fechou.",
+    notSoldOut: "Este ingresso ainda está à venda. Fale com quem vende.",
+  },
   pricesTitle: "Ingressos",
   price: "Ingresso",
   from: (price: string) => `a partir de ${price}`,
@@ -49,6 +72,7 @@ export const publicEvent = {
   notFound: "O endereço pode estar errado, ou a organização tirou a página do ar.",
   tokens: {
     soldOutBody: "As fichas deste evento acabaram. Fale com a organização.",
+    soldOutWaitlist: "As fichas deste evento acabaram. Entre na lista de espera abaixo: se abrir vaga, a organização chama você.",
     pricesTitle: "Fichas",
     price: "Ficha",
     buyMessage: (name: string, event: string) => `Olá, ${name}! Quero fichas para ${event}.`,
@@ -58,6 +82,11 @@ export const publicEvent = {
     shareText: (event: string) => `${event}: veja data, local e onde comprar as fichas.`,
     verifyBody: "Confira se o QR code da ficha é verdadeiro antes de pagar.",
     verifyLink: "Conferir ficha",
+    waitlist: {
+      category: "Qual ficha?",
+      quantity: "Quantas fichas?",
+      notSoldOut: "Esta ficha ainda está à venda. Fale com quem vende.",
+    },
   },
 } as const;
 

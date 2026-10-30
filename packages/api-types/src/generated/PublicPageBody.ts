@@ -21,6 +21,10 @@ soldOut: boolean,
  */
 description?: string, 
 /**
+ * Sold-out categories take names for a waiting list (ADR 0124); missing: unchanged.
+ */
+waitlist?: boolean, 
+/**
  * Sellers listed with a WhatsApp button (their phones become public).
  */
 sellerIds: Array<string>, };

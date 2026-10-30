@@ -1,43 +1,21 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select name, public_page, public_slug, public_sold_out, public_description from events where id = $1",
+  "query": "select e.id, e.public_sold_out, e.public_description, e.public_verify, e.public_waitlist,\n                  o.suspended_at is not null as \"suspended!\"\n           from events e join organizations o on o.id = e.organization_id\n           where e.public_slug = $1 and e.public_page",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "name",
-        "type_info": "Text",
+        "name": "id",
+        "type_info": "Uuid",
         "origin": {
           "Table": {
             "table": "events",
-            "name": "name"
+            "name": "id"
           }
         }
       },
       {
         "ordinal": 1,
-        "name": "public_page",
-        "type_info": "Bool",
-        "origin": {
-          "Table": {
-            "table": "events",
-            "name": "public_page"
-          }
-        }
-      },
-      {
-        "ordinal": 2,
-        "name": "public_slug",
-        "type_info": "Text",
-        "origin": {
-          "Table": {
-            "table": "events",
-            "name": "public_slug"
-          }
-        }
-      },
-      {
-        "ordinal": 3,
         "name": "public_sold_out",
         "type_info": "Bool",
         "origin": {
@@ -48,7 +26,7 @@
         }
       },
       {
-        "ordinal": 4,
+        "ordinal": 2,
         "name": "public_description",
         "type_info": "Text",
         "origin": {
@@ -57,11 +35,39 @@
             "name": "public_description"
           }
         }
+      },
+      {
+        "ordinal": 3,
+        "name": "public_verify",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "public_verify"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "public_waitlist",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "public_waitlist"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "suspended!",
+        "type_info": "Bool",
+        "origin": "Expression"
       }
     ],
     "parameters": {
       "Left": [
-        "Uuid"
+        "Text"
       ]
     },
     "nullable": [
@@ -69,8 +75,9 @@
       false,
       true,
       false,
-      true
+      false,
+      null
     ]
   },
-  "hash": "fb195d06ff8f6fca176a32e9284a9d61ad376ca8ecb09b354987ef17be925f75"
+  "hash": "8d237055b85ca68dd71c712dafa58ec95f12679ece661448ff89556dc307734f"
 }

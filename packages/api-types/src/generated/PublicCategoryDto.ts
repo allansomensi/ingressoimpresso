@@ -5,6 +5,10 @@
  */
 export type PublicCategoryDto = { 
 /**
+ * Id, to join its waiting list (ADR 0124).
+ */
+id: string, 
+/**
  * Name.
  */
 name: string, 

@@ -236,6 +236,17 @@ const LATER: &[(&str, &str, Need)] = &[
         "sellers/{id}/cashier/close",
         Need::Area(TeamArea::Money),
     ),
+    // The waiting list (ADR 0124) is about who gets a ticket: delivery.
+    (
+        "PUT",
+        "waitlist-entries/{id}",
+        Need::Area(TeamArea::Delivery),
+    ),
+    (
+        "DELETE",
+        "waitlist-entries/{id}",
+        Need::Area(TeamArea::Delivery),
+    ),
     // The event's public page (ADR 0095) speaks for the event: coordination.
     (
         "PUT",

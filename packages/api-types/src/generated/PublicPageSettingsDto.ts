@@ -36,4 +36,8 @@ description: string | null,
 /**
  * The sellers, and who shows on the page.
  */
-sellers: Array<PublicPageSellerDto>, };
+sellers: Array<PublicPageSellerDto>, 
+/**
+ * Sold-out categories take names for a waiting list (ADR 0124).
+ */
+waitlist: boolean, };
