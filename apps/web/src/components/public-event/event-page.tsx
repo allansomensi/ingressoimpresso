@@ -11,9 +11,10 @@ import { calendarSequence, placeLine } from "@/lib/calendar";
 import { cn } from "@/lib/cn";
 import { FONT_FAMILIES, inkFor } from "@/lib/design-rules";
 import { changeKind } from "@/lib/event-change";
+import { dayLabel } from "@/lib/event-days";
 import { forKind } from "@/lib/event-kind";
 import { money } from "@/lib/format";
-import { accentCss, accentInk, heroLook, pageAccent, pageBackground, shownSections } from "@/lib/page-design";
+import { accentCss, accentInk, heroLook, pageAccent, pageBackground, scheduleGroups, shownSections } from "@/lib/page-design";
 import { lowestPrice, priceLabel, publicDate, sellerWhatsapp } from "@/lib/public-event";
 import { publicEvent as publicEventTexts } from "@/texts/pt-BR/public-event";
 
@@ -143,21 +144,34 @@ export function EventPage({ event, url, coverUrl, preview = false }: { event: Pu
           <SectionTitle id="programacao" icon={ListOrdered} accent={accent}>
             {t.scheduleTitle}
           </SectionTitle>
-          <ol className="relative flex flex-col gap-0 rounded-2xl border border-border bg-surface px-4 py-2">
-            {design.schedule.map((item, index) => (
-              <li key={`${String(index)}-${item.title}`} className="relative flex gap-4 py-3">
-                <span className="w-16 shrink-0 pt-0.5 text-sm font-semibold text-fg tabular @xl:w-20">{item.time}</span>
-                <span aria-hidden className="relative flex w-3 shrink-0 justify-center">
-                  <span className="absolute top-2 size-2.5 rounded-full ring-4 ring-surface" style={{ backgroundColor: accentCss(accent) }} />
-                  {index < design.schedule.length - 1 && <span className="absolute top-4 -bottom-5 w-px bg-border" />}
-                </span>
-                <span className="flex min-w-0 flex-col gap-0.5">
-                  <span className="text-[15px] font-medium text-fg">{item.title}</span>
-                  {item.detail !== null && <span className="text-sm leading-relaxed text-fg-muted">{item.detail}</span>}
-                </span>
-              </li>
-            ))}
-          </ol>
+          {scheduleGroups(design.schedule, event.days).map((group) => {
+            const day = event.days.find((item) => item.position === group.day);
+            return (
+              <div key={group.day ?? "all"} className="flex flex-col gap-2">
+                {day !== undefined && (
+                  <h3 className="flex items-baseline gap-2 text-sm font-semibold text-fg">
+                    {t.day(day.position)}
+                    <span className="font-normal text-fg-muted first-letter:uppercase">{dayLabel(day.startsAt)}</span>
+                  </h3>
+                )}
+                <ol className="relative flex flex-col gap-0 rounded-2xl border border-border bg-surface px-4 py-2">
+                  {group.items.map((item, index) => (
+                    <li key={`${String(index)}-${item.title}`} className="relative flex gap-4 py-3">
+                      <span className="w-16 shrink-0 pt-0.5 text-sm font-semibold text-fg tabular @xl:w-20">{item.time}</span>
+                      <span aria-hidden className="relative flex w-3 shrink-0 justify-center">
+                        <span className="absolute top-2 size-2.5 rounded-full ring-4 ring-surface" style={{ backgroundColor: accentCss(accent) }} />
+                        {index < group.items.length - 1 && <span className="absolute top-4 -bottom-5 w-px bg-border" />}
+                      </span>
+                      <span className="flex min-w-0 flex-col gap-0.5">
+                        <span className="text-[15px] font-medium text-fg">{item.title}</span>
+                        {item.detail !== null && <span className="text-sm leading-relaxed text-fg-muted">{item.detail}</span>}
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            );
+          })}
         </section>
       ),
     days: () =>

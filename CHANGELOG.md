@@ -12,6 +12,16 @@ e não acompanha estes números.
 
 ## [Não lançado]
 
+### Adicionado
+
+- Programação por dia: num evento de vários dias, escolha o dia e coloque os horários dele em
+  "Personalizar a página"; a página do evento mostra a programação separada por dia (ADR 0125).
+
+### Corrigido
+
+- Em "Personalizar a página", o campo do horário da programação ocupava a linha toda e empurrava
+  o nome da atração para fora.
+
 ## [1.20.0] - 2026-10-30
 
 ### Adicionado
