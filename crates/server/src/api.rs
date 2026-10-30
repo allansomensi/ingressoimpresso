@@ -5066,6 +5066,49 @@ dto! {
         pub category_allowances: Vec<CheckpointAllowanceDto>,
     }
 
+    /// A category of the setup assistant (ADR 0126): the category and how many numbers it takes.
+    pub struct SetupCategoryBody {
+        /// The category, as `POST /api/events/{id}/categories` takes it.
+        pub category: CategoryBody,
+        /// How many numbers (1–10 000); they follow the previous category's.
+        pub quantity: i32,
+    }
+
+    /// A checkpoint of the setup assistant: like `CheckpointBody`, with the categories by their
+    /// place in `categories`.
+    pub struct SetupCheckpointBody {
+        /// Name (1–30 characters).
+        pub name: String,
+        /// What to hand over (up to 60 characters).
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional = nullable))]
+        pub instruction: Option<String>,
+        /// One use per day the ticket is valid.
+        pub per_day: bool,
+        /// The entitled categories, by their index in `categories` (at least one).
+        pub categories: Vec<u8>,
+        /// Items per ticket (1–20).
+        pub allowance: u8,
+    }
+
+    /// `POST /api/events/{id}/setup`: an event's categories, numbers and checkpoints in one go
+    /// (ADR 0126), for an event that has none yet.
+    pub struct EventSetupBody {
+        /// The categories, in order (1–12).
+        pub categories: Vec<SetupCategoryBody>,
+        /// The checkpoints (up to 10; none for consumption tokens).
+        #[serde(default)]
+        pub checkpoints: Vec<SetupCheckpointBody>,
+    }
+
+    /// What the setup assistant created.
+    pub struct EventSetupDto {
+        /// The categories, with their numbers.
+        pub categories: Vec<CategoryDto>,
+        /// The checkpoints.
+        pub checkpoints: Vec<CheckpointDto>,
+    }
+
     /// The guest list at the door.
     pub struct DoorLiveGuestsDto {
         /// Names on the list.

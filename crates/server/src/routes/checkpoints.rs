@@ -23,13 +23,13 @@ pub const MAX_ALLOWANCE: u8 = 20;
 const MAX_NAME: usize = 30;
 
 /// A checkpoint's fields, checked.
-struct ValidCheckpoint {
-    name: String,
-    instruction: Option<String>,
-    category_ids: Vec<Uuid>,
-    allowance: i16,
+pub(crate) struct ValidCheckpoint {
+    pub(crate) name: String,
+    pub(crate) instruction: Option<String>,
+    pub(crate) category_ids: Vec<Uuid>,
+    pub(crate) allowance: i16,
     /// The allowance of each listed category, in `category_ids` order.
-    category_allowances: Vec<i16>,
+    pub(crate) category_allowances: Vec<i16>,
 }
 
 fn allowance(value: u8) -> ApiResult<i16> {
@@ -43,8 +43,8 @@ fn allowance(value: u8) -> ApiResult<i16> {
     }
 }
 
-async fn validate(
-    pool: &PgPool,
+pub(crate) async fn validate<'e>(
+    pool: impl sqlx::PgExecutor<'e>,
     event_id: Uuid,
     body: &CheckpointBody,
 ) -> ApiResult<ValidCheckpoint> {
@@ -104,7 +104,7 @@ async fn validate(
     })
 }
 
-fn renamed(error: sqlx::Error) -> ApiError {
+pub(crate) fn renamed(error: sqlx::Error) -> ApiError {
     match ApiError::from(error) {
         ApiError::Conflict("duplicate", _) => ApiError::Conflict(
             "checkpoint_exists",
@@ -200,7 +200,7 @@ pub async fn list(
     Ok(Json(load(&state.pool, event_id).await?))
 }
 
-async fn set_categories(
+pub(crate) async fn set_categories(
     tx: &mut Transaction<'_, Postgres>,
     checkpoint_id: Uuid,
     categories: &[Uuid],

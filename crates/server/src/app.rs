@@ -35,7 +35,7 @@ use crate::routes::{
     admin_insights, alerts, cashier, certificates, checklist, checkpoints, courtesies, credentials,
     crm, disputes, history, pix, public_page, series,
 };
-use crate::routes::{mailings, page_design, referrals, revenue_reports, verify, waitlist};
+use crate::routes::{mailings, page_design, referrals, revenue_reports, setup, verify, waitlist};
 use crate::state::AppState;
 
 /// JSON bodies are small; only art uploads get a bigger limit.
@@ -310,6 +310,7 @@ pub fn router(state: AppState) -> Router {
             "/events/{id}/categories",
             get(categories::list).post(categories::create),
         )
+        .route("/events/{id}/setup", post(setup::create))
         .route(
             "/categories/{id}",
             put(categories::update).delete(categories::delete),

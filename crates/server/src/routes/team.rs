@@ -812,6 +812,12 @@ mod tests {
                 Need::Area(TeamArea::Door),
             ),
             (Method::PUT, "events/{id}", Need::Area(TeamArea::Manage)),
+            // The setup assistant creates categories (ADR 0126): coordination, like each one.
+            (
+                Method::POST,
+                "events/{id}/setup",
+                Need::Area(TeamArea::Manage),
+            ),
             (
                 Method::POST,
                 "events/{id}/batches",

@@ -49,6 +49,7 @@ pub mod seller_sync;
 pub mod sellers;
 pub mod series;
 pub mod settlement;
+pub mod setup;
 pub mod status;
 pub mod support;
 pub mod tables;
