@@ -10,13 +10,18 @@ import { forKind } from "@/lib/event-kind";
 import { canDo, displayName, isOwner, responsibleFor } from "@/lib/team";
 import { event as eventTexts } from "@/texts/pt-BR/event";
 
-type Access = Pick<EventDto, "team"> & { kind?: EventKind | undefined };
+type Access = Pick<EventDto, "team"> & { kind?: EventKind | undefined; digitalOnly?: boolean | undefined };
 
 const AccessContext = createContext<Access>({ team: null });
 
 /** Shares the current user's place on the event (ADR 0055) and its kind (ADR 0084) with every tab. */
 export function EventAccessProvider({ event, children }: { event: Access; children: ReactNode }) {
-  return <AccessContext.Provider value={{ team: event.team, kind: event.kind }}>{children}</AccessContext.Provider>;
+  return <AccessContext.Provider value={{ team: event.team, kind: event.kind, digitalOnly: event.digitalOnly }}>{children}</AccessContext.Provider>;
+}
+
+/** The event's tickets only go to phones (ADR 0123). */
+export function useDigitalOnly(): boolean {
+  return useContext(AccessContext).digitalOnly ?? false;
 }
 
 /** Tickets or consumption tokens, for the event shown. */

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "update events set canceled_at = coalesce(canceled_at, now()), cancel_reason = $2\n           where id = $1\n           returning id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag,\n                     utc_offset_minutes, address, postponed_from_starts_at, postponed_at,\n                     postpone_reason, canceled_at, cancel_reason, kind",
+  "query": "select id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag,\n                  utc_offset_minutes, address, postponed_from_starts_at, postponed_at,\n                  postpone_reason, canceled_at, cancel_reason, kind, digital_only\n           from events where qr_tag = $1",
   "describe": {
     "columns": [
       {
@@ -178,12 +178,22 @@
             "name": "kind"
           }
         }
+      },
+      {
+        "ordinal": 16,
+        "name": "digital_only",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "digital_only"
+          }
+        }
       }
     ],
     "parameters": {
       "Left": [
-        "Uuid",
-        "Text"
+        "Int8"
       ]
     },
     "nullable": [
@@ -202,8 +212,9 @@
       true,
       true,
       true,
+      false,
       false
     ]
   },
-  "hash": "c5081a321ea13003a7b4fbe543968023c588610d9fbdba2ddf9e9c4425d40636"
+  "hash": "596b058070e5273f49bd7325b248731a1ee05fe80149d704271d0add31b3035d"
 }

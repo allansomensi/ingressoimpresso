@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag,\n                  utc_offset_minutes, address, postponed_from_starts_at, postponed_at,\n                  postpone_reason, canceled_at, cancel_reason, kind\n           from events where id = $1",
+  "query": "select id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag,\n                  utc_offset_minutes, address, postponed_from_starts_at, postponed_at,\n                  postpone_reason, canceled_at, cancel_reason, kind, digital_only\n           from events where id = $1",
   "describe": {
     "columns": [
       {
@@ -178,6 +178,17 @@
             "name": "kind"
           }
         }
+      },
+      {
+        "ordinal": 16,
+        "name": "digital_only",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "digital_only"
+          }
+        }
       }
     ],
     "parameters": {
@@ -201,8 +212,9 @@
       true,
       true,
       true,
+      false,
       false
     ]
   },
-  "hash": "57b5d0fc07fc0c4d0549da6d0314eb9c4c760f8f470100a7f5c4395e3bec3806"
+  "hash": "ce59807da04093599d893b4996d0a6dd81166590504d72e3c36065f484adaf2f"
 }

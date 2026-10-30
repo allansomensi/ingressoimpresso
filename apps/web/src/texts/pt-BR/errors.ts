@@ -183,6 +183,10 @@ export const errors = {
   ticket_not_sold: "Marque o número como vendido antes de enviar o ingresso.",
   seller_tickets_off:
     "O organizador desligou o envio do ingresso no celular pelos vendedores.",
+  not_enough_tickets:
+    "Não há números livres suficientes desse tipo. Pague outro lote ou dê mais números à categoria.",
+  invalid_ticket_quantity: "Quantidade inválida: até 50 por pessoa e 500 de cada vez.",
+  invalid_ids: "Escolha de 1 a 500 ingressos.",
   no_free_tickets:
     "Todos os ingressos pagos já estão com vendedores ou links. Crie um novo lote.",
   invalid_number: "Número inválido.",

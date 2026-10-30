@@ -197,6 +197,11 @@ dto! {
         #[serde(default)]
         #[cfg_attr(feature = "ts", ts(optional))]
         pub days: Option<Vec<EventDayBody>>,
+        /// The tickets only go to phones (ADR 0123); missing: paper and phones on create,
+        /// unchanged on update.
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional))]
+        pub digital_only: Option<bool>,
     }
 
     /// One day of an event of several days (ADR 0091).
@@ -273,6 +278,9 @@ dto! {
         /// The days of an event of several days (ADR 0091); empty for an event of one day.
         #[serde(default)]
         pub days: Vec<EventDayDto>,
+        /// The tickets only go to phones (ADR 0123).
+        #[serde(default)]
+        pub digital_only: bool,
     }
 
     /// The current user's place on the team of an event of another organization (ADR 0055).
@@ -1001,6 +1009,66 @@ dto! {
     pub struct UpdateTicketLinkBody {
         /// Who receives it; `null` clears it.
         pub holder_name: Option<String>,
+        /// Their WhatsApp (ADR 0123); missing: unchanged, blank: cleared.
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional))]
+        pub holder_phone: Option<String>,
+        /// The organizer's note; missing: unchanged, blank: cleared.
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional))]
+        pub note: Option<String>,
+    }
+
+    /// `POST /api/events/{id}/tickets/issue` (ADR 0123): digital tickets for one or more people,
+    /// each order taking the next free numbers of its category. All or nothing.
+    pub struct IssueTicketsBody {
+        /// One order per person (up to 500 tickets in all).
+        pub orders: Vec<TicketOrderBody>,
+    }
+
+    /// Tickets for one person.
+    pub struct TicketOrderBody {
+        /// The category the numbers come from; `null`: any free number.
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub category_id: Option<Uuid>,
+        /// How many tickets (1–50).
+        pub quantity: i32,
+        /// Who receives them (optional, up to 80 characters).
+        pub holder_name: Option<String>,
+        /// Their WhatsApp, as typed (optional).
+        pub holder_phone: Option<String>,
+        /// The organizer's note ("Pix conferido"), up to 200 characters, never shown to the holder.
+        pub note: Option<String>,
+    }
+
+    /// `POST /api/events/{id}/tickets/issue`: the links of each order, in the orders' order.
+    pub struct IssuedTicketsDto {
+        /// One entry per order.
+        pub orders: Vec<IssuedOrderDto>,
+    }
+
+    /// The links made for one order.
+    pub struct IssuedOrderDto {
+        /// Ordered by number.
+        pub links: Vec<TicketLinkDto>,
+    }
+
+    /// `POST /api/events/{id}/tickets/sent`: links someone just sent (WhatsApp, copied link).
+    pub struct MarkTicketsSentBody {
+        /// Link ids (up to 500).
+        #[cfg_attr(feature = "ts", ts(type = "string[]"))]
+        pub ids: Vec<Uuid>,
+    }
+
+    /// Free numbers of a category for digital tickets (ADR 0123).
+    pub struct TicketStockDto {
+        /// The category; `null`: numbers outside every category.
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub category_id: Option<Uuid>,
+        /// Numbers that could still be sent.
+        pub free: i32,
+        /// The next one that would go.
+        pub next_number: Option<i32>,
     }
 
     /// A digital ticket link, as the organizer sees it.
@@ -1042,6 +1110,18 @@ dto! {
         pub entered_at: Option<OffsetDateTime>,
         /// The seller who sent it from their link (ADR 0061); `null` when sent from the panel.
         pub seller: Option<String>,
+        /// The category of the number (ADR 0056), if any.
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub category_id: Option<Uuid>,
+        /// The holder's WhatsApp, digits with the country code (ADR 0123); blank for team
+        /// members who do not deliver tickets.
+        pub holder_phone: Option<String>,
+        /// The organizer's note.
+        pub note: Option<String>,
+        /// Last time it was sent from the panel.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub sent_at: Option<OffsetDateTime>,
     }
 
     /// `GET /api/events/{id}/tickets`.
@@ -1055,6 +1135,9 @@ dto! {
         pub paid_tickets: i64,
         /// Digits of printed numbers.
         pub number_digits: u8,
+        /// Free numbers of each category, in the categories' order, then those outside every
+        /// category (ADR 0123).
+        pub stock: Vec<TicketStockDto>,
     }
 
     /// `POST /api/ticket` and `POST /api/ticket/image` (no login).

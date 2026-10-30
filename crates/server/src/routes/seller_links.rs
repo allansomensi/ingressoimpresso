@@ -216,7 +216,7 @@ pub(crate) async fn event_row(state: &AppState, event_id: Uuid) -> ApiResult<Eve
         EventRow,
         r#"select id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag,
                   utc_offset_minutes, address, postponed_from_starts_at, postponed_at,
-                  postpone_reason, canceled_at, cancel_reason, kind
+                  postpone_reason, canceled_at, cancel_reason, kind, digital_only
            from events where id = $1"#,
         event_id
     )

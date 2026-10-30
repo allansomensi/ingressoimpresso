@@ -46,12 +46,15 @@ export const TAB_ICONS: Record<Tab, LucideIcon> = {
 /** The sections of an event, grouped as the work goes (ADR 0087). */
 export function EventNav({
   kind,
+  digitalOnly,
   current,
   attention,
   live,
   onSelect,
 }: {
   kind: EventKind | undefined;
+  /** Digital tickets only (ADR 0123). */
+  digitalOnly: boolean;
   current: Tab;
   /** Sections where the checklist still misses something the user can do (ADR 0078). */
   attention: ReadonlySet<Tab>;
@@ -63,7 +66,7 @@ export function EventNav({
   const groups: NavGroup<Tab>[] = TAB_GROUPS.map((group) => ({
     key: group.key,
     label: t.groups[group.key],
-    items: tabsOf(kind, group.tabs).map((tab) => ({
+    items: tabsOf(kind, group.tabs, digitalOnly).map((tab) => ({
       key: tab,
       label: tabLabel(tab, kind),
       hint: tabHint(tab, kind),

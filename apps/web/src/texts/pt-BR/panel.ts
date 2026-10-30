@@ -19,7 +19,7 @@ export const panel = {
     body: "Diga que tipo de evento é: já abrimos os modelos certos, com o nome e a data que você digitar. Dá para mudar tudo depois.",
     free: (count: number) =>
       count === 1 ? "1 ingresso grátis para começar" : `${count.toLocaleString("pt-BR")} ingressos grátis para começar`,
-    steps: ["Crie o evento", "Escolha um modelo", "Gere e imprima"],
+    steps: ["Crie o evento", "Escolha um modelo", "Imprima ou mande no celular"],
     stepsLabel: "Os três passos",
     pick: "Que tipo de evento?",
     other: "Outro tipo de evento",
@@ -48,10 +48,22 @@ export const panel = {
   price: "Preço do ingresso",
   priceHint: "Usado no acerto com os vendedores. Deixe em branco se for gratuito.",
   // Tickets or consumption tokens (ADR 0084).
-  kind: "O que vai imprimir",
+  kind: "O que vai vender",
   kinds: {
     tickets: { title: "Ingressos", body: "Entrada numerada, conferida na portaria." },
     tokens: { title: "Fichas de consumo", body: "Bebida e comida numeradas, com baixa na barraca." },
+  },
+  // Paper and phones, or phones only (ADR 0123).
+  delivery: {
+    legend: "Como chegam às pessoas",
+    tickets: {
+      paper: { title: "Papel e celular", body: "Imprima em casa ou na gráfica e mande pelo WhatsApp quando quiser." },
+      digital: { title: "Só no celular", body: "Cada pessoa recebe um link no WhatsApp. Nada para imprimir." },
+    },
+    tokens: {
+      paper: { title: "Papel e celular", body: "Imprima as fichas e mande pelo WhatsApp quando quiser." },
+      digital: { title: "Só no celular", body: "Cada pessoa recebe as fichas por link. Nada para imprimir." },
+    },
   },
   tokenPrice: "Preço da ficha",
   tokenPriceHint: "Cada produto pode ter o próprio preço na aba Produtos. Deixe em branco se não houver preço único.",

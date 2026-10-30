@@ -302,7 +302,7 @@ async fn generate(state: &AppState, export: &ExportRow) -> Result<(i32, String, 
     let event = sqlx::query_as!(
         EventRow,
         r#"select id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag, utc_offset_minutes,
-                  address, postponed_from_starts_at, postponed_at, postpone_reason, canceled_at, cancel_reason, kind
+                  address, postponed_from_starts_at, postponed_at, postpone_reason, canceled_at, cancel_reason, kind, digital_only
            from events where id = $1"#,
         export.event_id
     )
@@ -735,6 +735,15 @@ async fn prune(pool: &PgPool) -> ApiResult<()> {
     sqlx::query!("delete from ticket_reservations where expires_at < now() - interval '7 days'")
         .execute(pool)
         .await?;
+    // The buyers' phones on digital tickets (ADR 0123) only serve to send them: three months
+    // after the event they go.
+    sqlx::query!(
+        r#"update ticket_links l set holder_phone = null
+           from events e where e.id = l.event_id and l.holder_phone is not null
+             and e.ends_at < now() - interval '90 days'"#
+    )
+    .execute(pool)
+    .await?;
     // The answers kept for repeated changes of the seller's page (ADR 0074): a phone retries
     // within hours, not weeks.
     sqlx::query!("delete from seller_sync_ops where created_at < now() - interval '7 days'")

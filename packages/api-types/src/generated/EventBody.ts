@@ -40,4 +40,9 @@ kind?: EventKind,
  * event then starts with the first and ends with the last), an empty list makes it an
  * event of one day again, missing leaves them as they are.
  */
-days?: Array<EventDayBody>, };
+days?: Array<EventDayBody>, 
+/**
+ * The tickets only go to phones (ADR 0123); missing: paper and phones on create,
+ * unchanged on update.
+ */
+digitalOnly?: boolean, };

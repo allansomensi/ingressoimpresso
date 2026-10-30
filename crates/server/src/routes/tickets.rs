@@ -23,10 +23,11 @@ use uuid::Uuid;
 
 use super::{EventRow, MAX_TICKET_NUMBER, authorize_event, one_line, optional_text};
 use crate::api::{
-    CreateTicketLinkBody, CreateTicketLinksBody, EventDayDto, GoogleWalletDto, OpenTicketBody,
-    PassTableDto, PassTableMapDto, PassWalletsDto, ReplaceTicketBody, TableShape, TicketLinkDto,
-    TicketLinksDto, TicketPassDto, TicketPassEvent, TicketReplacementDto, TicketSettingsDto,
-    TicketState, TransferTicketBody, TransferTicketDto, UpdateTicketLinkBody,
+    CreateTicketLinkBody, CreateTicketLinksBody, EventDayDto, GoogleWalletDto, IssueTicketsBody,
+    IssuedOrderDto, IssuedTicketsDto, MarkTicketsSentBody, OpenTicketBody, PassTableDto,
+    PassTableMapDto, PassWalletsDto, ReplaceTicketBody, TableShape, TicketLinkDto, TicketLinksDto,
+    TicketPassDto, TicketPassEvent, TicketReplacementDto, TicketSettingsDto, TicketState,
+    TicketStockDto, TransferTicketBody, TransferTicketDto, UpdateTicketLinkBody,
 };
 use crate::auth::{AuthUser, new_token, token_hash};
 use crate::error::{ApiError, ApiResult, bad_request};
@@ -57,6 +58,10 @@ struct LinkRow {
     voided: bool,
     entered_at: Option<OffsetDateTime>,
     seller: Option<String>,
+    category_id: Option<Uuid>,
+    holder_phone: Option<String>,
+    note: Option<String>,
+    sent_at: Option<OffsetDateTime>,
 }
 
 /// Token and QR text sealed in a link row.
@@ -146,6 +151,10 @@ impl LinkRow {
             state: state_of(self.voided, self.entered_at),
             entered_at: self.entered_at,
             seller: self.seller,
+            category_id: self.category_id,
+            holder_phone: self.holder_phone,
+            note: self.note,
+            sent_at: self.sent_at,
         })
     }
 }
@@ -163,7 +172,10 @@ async fn load_links(
                          and v.numbers @> l.ticket_number) as "voided!",
                   (select s.scanned_at from entries en join scans s on s.id = en.first_scan_id
                    where en.event_id = l.event_id and en.ticket_number = l.ticket_number) as "entered_at?",
-                  (select se.name from sellers se where se.id = l.seller_id) as "seller?"
+                  (select se.name from sellers se where se.id = l.seller_id) as "seller?",
+                  (select r.category_id from category_ranges r where r.event_id = l.event_id
+                   and r.numbers @> l.ticket_number) as "category_id?",
+                  l.holder_phone, l.note, l.sent_at
            from ticket_links l
            where l.event_id = $1 and ($2::uuid[] is null or l.id = any($2))
            order by l.revoked_at is not null, l.created_at desc"#,
@@ -174,8 +186,11 @@ async fn load_links(
     .await?)
 }
 
-/// The smallest paid number with no seller, no void, no active link and no entry: the natural
-/// pick for a ticket that will only exist on a phone.
+// A number is free for a digital ticket when it is paid and has no seller, no void, no link
+// (not even a revoked one: whoever saw its QR may still hold it, ADR 0030) and no entry. The
+// queries below spell this out each (sqlx needs literal queries); change them together.
+
+/// The smallest free number: the natural pick for a ticket that will only exist on a phone.
 async fn next_free_number(state: &AppState, event_id: Uuid) -> ApiResult<Option<i32>> {
     Ok(sqlx::query_scalar!(
         r#"select min(n) as "n" from ticket_batches b
@@ -184,13 +199,104 @@ async fn next_free_number(state: &AppState, event_id: Uuid) -> ApiResult<Option<
              and not exists (select 1 from seller_assignments a where a.event_id = b.event_id and a.numbers @> n)
              and not exists (select 1 from ticket_voids v where v.event_id = b.event_id and v.undone_at is null
                              and v.numbers @> n)
-             and not exists (select 1 from ticket_links l where l.event_id = b.event_id and l.revoked_at is null
-                             and l.ticket_number = n)
+             and not exists (select 1 from ticket_links l where l.event_id = b.event_id and l.ticket_number = n)
              and not exists (select 1 from entries e where e.event_id = b.event_id and e.ticket_number = n)"#,
         event_id
     )
     .fetch_one(&state.pool)
     .await?)
+}
+
+/// Free numbers of each category, in the categories' order, then those outside every category
+/// (listed when there are any, or when the event has no categories).
+async fn stock(state: &AppState, event_id: Uuid) -> ApiResult<Vec<TicketStockDto>> {
+    let (categories, counts) = tokio::try_join!(
+        sqlx::query_scalar!(
+            "select id from ticket_categories where event_id = $1 order by position, name",
+            event_id
+        )
+        .fetch_all(&state.pool),
+        sqlx::query!(
+            r#"with free as (
+                 select n, (select r.category_id from category_ranges r
+                            where r.event_id = b.event_id and r.numbers @> n) as category_id
+                 from ticket_batches b
+                 cross join lateral generate_series(lower(b.numbers), upper(b.numbers) - 1) as n
+                 where b.event_id = $1 and b.status = 'paid'
+                   and not exists (select 1 from seller_assignments a where a.event_id = b.event_id and a.numbers @> n)
+                   and not exists (select 1 from ticket_voids v where v.event_id = b.event_id and v.undone_at is null
+                                   and v.numbers @> n)
+                   and not exists (select 1 from ticket_links l where l.event_id = b.event_id and l.ticket_number = n)
+                   and not exists (select 1 from entries e where e.event_id = b.event_id and e.ticket_number = n))
+               select category_id, count(*)::int4 as "free!", min(n) as "next!" from free group by category_id"#,
+            event_id
+        )
+        .fetch_all(&state.pool),
+    )?;
+    let count_of = |category: Option<Uuid>| {
+        counts
+            .iter()
+            .find(|row| row.category_id == category)
+            .map_or((0, None), |row| (row.free, Some(row.next)))
+    };
+    let mut list: Vec<TicketStockDto> = categories
+        .iter()
+        .map(|&id| {
+            let (free, next_number) = count_of(Some(id));
+            TicketStockDto {
+                category_id: Some(id),
+                free,
+                next_number,
+            }
+        })
+        .collect();
+    let (free, next_number) = count_of(None);
+    if free > 0 || categories.is_empty() {
+        list.push(TicketStockDto {
+            category_id: None,
+            free,
+            next_number,
+        });
+    }
+    Ok(list)
+}
+
+/// Up to `limit` free numbers of `category` (`None`: outside every category), skipping
+/// `taken`, each with its batch's key id.
+async fn free_numbers(
+    state: &AppState,
+    event_id: Uuid,
+    category: Option<Uuid>,
+    taken: &[i32],
+    limit: i32,
+) -> ApiResult<Vec<(i32, i16)>> {
+    let rows = sqlx::query!(
+        r#"select n as "number!", b.key_id from ticket_batches b
+           cross join lateral generate_series(lower(b.numbers), upper(b.numbers) - 1) as n
+           where b.event_id = $1 and b.status = 'paid'
+             and not (n = any($3::int4[]))
+             and case when $2::uuid is null
+                      then not exists (select 1 from category_ranges r where r.event_id = b.event_id
+                                       and r.numbers @> n)
+                      else exists (select 1 from category_ranges r where r.event_id = b.event_id
+                                   and r.category_id = $2 and r.numbers @> n) end
+             and not exists (select 1 from seller_assignments a where a.event_id = b.event_id and a.numbers @> n)
+             and not exists (select 1 from ticket_voids v where v.event_id = b.event_id and v.undone_at is null
+                             and v.numbers @> n)
+             and not exists (select 1 from ticket_links l where l.event_id = b.event_id and l.ticket_number = n)
+             and not exists (select 1 from entries e where e.event_id = b.event_id and e.ticket_number = n)
+           order by n limit $4"#,
+        event_id,
+        category,
+        taken,
+        i64::from(limit),
+    )
+    .fetch_all(&state.pool)
+    .await?;
+    Ok(rows
+        .into_iter()
+        .map(|row| (row.number, row.key_id))
+        .collect())
 }
 
 /// `GET /api/events/{id}/tickets`: every link of the event, active first.
@@ -211,6 +317,7 @@ pub async fn list(
             row.into_dto(&state, digits).map(|mut dto| {
                 if !delivers {
                     dto.url = String::new();
+                    dto.holder_phone = None;
                 }
                 dto
             })
@@ -228,6 +335,7 @@ pub async fn list(
         next_number: next_free_number(&state, event_id).await?,
         paid_tickets,
         number_digits: digits,
+        stock: stock(&state, event_id).await?,
     }))
 }
 
@@ -490,6 +598,237 @@ pub async fn create_bulk(
         .map(|row| row.into_dto(&state, digits))
         .collect::<ApiResult<Vec<_>>>()?;
     Ok((StatusCode::CREATED, Json(links)))
+}
+
+// Issued by category, for people (ADR 0123) ----------------------------------------------------
+
+/// Tickets one order may take: a family or a table, not a batch.
+const MAX_ORDER_QUANTITY: i32 = 50;
+/// Tries when another request takes the same free numbers first.
+const ISSUE_ATTEMPTS: usize = 3;
+
+/// A checked order.
+struct Order {
+    category: Option<Uuid>,
+    quantity: i32,
+    holder: Option<String>,
+    phone: Option<String>,
+    note: Option<String>,
+}
+
+fn holder_phone(value: Option<String>) -> ApiResult<Option<String>> {
+    super::organization::normalize_whatsapp(value)
+}
+
+fn note(value: Option<String>) -> ApiResult<Option<String>> {
+    super::events::short_text(value, MAX_NOTE, "invalid_note")
+}
+
+fn check_orders(body: IssueTicketsBody, categories: &[Uuid]) -> ApiResult<Vec<Order>> {
+    if body.orders.is_empty() {
+        return Err(bad_request(
+            "invalid_ticket_quantity",
+            "at least one ticket",
+        ));
+    }
+    let mut total = 0;
+    body.orders
+        .into_iter()
+        .map(|order| {
+            if !(1..=MAX_ORDER_QUANTITY).contains(&order.quantity) {
+                return Err(bad_request(
+                    "invalid_ticket_quantity",
+                    format!("1 to {MAX_ORDER_QUANTITY} tickets per person"),
+                ));
+            }
+            total += order.quantity;
+            if total > MAX_BULK {
+                return Err(bad_request(
+                    "invalid_ticket_quantity",
+                    format!("up to {MAX_BULK} tickets at once"),
+                ));
+            }
+            if order
+                .category_id
+                .is_some_and(|id| !categories.contains(&id))
+            {
+                return Err(ApiError::NotFound);
+            }
+            Ok(Order {
+                category: order.category_id,
+                quantity: order.quantity,
+                holder: holder_name(order.holder_name)?,
+                phone: holder_phone(order.holder_phone)?,
+                note: note(order.note)?,
+            })
+        })
+        .collect()
+}
+
+/// Free numbers of one category, with their key ids, taken from the front.
+type FreePool = std::collections::VecDeque<(i32, i16)>;
+
+/// The numbers of each order: the next free ones of its category, none given twice.
+async fn pick_numbers(
+    state: &AppState,
+    event_id: Uuid,
+    orders: &[Order],
+) -> ApiResult<Vec<Vec<(i32, i16)>>> {
+    let mut taken: Vec<i32> = Vec::new();
+    let mut picks = Vec::with_capacity(orders.len());
+    // Each category is read once, for every order of it.
+    let mut pools: Vec<(Option<Uuid>, FreePool)> = Vec::new();
+    for order in orders {
+        if !pools
+            .iter()
+            .any(|(category, _)| *category == order.category)
+        {
+            let need: i32 = orders
+                .iter()
+                .filter(|other| other.category == order.category)
+                .map(|other| other.quantity)
+                .sum();
+            let free = free_numbers(state, event_id, order.category, &taken, need).await?;
+            if free.len() < usize::try_from(need).unwrap_or(usize::MAX) {
+                return Err(ApiError::Conflict(
+                    "not_enough_tickets",
+                    format!("{need} tickets asked, {} free", free.len()),
+                ));
+            }
+            taken.extend(free.iter().map(|(number, _)| *number));
+            pools.push((order.category, free.into()));
+        }
+        let pool = pools
+            .iter_mut()
+            .find(|(category, _)| *category == order.category)
+            .map(|(_, pool)| pool)
+            .ok_or_else(|| ApiError::Internal(anyhow::anyhow!("pool of an order missing")))?;
+        let count = usize::try_from(order.quantity).unwrap_or(0);
+        picks.push(pool.drain(..count.min(pool.len())).collect());
+    }
+    Ok(picks)
+}
+
+/// `POST /api/events/{id}/tickets/issue`: digital tickets for one or more people, each from
+/// the free numbers of the chosen category, with their WhatsApp and a note. All or nothing: a
+/// spreadsheet imported twice by mistake fails whole instead of half.
+pub async fn issue(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(event_id): Path<Uuid>,
+    Json(body): Json<IssueTicketsBody>,
+) -> ApiResult<(StatusCode, Json<IssuedTicketsDto>)> {
+    let event = authorize_event(&state.pool, &user, event_id).await?;
+    ensure_open(&event)?;
+    let categories = sqlx::query_scalar!(
+        "select id from ticket_categories where event_id = $1",
+        event_id
+    )
+    .fetch_all(&state.pool)
+    .await?;
+    let orders = check_orders(body, &categories)?;
+    for _ in 0..ISSUE_ATTEMPTS {
+        let picks = pick_numbers(&state, event_id, &orders).await?;
+        let numbers: Vec<(i32, i16)> = picks.iter().flatten().copied().collect();
+        let prepared = prepare_links(&state, &event, &numbers).await?;
+        let mut ids = Vec::with_capacity(prepared.len());
+        let mut holders = Vec::with_capacity(prepared.len());
+        let mut phones = Vec::with_capacity(prepared.len());
+        let mut notes = Vec::with_capacity(prepared.len());
+        let mut chosen = Vec::with_capacity(prepared.len());
+        let mut hashes = Vec::with_capacity(prepared.len());
+        let mut sealed = Vec::with_capacity(prepared.len());
+        let mut order_ids: Vec<Vec<Uuid>> = vec![Vec::new(); orders.len()];
+        for link in &prepared {
+            let index = picks
+                .iter()
+                .position(|pick| pick.iter().any(|(number, _)| *number == link.number))
+                .ok_or_else(|| ApiError::Internal(anyhow::anyhow!("signed number not picked")))?;
+            let order = orders
+                .get(index)
+                .ok_or_else(|| ApiError::Internal(anyhow::anyhow!("order out of range")))?;
+            ids.push(link.id);
+            holders.push(order.holder.clone());
+            phones.push(order.phone.clone());
+            notes.push(order.note.clone());
+            chosen.push(link.number);
+            hashes.push(link.hash.clone());
+            sealed.push(link.sealed.clone());
+            if let Some(list) = order_ids.get_mut(index) {
+                list.push(link.id);
+            }
+        }
+        let mut tx = state.pool.begin().await?;
+        let inserted = sqlx::query_scalar!(
+            r#"insert into ticket_links (id, event_id, ticket_number, holder_name, holder_phone, note,
+                                         token_hash, sealed, created_by)
+               select t.id, $2, t.number, t.holder, t.phone, t.note, t.hash, t.sealed, $3
+               from unnest($1::uuid[], $4::int4[], $5::text[], $6::text[], $7::text[], $8::bytea[], $9::bytea[])
+                    as t(id, number, holder, phone, note, hash, sealed)
+               on conflict (event_id, ticket_number) where revoked_at is null do nothing
+               returning id"#,
+            &ids,
+            event_id,
+            user.id,
+            &chosen,
+            &holders as &[Option<String>],
+            &phones as &[Option<String>],
+            &notes as &[Option<String>],
+            &hashes,
+            &sealed,
+        )
+        .fetch_all(&mut *tx)
+        .await?;
+        if inserted.len() < ids.len() {
+            // Someone took one of these numbers meanwhile: pick again.
+            tx.rollback().await?;
+            continue;
+        }
+        tx.commit().await?;
+        let (_, digits) = number_style(&state, event_id).await?;
+        let mut rows = load_links(&state, event_id, Some(&ids)).await?;
+        rows.sort_by_key(|row| row.ticket_number);
+        let mut links: std::collections::HashMap<Uuid, TicketLinkDto> = rows
+            .into_iter()
+            .map(|row| row.into_dto(&state, digits).map(|dto| (dto.id, dto)))
+            .collect::<ApiResult<_>>()?;
+        let orders = order_ids
+            .into_iter()
+            .map(|list| {
+                let mut links: Vec<TicketLinkDto> =
+                    list.iter().filter_map(|id| links.remove(id)).collect();
+                links.sort_by_key(|link| link.number);
+                IssuedOrderDto { links }
+            })
+            .collect();
+        return Ok((StatusCode::CREATED, Json(IssuedTicketsDto { orders })));
+    }
+    Err(ApiError::Conflict(
+        "ticket_link_exists",
+        "other tickets were sent at the same time, try again".to_owned(),
+    ))
+}
+
+/// `POST /api/events/{id}/tickets/sent`: the links someone just sent from the panel (WhatsApp,
+/// copied), so the list knows who still waits for theirs.
+pub async fn mark_sent(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(event_id): Path<Uuid>,
+    Json(body): Json<MarkTicketsSentBody>,
+) -> ApiResult<StatusCode> {
+    authorize_event(&state.pool, &user, event_id).await?;
+    if body.ids.is_empty() || body.ids.len() > usize::try_from(MAX_BULK).unwrap_or(500) {
+        return Err(bad_request("invalid_ids", "1 to 500 links"));
+    }
+    sqlx::query!(
+        "update ticket_links set sent_at = now() where event_id = $1 and id = any($2)",
+        event_id,
+        &body.ids,
+    )
+    .execute(&state.pool)
+    .await?;
+    Ok(StatusCode::NO_CONTENT)
 }
 
 // Sent by a seller (ADR 0061) -----------------------------------------------------------------
@@ -849,7 +1188,7 @@ async fn reload(state: &AppState, event_id: Uuid, link_id: Uuid) -> ApiResult<Ti
         .into_dto(state, digits)
 }
 
-/// `PUT /api/ticket-links/{id}`: renames the holder.
+/// `PUT /api/ticket-links/{id}`: the holder's name, WhatsApp and the organizer's note.
 pub async fn update(
     State(state): State<AppState>,
     user: AuthUser,
@@ -859,10 +1198,23 @@ pub async fn update(
     let event_id = link_event(&state, link_id).await?;
     authorize_event(&state.pool, &user, event_id).await?;
     let holder = holder_name(body.holder_name)?;
+    // Missing keeps the phone and the note (older panels send the name only); blank clears.
+    let phone = body
+        .holder_phone
+        .map(|phone| holder_phone(Some(phone)))
+        .transpose()?;
+    let note = body.note.map(|text| note(Some(text))).transpose()?;
     sqlx::query!(
-        "update ticket_links set holder_name = $2 where id = $1",
+        r#"update ticket_links set holder_name = $2,
+                  holder_phone = case when $3 then $4 else holder_phone end,
+                  note = case when $5 then $6 else note end
+           where id = $1"#,
         link_id,
-        holder
+        holder,
+        phone.is_some(),
+        phone.flatten(),
+        note.is_some(),
+        note.flatten(),
     )
     .execute(&state.pool)
     .await?;
@@ -1029,7 +1381,7 @@ async fn build_pass(state: &AppState, link: &OpenRow) -> ApiResult<TicketPassDto
         EventRow,
         r#"select id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag,
                   utc_offset_minutes, address, postponed_from_starts_at, postponed_at,
-                  postpone_reason, canceled_at, cancel_reason, kind
+                  postpone_reason, canceled_at, cancel_reason, kind, digital_only
            from events where id = $1"#,
         link.event_id
     )
@@ -1451,7 +1803,7 @@ async fn render_image(
         EventRow,
         r#"select id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag,
                   utc_offset_minutes, address, postponed_from_starts_at, postponed_at,
-                  postpone_reason, canceled_at, cancel_reason, kind
+                  postpone_reason, canceled_at, cancel_reason, kind, digital_only
            from events where id = $1"#,
         link.event_id
     )

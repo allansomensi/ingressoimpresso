@@ -27,8 +27,9 @@ const TARGETS: Record<ChecklistKey, ChecklistTarget> = {
   organization_contact: { kind: "profile" },
 };
 
-export function checklistTarget(key: ChecklistKey): ChecklistTarget {
-  return TARGETS[key];
+/** Where `key` is done; an event of digital tickets only (ADR 0123) delivers in Digitais. */
+export function checklistTarget(key: ChecklistKey, digitalOnly = false): ChecklistTarget {
+  return key === "delivery" && digitalOnly ? { kind: "tab", tab: "digital" } : TARGETS[key];
 }
 
 /** The items shown: the ones that apply. */

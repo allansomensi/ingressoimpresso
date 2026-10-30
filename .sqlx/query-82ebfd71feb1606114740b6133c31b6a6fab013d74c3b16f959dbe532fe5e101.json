@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "insert into events (id, organization_id, name, venue, starts_at, ends_at, qr_tag,\n                                   ticket_price_cents, utc_offset_minutes, address, kind)\n               values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)\n               on conflict (qr_tag) do nothing\n               returning id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag,\n                         utc_offset_minutes, address, postponed_from_starts_at, postponed_at,\n                         postpone_reason, canceled_at, cancel_reason, kind",
+  "query": "select e.id, e.name, e.venue, e.starts_at, e.ends_at, e.ticket_price_cents, e.status, e.qr_tag,\n                  e.utc_offset_minutes, e.address, e.postponed_from_starts_at, e.postponed_at,\n                  e.postpone_reason, e.canceled_at, e.cancel_reason, e.kind, e.digital_only,\n                  o.name as organization, t.areas as \"areas?\",\n                  s.id as \"series_id?\", s.name as \"series_name?\",\n                  (select count(*) from events x where x.series_id = s.id)::int4 as \"series_dates?\",\n                  (select count(*) from events x where x.series_id = s.id\n                   and (x.starts_at, x.id) <= (e.starts_at, e.id))::int4 as \"series_position?\"\n           from events e join organizations o on o.id = e.organization_id\n           left join event_team t on t.event_id = e.id and t.user_id = $1\n           left join event_series s on s.id = e.series_id\n           where exists (select 1 from memberships m where m.organization_id = e.organization_id and m.user_id = $1)\n              or t.id is not null\n           order by e.starts_at desc",
   "describe": {
     "columns": [
       {
@@ -178,21 +178,78 @@
             "name": "kind"
           }
         }
+      },
+      {
+        "ordinal": 16,
+        "name": "digital_only",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "digital_only"
+          }
+        }
+      },
+      {
+        "ordinal": 17,
+        "name": "organization",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "organizations",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 18,
+        "name": "areas?",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "event_team",
+            "name": "areas"
+          }
+        }
+      },
+      {
+        "ordinal": 19,
+        "name": "series_id?",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "event_series",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 20,
+        "name": "series_name?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "event_series",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 21,
+        "name": "series_dates?",
+        "type_info": "Int4",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 22,
+        "name": "series_position?",
+        "type_info": "Int4",
+        "origin": "Expression"
       }
     ],
     "parameters": {
       "Left": [
-        "Uuid",
-        "Uuid",
-        "Text",
-        "Text",
-        "Timestamptz",
-        "Timestamptz",
-        "Int8",
-        "Int4",
-        "Int2",
-        "Text",
-        "Text"
+        "Uuid"
       ]
     },
     "nullable": [
@@ -211,8 +268,15 @@
       true,
       true,
       true,
-      false
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      null,
+      null
     ]
   },
-  "hash": "30f89acd7795856157317c97163bea28fd980102fadaa7bbcdfb9e532b3b91fe"
+  "hash": "82ebfd71feb1606114740b6133c31b6a6fab013d74c3b16f959dbe532fe5e101"
 }

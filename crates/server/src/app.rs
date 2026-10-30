@@ -109,6 +109,8 @@ pub fn router(state: AppState) -> Router {
             get(tickets::list).post(tickets::create),
         )
         .route("/events/{id}/tickets/bulk", post(tickets::create_bulk))
+        .route("/events/{id}/tickets/issue", post(tickets::issue))
+        .route("/events/{id}/tickets/sent", post(tickets::mark_sent))
         .route("/events/{id}/tickets/replace", post(tickets::replace))
         .route("/ticket-links/{id}", put(tickets::update))
         .route("/ticket-links/{id}/revoke", post(tickets::revoke))

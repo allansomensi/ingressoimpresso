@@ -361,7 +361,7 @@ async fn build(state: &AppState, user: &AuthUser, access: SeriesAccess) -> ApiRe
     let rows = sqlx::query!(
         r#"select e.id, e.name, e.venue, e.starts_at, e.ends_at, e.ticket_price_cents, e.status, e.qr_tag,
                   e.utc_offset_minutes, e.address, e.postponed_from_starts_at, e.postponed_at,
-                  e.postpone_reason, e.canceled_at, e.cancel_reason, e.kind,
+                  e.postpone_reason, e.canceled_at, e.cancel_reason, e.kind, e.digital_only,
                   (select t.areas from event_team t where t.event_id = e.id and t.user_id = $2) as "areas?: Vec<String>",
                   (select coalesce(sum(b.price_cents), 0) from ticket_batches b
                    where b.event_id = e.id and b.status = 'paid')::bigint as "cost_cents!"
@@ -408,6 +408,7 @@ async fn build(state: &AppState, user: &AuthUser, access: SeriesAccess) -> ApiRe
             canceled_at: row.canceled_at,
             cancel_reason: row.cancel_reason,
             kind: row.kind,
+            digital_only: row.digital_only,
         };
         visible.push((position, row.cost_cents, team, event));
     }

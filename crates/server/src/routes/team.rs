@@ -92,6 +92,8 @@ fn area(method: &str, shape: &str) -> Need {
             | "sellers/{id}/link"
             | "events/{id}/tickets"
             | "events/{id}/tickets/bulk"
+            | "events/{id}/tickets/issue"
+            | "events/{id}/tickets/sent"
             | "events/{id}/tickets/replace"
             | "ticket-links/{id}/revoke"
             | "events/{id}/voids"
