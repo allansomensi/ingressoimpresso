@@ -1,0 +1,38 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select n as \"number!\", b.key_id from ticket_batches b\n           cross join lateral generate_series(lower(b.numbers), upper(b.numbers) - 1) as n\n           where b.event_id = $1 and b.status = 'paid'\n             and not (n = any($3::int4[]))\n             and case when $2::uuid is null\n                      then not exists (select 1 from category_ranges r where r.event_id = b.event_id\n                                       and r.numbers @> n)\n                      else exists (select 1 from category_ranges r where r.event_id = b.event_id\n                                   and r.category_id = $2 and r.numbers @> n) end\n             and not exists (select 1 from seller_assignments a where a.event_id = b.event_id and a.numbers @> n)\n             and not exists (select 1 from ticket_voids v where v.event_id = b.event_id and v.undone_at is null\n                             and v.numbers @> n)\n             and not exists (select 1 from ticket_links l where l.event_id = b.event_id and l.ticket_number = n)\n             and not exists (select 1 from entries e where e.event_id = b.event_id and e.ticket_number = n)\n           order by n limit $4",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "number!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "key_id",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "ticket_batches",
+            "name": "key_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Int4Array",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null,
+      false
+    ]
+  },
+  "hash": "7d72e6a47b2a2e750bda59ecff09b021a11a14d76aeee6602a5a9ea043837f48"
+}

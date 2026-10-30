@@ -7,4 +7,12 @@ export type UpdateTicketLinkBody = {
 /**
  * Who receives it; `null` clears it.
  */
-holderName: string | null, };
+holderName: string | null, 
+/**
+ * Their WhatsApp (ADR 0123); missing: unchanged, blank: cleared.
+ */
+holderPhone?: string, 
+/**
+ * The organizer's note; missing: unchanged, blank: cleared.
+ */
+note?: string, };

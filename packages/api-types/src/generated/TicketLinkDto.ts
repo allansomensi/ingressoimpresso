@@ -56,4 +56,21 @@ enteredAt: string | null,
 /**
  * The seller who sent it from their link (ADR 0061); `null` when sent from the panel.
  */
-seller: string | null, };
+seller: string | null, 
+/**
+ * The category of the number (ADR 0056), if any.
+ */
+categoryId: string | null, 
+/**
+ * The holder's WhatsApp, digits with the country code (ADR 0123); blank for team
+ * members who do not deliver tickets.
+ */
+holderPhone: string | null, 
+/**
+ * The organizer's note.
+ */
+note: string | null, 
+/**
+ * Last time it was sent from the panel.
+ */
+sentAt: string | null, };

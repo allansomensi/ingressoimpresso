@@ -44,6 +44,10 @@ pub fn note(
     path: &str,
     support: bool,
 ) {
+    // Marking digital tickets as sent (ADR 0123) keeps the list's bookkeeping, not a change.
+    if path.ends_with("/tickets/sent") {
+        return;
+    }
     let area = match team::need(method, path) {
         team::Need::Read => return,
         team::Need::Area(area) | team::Need::Either(area, _) => Some(area),

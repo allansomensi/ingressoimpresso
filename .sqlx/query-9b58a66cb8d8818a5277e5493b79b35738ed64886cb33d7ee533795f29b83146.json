@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update ticket_links set holder_name = $2,\n                  holder_phone = case when $3 then $4 else holder_phone end,\n                  note = case when $5 then $6 else note end\n           where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Bool",
+        "Text",
+        "Bool",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9b58a66cb8d8818a5277e5493b79b35738ed64886cb33d7ee533795f29b83146"
+}

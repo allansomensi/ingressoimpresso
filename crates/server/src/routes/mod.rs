@@ -103,6 +103,8 @@ pub struct EventRow {
     pub cancel_reason: Option<String>,
     /// `tickets` or `tokens` (ADR 0084).
     pub kind: String,
+    /// The tickets only go to phones (ADR 0123): the panel leads with the digital tickets.
+    pub digital_only: bool,
 }
 
 impl EventRow {
@@ -214,7 +216,7 @@ pub async fn event_access(
     let row = sqlx::query!(
         r#"select e.id, e.name, e.venue, e.starts_at, e.ends_at, e.ticket_price_cents, e.status, e.qr_tag,
                   e.utc_offset_minutes, e.address, e.postponed_from_starts_at, e.postponed_at,
-                  e.postpone_reason, e.canceled_at, e.cancel_reason, e.kind,
+                  e.postpone_reason, e.canceled_at, e.cancel_reason, e.kind, e.digital_only,
                   e.organization_id, o.name as organization_name,
                   o.suspended_at is not null as "organization_suspended!",
                   exists(select 1 from memberships m
@@ -315,6 +317,7 @@ pub async fn event_access(
             canceled_at: row.canceled_at,
             cancel_reason: row.cancel_reason,
             kind: row.kind,
+            digital_only: row.digital_only,
         },
         organization_id: row.organization_id,
         support,

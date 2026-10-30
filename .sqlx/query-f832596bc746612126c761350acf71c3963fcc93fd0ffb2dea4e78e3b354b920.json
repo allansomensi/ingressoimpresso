@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "update events set status = $2 where id = $1\n           returning id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag,\n                     utc_offset_minutes, address, postponed_from_starts_at, postponed_at,\n                     postpone_reason, canceled_at, cancel_reason, kind",
+  "query": "insert into events (id, organization_id, name, venue, starts_at, ends_at, qr_tag,\n                                   ticket_price_cents, utc_offset_minutes, address, kind, digital_only)\n               values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)\n               on conflict (qr_tag) do nothing\n               returning id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag,\n                         utc_offset_minutes, address, postponed_from_starts_at, postponed_at,\n                         postpone_reason, canceled_at, cancel_reason, kind, digital_only",
   "describe": {
     "columns": [
       {
@@ -178,12 +178,33 @@
             "name": "kind"
           }
         }
+      },
+      {
+        "ordinal": 16,
+        "name": "digital_only",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "digital_only"
+          }
+        }
       }
     ],
     "parameters": {
       "Left": [
         "Uuid",
-        "Text"
+        "Uuid",
+        "Text",
+        "Text",
+        "Timestamptz",
+        "Timestamptz",
+        "Int8",
+        "Int4",
+        "Int2",
+        "Text",
+        "Text",
+        "Bool"
       ]
     },
     "nullable": [
@@ -202,8 +223,9 @@
       true,
       true,
       true,
+      false,
       false
     ]
   },
-  "hash": "9a8531ac29196f77cc908bff60c6188d3f04cb572a6c00080a61f2a1b86e66bb"
+  "hash": "f832596bc746612126c761350acf71c3963fcc93fd0ffb2dea4e78e3b354b920"
 }

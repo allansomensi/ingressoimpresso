@@ -91,6 +91,7 @@ impl EventRow {
             checklist_missing: None,
             kind,
             days: Vec::new(),
+            digital_only: self.digital_only,
         })
     }
 }
@@ -212,7 +213,7 @@ pub async fn list(State(state): State<AppState>, user: AuthUser) -> ApiResult<Js
     let rows = sqlx::query!(
         r#"select e.id, e.name, e.venue, e.starts_at, e.ends_at, e.ticket_price_cents, e.status, e.qr_tag,
                   e.utc_offset_minutes, e.address, e.postponed_from_starts_at, e.postponed_at,
-                  e.postpone_reason, e.canceled_at, e.cancel_reason, e.kind,
+                  e.postpone_reason, e.canceled_at, e.cancel_reason, e.kind, e.digital_only,
                   o.name as organization, t.areas as "areas?",
                   s.id as "series_id?", s.name as "series_name?",
                   (select count(*) from events x where x.series_id = s.id)::int4 as "series_dates?",
@@ -257,6 +258,7 @@ pub async fn list(State(state): State<AppState>, user: AuthUser) -> ApiResult<Js
                 canceled_at: row.canceled_at,
                 cancel_reason: row.cancel_reason,
                 kind: row.kind,
+                digital_only: row.digital_only,
             };
             (event, row.organization, row.areas, series)
         })
@@ -309,6 +311,8 @@ struct NewEvent<'a> {
     utc_offset_minutes: i16,
     /// Tickets or consumption tokens (ADR 0084).
     kind: EventKind,
+    /// The tickets only go to phones (ADR 0123).
+    digital_only: bool,
 }
 
 /// Inserts an event with a random QR tag and its first signing key (ADR 0004, 0005).
@@ -325,12 +329,12 @@ async fn insert_event(
         created = sqlx::query_as!(
             EventRow,
             r#"insert into events (id, organization_id, name, venue, starts_at, ends_at, qr_tag,
-                                   ticket_price_cents, utc_offset_minutes, address, kind)
-               values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                                   ticket_price_cents, utc_offset_minutes, address, kind, digital_only)
+               values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
                on conflict (qr_tag) do nothing
                returning id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag,
                          utc_offset_minutes, address, postponed_from_starts_at, postponed_at,
-                         postpone_reason, canceled_at, cancel_reason, kind"#,
+                         postpone_reason, canceled_at, cancel_reason, kind, digital_only"#,
             event_id,
             event.organization_id,
             event.name,
@@ -342,6 +346,7 @@ async fn insert_event(
             event.utc_offset_minutes,
             event.address,
             event.kind.db(),
+            event.digital_only,
         )
         .fetch_optional(&mut **tx)
         .await?;
@@ -407,6 +412,7 @@ pub async fn create(
             ticket_price_cents: body.ticket_price_cents,
             utc_offset_minutes: valid.offset,
             kind: body.kind.unwrap_or_default(),
+            digital_only: body.digital_only.unwrap_or(false),
         },
     )
     .await?;
@@ -568,6 +574,7 @@ pub(crate) async fn copy_event(
             ticket_price_cents: source.ticket_price_cents,
             utc_offset_minutes: to.utc_offset_minutes,
             kind: source.kind(),
+            digital_only: source.digital_only,
         },
     )
     .await?;
@@ -850,7 +857,7 @@ pub async fn set_status(
         r#"update events set status = $2 where id = $1
            returning id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag,
                      utc_offset_minutes, address, postponed_from_starts_at, postponed_at,
-                     postpone_reason, canceled_at, cancel_reason, kind"#,
+                     postpone_reason, canceled_at, cancel_reason, kind, digital_only"#,
         event_id,
         body.status.db(),
     )
@@ -952,11 +959,12 @@ pub async fn update(
         r#"update events set name = $2, venue = $3, starts_at = $4, ends_at = $5, ticket_price_cents = $6,
                              utc_offset_minutes = $7, address = $8, kind = coalesce($9, kind),
                              -- A consumption token is used once: no exit and return (ADR 0084).
-                             reentry = reentry and coalesce($9, kind) = 'tickets'
+                             reentry = reentry and coalesce($9, kind) = 'tickets',
+                             digital_only = coalesce($10, digital_only)
            where id = $1
            returning id, name, venue, starts_at, ends_at, ticket_price_cents, status, qr_tag,
                      utc_offset_minutes, address, postponed_from_starts_at, postponed_at,
-                     postpone_reason, canceled_at, cancel_reason, kind"#,
+                     postpone_reason, canceled_at, cancel_reason, kind, digital_only"#,
         event_id,
         valid.name,
         valid.venue,
@@ -966,6 +974,7 @@ pub async fn update(
         valid.offset,
         valid.address,
         body.kind.map(EventKind::db),
+        body.digital_only,
     )
     .fetch_one(&mut *tx)
     .await?;
