@@ -310,6 +310,24 @@ async fn export_event(state: &AppState, event_id: Uuid) -> ApiResult<Value> {
         })
     })
     .collect::<Vec<_>>();
+    // The waiting list of the public page (ADR 0124).
+    let waitlist = sqlx::query!(
+        r#"select w.name, w.phone, w.quantity, w.created_at, w.done_at, c.name as "category?"
+           from waitlist_entries w left join ticket_categories c on c.id = w.category_id
+           where w.event_id = $1 order by w.created_at"#,
+        event_id
+    )
+    .fetch_all(&state.pool)
+    .await?
+    .into_iter()
+    .map(|entry| {
+        json!({
+            "name": entry.name, "phone": entry.phone, "quantity": entry.quantity,
+            "category": entry.category, "createdAt": rfc3339(entry.created_at),
+            "doneAt": optional_rfc3339(entry.done_at),
+        })
+    })
+    .collect::<Vec<_>>();
     let devices = sqlx::query!(
         "select name, created_at, last_seen_at from door_devices where event_id = $1 order by created_at",
         event_id
@@ -412,6 +430,7 @@ async fn export_event(state: &AppState, event_id: Uuid) -> ApiResult<Value> {
         "sellers": seller_list,
         "voids": void_list,
         "digitalTickets": links,
+        "waitlist": waitlist,
         "doorPhones": devices,
         "team": team,
         "categories": categories,

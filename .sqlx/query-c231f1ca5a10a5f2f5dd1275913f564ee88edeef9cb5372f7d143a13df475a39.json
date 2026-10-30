@@ -1,0 +1,45 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into waitlist_entries (id, event_id, category_id, name, phone, quantity)\n           values ($1, $2, $3, $4, $5, $6)\n           on conflict (event_id, phone, coalesce(category_id, '00000000-0000-0000-0000-000000000000'::uuid))\n           do update set name = excluded.name, quantity = excluded.quantity, done_at = null\n           returning id, created_at",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "waitlist_entries",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "waitlist_entries",
+            "name": "created_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Text",
+        "Int2"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "c231f1ca5a10a5f2f5dd1275913f564ee88edeef9cb5372f7d143a13df475a39"
+}

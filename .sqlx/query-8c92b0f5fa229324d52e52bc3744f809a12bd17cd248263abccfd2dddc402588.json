@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select e.id as event_id, b.sha256 from blobs b\n           join events e on e.public_cover_blob_id = b.id and e.public_page\n           where b.id = $1 and b.moderation_status not in ('flagged', 'rejected')\n             and not exists (select 1 from rejected_art r where r.sha256 = b.sha256)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "event_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "sha256",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "blobs",
+            "name": "sha256"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "8c92b0f5fa229324d52e52bc3744f809a12bd17cd248263abccfd2dddc402588"
+}

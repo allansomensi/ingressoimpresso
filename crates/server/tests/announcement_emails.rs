@@ -362,6 +362,13 @@ async fn an_announcement_goes_to_the_channels_chosen(pool: PgPool) {
     assert_eq!(all["email"]["audience"], "all");
     assert_eq!(all["mailing"]["total"], 2);
     assert_eq!(mailings::drain(&app.state).await.unwrap(), Step::Idle);
+    // The background sender may still be finishing its last one.
+    for _ in 0..50 {
+        if received(&app).len() == 2 {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    }
     assert_eq!(received(&app).len(), 2);
     let inbox = app.get("/api/inbox", &banda).await.json();
     assert_eq!(inbox["announcements"][0]["bell"], true);

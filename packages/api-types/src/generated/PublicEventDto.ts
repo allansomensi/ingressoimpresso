@@ -4,6 +4,7 @@ import type { EventDayDto } from "./EventDayDto";
 import type { EventKind } from "./EventKind";
 import type { PublicCategoryDto } from "./PublicCategoryDto";
 import type { PublicOrganizationDto } from "./PublicOrganizationDto";
+import type { PublicPageDesign } from "./PublicPageDesign";
 import type { PublicSellerDto } from "./PublicSellerDto";
 
 /**
@@ -73,4 +74,18 @@ change: EventChangeDto,
 /**
  * Anyone may check a ticket at /conferir (ADR 0075).
  */
-publicVerify: boolean, };
+publicVerify: boolean, 
+/**
+ * A sold-out category (or the whole event) takes names for its waiting list now
+ * (ADR 0124).
+ */
+waitlist: boolean, 
+/**
+ * How the page looks (ADR 0125).
+ */
+design: PublicPageDesign, 
+/**
+ * The cover image's address on the API (`/api/public/covers/…`), when there is one
+ * the page may show.
+ */
+coverPath: string | null, };

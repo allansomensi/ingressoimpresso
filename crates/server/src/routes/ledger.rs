@@ -254,8 +254,15 @@ pub(crate) async fn accountability(state: &AppState, event: EventRow) -> ApiResu
     let expenses_cents = sum(LedgerKind::Expense);
     // What sellers handed over plus the Pix the organization received for numbers of no seller
     // (digital tickets it sent itself, ADR 0085).
-    let received_cents = report.totals.received_cents;
-    let ticket_sales_cents = report
+    // The digital tickets the organization sent itself (ADR 0124) were paid to it: their worth
+    // counts as received, less the Pix already recorded for them (in the line above).
+    let digital_cents = report
+        .digital
+        .amount_cents
+        .filter(|_| report.digital.tickets > 0);
+    let received_cents = report.totals.received_cents
+        + digital_cents.map_or(0, |cents| (cents - report.digital.pix_cents).max(0));
+    let sellers_sales_cents = report
         .sellers
         .iter()
         .map(|row| row.amount_due_cents)
@@ -266,6 +273,10 @@ pub(crate) async fn accountability(state: &AppState, event: EventRow) -> ApiResu
                 .iter()
                 .any(|row| row.amount_due_cents.is_some())
         });
+    let ticket_sales_cents = match (sellers_sales_cents, digital_cents) {
+        (Some(sellers), Some(digital)) => Some(sellers + digital),
+        (sellers, digital) => sellers.or(digital),
+    };
     let outstanding_cents = report
         .sellers
         .iter()
@@ -301,6 +312,7 @@ pub(crate) async fn accountability(state: &AppState, event: EventRow) -> ApiResu
         entries: report.totals.entries,
         ticket_sales_cents,
         received_cents,
+        digital_cents,
         commissions_cents,
         outstanding_cents,
         other_income_cents,
@@ -368,6 +380,11 @@ fn document(data: &Accountability) -> ReportDocument {
                 .map(|cents| t.outstanding_note.replace("{amount}", &brl(cents))),
             facts: [
                 vec![fact(t.received, brl(s.received_cents), true, None)],
+                // The organization's own digital sales (ADR 0124), said apart.
+                s.digital_cents
+                    .map(|cents| fact(t.digital, brl(cents), false, None))
+                    .into_iter()
+                    .collect(),
                 // Kept by the sellers (ADR 0096): never in the cash, said apart.
                 (s.commissions_cents > 0)
                     .then(|| fact(t.commissions, brl(s.commissions_cents), false, None))
@@ -401,7 +418,7 @@ fn document(data: &Accountability) -> ReportDocument {
     ];
     sections.extend(category_section(data));
     sections.extend(seller_section(data));
-    sections.push(cash_section(t, s));
+    sections.push(cash_section(t, s, data.report.totals.received_cents));
     ReportDocument {
         kicker: t.kicker.to_owned(),
         title: data.event.name.clone(),
@@ -484,8 +501,8 @@ fn seller_section(data: &Accountability) -> Option<ReportSection> {
                     whole(rows.iter().map(|r| r.tickets).sum()),
                     whole(rows.iter().map(|r| r.unsold + r.lost).sum()),
                     whole(rows.iter().map(|r| r.declared_sold).sum()),
-                    optional_brl(s.ticket_sales_cents),
-                    brl(s.received_cents),
+                    optional_brl(rows.iter().map(|r| r.amount_due_cents).sum::<Option<i64>>()),
+                    brl(rows.iter().map(|r| r.received_cents).sum()),
                     optional_brl(s.outstanding_cents),
                 ]),
                 numeric_from: 1,
@@ -496,13 +513,26 @@ fn seller_section(data: &Accountability) -> Option<ReportSection> {
 }
 
 /// Money in and out: what sellers handed over, the platform, then the team's entries by day.
-fn cash_section(t: &texts::AccountabilityTexts, s: &AccountabilityDto) -> ReportSection {
+fn cash_section(
+    t: &texts::AccountabilityTexts,
+    s: &AccountabilityDto,
+    sellers_received_cents: i64,
+) -> ReportSection {
     let mut rows = vec![vec![
         String::new(),
         t.received_line.to_owned(),
         t.income.to_owned(),
-        brl(s.received_cents),
+        brl(sellers_received_cents),
     ]];
+    // What the organization's digital tickets brought in (ADR 0124).
+    if s.received_cents != sellers_received_cents {
+        rows.push(vec![
+            String::new(),
+            t.digital_line.to_owned(),
+            t.income.to_owned(),
+            brl(s.received_cents - sellers_received_cents),
+        ]);
+    }
     if s.platform_cents > 0 {
         rows.push(vec![
             String::new(),
@@ -585,6 +615,7 @@ fn workbook(data: &Accountability) -> Workbook {
             vec![label(t.entries), Cell::Int(s.entries)],
             vec![label(t.ticket_sales), money(s.ticket_sales_cents)],
             vec![label(t.received), Cell::Money(s.received_cents)],
+            vec![label(t.digital), money(s.digital_cents)],
             vec![label(t.commissions), Cell::Money(s.commissions_cents)],
             vec![label(t.outstanding), money(s.outstanding_cents)],
             vec![label(t.other_income), Cell::Money(s.other_income_cents)],

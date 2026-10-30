@@ -84,6 +84,7 @@ import { common as commonTexts } from "@/texts/pt-BR/common";
 import { event as eventTexts } from "@/texts/pt-BR/event";
 
 import { ImportDialog } from "./digital-import";
+import { WaitlistCard } from "./digital-waitlist";
 import {
   EditDialog,
   IssuedCard,
@@ -832,6 +833,21 @@ export function DigitalTab({ eventId, onSelect }: { eventId: string; onSelect: S
       )}
 
       <StockStrip data={data} categories={categories} onSelect={onSelect} />
+
+      {/* Who asked on the public page when a category sold out (ADR 0124). */}
+      <WaitlistCard
+        eventId={eventId}
+        eventName={eventName}
+        data={data}
+        categories={categories}
+        onIssued={(issued) => {
+          setCreated({ issued, title: t.issuedTitle(issued.links.length, issued.name), another: false });
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }}
+        onNewBatch={() => {
+          onSelect("batches");
+        }}
+      />
 
       <section className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center justify-between gap-3">

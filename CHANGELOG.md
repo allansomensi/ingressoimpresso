@@ -12,6 +12,27 @@ e não acompanha estes números.
 
 ## [Não lançado]
 
+## [1.20.0] - 2026-10-30
+
+### Adicionado
+
+- Personalize a página do evento: cor de destaque, fundo neutro, colorido ou escuro, foto de capa
+  no topo, fonte do nome, um botão principal (como "Comprar pelo formulário"), a ordem das partes
+  e o que aparece, além de programação, perguntas frequentes e links. Tudo com prévia ao vivo no
+  celular e no computador, em "Personalizar" no cartão da página (ADR 0125).
+- Lista de espera na página do evento: quando um tipo esgota, quem quer deixa nome, WhatsApp e
+  quantos ingressos, e vê a posição na fila. Em Digitais aparece a procura por tipo e, com um
+  toque, o ingresso sai já preenchido para a pessoa (ADR 0124).
+- Assistente do evento: em Categorias, responda como os ingressos são vendidos, os tipos, os dias,
+  a meia com documento, as pulseiras e os extras (como um jantar), e o assistente cria tudo de uma
+  vez, com os números em sequência (ADR 0126).
+
+### Alterado
+
+- O Relatório conta os ingressos enviados pelo celular pela organização: valor, abertos, entradas
+  e uma coluna "Digitais" por categoria; a prestação de contas soma essas vendas ao recebido
+  (ADR 0124).
+
 ## [1.19.0] - 2026-10-30
 
 ### Adicionado
@@ -903,7 +924,8 @@ Primeira versão numerada: o produto que já estava em produção, das fases 0 a
 - Política de segurança de conteúdo (CSP) com nonce por requisição em todo o site (ADR 0048).
 - Verificação anti-robô antes do envio do código de login (ADR 0044).
 
-[Não lançado]: https://github.com/allansomensi/ingressoimpresso/compare/v1.19.0...HEAD
+[Não lançado]: https://github.com/allansomensi/ingressoimpresso/compare/v1.20.0...HEAD
+[1.20.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.19.0...v1.20.0
 [1.19.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.18.0...v1.19.0
 [1.18.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.17.0...v1.18.0
 [1.17.0]: https://github.com/allansomensi/ingressoimpresso/compare/v1.16.1...v1.17.0

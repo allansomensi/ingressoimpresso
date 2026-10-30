@@ -1,0 +1,88 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select name, public_page, public_slug, public_sold_out, public_description, public_waitlist from events where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "public_page",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "public_page"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "public_slug",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "public_slug"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "public_sold_out",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "public_sold_out"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "public_description",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "public_description"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "public_waitlist",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "public_waitlist"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "7fdb85c837d7d32572519f1a0bd39fbf4714e362165e0476bf101611d5a513e9"
+}

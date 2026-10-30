@@ -26,7 +26,8 @@ function policy(nonce: string): string {
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'wasm-unsafe-eval' ${GOOGLE_IDENTITY}client ${TURNSTILE}`,
     `style-src 'self' 'unsafe-inline' ${GOOGLE_IDENTITY}style`,
-    "img-src 'self' blob: data:",
+    // The API serves the event pages' covers (ADR 0125): our own origin, never a third party.
+    `img-src 'self' blob: data: ${API_URL}`,
     "font-src 'self'",
     `connect-src 'self' ${API_URL} ${GOOGLE_IDENTITY}`,
     `frame-src ${GOOGLE_IDENTITY} ${TURNSTILE} ${GOOGLE_MAPS}`,

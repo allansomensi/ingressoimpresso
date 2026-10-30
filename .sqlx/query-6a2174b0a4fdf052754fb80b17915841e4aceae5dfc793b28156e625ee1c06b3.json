@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select public_slug from events where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "public_slug",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "public_slug"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "6a2174b0a4fdf052754fb80b17915841e4aceae5dfc793b28156e625ee1c06b3"
+}

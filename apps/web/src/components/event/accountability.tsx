@@ -102,7 +102,17 @@ export function Accountability({ eventId }: { eventId: string }) {
         }
       />
       <dl className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-        <Figure label={t.received} value={money(s.receivedCents)} hint={s.outstandingCents !== null && s.outstandingCents > 0 ? t.outstanding(money(s.outstandingCents)) : null} />
+        <Figure
+          label={t.received}
+          value={money(s.receivedCents)}
+          hint={
+            s.outstandingCents !== null && s.outstandingCents > 0
+              ? t.outstanding(money(s.outstandingCents))
+              : s.digitalCents !== null && s.digitalCents > 0
+                ? t.digitalIncluded(money(s.digitalCents))
+                : null
+          }
+        />
         <Figure label={t.otherIncome} value={money(s.otherIncomeCents)} hint={null} />
         <Figure label={t.spent} value={money(spent)} hint={s.platformCents > 0 ? t.platform(money(s.platformCents)) : null} />
         <Figure label={t.balance} value={money(s.balanceCents)} hint={t.balanceHint} tone={s.balanceCents < 0 ? "bad" : "good"} strong />

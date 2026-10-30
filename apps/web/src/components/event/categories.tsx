@@ -9,10 +9,11 @@ import { toast } from "sonner";
 import { ReadOnlyNotice, useEventAccess } from "@/components/event/access";
 import { TablesSection } from "@/components/event/tables";
 import type { SelectTab } from "@/components/event/tabs";
+import { SetupWizard } from "@/components/event/setup-wizard";
 import { TabHeader } from "@/components/event/tab-header";
 import { Alert, Badge, Button, Card, Dialog, ErrorMessage, Field, Input, LoadingBlock, Menu, MenuItem, Switch, buttonClass, errorMessage, useConfirm } from "@/components/ui";
 import { api } from "@/lib/api";
-import { CATEGORY_COLORS, nextColor, presetPriceText, uncategorized } from "@/lib/categories";
+import { CATEGORY_COLORS, nextColor, uncategorized } from "@/lib/categories";
 import { cn } from "@/lib/cn";
 import { dayLabel, ruleShort } from "@/lib/event-days";
 import { forKind } from "@/lib/event-kind";
@@ -22,6 +23,7 @@ import { common as commonTexts } from "@/texts/pt-BR/common";
 import { errors as errorsTexts } from "@/texts/pt-BR/errors";
 import { event as eventTexts } from "@/texts/pt-BR/event";
 import { eventDays as dayTexts } from "@/texts/pt-BR/event-days";
+import { eventSetup } from "@/texts/pt-BR/event-setup";
 import { portaria as portariaTexts } from "@/texts/pt-BR/portaria";
 
 type CategoryTexts = typeof eventTexts.categories;
@@ -53,6 +55,7 @@ export function CategoriesTab({ eventId, event, onSelect }: { eventId: string; e
 
 function CategoriesSection({ eventId, event, editable, onSelect }: { eventId: string; event: EventDto; editable: boolean; onSelect: SelectTab }) {
   const t = categoryTexts(event.kind);
+  const setupTexts = forKind(eventSetup, eventSetup.tokens, event.kind);
   const queryClient = useQueryClient();
   const categories = useQuery({ queryKey: ["categories", eventId], queryFn: () => api<CategoryDto[]>(`/api/events/${eventId}/categories`) });
   const batches = useQuery({ queryKey: ["batches", eventId], queryFn: () => api<BatchDto[]>(`/api/events/${eventId}/batches`) });
@@ -114,13 +117,14 @@ function CategoriesSection({ eventId, event, editable, onSelect }: { eventId: st
           {editable && (
             <div className="mt-3 flex flex-col gap-2 sm:flex-row">
               <Button icon={<Sparkles />} onClick={() => { setSuggesting(true); }}>
-                {t.suggest}
+                {setupTexts.open}
               </Button>
               <Button variant="secondary" icon={<Plus />} onClick={() => { setDialog({ category: null }); }}>
                 {t.add}
               </Button>
             </div>
           )}
+          {editable && <p className="max-w-sm text-xs leading-relaxed text-fg-subtle">{setupTexts.openHint}</p>}
         </Card>
       ) : (
         <>
@@ -174,14 +178,11 @@ function CategoriesSection({ eventId, event, editable, onSelect }: { eventId: st
         />
       )}
       {suggesting && (
-        <SuggestDialog
-          t={t}
-          eventId={eventId}
-          eventPrice={event.ticketPriceCents}
+        <SetupWizard
+          event={event}
           onClose={() => {
             setSuggesting(false);
           }}
-          onSaved={refresh}
         />
       )}
     </section>
@@ -668,142 +669,6 @@ function CategoryDialog({
         </div>
         )}
         <ErrorMessage error={save.error} />
-      </form>
-    </Dialog>
-  );
-}
-
-type SuggestRow = { name: string; color: string; use: boolean; priceText: string; document: string | null };
-
-/**
- * The usual categories in one go, each with its price checked before it is created: VIP is
- * rarely the event's price, and meia starts at half of it.
- */
-function SuggestDialog({
-  t,
-  eventId,
-  eventPrice,
-  onClose,
-  onSaved,
-}: {
-  t: CategoryTexts;
-  eventId: string;
-  eventPrice: number | null;
-  onClose: () => void;
-  onSaved: () => void;
-}) {
-  const [rows, setRows] = useState<SuggestRow[]>(() =>
-    t.presets.map((preset) => ({
-      name: preset.name,
-      color: preset.color,
-      use: true,
-      priceText: presetPriceText(preset.price, eventPrice),
-      document: preset.document,
-    })),
-  );
-  const chosen = rows.filter((row) => row.use);
-  const parsed = chosen.map((row) => ({ row, price: parseMoney(row.priceText) }));
-  const valid = chosen.length > 0 && parsed.every(({ price }) => price.ok);
-  const create = useMutation({
-    mutationFn: async () => {
-      for (const { row, price } of parsed) {
-        const body: CategoryBody = {
-          name: row.name,
-          color: row.color,
-          priceCents: price.ok ? price.cents : null,
-          checkDocument: row.document !== null,
-          documentNote: row.document,
-        };
-        await api<CategoryDto>(`/api/events/${eventId}/categories`, { method: "POST", body });
-      }
-    },
-    onSuccess: () => {
-      toast.success(t.suggested);
-      onSaved();
-      onClose();
-    },
-    // Some may have been created before the error: show what is there.
-    onError: onSaved,
-  });
-  const update = (index: number, change: Partial<SuggestRow>) => {
-    setRows((current) => current.map((row, position) => (position === index ? { ...row, ...change } : row)));
-  };
-  const placeholder = eventPrice === null ? t.priceEventNone : money(eventPrice);
-
-  return (
-    <Dialog
-      open
-      onClose={onClose}
-      title={t.suggestTitle}
-      description={t.suggestBody}
-      footer={
-        <>
-          <Button variant="secondary" onClick={onClose}>
-            {commonTexts.cancel}
-          </Button>
-          <Button type="submit" form="suggest-categories" loading={create.isPending} disabled={!valid}>
-            {t.suggestCreate(chosen.length)}
-          </Button>
-        </>
-      }
-    >
-      <form
-        id="suggest-categories"
-        className="flex flex-col gap-4"
-        onSubmit={(formEvent) => {
-          formEvent.preventDefault();
-          if (valid) {
-            create.mutate();
-          }
-        }}
-      >
-        <ul className="flex flex-col divide-y divide-border rounded-xl border border-border">
-          {rows.map((row, index) => {
-            const price = parseMoney(row.priceText);
-            return (
-              <li key={row.name} className={cn("flex items-center gap-3 px-3 py-2.5", !row.use && "opacity-60")}>
-                <input
-                  type="checkbox"
-                  className="size-5 shrink-0 accent-brand"
-                  checked={row.use}
-                  aria-label={t.suggestUse(row.name)}
-                  onChange={(changeEvent) => {
-                    update(index, { use: changeEvent.target.checked });
-                  }}
-                />
-                <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                  <span className="flex items-center gap-2 text-sm font-medium text-fg">
-                    <span className="size-3 shrink-0 rounded-full" style={{ backgroundColor: row.color }} aria-hidden />
-                    <span className="truncate">{row.name}</span>
-                  </span>
-                  {row.document !== null && (
-                    <span className="flex items-center gap-1 pl-5 text-xs text-fg-muted">
-                      <IdCard className="size-3.5 shrink-0" aria-hidden />
-                      <span className="truncate">{t.suggestDocument(row.name)}</span>
-                    </span>
-                  )}
-                </span>
-                <div className="flex w-36 shrink-0 flex-col items-end gap-0.5">
-                  <Input
-                    aria-label={t.suggestPrice(row.name)}
-                    value={row.priceText}
-                    inputMode="decimal"
-                    placeholder={placeholder}
-                    disabled={!row.use}
-                    aria-invalid={!price.ok}
-                    className="text-right tabular"
-                    onChange={(changeEvent) => {
-                      update(index, { priceText: changeEvent.target.value });
-                    }}
-                  />
-                  {price.ok && price.cents === 0 && <span className="text-xs text-success-fg">{t.freeShort}</span>}
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-        <p className="text-xs leading-relaxed text-fg-muted">{t.priceHint}</p>
-        <ErrorMessage error={create.error} />
       </form>
     </Dialog>
   );

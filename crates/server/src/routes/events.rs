@@ -706,6 +706,8 @@ pub(crate) async fn copy_event(
     )
     .execute(&mut **tx)
     .await?;
+    // The public page's look comes along; its cover is the source's image (ADR 0125).
+    super::page_design::copy(tx, event_id, copy.id).await?;
     Ok(Copied {
         event: copy,
         unchecked,
@@ -1329,7 +1331,8 @@ pub async fn upload_art(
            and not exists (select 1 from ticket_designs d
                            where d.art_blob_id = b.id or b.id = any(d.sponsor_blob_ids)
                               or b.id = any(d.photo_blob_ids) or d.stub_image_blob_id = b.id)
-           and not exists (select 1 from certificate_settings c where b.id = any(c.image_blob_ids))"#,
+           and not exists (select 1 from certificate_settings c where b.id = any(c.image_blob_ids))
+           and not exists (select 1 from events e where e.public_cover_blob_id = b.id)"#,
         event_id,
         digest,
     )

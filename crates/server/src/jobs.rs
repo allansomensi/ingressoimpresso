@@ -744,6 +744,13 @@ async fn prune(pool: &PgPool) -> ApiResult<()> {
     )
     .execute(pool)
     .await?;
+    // A waiting list (ADR 0124) is of no use once the event is long over.
+    sqlx::query!(
+        r#"delete from waitlist_entries w using events e
+           where e.id = w.event_id and e.ends_at < now() - interval '60 days'"#
+    )
+    .execute(pool)
+    .await?;
     // The answers kept for repeated changes of the seller's page (ADR 0074): a phone retries
     // within hours, not weeks.
     sqlx::query!("delete from seller_sync_ops where created_at < now() - interval '7 days'")
@@ -767,7 +774,8 @@ async fn prune(pool: &PgPool) -> ApiResult<()> {
            and not exists (select 1 from ticket_designs d
                            where d.art_blob_id = b.id or b.id = any(d.sponsor_blob_ids)
                               or b.id = any(d.photo_blob_ids) or d.stub_image_blob_id = b.id)
-           and not exists (select 1 from certificate_settings c where b.id = any(c.image_blob_ids))"#
+           and not exists (select 1 from certificate_settings c where b.id = any(c.image_blob_ids))
+           and not exists (select 1 from events e where e.public_cover_blob_id = b.id)"#
     )
     .execute(pool)
     .await?;
