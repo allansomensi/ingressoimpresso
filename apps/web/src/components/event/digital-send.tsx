@@ -183,6 +183,7 @@ export function SendDialog({
   onClose,
   onIssued,
   onNewBatch,
+  initial,
 }: {
   eventId: string;
   open: boolean;
@@ -191,18 +192,20 @@ export function SendDialog({
   onClose: () => void;
   onIssued: (issued: Issued) => void;
   onNewBatch: () => void;
+  /** Filled in from someone of the waiting list (ADR 0124). */
+  initial?: { categoryId: string | null; quantity: number; holder: string; phone: string } | undefined;
 }) {
   const t = useEventTexts().digital;
   const queryClient = useQueryClient();
   const options = data.stock.map((stock) => ({ stock, category: categories.find((category) => category.id === stock.categoryId) ?? null }));
   const firstFree = options.find((option) => option.stock.free > 0)?.stock.categoryId;
-  const [chosen, setChosen] = useState<string | null | undefined>(undefined);
+  const [chosen, setChosen] = useState<string | null | undefined>(initial?.categoryId);
   const categoryId = chosen === undefined ? (firstFree ?? null) : chosen;
   const selected = options.find((option) => option.stock.categoryId === categoryId) ?? null;
   const free = selected?.stock.free ?? 0;
-  const [quantity, setQuantity] = useState(1);
-  const [holder, setHolder] = useState("");
-  const [phone, setPhone] = useState("");
+  const [quantity, setQuantity] = useState(initial?.quantity ?? 1);
+  const [holder, setHolder] = useState(initial?.holder ?? "");
+  const [phone, setPhone] = useState(initial?.phone ?? "");
   const [note, setNote] = useState("");
   const [byNumber, setByNumber] = useState(false);
   const [number, setNumber] = useState("");

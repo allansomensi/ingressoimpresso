@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select count(*)::int4 as \"position!\" from waitlist_entries\n           where event_id = $1 and done_at is null and category_id is not distinct from $2\n             and (created_at, id) <= ($3, $4)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "position!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Timestamptz",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "a45935b363c442d19b426a486e23e22bfc650b45ff4fca4bf336c9aceeab00c7"
+}

@@ -133,3 +133,6 @@ feita e as consequências.
 | [0121](0121-fotos-por-cima-do-modelo.md) | Fotos por cima do modelo do ingresso e imagem no canhoto | Aceito |
 | [0122](0122-primeiro-evento-e-lote-largado.md) | Primeiro evento guiado e lote largado no pagamento | Aceito |
 | [0123](0123-evento-so-no-celular.md) | Evento só no celular: ingressos por categoria, para pessoas, enviados em sequência | Aceito |
+| [0124](0124-vendas-digitais-no-relatorio-e-lista-de-espera.md) | Vendas digitais no Relatório e lista de espera na página do evento | Aceito |
+| [0125](0125-pagina-do-evento-personalizada.md) | Página do evento com a cara do evento | Aceito |
+| [0126](0126-assistente-do-evento.md) | Assistente que monta o evento por perguntas | Aceito |

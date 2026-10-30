@@ -236,12 +236,31 @@ const LATER: &[(&str, &str, Need)] = &[
         "sellers/{id}/cashier/close",
         Need::Area(TeamArea::Money),
     ),
+    // The waiting list (ADR 0124) is about who gets a ticket: delivery.
+    (
+        "PUT",
+        "waitlist-entries/{id}",
+        Need::Area(TeamArea::Delivery),
+    ),
+    (
+        "DELETE",
+        "waitlist-entries/{id}",
+        Need::Area(TeamArea::Delivery),
+    ),
+    // The look of the public page (ADR 0125), with the page itself: coordination.
+    (
+        "PUT",
+        "events/{id}/public-page/design",
+        Need::Area(TeamArea::Manage),
+    ),
     // The event's public page (ADR 0095) speaks for the event: coordination.
     (
         "PUT",
         "events/{id}/public-page",
         Need::Area(TeamArea::Manage),
-    ),
+    ), // The setup assistant creates categories and checkpoints (ADR 0126): coordination, like a
+    // category.
+    ("POST", "events/{id}/setup", Need::Area(TeamArea::Manage)),
 ];
 
 fn later_area(method: &str, shape: &str) -> Option<Need> {
@@ -795,6 +814,12 @@ mod tests {
                 Need::Area(TeamArea::Door),
             ),
             (Method::PUT, "events/{id}", Need::Area(TeamArea::Manage)),
+            // The setup assistant creates categories (ADR 0126): coordination, like each one.
+            (
+                Method::POST,
+                "events/{id}/setup",
+                Need::Area(TeamArea::Manage),
+            ),
             (
                 Method::POST,
                 "events/{id}/batches",

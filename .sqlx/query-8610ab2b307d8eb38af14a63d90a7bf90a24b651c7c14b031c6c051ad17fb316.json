@@ -1,0 +1,88 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select w.name, w.phone, w.quantity, w.created_at, w.done_at, c.name as \"category?\"\n           from waitlist_entries w left join ticket_categories c on c.id = w.category_id\n           where w.event_id = $1 order by w.created_at",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "waitlist_entries",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "phone",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "waitlist_entries",
+            "name": "phone"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "quantity",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "waitlist_entries",
+            "name": "quantity"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "waitlist_entries",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "done_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "waitlist_entries",
+            "name": "done_at"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "category?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ticket_categories",
+            "name": "name"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "8610ab2b307d8eb38af14a63d90a7bf90a24b651c7c14b031c6c051ad17fb316"
+}

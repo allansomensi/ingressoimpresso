@@ -226,3 +226,101 @@ async fn tickets_go_by_category_to_people(pool: PgPool) {
         .await;
     assert_eq!(reply.status, StatusCode::NOT_FOUND);
 }
+
+#[sqlx::test(migrator = "ingressoimpresso_server::MIGRATOR")]
+async fn the_report_counts_digital_sales(pool: PgPool) {
+    let app = TestApp::with_free_tickets(pool, 30).await;
+    let token = app.login("festa@exemplo.com").await;
+    let event = app.create_event(&token, "Festa do Campo").await;
+    app.create_batch(&token, &event, 20).await;
+    let janta = category(&app, &token, &event, "Com janta", 1, 5).await;
+    let simples = category(&app, &token, &event, "Sem janta", 6, 15).await;
+    for (id, price) in [(&janta, 12000), (&simples, 8000)] {
+        let reply = app
+            .put(
+                &format!("/api/categories/{id}"),
+                &token,
+                json!({ "name": if id == &janta { "Com janta" } else { "Sem janta" }, "color": "#2563eb", "priceCents": price }),
+            )
+            .await;
+        assert!(reply.status.is_success(), "{}", reply.status);
+    }
+    let issued = app
+        .post(
+            &format!("/api/events/{event}/tickets/issue"),
+            &token,
+            json!({ "orders": [
+                { "categoryId": janta, "quantity": 2, "holderName": "Ana", "holderPhone": null, "note": null },
+                { "categoryId": simples, "quantity": 2, "holderName": "Bruno", "holderPhone": null, "note": null },
+            ] }),
+        )
+        .await
+        .json();
+    // One of Bruno's is given back: revoked, it is no sale.
+    let revoked = issued["orders"][1]["links"][1]["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    app.post(
+        &format!("/api/ticket-links/{revoked}/revoke"),
+        &token,
+        json!({}),
+    )
+    .await;
+
+    // With paper too, numbers of no seller still count as handed out (as before).
+    let report = app
+        .get(&format!("/api/events/{event}/report"), &token)
+        .await
+        .json();
+    assert_eq!(report["digitalOnly"], false);
+    assert_eq!(
+        report["digital"],
+        json!({ "tickets": 3, "opened": 0, "entries": 0, "courtesies": 0, "amountCents": 32000, "pixCents": 0, "free": 17 })
+    );
+    assert_eq!(report["unassigned"]["declaredSold"], 20);
+    assert_eq!(report["categories"][0]["digital"], 2);
+    assert_eq!(report["categories"][1]["digital"], 1);
+
+    // Digital only: what was not sent is free stock, not sales.
+    let mut body = app
+        .get(&format!("/api/events/{event}"), &token)
+        .await
+        .json();
+    body["digitalOnly"] = json!(true);
+    app.put(&format!("/api/events/{event}"), &token, body).await;
+    let report = app
+        .get(&format!("/api/events/{event}/report"), &token)
+        .await
+        .json();
+    assert_eq!(report["digitalOnly"], true);
+    assert_eq!(report["unassigned"]["declaredSold"], 3);
+    assert_eq!(report["unassigned"]["amountDueCents"], 32000);
+    assert_eq!(report["totals"]["declaredSold"], 3);
+    let janta_line = &report["categories"][0];
+    assert_eq!(
+        (
+            janta_line["sold"].as_i64(),
+            janta_line["amountCents"].as_i64()
+        ),
+        (Some(2), Some(24000))
+    );
+    let simples_line = &report["categories"][1];
+    assert_eq!(
+        (
+            simples_line["sold"].as_i64(),
+            simples_line["amountCents"].as_i64()
+        ),
+        (Some(1), Some(8000))
+    );
+
+    // The accountability counts them as received by the organization.
+    let summary = app
+        .get(&format!("/api/events/{event}/accountability"), &token)
+        .await
+        .json();
+    assert_eq!(summary["sold"], 3);
+    assert_eq!(summary["digitalCents"], 32000);
+    assert_eq!(summary["ticketSalesCents"], 32000);
+    assert_eq!(summary["receivedCents"], 32000);
+}

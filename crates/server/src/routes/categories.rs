@@ -20,21 +20,21 @@ use crate::state::AppState;
 /// Most categories per event.
 pub const MAX_CATEGORIES: i64 = 12;
 const MAX_NAME: usize = 30;
-const MAX_PRICE_CENTS: i32 = 100_000_000;
+pub(crate) const MAX_PRICE_CENTS: i32 = 100_000_000;
 /// Longest note on which documents count (ADR 0082): it has to fit the door's screen.
 const MAX_DOCUMENT_NOTE: usize = 80;
 /// Longest instruction at the door (ADR 0089): read in large type on the green screen.
 pub(crate) const MAX_DOOR_INSTRUCTION: usize = 60;
 
 /// A category's fields, checked.
-struct ValidCategory {
-    name: String,
-    color: String,
-    check_document: bool,
-    document_note: Option<String>,
-    door_instruction: Option<String>,
+pub(crate) struct ValidCategory {
+    pub(crate) name: String,
+    pub(crate) color: String,
+    pub(crate) check_document: bool,
+    pub(crate) document_note: Option<String>,
+    pub(crate) door_instruction: Option<String>,
     /// `None`: as it is (an update from a panel that does not know the days).
-    day_rule: Option<(DayRule, Vec<i16>)>,
+    pub(crate) day_rule: Option<(DayRule, Vec<i16>)>,
 }
 
 /// An instruction for the door (ADR 0089): one line, at most [`MAX_DOOR_INSTRUCTION`].
@@ -56,12 +56,12 @@ pub(crate) fn door_instruction(
 }
 
 /// What the event is: consumption tokens, and how many days it has (ADR 0091).
-struct EventShape {
-    tokens: bool,
-    days: usize,
+pub(crate) struct EventShape {
+    pub(crate) tokens: bool,
+    pub(crate) days: usize,
 }
 
-async fn event_shape(pool: &PgPool, event_id: Uuid) -> ApiResult<EventShape> {
+pub(crate) async fn event_shape(pool: &PgPool, event_id: Uuid) -> ApiResult<EventShape> {
     let row = sqlx::query!(
         r#"select kind = 'tokens' as "tokens!",
                   (select count(*) from event_days where event_id = $1) as "days!"
@@ -76,7 +76,7 @@ async fn event_shape(pool: &PgPool, event_id: Uuid) -> ApiResult<EventShape> {
     })
 }
 
-fn validate(body: &CategoryBody, shape: &EventShape) -> ApiResult<ValidCategory> {
+pub(crate) fn validate(body: &CategoryBody, shape: &EventShape) -> ApiResult<ValidCategory> {
     let tokens = shape.tokens;
     let name = body.name.trim().to_owned();
     if name.is_empty() || name.chars().count() > MAX_NAME {
@@ -137,7 +137,7 @@ fn validate(body: &CategoryBody, shape: &EventShape) -> ApiResult<ValidCategory>
     })
 }
 
-fn renamed(error: sqlx::Error) -> ApiError {
+pub(crate) fn renamed(error: sqlx::Error) -> ApiError {
     match ApiError::from(error) {
         ApiError::Conflict("duplicate", _) => ApiError::Conflict(
             "category_exists",

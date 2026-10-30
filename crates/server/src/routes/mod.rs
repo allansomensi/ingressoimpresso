@@ -32,6 +32,7 @@ pub mod mail_admin;
 pub mod mailings;
 pub mod moderation;
 pub mod organization;
+pub mod page_design;
 pub mod pix;
 pub mod platform;
 pub mod privacy;
@@ -48,6 +49,7 @@ pub mod seller_sync;
 pub mod sellers;
 pub mod series;
 pub mod settlement;
+pub mod setup;
 pub mod status;
 pub mod support;
 pub mod tables;
@@ -56,6 +58,7 @@ pub mod tickets;
 pub mod two_factor;
 pub mod verify;
 pub mod voids;
+pub mod waitlist;
 
 use std::ops::Bound;
 

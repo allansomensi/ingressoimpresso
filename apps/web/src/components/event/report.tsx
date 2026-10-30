@@ -2,7 +2,7 @@
 
 import type { CourtesiesDto, EventReportDto, ReportCategoryDto, ReportRowDto } from "@ingressoimpresso/api-types";
 import { useQuery } from "@tanstack/react-query";
-import { CheckCircle2, Download, HandCoins, Info, RefreshCw, Smartphone, Ticket, Users, Wallet } from "lucide-react";
+import { CheckCircle2, Download, HandCoins, Info, LogIn, RefreshCw, Smartphone, Ticket, Users, Wallet } from "lucide-react";
 
 import { TabHeader } from "@/components/event/tab-header";
 import { Button, Card, CardHeader, ErrorMessage, LoadingBlock, Stat, TableScroll } from "@/components/ui";
@@ -14,6 +14,7 @@ import { Accountability } from "@/components/event/accountability";
 import { useLivePolling } from "@/components/event/live-polling";
 import type { SelectTab } from "@/components/event/tabs";
 import { useEventTexts, type EventTexts } from "@/components/event/access";
+import { DigitalSales } from "@/components/event/report-digital";
 
 
 /** Settlement columns of a report line, in display and CSV order (money comes after them). */
@@ -27,8 +28,8 @@ function money(cents: number | null): string {
   return cents === null ? "—" : formatMoney(cents);
 }
 
-function lineName(t: EventTexts["report"], row: ReportRowDto, kind: LineKind): string {
-  return kind === "seller" ? (row.seller ?? "") : kind === "unassigned" ? t.unassigned : t.totals;
+function lineName(t: EventTexts["report"], row: ReportRowDto, kind: LineKind, digitalOnly = false): string {
+  return kind === "seller" ? (row.seller ?? "") : kind === "unassigned" ? (digitalOnly ? t.organization : t.unassigned) : t.totals;
 }
 
 /** The sellers' lines added up: the unassigned tickets are nobody's settlement. */
@@ -211,6 +212,11 @@ export function ReportTab({ eventId, onSelect }: { eventId: string; onSelect: Se
   const priced = data.ticketPriceCents !== null || data.sellers.some((row) => row.amountDueCents !== null);
   // Commissions (ADR 0096) get a column only when some seller has one.
   const commissions = data.sellers.some((row) => row.commissionCents !== null);
+  // Digital tickets only (ADR 0123): the sales are the organization's own, not the sellers'.
+  const digitalOnly = data.digitalOnly;
+  const digital = data.digital;
+  const showDigital = digitalOnly || digital.tickets > 0;
+  const showSellers = !digitalOnly || data.sellers.length > 0;
 
   return (
     <div className="flex flex-col gap-6">
@@ -235,6 +241,31 @@ export function ReportTab({ eventId, onSelect }: { eventId: string; onSelect: Se
         }
       />
 
+      {digitalOnly ? (
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+          <Stat label={t.stats.issued} value={data.totals.tickets.toLocaleString("pt-BR")} icon={Ticket} hint={t.digital.free(digital.free)} />
+          <Stat
+            label={t.stats.sold}
+            value={data.totals.declaredSold.toLocaleString("pt-BR")}
+            icon={CheckCircle2}
+            tone="success"
+            hint={data.sellers.length > 0 ? t.stats.soldMixed(digital.tickets) : t.stats.soldDigital}
+          />
+          <Stat
+            label={t.stats.value}
+            value={data.totals.amountDueCents === null ? "—" : formatMoney(data.totals.amountDueCents)}
+            icon={HandCoins}
+            tone="success"
+            hint={data.totals.amountDueCents === null ? t.noPrice : t.stats.valueHint}
+          />
+          <Stat
+            label={t.stats.entries}
+            value={data.totals.entries.toLocaleString("pt-BR")}
+            icon={LogIn}
+            hint={data.totals.declaredSold > 0 ? t.stats.entriesHint(data.totals.declaredSold - data.totals.entries) : undefined}
+          />
+        </div>
+      ) : (
       <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <Stat
           label={t.stats.issued}
@@ -278,6 +309,9 @@ export function ReportTab({ eventId, onSelect }: { eventId: string; onSelect: Se
           }
         />
       </div>
+      )}
+
+      {showDigital && <DigitalSales report={data} onSelect={onSelect} />}
 
       <Accountability eventId={eventId} />
 
@@ -285,6 +319,7 @@ export function ReportTab({ eventId, onSelect }: { eventId: string; onSelect: Se
 
       <CourtesyReport eventId={eventId} />
 
+      {showSellers && (
       <Card padded={false} className="overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-2 px-5 pt-5 pb-4">
           <h2 className="text-base font-semibold tracking-tight text-fg">{t.sellersTitle}</h2>
@@ -344,7 +379,7 @@ export function ReportTab({ eventId, onSelect }: { eventId: string; onSelect: Se
           </table>
         </TableScroll>
         <ColumnLegend items={[...SETTLEMENT_COLUMNS.map((column) => ({ label: t.columns[column], hint: t.hints[column] })), { label: t.balance, hint: t.balanceHint }]} />
-        {data.unassigned.tickets > 0 && (
+        {data.unassigned.tickets > 0 && !digitalOnly && (
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-surface-2/60 px-5 py-3.5">
             <p className="flex items-center gap-2 text-sm text-fg-muted">
               <Info aria-hidden className="size-4 shrink-0 text-fg-subtle" />
@@ -363,6 +398,7 @@ export function ReportTab({ eventId, onSelect }: { eventId: string; onSelect: Se
           </div>
         )}
       </Card>
+      )}
 
       <Card padded={false} className="overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-2 px-5 pt-5 pb-4">
@@ -382,7 +418,7 @@ export function ReportTab({ eventId, onSelect }: { eventId: string; onSelect: Se
             <tbody className="divide-y divide-border">
               {lines(data).map(([row, kind]) => (
                 <tr key={row.sellerId ?? kind} className={rowClass(kind)}>
-                  <td className={cn(STICKY, kind === "totals" ? "bg-surface-2" : "bg-surface", "py-3 pr-2 pl-5 text-fg")}>{lineName(t, row, kind)}</td>
+                  <td className={cn(STICKY, kind === "totals" ? "bg-surface-2" : "bg-surface", "py-3 pr-2 pl-5 text-fg")}>{lineName(t, row, kind, digitalOnly)}</td>
                   {DOOR_COLUMNS.map((column, index) => (
                     <td
                       key={column}
@@ -453,9 +489,12 @@ function CategoryTable({ rows }: { rows: readonly ReportCategoryDto[] }) {
       sold: sum.sold + row.sold,
       entries: sum.entries + row.entries,
       amount: sum.amount === null || row.amountCents === null ? null : sum.amount + row.amountCents,
+      digital: sum.digital + row.digital,
     }),
-    { tickets: 0, sold: 0, entries: 0, amount: 0 as number | null },
+    { tickets: 0, sold: 0, entries: 0, amount: 0 as number | null, digital: 0 },
   );
+  // The digital tickets of the organization (ADR 0124) are a part of the sold, shown apart.
+  const digital = total.digital > 0;
   return (
     <Card padded={false} className="overflow-hidden">
       <h2 className="px-5 pt-5 pb-4 text-base font-semibold tracking-tight text-fg">{c.title}</h2>
@@ -467,6 +506,7 @@ function CategoryTable({ rows }: { rows: readonly ReportCategoryDto[] }) {
               <th className="px-2 py-2.5 text-right font-medium">{c.price}</th>
               <th className="px-2 py-2.5 text-right font-medium">{c.tickets}</th>
               <th className="px-2 py-2.5 text-right font-medium">{c.sold}</th>
+              {digital && <th className="px-2 py-2.5 text-right font-medium">{c.digital}</th>}
               <th className="px-2 py-2.5 text-right font-medium">{c.entries}</th>
               <th className="py-2.5 pr-5 pl-2 text-right font-medium">{c.amount}</th>
             </tr>
@@ -485,6 +525,7 @@ function CategoryTable({ rows }: { rows: readonly ReportCategoryDto[] }) {
                 </td>
                 <td className="px-2 py-2.5 text-right tabular">{row.tickets.toLocaleString("pt-BR")}</td>
                 <td className="px-2 py-2.5 text-right tabular">{row.sold.toLocaleString("pt-BR")}</td>
+                {digital && <td className="px-2 py-2.5 text-right text-fg-muted tabular">{row.digital.toLocaleString("pt-BR")}</td>}
                 <td className="px-2 py-2.5 text-right tabular">{row.entries.toLocaleString("pt-BR")}</td>
                 <td className="py-2.5 pr-5 pl-2 text-right font-medium tabular">{money(row.amountCents)}</td>
               </tr>
@@ -494,6 +535,7 @@ function CategoryTable({ rows }: { rows: readonly ReportCategoryDto[] }) {
               <td />
               <td className="px-2 py-2.5 text-right tabular">{total.tickets.toLocaleString("pt-BR")}</td>
               <td className="px-2 py-2.5 text-right tabular">{total.sold.toLocaleString("pt-BR")}</td>
+              {digital && <td className="px-2 py-2.5 text-right tabular">{total.digital.toLocaleString("pt-BR")}</td>}
               <td className="px-2 py-2.5 text-right tabular">{total.entries.toLocaleString("pt-BR")}</td>
               <td className="py-2.5 pr-5 pl-2 text-right tabular">{money(total.amount)}</td>
             </tr>

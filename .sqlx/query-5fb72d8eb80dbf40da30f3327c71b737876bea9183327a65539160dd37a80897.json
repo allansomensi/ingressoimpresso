@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select e.public_design, b.id as \"cover_id?\", b.moderation_status as \"moderation?\"\n           from events e left join blobs b on b.id = e.public_cover_blob_id\n           where e.id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "public_design",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "events",
+            "name": "public_design"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "cover_id?",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "blobs",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "moderation?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "blobs",
+            "name": "moderation_status"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "5fb72d8eb80dbf40da30f3327c71b737876bea9183327a65539160dd37a80897"
+}

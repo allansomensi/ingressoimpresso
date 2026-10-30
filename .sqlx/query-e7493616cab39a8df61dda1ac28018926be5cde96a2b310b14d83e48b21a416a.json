@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "delete from waitlist_entries w using events e\n           where e.id = w.event_id and e.ends_at < now() - interval '60 days'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "e7493616cab39a8df61dda1ac28018926be5cde96a2b310b14d83e48b21a416a"
+}

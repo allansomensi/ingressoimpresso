@@ -84,6 +84,13 @@ pub const VERIFY: Limit = Limit {
     max: 30,
     window: Duration::from_mins(10),
 };
+/// `POST /api/public/events/{slug}/waitlist`: joining a sold-out event's waiting list (ADR 0124).
+/// A family signs up a few people; nobody needs dozens.
+pub const WAITLIST: Limit = Limit {
+    name: "waitlist",
+    max: 12,
+    window: Duration::from_mins(10),
+};
 /// `GET /api/public/events/{slug}`: the event's public page (ADR 0095); the site's server asks for
 /// it on each visit, browsers keep it for half a minute.
 pub const PUBLIC_PAGE: Limit = Limit {

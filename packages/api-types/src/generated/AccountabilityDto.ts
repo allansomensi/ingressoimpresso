@@ -26,9 +26,15 @@ entries: number,
  */
 ticketSalesCents: number | null, 
 /**
- * Money the sellers handed over.
+ * Money the sellers handed over, with what the digital tickets of the organization
+ * brought in (ADR 0124).
  */
 receivedCents: number, 
+/**
+ * What the digital tickets the organization sent are worth (ADR 0124); `null` when none
+ * was sent or one has no price.
+ */
+digitalCents: number | null, 
 /**
  * Kept by the sellers as their commission (ADR 0096).
  */

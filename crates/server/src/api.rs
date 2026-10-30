@@ -1997,9 +1997,15 @@ dto! {
         /// What the sellers' tickets are worth (`null` without prices).
         #[cfg_attr(feature = "ts", ts(type = "number | null"))]
         pub ticket_sales_cents: Option<i64>,
-        /// Money the sellers handed over.
+        /// Money the sellers handed over, with what the digital tickets of the organization
+        /// brought in (ADR 0124).
         #[cfg_attr(feature = "ts", ts(type = "number"))]
         pub received_cents: i64,
+        /// What the digital tickets the organization sent are worth (ADR 0124); `null` when none
+        /// was sent or one has no price.
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(type = "number | null"))]
+        pub digital_cents: Option<i64>,
         /// Kept by the sellers as their commission (ADR 0096).
         #[cfg_attr(feature = "ts", ts(type = "number"))]
         pub commissions_cents: i64,
@@ -2048,6 +2054,40 @@ dto! {
         /// (Sold − courtesies) × price, when there is a price.
         #[cfg_attr(feature = "ts", ts(type = "number | null"))]
         pub amount_cents: Option<i64>,
+        /// Of the sold, digital tickets the organization sent itself (ADR 0124).
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub digital: i64,
+        /// What those digital tickets are worth; `null` without a price.
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(type = "number | null"))]
+        pub digital_amount_cents: Option<i64>,
+    }
+
+    /// Digital tickets the organization sent itself (ADR 0124): numbers of no seller with an
+    /// active link, not voided. Each one is a sale of the organization.
+    pub struct ReportDigitalDto {
+        /// Tickets sent.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub tickets: i64,
+        /// Of them, opened at least once by the holder.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub opened: i64,
+        /// Of them, entered.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub entries: i64,
+        /// Of them, courtesies (ADR 0096): worth nothing.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub courtesies: i64,
+        /// What they are worth at each number's price; `null` when one has no price.
+        #[cfg_attr(feature = "ts", ts(type = "number | null"))]
+        pub amount_cents: Option<i64>,
+        /// Of that, the buyers' Pix the organization already recorded for them (ADR 0085).
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub pix_cents: i64,
+        /// Paid numbers of no seller with no digital ticket and no void: still free to send.
+        #[cfg_attr(feature = "ts", ts(type = "number"))]
+        pub free: i64,
     }
 
     /// A ticket category (ADR 0056).
@@ -2937,6 +2977,12 @@ dto! {
         /// Paid tickets by category (ADR 0056); empty without categories. The line without a
         /// category has `categoryId: null`.
         pub categories: Vec<ReportCategoryDto>,
+        /// Digital tickets the organization sent itself (ADR 0124).
+        pub digital: ReportDigitalDto,
+        /// The tickets only go to phones (ADR 0123): numbers of no seller without a digital
+        /// ticket are free, not sold.
+        #[serde(default)]
+        pub digital_only: bool,
         /// Door phones, in name order.
         pub devices: Vec<ReportDeviceDto>,
         /// Scans of forged, damaged or unknown QR codes.
@@ -5020,6 +5066,49 @@ dto! {
         pub category_allowances: Vec<CheckpointAllowanceDto>,
     }
 
+    /// A category of the setup assistant (ADR 0126): the category and how many numbers it takes.
+    pub struct SetupCategoryBody {
+        /// The category, as `POST /api/events/{id}/categories` takes it.
+        pub category: CategoryBody,
+        /// How many numbers (1–10 000); they follow the previous category's.
+        pub quantity: i32,
+    }
+
+    /// A checkpoint of the setup assistant: like `CheckpointBody`, with the categories by their
+    /// place in `categories`.
+    pub struct SetupCheckpointBody {
+        /// Name (1–30 characters).
+        pub name: String,
+        /// What to hand over (up to 60 characters).
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional = nullable))]
+        pub instruction: Option<String>,
+        /// One use per day the ticket is valid.
+        pub per_day: bool,
+        /// The entitled categories, by their index in `categories` (at least one).
+        pub categories: Vec<u8>,
+        /// Items per ticket (1–20).
+        pub allowance: u8,
+    }
+
+    /// `POST /api/events/{id}/setup`: an event's categories, numbers and checkpoints in one go
+    /// (ADR 0126), for an event that has none yet.
+    pub struct EventSetupBody {
+        /// The categories, in order (1–12).
+        pub categories: Vec<SetupCategoryBody>,
+        /// The checkpoints (up to 10; none for consumption tokens).
+        #[serde(default)]
+        pub checkpoints: Vec<SetupCheckpointBody>,
+    }
+
+    /// What the setup assistant created.
+    pub struct EventSetupDto {
+        /// The categories, with their numbers.
+        pub categories: Vec<CategoryDto>,
+        /// The checkpoints.
+        pub checkpoints: Vec<CheckpointDto>,
+    }
+
     /// The guest list at the door.
     pub struct DoorLiveGuestsDto {
         /// Names on the list.
@@ -6047,6 +6136,10 @@ dto! {
     }
 
     /// `GET /api/events/{id}/public-page`: the event's public page (ADR 0095).
+    #[expect(
+        clippy::struct_excessive_bools,
+        reason = "independent switches of the page, as the panel shows them"
+    )]
     pub struct PublicPageSettingsDto {
         /// The page is on.
         pub enabled: bool,
@@ -6064,6 +6157,13 @@ dto! {
         pub description: Option<String>,
         /// The sellers, and who shows on the page.
         pub sellers: Vec<PublicPageSellerDto>,
+        /// Sold-out categories take names for a waiting list (ADR 0124).
+        #[serde(default)]
+        pub waitlist: bool,
+        /// How the page looks (ADR 0125).
+        pub design: PublicPageDesign,
+        /// The cover image, if any.
+        pub cover: Option<PageCoverDto>,
     }
 
     /// `PUT /api/events/{id}/public-page`.
@@ -6078,6 +6178,10 @@ dto! {
         #[serde(default)]
         #[cfg_attr(feature = "ts", ts(optional))]
         pub description: Option<String>,
+        /// Sold-out categories take names for a waiting list (ADR 0124); missing: unchanged.
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional))]
+        pub waitlist: Option<bool>,
         /// Sellers listed with a WhatsApp button (their phones become public).
         #[cfg_attr(feature = "ts", ts(type = "Array<string>"))]
         pub seller_ids: Vec<Uuid>,
@@ -6085,6 +6189,9 @@ dto! {
 
     /// A category on the public page.
     pub struct PublicCategoryDto {
+        /// Id, to join its waiting list (ADR 0124).
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
         /// Name.
         pub name: String,
         /// Band colour.
@@ -6141,6 +6248,79 @@ dto! {
         pub change: EventChangeDto,
         /// Anyone may check a ticket at /conferir (ADR 0075).
         pub public_verify: bool,
+        /// A sold-out category (or the whole event) takes names for its waiting list now
+        /// (ADR 0124).
+        #[serde(default)]
+        pub waitlist: bool,
+        /// How the page looks (ADR 0125).
+        pub design: PublicPageDesign,
+        /// The cover image's address on the API (`/api/public/covers/…`), when there is one
+        /// the page may show.
+        pub cover_path: Option<String>,
+    }
+
+    /// `POST /api/public/events/{slug}/waitlist` (no login): a place in a sold-out category's
+    /// waiting list (ADR 0124). The same WhatsApp in the same category updates its line.
+    pub struct JoinWaitlistBody {
+        /// A sold-out category of the event; `null` for an event without categories.
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub category_id: Option<Uuid>,
+        /// Who (1–80 characters).
+        pub name: String,
+        /// Their WhatsApp, as typed.
+        pub phone: String,
+        /// How many tickets (1–10).
+        pub quantity: i16,
+        /// Left empty by people; robots fill it.
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", ts(optional))]
+        pub website: Option<String>,
+    }
+
+    /// The answer to joining a waiting list.
+    pub struct JoinedWaitlistDto {
+        /// Their place among those still waiting in the same category (1 for the first).
+        pub position: i32,
+    }
+
+    /// One person on a waiting list, as the organization sees it (ADR 0124).
+    pub struct WaitlistEntryDto {
+        /// Id.
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// The category; `null` for the event as a whole.
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub category_id: Option<Uuid>,
+        /// Name.
+        pub name: String,
+        /// WhatsApp digits with the country code.
+        pub phone: String,
+        /// Tickets wanted.
+        pub quantity: i16,
+        /// When they signed up.
+        #[serde(with = "time::serde::rfc3339")]
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub created_at: OffsetDateTime,
+        /// When the organization took care of it.
+        #[serde(with = "time::serde::rfc3339::option")]
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub done_at: Option<OffsetDateTime>,
+    }
+
+    /// `GET /api/events/{id}/waitlist`.
+    pub struct WaitlistDto {
+        /// The public page takes names (page on, list on).
+        pub open: bool,
+        /// The list is on (on the public page's settings).
+        pub enabled: bool,
+        /// Everyone, waiting first, oldest first.
+        pub entries: Vec<WaitlistEntryDto>,
+    }
+
+    /// `PUT /api/waitlist-entries/{id}`.
+    pub struct UpdateWaitlistEntryBody {
+        /// Taken care of (`false` puts it back on the list).
+        pub done: bool,
     }
 }
 
@@ -7124,5 +7304,164 @@ dto! {
         pub organization: Option<String>,
         /// Workload.
         pub workload: Option<String>,
+    }
+}
+
+dto_enum! {
+    /// The background of the event's public page (ADR 0125).
+    pub enum PageBackground {
+        /// The site's own, light or dark as the visitor's phone.
+        Plain,
+        /// A light wash of the accent colour.
+        Tinted,
+        /// Always dark, for a night out.
+        Dark,
+    }
+
+    /// The top of the event's public page (ADR 0125).
+    pub enum PageHero {
+        /// The accent colour, flat.
+        Color,
+        /// The accent colour fading to a darker one.
+        Gradient,
+        /// The cover image, darkened under the text.
+        Cover,
+    }
+
+    /// A part of the event's public page, in the order the organizer chose (ADR 0125).
+    pub enum PageSection {
+        /// Prices of each category.
+        Prices,
+        /// The waiting list of a sold-out category (ADR 0124).
+        Waitlist,
+        /// Where to buy: the sellers, or the organization's contact.
+        Buy,
+        /// The program of the event.
+        Schedule,
+        /// The days of an event of several days.
+        Days,
+        /// The place and its map.
+        Where,
+        /// The organizer's paragraph.
+        About,
+        /// Questions and answers.
+        Faq,
+        /// Links (Instagram, a form, a playlist).
+        Links,
+        /// The public check of tickets (ADR 0075).
+        Verify,
+    }
+}
+
+dto! {
+    /// A link of the public page: the main button or one of the links (ADR 0125).
+    pub struct PageLinkDto {
+        /// What the button says (1–40 characters).
+        pub label: String,
+        /// Where it goes (`https://…`).
+        pub url: String,
+    }
+
+    /// A part of the page and whether it shows.
+    pub struct PageSectionDto {
+        /// Which part.
+        pub kind: PageSection,
+        /// Shown.
+        pub visible: bool,
+    }
+
+    /// One line of the program ("21h · Abertura com a banda").
+    pub struct PageScheduleItemDto {
+        /// When, as written ("21h", "Sábado, 14h").
+        pub time: String,
+        /// What (1–80 characters).
+        pub title: String,
+        /// A line more (up to 160 characters).
+        pub detail: Option<String>,
+    }
+
+    /// A question and its answer.
+    pub struct PageFaqItemDto {
+        /// The question (1–140 characters).
+        pub question: String,
+        /// The answer (1–600 characters, line breaks allowed).
+        pub answer: String,
+    }
+
+    /// How the event's public page looks (ADR 0125): colours, the top, the title's font, a main
+    /// button, the order of its parts and the organizer's own blocks.
+    pub struct PublicPageDesign {
+        /// Accent colour (`#rrggbb`); `null`: the organization's, else the product's.
+        pub accent: Option<String>,
+        /// The page's background.
+        pub background: PageBackground,
+        /// The top of the page.
+        pub hero: PageHero,
+        /// The font of the event's name (the ticket's fonts); `null`: the site's.
+        pub title_font: Option<ticket_render::FontChoice>,
+        /// The main button under the date ("Comprar pelo formulário").
+        pub cta: Option<PageLinkDto>,
+        /// Every part, in order.
+        pub sections: Vec<PageSectionDto>,
+        /// The program (up to 30 lines).
+        pub schedule: Vec<PageScheduleItemDto>,
+        /// Questions and answers (up to 15).
+        pub faq: Vec<PageFaqItemDto>,
+        /// Links (up to 8).
+        pub links: Vec<PageLinkDto>,
+    }
+
+    /// The cover image of the public page, as the panel sees it.
+    pub struct PageCoverDto {
+        /// Blob id (an image of the event, sent like the ticket's art).
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        pub id: Uuid,
+        /// Moderation (ADR 0042): the page shows it unless flagged or rejected.
+        pub moderation: String,
+        /// Where the page loads it from.
+        pub url: String,
+    }
+
+    /// `PUT /api/events/{id}/public-page/design`.
+    pub struct PublicPageDesignBody {
+        /// The design.
+        pub design: PublicPageDesign,
+        /// The cover: an image of the event sent with `POST /api/events/{id}/art`; `null`: none.
+        #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+        pub cover_id: Option<Uuid>,
+    }
+}
+
+impl Default for PublicPageDesign {
+    fn default() -> Self {
+        use PageSection as S;
+        Self {
+            accent: None,
+            background: PageBackground::Plain,
+            hero: PageHero::Color,
+            title_font: None,
+            cta: None,
+            sections: [
+                S::Prices,
+                S::Waitlist,
+                S::Buy,
+                S::Schedule,
+                S::Days,
+                S::Where,
+                S::About,
+                S::Faq,
+                S::Links,
+                S::Verify,
+            ]
+            .into_iter()
+            .map(|kind| PageSectionDto {
+                kind,
+                visible: true,
+            })
+            .collect(),
+            schedule: Vec::new(),
+            faq: Vec::new(),
+            links: Vec::new(),
+        }
     }
 }
